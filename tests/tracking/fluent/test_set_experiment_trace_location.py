@@ -6,7 +6,7 @@ from mlflow.entities import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.fluent import _configure_experiment_trace_destination
+from mlflow.tracking.fluent import _resolve_experiment_trace_destination
 
 _DEST_TAG = "mlflow.experiment.databricksTelemetryDestinationId"
 
@@ -24,7 +24,7 @@ def _experiment(tags=None):
 
 def test_invalid_type_raises():
     with pytest.raises(MlflowException, match="UnityCatalog"):
-        _configure_experiment_trace_destination(
+        _resolve_experiment_trace_destination(
             experiment=_experiment(),
             trace_location="not-a-location",
             client=mock.MagicMock(),
@@ -35,26 +35,33 @@ def test_uc_schema_location_is_rejected():
     from mlflow.entities.trace_location import UCSchemaLocation
 
     with pytest.raises(MlflowException, match="UnityCatalog"):
-        _configure_experiment_trace_destination(
+        _resolve_experiment_trace_destination(
             experiment=_experiment(),
             trace_location=UCSchemaLocation("catalog", "schema"),
             client=mock.MagicMock(),
         )
 
 
-def test_no_trace_location_clears_destination():
-    with (
-        mock.patch("mlflow.tracking.fluent._clear_experiment_derived_destination") as clear_dest,
-        mock.patch("mlflow.tracking.fluent._set_experiment_derived_destination") as set_dest,
-    ):
-        _configure_experiment_trace_destination(
-            experiment=_experiment(),
-            trace_location=None,
-            client=mock.MagicMock(),
-        )
+def test_no_trace_location_returns_none():
+    result = _resolve_experiment_trace_destination(
+        experiment=_experiment(),
+        trace_location=None,
+        client=mock.MagicMock(),
+    )
+    assert result is None
 
-        set_dest.assert_not_called()
-        clear_dest.assert_called_once()
+
+def test_non_databricks_backend_raises():
+    with (
+        mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="file:///tmp"),
+        mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=False),
+    ):
+        with pytest.raises(MlflowException, match="only supported with a Databricks tracking URI"):
+            _resolve_experiment_trace_destination(
+                experiment=_experiment(),
+                trace_location=UnityCatalog("catalog", "schema", "prefix"),
+                client=mock.MagicMock(),
+            )
 
 
 def test_creates_and_links_when_no_existing_location():
@@ -64,25 +71,24 @@ def test_creates_and_links_when_no_existing_location():
     with (
         mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
         mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
-        mock.patch("mlflow.tracking.fluent._set_experiment_derived_destination") as set_dest,
         mock.patch("mlflow.tracking.fluent.TracingClient") as tc_cls,
     ):
         tc = tc_cls.return_value
         tc._get_trace_location.return_value = None
         tc._create_or_get_trace_location.return_value = resolved
 
-        _configure_experiment_trace_destination(
+        result = _resolve_experiment_trace_destination(
             experiment=_experiment(),
             trace_location=requested,
             client=mock.MagicMock(),
         )
 
+        assert result is resolved
         tc._create_or_get_trace_location.assert_called_once_with(requested)
         tc._link_trace_location.assert_called_once_with(
             experiment_id="123",
             location=resolved,
         )
-        set_dest.assert_called_once_with(resolved)
 
 
 def test_noop_when_existing_location_matches():
@@ -93,22 +99,21 @@ def test_noop_when_existing_location_matches():
     with (
         mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
         mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
-        mock.patch("mlflow.tracking.fluent._set_experiment_derived_destination") as set_dest,
         mock.patch("mlflow.tracking.fluent.TracingClient") as tc_cls,
     ):
         tc = tc_cls.return_value
         tc._get_trace_location.return_value = existing
 
-        _configure_experiment_trace_destination(
+        result = _resolve_experiment_trace_destination(
             experiment=experiment,
             trace_location=requested,
             client=mock.MagicMock(),
         )
 
+        assert result is existing
         tc._get_trace_location.assert_called_once_with("some-uuid")
         tc._create_or_get_trace_location.assert_not_called()
         tc._link_trace_location.assert_not_called()
-        set_dest.assert_called_once_with(existing)
 
 
 def test_errors_when_existing_location_differs():
@@ -125,7 +130,7 @@ def test_errors_when_existing_location_differs():
         tc._get_trace_location.return_value = existing
 
         with pytest.raises(MlflowException, match="already linked to a different"):
-            _configure_experiment_trace_destination(
+            _resolve_experiment_trace_destination(
                 experiment=experiment,
                 trace_location=requested,
                 client=mock.MagicMock(),

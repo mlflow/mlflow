@@ -22,6 +22,7 @@ class Experiment(_MlflowObject):
         creation_time=None,
         last_update_time=None,
         workspace=None,
+        trace_location=None,
     ):
         super().__init__()
         self._experiment_id = experiment_id
@@ -32,7 +33,7 @@ class Experiment(_MlflowObject):
         self._creation_time = creation_time
         self._last_update_time = last_update_time
         self._workspace = resolve_entity_workspace_name(workspace)
-        self._trace_location = None
+        self._trace_location = trace_location
 
     @property
     def experiment_id(self):

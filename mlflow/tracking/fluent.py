@@ -241,20 +241,20 @@ def set_experiment(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    global _active_experiment_id
-    _active_experiment_id = experiment.experiment_id
-
-    # Set 'MLFLOW_EXPERIMENT_ID' environment variable
-    # so that subprocess can inherit it.
-    MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
-
-    resolved_location = _configure_experiment_trace_destination(
+    resolved_location = _resolve_experiment_trace_destination(
         experiment=experiment,
         trace_location=trace_location,
         client=client,
     )
+
+    global _active_experiment_id
+    _active_experiment_id = experiment.experiment_id
+    MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
     if resolved_location is not None:
+        _set_experiment_derived_destination(resolved_location)
         experiment._trace_location = resolved_location
+    else:
+        _clear_experiment_derived_destination()
 
     return experiment
 
@@ -272,20 +272,15 @@ def _locations_match(a: UnityCatalog, b: UnityCatalog) -> bool:
     )
 
 
-def _configure_experiment_trace_destination(
+def _resolve_experiment_trace_destination(
     experiment: Experiment,
     trace_location: UnityCatalog | None,
     client: TrackingServiceClient,
 ) -> UnityCatalog | None:
-    """Handle the write-path for explicit trace_location in set_experiment.
+    """Resolve the trace destination for an experiment without mutating state.
 
-    When trace_location is provided: precheck the experiment's existing link,
-    error if it conflicts, otherwise create/link on the backend and set the
-    experiment-derived destination slot.
-
-    When trace_location is None: clear the experiment-derived slot and reset
-    the provider so it lazily auto-resolves from experiment tags on the next
-    trace (see _resolve_experiment_uc_location in provider.py).
+    All validation and network calls happen here. The caller is responsible
+    for committing the result (setting experiment-derived destination, etc.).
 
     Returns:
         The resolved UnityCatalog location if one was configured, or None.
@@ -296,15 +291,12 @@ def _configure_experiment_trace_destination(
         )
 
     if trace_location is None:
-        # No explicit location — clear any prior destination and let the provider
-        # lazily resolve from experiment tags when the next trace starts.
-        _clear_experiment_derived_destination()
         return None
 
-    # Non-Databricks backends: set the destination directly without backend calls.
     if not is_databricks_uri(_resolve_tracking_uri()):
-        _set_experiment_derived_destination(trace_location)
-        return trace_location
+        raise MlflowException.invalid_parameter_value(
+            "`trace_location` is only supported with a Databricks tracking URI."
+        )
 
     tracing_client = TracingClient()
 
@@ -324,7 +316,6 @@ def _configure_experiment_trace_destination(
     # verify it matches — we don't allow re-linking to a different location.
     if existing_location is not None:
         if _locations_match(trace_location, existing_location):
-            _set_experiment_derived_destination(existing_location)
             return existing_location
         raise MlflowException.invalid_parameter_value(
             f"Experiment '{experiment.name}' is already linked to a different "
@@ -339,7 +330,6 @@ def _configure_experiment_trace_destination(
         experiment_id=experiment.experiment_id,
         location=resolved,
     )
-    _set_experiment_derived_destination(resolved)
     return resolved
 
 

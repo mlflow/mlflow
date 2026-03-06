@@ -13,7 +13,6 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocationBase,
     UCSchemaLocation,
-    UnityCatalog,
 )
 from mlflow.environment_variables import MLFLOW_TRACING_DESTINATION
 from mlflow.exceptions import MlflowException

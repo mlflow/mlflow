@@ -419,9 +419,11 @@ def _set_experiment_derived_destination(destination: TraceLocationBase | None):
 
 def _clear_experiment_derived_destination():
     _MLFLOW_TRACE_USER_DESTINATION.clear_experiment_derived()
-    # Reset the provider so it re-initializes lazily on the next trace,
-    # allowing _resolve_experiment_uc_location to run with the new experiment.
-    provider.reset()
+    # Mark the provider for re-initialization on the next trace so that
+    # _resolve_experiment_uc_location runs with the new experiment context.
+    # We only reset the once-flag instead of calling provider.reset(), which
+    # would wipe the global OTel tracer provider and break external integrations.
+    provider.once._done = False
 
 
 def _get_tracer(module_name: str) -> trace.Tracer:
