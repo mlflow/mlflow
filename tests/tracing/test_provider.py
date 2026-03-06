@@ -791,6 +791,22 @@ def test_resolve_uc_location_returns_none_for_non_databricks():
     mlflow.tracing.reset()
 
 
+def test_get_tracer_does_not_fail_when_experiment_id_resolution_fails():
+    mlflow.tracing.reset()
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="databricks",
+        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", side_effect=RuntimeError("boom")),
+    ):
+        tracer = _get_tracer("test")
+
+    assert tracer is not None
+    mlflow.tracing.reset()
+
+
 def test_resolve_uc_location_returns_none_when_lookup_fails():
     from mlflow.tracing.provider import _resolve_experiment_uc_location
 

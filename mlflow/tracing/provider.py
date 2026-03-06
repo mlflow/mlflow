@@ -421,8 +421,6 @@ def _clear_experiment_derived_destination():
     _MLFLOW_TRACE_USER_DESTINATION.clear_experiment_derived()
     # Mark the provider for re-initialization on the next trace so that
     # _resolve_experiment_uc_location runs with the new experiment context.
-    # We only reset the once-flag instead of calling provider.reset(), which
-    # would wipe the global OTel tracer provider and break external integrations.
     provider.once._done = False
 
 
@@ -581,11 +579,11 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
     if not tracking_uri or not is_databricks_uri(tracking_uri):
         return None
 
-    experiment_id = _get_experiment_id()
-    if not experiment_id:
-        return None
-
     try:
+        experiment_id = _get_experiment_id()
+        if not experiment_id:
+            return None
+
         from mlflow.tracking._tracking_service.utils import _get_store
 
         store = _get_store(tracking_uri)
