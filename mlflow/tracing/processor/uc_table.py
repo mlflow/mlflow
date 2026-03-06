@@ -56,7 +56,7 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
             trace_id = generate_trace_id_v4(root_span, destination.schema_location)
         else:
             raise MlflowException(
-                "Unity Catalog destination is not set for trace. It cannot be exported to "
+                "Unity Catalog spans table name is not set for trace. It can not be exported to "
                 "Databricks Unity Catalog table."
             )
 

@@ -72,7 +72,7 @@ def test_on_start_without_uc_table_name(monkeypatch):
 
     _MLFLOW_TRACE_USER_DESTINATION.reset()
     processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
-    with pytest.raises(MlflowException, match="Unity Catalog destination is not set"):
+    with pytest.raises(MlflowException, match="Unity Catalog spans table name is not set"):
         processor.on_start(span)
 
     # Check that trace was still created in trace manager
