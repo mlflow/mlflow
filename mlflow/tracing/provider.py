@@ -548,9 +548,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     #  1. Partners can implement span processor/exporter and destination class.
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
-    trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
-
-    if trace_destination:
+    if trace_destination := _MLFLOW_TRACE_USER_DESTINATION.get():
         # In PrPr, users must set the destination to a Unity Catalog location to export traces.
         if isinstance(trace_destination, (UCSchemaLocation, UnityCatalog)):
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
