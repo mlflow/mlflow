@@ -266,7 +266,12 @@ const RunViewMetricChartsImpl = ({
               removeChart={removeChart}
               addNewChartCard={addNewChartCard}
               search={chartsSearchFilter ?? ''}
-              supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR, RunsChartType.IMAGE]}
+              supportedChartTypes={[
+                RunsChartType.LINE,
+                RunsChartType.BAR,
+                RunsChartType.IMAGE,
+                RunsChartType.HISTOGRAM,
+              ]}
               setFullScreenChart={setFullScreenChart}
               autoRefreshEnabled={autoRefreshEnabled}
               globalLineChartConfig={chartUIState.globalLineChartConfig}
@@ -284,7 +289,7 @@ const RunViewMetricChartsImpl = ({
           onSubmit={submitForm}
           onCancel={() => setConfiguredCardConfig(null)}
           groupBy={null}
-          supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR, RunsChartType.IMAGE]}
+          supportedChartTypes={[RunsChartType.LINE, RunsChartType.BAR, RunsChartType.IMAGE, RunsChartType.HISTOGRAM]}
           globalLineChartConfig={chartUIState.globalLineChartConfig}
         />
       )}
