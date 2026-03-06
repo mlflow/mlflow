@@ -124,14 +124,83 @@ class UCSchemaLocation(TraceLocationBase):
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "UCSchemaLocation":
+        location = cls(catalog_name=d["catalog_name"], schema_name=d["schema_name"])
+        if otel_spans_table_name := d.get("otel_spans_table_name"):
+            location._otel_spans_table_name = otel_spans_table_name
+        if otel_logs_table_name := d.get("otel_logs_table_name"):
+            location._otel_logs_table_name = otel_logs_table_name
+        return location
+
+
+@dataclass
+class UnityCatalog(TraceLocationBase):
+    """
+    Represents a Databricks Unity Catalog location with a table prefix.
+
+    Note: Arclight catalogs are not supported.
+
+    Args:
+        catalog_name: The name of the Unity Catalog catalog.
+        schema_name: The name of the Unity Catalog schema.
+        table_prefix: The prefix for tables in this location.
+    """
+
+    catalog_name: str
+    schema_name: str
+    table_prefix: str
+
+    # These are fully qualified table names (catalog.schema.table) set by the backend.
+    _otel_spans_table_name: str | None = None
+    _otel_logs_table_name: str | None = None
+    _annotations_table_name: str | None = None
+
+    @property
+    def schema_location(self) -> str:
+        return f"{self.catalog_name}.{self.schema_name}"
+
+    @property
+    def full_table_prefix(self) -> str:
+        return f"{self.catalog_name}.{self.schema_name}.{self.table_prefix}"
+
+    @property
+    def full_otel_spans_table_name(self) -> str | None:
+        return self._otel_spans_table_name
+
+    @property
+    def full_otel_logs_table_name(self) -> str | None:
+        return self._otel_logs_table_name
+
+    @property
+    def full_annotations_table_name(self) -> str | None:
+        return self._annotations_table_name
+
+    def to_dict(self) -> dict[str, Any]:
+        d = {
+            "catalog_name": self.catalog_name,
+            "schema_name": self.schema_name,
+            "table_prefix": self.table_prefix,
+        }
+        if self._otel_spans_table_name:
+            d["otel_spans_table_name"] = self._otel_spans_table_name
+        if self._otel_logs_table_name:
+            d["otel_logs_table_name"] = self._otel_logs_table_name
+        if self._annotations_table_name:
+            d["annotations_table_name"] = self._annotations_table_name
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "UnityCatalog":
         location = cls(
             catalog_name=d["catalog_name"],
             schema_name=d["schema_name"],
+            table_prefix=d["table_prefix"],
         )
         if otel_spans_table_name := d.get("otel_spans_table_name"):
             location._otel_spans_table_name = otel_spans_table_name
         if otel_logs_table_name := d.get("otel_logs_table_name"):
             location._otel_logs_table_name = otel_logs_table_name
+        if annotations_table_name := d.get("annotations_table_name"):
+            location._annotations_table_name = annotations_table_name
         return location
 
 
@@ -140,6 +209,7 @@ class TraceLocationType(str, Enum):
     MLFLOW_EXPERIMENT = "MLFLOW_EXPERIMENT"
     INFERENCE_TABLE = "INFERENCE_TABLE"
     UC_SCHEMA = "UC_SCHEMA"
+    UC_TABLE_PREFIX = "UC_TABLE_PREFIX"
 
     def to_proto(self):
         return pb.TraceLocation.TraceLocationType.Value(self)
@@ -176,6 +246,7 @@ class TraceLocation(_MlflowObject):
     mlflow_experiment: MlflowExperimentLocation | None = None
     inference_table: InferenceTableLocation | None = None
     uc_schema: UCSchemaLocation | None = None
+    uc_table_prefix: UnityCatalog | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -184,22 +255,30 @@ class TraceLocation(_MlflowObject):
                     self.mlflow_experiment is not None,
                     self.inference_table is not None,
                     self.uc_schema is not None,
+                    self.uc_table_prefix is not None,
                 ]
             )
             > 1
         ):
             raise MlflowException.invalid_parameter_value(
-                "Only one of mlflow_experiment, inference_table, or uc_schema can be provided."
+                "Only one of mlflow_experiment, inference_table, uc_schema, "
+                "or uc_table_prefix can be provided."
             )
 
         if (
             (self.mlflow_experiment and self.type != TraceLocationType.MLFLOW_EXPERIMENT)
             or (self.inference_table and self.type != TraceLocationType.INFERENCE_TABLE)
             or (self.uc_schema and self.type != TraceLocationType.UC_SCHEMA)
+            or (self.uc_table_prefix and self.type != TraceLocationType.UC_TABLE_PREFIX)
         ):
+            location = (
+                self.mlflow_experiment
+                or self.inference_table
+                or self.uc_schema
+                or self.uc_table_prefix
+            )
             raise MlflowException.invalid_parameter_value(
-                f"Trace location type {self.type} does not match the provided location "
-                f"{self.mlflow_experiment or self.inference_table or self.uc_schema}."
+                f"Trace location type {self.type} does not match the provided location {location}."
             )
 
     def to_dict(self) -> dict[str, Any]:
@@ -210,6 +289,8 @@ class TraceLocation(_MlflowObject):
             d["inference_table"] = self.inference_table.to_dict()
         elif self.uc_schema:
             d["uc_schema"] = self.uc_schema.to_dict()
+        elif self.uc_table_prefix:
+            d["uc_table_prefix"] = self.uc_table_prefix.to_dict()
         return d
 
     @classmethod
@@ -223,6 +304,9 @@ class TraceLocation(_MlflowObject):
                 InferenceTableLocation.from_dict(v) if (v := d.get("inference_table")) else None
             ),
             uc_schema=(UCSchemaLocation.from_dict(v) if (v := d.get("uc_schema")) else None),
+            uc_table_prefix=(
+                UnityCatalog.from_dict(v) if (v := d.get("uc_table_prefix")) else None
+            ),
         )
 
     def to_proto(self) -> pb.TraceLocation:
@@ -236,6 +320,8 @@ class TraceLocation(_MlflowObject):
                 type=self.type.to_proto(),
                 inference_table=self.inference_table.to_proto(),
             )
+        elif self.uc_table_prefix:
+            return pb.TraceLocation(type=self.type.to_proto())
         # uc schema is not supported in to_proto since it's databricks specific, should use
         # databricks_service_utils to convert to proto
         else:
@@ -258,5 +344,21 @@ class TraceLocation(_MlflowObject):
     def from_databricks_uc_schema(cls, catalog_name: str, schema_name: str) -> "TraceLocation":
         return cls(
             type=TraceLocationType.UC_SCHEMA,
-            uc_schema=UCSchemaLocation(catalog_name=catalog_name, schema_name=schema_name),
+            uc_schema=UCSchemaLocation(
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+            ),
+        )
+
+    @classmethod
+    def from_databricks_uc_table_prefix(
+        cls, catalog_name: str, schema_name: str, table_prefix: str
+    ) -> "TraceLocation":
+        return cls(
+            type=TraceLocationType.UC_TABLE_PREFIX,
+            uc_table_prefix=UnityCatalog(
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+                table_prefix=table_prefix,
+            ),
         )

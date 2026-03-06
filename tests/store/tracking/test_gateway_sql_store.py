@@ -575,6 +575,7 @@ def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore)
     assert experiment.name == "gateway/auto-exp-endpoint"
     assert experiment.tags.get("mlflow.experiment.sourceType") == "GATEWAY"
     assert experiment.tags.get("mlflow.experiment.sourceId") == endpoint.endpoint_id
+    assert experiment.tags.get("mlflow.experiment.isGateway") == "true"
 
 
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
@@ -2133,11 +2134,41 @@ def test_list_budget_policies(store: SqlAlchemyStore):
 
     all_policies = store.list_budget_policies()
     assert len(all_policies) == 2
+    assert all_policies.token is None
 
 
 def test_list_budget_policies_empty(store: SqlAlchemyStore):
     policies = store.list_budget_policies()
     assert policies == []
+    assert policies.token is None
+
+
+def test_list_budget_policies_pagination(store: SqlAlchemyStore):
+    for i in range(3):
+        store.create_budget_policy(
+            budget_unit=BudgetUnit.USD,
+            budget_amount=100.0 + i,
+            duration_unit=BudgetDurationUnit.MONTHS,
+            duration_value=1,
+            target_scope=BudgetTargetScope.GLOBAL,
+            budget_action=BudgetAction.ALERT,
+        )
+
+    page1 = store.list_budget_policies(max_results=2)
+    assert len(page1) == 2
+    assert page1.token is not None
+
+    page2 = store.list_budget_policies(max_results=2, page_token=page1.token)
+    assert len(page2) == 1
+    assert page2.token is None
+
+    all_ids = [p.budget_policy_id for p in page1] + [p.budget_policy_id for p in page2]
+    assert len(set(all_ids)) == 3
+
+
+def test_list_budget_policies_invalid_max_results(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="max_results"):
+        store.list_budget_policies(max_results=0)
 
 
 def test_create_budget_policy_all_duration_units(store: SqlAlchemyStore):

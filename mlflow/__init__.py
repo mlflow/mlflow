@@ -82,6 +82,7 @@ llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
 onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
+otel = LazyLoader("mlflow.otel", globals(), "mlflow.otel")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
 paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
 pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
@@ -137,6 +138,7 @@ if TYPE_CHECKING:
         mistral,
         onnx,
         openai,
+        otel,
         paddle,
         pmdarima,
         prophet,

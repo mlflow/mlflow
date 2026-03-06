@@ -3,7 +3,7 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useUpdateRunsChartsUIConfiguration } from '../hooks/useRunsChartsUIConfiguration';
 import type { RunsChartsCardConfig } from '../runs-charts.types';
 import type { RunsChartsRunData } from './RunsCharts.common';
-import { isEmptyChartCard } from './RunsCharts.common';
+import { createEmptyChartCardPredicate } from './RunsCharts.common';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { Global } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
@@ -159,11 +159,12 @@ export const RunsChartsDraggableCardsGridSection = memo(
     );
 
     const cardsToRender = useMemo(() => {
+      const isEmptyChartCard = createEmptyChartCardPredicate(chartRunData);
       return cardsConfig.filter((cardConfig) => {
         if (!hideEmptyCharts) {
           return true;
         }
-        return !isEmptyChartCard(chartRunData, cardConfig);
+        return !isEmptyChartCard(cardConfig);
       });
     }, [cardsConfig, chartRunData, hideEmptyCharts]);
 

@@ -856,6 +856,11 @@ class Linter(ast.NodeVisitor):
             self._check(Range.from_node(node), rules.PreferDictUnion())
         self.generic_visit(node)
 
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        if rules.PreferNext.check(node):
+            self._check(Range.from_node(node), rules.PreferNext())
+        self.generic_visit(node)
+
     def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
         if rules.ExceptBoolOp.check(node):
             self._check(Range.from_node(node), rules.ExceptBoolOp())

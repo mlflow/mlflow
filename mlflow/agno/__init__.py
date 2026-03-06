@@ -3,14 +3,13 @@ import logging
 
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental as experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "agno"
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.3.0")
 def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = False) -> None:
     """
     Enables (or disables) and configures autologging from Agno to MLflow.

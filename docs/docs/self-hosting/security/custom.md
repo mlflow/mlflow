@@ -82,7 +82,7 @@ You can configure the server to use a custom authentication function extending M
 First, install the auth extension:
 
 ```bash
-pip install mlflow[auth]
+pip install 'mlflow[auth]'
 ```
 
 Create a custom authentication function. The function should return a `werkzeug.datastructures.Authorization` object if
