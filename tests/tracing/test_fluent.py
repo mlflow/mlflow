@@ -2850,11 +2850,11 @@ def test_configure_trace_nesting_merges():
 
     with mlflow.configure_trace(
         metadata={"outer_key": "outer_val", "shared": "outer"},
-        tags={"outer_tag": "ot"},
+        tags={"outer_tag": "outer"},
     ):
         with mlflow.configure_trace(
             metadata={"inner_key": "inner_val", "shared": "inner"},
-            tags={"inner_tag": "it"},
+            tags={"inner_tag": "inner"},
         ):
             my_func()
 
@@ -2865,8 +2865,8 @@ def test_configure_trace_nesting_merges():
     # Inner wins on conflict
     assert trace.info.request_metadata["shared"] == "inner"
     # Both tags present
-    assert trace.info.tags["outer_tag"] == "ot"
-    assert trace.info.tags["inner_tag"] == "it"
+    assert trace.info.tags["outer_tag"] == "outer"
+    assert trace.info.tags["inner_tag"] == "inner"
 
 
 def test_configure_trace_resets_after_exit():
