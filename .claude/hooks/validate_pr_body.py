@@ -31,7 +31,10 @@ def deny(reason: str) -> None:
 
 
 def main() -> None:
-    input_data = json.loads(sys.stdin.read())
+    try:
+        input_data = json.loads(sys.stdin.read())
+    except (json.JSONDecodeError, OSError):
+        return
 
     if input_data.get("tool_name") != "Bash":
         return
@@ -40,7 +43,10 @@ def main() -> None:
     if not re.search(r"gh\s+pr\s+create\b", command):
         return
 
-    # Skip commands without a body (e.g. --help)
+    # Skip commands without a body (e.g. --help) or with --body-file / -F
+    # (we can't validate file contents from the command string)
+    if re.search(r"(--body-file\b|-F\b)", command):
+        return
     if not re.search(r"(--body\b|-b\b)", command):
         return
 
