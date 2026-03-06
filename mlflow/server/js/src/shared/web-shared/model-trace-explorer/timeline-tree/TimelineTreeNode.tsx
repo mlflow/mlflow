@@ -147,7 +147,10 @@ export const TimelineTreeNode = ({
                 {node.title}
               </Typography.Text>
               {gatewayTraceHref && (
-                <Tooltip content="View linked gateway trace" componentId="shared.model-trace-explorer.gateway-trace-link">
+                <Tooltip
+                  content="View linked gateway trace"
+                  componentId="shared.model-trace-explorer.gateway-trace-link"
+                >
                   <Link
                     to={gatewayTraceHref}
                     target="_blank"

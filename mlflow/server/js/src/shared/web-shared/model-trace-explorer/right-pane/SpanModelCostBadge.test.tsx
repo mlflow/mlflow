@@ -121,5 +121,4 @@ describe('SpanModelCostBadge', () => {
     expect(screen.getByText('$0.001234')).toBeInTheDocument();
     expect(screen.getByText('$0.002345')).toBeInTheDocument();
   });
-
 });
