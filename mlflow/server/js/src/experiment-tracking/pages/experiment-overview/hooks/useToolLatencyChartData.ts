@@ -10,7 +10,7 @@ import {
   createSpanFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, getEffectiveTimeBuckets } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface ToolLatencyDataPoint {
@@ -84,7 +84,8 @@ export function useToolLatencyChartData(): UseToolLatencyChartDataResult {
     const sortedToolNames = Array.from(toolSet).sort();
 
     // Build chart data with all time buckets filled
-    const chartDataResult = timeBuckets.map((timestampMs) => {
+    const effectiveBuckets = getEffectiveTimeBuckets(timeBuckets, dataByTimestamp);
+    const chartDataResult = effectiveBuckets.map((timestampMs) => {
       const toolLatencies = dataByTimestamp.get(timestampMs);
       const dataPoint: ToolLatencyDataPoint = {
         timestamp: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),

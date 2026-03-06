@@ -7,7 +7,7 @@ import {
   TIME_BUCKET_DIMENSION_KEY,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, getEffectiveTimeBuckets } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 import type { CostDimension } from './useTraceCostDimension';
 
@@ -91,9 +91,14 @@ export function useTraceCostOverTimeChartData(dimension: CostDimension = 'model'
     return map;
   }, [dataPoints, dimensionKey]);
 
+  const effectiveBuckets = useMemo(
+    () => getEffectiveTimeBuckets(timeBuckets, costByTimestampAndDimension),
+    [timeBuckets, costByTimestampAndDimension],
+  );
+
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => {
+    return effectiveBuckets.map((timestampMs) => {
       const costs = costByTimestampAndDimension.get(timestampMs);
       const dataPoint: CostOverTimeDataPoint = {
         name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
@@ -105,7 +110,7 @@ export function useTraceCostOverTimeChartData(dimension: CostDimension = 'model'
 
       return dataPoint;
     });
-  }, [timeBuckets, costByTimestampAndDimension, dimensionValues, timeIntervalSeconds]);
+  }, [effectiveBuckets, costByTimestampAndDimension, dimensionValues, timeIntervalSeconds]);
 
   // Calculate total cost across all dimension values
   const totalCost = useMemo(() => {

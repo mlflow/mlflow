@@ -8,7 +8,7 @@ import {
   createAssessmentFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useTimestampValueMap, getEffectiveTimeBuckets } from '../utils/chartUtils';
 import {
   sortValuesAlphanumerically,
   shouldCreateHistogramBuckets,
@@ -98,14 +98,19 @@ export function useTraceAssessmentChartData(assessmentName: string): UseTraceAss
   );
   const valuesByTimestamp = useTimestampValueMap(timeSeriesDataPoints, valueExtractor);
 
+  const effectiveBuckets = useMemo(
+    () => getEffectiveTimeBuckets(timeBuckets, valuesByTimestamp),
+    [timeBuckets, valuesByTimestamp],
+  );
+
   // Prepare time series chart data - use null for missing data to show gaps in chart
   const timeSeriesChartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => ({
+    return effectiveBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       value: valuesByTimestamp.get(timestampMs) ?? null,
       timestampMs,
     }));
-  }, [timeBuckets, valuesByTimestamp, timeIntervalSeconds]);
+  }, [effectiveBuckets, valuesByTimestamp, timeIntervalSeconds]);
 
   // Prepare distribution chart data - use actual values from API
   const distributionChartData = useMemo(() => {

@@ -1,3 +1,5 @@
+import { isNil } from 'lodash';
+
 export enum TimeUnit {
   Second = 'second',
   Minute = 'minute',
@@ -28,7 +30,7 @@ export function calculateExpectedDataPoints(
   endTimeMs: number | undefined,
   timeUnit: TimeUnit,
 ): number {
-  if (!startTimeMs || !endTimeMs) {
+  if (isNil(startTimeMs) || isNil(endTimeMs)) {
     return 0;
   }
   const durationSeconds = (endTimeMs - startTimeMs) / 1000;
@@ -56,7 +58,7 @@ export function isTimeUnitValid(
  * - > 1 year: year level
  */
 export function calculateDefaultTimeUnit(startTimeMs?: number, endTimeMs?: number): TimeUnit {
-  if (!startTimeMs || !endTimeMs) {
+  if (isNil(startTimeMs) || isNil(endTimeMs)) {
     return TimeUnit.Day;
   }
 

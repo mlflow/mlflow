@@ -8,7 +8,7 @@ import {
   createTraceFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useTimestampValueMap, getEffectiveTimeBuckets } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 // Filter to get only error traces
@@ -108,9 +108,14 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
   const errorCountByTimestamp = useTimestampValueMap(errorDataPoints, countExtractor);
   const totalCountByTimestamp = useTimestampValueMap(totalDataPoints, countExtractor);
 
+  const effectiveBuckets = useMemo(
+    () => getEffectiveTimeBuckets(timeBuckets, errorCountByTimestamp, totalCountByTimestamp),
+    [timeBuckets, errorCountByTimestamp, totalCountByTimestamp],
+  );
+
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => {
+    return effectiveBuckets.map((timestampMs) => {
       const errorCount = errorCountByTimestamp.get(timestampMs) || 0;
       const totalCount = totalCountByTimestamp.get(timestampMs) || 0;
       const errorRate = totalCount > 0 ? (errorCount / totalCount) * 100 : 0;
@@ -122,7 +127,7 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
         timestampMs,
       };
     });
-  }, [timeBuckets, errorCountByTimestamp, totalCountByTimestamp, timeIntervalSeconds]);
+  }, [effectiveBuckets, errorCountByTimestamp, totalCountByTimestamp, timeIntervalSeconds]);
 
   // Calculate average error rate across time buckets for the reference line
   const avgErrorRate = useMemo(() => {

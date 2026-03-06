@@ -9,7 +9,7 @@ import {
   getPercentileKey,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics, useTimestampValueMap } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useTimestampValueMap, getEffectiveTimeBuckets } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface TokenStatsChartDataPoint {
@@ -96,9 +96,14 @@ export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult
   );
   const tokenStatsByTimestamp = useTimestampValueMap(tokenStatsDataPoints, statsExtractor);
 
+  const effectiveBuckets = useMemo(
+    () => getEffectiveTimeBuckets(timeBuckets, tokenStatsByTimestamp),
+    [timeBuckets, tokenStatsByTimestamp],
+  );
+
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => {
+    return effectiveBuckets.map((timestampMs) => {
       const stats = tokenStatsByTimestamp.get(timestampMs);
       return {
         name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
@@ -108,7 +113,7 @@ export function useTraceTokenStatsChartData(): UseTraceTokenStatsChartDataResult
         timestampMs,
       };
     });
-  }, [timeBuckets, tokenStatsByTimestamp, timeIntervalSeconds]);
+  }, [effectiveBuckets, tokenStatsByTimestamp, timeIntervalSeconds]);
 
   return {
     chartData,

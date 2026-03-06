@@ -2,7 +2,12 @@ import { useMemo, useCallback } from 'react';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
 import type { ChartZoomState } from '../utils/chartUtils';
-import { formatTimestampForTraceMetrics, useTimestampValueMap, useChartZoom } from '../utils/chartUtils';
+import {
+  formatTimestampForTraceMetrics,
+  useTimestampValueMap,
+  useChartZoom,
+  getEffectiveTimeBuckets,
+} from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface RequestsChartDataPoint {
@@ -63,9 +68,6 @@ export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
     [traceCountDataPoints],
   );
 
-  // Calculate average requests per time bucket
-  const avgRequests = useMemo(() => totalRequests / timeBuckets.length, [totalRequests, timeBuckets.length]);
-
   // Create a map of counts by timestamp using shared utility
   const countExtractor = useCallback(
     (dp: { values?: Record<string, number> }) => dp.values?.[AggregationType.COUNT] || 0,
@@ -73,14 +75,23 @@ export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
   );
   const countByTimestamp = useTimestampValueMap(traceCountDataPoints, countExtractor);
 
+  // Derive effective buckets: use pre-generated buckets or fall back to server data timestamps
+  const effectiveBuckets = useMemo(
+    () => getEffectiveTimeBuckets(timeBuckets, countByTimestamp),
+    [timeBuckets, countByTimestamp],
+  );
+
+  // Calculate average requests per time bucket
+  const avgRequests = useMemo(() => totalRequests / effectiveBuckets.length, [totalRequests, effectiveBuckets.length]);
+
   // Prepare chart data - fill in all time buckets with 0 for missing data
   const chartData = useMemo(() => {
-    return timeBuckets.map((timestampMs) => ({
+    return effectiveBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       count: countByTimestamp.get(timestampMs) || 0,
       timestampMs,
     }));
-  }, [timeBuckets, countByTimestamp, timeIntervalSeconds]);
+  }, [effectiveBuckets, countByTimestamp, timeIntervalSeconds]);
 
   // Zoom functionality
   const zoom = useChartZoom(chartData, 'name');

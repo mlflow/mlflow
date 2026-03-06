@@ -31,6 +31,7 @@ import { TIME_UNIT_SECONDS, calculateDefaultTimeUnit, isTimeUnitValid } from './
 import { generateTimeBuckets } from './utils/chartUtils';
 import { OverviewChartProvider } from './OverviewChartContext';
 import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
+import { useEarliestTraceTimestamp } from './hooks/useEarliestTraceTimestamp';
 
 const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
@@ -60,19 +61,27 @@ const ExperimentGenAIOverviewPageImpl = () => {
     [monitoringConfig.dateNow, monitoringFilters],
   );
 
-  // Convert ISO strings to milliseconds for the API
-  const startTimeMs = startTime ? new Date(startTime).getTime() : undefined;
-  const endTimeMs = endTime ? new Date(endTime).getTime() : undefined;
+  // Convert ISO strings to milliseconds for the API.
+  // When "ALL" is selected, startTime is undefined — use 0 (epoch) so the
+  // backend returns data across all time while still accepting time_interval_seconds.
+  const isAllTime = monitoringFilters.startTimeLabel === 'ALL';
+  const startTimeMs = startTime ? new Date(startTime).getTime() : 0;
+  const endTimeMs = endTime ? new Date(endTime).getTime() : Date.now();
+
+  // For "ALL" mode, query the earliest trace timestamp so we can validate time
+  // units against the actual data span instead of epoch-to-now.
+  const earliestTraceTimestamp = useEarliestTraceTimestamp([experimentId], isAllTime);
+  const validationStartTimeMs = isAllTime ? (earliestTraceTimestamp ?? endTimeMs) : startTimeMs;
 
   // Calculate the default time unit for the current time range
-  const defaultTimeUnit = calculateDefaultTimeUnit(startTimeMs, endTimeMs);
+  const defaultTimeUnit = calculateDefaultTimeUnit(validationStartTimeMs, endTimeMs);
 
   // Auto-clear if selected time unit becomes invalid due to time range change
   useEffect(() => {
-    if (selectedTimeUnit && !isTimeUnitValid(startTimeMs, endTimeMs, selectedTimeUnit)) {
+    if (selectedTimeUnit && !isTimeUnitValid(validationStartTimeMs, endTimeMs, selectedTimeUnit)) {
       setSelectedTimeUnit(null);
     }
-  }, [startTimeMs, endTimeMs, selectedTimeUnit]);
+  }, [validationStartTimeMs, endTimeMs, selectedTimeUnit]);
 
   // Use selected if valid, otherwise fall back to default
   const effectiveTimeUnit = selectedTimeUnit ?? defaultTimeUnit;
@@ -80,10 +89,12 @@ const ExperimentGenAIOverviewPageImpl = () => {
   // Use the effective time unit for time interval
   const timeIntervalSeconds = TIME_UNIT_SECONDS[effectiveTimeUnit];
 
-  // Generate all time buckets once for all charts
+  // Generate all time buckets once for all charts.
+  // Skip pre-generation for "ALL" — the range is unbounded so we let charts
+  // derive buckets from the server response instead.
   const timeBuckets = useMemo(
-    () => generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds),
-    [startTimeMs, endTimeMs, timeIntervalSeconds],
+    () => (isAllTime ? [] : generateTimeBuckets(startTimeMs, endTimeMs, timeIntervalSeconds)),
+    [isAllTime, startTimeMs, endTimeMs, timeIntervalSeconds],
   );
 
   return (
@@ -148,20 +159,13 @@ const ExperimentGenAIOverviewPageImpl = () => {
           <TimeUnitSelector
             value={effectiveTimeUnit}
             onChange={setSelectedTimeUnit}
-            startTimeMs={startTimeMs}
+            startTimeMs={validationStartTimeMs}
             endTimeMs={endTimeMs}
             allowClear={selectedTimeUnit !== null && selectedTimeUnit !== defaultTimeUnit}
             onClear={() => setSelectedTimeUnit(null)}
           />
 
-          {/*
-           * Time range selector - exclude 'ALL' since charts require start_time_ms and end_time_ms
-           * TODO: remove this once this is supported in backend
-           */}
-          <TracesV3DateSelector
-            excludeOptions={['ALL']}
-            refreshButtonComponentId="mlflow.experiment.overview.refresh-button"
-          />
+          <TracesV3DateSelector refreshButtonComponentId="mlflow.experiment.overview.refresh-button" />
         </div>
 
         <OverviewChartProvider

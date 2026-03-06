@@ -10,7 +10,7 @@ import {
   createSpanFilter,
 } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import { formatTimestampForTraceMetrics } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, getEffectiveTimeBuckets } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface ToolUsageDataPoint {
@@ -84,7 +84,8 @@ export function useToolUsageChartData(): UseToolUsageChartDataResult {
     const sortedToolNames = Array.from(toolSet).sort();
 
     // Build chart data with all time buckets filled
-    const chartDataResult = timeBuckets.map((timestampMs) => {
+    const effectiveBuckets = getEffectiveTimeBuckets(timeBuckets, dataByTimestamp);
+    const chartDataResult = effectiveBuckets.map((timestampMs) => {
       const toolCounts = dataByTimestamp.get(timestampMs);
       const dataPoint: ToolUsageDataPoint = {
         timestamp: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
