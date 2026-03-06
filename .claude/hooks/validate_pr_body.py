@@ -53,12 +53,18 @@ def main() -> None:
     if not TEMPLATE_PATH.exists():
         return
 
-    # Check section headings against the entire command string rather than parsing
-    # the body out. The headings (e.g. "### How is this PR tested?") are unique
+    # Check section headings against the command lines rather than parsing the
+    # body out. The headings (e.g. "### How is this PR tested?") are unique
     # enough that they won't appear in other flags like --title or --repo, so the
     # risk of false positives is negligible.
     command_lines = {line.strip() for line in command.splitlines()}
-    if missing := [s for s in get_required_sections() if s not in command_lines]:
+    required = get_required_sections()
+    missing = [s for s in required if s not in command_lines]
+
+    # If all sections are missing, the body is likely opaque (e.g. --body "$VAR")
+    # and we can't validate it. Only deny when some sections are present but
+    # others are missing, indicating an incomplete but visible body.
+    if missing and len(missing) < len(required):
         missing_list = "\n".join(f"  - {s}" for s in missing)
         deny(
             f"PR body is missing required sections from the PR template:\n"
