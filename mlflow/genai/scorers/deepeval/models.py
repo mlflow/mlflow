@@ -10,6 +10,7 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.metrics.genai.model_utils import _parse_model_uri
 
 
@@ -74,8 +75,6 @@ def create_deepeval_model(model_uri: str):
     provider, model_name = _parse_model_uri(model_uri)
 
     if provider == "gateway":
-        from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-
         config = get_gateway_litellm_config(model_name)
         return LiteLLMModel(
             model=config.model,
