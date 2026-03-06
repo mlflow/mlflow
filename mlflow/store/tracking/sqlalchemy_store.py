@@ -5843,7 +5843,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             The Issue entity.
         """
         with self.ManagedSessionMaker() as session:
-            sql_issue = session.query(SqlIssue).filter_by(issue_id=issue_id).first()
+            sql_issue = (
+                self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
+            )
             if not sql_issue:
                 raise MlflowException(
                     f"Issue with ID '{issue_id}' not found",
