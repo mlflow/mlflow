@@ -457,6 +457,8 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
 
     package_data = {
         "mlflow": [
+            "py.typed",
+            "**/*.pyi",
             "store/db_migrations/alembic.ini",
             "temporary_db_migrations_for_pre_1_users/alembic.ini",
             "pyspark/ml/log_model_allowlist.txt",
