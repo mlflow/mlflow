@@ -4812,6 +4812,10 @@
     "defaultMessage": "+{count} more",
     "description": "Message for the popover trigger to show more items in the categorical aggregate chart."
   },
+  "WEQoNb": {
+    "defaultMessage": "Page {page}",
+    "description": "Current page indicator"
+  },
   "WFEeyZ": {
     "defaultMessage": "Cost: {input} in / {output} out",
     "description": "Model cost per token"
@@ -6582,6 +6586,10 @@
   "hvKJ+r": {
     "defaultMessage": "Close",
     "description": "Button to close the assistant panel on remote servers"
+  },
+  "hwSDOP": {
+    "defaultMessage": "Previous",
+    "description": "Previous page button"
   },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
@@ -8650,6 +8658,10 @@
   "wDwAdX": {
     "defaultMessage": "Description",
     "description": "Header for displaying notes for the experiment table"
+  },
+  "wDyvFZ": {
+    "defaultMessage": "Next",
+    "description": "Next page button"
   },
   "wFaOf0": {
     "defaultMessage": "Source run ID",
