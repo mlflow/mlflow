@@ -48,6 +48,7 @@ from mlflow.tracing.utils import (
     exclude_immutable_tags,
     get_otel_attribute,
 )
+from mlflow.tracing.utils.config import _CONFIGURE_TRACE_INFO, _ConfiguredTraceInfo
 from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
@@ -1442,31 +1443,29 @@ def configure_trace(
     A context manager that injects metadata and/or tags into any trace created
     within its scope, without creating a wrapper span.
 
-    This is useful when you need to attach system-level information (e.g. session
-    IDs) to traces produced by code you don't control (such as a user-provided
-    ``predict_fn``).
-
-    Nesting is supported — inner values are merged on top of outer values, with
-    inner values winning on key conflicts.
+    This is useful when you need to attach trace-level information (e.g. session
+    IDs) to traces produced by code you don't control like auto-instrumented libraries.
 
     .. code-block:: python
 
         import mlflow
 
+        # Enable auto-tracing for LangChain
+        mlflow.langchain.autolog()
+
         with mlflow.configure_trace(
+            # Specify metadata and tags you want to inject into the trace
             metadata={"mlflow.trace.session": "session-123"},
             tags={"mlflow.simulation.goal": "Learn about MLflow"},
         ):
             # Any trace created inside this block will carry the metadata and tags.
-            my_traced_function()
+            agent.invoke("What is the capital of France?")
 
     Args:
         metadata: Key-value pairs to inject into the trace's ``request_metadata``
             (immutable after trace creation).
         tags: Key-value pairs to inject into the trace's ``tags``.
     """
-    from mlflow.tracing.utils.config import _CONFIGURE_TRACE_INFO, _ConfiguredTraceInfo
-
     current = _CONFIGURE_TRACE_INFO.get()
 
     # Merge with any outer configure_trace scope

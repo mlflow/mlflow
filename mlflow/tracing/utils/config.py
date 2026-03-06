@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class _ConfiguredTraceInfo:
-    """Metadata and tags declared via ``mlflow.configure_trace()`` that should be
+    """
+    Metadata and tags declared via ``mlflow.configure_trace()`` that should be
     injected into every trace created within the current scope.
     """
 

@@ -31,6 +31,7 @@ from mlflow.tracing.utils import (
     should_compute_cost_client_side,
     update_trace_state_from_span_conditionally,
 )
+from mlflow.tracing.utils.config import get_configured_trace_metadata, get_configured_trace_tags
 from mlflow.tracing.utils.environment import resolve_env_metadata
 from mlflow.tracking.fluent import (
     _get_active_model_id_global,
@@ -141,8 +142,6 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             metadata[TraceMetadataKey.MODEL_ID] = model_id
 
         # Append metadata from configure_trace() scope (caller-declared, wins on conflict)
-        from mlflow.tracing.utils.config import get_configured_trace_metadata
-
         if ctx_metadata := get_configured_trace_metadata():
             metadata.update(ctx_metadata)
 
@@ -160,8 +159,6 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
 
         # Append tags from configure_trace() scope before trace name
         # (trace name tag always wins because it comes last)
-        from mlflow.tracing.utils.config import get_configured_trace_tags
-
         if ctx_tags := get_configured_trace_tags():
             tags.update(ctx_tags)
 
