@@ -484,6 +484,13 @@ def _async_catch_mlflow_exception(func):
     return wrapper
 
 
+def _add_static_prefix(route: str) -> str:
+    """Add static prefix to route if MLFLOW_STATIC_PREFIX is set."""
+    if prefix := os.environ.get("MLFLOW_STATIC_PREFIX"):
+        return prefix.rstrip("/") + route
+    return route
+
+
 def init(model: PyFuncModel):
     """
     Initialize the server. Loads pyfunc model from the path.
@@ -508,8 +515,8 @@ def init(model: PyFuncModel):
                 media_type="application/json",
             )
 
-    @app.route("/ping", methods=["GET"])
-    @app.route("/health", methods=["GET"])
+    @app.route(_add_static_prefix("/ping"), methods=["GET"])
+    @app.route(_add_static_prefix("/health"), methods=["GET"])
     async def ping(request: Request):
         """
         Determine if the container is working and healthy.
@@ -519,14 +526,14 @@ def init(model: PyFuncModel):
         status = 200 if health else 404
         return Response(content="\n", status_code=status, media_type="application/json")
 
-    @app.route("/version", methods=["GET"])
+    @app.route(_add_static_prefix("/version"), methods=["GET"])
     async def version(request: Request):
         """
         Returns the current mlflow version.
         """
         return Response(content=VERSION, status_code=200, media_type="application/json")
 
-    @app.route("/invocations", methods=["POST"])
+    @app.route(_add_static_prefix("/invocations"), methods=["POST"])
     @_async_catch_mlflow_exception
     async def transformation(request: Request):
         """

@@ -183,6 +183,14 @@ def _serve_pyfunc(model, env_manager):
     enable_mlserver = os.environ.get(ENABLE_MLSERVER, "false").lower() == "true"
     disable_env_creation = MLFLOW_DISABLE_ENV_CREATION.get()
 
+    if static_prefix := os.getenv("MLFLOW_STATIC_PREFIX", ""):
+        if enable_mlserver:
+            raise ValueError(
+                f"--static-prefix ('{static_prefix}') is not supported with ENABLE_MLSERVER=true. "
+                "MLServer uses the KServe v2 protocol with its own path structure "
+                "(/v2/models/{{model_name}}/...) and does not use the MLflow scoring server."
+            )
+
     conf = model.flavors[pyfunc.FLAVOR_NAME]
     bash_cmds = []
     if pyfunc.ENV in conf:
