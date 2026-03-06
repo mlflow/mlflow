@@ -55,6 +55,7 @@ from clint.rules.use_gh_token import UseGhToken
 from clint.rules.use_sys_executable import UseSysExecutable
 from clint.rules.use_walrus_operator import UseWalrusOperator, WalrusOperatorVisitor
 from clint.rules.version_major_check import MajorVersionCheck
+from clint.rules.workspace_query_isolation import WorkspaceQueryIsolation
 
 ALL_RULES = {rule.name for rule in Rule.__subclasses__()}
 
@@ -117,4 +118,5 @@ __all__ = [
     "UseWalrusOperator",
     "WalrusOperatorVisitor",
     "MajorVersionCheck",
+    "WorkspaceQueryIsolation",
 ]

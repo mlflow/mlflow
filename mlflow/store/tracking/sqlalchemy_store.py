@@ -711,7 +711,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         # in the assessment_metadata JSON field under the reserved
         # "mlflow.assessment.sourceRunId" key, not in the run_id column.
         source_run_id_pattern = f'"{AssessmentMetadataKey.SOURCE_RUN_ID}": "{run.run_uuid}"'
-        session.query(SqlAssessments).filter(
+        session.query(SqlAssessments).filter(  # clint: disable=workspace-query-isolation
             SqlAssessments.assessment_metadata.contains(source_run_id_pattern)
         ).delete(synchronize_session=False)
 
@@ -835,7 +835,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         return self._get_query(session, SqlEvaluationDataset)
 
     def _get_run_inputs(self, session, run_uuids):
-        datasets_with_tags = (
+        datasets_with_tags = (  # clint: disable=workspace-query-isolation
             session.query(
                 SqlInput.input_uuid,
                 SqlInput.destination_id.label("run_uuid"),
@@ -922,7 +922,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def _try_get_run_tag(self, session, run_id, tagKey, eager=False):
         query_options = self._get_eager_run_query_options() if eager else []
         return (
-            session.query(SqlTag)
+            session.query(SqlTag)  # clint: disable=workspace-query-isolation
             .options(*query_options)
             .filter(SqlTag.run_uuid == run_id, SqlTag.key == tagKey)
             .one_or_none()
@@ -1161,7 +1161,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             SqlLoggedModelMetric.run_id == run_id,
                             SqlLoggedModelMetric.metric_name.in_(batch),
                         )
-                        .all()
+                        .all()  # clint: disable=workspace-query-isolation
                     )
                     existing_metrics = {m.to_mlflow_entity() for m in existing_metrics}
                     non_existing_metrics = [
@@ -1211,7 +1211,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         for metric_key_batch in metric_key_batches:
             # First, determine which metric keys are present in the database
             latest_metrics_key_records_from_db = (
-                session.query(SqlLatestMetric.key)
+                session.query(SqlLatestMetric.key)  # clint: disable=workspace-query-isolation
                 .filter(
                     SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
                     SqlLatestMetric.key.in_(metric_key_batch),
@@ -1228,7 +1228,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     record[0] for record in latest_metrics_key_records_from_db
                 ]
                 latest_metrics_batch = (
-                    session.query(SqlLatestMetric)
+                    session.query(SqlLatestMetric)  # clint: disable=workspace-query-isolation
                     .filter(
                         SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
                         SqlLatestMetric.key.in_(latest_metric_keys_from_db),
@@ -1916,7 +1916,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # find all datasets with the same name and digest
             # if the dataset already exists, use the existing dataset uuid
             existing_datasets = (
-                session.query(SqlDataset)
+                session.query(SqlDataset)  # clint: disable=workspace-query-isolation
                 .filter(SqlDataset.experiment_id == experiment_id)
                 .filter(SqlDataset.name.in_(dataset_names_to_check))
                 .filter(SqlDataset.digest.in_(dataset_digests_to_check))
@@ -1957,7 +1957,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # find all inputs with the same source_id and destination_id
             # if the input already exists, use the existing input uuid
             existing_inputs = (
-                session.query(SqlInput)
+                session.query(SqlInput)  # clint: disable=workspace-query-isolation
                 .filter(SqlInput.source_type == "DATASET")
                 .filter(SqlInput.source_id.in_(dataset_uuids.values()))
                 .filter(SqlInput.destination_type == "RUN")
@@ -2037,7 +2037,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         return [
             LoggedModelInput(model_id=input.destination_id)
             for input in (
-                session.query(SqlInput)
+                session.query(SqlInput)  # clint: disable=workspace-query-isolation
                 .filter(
                     SqlInput.source_type == "RUN_INPUT",
                     SqlInput.source_id == run_id,
@@ -2054,7 +2054,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     ) -> list[LoggedModelOutput]:
         return [
             LoggedModelOutput(model_id=output.destination_id, step=output.step)
-            for output in session.query(SqlInput)
+            for output in session.query(SqlInput)  # clint: disable=workspace-query-isolation
             .filter(
                 SqlInput.source_type == "RUN_OUTPUT",
                 SqlInput.source_id == run_id,
@@ -2073,7 +2073,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns a dict mapping run_id to list of LoggedModelOutput.
         """
         outputs = (
-            session.query(SqlInput)
+            session.query(SqlInput)  # clint: disable=workspace-query-isolation
             .filter(
                 SqlInput.source_type == "RUN_OUTPUT",
                 SqlInput.source_id.in_(run_ids),
@@ -2363,7 +2363,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     session.query(SqlGatewayEndpointBinding).filter(
                         SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
                         SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
-                    ).delete()
+                    ).delete()  # clint: disable=workspace-query-isolation
 
                     binding = SqlGatewayEndpointBinding(
                         endpoint_id=endpoint_id,
@@ -2582,7 +2582,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session.query(SqlGatewayEndpointBinding).filter(
                     SqlGatewayEndpointBinding.resource_type == GatewayResourceType.SCORER.value,
                     SqlGatewayEndpointBinding.resource_id == scorer.scorer_id,
-                ).delete()
+                ).delete()  # clint: disable=workspace-query-isolation
 
                 session.delete(scorer)
 
@@ -2778,7 +2778,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Delete existing online configs for this scorer
             session.query(SqlOnlineScoringConfig).filter(
                 SqlOnlineScoringConfig.scorer_id == scorer.scorer_id
-            ).delete()
+            ).delete()  # clint: disable=workspace-query-isolation
 
             # Create new online config
             config = SqlOnlineScoringConfig(
@@ -2807,7 +2807,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         with self.ManagedSessionMaker() as session:
             # Subquery to get the max version for each scorer
             max_version_subquery = (
-                session.query(
+                session.query(  # clint: disable=workspace-query-isolation
                     SqlScorerVersion.scorer_id,
                     func.max(SqlScorerVersion.scorer_version).label("max_version"),
                 )
@@ -2926,7 +2926,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 dataset_filter.append(SqlLoggedModelMetric.dataset_digest == dataset_digest)
 
             subquery = (
-                session.query(
+                session.query(  # clint: disable=workspace-query-isolation
                     SqlLoggedModelMetric.model_id,
                     SqlLoggedModelMetric.metric_value,
                     func.rank()
@@ -3004,11 +3004,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if dataset_filters:
                     metric_filters.append(sqlalchemy.or_(*dataset_filters))
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelMetric).filter(*metric_filters).subquery()
+                    session.query(SqlLoggedModelMetric)  # clint: disable=workspace-query-isolation
+                    .filter(*metric_filters)
+                    .subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelParam)
+                    session.query(SqlLoggedModelParam)  # clint: disable=workspace-query-isolation
                     .filter(
                         SqlLoggedModelParam.param_key == comp.entity.key,
                         comp_func(SqlLoggedModelParam.param_value, comp.value),
@@ -3017,7 +3019,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
             elif comp.entity.type == EntityType.TAG:
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelTag)
+                    session.query(SqlLoggedModelTag)  # clint: disable=workspace-query-isolation
                     .filter(
                         SqlLoggedModelTag.tag_key == comp.entity.key,
                         comp_func(SqlLoggedModelTag.tag_value, comp.value),
@@ -3035,7 +3037,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 session.query(SqlLoggedModelMetric.model_id)
                 .filter(sqlalchemy.or_(*dataset_filters))
                 .distinct()
-                .subquery()
+                .subquery()  # clint: disable=workspace-query-isolation
             )
             models = models.join(subquery)
 
@@ -5201,7 +5203,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             Profile dictionary with current statistics
         """
         total_records = (
-            session.query(SqlEvaluationDatasetRecord)
+            session.query(SqlEvaluationDatasetRecord)  # clint: disable=workspace-query-isolation
             .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
             .count()
         )

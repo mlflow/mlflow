@@ -311,30 +311,28 @@ def _get_request_param(param: str) -> str:
 
 def _get_permission_from_store_or_default(
     store_permission_func: Callable[[], str],
-    workspace_level_permission_func: Callable[[], Permission | None] | None = None,
+    workspace_level_permission_func: Callable[[], Permission | None],
 ) -> Permission:
     """
-    Resolve a permission from the auth store, with an optional workspace-aware fallback.
+    Resolve a permission from the auth store, with a workspace-aware fallback.
 
     Behavior:
     - If a direct (resource-level) permission exists, it is returned.
     - If no direct permission exists and workspaces are enabled, callers provide
       ``workspace_level_permission_func`` to check workspace-level permissions for the resource's
       workspace. This fallback should default to ``NO_PERMISSIONS`` to preserve workspace isolation.
-    - If workspace permissions are not applicable (e.g. workspaces are disabled and the func
-      returns ``None``), fall back to ``auth_config.default_permission``.
+    - If workspaces are disabled, fall back to ``auth_config.default_permission``.
     - Unexpected errors are propagated rather than granting access.
     """
     try:
         perm = store_permission_func()
     except MlflowException as e:
         if e.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
-            if workspace_level_permission_func is not None:
+            if MLFLOW_ENABLE_WORKSPACES.get():
                 workspace_permission = workspace_level_permission_func()
-                # workspace_permission is only None when workspaces are not enabled.
-                # workspace_permission defaults to NO_PERMISSIONS. In effect, this means that
-                # auth_config.default_permission is not supported when workspaces are enabled
-                # to keep workspace isolation.
+                # workspace_permission defaults to NO_PERMISSIONS when workspaces are
+                # enabled, so auth_config.default_permission is intentionally bypassed
+                # to preserve workspace isolation.
                 if workspace_permission is not None:
                     return workspace_permission
             perm = auth_config.default_permission
