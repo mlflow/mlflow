@@ -173,6 +173,16 @@ def _configure_mlflow_loggers(root_module_name):
     )
 
 
+def configure_module_logger(module_name: str, level: int) -> logging.Logger:
+    """
+    Configure an individual module logger without mutating global/root logging
+    configuration (for example, by calling ``logging.basicConfig``).
+    """
+    module_logger = logging.getLogger(module_name)
+    module_logger.setLevel(level)
+    return module_logger
+
+
 def eprint(*args, **kwargs):
     print(*args, file=MLFLOW_LOGGING_STREAM, **kwargs)
 
