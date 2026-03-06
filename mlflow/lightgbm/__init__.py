@@ -240,9 +240,10 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
-    skops_trusted_types = list(
-        set(skops_trusted_types).union(_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES)
-    )
+    if serialization_format == "skops":
+        skops_trusted_types = list(
+            _LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES.union(skops_trusted_types or set())
+        )
     # Save a LightGBM model
     _save_model(lgb_model, model_data_path, serialization_format, skops_trusted_types)
 
@@ -498,12 +499,6 @@ def _load_model(path):
 
         serialization_format = flavor_conf.get("serialization_format", "cloudpickle")
         skops_trusted_types = flavor_conf.get("skops_trusted_types", None)
-
-        if serialization_format == "skops":
-            merged = list(_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES)
-            if skops_trusted_types:
-                merged.extend(t for t in skops_trusted_types if t not in merged)
-            skops_trusted_types = merged
 
         model = _load_sklearn_model(lgb_model_path, serialization_format, skops_trusted_types)
 
