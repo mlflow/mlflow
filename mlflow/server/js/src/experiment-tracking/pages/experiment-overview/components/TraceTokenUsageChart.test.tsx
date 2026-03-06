@@ -24,6 +24,20 @@ const createOutputTokensDataPoint = (timeBucket: string, sum: number) => ({
   values: { [AggregationType.SUM]: sum },
 });
 
+// Helper to create a cache read tokens data point
+const createCacheReadTokensDataPoint = (timeBucket: string, sum: number) => ({
+  metric_name: TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+  dimensions: { time_bucket: timeBucket },
+  values: { [AggregationType.SUM]: sum },
+});
+
+// Helper to create a cache creation tokens data point
+const createCacheCreationTokensDataPoint = (timeBucket: string, sum: number) => ({
+  metric_name: TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
+  dimensions: { time_bucket: timeBucket },
+  values: { [AggregationType.SUM]: sum },
+});
+
 // Helper to create a total tokens data point (no time bucket)
 const createTotalTokensDataPoint = (sum: number) => ({
   metric_name: TraceMetricKey.TOTAL_TOKENS,
@@ -80,7 +94,13 @@ describe('TraceTokenUsageChart', () => {
   };
 
   // Helper to setup MSW handler for trace metrics endpoint with routing based on metric_name
-  const setupTraceMetricsHandler = (inputDataPoints: any[], outputDataPoints: any[], totalDataPoints: any[]) => {
+  const setupTraceMetricsHandler = (
+    inputDataPoints: any[],
+    outputDataPoints: any[],
+    totalDataPoints: any[],
+    cacheReadDataPoints: any[] = [],
+    cacheCreationDataPoints: any[] = [],
+  ) => {
     server.use(
       rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
@@ -91,6 +111,10 @@ describe('TraceTokenUsageChart', () => {
           return res(ctx.json({ data_points: outputDataPoints }));
         } else if (metricName === TraceMetricKey.TOTAL_TOKENS) {
           return res(ctx.json({ data_points: totalDataPoints }));
+        } else if (metricName === TraceMetricKey.CACHE_READ_INPUT_TOKENS) {
+          return res(ctx.json({ data_points: cacheReadDataPoints }));
+        } else if (metricName === TraceMetricKey.CACHE_CREATION_INPUT_TOKENS) {
+          return res(ctx.json({ data_points: cacheCreationDataPoints }));
         }
         return res(ctx.json({ data_points: [] }));
       }),
@@ -175,11 +199,11 @@ describe('TraceTokenUsageChart', () => {
       renderComponent();
 
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toBeInTheDocument();
+        expect(screen.getByTestId('composed-chart')).toBeInTheDocument();
       });
 
       // Verify the area chart has all time buckets (3 buckets for 2-hour range with 1hr interval)
-      expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+      expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
     });
 
     it('should display both input and output token areas', async () => {
@@ -224,6 +248,80 @@ describe('TraceTokenUsageChart', () => {
       await waitFor(() => {
         expect(screen.getByText(/125\.00K input/)).toBeInTheDocument();
         expect(screen.getByText(/50\.00K output/)).toBeInTheDocument();
+      });
+    });
+
+    it('should display cache read tokens in subtitle when present', async () => {
+      const mockCacheReadDataPoints = [
+        createCacheReadTokensDataPoint('2025-12-22T10:00:00Z', 10000),
+        createCacheReadTokensDataPoint('2025-12-22T11:00:00Z', 15000),
+      ];
+
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints, mockCacheReadDataPoints);
+
+      renderComponent();
+
+      // Cached: 10000 + 15000 = 25000 => 25.00K cache read
+      await waitFor(() => {
+        expect(screen.getByText(/25\.00K cache read/)).toBeInTheDocument();
+      });
+    });
+
+    it('should render cache read tokens line when data is present', async () => {
+      const mockCacheReadDataPoints = [
+        createCacheReadTokensDataPoint('2025-12-22T10:00:00Z', 10000),
+        createCacheReadTokensDataPoint('2025-12-22T11:00:00Z', 15000),
+      ];
+
+      setupTraceMetricsHandler(mockInputDataPoints, mockOutputDataPoints, mockTotalDataPoints, mockCacheReadDataPoints);
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('line-(Cache Read)')).toBeInTheDocument();
+      });
+    });
+
+    it('should display cache creation tokens in subtitle when present', async () => {
+      const mockCacheCreationDataPoints = [
+        createCacheCreationTokensDataPoint('2025-12-22T10:00:00Z', 5000),
+        createCacheCreationTokensDataPoint('2025-12-22T11:00:00Z', 8000),
+      ];
+
+      setupTraceMetricsHandler(
+        mockInputDataPoints,
+        mockOutputDataPoints,
+        mockTotalDataPoints,
+        [],
+        mockCacheCreationDataPoints,
+      );
+
+      renderComponent();
+
+      // Cache creation: 5000 + 8000 = 13000 => 13.00K cache write
+      await waitFor(() => {
+        expect(screen.getByText(/13\.00K cache write/)).toBeInTheDocument();
+      });
+    });
+
+    it('should render cache creation tokens line when data is present', async () => {
+      const mockCacheCreationDataPoints = [
+        createCacheCreationTokensDataPoint('2025-12-22T10:00:00Z', 5000),
+        createCacheCreationTokensDataPoint('2025-12-22T11:00:00Z', 8000),
+      ];
+
+      setupTraceMetricsHandler(
+        mockInputDataPoints,
+        mockOutputDataPoints,
+        mockTotalDataPoints,
+        [],
+        mockCacheCreationDataPoints,
+      );
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByTestId('line-(Cache Write)')).toBeInTheDocument();
       });
     });
 
@@ -386,7 +484,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should still render with all 3 time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
@@ -401,7 +499,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should still render the chart with all time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
 
       // Should display 0 when total tokens is not available
@@ -431,7 +529,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should still render the chart with all generated time buckets (all with 0 values)
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
@@ -446,7 +544,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should render chart with all 3 time buckets (missing ones filled with 0)
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
 
@@ -466,7 +564,7 @@ describe('TraceTokenUsageChart', () => {
 
       // Should render chart with all 3 time buckets
       await waitFor(() => {
-        expect(screen.getByTestId('area-chart')).toHaveAttribute('data-count', '3');
+        expect(screen.getByTestId('composed-chart')).toHaveAttribute('data-count', '3');
       });
     });
   });

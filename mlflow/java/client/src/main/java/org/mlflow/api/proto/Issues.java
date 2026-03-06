@@ -3055,51 +3055,10 @@ public final class Issues {
 
     /**
      * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 8;</code>
-     * @return A list containing the traceIds.
-     */
-    java.util.List<java.lang.String>
-        getTraceIdsList();
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 8;</code>
-     * @return The count of traceIds.
-     */
-    int getTraceIdsCount();
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 8;</code>
-     * @param index The index of the element to return.
-     * @return The traceIds at the given index.
-     */
-    java.lang.String getTraceIds(int index);
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 8;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the traceIds at the given index.
-     */
-    com.google.protobuf.ByteString
-        getTraceIdsBytes(int index);
-
-    /**
-     * <pre>
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 9;</code>
+     * <code>optional string created_by = 8;</code>
      * @return Whether the createdBy field is set.
      */
     boolean hasCreatedBy();
@@ -3108,7 +3067,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 9;</code>
+     * <code>optional string created_by = 8;</code>
      * @return The createdBy.
      */
     java.lang.String getCreatedBy();
@@ -3117,7 +3076,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 9;</code>
+     * <code>optional string created_by = 8;</code>
      * @return The bytes for createdBy.
      */
     com.google.protobuf.ByteString
@@ -3147,7 +3106,6 @@ public final class Issues {
       confidence_ = "";
       rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       sourceRunId_ = "";
-      traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       createdBy_ = "";
     }
 
@@ -3229,15 +3187,6 @@ public final class Issues {
             }
             case 66: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000080) != 0)) {
-                traceIds_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000080;
-              }
-              traceIds_.add(bs);
-              break;
-            }
-            case 74: {
-              com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000040;
               createdBy_ = bs;
               break;
@@ -3259,9 +3208,6 @@ public final class Issues {
       } finally {
         if (((mutable_bitField0_ & 0x00000020) != 0)) {
           rootCauses_ = rootCauses_.getUnmodifiableView();
-        }
-        if (((mutable_bitField0_ & 0x00000080) != 0)) {
-          traceIds_ = traceIds_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -4384,65 +4330,14 @@ public final class Issues {
       }
     }
 
-    public static final int TRACE_IDS_FIELD_NUMBER = 8;
-    private com.google.protobuf.LazyStringList traceIds_;
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 8;</code>
-     * @return A list containing the traceIds.
-     */
-    public com.google.protobuf.ProtocolStringList
-        getTraceIdsList() {
-      return traceIds_;
-    }
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 8;</code>
-     * @return The count of traceIds.
-     */
-    public int getTraceIdsCount() {
-      return traceIds_.size();
-    }
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 8;</code>
-     * @param index The index of the element to return.
-     * @return The traceIds at the given index.
-     */
-    public java.lang.String getTraceIds(int index) {
-      return traceIds_.get(index);
-    }
-    /**
-     * <pre>
-     * List of trace IDs associated with this issue.
-     * </pre>
-     *
-     * <code>repeated string trace_ids = 8;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the traceIds at the given index.
-     */
-    public com.google.protobuf.ByteString
-        getTraceIdsBytes(int index) {
-      return traceIds_.getByteString(index);
-    }
-
-    public static final int CREATED_BY_FIELD_NUMBER = 9;
+    public static final int CREATED_BY_FIELD_NUMBER = 8;
     private volatile java.lang.Object createdBy_;
     /**
      * <pre>
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 9;</code>
+     * <code>optional string created_by = 8;</code>
      * @return Whether the createdBy field is set.
      */
     @java.lang.Override
@@ -4454,7 +4349,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 9;</code>
+     * <code>optional string created_by = 8;</code>
      * @return The createdBy.
      */
     @java.lang.Override
@@ -4477,7 +4372,7 @@ public final class Issues {
      * Identifier for who created this issue.
      * </pre>
      *
-     * <code>optional string created_by = 9;</code>
+     * <code>optional string created_by = 8;</code>
      * @return The bytes for createdBy.
      */
     @java.lang.Override
@@ -4530,11 +4425,8 @@ public final class Issues {
       if (((bitField0_ & 0x00000020) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 7, sourceRunId_);
       }
-      for (int i = 0; i < traceIds_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, traceIds_.getRaw(i));
-      }
       if (((bitField0_ & 0x00000040) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 9, createdBy_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 8, createdBy_);
       }
       unknownFields.writeTo(output);
     }
@@ -4571,16 +4463,8 @@ public final class Issues {
       if (((bitField0_ & 0x00000020) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(7, sourceRunId_);
       }
-      {
-        int dataSize = 0;
-        for (int i = 0; i < traceIds_.size(); i++) {
-          dataSize += computeStringSizeNoTag(traceIds_.getRaw(i));
-        }
-        size += dataSize;
-        size += 1 * getTraceIdsList().size();
-      }
       if (((bitField0_ & 0x00000040) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(9, createdBy_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, createdBy_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -4629,8 +4513,6 @@ public final class Issues {
         if (!getSourceRunId()
             .equals(other.getSourceRunId())) return false;
       }
-      if (!getTraceIdsList()
-          .equals(other.getTraceIdsList())) return false;
       if (hasCreatedBy() != other.hasCreatedBy()) return false;
       if (hasCreatedBy()) {
         if (!getCreatedBy()
@@ -4674,10 +4556,6 @@ public final class Issues {
       if (hasSourceRunId()) {
         hash = (37 * hash) + SOURCE_RUN_ID_FIELD_NUMBER;
         hash = (53 * hash) + getSourceRunId().hashCode();
-      }
-      if (getTraceIdsCount() > 0) {
-        hash = (37 * hash) + TRACE_IDS_FIELD_NUMBER;
-        hash = (53 * hash) + getTraceIdsList().hashCode();
       }
       if (hasCreatedBy()) {
         hash = (37 * hash) + CREATED_BY_FIELD_NUMBER;
@@ -4834,10 +4712,8 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000020);
         sourceRunId_ = "";
         bitField0_ = (bitField0_ & ~0x00000040);
-        traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000080);
         createdBy_ = "";
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000080);
         return this;
       }
 
@@ -4895,12 +4771,7 @@ public final class Issues {
           to_bitField0_ |= 0x00000020;
         }
         result.sourceRunId_ = sourceRunId_;
-        if (((bitField0_ & 0x00000080) != 0)) {
-          traceIds_ = traceIds_.getUnmodifiableView();
-          bitField0_ = (bitField0_ & ~0x00000080);
-        }
-        result.traceIds_ = traceIds_;
-        if (((from_bitField0_ & 0x00000100) != 0)) {
+        if (((from_bitField0_ & 0x00000080) != 0)) {
           to_bitField0_ |= 0x00000040;
         }
         result.createdBy_ = createdBy_;
@@ -4993,18 +4864,8 @@ public final class Issues {
           sourceRunId_ = other.sourceRunId_;
           onChanged();
         }
-        if (!other.traceIds_.isEmpty()) {
-          if (traceIds_.isEmpty()) {
-            traceIds_ = other.traceIds_;
-            bitField0_ = (bitField0_ & ~0x00000080);
-          } else {
-            ensureTraceIdsIsMutable();
-            traceIds_.addAll(other.traceIds_);
-          }
-          onChanged();
-        }
         if (other.hasCreatedBy()) {
-          bitField0_ |= 0x00000100;
+          bitField0_ |= 0x00000080;
           createdBy_ = other.createdBy_;
           onChanged();
         }
@@ -5831,169 +5692,24 @@ public final class Issues {
         return this;
       }
 
-      private com.google.protobuf.LazyStringList traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      private void ensureTraceIdsIsMutable() {
-        if (!((bitField0_ & 0x00000080) != 0)) {
-          traceIds_ = new com.google.protobuf.LazyStringArrayList(traceIds_);
-          bitField0_ |= 0x00000080;
-         }
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 8;</code>
-       * @return A list containing the traceIds.
-       */
-      public com.google.protobuf.ProtocolStringList
-          getTraceIdsList() {
-        return traceIds_.getUnmodifiableView();
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 8;</code>
-       * @return The count of traceIds.
-       */
-      public int getTraceIdsCount() {
-        return traceIds_.size();
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 8;</code>
-       * @param index The index of the element to return.
-       * @return The traceIds at the given index.
-       */
-      public java.lang.String getTraceIds(int index) {
-        return traceIds_.get(index);
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 8;</code>
-       * @param index The index of the value to return.
-       * @return The bytes of the traceIds at the given index.
-       */
-      public com.google.protobuf.ByteString
-          getTraceIdsBytes(int index) {
-        return traceIds_.getByteString(index);
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 8;</code>
-       * @param index The index to set the value at.
-       * @param value The traceIds to set.
-       * @return This builder for chaining.
-       */
-      public Builder setTraceIds(
-          int index, java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureTraceIdsIsMutable();
-        traceIds_.set(index, value);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 8;</code>
-       * @param value The traceIds to add.
-       * @return This builder for chaining.
-       */
-      public Builder addTraceIds(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureTraceIdsIsMutable();
-        traceIds_.add(value);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 8;</code>
-       * @param values The traceIds to add.
-       * @return This builder for chaining.
-       */
-      public Builder addAllTraceIds(
-          java.lang.Iterable<java.lang.String> values) {
-        ensureTraceIdsIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, traceIds_);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 8;</code>
-       * @return This builder for chaining.
-       */
-      public Builder clearTraceIds() {
-        traceIds_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-        bitField0_ = (bitField0_ & ~0x00000080);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * List of trace IDs associated with this issue.
-       * </pre>
-       *
-       * <code>repeated string trace_ids = 8;</code>
-       * @param value The bytes of the traceIds to add.
-       * @return This builder for chaining.
-       */
-      public Builder addTraceIdsBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureTraceIdsIsMutable();
-        traceIds_.add(value);
-        onChanged();
-        return this;
-      }
-
       private java.lang.Object createdBy_ = "";
       /**
        * <pre>
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 9;</code>
+       * <code>optional string created_by = 8;</code>
        * @return Whether the createdBy field is set.
        */
       public boolean hasCreatedBy() {
-        return ((bitField0_ & 0x00000100) != 0);
+        return ((bitField0_ & 0x00000080) != 0);
       }
       /**
        * <pre>
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 9;</code>
+       * <code>optional string created_by = 8;</code>
        * @return The createdBy.
        */
       public java.lang.String getCreatedBy() {
@@ -6015,7 +5731,7 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 9;</code>
+       * <code>optional string created_by = 8;</code>
        * @return The bytes for createdBy.
        */
       public com.google.protobuf.ByteString
@@ -6036,7 +5752,7 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 9;</code>
+       * <code>optional string created_by = 8;</code>
        * @param value The createdBy to set.
        * @return This builder for chaining.
        */
@@ -6045,7 +5761,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000100;
+  bitField0_ |= 0x00000080;
         createdBy_ = value;
         onChanged();
         return this;
@@ -6055,11 +5771,11 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 9;</code>
+       * <code>optional string created_by = 8;</code>
        * @return This builder for chaining.
        */
       public Builder clearCreatedBy() {
-        bitField0_ = (bitField0_ & ~0x00000100);
+        bitField0_ = (bitField0_ & ~0x00000080);
         createdBy_ = getDefaultInstance().getCreatedBy();
         onChanged();
         return this;
@@ -6069,7 +5785,7 @@ public final class Issues {
        * Identifier for who created this issue.
        * </pre>
        *
-       * <code>optional string created_by = 9;</code>
+       * <code>optional string created_by = 8;</code>
        * @param value The bytes for createdBy to set.
        * @return This builder for chaining.
        */
@@ -6078,7 +5794,7 @@ public final class Issues {
         if (value == null) {
     throw new NullPointerException();
   }
-  bitField0_ |= 0x00000100;
+  bitField0_ |= 0x00000080;
         createdBy_ = value;
         onChanged();
         return this;
@@ -12216,25 +11932,24 @@ public final class Issues {
       "nce\030\006 \001(\t\022\023\n\013root_causes\030\007 \003(\t\022\025\n\rsource" +
       "_run_id\030\010 \001(\t\022\031\n\021created_timestamp\030\t \001(\003" +
       "\022\036\n\026last_updated_timestamp\030\n \001(\003\022\022\n\ncrea" +
-      "ted_by\030\013 \001(\t\"\201\002\n\013CreateIssue\022\033\n\rexperime" +
+      "ted_by\030\013 \001(\t\"\356\001\n\013CreateIssue\022\033\n\rexperime" +
       "nt_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\031\n" +
       "\013description\030\003 \001(\tB\004\370\206\031\001\022\016\n\006status\030\004 \001(\t" +
       "\022\022\n\nconfidence\030\005 \001(\t\022\023\n\013root_causes\030\006 \003(" +
-      "\t\022\025\n\rsource_run_id\030\007 \001(\t\022\021\n\ttrace_ids\030\010 " +
-      "\003(\t\022\022\n\ncreated_by\030\t \001(\t\032/\n\010Response\022#\n\005i" +
-      "ssue\030\001 \001(\0132\024.mlflow.issues.Issue\"\235\001\n\013Upd" +
-      "ateIssue\022\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name" +
-      "\030\002 \001(\t\022\023\n\013description\030\003 \001(\t\022\016\n\006status\030\004 " +
-      "\001(\t\022\022\n\nconfidence\030\005 \001(\t\032/\n\010Response\022#\n\005i" +
-      "ssue\030\001 \001(\0132\024.mlflow.issues.Issue\"S\n\010GetI" +
-      "ssue\022\026\n\010issue_id\030\001 \001(\tB\004\370\206\031\001\032/\n\010Response" +
-      "\022#\n\005issue\030\001 \001(\0132\024.mlflow.issues.Issue\"\260\001" +
-      "\n\014SearchIssues\022\025\n\rexperiment_id\030\001 \001(\t\022\025\n" +
-      "\rfilter_string\030\002 \001(\t\022\023\n\013max_results\030\003 \001(" +
-      "\005\022\022\n\npage_token\030\004 \001(\t\032I\n\010Response\022$\n\006iss" +
-      "ues\030\001 \003(\0132\024.mlflow.issues.Issue\022\027\n\017next_" +
-      "page_token\030\002 \001(\tB\031\n\024org.mlflow.api.proto" +
-      "\220\001\001"
+      "\t\022\025\n\rsource_run_id\030\007 \001(\t\022\022\n\ncreated_by\030\010" +
+      " \001(\t\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow" +
+      ".issues.Issue\"\235\001\n\013UpdateIssue\022\026\n\010issue_i" +
+      "d\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\023\n\013descripti" +
+      "on\030\003 \001(\t\022\016\n\006status\030\004 \001(\t\022\022\n\nconfidence\030\005" +
+      " \001(\t\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow" +
+      ".issues.Issue\"S\n\010GetIssue\022\026\n\010issue_id\030\001 " +
+      "\001(\tB\004\370\206\031\001\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.m" +
+      "lflow.issues.Issue\"\260\001\n\014SearchIssues\022\025\n\re" +
+      "xperiment_id\030\001 \001(\t\022\025\n\rfilter_string\030\002 \001(" +
+      "\t\022\023\n\013max_results\030\003 \001(\005\022\022\n\npage_token\030\004 \001" +
+      "(\t\032I\n\010Response\022$\n\006issues\030\001 \003(\0132\024.mlflow." +
+      "issues.Issue\022\027\n\017next_page_token\030\002 \001(\tB\031\n" +
+      "\024org.mlflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -12252,7 +11967,7 @@ public final class Issues {
     internal_static_mlflow_issues_CreateIssue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_CreateIssue_descriptor,
-        new java.lang.String[] { "ExperimentId", "Name", "Description", "Status", "Confidence", "RootCauses", "SourceRunId", "TraceIds", "CreatedBy", });
+        new java.lang.String[] { "ExperimentId", "Name", "Description", "Status", "Confidence", "RootCauses", "SourceRunId", "CreatedBy", });
     internal_static_mlflow_issues_CreateIssue_Response_descriptor =
       internal_static_mlflow_issues_CreateIssue_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_CreateIssue_Response_fieldAccessorTable = new

@@ -209,7 +209,7 @@ def test_capture_imported_modules():
     from mlflow.utils._capture_modules import _CaptureImportedModules
 
     with _CaptureImportedModules() as cap:
-        import math  # clint: disable=lazy-builtin-import  # noqa: F401
+        import math  # clint: disable=lazy-import  # noqa: F401
 
         __import__("pandas")
         importlib.import_module("numpy")

@@ -1323,6 +1323,15 @@ MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
 )
 
 
+#: Internal env var for the shared gateway auth token. The server generates a random
+#: token at startup and sets it in the environment so all uvicorn workers and job
+#: subprocesses can use it to authenticate internal gateway requests.
+#: (default: ``None``)
+_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
+    "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
+)
+
+
 #: Specifies whether to enable automatic UV project detection during model logging.
 #: When enabled, MLflow will look for uv.lock and pyproject.toml in the current working
 #: directory and use ``uv export`` for dependency inference instead of capturing imported packages.
@@ -1335,3 +1344,4 @@ MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", Tru
 #: file size is a concern.
 #: (default: ``True``)
 MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)
+

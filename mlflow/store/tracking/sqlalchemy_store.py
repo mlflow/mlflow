@@ -36,6 +36,7 @@ from mlflow.entities import (
     Expectation,
     Experiment,
     Feedback,
+    Issue,
     Run,
     RunInputs,
     RunOutputs,
@@ -49,7 +50,10 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
-from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.assessment import (
+    ExpectationValue,
+    FeedbackValue,
+)
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.gateway_endpoint import GatewayResourceType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -123,6 +127,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpointBinding,
     SqlInput,
     SqlInputTag,
+    SqlIssue,
     SqlLatestMetric,
     SqlLoggedModel,
     SqlLoggedModelMetric,
@@ -5762,6 +5767,70 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             session.commit()
 
             return dataset.to_mlflow_entity()
+
+    # ===================================================================================
+    # Issue Methods
+    # ===================================================================================
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: str,
+        confidence: str | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue in the database.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status.
+            confidence: Optional confidence level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional run ID that discovered this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Verify experiment exists
+            self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
+
+            # Generate issue ID
+            issue_id = f"iss-{uuid.uuid4().hex}"
+
+            # Get current timestamp
+            current_time = get_current_time_millis()
+
+            # Serialize root_causes to JSON
+            root_causes_json = json.dumps(root_causes) if root_causes else None
+
+            # Create SqlIssue record
+            sql_issue = SqlIssue(
+                issue_id=issue_id,
+                experiment_id=experiment_id,
+                name=name,
+                description=description,
+                status=status,
+                confidence=confidence,
+                root_causes=root_causes_json,
+                source_run_id=source_run_id,
+                created_timestamp=current_time,
+                last_updated_timestamp=current_time,
+                created_by=created_by,
+            )
+
+            session.add(sql_issue)
+
+            # Return Issue entity
+            return sql_issue.to_mlflow_entity()
 
     # ===================================================================================
     # Helper Methods for Secrets & Endpoints

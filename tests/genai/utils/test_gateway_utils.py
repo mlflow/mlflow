@@ -1,3 +1,4 @@
+import base64
 from unittest import mock
 
 import pytest
@@ -40,6 +41,9 @@ def test_get_gateway_litellm_config(
     else:
         monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
 
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+
     with mock.patch(
         "mlflow.genai.utils.gateway_utils.get_tracking_uri",
         return_value=tracking_uri or "http://default:5000",
@@ -50,6 +54,52 @@ def test_get_gateway_litellm_config(
     assert config.api_base == expected_api_base
     assert config.api_key == "mlflow-gateway-auth"
     assert config.model == f"openai/{endpoint_name}"
+    assert config.extra_headers is None
+
+
+def test_get_gateway_litellm_config_with_tracking_credentials(monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "alice")
+    monkeypatch.setenv("MLFLOW_TRACKING_PASSWORD", "secret123")
+
+    with mock.patch(
+        "mlflow.genai.utils.gateway_utils.get_tracking_uri",
+        return_value="http://localhost:5000",
+    ):
+        config = get_gateway_litellm_config("chat")
+
+    expected_encoded = base64.b64encode(b"alice:secret123").decode("ascii")
+    assert config.extra_headers == {"Authorization": f"Basic {expected_encoded}"}
+    assert config.api_key == "mlflow-gateway-auth"
+
+
+def test_get_gateway_litellm_config_without_tracking_credentials(monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+
+    with mock.patch(
+        "mlflow.genai.utils.gateway_utils.get_tracking_uri",
+        return_value="http://localhost:5000",
+    ):
+        config = get_gateway_litellm_config("chat")
+
+    assert config.extra_headers is None
+    assert config.api_key == "mlflow-gateway-auth"
+
+
+def test_get_gateway_litellm_config_username_only_no_headers(monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
+    monkeypatch.setenv("MLFLOW_TRACKING_USERNAME", "alice")
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+
+    with mock.patch(
+        "mlflow.genai.utils.gateway_utils.get_tracking_uri",
+        return_value="http://localhost:5000",
+    ):
+        config = get_gateway_litellm_config("chat")
+
+    assert config.extra_headers is None
 
 
 @pytest.mark.parametrize(

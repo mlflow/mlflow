@@ -7,6 +7,7 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     DatasetRecord,
+    Issue,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -598,6 +599,35 @@ class AbstractStore(GatewayStoreMixin):
             assessment_id: The ID of the assessment to be deleted.
         """
         raise NotImplementedError
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: str,
+        confidence: str | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status.
+            confidence: Optional confidence level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        raise MlflowNotImplementedException()
 
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """

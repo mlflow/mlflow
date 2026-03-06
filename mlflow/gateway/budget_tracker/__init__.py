@@ -117,15 +117,14 @@ class BudgetTracker(ABC):
         """
 
     @abstractmethod
-    def backfill_spend(self, budget_policy_id: str, spend: float) -> None:
-        """Set cumulative spend on a window from historical data.
+    def backfill_spend(self, spend_by_policy: dict[str, float]) -> None:
+        """Set cumulative spend on windows from historical data.
 
-        Used to seed a newly created window with spend from trace data
+        Used to seed newly created windows with spend from trace data
         so that budget tracking survives server restarts.
 
         Args:
-            budget_policy_id: The policy ID whose window to update.
-            spend: The historical spend amount to set.
+            spend_by_policy: Dict mapping budget_policy_id to historical spend amount.
         """
 
     @abstractmethod
