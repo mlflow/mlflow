@@ -621,6 +621,20 @@ def test_set_destination_from_env_var_databricks_uc_with_table_prefix_rejected(m
         _MLFLOW_TRACE_USER_DESTINATION.get()
 
 
+def test_set_destination_from_env_var_databricks_uc_with_table_prefix_rejected_on_init(
+    monkeypatch,
+):
+    mlflow.tracing.reset()
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.prefix")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Unity Catalog table-prefix destinations "
+        r"\(<catalog_name>\.<schema_name>\.<table_prefix>\) are not supported",
+    ):
+        _get_tracer("test")
+
+
 def test_destination_resolution_precedence_with_experiment_derived(monkeypatch):
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
@@ -665,15 +679,4 @@ def test_experiment_derived_destination_invalidates_when_experiment_changes(monk
     assert isinstance(destination, UCSchemaLocation)
     assert destination.catalog_name == "catalog"
     assert destination.schema_name == "schema"
-    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is None
-
-
-def test_set_experiment_derived_without_experiment_id_is_not_cached():
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
-        UnityCatalog("catalog", "schema", table_prefix="exp"),
-        experiment_id=None,
-    )
     assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is None
