@@ -25,6 +25,7 @@ from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
+    _SecureIdGenerator,
     _get_tracer,
     _initialize_tracer_provider,
     is_tracing_enabled,
@@ -587,3 +588,55 @@ def test_otel_resource_attributes(monkeypatch):
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
     }
+
+
+def test_secure_id_generator_not_affected_by_random_seed():
+    """
+    _SecureIdGenerator must use secrets.randbits() so that user calls to random.seed()
+    do not make trace/span IDs deterministic across runs.
+
+    Regression test for https://github.com/mlflow/mlflow/pull/21418:
+    The default OTel RandomIdGenerator uses random.getrandbits(), which is affected by
+    random.seed(). When a user calls random.seed(42) in their script, every re-run of
+    that script produces the same sequence of trace/span IDs, causing
+    "trace already exists" errors on the Databricks backend.
+    """
+    import random
+
+    gen = _SecureIdGenerator()
+
+    random.seed(42)
+    trace_id_1 = gen.generate_trace_id()
+    span_id_1 = gen.generate_span_id()
+
+    # Re-seeding with the same value would make RandomIdGenerator replay the exact same
+    # ID sequence. _SecureIdGenerator must be immune to this.
+    random.seed(42)
+    trace_id_2 = gen.generate_trace_id()
+    span_id_2 = gen.generate_span_id()
+
+    assert trace_id_1 != trace_id_2, (
+        "Trace IDs must differ even after random.seed() is called with the same value. "
+        "This prevents 'trace already exists' errors when re-running scripts that call "
+        "random.seed()."
+    )
+    assert span_id_1 != span_id_2, (
+        "Span IDs must differ even after random.seed() is called with the same value."
+    )
+
+
+def test_tracer_provider_uses_secure_id_generator():
+    """
+    The TracerProvider initialized by MLflow must use _SecureIdGenerator, not the default
+    OTel RandomIdGenerator, so that trace/span IDs are never influenced by random.seed().
+    """
+    from mlflow.tracing.provider import provider as _provider_wrapper
+
+    _initialize_tracer_provider()
+    # provider.get() returns the real TracerProvider, not the ProxyTracerProvider wrapper
+    tracer_provider = _provider_wrapper.get()
+    assert isinstance(tracer_provider.id_generator, _SecureIdGenerator), (
+        f"Expected _SecureIdGenerator but got {type(tracer_provider.id_generator).__name__}. "
+        "MLflow's TracerProvider must use _SecureIdGenerator to avoid deterministic "
+        "trace IDs when user code calls random.seed()."
+    )
