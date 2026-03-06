@@ -17,7 +17,6 @@ from tests.transformers.version import (
 
 _logger = logging.getLogger(__name__)
 
-
 CHAT_TEMPLATE = "{% for message in messages %}{{ message.content }}{{ eos_token }}{% endfor %}"
 
 
