@@ -2,7 +2,6 @@ import json
 from unittest.mock import MagicMock, patch
 
 from mlflow.genai.discovery.clustering import (
-    build_summary,
     cluster_by_llm,
     summarize_cluster,
 )
@@ -10,6 +9,7 @@ from mlflow.genai.discovery.entities import (
     Issue,
     _ConversationAnalysis,
 )
+from mlflow.genai.discovery.utils import build_summary
 
 # ---- cluster_by_llm ----
 

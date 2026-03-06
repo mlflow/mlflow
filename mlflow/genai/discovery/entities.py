@@ -1,42 +1,10 @@
 from __future__ import annotations
 
-import threading
 from dataclasses import dataclass
 
 import pydantic
 
 from mlflow.genai.discovery.constants import ConfidenceLevel
-
-
-class _TokenCounter:
-    """Thread-safe accumulator for LLM token usage across pipeline phases."""
-
-    def __init__(self):
-        self._lock = threading.Lock()
-        self.input_tokens = 0
-        self.output_tokens = 0
-        self.cost_usd = 0.0
-
-    def track(self, response) -> None:
-        with self._lock:
-            usage = getattr(response, "usage", None)
-            if usage:
-                self.input_tokens += getattr(usage, "prompt_tokens", 0) or 0
-                self.output_tokens += getattr(usage, "completion_tokens", 0) or 0
-            if hidden := getattr(response, "_hidden_params", None):
-                if cost := hidden.get("response_cost"):
-                    self.cost_usd += cost
-
-    def to_dict(self) -> dict:
-        result = {}
-        total = self.input_tokens + self.output_tokens
-        if total > 0:
-            result["input_tokens"] = self.input_tokens
-            result["output_tokens"] = self.output_tokens
-            result["total_tokens"] = total
-        if self.cost_usd > 0:
-            result["cost_usd"] = round(self.cost_usd, 6)
-        return result
 
 
 @dataclass
