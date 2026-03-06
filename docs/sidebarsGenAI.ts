@@ -969,6 +969,11 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Usage Tracking',
         },
         {
+          type: 'doc',
+          id: 'governance/ai-gateway/budget-alerts-limits',
+          label: 'Budget Alerts & Limits',
+        },
+        {
           type: 'category',
           label: 'Gateway Server (Legacy)',
           items: [
