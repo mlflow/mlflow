@@ -442,7 +442,7 @@ def test_create_batches_multiple_batches_by_token_limit():
             return_value=10000,
         ),
         patch(
-            "mlflow.genai.judges.optimizers.memalign.utils.convert_mlflow_uri_to_litellm",
+            "mlflow.genai.judges.optimizers.memalign.utils.convert_model_uri_to_litellm",
             return_value="gpt-4",
         ),
         patch("mlflow.genai.judges.optimizers.memalign.utils.token_counter") as mock_counter,
@@ -499,7 +499,7 @@ def test_create_batches_variable_length_examples():
             return_value=10000,
         ),
         patch(
-            "mlflow.genai.judges.optimizers.memalign.utils.convert_mlflow_uri_to_litellm",
+            "mlflow.genai.judges.optimizers.memalign.utils.convert_model_uri_to_litellm",
             return_value="gpt-4",
         ),
         patch("mlflow.genai.judges.optimizers.memalign.utils.token_counter") as mock_counter,
@@ -538,7 +538,7 @@ def test_create_batches_single_large_example():
             return_value=10000,
         ),
         patch(
-            "mlflow.genai.judges.optimizers.memalign.utils.convert_mlflow_uri_to_litellm",
+            "mlflow.genai.judges.optimizers.memalign.utils.convert_model_uri_to_litellm",
             return_value="gpt-4",
         ),
         patch("mlflow.genai.judges.optimizers.memalign.utils.token_counter") as mock_counter,
