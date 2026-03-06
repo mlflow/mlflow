@@ -285,19 +285,11 @@ export const validateModelConfig = (formData: PromptModelConfigFormData): Record
 
 /**
  * Parse response format (structured output schema) from version tags.
- * Returns undefined if tag doesn't exist or JSON parsing fails.
+ * Returns the raw JSON string if the tag exists, or undefined if not.
  */
-export const getResponseFormatFromTags = (tags?: KeyValueEntity[]): Record<string, unknown> | undefined => {
+export const getResponseFormatFromTags = (tags?: KeyValueEntity[]): string | undefined => {
   const tag = tags?.find((t) => t.key === RESPONSE_FORMAT_TAG_KEY);
-  if (!tag?.value) {
-    return undefined;
-  }
-  try {
-    const parsed = JSON.parse(tag.value);
-    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
+  return tag?.value || undefined;
 };
 
 /**

@@ -219,21 +219,11 @@ describe('Model Config Utils', () => {
 
 describe('Response format (structured output) utils', () => {
   describe('getResponseFormatFromTags', () => {
-    test('parses valid JSON schema tag', () => {
-      const tags = [
-        {
-          key: '_mlflow_prompt_response_format',
-          value: '{"type":"object","properties":{"result":{"type":"string"}},"additionalProperties":false}',
-        },
-      ];
+    test('returns raw string value for existing tag', () => {
+      const rawValue = '{"type":"object","properties":{"result":{"type":"string"}},"additionalProperties":false}';
+      const tags = [{ key: '_mlflow_prompt_response_format', value: rawValue }];
 
-      const result = getResponseFormatFromTags(tags);
-
-      expect(result).toEqual({
-        type: 'object',
-        properties: { result: { type: 'string' } },
-        additionalProperties: false,
-      });
+      expect(getResponseFormatFromTags(tags)).toBe(rawValue);
     });
 
     test('returns undefined for missing tag', () => {
@@ -241,19 +231,9 @@ describe('Response format (structured output) utils', () => {
       expect(getResponseFormatFromTags(tags)).toBeUndefined();
     });
 
-    test('returns undefined for invalid JSON', () => {
+    test('returns raw string even for invalid JSON (no parsing)', () => {
       const tags = [{ key: '_mlflow_prompt_response_format', value: 'not-json' }];
-      expect(getResponseFormatFromTags(tags)).toBeUndefined();
-    });
-
-    test('returns undefined when value parses to non-object', () => {
-      const tags = [{ key: '_mlflow_prompt_response_format', value: '"string"' }];
-      expect(getResponseFormatFromTags(tags)).toBeUndefined();
-    });
-
-    test('returns undefined when value parses to array', () => {
-      const tags = [{ key: '_mlflow_prompt_response_format', value: '[1,2,3]' }];
-      expect(getResponseFormatFromTags(tags)).toBeUndefined();
+      expect(getResponseFormatFromTags(tags)).toBe('not-json');
     });
 
     test('returns undefined for empty tags array', () => {

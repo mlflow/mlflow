@@ -364,7 +364,6 @@ export const useCreatePromptModal = ({
       mode === CreatePromptModalMode.CreatePromptVersion &&
       latestVersion?.tags?.some((tag) => tag.key === PROMPT_MODEL_CONFIG_TAG_KEY && tag.value);
     const responseFormat = getResponseFormatFromTags(latestVersion?.tags);
-    const responseFormatJsonInitial = responseFormat !== undefined ? JSON.stringify(responseFormat, null, 2) : '';
 
     form.reset({
       commitMessage: '',
@@ -376,7 +375,15 @@ export const useCreatePromptModal = ({
       tags: [],
       promptType,
       modelConfig: {},
-      responseFormatJson: responseFormatJsonInitial,
+      responseFormatJson: responseFormat
+        ? (() => {
+            try {
+              return JSON.stringify(JSON.parse(responseFormat), null, 2);
+            } catch {
+              return responseFormat;
+            }
+          })()
+        : '',
     });
     setShowAdvancedSettings(!!(hasModelConfig || responseFormat !== undefined));
     setOpen(true);

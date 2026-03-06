@@ -236,7 +236,15 @@ export const PromptVersionMetadata = ({
                 maxHeight: 240,
               }}
             >
-              <code>{JSON.stringify(responseFormat, null, 2)}</code>
+              <code>
+                {(() => {
+                  try {
+                    return JSON.stringify(JSON.parse(responseFormat), null, 2);
+                  } catch {
+                    return responseFormat;
+                  }
+                })()}
+              </code>
             </pre>
           </>
         );
