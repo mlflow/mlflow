@@ -65,7 +65,13 @@ def _ilike(string, pattern):
 
 
 def _rlike(string, pattern):
-    return re.search(pattern, string) is not None
+    try:
+        return re.search(pattern, string) is not None
+    except re.error as e:
+        raise MlflowException(
+            f"Invalid regex pattern '{pattern}' in RLIKE filter: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 def _join_in_comparison_tokens(tokens, search_traces=False):
@@ -1044,7 +1050,7 @@ class SearchExperimentsUtils(SearchUtils):
     VALID_SEARCH_ATTRIBUTE_KEYS = {"name", "creation_time", "last_update_time"}
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "experiment_id", "creation_time", "last_update_time"}
     NUMERIC_ATTRIBUTES = {"creation_time", "last_update_time"}
-    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "IS NULL", "IS NOT NULL"}
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE", "IS NULL", "IS NOT NULL"}
 
     @classmethod
     def _invalid_statement_token_search_experiments(cls, token):

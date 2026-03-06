@@ -364,6 +364,23 @@ def test_correct_filtering(filter_string, matching_runs):
     assert set(filtered_runs) == {runs[i] for i in matching_runs}
 
 
+def test_rlike_invalid_regex():
+    run = Run(
+        run_info=RunInfo(
+            run_id="hi",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+        run_data=RunData(metrics=[], params=[Param("my_param", "A")], tags=[]),
+    )
+    with pytest.raises(MlflowException, match="Invalid regex pattern"):
+        SearchUtils.filter([run], "params.my_param RLIKE '[invalid'")
+
+
 def test_filter_runs_by_start_time():
     runs = [
         Run(
