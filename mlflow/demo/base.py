@@ -1,3 +1,4 @@
+import functools
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -9,6 +10,78 @@ _logger = logging.getLogger(__name__)
 
 DEMO_EXPERIMENT_NAME = "MLflow Demo"
 DEMO_PROMPT_PREFIX = "mlflow-demo"
+
+# Unity Catalog schema for prompts/judges (e.g. "catalog.schema").
+# Set via set_uc_schema() before demo generation when targeting Databricks.
+_uc_schema: str | None = None
+
+
+def set_uc_schema(schema: str | None) -> None:
+    global _uc_schema
+    _uc_schema = schema
+
+
+def resolve_demo_name(name: str) -> str:
+    """Resolve a demo prompt/judge name for the current backend.
+
+    For Unity Catalog, replaces the default ``DEMO_PROMPT_PREFIX.*`` prefix
+    with the configured UC ``catalog.schema``, prefixing the short name with
+    ``mlflow_demo_`` so that demo entities remain distinguishable in a shared schema.
+
+    Example::
+
+        resolve_demo_name("mlflow-demo.prompts.customer_support")
+        # local  -> "mlflow-demo.prompts.customer_support"
+        # UC     -> "my_catalog.my_schema.mlflow_demo_customer_support"
+    """
+    if _uc_schema is None:
+        return name
+    short_name = name.rsplit(".", 1)[-1]
+    return f"{_uc_schema}.mlflow_demo_{short_name}"
+
+
+def is_demo_prompt_name(name: str) -> bool:
+    """Check whether *name* belongs to a demo prompt."""
+    if _uc_schema is not None:
+        short_name = name.rsplit(".", 1)[-1]
+        return short_name.startswith("mlflow_demo_")
+    return name.startswith(f"{DEMO_PROMPT_PREFIX}.")
+
+
+def get_demo_prompt_search_filter() -> str:
+    """Return the appropriate search filter for finding demo prompts."""
+    if _uc_schema is not None:
+        match _uc_schema.split("."):
+            case [catalog, schema]:
+                return (
+                    f"catalog = '{catalog}' AND schema = '{schema}' AND name LIKE 'mlflow_demo_%'"
+                )
+            case _:
+                return f"name LIKE '{DEMO_PROMPT_PREFIX}.%'"
+    return f"name LIKE '{DEMO_PROMPT_PREFIX}.%'"
+
+
+@functools.cache
+def get_demo_experiment_name() -> str:
+    """Return the demo experiment name, adapting for Databricks workspaces.
+
+    On Databricks, experiment names must be absolute paths
+    (e.g., ``/Users/<username>/MLflow Demo``). For local or remote MLflow
+    servers the plain name ``MLflow Demo`` is returned unchanged.
+
+    The result is cached for the lifetime of the process.
+    """
+    import mlflow
+    from mlflow.utils.uri import is_databricks_uri
+
+    tracking_uri = mlflow.get_tracking_uri()
+    if is_databricks_uri(tracking_uri):
+        from databricks.sdk import WorkspaceClient
+
+        w = WorkspaceClient()
+        username = w.current_user.me().user_name
+        return f"/Users/{username}/{DEMO_EXPERIMENT_NAME}"
+    return DEMO_EXPERIMENT_NAME
 
 
 class DemoFeature(str, Enum):
@@ -111,7 +184,7 @@ class BaseDemoGenerator(ABC):
         """Get the stored version for this generator from experiment tags."""
         store = _get_store()
         try:
-            experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+            experiment = store.get_experiment_by_name(get_demo_experiment_name())
             if experiment is None:
                 return None
             version_tag = experiment.tags.get(f"mlflow.demo.version.{self.name}")
@@ -125,7 +198,7 @@ class BaseDemoGenerator(ABC):
         from mlflow.entities import ExperimentTag
 
         store = _get_store()
-        if experiment := store.get_experiment_by_name(DEMO_EXPERIMENT_NAME):
+        if experiment := store.get_experiment_by_name(get_demo_experiment_name()):
             tag = ExperimentTag(
                 key=f"mlflow.demo.version.{self.name}",
                 value=str(self.version),

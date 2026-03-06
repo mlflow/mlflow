@@ -14,10 +14,10 @@ if TYPE_CHECKING:
     from mlflow.genai.datasets import EvaluationDataset
 
 from mlflow.demo.base import (
-    DEMO_EXPERIMENT_NAME,
     BaseDemoGenerator,
     DemoFeature,
     DemoResult,
+    get_demo_experiment_name,
 )
 from mlflow.demo.data import EXPECTED_ANSWERS
 from mlflow.demo.generators.traces import DEMO_TRACE_TYPE_TAG, DEMO_VERSION_TAG, TracesDemoGenerator
@@ -28,6 +28,12 @@ from mlflow.genai.datasets import create_dataset, delete_dataset, search_dataset
 from mlflow.genai.scorers import scorer
 
 _logger = logging.getLogger(__name__)
+
+
+def _is_databricks() -> bool:
+    from mlflow.utils.uri import is_databricks_uri
+
+    return is_databricks_uri(mlflow.get_tracking_uri())
 
 
 @contextlib.contextmanager
@@ -49,9 +55,9 @@ def _suppress_evaluation_output():
             os.environ["TQDM_DISABLE"] = original_tqdm_disable
 
 
-DEMO_DATASET_TRACE_LEVEL_NAME = "demo-trace-level-dataset"
-DEMO_DATASET_BASELINE_SESSION_NAME = "demo-baseline-session-dataset"
-DEMO_DATASET_IMPROVED_SESSION_NAME = "demo-improved-session-dataset"
+DEMO_DATASET_TRACE_LEVEL_NAME = "demo_trace_level_dataset"
+DEMO_DATASET_BASELINE_SESSION_NAME = "demo_baseline_session_dataset"
+DEMO_DATASET_IMPROVED_SESSION_NAME = "demo_improved_session_dataset"
 
 
 def _get_relevance_rationale(is_relevant: bool) -> str:
@@ -163,7 +169,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             traces_generator.generate()
             traces_generator.store_version()
 
-        experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+        experiment = mlflow.get_experiment_by_name(get_demo_experiment_name())
         experiment_id = experiment.experiment_id
 
         # Fetch traces split by session vs non-session
@@ -183,16 +189,17 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
 
         trace_level_traces = v1_non_session + v2_non_session
 
-        # Create datasets
-        self._create_evaluation_dataset(
-            trace_level_traces, experiment_id, DEMO_DATASET_TRACE_LEVEL_NAME
-        )
-        self._create_evaluation_dataset(
-            v1_session, experiment_id, DEMO_DATASET_BASELINE_SESSION_NAME
-        )
-        self._create_evaluation_dataset(
-            v2_session, experiment_id, DEMO_DATASET_IMPROVED_SESSION_NAME
-        )
+        # Create datasets (skip on Databricks — requires PySpark/grpcio-status)
+        if not _is_databricks():
+            self._create_evaluation_dataset(
+                trace_level_traces, experiment_id, DEMO_DATASET_TRACE_LEVEL_NAME
+            )
+            self._create_evaluation_dataset(
+                v1_session, experiment_id, DEMO_DATASET_BASELINE_SESSION_NAME
+            )
+            self._create_evaluation_dataset(
+                v2_session, experiment_id, DEMO_DATASET_IMPROVED_SESSION_NAME
+            )
 
         # Create evaluation runs
         trace_level_run_id = self._create_evaluation_run(
@@ -220,7 +227,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         )
 
     def _data_exists(self) -> bool:
-        experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+        experiment = mlflow.get_experiment_by_name(get_demo_experiment_name())
         if experiment is None or experiment.lifecycle_stage != "active":
             return False
 
@@ -237,7 +244,7 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
             return False
 
     def delete_demo(self) -> None:
-        experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+        experiment = mlflow.get_experiment_by_name(get_demo_experiment_name())
         if experiment is None:
             return
 
@@ -259,12 +266,13 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         except Exception:
             _logger.debug("Failed to delete evaluation demo runs", exc_info=True)
 
-        for name in [
-            DEMO_DATASET_TRACE_LEVEL_NAME,
-            DEMO_DATASET_BASELINE_SESSION_NAME,
-            DEMO_DATASET_IMPROVED_SESSION_NAME,
-        ]:
-            self._delete_demo_dataset(experiment.experiment_id, name)
+        if not _is_databricks():
+            for name in [
+                DEMO_DATASET_TRACE_LEVEL_NAME,
+                DEMO_DATASET_BASELINE_SESSION_NAME,
+                DEMO_DATASET_IMPROVED_SESSION_NAME,
+            ]:
+                self._delete_demo_dataset(experiment.experiment_id, name)
 
     def _fetch_demo_traces(
         self,
@@ -334,13 +342,13 @@ class EvaluationDemoGenerator(BaseDemoGenerator):
         dataset = create_dataset(
             name=dataset_name,
             experiment_id=experiment_id,
-            tags={"demo": "true", "description": f"Demo evaluation dataset: {dataset_name}"},
         )
 
         dataset.merge_records(traces)
         return get_dataset(dataset_id=dataset.dataset_id)
 
     def _delete_demo_dataset(self, experiment_id: str, dataset_name: str) -> None:
+
         datasets = search_datasets(
             experiment_ids=[experiment_id],
             filter_string=f"name = '{dataset_name}'",
