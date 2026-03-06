@@ -350,9 +350,15 @@ export const GatewayApi = {
     });
   },
 
-  listBudgetPolicies: () => {
+  listBudgetPolicies: (maxResults: number, pageToken?: string) => {
+    const params = new URLSearchParams();
+    params.append('max_results', maxResults.toString());
+    if (pageToken) {
+      params.append('page_token', pageToken);
+    }
+    const relativeUrl = `ajax-api/3.0/mlflow/gateway/budgets/list?${params.toString()}`;
     return fetchEndpoint({
-      relativeUrl: 'ajax-api/3.0/mlflow/gateway/budgets/list',
+      relativeUrl,
       error: defaultErrorHandler,
     }) as Promise<ListBudgetPoliciesResponse>;
   },

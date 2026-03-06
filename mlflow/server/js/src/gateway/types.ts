@@ -334,4 +334,5 @@ export interface UpdateBudgetPolicyResponse {
 
 export interface ListBudgetPoliciesResponse {
   budget_policies: BudgetPolicy[];
+  next_page_token?: string;
 }

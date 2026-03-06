@@ -1,9 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   Button,
+  ChevronLeftIcon,
+  ChevronRightIcon,
   CreditCardIcon,
   Empty,
-  Pagination,
   PencilIcon,
   Spinner,
   Table,
@@ -16,8 +17,9 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
+import { formatBudgetAmount, formatDuration, formatOnExceeded } from './budgetFormatUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
-import type { BudgetPolicy, BudgetUnit, DurationUnit, BudgetAction } from '../../types';
+import type { BudgetPolicy } from '../../types';
 
 const PAGE_SIZE = 10;
 
@@ -26,51 +28,33 @@ interface BudgetsListProps {
   onDeleteClick?: (policy: BudgetPolicy) => void;
 }
 
-function formatBudgetAmount(amount: number, budgetUnit: BudgetUnit): string {
-  if (budgetUnit === 'USD') {
-    return `$${amount.toFixed(2)}`;
-  }
-  return `${amount}`;
-}
-
-function formatDuration(value: number, unit: DurationUnit): string {
-  if (value === 1) {
-    const friendlyLabels: Partial<Record<DurationUnit, string>> = {
-      DAYS: 'Daily',
-      WEEKS: 'Weekly',
-      MONTHS: 'Monthly',
-    };
-    if (friendlyLabels[unit]) return friendlyLabels[unit]!;
-  }
-  const typeLabels: Record<DurationUnit, string> = {
-    MINUTES: value === 1 ? 'Minute' : 'Minutes',
-    HOURS: value === 1 ? 'Hour' : 'Hours',
-    DAYS: value === 1 ? 'Day' : 'Days',
-    WEEKS: value === 1 ? 'Week' : 'Weeks',
-    MONTHS: value === 1 ? 'Month' : 'Months',
-  };
-  return `${value} ${typeLabels[unit] ?? unit}`;
-}
-
-function formatOnExceeded(action: BudgetAction): string {
-  const labels: Record<BudgetAction, string> = {
-    ALERT: 'Alert',
-    REJECT: 'Reject',
-  };
-  return labels[action];
-}
-
 export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) => {
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
-  const [currentPage, setCurrentPage] = useState(1);
+  const [pageToken, setPageToken] = useState<string | undefined>(undefined);
+  const [pageTokenHistory, setPageTokenHistory] = useState<string[]>([]);
 
-  const { data: budgetPolicies, isLoading } = useBudgetPoliciesQuery();
+  const { data: budgetPolicies, nextPageToken, isLoading } = useBudgetPoliciesQuery(PAGE_SIZE, pageToken);
 
-  const pagedPolicies = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return budgetPolicies.slice(start, start + PAGE_SIZE);
-  }, [budgetPolicies, currentPage]);
+  const handleNextPage = () => {
+    if (nextPageToken) {
+      setPageTokenHistory((prev) => [...prev, pageToken ?? '']);
+      setPageToken(nextPageToken);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    setPageTokenHistory((prev) => {
+      const newHistory = [...prev];
+      const prevToken = newHistory.pop();
+      setPageToken(prevToken || undefined);
+      return newHistory;
+    });
+  };
+
+  const currentPageIndex = pageTokenHistory.length + 1;
+  const hasPreviousPage = pageTokenHistory.length > 0;
+  const hasNextPage = !!nextPageToken;
 
   if (isLoading) {
     return (
@@ -91,7 +75,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
   }
 
   const getEmptyState = () => {
-    if (budgetPolicies.length === 0) {
+    if (budgetPolicies.length === 0 && !hasPreviousPage) {
       return (
         <Empty
           image={<CreditCardIcon />}
@@ -141,7 +125,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
             css={{ flex: 0, minWidth: 96, maxWidth: 96 }}
           />
         </TableRow>
-        {pagedPolicies.map((policy) => (
+        {budgetPolicies.map((policy: BudgetPolicy) => (
           <TableRow key={policy.budget_policy_id}>
             <TableCell css={{ flex: 1 }}>
               <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
@@ -182,15 +166,33 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
           </TableRow>
         ))}
       </Table>
-      {budgetPolicies.length > PAGE_SIZE && (
-        <div css={{ display: 'flex', justifyContent: 'center' }}>
-          <Pagination
-            componentId="mlflow.gateway.budgets-list.pagination"
-            currentPageIndex={currentPage}
-            numTotal={budgetPolicies.length}
-            pageSize={PAGE_SIZE}
-            onChange={setCurrentPage}
-          />
+      {(hasPreviousPage || hasNextPage) && (
+        <div css={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: theme.spacing.sm }}>
+          <Button
+            componentId="mlflow.gateway.budgets-list.previous-page"
+            type="tertiary"
+            icon={<ChevronLeftIcon />}
+            disabled={!hasPreviousPage}
+            onClick={handlePreviousPage}
+          >
+            <FormattedMessage defaultMessage="Previous" description="Previous page button" />
+          </Button>
+          <Typography.Text color="secondary">
+            <FormattedMessage
+              defaultMessage="Page {page}"
+              description="Current page indicator"
+              values={{ page: currentPageIndex }}
+            />
+          </Typography.Text>
+          <Button
+            componentId="mlflow.gateway.budgets-list.next-page"
+            type="tertiary"
+            endIcon={<ChevronRightIcon />}
+            disabled={!hasNextPage}
+            onClick={handleNextPage}
+          >
+            <FormattedMessage defaultMessage="Next" description="Next page button" />
+          </Button>
         </div>
       )}
     </div>

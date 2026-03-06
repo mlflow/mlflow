@@ -1,5 +1,6 @@
 import { DeleteConfirmationModal } from '../common';
 import { useDeleteBudgetPolicy } from '../../hooks/useDeleteBudgetPolicy';
+import { formatBudgetPolicySummary } from './budgetFormatUtils';
 import type { BudgetPolicy } from '../../types';
 
 interface DeleteBudgetPolicyModalProps {
@@ -26,7 +27,7 @@ export const DeleteBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: De
       onClose={onClose}
       onConfirm={handleConfirm}
       title="Delete Budget Policy"
-      itemName={policy.budget_policy_id}
+      itemName={formatBudgetPolicySummary(policy)}
       itemType="budget policy"
       componentIdPrefix="mlflow.gateway.delete-budget-policy-modal"
     />
