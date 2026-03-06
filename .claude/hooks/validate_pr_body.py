@@ -32,10 +32,12 @@ def main() -> None:
     except (json.JSONDecodeError, OSError):
         return
 
-    if input_data.get("tool_name") != "Bash":
-        return
+    match input_data:
+        case {"tool_name": "Bash", "tool_input": {"command": str(command)}}:
+            pass
+        case _:
+            return
 
-    command = input_data.get("tool_input", {}).get("command", "")
     if not re.search(r"gh\s+pr\s+create\b", command):
         return
 
