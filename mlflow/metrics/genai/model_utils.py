@@ -107,11 +107,11 @@ def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
     """
     try:
         scheme, path = _parse_model_uri(model_uri)
-        if scheme in ("endpoints", "databricks"):
-            return f"databricks/{path}"
-        return f"{scheme}/{path}"
     except Exception as e:
-        raise MlflowException(f"Failed to convert MLflow URI to LiteLLM format: {e}")
+        raise MlflowException(f"Failed to convert MLflow model URI to LiteLLM format: {e}")
+    if scheme in ("endpoints", "databricks"):
+        return f"databricks/{path}"
+    return f"{scheme}/{path}"
 
 
 _PREDICT_ERROR_MSG = """\

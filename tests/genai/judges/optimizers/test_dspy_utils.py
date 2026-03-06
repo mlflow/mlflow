@@ -254,7 +254,7 @@ def test_convert_mlflow_uri_to_litellm(mlflow_uri, expected_litellm_uri):
     ],
 )
 def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
-    with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
+    with pytest.raises(MlflowException, match="Failed to convert MLflow model URI"):
         convert_mlflow_uri_to_litellm(invalid_uri)
 
 
