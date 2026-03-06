@@ -395,4 +395,30 @@ describe('IssueDetectionModal', () => {
     });
     expect(mockCreateSecret).not.toHaveBeenCalled();
   });
+
+  test('calls onSubmitSuccess callback when form is submitted', async () => {
+    const userEvent = (await import('@testing-library/user-event')).default;
+    const onClose = jest.fn();
+    const onSubmitSuccess = jest.fn();
+
+    renderWithDesignSystem(
+      <IssueDetectionModal
+        {...defaultProps}
+        onClose={onClose}
+        initialSelectedTraceIds={['trace-1']}
+        onSubmitSuccess={onSubmitSuccess}
+      />,
+    );
+
+    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
+    await userEvent.click(screen.getByTestId('set-existing-key'));
+
+    const submitButton = screen.getByText('Run Analysis').closest('button')!;
+    await userEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(onSubmitSuccess).toHaveBeenCalled();
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
 });
