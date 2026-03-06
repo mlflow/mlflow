@@ -1,0 +1,189 @@
+name: TypeScript SDK Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "The branch, tag or SHA to release from."
+        required: true
+        default: "master"
+      packages:
+        description: "Packages to release: all, core, openai, anthropic, gemini (comma-separated)"
+        required: true
+        default: "all"
+        type: string
+      dry_run:
+        description: "Dry run (skip npm publish and git tag)"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.check.outputs.matrix }}
+      any_publish: ${{ steps.check.outputs.any_publish }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Resolve publish matrix
+        id: check
+        run: node dev/typescript-sdk/resolve-ts-publish-matrix.js --packages "${{ inputs.packages }}" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          MATRIX='${{ steps.check.outputs.matrix }}'
+          echo "## Release Plan" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Package | Version | Publish |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|---------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          for pkg in $(echo "$MATRIX" | jq -r '((keys | map(select(. == "core"))) + (keys | map(select(. != "core")) | sort))[]'); do
+            npm_name=$(echo "$MATRIX" | jq -r ".\"${pkg}\".npm_name")
+            version=$(echo "$MATRIX" | jq -r ".\"${pkg}\".version")
+            publish=$(echo "$MATRIX" | jq -r ".\"${pkg}\".publish")
+            echo "| ${npm_name} | ${version} | ${publish} |" >> "$GITHUB_STEP_SUMMARY"
+          done
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "> **DRY RUN** — no packages will be published" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  test:
+    needs: validate
+    if: needs.validate.outputs.any_publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: libs/typescript
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+
+      - uses: ./.github/actions/untracked
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: libs/typescript/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run format check
+        run: npm run format:check
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run build
+        run: npm run build
+
+      - name: Run core tests
+        run: npm run test:core
+
+      - name: Run integration tests
+        run: npm run test:integrations
+
+  publish-test:
+    needs: [validate, test]
+    if: needs.validate.outputs.any_publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: libs/typescript/package-lock.json
+
+      - name: Test publish with Verdaccio
+        run: bash dev/typescript-sdk/test-ts-publish.sh
+
+  publish:
+    needs: [validate, test, publish-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      id-token: write
+    defaults:
+      run:
+        working-directory: libs/typescript
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+          cache-dependency-path: libs/typescript/package-lock.json
+
+      - name: Ensure npm supports trusted publishing
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish and tag packages
+        working-directory: .
+        run: |
+          node dev/typescript-sdk/ts-publish.js \
+            --matrix '${{ needs.validate.outputs.matrix }}' \
+            ${{ inputs.dry_run == true && '--dry-run' || '' }}
+
+      - name: Publish summary
+        if: always()
+        working-directory: .
+        run: |
+          MATRIX='${{ needs.validate.outputs.matrix }}'
+          echo "## Publish Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ inputs.dry_run }}" == "true" ]]; then
+            echo "> **DRY RUN** — no packages were actually published" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "| Package | Version | Publish |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---------|---------|---------|" >> "$GITHUB_STEP_SUMMARY"
+          for pkg in $(echo "$MATRIX" | jq -r '((keys | map(select(. == "core"))) + (keys | map(select(. != "core")) | sort))[]'); do
+            npm_name=$(echo "$MATRIX" | jq -r ".\"${pkg}\".npm_name")
+            version=$(echo "$MATRIX" | jq -r ".\"${pkg}\".version")
+            publish=$(echo "$MATRIX" | jq -r ".\"${pkg}\".publish")
+            echo "| ${npm_name} | ${version} | ${publish} |" >> "$GITHUB_STEP_SUMMARY"
+          done
