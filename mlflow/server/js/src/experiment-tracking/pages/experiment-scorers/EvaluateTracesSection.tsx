@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
@@ -59,16 +59,6 @@ const EvaluateTracesSection: React.FC<EvaluateTracesSectionProps> = ({ control, 
     [llmTemplate, instructions],
   );
   const isNonGatewayModel = useMemo(() => getModelProvider(model) === ModelProvider.OTHER, [model]);
-
-  // Set sampleRate based on whether automatic evaluation is allowed
-  useEffect(() => {
-    if (!setValue) return;
-    if (hasExpectations || isNonGatewayModel) {
-      setValue('sampleRate', 0);
-    } else {
-      setValue('sampleRate', 100);
-    }
-  }, [hasExpectations, isNonGatewayModel, setValue]);
 
   const isAutomaticEvaluationEnabled = sampleRate > 0;
   const isSessionLevelScorer = evaluationScope === ScorerEvaluationScope.SESSIONS;
