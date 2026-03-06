@@ -20,6 +20,7 @@ from mlflow.utils.validation import (
     _validate_metric_name,
     _validate_model_alias_name,
     _validate_model_alias_name_reserved,
+    _validate_model_name,
     _validate_param_name,
     _validate_run_id,
     _validate_tag_name,
@@ -416,3 +417,9 @@ def test_validate_list_param_with_invalid_type(param_name, param_value, expected
         _validate_list_param(param_name, param_value)
     assert f"Did you mean to use {param_name}=[{param_value!r}]?" in str(exc_info.value)
     assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+def test_validate_model_name_invalid_chars():
+    for invalid_name in ["my/model", "model:v1", "name/with:both"]:
+        with pytest.raises(MlflowException, match="Names cannot contain '/' or ':'") as e:
+            _validate_model_name(invalid_name)
+        assert e.value.error_code == INVALID_PARAMETER_VALUE
