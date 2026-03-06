@@ -55,7 +55,9 @@ from mlflow.telemetry.track import _record_event
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.provider import (
     _clear_experiment_derived_destination,
+    _get_experiment_derived_destination_experiment_id,
     _get_trace_exporter,
+    _mark_provider_for_reinit,
     _set_experiment_derived_destination,
 )
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -252,13 +254,40 @@ def set_experiment(
     # Set 'MLFLOW_EXPERIMENT_ID' environment variable
     # so that subprocess can inherit it.
     MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
+    _apply_experiment_trace_destination_state(
+        experiment=experiment,
+        resolved_location=resolved_location,
+    )
+
+    return experiment
+
+
+def _apply_experiment_trace_destination_state(
+    experiment: Experiment,
+    resolved_location: UnityCatalog | None,
+) -> None:
+    """Apply post-resolution trace destination state mutations for set_experiment.
+
+    This helper preserves existing no-trace-location behavior by avoiding unconditional
+    provider re-initialization, while ensuring UC-linked experiment transitions and
+    stale experiment-derived cache transitions are handled correctly.
+    """
     if resolved_location is not None:
         _set_experiment_derived_destination(resolved_location)
         experiment._trace_location = resolved_location
-    else:
-        _clear_experiment_derived_destination()
+        return
 
-    return experiment
+    # If the active experiment is UC-linked via backend tag, force provider
+    # re-init so lazy auto-resolution runs for the new active experiment.
+    if _extract_telemetry_profile_id(experiment):
+        _mark_provider_for_reinit()
+        return
+
+    # If cached experiment-derived destination belongs to a different experiment,
+    # clear it to avoid stale routing.
+    if cached_experiment_id := _get_experiment_derived_destination_experiment_id():
+        if cached_experiment_id != experiment.experiment_id:
+            _clear_experiment_derived_destination()
 
 
 def _extract_telemetry_profile_id(experiment: Experiment) -> str | None:

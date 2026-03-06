@@ -418,11 +418,21 @@ def _set_experiment_derived_destination(destination: TraceLocationBase | None):
     _initialize_tracer_provider()
 
 
+def _get_experiment_derived_destination_experiment_id() -> str | None:
+    if experiment_derived := _MLFLOW_TRACE_USER_DESTINATION._experiment_derived:
+        return experiment_derived.experiment_id
+    return None
+
+
+def _mark_provider_for_reinit():
+    # Mark the provider for re-initialization on the next trace so that
+    # _resolve_experiment_uc_location runs with the current experiment context.
+    provider.once._done = False
+
+
 def _clear_experiment_derived_destination():
     _MLFLOW_TRACE_USER_DESTINATION.clear_experiment_derived()
-    # Mark the provider for re-initialization on the next trace so that
-    # _resolve_experiment_uc_location runs with the new experiment context.
-    provider.once._done = False
+    _mark_provider_for_reinit()
 
 
 def _get_tracer(module_name: str) -> trace.Tracer:
