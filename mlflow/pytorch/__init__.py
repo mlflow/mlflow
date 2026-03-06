@@ -15,7 +15,7 @@ import logging
 import os
 import warnings
 from functools import partial
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
@@ -165,7 +165,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     export_model: bool = False,
-    serialization_format: str = SERIALIZATION_FORMAT_PICKLE,
+    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PICKLE,
     **kwargs,
 ):
     """
@@ -343,7 +343,7 @@ def save_model(
     extra_pip_requirements=None,
     metadata=None,
     export_model: bool = False,
-    serialization_format=SERIALIZATION_FORMAT_PICKLE,
+    serialization_format: Literal["pickle", "pt2"] = SERIALIZATION_FORMAT_PICKLE,
     **kwargs,
 ):
     """
@@ -442,6 +442,11 @@ def save_model(
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
     if export_model:
+        if serialization_format != SERIALIZATION_FORMAT_PICKLE:
+            raise MlflowException.invalid_parameter_value(
+                "Cannot set both `export_model=True` and `serialization_format='pickle'`. "
+                "Please use only `serialization_format` argument."
+            )
         warnings.warn(
             "`export_model` argument is deprecated. "
             "Please set `serialization_format` argument instead.",
