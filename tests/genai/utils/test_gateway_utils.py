@@ -5,6 +5,7 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig, get_gateway_litellm_config
+from mlflow.utils.credentials import MlflowCreds
 
 
 @pytest.mark.parametrize(
@@ -100,6 +101,27 @@ def test_get_gateway_litellm_config_username_only_no_headers(monkeypatch):
         config = get_gateway_litellm_config("chat")
 
     assert config.extra_headers is None
+
+
+def test_get_gateway_litellm_config_with_credentials_file(monkeypatch):
+    monkeypatch.delenv("MLFLOW_GATEWAY_URI", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_USERNAME", raising=False)
+    monkeypatch.delenv("MLFLOW_TRACKING_PASSWORD", raising=False)
+
+    with (
+        mock.patch(
+            "mlflow.genai.utils.gateway_utils.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
+        mock.patch(
+            "mlflow.genai.utils.gateway_utils.read_mlflow_creds",
+            return_value=MlflowCreds(username="bob", password="file-password"),
+        ),
+    ):
+        config = get_gateway_litellm_config("chat")
+
+    expected_encoded = base64.b64encode(b"bob:file-password").decode("ascii")
+    assert config.extra_headers == {"Authorization": f"Basic {expected_encoded}"}
 
 
 @pytest.mark.parametrize(
