@@ -13,7 +13,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - mlflow/server/js/**
       - .github/workflows/js.yml
