@@ -173,13 +173,17 @@ def _get_aggregate_results(scores, aggregations):
     def aggregate_function(aggregate_option, scores):
         import numpy as np
 
+        # Return NaN for most aggregates, None for p90 if there are no valid scores
+        if not scores:
+            return None if aggregate_option == "p90" else np.nan
+
         options = {
             "min": np.min,
             "max": np.max,
             "mean": np.mean,
             "median": np.median,
             "variance": np.var,
-            "p90": lambda x: np.percentile(x, 90) if x else None,
+            "p90": lambda x: np.percentile(x, 90),
         }
 
         if aggregate_option not in options:
