@@ -1,0 +1,284 @@
+---
+title: Genie Vector Search and Lakebase Memory
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Search, Database, Zap } from "lucide-react";
+
+# Genie Vector Search and Lakebase Memory
+
+Add semantic search over past Genie conversations using Databricks Vector Search and create a Lakebase synced table for low-latency lookups.
+
+:::tip[Prerequisites]
+```bash
+pip install databricks-sdk mlflow>=3.1.0
+```
+This cookbook requires a Databricks workspace with Vector Search and optionally a Lakebase (serverless PostgreSQL) instance. You need a populated bronze table from the [Genie Conversation Tracing Pipeline](/genai/cookbooks/genie-tracing-pipeline).
+:::
+
+## What You'll Build
+
+<FeatureHighlights
+  features={[
+    { icon: Search, title: "Semantic search index", description: "Find past Genie questions by meaning, not just keywords, using Vector Search." },
+    { icon: Database, title: "Lakebase synced table", description: "Low-latency Postgres-backed table synced from Delta for fast lookups." },
+    { icon: Zap, title: "Auto-updating pipeline", description: "Delta Sync mode keeps the index current as new conversations are ingested." },
+  ]}
+/>
+
+<StepHeader number={1} title="Configure Vector Search and Lakebase" />
+
+```python
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.vectorsearch import (
+    DeltaSyncVectorIndexSpecRequest,
+    EmbeddingSourceColumn,
+    PipelineType,
+    VectorIndexType,
+)
+from databricks.sdk.service.database import (
+    SyncedDatabaseTable,
+    SyncedTableSpec,
+    NewPipelineSpec,
+    SyncedTableSchedulingPolicy,
+)
+import json
+import time
+
+w = WorkspaceClient()
+
+CATALOG = "main"
+SCHEMA = "default"
+BRONZE_TABLE = f"{CATALOG}.{SCHEMA}.genie_conversations_bronze"
+
+# Vector Search
+VS_ENDPOINT_NAME = "your-endpoint"
+VS_INDEX_NAME = f"{CATALOG}.{SCHEMA}.genie_conversations_vs_index"
+EMBEDDING_MODEL_ENDPOINT = "databricks-gte-large-en"
+
+# Lakebase
+LAKEBASE_CATALOG = "main"
+LAKEBASE_SCHEMA = "default"
+STORAGE_CATALOG = CATALOG
+STORAGE_SCHEMA = SCHEMA
+DATABASE_INSTANCE = "your-instance-name"
+DATABASE_NAME = "your-database-name"
+LONG_TERM_SYNCED = f"{LAKEBASE_CATALOG}.{LAKEBASE_SCHEMA}.genie_conversations_bronze_synced"
+```
+
+<StepHeader number={2} title="Create the Vector Search Endpoint" />
+
+```python
+def get_or_create_vs_endpoint(endpoint_name):
+    try:
+        ep = w.vector_search_endpoints.get_endpoint(endpoint_name)
+        print(f"VS endpoint '{endpoint_name}' exists (status: {ep.endpoint_status.state})")
+        return ep
+    except Exception:
+        print(f"Creating VS endpoint '{endpoint_name}'...")
+        ep = w.vector_search_endpoints.create_endpoint_and_wait(
+            name=endpoint_name,
+            endpoint_type="STANDARD",
+        )
+        print(f"VS endpoint '{endpoint_name}' created")
+        return ep
+
+
+vs_endpoint = get_or_create_vs_endpoint(VS_ENDPOINT_NAME)
+```
+
+<StepHeader number={3} title="Create the Vector Search Index" />
+
+Uses Delta Sync mode so the index auto-updates when new rows are MERGEd into the bronze table. The `user_question` column is embedded for semantic similarity search.
+
+```python
+def get_or_create_vs_index(endpoint_name, index_name, source_table, embedding_endpoint):
+    try:
+        idx = w.vector_search_indexes.get_index(index_name)
+        print(f"VS index '{index_name}' exists (ready: {idx.status.ready})")
+        return idx
+    except Exception:
+        pass
+
+    print(f"Creating VS index '{index_name}'...")
+    idx = w.vector_search_indexes.create_index(
+        name=index_name,
+        endpoint_name=endpoint_name,
+        primary_key="message_id",
+        index_type=VectorIndexType.DELTA_SYNC,
+        delta_sync_index_spec=DeltaSyncVectorIndexSpecRequest(
+            source_table=source_table,
+            pipeline_type=PipelineType.TRIGGERED,
+            embedding_source_columns=[
+                EmbeddingSourceColumn(
+                    name="user_question",
+                    embedding_model_endpoint_name=embedding_endpoint,
+                )
+            ],
+            columns_to_sync=[
+                "message_id",
+                "conversation_id",
+                "space_id",
+                "user_question",
+                "generated_sql",
+                "genie_text_response",
+                "sql_description",
+                "feedback_rating",
+                "query_result_row_count",
+                "created_timestamp",
+            ],
+        ),
+    )
+    print(f"VS index '{index_name}' created -- syncing in background")
+    return idx
+
+
+vs_index = get_or_create_vs_index(
+    VS_ENDPOINT_NAME, VS_INDEX_NAME, BRONZE_TABLE, EMBEDDING_MODEL_ENDPOINT
+)
+```
+
+<StepHeader number={4} title="Create the Lakebase Synced Table" />
+
+Synced tables replicate Delta data into a Lakebase (Postgres) instance for low-latency lookups. Uses TRIGGERED sync mode -- refreshes incrementally on demand.
+
+```python
+def get_or_create_synced_table(
+    synced_table_name,
+    source_table_name,
+    primary_keys,
+    scheduling_policy=SyncedTableSchedulingPolicy.TRIGGERED,
+    database_instance_name=None,
+    logical_database_name=None,
+):
+    try:
+        st = w.database.get_synced_database_table(name=synced_table_name)
+        status = st.data_synchronization_status
+        state = status.detailed_state if status else "UNKNOWN"
+        print(f"Synced table '{synced_table_name}' exists (state: {state})")
+        return st
+    except Exception:
+        pass
+
+    print(f"Creating synced table '{synced_table_name}'...")
+    spec = SyncedTableSpec(
+        source_table_full_name=source_table_name,
+        primary_key_columns=primary_keys,
+        scheduling_policy=scheduling_policy,
+        new_pipeline_spec=NewPipelineSpec(
+            storage_catalog=STORAGE_CATALOG,
+            storage_schema=STORAGE_SCHEMA,
+        ),
+    )
+
+    synced_table = SyncedDatabaseTable(
+        name=synced_table_name,
+        spec=spec,
+    )
+
+    if database_instance_name:
+        synced_table.database_instance_name = database_instance_name
+    if logical_database_name:
+        synced_table.logical_database_name = logical_database_name
+
+    st = w.database.create_synced_database_table(synced_table)
+    print(f"Synced table '{synced_table_name}' created -- sync pipeline starting")
+    return st
+
+
+long_term_synced = get_or_create_synced_table(
+    synced_table_name=LONG_TERM_SYNCED,
+    source_table_name=BRONZE_TABLE,
+    primary_keys=["message_id"],
+    scheduling_policy=SyncedTableSchedulingPolicy.TRIGGERED,
+    database_instance_name=DATABASE_INSTANCE,
+    logical_database_name=DATABASE_NAME,
+)
+```
+
+<StepHeader number={5} title="Search Similar Past Questions" />
+
+Query the Vector Search index to find semantically similar past Genie questions. This is useful for identifying patterns, finding precedents, and building few-shot examples.
+
+```python
+def search_similar_questions(question_text, num_results=5, score_threshold=0.7):
+    results = w.vector_search_indexes.query_index(
+        index_name=VS_INDEX_NAME,
+        columns=[
+            "message_id",
+            "user_question",
+            "generated_sql",
+            "genie_text_response",
+            "feedback_rating",
+            "sql_description",
+            "query_result_row_count",
+            "created_timestamp",
+        ],
+        query_text=question_text,
+        num_results=num_results,
+        score_threshold=score_threshold,
+    )
+
+    if results and results.result and results.result.data_array:
+        col_names = [c.name for c in results.manifest.columns]
+        return [dict(zip(col_names, row)) for row in results.result.data_array]
+    return []
+
+
+def search_and_display(question_text, num_results=5, score_threshold=0.7):
+    print(f'Searching for: "{question_text}"\n')
+    results = search_similar_questions(question_text, num_results, score_threshold)
+
+    if not results:
+        print("  No similar questions found above threshold.")
+        return results
+
+    for i, r in enumerate(results, 1):
+        score = r.get("score", "N/A")
+        print(f"  [{i}] (score: {score})")
+        print(f"      Question:  {r.get('user_question', 'N/A')}")
+        sql = r.get("generated_sql")
+        if sql:
+            print(f"      SQL:       {sql[:120]}...")
+        resp = r.get("genie_text_response")
+        if resp:
+            print(f"      Response:  {resp[:120]}...")
+        print(f"      Feedback:  {r.get('feedback_rating', 'N/A')}")
+        print()
+
+    return results
+```
+
+Try it:
+
+```python
+results = search_and_display(
+    "Which store has the highest demand?",
+    num_results=5,
+    score_threshold=0.5,
+)
+# Example output:
+#   [1] (score: 0.89)
+#       Question:  What store has the most product demand?
+#       SQL:       SELECT store, SUM(demand) ...
+#       Feedback:  POSITIVE
+
+results = search_and_display(
+    "What are the top forecasted raw material shortages?",
+    num_results=3,
+)
+```
+
+## Results
+
+After completing this cookbook, you have:
+
+1. **Semantic search** over past Genie conversations -- find similar questions by meaning, not keywords.
+2. **Auto-updating index** -- new conversations ingested via MERGE are automatically indexed.
+3. **Low-latency lookups** via Lakebase synced table for production use cases.
+
+## Next Steps
+
+- [Genie Conversation Tracing Pipeline](/genai/cookbooks/genie-tracing-pipeline) -- Set up the bronze table that feeds this index
+- [Genie Space Analyzer](/genai/cookbooks/genie-space-analyzer) -- Use conversation patterns to improve your Genie space

@@ -1,0 +1,437 @@
+---
+title: Genie Evaluation with LLM Judges and Human Labeling
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Scale, UserCheck, Layers } from "lucide-react";
+
+# Genie Evaluation with LLM Judges and Human Labeling
+
+Run three layers of automated evaluation on Genie traces -- built-in judges, custom LLM judges, and code-based scorers -- then route flagged traces to human reviewers via MLflow labeling sessions.
+
+:::tip[Prerequisites]
+```bash
+pip install mlflow>=3.1.0 databricks-agents
+```
+This cookbook assumes you have Genie traces in an MLflow experiment (see [Genie Conversation Tracing Pipeline](/genai/cookbooks/genie-tracing-pipeline)).
+:::
+
+## What You'll Build
+
+<FeatureHighlights
+  features={[
+    { icon: Layers, title: "Three-layer evaluation", description: "Built-in judges, custom LLM judges, and zero-cost code-based scorers." },
+    { icon: Scale, title: "Automated triage", description: "Filter traces that fail any judge and send only those to human review." },
+    { icon: UserCheck, title: "Human labeling workflow", description: "Domain experts review flagged traces and provide structured feedback." },
+  ]}
+/>
+
+<StepHeader number={1} title="Set Up the Experiment" />
+
+```python
+import mlflow
+import mlflow.genai.label_schemas as schemas
+import mlflow.genai.labeling as labeling
+from mlflow.genai.label_schemas import InputCategorical, InputText
+from mlflow.genai.scorers import (
+    Guidelines,
+    RelevanceToQuery,
+    RetrievalGroundedness,
+    Safety,
+    scorer,
+)
+from mlflow.genai.judges import make_judge
+from mlflow.entities import Feedback
+from typing import Literal
+from datetime import datetime
+
+EXPERIMENT_NAME = "/Users/your-user-name/genie_mlflow"
+mlflow.set_experiment(EXPERIMENT_NAME)
+```
+
+<StepHeader number={2} title="Define Built-in Judges" />
+
+These are research-validated scorers that work out of the box. They automatically extract inputs and outputs from traces.
+
+```python
+relevance_judge = RelevanceToQuery()
+safety_judge = Safety()
+groundedness_judge = RetrievalGroundedness()
+```
+
+- **RelevanceToQuery** -- is the response directly relevant to the user's question?
+- **Safety** -- is the content free from harmful material?
+- **RetrievalGroundedness** -- is the response grounded in retrieved data? Works because Genie traces have a RETRIEVER-typed span.
+
+<StepHeader number={3} title="Define Custom LLM Judges" />
+
+`Guidelines` for pass/fail rule checks, `make_judge` for categorical scoring.
+
+```python
+response_quality = Guidelines(
+    name="genie_response_quality",
+    guidelines=[
+        "The response must directly address the user's data question "
+        "rather than giving a vague or generic reply.",
+        "If SQL was generated, the response must include a data-driven "
+        "answer, not just echo the SQL query back.",
+        "The response must not say 'I cannot answer' when the question "
+        "is about data that should be available in the tables.",
+    ],
+)
+
+sql_quality = Guidelines(
+    name="genie_sql_quality",
+    guidelines=[
+        "If SQL is present, it must use appropriate aggregation functions "
+        "(SUM, COUNT, AVG) matching the user's intent.",
+        "The SQL must include appropriate WHERE clauses to filter data "
+        "as the user requested.",
+        "The SQL must not use SELECT * on large tables without a LIMIT "
+        "or specific filter.",
+    ],
+)
+
+genie_quality_judge = make_judge(
+    name="genie_interaction_quality",
+    instructions=(
+        "You are evaluating a text-to-SQL assistant called Genie.\n\n"
+        "The user asked a data question. Genie may have returned query "
+        "results or provided a text response summarizing the answer.\n\n"
+        "Given the user's request in {{ inputs }} and Genie's response "
+        "in {{ outputs }}, evaluate the overall quality.\n\n"
+        "Rate as:\n"
+        "- 'good': Question answered correctly with clear response\n"
+        "- 'acceptable': Partial answer or minor issues but useful\n"
+        "- 'poor': Wrong answer, irrelevant response, or errors\n"
+        "- 'failed': No response, system error, or completely off-topic"
+    ),
+    feedback_value_type=Literal["good", "acceptable", "poor", "failed"],
+)
+
+genie_trace_judge = make_judge(
+    name="genie_trace_analysis",
+    instructions=(
+        "Analyze the {{ trace }} of a Genie text-to-SQL interaction.\n\n"
+        "Check for:\n"
+        "1. Whether the text_to_sql span produced a valid SQL query\n"
+        "2. Whether the sql_execution span returned data (row_count > 0)\n"
+        "3. Whether the response_generation span provided a meaningful "
+        "summary\n"
+        "4. Whether there are any error attributes on the spans\n\n"
+        "Rate the trace as: 'complete', 'partial', or 'broken'"
+    ),
+    feedback_value_type=Literal["complete", "partial", "broken"],
+    model="databricks:/databricks-claude-sonnet-4",
+)
+```
+
+<StepHeader number={4} title="Define Code-Based Scorers" />
+
+These run deterministically with zero LLM cost.
+
+```python
+@scorer
+def has_sql(outputs) -> bool:
+    """Check if Genie generated SQL."""
+    if isinstance(outputs, dict):
+        sql = outputs.get("generated_sql") or outputs.get("sql")
+        return sql is not None and str(sql).strip() != ""
+    return False
+
+
+@scorer
+def has_data(outputs) -> bool:
+    """Check if the query returned any data rows."""
+    if isinstance(outputs, dict):
+        data = outputs.get("data")
+        return data is not None and len(data) > 0
+    return False
+
+
+@scorer
+def has_error(outputs) -> bool:
+    """Check if there was an error in the response."""
+    if isinstance(outputs, dict):
+        err = outputs.get("error")
+        return err is not None and str(err).strip() != ""
+    return False
+
+
+@scorer
+def response_length(outputs) -> Feedback:
+    """Flag responses that are empty or suspiciously short."""
+    if isinstance(outputs, dict):
+        text = outputs.get("text_response") or ""
+    else:
+        text = str(outputs)
+
+    length = len(text)
+    if length == 0:
+        return Feedback(value="no_response", rationale="No text response")
+    elif length < 20:
+        return Feedback(value="too_short", rationale=f"Only {length} chars")
+    else:
+        return Feedback(value="ok", rationale=f"{length} chars")
+```
+
+<StepHeader number={5} title="Pull Traces and Run All Judges" />
+
+```python
+experiment = mlflow.get_experiment_by_name(EXPERIMENT_NAME)
+traces_df = mlflow.search_traces(
+    locations=[experiment.experiment_id],
+    order_by=["timestamp DESC"],
+    max_results=50,
+)
+print(f"Found {len(traces_df)} traces to evaluate")
+
+eval_results = mlflow.genai.evaluate(
+    data=traces_df,
+    scorers=[
+        # Built-in judges
+        relevance_judge,
+        safety_judge,
+        groundedness_judge,
+        # Custom LLM judges
+        response_quality,
+        sql_quality,
+        genie_quality_judge,
+        genie_trace_judge,
+        # Code-based scorers
+        has_sql,
+        has_data,
+        has_error,
+        response_length,
+    ],
+)
+```
+
+<StepHeader number={6} title="Filter Traces for Human Review" />
+
+Build a filter that flags any trace that failed at least one judge. Only these flagged traces go to human reviewers.
+
+```python
+results_df = eval_results.tables["eval_results"].astype(str)
+
+needs_review_mask = False
+
+# Built-in judges: "no" means failed
+for col in ["relevance_to_query/value", "safety/value", "retrieval_groundedness/value"]:
+    if col in results_df.columns:
+        needs_review_mask = needs_review_mask | (results_df[col] == "no")
+
+# Guidelines judges: "no" means failed
+for col in ["genie_response_quality/value", "genie_sql_quality/value"]:
+    if col in results_df.columns:
+        needs_review_mask = needs_review_mask | (results_df[col] == "no")
+
+# Categorical judge: poor or failed
+if "genie_interaction_quality/value" in results_df.columns:
+    needs_review_mask = needs_review_mask | (
+        results_df["genie_interaction_quality/value"].isin(["poor", "failed"])
+    )
+
+# Trace judge: broken
+if "genie_trace_analysis/value" in results_df.columns:
+    needs_review_mask = needs_review_mask | (
+        results_df["genie_trace_analysis/value"] == "broken"
+    )
+
+# Code-based checks
+if "has_sql/value" in results_df.columns:
+    needs_review_mask = needs_review_mask | (results_df["has_sql/value"] == False)
+if "has_error/value" in results_df.columns:
+    needs_review_mask = needs_review_mask | (results_df["has_error/value"] == True)
+if "response_length/value" in results_df.columns:
+    needs_review_mask = needs_review_mask | (
+        results_df["response_length/value"] == "no_response"
+    )
+
+if not isinstance(needs_review_mask, bool):
+    needs_review_mask = needs_review_mask.fillna(False)
+
+flagged_df = (
+    results_df[needs_review_mask]
+    if not isinstance(needs_review_mask, bool)
+    else results_df
+)
+print(f"{len(flagged_df)} / {len(results_df)} traces flagged for human review")
+```
+
+Get the trace objects for flagged traces:
+
+```python
+if "trace_id" in flagged_df.columns:
+    flagged_trace_ids = set(flagged_df["trace_id"].tolist())
+else:
+    flagged_trace_ids = set(flagged_df.index.tolist())
+
+flagged_traces_df = traces_df[traces_df["trace_id"].isin(flagged_trace_ids)]
+```
+
+<StepHeader number={7} title="Create a Labeling Session" />
+
+Define labeling schemas and create a session with only the flagged traces.
+
+```python
+correctness = schemas.create_label_schema(
+    name="genie_correctness",
+    type="feedback",
+    title="Is Genie's response correct?",
+    input=InputCategorical(options=["Correct", "Incorrect"]),
+    instruction=(
+        "Did Genie answer the question correctly? Mark Incorrect if "
+        "the SQL, data, or text response is wrong."
+    ),
+    overwrite=True,
+)
+
+issue = schemas.create_label_schema(
+    name="genie_issue",
+    type="feedback",
+    title="What went wrong?",
+    input=InputText(max_length=500),
+    instruction=(
+        "Describe what Genie got wrong. Be specific. Examples:\n"
+        "- 'Used wrong table -- queried historical instead of forecasted'\n"
+        "- 'Missing WHERE filter for active customers'\n"
+        "Leave blank if the response is correct."
+    ),
+    overwrite=True,
+)
+
+expected = schemas.create_label_schema(
+    name="genie_expected",
+    type="feedback",
+    title="What should the correct answer be?",
+    input=InputText(max_length=500),
+    instruction=(
+        "Describe the correct behavior or answer. Include SQL logic "
+        "if you know it. Examples:\n"
+        "- 'Should use SUM(qty_shipped) grouped by distribution_center'\n"
+        "- 'Active = customer with order in last 6 months'\n"
+        "Leave blank if the response is correct."
+    ),
+    overwrite=True,
+)
+
+session = labeling.create_labeling_session(
+    name=f"genie_review_{datetime.now().strftime('%Y%m%d_%H%M')}",
+    label_schemas=["genie_correctness", "genie_issue", "genie_expected"],
+)
+
+session.add_traces(flagged_traces_df)
+SESSION_RUN_ID = session.mlflow_run_id
+
+print(f"Session: {session.name}")
+print(f"Traces: {len(flagged_traces_df)} (filtered from {len(traces_df)} total)")
+```
+
+Open the MLflow experiment, go to **Labeling sessions**, and click the session. Reviewers will see automated judge scores already attached to each trace alongside the three labeling fields.
+
+<StepHeader number={8} title="Extract Labels as Human Feedback" />
+
+After reviewers complete labeling, extract the results into a structured format.
+
+```python
+def extract_human_feedback_from_session(session_run_id):
+    traces = mlflow.search_traces(run_id=session_run_id)
+    feedback_items = []
+
+    for _, row in traces.iterrows():
+        trace_id = row["trace_id"]
+        trace = mlflow.get_trace(trace_id)
+        if not trace:
+            continue
+
+        question = ""
+        if trace.data and trace.data.spans:
+            root = trace.data.spans[0]
+            inputs = root.inputs if hasattr(root, "inputs") else {}
+            if isinstance(inputs, dict):
+                question = inputs.get("question", "")
+
+        if not question:
+            continue
+
+        correctness_val = None
+        issue_text = None
+        expected_text = None
+
+        if hasattr(trace, "info") and hasattr(trace.info, "assessments"):
+            for assessment in trace.info.assessments or []:
+                name = assessment.name if hasattr(assessment, "name") else ""
+
+                if name == "genie_correctness":
+                    if hasattr(assessment, "feedback") and assessment.feedback:
+                        correctness_val = assessment.feedback.value
+                    elif hasattr(assessment, "value"):
+                        correctness_val = assessment.value
+                elif name == "genie_issue":
+                    if hasattr(assessment, "feedback") and assessment.feedback:
+                        issue_text = assessment.feedback.value
+                    elif hasattr(assessment, "value"):
+                        issue_text = assessment.value
+                elif name == "genie_expected":
+                    if hasattr(assessment, "feedback") and assessment.feedback:
+                        expected_text = assessment.feedback.value
+                    elif hasattr(assessment, "value"):
+                        expected_text = assessment.value
+
+        if correctness_val == "Incorrect" and (issue_text or expected_text):
+            feedback_items.append({
+                "question": question,
+                "issue": issue_text or "(not specified)",
+                "expected": expected_text or "(not specified)",
+            })
+
+    return feedback_items
+
+
+HUMAN_FEEDBACK = extract_human_feedback_from_session(SESSION_RUN_ID)
+print(f"{len(HUMAN_FEEDBACK)} feedback items extracted")
+
+for fb in HUMAN_FEEDBACK:
+    print(f"\n  Q: {fb['question'][:80]}")
+    print(f"  Issue: {fb['issue'][:120]}")
+    print(f"  Expected: {fb['expected'][:120]}")
+```
+
+<StepHeader number={9} title="Save Feedback for Downstream Use" />
+
+Save the feedback as JSON or to a Delta table for the [Genie Space Analyzer](/genai/cookbooks/genie-space-analyzer).
+
+```python
+import json
+
+# Option A: Save as JSON
+with open("genie_human_feedback.json", "w") as f:
+    json.dump(HUMAN_FEEDBACK, f, indent=4)
+
+# Option B: Save to Delta
+CATALOG = "main"
+SCHEMA = "default"
+FEEDBACK_TABLE = f"{CATALOG}.{SCHEMA}.genie_human_feedback"
+
+if HUMAN_FEEDBACK:
+    spark.createDataFrame(HUMAN_FEEDBACK).write.format("delta").mode(
+        "overwrite"
+    ).option("mergeSchema", "true").saveAsTable(FEEDBACK_TABLE)
+    print(f"Saved {len(HUMAN_FEEDBACK)} feedback items to {FEEDBACK_TABLE}")
+```
+
+## Results
+
+After completing this cookbook, you have:
+
+1. **Automated triage** -- three layers of judges catch quality issues at different levels of granularity and cost.
+2. **Targeted human review** -- only traces that fail automated checks go to reviewers, reducing review workload.
+3. **Structured feedback** -- human labels are extracted in a consistent format ready for the analyzer notebook or judge alignment.
+
+## Next Steps
+
+- [Genie Space Analyzer](/genai/cookbooks/genie-space-analyzer) -- Feed human feedback into an LLM to generate Genie space configuration recommendations
+- [Building Custom LLM Judges](/genai/cookbooks/custom-llm-judges) -- More patterns for custom scorers
+- [Built-in Scorers Reference](/genai/eval-monitor/scorers/llm-judge/predefined) -- Full list of available scorers

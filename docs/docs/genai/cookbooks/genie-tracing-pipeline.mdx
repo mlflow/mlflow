@@ -1,0 +1,451 @@
+---
+title: Genie Conversation Tracing Pipeline
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Database, GitMerge, Activity } from "lucide-react";
+
+# Genie Conversation Tracing Pipeline
+
+Pull conversations from a Databricks Genie space, store them incrementally in a Delta table, and trace each interaction with MLflow for observability and evaluation.
+
+:::tip[Prerequisites]
+```bash
+pip install databricks-sdk mlflow>=3.1.0
+```
+This cookbook runs on Databricks. You need a Genie space with conversation history.
+:::
+
+## What You'll Build
+
+<FeatureHighlights
+  features={[
+    { icon: Database, title: "Delta bronze table", description: "Incrementally ingest Genie conversations with MERGE deduplication." },
+    { icon: GitMerge, title: "Idempotent pipeline", description: "Re-run safely -- already-ingested messages are skipped, already-traced rows are not re-traced." },
+    { icon: Activity, title: "MLflow traces", description: "Each Genie interaction becomes a trace with spans for text-to-SQL, execution, and response generation." },
+  ]}
+/>
+
+<StepHeader number={1} title="Configure the Pipeline" />
+
+```python
+import mlflow
+import json
+import time
+from datetime import datetime
+from databricks.sdk import WorkspaceClient
+from mlflow.entities import SpanType
+from pyspark.sql import functions as F
+from pyspark.sql.types import (
+    BooleanType,
+    IntegerType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+w = WorkspaceClient()
+
+SPACE_ID = "your-genie-space-id"
+CATALOG = "main"
+SCHEMA = "default"
+BRONZE_TABLE = f"{CATALOG}.{SCHEMA}.genie_conversations_bronze"
+EXPERIMENT_NAME = f"/Users/{w.current_user.me().user_name}/genie_mlflow"
+
+mlflow.set_experiment(EXPERIMENT_NAME)
+```
+
+<StepHeader number={2} title="Create the Bronze Table" />
+
+The bronze table stores raw Genie conversations with a `_is_traced` flag to track which rows have been sent to MLflow.
+
+```python
+spark.sql(f"""
+CREATE TABLE IF NOT EXISTS {BRONZE_TABLE} (
+    space_id STRING,
+    conversation_id STRING,
+    message_id STRING,
+    user_question STRING,
+    generated_sql STRING,
+    genie_text_response STRING,
+    sql_description STRING,
+    query_result_columns STRING,
+    query_result_row_count INT,
+    query_result_data STRING,
+    feedback_rating STRING,
+    error STRING,
+    status STRING,
+    created_timestamp LONG,
+    ingested_at TIMESTAMP,
+    _is_traced BOOLEAN
+)
+USING DELTA
+TBLPROPERTIES ('delta.enableChangeDataFeed' = 'true')
+""")
+```
+
+<StepHeader number={3} title="Extract Query Results from Genie Attachments" />
+
+Each Genie message may have a SQL query attachment with result data. This helper fetches the actual query results, handling both `data_array` and `data_typed_array` response formats.
+
+```python
+def extract_query_result(space_id, conversation_id, message_id, attachment_id):
+    """Fetch query result data for a message attachment.
+    Returns (columns, data_array, row_count) or (None, None, 0).
+    """
+    try:
+        raw = w.genie.get_message_attachment_query_result(
+            space_id=space_id,
+            conversation_id=conversation_id,
+            message_id=message_id,
+            attachment_id=attachment_id,
+        )
+        stmt = raw.statement_response if hasattr(raw, "statement_response") else None
+        if not stmt:
+            if isinstance(raw, dict):
+                stmt = raw.get("statement_response", raw)
+            else:
+                return None, None, 0
+
+        manifest = (
+            stmt.manifest
+            if hasattr(stmt, "manifest")
+            else (stmt.get("manifest") if isinstance(stmt, dict) else None)
+        )
+        columns = []
+        if manifest:
+            schema = (
+                manifest.schema
+                if hasattr(manifest, "schema")
+                else (manifest.get("schema") if isinstance(manifest, dict) else None)
+            )
+            if schema:
+                cols_list = (
+                    schema.columns
+                    if hasattr(schema, "columns")
+                    else (schema.get("columns", []) if isinstance(schema, dict) else [])
+                )
+                for c in cols_list:
+                    columns.append(c.name if hasattr(c, "name") else c.get("name", "?"))
+
+        result_obj = (
+            stmt.result
+            if hasattr(stmt, "result")
+            else (stmt.get("result") if isinstance(stmt, dict) else None)
+        )
+        data_array = []
+        if result_obj:
+            da = (
+                result_obj.data_array
+                if hasattr(result_obj, "data_array")
+                else (result_obj.get("data_array") if isinstance(result_obj, dict) else None)
+            )
+            if da:
+                data_array = [list(row) for row in da]
+            else:
+                dta = (
+                    result_obj.data_typed_array
+                    if hasattr(result_obj, "data_typed_array")
+                    else (
+                        result_obj.get("data_typed_array")
+                        if isinstance(result_obj, dict)
+                        else None
+                    )
+                )
+                if dta:
+                    for row in dta:
+                        values = (
+                            row.values
+                            if hasattr(row, "values")
+                            else (row.get("values", []) if isinstance(row, dict) else [])
+                        )
+                        parsed = []
+                        for v in values:
+                            if isinstance(v, dict):
+                                parsed.append(next(iter(v.values()), None))
+                            elif hasattr(v, "str"):
+                                parsed.append(v.str)
+                            else:
+                                parsed.append(str(v))
+                        data_array.append(parsed)
+
+        return columns, data_array, len(data_array)
+
+    except Exception as e:
+        if "404" in str(e) or "NOT_FOUND" in str(e):
+            return None, None, 0
+        print(f"    Query result error: {e}")
+        return None, None, 0
+```
+
+<StepHeader number={4} title="Pull Conversations from the Genie SDK" />
+
+This function calls the Genie API to retrieve conversations and their messages, then returns a Spark DataFrame ready for MERGE.
+
+```python
+def pull_conversations_to_dataframe(space_id, max_conversations=200):
+    convos_resp = w.genie.list_conversations(space_id=space_id, include_all=True)
+    all_convos = convos_resp.conversations or []
+    print(f"{len(all_convos)} conversations in space, processing up to {max_conversations}")
+
+    rows = []
+    for convo in all_convos[:max_conversations]:
+        try:
+            msgs = w.genie.list_conversation_messages(
+                space_id=space_id, conversation_id=convo.conversation_id
+            )
+            for msg in msgs.messages or []:
+                row = {
+                    "space_id": space_id,
+                    "conversation_id": convo.conversation_id,
+                    "message_id": msg.message_id,
+                    "user_question": msg.content or "",
+                    "generated_sql": None,
+                    "genie_text_response": None,
+                    "sql_description": None,
+                    "query_result_columns": None,
+                    "query_result_row_count": 0,
+                    "query_result_data": None,
+                    "feedback_rating": None,
+                    "error": None,
+                    "status": (
+                        str(msg.status) if hasattr(msg, "status") and msg.status else None
+                    ),
+                    "created_timestamp": (
+                        msg.created_timestamp
+                        if hasattr(msg, "created_timestamp") and msg.created_timestamp
+                        else 0
+                    ),
+                    "ingested_at": datetime.now(),
+                    "_is_traced": False,
+                }
+
+                if msg.attachments:
+                    for att in msg.attachments:
+                        if att.text and hasattr(att.text, "content"):
+                            row["genie_text_response"] = att.text.content
+                        if att.query:
+                            row["generated_sql"] = (
+                                att.query.query if hasattr(att.query, "query") else None
+                            )
+                            row["sql_description"] = (
+                                att.query.description
+                                if hasattr(att.query, "description")
+                                else None
+                            )
+                            att_id = (
+                                att.attachment_id if hasattr(att, "attachment_id") else None
+                            )
+                            if att_id and row["generated_sql"]:
+                                cols, data, row_count = extract_query_result(
+                                    space_id, convo.conversation_id,
+                                    msg.message_id, att_id,
+                                )
+                                if cols:
+                                    row["query_result_columns"] = json.dumps(cols)
+                                    row["query_result_data"] = json.dumps(data[:100])
+                                    row["query_result_row_count"] = row_count
+
+                if hasattr(msg, "feedback") and msg.feedback:
+                    row["feedback_rating"] = (
+                        str(msg.feedback.rating) if msg.feedback.rating else None
+                    )
+                if hasattr(msg, "error") and msg.error:
+                    row["error"] = str(msg.error)
+
+                if row["user_question"]:
+                    rows.append(row)
+        except Exception:
+            pass
+
+    if not rows:
+        print("No records pulled")
+        return None
+
+    schema = StructType([
+        StructField("space_id", StringType(), True),
+        StructField("conversation_id", StringType(), True),
+        StructField("message_id", StringType(), True),
+        StructField("user_question", StringType(), True),
+        StructField("generated_sql", StringType(), True),
+        StructField("genie_text_response", StringType(), True),
+        StructField("sql_description", StringType(), True),
+        StructField("query_result_columns", StringType(), True),
+        StructField("query_result_row_count", IntegerType(), True),
+        StructField("query_result_data", StringType(), True),
+        StructField("feedback_rating", StringType(), True),
+        StructField("error", StringType(), True),
+        StructField("status", StringType(), True),
+        StructField("created_timestamp", LongType(), True),
+        StructField("ingested_at", TimestampType(), True),
+        StructField("_is_traced", BooleanType(), True),
+    ])
+
+    df = spark.createDataFrame(rows, schema=schema)
+    print(f"Pulled {len(rows)} records from SDK")
+    return df
+```
+
+<StepHeader number={5} title="MERGE New Conversations into Bronze" />
+
+`MERGE` deduplicates by `message_id` -- if a message already exists, it's skipped. This makes the pull idempotent.
+
+```python
+new_df = pull_conversations_to_dataframe(SPACE_ID)
+
+if new_df:
+    new_df.createOrReplaceTempView("genie_new_batch")
+
+    spark.sql(f"""
+        MERGE INTO {BRONZE_TABLE} AS target
+        USING genie_new_batch AS source
+        ON target.message_id = source.message_id
+        WHEN NOT MATCHED THEN INSERT *
+    """)
+
+    current_count = spark.sql(
+        f"SELECT COUNT(*) AS cnt FROM {BRONZE_TABLE}"
+    ).first()["cnt"]
+    print(f"MERGE complete. Bronze table now has {current_count} records")
+else:
+    print("Nothing to merge")
+```
+
+<StepHeader number={6} title="Trace Untraced Rows with MLflow" />
+
+Read rows where `_is_traced = FALSE`, create an MLflow trace for each one, then mark them as traced.
+
+Each trace has three spans:
+- **text_to_sql** (RETRIEVER) -- the user question and generated SQL
+- **sql_execution** (TOOL) -- the SQL query and its results
+- **response_generation** (LLM) -- the final text response
+
+```python
+def log_single_trace(row):
+    question = row["user_question"]
+    sql = row["generated_sql"]
+    text_resp = row["genie_text_response"]
+    error = row["error"]
+
+    result_data = None
+    result_columns = None
+    if row.get("query_result_data"):
+        try:
+            result_data = json.loads(row["query_result_data"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+    if row.get("query_result_columns"):
+        try:
+            result_columns = json.loads(row["query_result_columns"])
+        except (json.JSONDecodeError, TypeError):
+            pass
+
+    with mlflow.start_span(
+        name="genie_interaction",
+        span_type=SpanType.CHAIN,
+        attributes={
+            "space_id": row["space_id"],
+            "conversation_id": row["conversation_id"],
+            "message_id": row["message_id"],
+            "feedback_rating": row["feedback_rating"],
+        },
+    ) as root:
+        root.set_inputs({"question": question})
+
+        with mlflow.start_span(name="text_to_sql", span_type=SpanType.RETRIEVER) as s:
+            s.set_inputs({"question": question})
+            s.set_outputs({
+                "generated_sql": sql or "(none)",
+                "sql_description": row["sql_description"],
+            })
+
+        if sql:
+            with mlflow.start_span(name="sql_execution", span_type=SpanType.TOOL) as s:
+                s.set_inputs({"sql": sql})
+                exec_output = {"row_count": row["query_result_row_count"] or 0}
+                if result_columns:
+                    exec_output["columns"] = result_columns
+                if result_data and result_columns:
+                    exec_output["data"] = [
+                        dict(zip(result_columns, r)) for r in result_data[:20]
+                    ]
+                elif result_data:
+                    exec_output["data"] = result_data[:20]
+                s.set_outputs(exec_output)
+
+        if text_resp:
+            with mlflow.start_span(
+                name="response_generation", span_type=SpanType.LLM
+            ) as s:
+                s.set_inputs({"question": question})
+                s.set_outputs({"response": text_resp})
+
+        root.set_outputs({
+            "text_response": text_resp,
+            "generated_sql": sql,
+            "error": error,
+        })
+```
+
+Query the untraced rows, trace them, and mark them as done:
+
+```python
+untraced_df = spark.sql(f"""
+    SELECT * FROM {BRONZE_TABLE}
+    WHERE _is_traced = FALSE AND user_question != ''
+    ORDER BY created_timestamp
+""")
+
+untraced_rows = untraced_df.collect()
+print(f"{len(untraced_rows)} untraced rows to process")
+
+if untraced_rows:
+    traced_ids = []
+
+    with mlflow.start_run(
+        run_name=f"genie_trace_{datetime.now().strftime('%Y%m%d_%H%M')}"
+    ):
+        mlflow.log_params({
+            "space_id": SPACE_ID,
+            "batch_size": len(untraced_rows),
+        })
+
+        for i, row in enumerate(untraced_rows):
+            try:
+                log_single_trace(row.asDict())
+                traced_ids.append(row["message_id"])
+            except Exception as e:
+                print(f"  Error: {e}")
+
+            if (i + 1) % 50 == 0:
+                print(f"  Traced {i + 1}/{len(untraced_rows)}")
+
+    print(f"Traced {len(traced_ids)} records")
+
+    if traced_ids:
+        ids_str = ",".join(f"'{mid}'" for mid in traced_ids)
+        spark.sql(f"""
+            UPDATE {BRONZE_TABLE}
+            SET _is_traced = TRUE
+            WHERE message_id IN ({ids_str})
+        """)
+        print(f"Marked {len(traced_ids)} rows as traced")
+```
+
+## How It Works
+
+| Step | What | Idempotent? |
+|------|------|-------------|
+| `MERGE INTO bronze` | SDK to Delta, dedup by `message_id` | Same message never inserted twice |
+| `SELECT WHERE _is_traced = FALSE` | Find new rows | Already-traced rows skipped |
+| `UPDATE SET _is_traced = TRUE` | Mark as done | Won't re-trace |
+
+Schedule this as a daily workflow: pull from SDK, MERGE into bronze, trace untraced rows.
+
+## Next Steps
+
+- [Genie Evaluation with LLM Judges](/genai/cookbooks/genie-evaluation-judges) -- Run automated judges and human labeling on traced conversations
+- [Genie Space Analyzer](/genai/cookbooks/genie-space-analyzer) -- Audit your Genie space configuration and generate improvement recommendations
