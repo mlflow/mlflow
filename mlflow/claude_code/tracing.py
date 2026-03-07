@@ -407,6 +407,8 @@ def _create_llm_and_tool_spans(
     parent_span, transcript: list[dict[str, Any]], start_idx: int
 ) -> None:
     """Create LLM and tool spans for assistant responses with proper timing."""
+    last_usage = None  # Track last seen usage to deduplicate split entries
+
     for i in range(start_idx, len(transcript)):
         entry = transcript[i]
         if entry.get(MESSAGE_FIELD_TYPE) != MESSAGE_TYPE_ASSISTANT:
@@ -427,9 +429,15 @@ def _create_llm_and_tool_spans(
         # First check if we have meaningful content to create a span for
         text_content, tool_uses = _extract_content_and_tools(content)
 
-        # Only create LLM span if there's text content (no tools)
-        llm_span = None
-        if text_content and text_content.strip() and not tool_uses:
+        # Deduplicate: a single API call may produce multiple transcript entries
+        # (thinking, text, tool_use) with identical usage dicts
+        is_new_usage = bool(usage) and usage != last_usage
+        if usage:
+            last_usage = usage
+
+        # Create LLM span if there's text content or new usage to capture
+        has_text = bool(text_content and text_content.strip())
+        if has_text or is_new_usage:
             messages = _get_input_messages(transcript, i)
 
             llm_span = mlflow.start_span_no_context(
@@ -447,8 +455,9 @@ def _create_llm_and_tool_spans(
                 },
             )
 
-            # Set token usage using the standardized CHAT_USAGE attribute
-            _set_token_usage_attribute(llm_span, usage)
+            # Only set token usage for new API calls to avoid double-counting
+            if is_new_usage:
+                _set_token_usage_attribute(llm_span, usage)
 
             # Output in Anthropic response format for Chat UI rendering
             llm_span.set_outputs(
@@ -755,11 +764,25 @@ def _create_sdk_child_spans(
             text_blocks = [block for block in msg.content if isinstance(block, TextBlock)]
             tool_blocks = [block for block in msg.content if isinstance(block, ToolUseBlock)]
 
-            if text_blocks and not tool_blocks:
+            if text_blocks:
                 text = "\n".join(block.text for block in text_blocks)
                 if text.strip():
                     final_response = text
 
+            # Create LLM span for every assistant message (not just text-only)
+            if text_blocks or tool_blocks:
+                content = [
+                    *[{"type": "text", "text": block.text} for block in text_blocks],
+                    *[
+                        {
+                            "type": "tool_use",
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input,
+                        }
+                        for block in tool_blocks
+                    ],
+                ]
                 llm_span = mlflow.start_span_no_context(
                     name="llm",
                     parent_span=parent_span,
@@ -777,12 +800,11 @@ def _create_sdk_child_spans(
                     {
                         "type": "message",
                         "role": "assistant",
-                        "content": [{"type": "text", "text": block.text} for block in text_blocks],
+                        "content": content,
                     }
                 )
                 llm_span.end()
                 pending_messages = []
-                continue
 
             for tool_block in tool_blocks:
                 tool_span = mlflow.start_span_no_context(
