@@ -1,4 +1,4 @@
-import { Overflow, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Overflow, useDesignSystemTheme } from '@databricks/design-system';
 import { useState } from 'react';
 import type { RunDatasetWithTags, RunInfoEntity } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
@@ -34,8 +34,8 @@ export const RunViewDatasetBoxV2 = ({
         experimentId: runInfo.experimentId ?? undefined,
         runUuid: runInfo.runUuid ?? '',
         runName: runInfo.runName ?? undefined,
-        datasets: datasets,
-        tags: tags,
+        datasets,
+        tags,
       },
     });
     setIsDrawerOpen(true);
@@ -46,18 +46,28 @@ export const RunViewDatasetBoxV2 = ({
       <Overflow>
         {datasets.map((datasetWithTags) => (
           // eslint-disable-next-line react/jsx-key
-          <Typography.Link
-            componentId="mlflow.run_details.datasets_box.dataset_link"
+          <div
+            role="button"
+            tabIndex={0}
             css={{
               textAlign: 'left',
+              cursor: 'pointer',
               '.anticon': {
                 fontSize: theme.general.iconFontSize,
               },
+              '&:hover': {
+                color: theme.colors.actionPrimaryBackgroundDefault,
+              },
             }}
             onClick={() => datasetClicked(datasetWithTags)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                datasetClicked(datasetWithTags);
+              }
+            }}
           >
-            <ExperimentViewDatasetWithContext datasetWithTags={datasetWithTags} displayTextAsLink css={{ margin: 0 }} />
-          </Typography.Link>
+            <ExperimentViewDatasetWithContext datasetWithTags={datasetWithTags} displayTextAsLink={false} />
+          </div>
         ))}
       </Overflow>
       {selectedDatasetWithRun && (
