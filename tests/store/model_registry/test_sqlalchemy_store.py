@@ -560,6 +560,22 @@ def test_create_model_version(store):
     assert mvd6.run_id is None
 
 
+def test_create_model_version_with_user_id(store):
+    name = "test_for_create_MV_user_id"
+    _rm_maker(store, name)
+    run_id = uuid.uuid4().hex
+
+    mv = store.create_model_version(name, "path/to/source", run_id, user_id="alice")
+    assert mv.user_id == "alice"
+
+    mvd = store.get_model_version(name, mv.version)
+    assert mvd.user_id == "alice"
+
+    # user_id defaults to None when not provided
+    mv2 = store.create_model_version(name, "path/to/source", run_id)
+    assert mv2.user_id is None
+
+
 def test_update_model_version(store):
     name = "test_for_update_MV"
     _rm_maker(store, name)
