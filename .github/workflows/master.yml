@@ -211,7 +211,8 @@ jobs:
           uv sync --extra extras
           uv pip install \
             -r requirements/test-requirements.txt \
-            -r requirements/extra-ml-requirements.txt
+            -r requirements/extra-ml-requirements.txt \
+            'tensorflow<2.21'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
