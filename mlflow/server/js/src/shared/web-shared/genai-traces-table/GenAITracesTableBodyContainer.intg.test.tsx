@@ -17,6 +17,7 @@ import {
   createTestColumns,
 } from './test-fixtures/EvaluatedTraceTestUtils';
 import { TestRouter, testRoute } from './utils/RoutingTestUtils';
+import { GenAiTraceTableRowSelectionProvider } from './hooks/useGenAiTraceTableRowSelection';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 // Mock the virtualizer to render all rows in tests
@@ -238,6 +239,90 @@ describe('GenAITracesTableBodyContainer - integration test', () => {
     expect(allCheckboxes[3]).toBeChecked();
     // "Select All" checkbox should also be checked since all rows are selected
     expect(allCheckboxes[0]).toBeChecked();
+  });
+
+  it('deselects all rows including those hidden by active filter when header checkbox is clicked', async () => {
+    // Simulate the scenario where trace-1 and trace-2 were selected before a server-side
+    // filter was applied, so the current view only shows trace-3.  Those two traces are
+    // "hidden" by the filter but still present in the rowSelection state.
+    // The header checkbox should appear indeterminate (some rows selected but not all visible).
+    // Clicking it must clear ALL selections – not just the visible rows.
+
+    const defaultAssessmentInfos = [createTestAssessmentInfo('overall_assessment', 'Overall Assessment', 'pass-fail')];
+    const defaultColumns = createTestColumns(defaultAssessmentInfos);
+
+    const filteredTraceInfos = [
+      // Only trace-3 is visible after the filter; trace-1 and trace-2 are hidden
+      createTestTraceInfoV3('trace-3', 'request-3', 'Hello 3', [], testExperimentId),
+    ];
+
+    // Pre-seed selections for the two hidden traces
+    const initialRowSelection = { 'trace-1': true, 'trace-2': true };
+    const mockSetRowSelection = jest.fn();
+
+    const defaultProps: ComponentProps<typeof GenAITracesTableBodyContainer> = {
+      experimentId: testExperimentId,
+      currentRunDisplayName: 'Test Run',
+      runUuid: testRunUuid,
+      compareToRunUuid: undefined,
+      compareToRunDisplayName: undefined,
+      assessmentInfos: defaultAssessmentInfos,
+      currentTraceInfoV3: filteredTraceInfos,
+      selectedColumns: defaultColumns,
+      allColumns: defaultColumns,
+      tableSort: undefined,
+      filters: [],
+      setFilters: jest.fn(),
+      getTrace: jest
+        .fn<ComponentProps<typeof GenAITracesTableBodyContainer>['getTrace']>()
+        .mockResolvedValue(undefined),
+      isGroupedBySession: false,
+    };
+
+    render(
+      <IntlProvider locale="en">
+        <TestRouter
+          routes={[
+            testRoute(
+              <DesignSystemProvider>
+                <QueryClientProvider
+                  client={
+                    new QueryClient({
+                      logger: { error: () => {}, log: () => {}, warn: () => {} },
+                    })
+                  }
+                >
+                  <GenAiTraceTableRowSelectionProvider
+                    rowSelection={initialRowSelection}
+                    setRowSelection={mockSetRowSelection}
+                  >
+                    <GenAITracesTableBodyContainer {...defaultProps} />
+                  </GenAiTraceTableRowSelectionProvider>
+                </QueryClientProvider>
+              </DesignSystemProvider>,
+            ),
+          ]}
+        />
+      </IntlProvider>,
+    );
+
+    await waitForViewToBeReady();
+
+    const user = userEvent.setup();
+    const allCheckboxes = screen.getAllByRole('checkbox');
+
+    // Header checkbox (index 0) + 1 row checkbox for trace-3
+    expect(allCheckboxes).toHaveLength(2);
+
+    // The header checkbox should be indeterminate: trace-3 is not selected (not in
+    // rowSelection) but the overall rowSelection is non-empty (trace-1, trace-2 hidden).
+    // Indeterminate checkboxes typically report checked=false in the DOM.
+    expect(allCheckboxes[0]).not.toBeChecked();
+
+    // Clicking the header checkbox should clear ALL selections (including the hidden ones)
+    await user.click(allCheckboxes[0]);
+
+    expect(mockSetRowSelection).toHaveBeenCalledWith({});
   });
 
   it('renders table with comparison data', async () => {
