@@ -251,6 +251,10 @@
     "defaultMessage": "Models loading",
     "description": "Label for a loading spinner when table containing models is being loaded"
   },
+  "/j4ziU": {
+    "defaultMessage": "Please select a model in `Advanced settings` below",
+    "description": "Message when provider has no default model"
+  },
   "/k6j6v": {
     "defaultMessage": "Confirm",
     "description": "Evaluation review > assessments > confirm assessment button label"
@@ -562,10 +566,6 @@
   "2/B9Zg": {
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
-  },
-  "23xuy1": {
-    "defaultMessage": "Analysis Model *",
-    "description": "Label for analysis model selection (required)"
   },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
@@ -965,6 +965,10 @@
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
+  },
+  "5FUaKj": {
+    "defaultMessage": "Configure the LLM provider and model to power issue detection",
+    "description": "Description for the model selection step"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -1458,10 +1462,6 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
-  "8S2wnj": {
-    "defaultMessage": "Judge Model *",
-    "description": "Label for judge model selection (required)"
-  },
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
@@ -1913,10 +1913,6 @@
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
-  },
-  "B5WVpt": {
-    "defaultMessage": "Analysis model: {analysisModel} · Judge model: {judgeModel}",
-    "description": "Display of default models for selected provider"
   },
   "B80MC6": {
     "defaultMessage": "Contour Plot",
@@ -2733,10 +2729,6 @@
   "HNQ9dM": {
     "defaultMessage": "Status",
     "description": "Label for the status section"
-  },
-  "HRYr1s": {
-    "defaultMessage": "Configure the LLM provider and models to power issue detection",
-    "description": "Description for the model selection step"
   },
   "HSMagB": {
     "defaultMessage": "Error evaluating \"{label}\"",
@@ -3802,10 +3794,6 @@
     "defaultMessage": "Add expectation",
     "description": "Label for the button to add a new expectation"
   },
-  "OoLizY": {
-    "defaultMessage": "Select Models",
-    "description": "Header for the model selection step in issue detection modal"
-  },
   "OxQK9l": {
     "defaultMessage": "Key name is required",
     "description": "Error message when key name is empty"
@@ -4668,6 +4656,10 @@
     "defaultMessage": "View logs for this period",
     "description": "Link text to navigate to gateway endpoint logs tab"
   },
+  "V0/5Oy": {
+    "defaultMessage": "Model: {model}",
+    "description": "Display of default model for selected provider"
+  },
   "V0/LoE": {
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
     "description": "Tooltip message for the export button when the trace is not exportable"
@@ -5039,10 +5031,6 @@
   "XOUsyq": {
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
-  },
-  "XQSxtK": {
-    "defaultMessage": "Please select models in `Advanced settings` below",
-    "description": "Message when provider has no default models"
   },
   "XX8+x1": {
     "defaultMessage": "View prompt template",
@@ -5863,6 +5851,10 @@
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
   },
+  "cXhWaG": {
+    "defaultMessage": "Select Model",
+    "description": "Header for the model selection step in issue detection modal"
+  },
   "cYlLx9": {
     "defaultMessage": "Usage",
     "description": "Sidebar link for gateway usage"
@@ -6134,6 +6126,10 @@
   "eSxQmg": {
     "defaultMessage": "Correct",
     "description": "Evaluation results > correctness assessment > positive value label. Displayed if evaluation result is considered as correct."
+  },
+  "eSy6pz": {
+    "defaultMessage": "Model *",
+    "description": "Label for model selection (required)"
   },
   "eUUNCv": {
     "defaultMessage": "Error during metric page load: invalid URL",
