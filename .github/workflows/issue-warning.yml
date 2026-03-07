@@ -23,12 +23,13 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           REPO: ${{ github.repository }}
         run: |
-          if echo "$ISSUE_BODY" | grep -qF 'Please submit a PR only if the issue has the'; then
+          if echo "$ISSUE_BODY" | grep -qF '<!-- issue-warning -->'; then
             echo "Warning already present, skipping."
             exit 0
           fi
 
-          body="> [!WARNING]
+          body="<!-- issue-warning -->
+          > [!WARNING]
           > Please submit a PR only if the issue has the \`ready\` label, has no assignee, and no duplicate PR exists. PRs not meeting these requirements may be automatically closed.
 
           ${ISSUE_BODY}"
