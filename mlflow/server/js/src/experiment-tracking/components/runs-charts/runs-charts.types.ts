@@ -570,6 +570,12 @@ export class RunsChartsBarCardConfig extends RunsChartsCardConfig {
   metricKey = '';
 
   /**
+   * New key to support multiple metrics in grouped bar charts.
+   * NOTE: This key will not be present in older charts.
+   */
+  selectedMetricKeys?: string[];
+
+  /**
    * If the chart is configured to use a particular dataset, this field will contain the dataset identifier.
    */
   datasetName?: string;
