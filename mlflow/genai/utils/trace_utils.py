@@ -201,6 +201,53 @@ def _extract_tool_name_from_span(span: Span) -> str:
     return span.name
 
 
+def _normalize_tool_arguments(inputs):
+    """
+    Normalize tool arguments from different trace formats.
+    
+    Handles:
+    - LangChain format: {"expression": "25 + 17"} (dict)
+    - Strands format: [{"role": "tool", "content": {"expression": "25 + 17"}}] (list)
+    - String format: '{"expression": "25 + 17"}' (JSON string)
+    
+    Returns:
+        dict, str, or None
+    """
+    if inputs is None:
+        return None
+    
+    if isinstance(inputs, list) and len(inputs) > 0:
+        first_item = inputs[0]
+        if isinstance(first_item, dict):
+            if "content" in first_item:
+                return first_item["content"]
+            return first_item
+    
+    return inputs
+
+
+def _normalize_tool_outputs(outputs):
+    """
+    Normalize tool outputs from different trace formats.
+    
+    Handles:
+    - LangChain format: "42" (string/dict)
+    - Strands format: [{"text": "42"}] (list)
+    
+    Returns:
+        The normalized output
+    """
+    if outputs is None:
+        return None
+    
+    if isinstance(outputs, list) and len(outputs) > 0:
+        first_item = outputs[0]
+        if isinstance(first_item, dict) and "text" in first_item:
+            return first_item["text"]
+    
+    return outputs
+
+
 def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
     """
     Extract tool call information from TOOL type spans in a trace.
@@ -227,10 +274,13 @@ def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
     tool_spans = trace.search_spans(span_type=SpanType.TOOL)
 
     for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
+        arguments = _normalize_tool_arguments(tool_span.inputs)
+        outputs = _normalize_tool_outputs(tool_span.outputs)
+        
         tool_info = FunctionCall(
             name=_extract_tool_name_from_span(tool_span),
-            arguments=tool_span.inputs or None,
-            outputs=tool_span.outputs or None,
+            arguments=arguments,
+            outputs=outputs,
             exception=_get_exception_from_span(tool_span),
         )
         tools_called.append(tool_info)
@@ -1013,7 +1063,7 @@ def extract_available_tools_from_trace(trace: Trace, model: str | None = None) -
     all_tools = []
     seen_tool_signatures = set()
 
-    relevant_span_types = [SpanType.LLM, SpanType.CHAT_MODEL]
+    relevant_span_types = [SpanType.LLM, SpanType.CHAT_MODEL, SpanType.TOOL]
 
     for span in trace.data.spans:
         span_type = span.get_attribute(SpanAttributeKey.SPAN_TYPE)
@@ -1078,7 +1128,57 @@ def _extract_tools_from_span(span: Span) -> list["ChatTool"]:
         except Exception as e:
             _logger.debug(f"Failed to parse tools from inputs in span {span.span_id}: {e}")
 
+    tool_from_genai = _extract_tool_from_genai_attributes(span)
+    if tool_from_genai:
+        return [tool_from_genai]
+
     return []
+
+
+def _extract_tool_from_genai_attributes(span: Span) -> "ChatTool | None":
+    """
+    Extract tool definition from OpenTelemetry GenAI semantic convention attributes.
+    
+    Used by frameworks like Strands that use gen_ai.tool.* attributes.
+    
+    Args:
+        span: MLflow span object (typically a TOOL span)
+        
+    Returns:
+        ChatTool object if tool info found, None otherwise
+    """
+    from mlflow.types.chat import ChatTool, FunctionToolDefinition
+    
+    tool_name = span.get_attribute("gen_ai.tool.name")
+    if not tool_name:
+        return None
+    
+    if isinstance(tool_name, str) and tool_name.startswith('"') and tool_name.endswith('"'):
+        tool_name = tool_name[1:-1]
+    
+    tool_description = span.get_attribute("gen_ai.tool.description")
+    if isinstance(tool_description, str) and tool_description.startswith('"'):
+        tool_description = tool_description[1:-1]
+    
+    tool_schema = span.get_attribute("gen_ai.tool.json_schema")
+    if isinstance(tool_schema, str):
+        try:
+            if tool_schema.startswith('"'):
+                tool_schema = json.loads(tool_schema)
+            tool_schema = json.loads(tool_schema) if isinstance(tool_schema, str) else tool_schema
+        except Exception:
+            tool_schema = None
+    
+    try:
+        function = FunctionToolDefinition(
+            name=tool_name,
+            description=tool_description or "",
+            parameters=tool_schema or {}
+        )
+        return ChatTool(type="function", function=function)
+    except Exception as e:
+        _logger.debug(f"Failed to create ChatTool from gen_ai attributes: {e}")
+        return None
 
 
 def _parse_tools_to_chat_tool(tools_data: list[dict[str, Any]]) -> list["ChatTool"]:
