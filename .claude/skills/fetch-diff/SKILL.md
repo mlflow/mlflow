@@ -42,6 +42,6 @@ index abc123..def456 100644
 
 Each line is annotated as `old_line new_line | <marker> content`:
 
-- `-` marker (left number only) → deleted line, `side=LEFT`, `line=old_line`
-- `+` marker (right number only) → added line, `side=RIGHT`, `line=new_line`
-- No marker (both numbers) → unchanged line, `side=RIGHT`, `line=new_line`
+- `-` marker (left number only) -> deleted line, `side=LEFT`, `line=old_line`
+- `+` marker (right number only) -> added line, `side=RIGHT`, `line=new_line`
+- No marker (both numbers) -> unchanged line, `side=RIGHT`, `line=new_line`

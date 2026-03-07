@@ -13,7 +13,7 @@ Adds a review comment to a specific line in a GitHub pull request.
 
 ## Step 1: Locate the line to comment on
 
-Use the `fetch-diff` skill to locate the line to comment on. Optionally pipe through grep to narrow down results.
+Use the `fetch-diff` skill (optionally piped through `grep`) to locate the line to comment on.
 
 ## Step 2: Post the comment
 
