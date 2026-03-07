@@ -5,6 +5,7 @@ import {
   BeakerIcon,
   Button,
   CloudModelIcon,
+  ArrowRightIcon,
   GearIcon,
   HomeIcon,
   ModelsIcon,
@@ -423,12 +424,14 @@ export function MlflowSidebar({
                   display: 'flex',
                   alignItems: 'center',
                   gap: theme.spacing.sm,
-                  padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+                  paddingInline: showSidebar ? theme.spacing.sm : theme.spacing.xs,
+                  paddingBlock: theme.spacing.sm,
                   cursor: 'pointer',
-                  borderRadius: theme.borders.borderRadiusMd,
+                  borderRadius: theme.borders.borderRadiusMd - 2,
+                  justifyContent: showSidebar ? 'flex-start' : 'center',
                   color: theme.colors.textSecondary,
                   '&:hover': {
-                    backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+                    backgroundColor: theme.colors.actionDefaultBackgroundHover,
                     color: theme.colors.textPrimary,
                   },
                 }}
@@ -439,6 +442,7 @@ export function MlflowSidebar({
                   }
                 }}
               >
+                <ArrowRightIcon />
                 {showSidebar && (
                   <Typography.Text color="secondary">
                     <FormattedMessage defaultMessage="Sign out" description="Sidebar button to sign out" />
