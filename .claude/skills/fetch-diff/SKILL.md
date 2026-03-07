@@ -12,13 +12,23 @@ Fetches a pull request diff, filters out auto-generated files, and adds line num
 ## Usage
 
 ```bash
-uv run skills fetch-diff <pr_url>
+uv run skills fetch-diff <pr_url> [--files <pattern> ...]
 ```
 
-Example:
+Examples:
 
 ```bash
+# Fetch the full diff
 uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123
+
+# Fetch only Python files
+uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files '*.py'
+
+# Fetch only frontend files
+uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files 'mlflow/server/js/*'
+
+# Multiple patterns
+uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files '*.py' '*.ts'
 ```
 
 Token is auto-detected from `GH_TOKEN` env var or `gh auth token`.
