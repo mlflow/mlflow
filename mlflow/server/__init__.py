@@ -474,6 +474,13 @@ def _run_server(
 
     def _forward_signal(signum, _frame):
         """Forward signals to the child server process to enable graceful shutdown."""
+        _logger.info(
+            "Received signal %s (pid=%d, ppid=%d), forwarding to server process %d",
+            signal.Signals(signum).name,
+            os.getpid(),
+            os.getppid(),
+            server_proc.pid,
+        )
         if server_proc.poll() is not None:
             return
         try:
