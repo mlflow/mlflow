@@ -8,6 +8,7 @@ import signal
 import sys
 import tempfile
 import textwrap
+import traceback
 import types
 import warnings
 
@@ -475,11 +476,13 @@ def _run_server(
     def _forward_signal(signum, _frame):
         """Forward signals to the child server process to enable graceful shutdown."""
         _logger.info(
-            "Received signal %s (pid=%d, ppid=%d), forwarding to server process %d",
+            "Received signal %s (pid=%d, ppid=%d, pgid=%d), forwarding to server process %d\n%s",
             signal.Signals(signum).name,
             os.getpid(),
             os.getppid(),
+            os.getpgid(0),
             server_proc.pid,
+            "".join(traceback.format_stack(_frame)),
         )
         if server_proc.poll() is not None:
             return
