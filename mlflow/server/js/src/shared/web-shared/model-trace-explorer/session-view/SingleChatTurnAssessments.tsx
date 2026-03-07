@@ -18,10 +18,12 @@ export const SingleChatTurnAssessments = ({
   trace,
   getAssessmentTitle,
   onAddAssessmentsClick,
+  onAssessmentClick,
 }: {
   trace: ModelTrace;
   getAssessmentTitle: (assessmentName: string) => string;
   onAddAssessmentsClick?: () => void;
+  onAssessmentClick?: (assessmentId: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const info = isV3ModelTraceInfo(trace.info) ? trace.info : null;
@@ -87,18 +89,34 @@ export const SingleChatTurnAssessments = ({
           }
           const title = getAssessmentTitle(assessment.assessment_name);
           const value = getAssessmentValue(assessment)?.toString() ?? '';
-          return (
-            <div key={assessment.assessment_id}>
-              {/* Both expectations and feedback assessments are formatted with title and value in the same box */}
-              <AssessmentDisplayValue
-                prefix={<>{title}: </>}
-                jsonValue={value}
-                css={{ maxWidth: 150 }}
-                skipIcons={isExpectationAssessment(assessment)}
-                overrideColor={isExpectationAssessment(assessment) ? 'default' : undefined}
-              />
-            </div>
+          const pill = (
+            <AssessmentDisplayValue
+              prefix={<>{title}: </>}
+              jsonValue={value}
+              css={{ maxWidth: 150 }}
+              skipIcons={isExpectationAssessment(assessment)}
+              overrideColor={isExpectationAssessment(assessment) ? 'default' : undefined}
+            />
           );
+          if (onAssessmentClick) {
+            return (
+              <button
+                key={assessment.assessment_id}
+                type="button"
+                onClick={() => onAssessmentClick(assessment.assessment_id)}
+                css={{
+                  all: 'unset',
+                  cursor: 'pointer',
+                  // Without this, the pill shows an arrow cursor because the
+                  // design system Tag component sets cursor: default.
+                  '& *': { cursor: 'inherit' },
+                }}
+              >
+                {pill}
+              </button>
+            );
+          }
+          return <div key={assessment.assessment_id}>{pill}</div>;
         })}
       </Overflow>
     </div>
