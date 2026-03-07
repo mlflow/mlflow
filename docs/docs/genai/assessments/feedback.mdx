@@ -18,7 +18,7 @@ import AdditionalFeedbackImageUrl from '@site/static/images/assessments/addition
 
 # Feedback Collection
 
-MLflow Feedback provides a comprehensive system for capturing quality evaluations from multiple sources - whether automated AI judges, programmatic rules, or human reviewers. This systematic approach to feedback collection enables you to understand and improve your GenAI application's performance at scale.
+MLflow Feedback provides a comprehensive system for capturing quality evaluations from multiple sources - whether automated AI judges, programmatic rules, or human reviewers. This systematic approach to feedback collection enables you to understand and improve your LLM application or AI agent's performance at scale.
 
 For complete API documentation and implementation details, see the <APILink fn="mlflow.log_feedback" /> reference.
 
@@ -32,7 +32,7 @@ Before using feedback collection in MLflow, ensure you have:
 
 - MLflow 3.2.0 or later installed
 - An active MLflow tracking server or local tracking setup
-- Traces that have been logged from your GenAI application to an MLflow Experiment
+- Traces that have been logged from your LLM application or AI agent to an MLflow Experiment
 
 ## Sources of Feedback
 
@@ -79,7 +79,7 @@ llm_judge_source = AssessmentSource(
 
 ## Why Collect Feedback?
 
-Collecting feedback on the quality of GenAI applications is critical to a continuous improvement process, ensuring that your application remains effective and is enhanced over time.
+Collecting feedback on the quality of LLM applications and AI agents is critical to a continuous improvement process, ensuring that your application remains effective and is enhanced over time.
 
 <FeatureHighlights features={[
   {
@@ -616,7 +616,7 @@ mlflow.log_feedback(
     icon={BarChart3}
     iconSize={48}
     title="LLM Evaluation"
-    description="Learn how to systematically evaluate and improve your GenAI applications"
+    description="Learn how to systematically evaluate and improve your LLM applications and AI agents"
     href="/genai/eval-monitor"
     linkText="Start evaluating →"
     containerHeight={64}
