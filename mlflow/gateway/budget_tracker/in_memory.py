@@ -157,6 +157,11 @@ class InMemoryBudgetTracker(BudgetTracker):
                 window.cumulative_spend = spend
                 window.exceeded = spend >= window.policy.budget_amount
 
+    def get_all_windows(self) -> list[BudgetWindow]:
+        """Get the current window info for all tracked policies."""
+        with self._lock:
+            return list(self._windows.values())
+
     def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
         """Get the current window info for a policy (for payload construction)."""
         with self._lock:

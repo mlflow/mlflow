@@ -128,6 +128,10 @@ class BudgetTracker(ABC):
         """
 
     @abstractmethod
+    def get_all_windows(self) -> list[BudgetWindow]:
+        """Get the current window info for all tracked policies."""
+
+    @abstractmethod
     def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
         """Get the current window info for a policy (for payload construction)."""
 

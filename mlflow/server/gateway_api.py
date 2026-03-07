@@ -17,6 +17,7 @@ from fastapi.responses import StreamingResponse
 
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.config import (
     AnthropicConfig,
     EndpointConfig,
@@ -60,6 +61,7 @@ from mlflow.utils.workspace_context import get_request_workspace
 _logger = logging.getLogger(__name__)
 
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
+budget_router = APIRouter(prefix="/ajax-api/3.0/mlflow/gateway", tags=["budget"])
 
 
 async def _get_request_body(request: Request) -> dict[str, Any]:
@@ -931,3 +933,19 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     return StreamingResponse(
         safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
     )
+
+
+@budget_router.get("/budgets/windows")
+async def list_budget_windows() -> dict:
+    tracker = get_budget_tracker()
+    windows = tracker.get_all_windows()
+    return {
+        "windows": {
+            w.policy.budget_policy_id: {
+                "window_start_ms": int(w.window_start.timestamp() * 1000),
+                "window_end_ms": int(w.window_end.timestamp() * 1000),
+                "current_spend": w.cumulative_spend,
+            }
+            for w in windows
+        }
+    }

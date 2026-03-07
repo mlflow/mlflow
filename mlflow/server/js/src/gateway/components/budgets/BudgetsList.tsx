@@ -17,6 +17,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
+import { useBudgetWindowsQuery } from '../../hooks/useBudgetWindowsQuery';
 import { formatBudgetAmount, formatDuration, formatOnExceeded } from './budgetFormatUtils';
 import { TimeAgo } from '../../../shared/web-shared/browse/TimeAgo';
 import type { BudgetPolicy } from '../../types';
@@ -35,6 +36,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
   const [pageTokenHistory, setPageTokenHistory] = useState<string[]>([]);
 
   const { data: budgetPolicies, nextPageToken, isLoading } = useBudgetPoliciesQuery(PAGE_SIZE, pageToken);
+  const { data: budgetWindows } = useBudgetWindowsQuery();
 
   const handleNextPage = () => {
     if (nextPageToken) {
@@ -117,6 +119,15 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
           <TableHeader componentId="mlflow.gateway.budgets-list.action-header" css={{ flex: 1 }}>
             <FormattedMessage defaultMessage="On Exceeded" description="Budget on exceeded column header" />
           </TableHeader>
+          <TableHeader componentId="mlflow.gateway.budgets-list.window-start-header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Window Start" description="Budget window start date column header" />
+          </TableHeader>
+          <TableHeader componentId="mlflow.gateway.budgets-list.window-end-header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Window End" description="Budget window end date column header" />
+          </TableHeader>
+          <TableHeader componentId="mlflow.gateway.budgets-list.current-spend-header" css={{ flex: 1 }}>
+            <FormattedMessage defaultMessage="Current Spend" description="Budget current spend column header" />
+          </TableHeader>
           <TableHeader componentId="mlflow.gateway.budgets-list.updated-header" css={{ flex: 1 }}>
             <FormattedMessage defaultMessage="Last updated" description="Last updated column header" />
           </TableHeader>
@@ -125,46 +136,70 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
             css={{ flex: 0, minWidth: 96, maxWidth: 96 }}
           />
         </TableRow>
-        {budgetPolicies.map((policy: BudgetPolicy) => (
-          <TableRow key={policy.budget_policy_id}>
-            <TableCell css={{ flex: 1 }}>
-              <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
-            </TableCell>
-            <TableCell css={{ flex: 1 }}>
-              <Typography.Text>{formatDuration(policy.duration_value, policy.duration_unit)}</Typography.Text>
-            </TableCell>
-            <TableCell css={{ flex: 1 }}>
-              <Typography.Text>{formatOnExceeded(policy.budget_action)}</Typography.Text>
-            </TableCell>
-            <TableCell css={{ flex: 1 }}>
-              <TimeAgo date={new Date(policy.last_updated_at)} />
-            </TableCell>
-            <TableCell css={{ flex: 0, minWidth: 96, maxWidth: 96 }}>
-              <div css={{ display: 'flex', gap: theme.spacing.xs }}>
-                <Button
-                  componentId="mlflow.gateway.budgets-list.edit-button"
-                  type="primary"
-                  icon={<PencilIcon />}
-                  aria-label={formatMessage({
-                    defaultMessage: 'Edit budget policy',
-                    description: 'Gateway > Budgets list > Edit budget policy button aria label',
-                  })}
-                  onClick={() => onEditClick?.(policy)}
-                />
-                <Button
-                  componentId="mlflow.gateway.budgets-list.delete-button"
-                  type="primary"
-                  icon={<TrashIcon />}
-                  aria-label={formatMessage({
-                    defaultMessage: 'Delete budget policy',
-                    description: 'Gateway > Budgets list > Delete budget policy button aria label',
-                  })}
-                  onClick={() => onDeleteClick?.(policy)}
-                />
-              </div>
-            </TableCell>
-          </TableRow>
-        ))}
+        {budgetPolicies.map((policy: BudgetPolicy) => {
+          const window = budgetWindows[policy.budget_policy_id];
+          return (
+            <TableRow key={policy.budget_policy_id}>
+              <TableCell css={{ flex: 1 }}>
+                <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
+              </TableCell>
+              <TableCell css={{ flex: 1 }}>
+                <Typography.Text>{formatDuration(policy.duration_value, policy.duration_unit)}</Typography.Text>
+              </TableCell>
+              <TableCell css={{ flex: 1 }}>
+                <Typography.Text>{formatOnExceeded(policy.budget_action)}</Typography.Text>
+              </TableCell>
+              <TableCell css={{ flex: 1 }}>
+                {window ? (
+                  <TimeAgo date={new Date(window.window_start_ms)} />
+                ) : (
+                  <Typography.Text color="secondary">—</Typography.Text>
+                )}
+              </TableCell>
+              <TableCell css={{ flex: 1 }}>
+                {window ? (
+                  <TimeAgo date={new Date(window.window_end_ms)} />
+                ) : (
+                  <Typography.Text color="secondary">—</Typography.Text>
+                )}
+              </TableCell>
+              <TableCell css={{ flex: 1 }}>
+                {window ? (
+                  <Typography.Text>{formatBudgetAmount(window.current_spend, policy.budget_unit)}</Typography.Text>
+                ) : (
+                  <Typography.Text color="secondary">—</Typography.Text>
+                )}
+              </TableCell>
+              <TableCell css={{ flex: 1 }}>
+                <TimeAgo date={new Date(policy.last_updated_at)} />
+              </TableCell>
+              <TableCell css={{ flex: 0, minWidth: 96, maxWidth: 96 }}>
+                <div css={{ display: 'flex', gap: theme.spacing.xs }}>
+                  <Button
+                    componentId="mlflow.gateway.budgets-list.edit-button"
+                    type="primary"
+                    icon={<PencilIcon />}
+                    aria-label={formatMessage({
+                      defaultMessage: 'Edit budget policy',
+                      description: 'Gateway > Budgets list > Edit budget policy button aria label',
+                    })}
+                    onClick={() => onEditClick?.(policy)}
+                  />
+                  <Button
+                    componentId="mlflow.gateway.budgets-list.delete-button"
+                    type="primary"
+                    icon={<TrashIcon />}
+                    aria-label={formatMessage({
+                      defaultMessage: 'Delete budget policy',
+                      description: 'Gateway > Budgets list > Delete budget policy button aria label',
+                    })}
+                    onClick={() => onDeleteClick?.(policy)}
+                  />
+                </div>
+              </TableCell>
+            </TableRow>
+          );
+        })}
       </Table>
       {(hasPreviousPage || hasNextPage) && (
         <div css={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: theme.spacing.sm }}>

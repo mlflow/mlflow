@@ -17,7 +17,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.server import app as flask_app
 from mlflow.server.assistant.api import assistant_router
 from mlflow.server.fastapi_security import init_fastapi_security
-from mlflow.server.gateway_api import gateway_router
+from mlflow.server.gateway_api import budget_router, gateway_router
 from mlflow.server.job_api import job_api_router
 from mlflow.server.otel_api import otel_router
 from mlflow.server.workspace_helpers import (
@@ -91,6 +91,9 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # Include Gateway API router for database-backed endpoints
     # This provides /gateway/{endpoint_name}/mlflow/invocations routes
     fastapi_app.include_router(gateway_router)
+
+    # Include budget router for in-memory budget window state endpoints
+    fastapi_app.include_router(budget_router)
 
     # Include Assistant API router for AI-powered trace analysis
     # This provides /ajax-api/3.0/mlflow/assistant/* endpoints (localhost only)
