@@ -11,73 +11,11 @@ allowed-tools:
 
 Adds a review comment to a specific line in a GitHub pull request.
 
-## Finding the Right Line
+## Step 1: Locate the line to comment on
 
-Before posting a comment you need to know the exact `path`, `line` number, and `side` (`LEFT`/`RIGHT`). Use `fetch-diff` to find these values directly from the annotated diff output.
+Use the `fetch-diff` skill to locate the line to comment on. Optionally pipe through grep to narrow down results.
 
-### Step 1 — Fetch the diff for relevant files
-
-```bash
-uv run skills fetch-diff <pr_url> --files '<glob_pattern>'
-```
-
-Example — narrow to a single file:
-
-```bash
-uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files 'mlflow/tracking/client.py'
-```
-
-### Step 2 — Read the annotated output
-
-The diff output uses the format `old_line new_line | <marker> content`:
-
-```
-diff --git a/mlflow/tracking/client.py b/mlflow/tracking/client.py
---- a/mlflow/tracking/client.py
-+++ b/mlflow/tracking/client.py
-@@ -42,7 +42,7 @@
-42    42 |  import os
-43    43 |  import sys
-44       | -def old_function():
-      44 | +def new_function():
-45    45 |      pass
-```
-
-- **`old_line new_line`** — both numbers present means the line is unchanged (`side=RIGHT`).
-- **`old_line `** (right column blank) and marker `-` — line was deleted; use that `old_line` as `line` and `side=LEFT`.
-- **` new_line`** (left column blank) and marker `+` — line was added; use that `new_line` as `line` and `side=RIGHT`.
-
-Grep for the code you want to comment on:
-
-```bash
-uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files 'mlflow/tracking/client.py' \
-  | grep -n 'new_function'
-```
-
-### Step 3 — End-to-end example
-
-```bash
-# 1. Fetch the diff filtered to the file of interest
-uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 \
-  --files 'mlflow/tracking/client.py'
-
-# 2. Suppose the output shows the added line:
-#        44 | +def new_function():
-#    → new_line=44, marker="+", so line=44 and side=RIGHT
-
-# 3. Post the comment on that line
-gh api repos/mlflow/mlflow/pulls/123/comments \
-  -f body='Consider adding a docstring here.
-
-🤖 Generated with Claude' \
-  -f path='mlflow/tracking/client.py' \
-  -F line=44 \
-  -f side=RIGHT \
-  -f commit_id="$(gh pr view 123 --repo mlflow/mlflow --json headRefOid -q .headRefOid)" \
-  --jq '.html_url'
-```
-
-## Usage
+## Step 2: Post the comment
 
 **Single-line comment:**
 
