@@ -6091,7 +6091,16 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            if entity == SqlDataset:
+            if comparator in ("IS NULL", "IS NOT NULL"):
+                exists_subquery = select(entity.run_uuid).where(
+                    entity.run_uuid == SqlRun.run_uuid,
+                    entity.key == key_name,
+                )
+                if comparator == "IS NULL":
+                    attribute_filters.append(~exists_subquery.exists())
+                else:
+                    attribute_filters.append(exists_subquery.exists())
+            elif entity == SqlDataset:
                 if key_name == "context":
                     dataset_filters.append(
                         session.query(entity, SqlInput, SqlInputTag)
