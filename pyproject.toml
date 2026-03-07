@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.10.1.dev0"
+version = "3.10.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -176,7 +176,7 @@ dev = [
   "skills",
 ]
 lint = [
-  "ruff==0.15.2",
+  "ruff==0.15.5",
   "black==23.7.0",
   "blacken-docs==1.18.0",
   "pre-commit==4.0.1",
@@ -277,7 +277,7 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.15.2"
+required-version = "0.15.5"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extend-exclude = [
@@ -292,7 +292,6 @@ extend-exclude = [
 
 [tool.ruff.format]
 docstring-code-format = true
-docstring-code-line-length = 88
 
 [tool.ruff.lint]
 preview = true

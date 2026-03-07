@@ -447,7 +447,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.38.2"
-    maximum: "5.2.0"
+    maximum: "5.3.0"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -852,7 +852,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.105.0"
-    maximum: "1.9.3"
+    maximum: "1.10.3"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai

@@ -33,7 +33,7 @@ class Issue(_message.Message):
     def __init__(self, issue_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., status: _Optional[str] = ..., confidence: _Optional[str] = ..., root_causes: _Optional[_Iterable[str]] = ..., source_run_id: _Optional[str] = ..., created_timestamp: _Optional[int] = ..., last_updated_timestamp: _Optional[int] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class CreateIssue(_message.Message):
-    __slots__ = ("experiment_id", "name", "description", "status", "confidence", "root_causes", "source_run_id", "trace_ids", "created_by")
+    __slots__ = ("experiment_id", "name", "description", "status", "confidence", "root_causes", "source_run_id", "created_by")
     class Response(_message.Message):
         __slots__ = ("issue",)
         ISSUE_FIELD_NUMBER: _ClassVar[int]
@@ -46,7 +46,6 @@ class CreateIssue(_message.Message):
     CONFIDENCE_FIELD_NUMBER: _ClassVar[int]
     ROOT_CAUSES_FIELD_NUMBER: _ClassVar[int]
     SOURCE_RUN_ID_FIELD_NUMBER: _ClassVar[int]
-    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
     name: str
@@ -55,9 +54,8 @@ class CreateIssue(_message.Message):
     confidence: str
     root_causes: _containers.RepeatedScalarFieldContainer[str]
     source_run_id: str
-    trace_ids: _containers.RepeatedScalarFieldContainer[str]
     created_by: str
-    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., status: _Optional[str] = ..., confidence: _Optional[str] = ..., root_causes: _Optional[_Iterable[str]] = ..., source_run_id: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ..., created_by: _Optional[str] = ...) -> None: ...
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., status: _Optional[str] = ..., confidence: _Optional[str] = ..., root_causes: _Optional[_Iterable[str]] = ..., source_run_id: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class UpdateIssue(_message.Message):
     __slots__ = ("issue_id", "name", "description", "status", "confidence")

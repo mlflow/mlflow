@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - .github/workflows/uc-oss.yml
       - mlflow/protos/**

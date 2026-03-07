@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - .github/workflows/xtest-viz.yml
       - dev/xtest_viz.py
