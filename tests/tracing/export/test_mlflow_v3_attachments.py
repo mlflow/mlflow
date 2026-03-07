@@ -24,7 +24,14 @@ def _make_trace(attachments_map=None):
     return trace
 
 
-def test_log_trace_uploads_attachments(tmp_path):
+def _make_exporter(mock_client):
+    with patch.object(MlflowV3SpanExporter, "__init__", return_value=None):
+        exporter = MlflowV3SpanExporter()
+    exporter._client = mock_client
+    return exporter
+
+
+def test_log_trace_uploads_attachments():
     att = Attachment(content_type="image/png", content_bytes=b"img")
     trace = _make_trace({att.id: att})
 
@@ -32,12 +39,12 @@ def test_log_trace_uploads_attachments(tmp_path):
     returned_info = _make_trace_info_mock()
     mock_client.start_trace.return_value = returned_info
 
+    exporter = _make_exporter(mock_client)
+
     with (
         patch("mlflow.tracing.export.mlflow_v3.try_link_prompts_to_trace"),
         patch("mlflow.tracing.export.mlflow_v3.add_size_stats_to_trace_metadata"),
     ):
-        exporter = MlflowV3SpanExporter(str(tmp_path))
-        exporter._client = mock_client
         exporter._log_trace(trace, prompts=[])
 
     mock_client._upload_trace_data.assert_called_once_with(returned_info, trace.data)
@@ -47,19 +54,19 @@ def test_log_trace_uploads_attachments(tmp_path):
     assert att.id in call_args[0][1]
 
 
-def test_log_trace_skips_upload_when_no_attachments(tmp_path):
+def test_log_trace_skips_upload_when_no_attachments():
     trace = _make_trace()
 
     mock_client = MagicMock()
     returned_info = _make_trace_info_mock()
     mock_client.start_trace.return_value = returned_info
 
+    exporter = _make_exporter(mock_client)
+
     with (
         patch("mlflow.tracing.export.mlflow_v3.try_link_prompts_to_trace"),
         patch("mlflow.tracing.export.mlflow_v3.add_size_stats_to_trace_metadata"),
     ):
-        exporter = MlflowV3SpanExporter(str(tmp_path))
-        exporter._client = mock_client
         exporter._log_trace(trace, prompts=[])
 
     mock_client._upload_trace_data.assert_called_once()
