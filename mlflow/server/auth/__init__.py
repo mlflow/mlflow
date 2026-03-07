@@ -15,6 +15,7 @@ import importlib
 import json
 import logging
 import re
+import secrets
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
 
@@ -40,6 +41,7 @@ from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -2915,9 +2917,12 @@ _ROUTES_NEEDING_BODY = frozenset(
 
 def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     """
-    Authenticate request using Basic Auth and return user object.
+    Authenticate request using Basic Auth.
 
-    This mirrors the Flask authenticate_request() logic for FastAPI routes.
+    External clients send real username/password credentials. Server-spawned job
+    subprocesses (e.g., online scoring) send the internal gateway token as the
+    password; when it matches, the user is trusted without calling
+    ``store.authenticate_user()``.
 
     Args:
         request: The Starlette/FastAPI Request object.
@@ -2934,12 +2939,21 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         if scheme.lower() != "basic":
             return None
         decoded = base64.b64decode(credentials).decode("ascii")
+        username, _, password = decoded.partition(":")
+
+        # Check if this is a trusted internal request from a job subprocess.
+        # The server generates a random token at startup and passes it to workers
+        # via _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN. When the password matches that
+        # token, we trust the username without calling store.authenticate_user().
+        internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
+        if internal_token and secrets.compare_digest(password, internal_token):
+            return store.get_user(username)
+
+        if store.authenticate_user(username, password):
+            return store.get_user(username)
     except Exception:
         return None
 
-    username, _, password = decoded.partition(":")
-    if store.authenticate_user(username, password):
-        return store.get_user(username)
     return None
 
 

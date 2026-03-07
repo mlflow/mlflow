@@ -101,6 +101,8 @@ def invoke_model_without_tracing(
             kwargs["api_base"] = config.api_base
             kwargs["api_key"] = config.api_key
             kwargs["model"] = config.model
+            if config.extra_headers:
+                kwargs["extra_headers"] = config.extra_headers
         else:
             kwargs["model"] = f"{provider}/{model_name}"
         if inference_params:

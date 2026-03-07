@@ -406,7 +406,12 @@ def test_capture_imported_modules_include_deps_by_params():
         ("mlflow.deployments", False),
     ],
 )
-def test_capture_imported_modules_includes_gateway_extra(module_to_import, should_capture_extra):
+def test_capture_imported_modules_includes_gateway_extra(
+    module_to_import, should_capture_extra, monkeypatch
+):
+    # Disable UV auto-detect to ensure model-based inference is used
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, inputs, params=None):
             importlib.import_module(module_to_import)
@@ -427,7 +432,10 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
     assert (f"mlflow[gateway]=={mlflow.__version__}" in pip_requirements) == should_capture_extra
 
 
-def test_gateway_extra_not_captured_when_importing_deployment_client_only():
+def test_gateway_extra_not_captured_when_importing_deployment_client_only(monkeypatch):
+    # Disable UV auto-detect to ensure model-based inference is used
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             from mlflow.deployments import get_deploy_client  # noqa: F401

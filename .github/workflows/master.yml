@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -141,6 +140,7 @@ jobs:
             # https://github.com/actions/virtual-environments/issues/5022
             ./tests/db/compose.sh run --rm --no-TTY $service pytest \
               tests/store/tracking/test_sqlalchemy_store.py \
+              tests/store/tracking/test_sqlalchemy_store_issues.py \
               tests/store/tracking/test_sqlalchemy_store_query_trace_metrics.py \
               tests/store/tracking/test_gateway_sql_store.py \
               tests/store/model_registry/test_sqlalchemy_store.py \
@@ -210,7 +210,8 @@ jobs:
           uv sync --extra extras
           uv pip install \
             -r requirements/test-requirements.txt \
-            -r requirements/extra-ml-requirements.txt
+            -r requirements/extra-ml-requirements.txt \
+            'tensorflow<2.21'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests

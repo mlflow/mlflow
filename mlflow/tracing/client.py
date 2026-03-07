@@ -13,7 +13,7 @@ from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import UCSchemaLocation
+from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE,
     MLFLOW_SEARCH_TRACES_MAX_THREADS,
@@ -269,7 +269,8 @@ class TracingClient:
             model_id: If specified, return traces associated with the model ID.
             locations: A list of locations to search over. To search over experiments, provide
                 a list of experiment IDs. To search over UC tables on databricks, provide
-                a list of locations in the format `<catalog_name>.<schema_name>`.
+                a list of locations in the format
+                `<catalog_name>.<schema_name>[.<table_prefix>]`.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -446,6 +447,9 @@ class TracingClient:
         for trace_info in trace_infos:
             if uc_schema := trace_info.trace_location.uc_schema:
                 location = f"{uc_schema.catalog_name}.{uc_schema.schema_name}"
+                trace_infos_by_location[location].append(trace_info)
+            elif uc_tp := trace_info.trace_location.uc_table_prefix:
+                location = f"{uc_tp.catalog_name}.{uc_tp.schema_name}.{uc_tp.table_prefix}"
                 trace_infos_by_location[location].append(trace_info)
             elif trace_info.trace_location.mlflow_experiment:
                 # New traces in SQL store store spans in the tracking store, while for old traces or
@@ -714,8 +718,28 @@ class TracingClient:
             "Setting storage location is not supported on non-Databricks backends."
         )
 
+    def _get_trace_location(self, telemetry_profile_id: str) -> UnityCatalog:
+        if is_databricks_uri(self.tracking_uri) and hasattr(self.store, "get_trace_location"):
+            return self.store.get_trace_location(telemetry_profile_id)
+        raise MlflowException("Getting trace location by ID is not supported on this backend.")
+
+    def _create_or_get_trace_location(
+        self, location: UnityCatalog, sql_warehouse_id: str | None = None
+    ) -> UnityCatalog:
+        if is_databricks_uri(self.tracking_uri) and hasattr(
+            self.store, "create_or_get_trace_location"
+        ):
+            return self.store.create_or_get_trace_location(location, sql_warehouse_id)
+        raise MlflowException("Creating trace location is not supported on this backend.")
+
+    def _link_trace_location(self, experiment_id: str, location: UnityCatalog) -> None:
+        if is_databricks_uri(self.tracking_uri) and hasattr(self.store, "link_trace_location"):
+            self.store.link_trace_location(experiment_id, location)
+            return
+        raise MlflowException("Linking trace location is not supported on this backend.")
+
     def _unset_experiment_trace_location(
-        self, experiment_id: str, location: UCSchemaLocation
+        self, experiment_id: str, location: UCSchemaLocation | UnityCatalog
     ) -> None:
         if is_databricks_uri(self.tracking_uri):
             self.store.unset_experiment_trace_location(str(experiment_id), location)

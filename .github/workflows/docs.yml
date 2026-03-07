@@ -15,7 +15,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - pyproject.toml
       - uv.lock
