@@ -112,6 +112,31 @@ Token:  ········
 2025/02/19 12:26:24 INFO mlflow.utils.credentials: Successfully connected to MLflow hosted tracking server! Host: https://<your workspace host>.cloud.databricks.com.
 ```
 
+#### Alternative: Databricks Unified Authentication
+
+If you prefer to use environment variables or other Databricks authentication methods (Azure CLI, OIDC, OAuth M2M, Azure Managed Identity), MLflow supports all [Databricks unified authentication](https://docs.databricks.com/en/dev-tools/auth/index.html#unified-authentication) methods when `MLFLOW_ENABLE_DB_SDK` is enabled (this is the default).
+
+Simply set the appropriate environment variables for your authentication method:
+
+```bash
+# Example: Azure CLI authentication
+export DATABRICKS_HOST="https://your-workspace.cloud.databricks.com"
+export MLFLOW_TRACKING_URI="databricks"
+# MLFLOW_ENABLE_DB_SDK=true is the default, so no need to set it explicitly
+
+# MLflow will use your Azure CLI credentials automatically
+```
+
+For OIDC-based authentication:
+
+```bash
+export DATABRICKS_HOST="https://your-workspace.cloud.databricks.com"
+export DATABRICKS_AUTH_TYPE="file-oidc"
+export DATABRICKS_CLIENT_ID="your-client-id"
+export DATABRICKS_OIDC_TOKEN_FILE="/path/to/token"
+export MLFLOW_TRACKING_URI="databricks"
+```
+
 #### Connect MLflow Session to Databricks Workspace
 
 We have set up the credentials, now we need to tell MLflow to send the data into Databricks Workspace.
