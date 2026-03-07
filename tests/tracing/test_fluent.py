@@ -2814,6 +2814,100 @@ assert len(trace_ids) == 5
     )
 
 
+def test_configure_trace_injects_metadata_and_tags():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(
+        metadata={"custom_key": "custom_value"},
+        tags={"my_tag": "tag_value"},
+    ):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.request_metadata["custom_key"] == "custom_value"
+    assert trace.info.tags["my_tag"] == "tag_value"
+
+
+def test_configure_trace_no_wrapper_span():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(metadata={"k": "v"}):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    # Only the one span from @mlflow.trace, no wrapper
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "my_func"
+
+
+def test_configure_trace_nesting_merges():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(
+        metadata={"outer_key": "outer_val", "shared": "outer"},
+        tags={"outer_tag": "outer"},
+    ):
+        with mlflow.configure_trace(
+            metadata={"inner_key": "inner_val", "shared": "inner"},
+            tags={"inner_tag": "inner"},
+        ):
+            my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    # Both outer and inner metadata present
+    assert trace.info.request_metadata["outer_key"] == "outer_val"
+    assert trace.info.request_metadata["inner_key"] == "inner_val"
+    # Inner wins on conflict
+    assert trace.info.request_metadata["shared"] == "inner"
+    # Both tags present
+    assert trace.info.tags["outer_tag"] == "outer"
+    assert trace.info.tags["inner_tag"] == "inner"
+
+
+def test_configure_trace_resets_after_exit():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(metadata={"session": "s1"}):
+        pass
+
+    # Trace created outside the block should NOT have the metadata
+    my_func()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert "session" not in trace.info.request_metadata
+
+
+def test_configure_trace_metadata_only():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(metadata={"k": "v"}):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.request_metadata["k"] == "v"
+
+
+def test_configure_trace_tags_only():
+    @mlflow.trace
+    def my_func():
+        return "hello"
+
+    with mlflow.configure_trace(tags={"t": "v"}):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.tags["t"] == "v"
+
+
 def test_flush_trace_async_logging_calls_flush_when_async_queue_exists():
     mock_exporter = mock.MagicMock()
     with mock.patch("mlflow.tracking.fluent._get_trace_exporter", return_value=mock_exporter):

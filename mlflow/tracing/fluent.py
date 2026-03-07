@@ -48,6 +48,7 @@ from mlflow.tracing.utils import (
     exclude_immutable_tags,
     get_otel_attribute,
 )
+from mlflow.tracing.utils.config import _CONFIGURE_TRACE_INFO, _ConfiguredTraceInfo
 from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
@@ -1433,6 +1434,53 @@ def set_trace_tag(trace_id: str, key: str, value: str):
             it will be truncated when stored.
     """
     TracingClient().set_trace_tag(trace_id, key, value)
+
+
+@contextlib.contextmanager
+def configure_trace(
+    metadata: dict[str, str] | None = None,
+    tags: dict[str, str] | None = None,
+) -> Generator[None, None, None]:
+    """
+    A context manager that injects metadata and/or tags into any trace created
+    within its scope, without creating a wrapper span.
+
+    This is useful when you need to attach trace-level information (e.g. session
+    IDs) to traces produced by code you don't control like auto-instrumented libraries.
+
+    .. code-block:: python
+
+        import mlflow
+
+        # Enable auto-tracing for LangChain
+        mlflow.langchain.autolog()
+
+        with mlflow.configure_trace(
+            # Specify metadata and tags you want to inject into the trace
+            metadata={"mlflow.trace.session": "session-123"},
+            tags={"mlflow.simulation.goal": "Learn about MLflow"},
+        ):
+            # Any trace created inside this block will carry the metadata and tags.
+            agent.invoke("What is the capital of France?")
+
+    Args:
+        metadata: Key-value pairs to inject into the trace's ``request_metadata``
+            (immutable after trace creation).
+        tags: Key-value pairs to inject into the trace's ``tags``.
+    """
+    current = _CONFIGURE_TRACE_INFO.get()
+
+    # Merge with any outer configure_trace scope
+    merged_metadata = {**(current.metadata if current else {}), **(metadata or {})}
+    merged_tags = {**(current.tags if current else {}), **(tags or {})}
+
+    token = _CONFIGURE_TRACE_INFO.set(
+        _ConfiguredTraceInfo(metadata=merged_metadata, tags=merged_tags)
+    )
+    try:
+        yield
+    finally:
+        _CONFIGURE_TRACE_INFO.reset(token)
 
 
 @deprecated_parameter("request_id", "trace_id", version="3.0.0")
