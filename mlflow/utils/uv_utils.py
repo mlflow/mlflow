@@ -121,6 +121,9 @@ def export_uv_requirements(
     no_dev: bool = True,
     no_hashes: bool = True,
     frozen: bool = True,
+    groups: list[str] | None = None,
+    only_groups: list[str] | None = None,
+    extras: list[str] | None = None,
 ) -> list[str] | None:
     """
     Export dependencies from a uv project to pip-compatible requirements.
@@ -134,6 +137,13 @@ def export_uv_requirements(
         no_dev: Exclude development dependencies. Defaults to True.
         no_hashes: Omit hashes from output. Defaults to True.
         frozen: Use frozen lockfile without updating. Defaults to True.
+        groups: Optional list of dependency groups to include (additive with project deps).
+            Maps to ``uv export --group <name>``.
+        only_groups: Optional list of dependency groups to export exclusively
+            (no project deps). Maps to ``uv export --only-group <name>``.
+            Mutually exclusive with ``groups``.
+        extras: Optional list of optional dependency extras to include.
+            Maps to ``uv export --extra <name>``.
 
     Returns:
         A list of requirement strings (e.g., ``["requests==2.28.0", "numpy==1.24.0"]``),
@@ -156,6 +166,18 @@ def export_uv_requirements(
         cmd.append("--no-hashes")
     if frozen:
         cmd.append("--frozen")
+
+    # Handle dependency groups (mutually exclusive: only_groups takes precedence)
+    if only_groups:
+        for group in only_groups:
+            cmd.extend(["--only-group", group])
+    elif groups:
+        for group in groups:
+            cmd.extend(["--group", group])
+
+    if extras:
+        for extra in extras:
+            cmd.extend(["--extra", extra])
 
     # Additional flags for cleaner output
     cmd.extend(

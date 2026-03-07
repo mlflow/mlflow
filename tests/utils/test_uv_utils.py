@@ -206,6 +206,77 @@ def test_export_uv_requirements_returns_none_on_subprocess_error(tmp_path):
 def test_export_uv_requirements_with_explicit_directory(tmp_path):
     (tmp_path / _UV_LOCK_FILE).touch()
 
+
+# --- export_uv_requirements groups/extras tests ---
+
+
+def test_export_uv_requirements_passes_groups_to_command(tmp_path):
+    mock_result = mock.Mock()
+    mock_result.stdout = "requests==2.28.0\n"
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        export_uv_requirements(tmp_path, groups=["serving", "ml"])
+
+        call_args = mock_run.call_args[0][0]
+        assert "--group" in call_args
+        serving_idx = call_args.index("--group")
+        assert call_args[serving_idx + 1] == "serving"
+        second_group_idx = call_args.index("--group", serving_idx + 1)
+        assert call_args[second_group_idx + 1] == "ml"
+
+
+def test_export_uv_requirements_passes_only_groups_to_command(tmp_path):
+    mock_result = mock.Mock()
+    mock_result.stdout = "torch==2.0.0\n"
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        export_uv_requirements(tmp_path, only_groups=["serving"])
+
+        call_args = mock_run.call_args[0][0]
+        assert "--only-group" in call_args
+        idx = call_args.index("--only-group")
+        assert call_args[idx + 1] == "serving"
+        assert "--group" not in call_args
+
+
+def test_export_uv_requirements_passes_extras_to_command(tmp_path):
+    mock_result = mock.Mock()
+    mock_result.stdout = "uvicorn==0.29.0\n"
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        export_uv_requirements(tmp_path, extras=["api", "gpu"])
+
+        call_args = mock_run.call_args[0][0]
+        assert "--extra" in call_args
+        api_idx = call_args.index("--extra")
+        assert call_args[api_idx + 1] == "api"
+        second_extra_idx = call_args.index("--extra", api_idx + 1)
+        assert call_args[second_extra_idx + 1] == "gpu"
+
+
+def test_export_uv_requirements_only_groups_takes_precedence_over_groups(tmp_path):
+    mock_result = mock.Mock()
+    mock_result.stdout = "fastapi==0.100.0\n"
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        export_uv_requirements(tmp_path, groups=["dev"], only_groups=["serving"])
+
+        call_args = mock_run.call_args[0][0]
+        assert "--only-group" in call_args
+        assert "--group" not in call_args
+
     uv_output = """requests==2.28.0
 numpy==1.24.0
 """
@@ -396,6 +467,39 @@ def test_export_uv_requirements_returns_none_when_uv_binary_missing(tmp_path):
     with mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value=None):
         result = export_uv_requirements(tmp_path)
         assert result is None
+
+
+def test_infer_pip_requirements_passes_groups_and_extras_to_uv_export(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "true")
+    (tmp_path / _UV_LOCK_FILE).touch()
+    (tmp_path / _PYPROJECT_FILE).touch()
+
+    uv_output = "fastapi==0.100.0\nuvicorn==0.29.0\n"
+    mock_result = mock.Mock()
+    mock_result.stdout = uv_output
+
+    with (
+        mock.patch("mlflow.utils.uv_utils._get_uv_binary", return_value="/usr/bin/uv"),
+        mock.patch("subprocess.run", return_value=mock_result) as mock_run,
+    ):
+        result = infer_pip_requirements(
+            str(tmp_path),
+            "sklearn",
+            uv_groups=["serving"],
+            uv_extras=["api"],
+        )
+
+        assert "fastapi==0.100.0" in result
+        assert "uvicorn==0.29.0" in result
+
+        call_args = mock_run.call_args[0][0]
+        assert "--group" in call_args
+        group_idx = call_args.index("--group")
+        assert call_args[group_idx + 1] == "serving"
+        assert "--extra" in call_args
+        extra_idx = call_args.index("--extra")
+        assert call_args[extra_idx + 1] == "api"
 
 
 def test_detect_uv_project_not_detected_when_files_missing(tmp_path, monkeypatch):
