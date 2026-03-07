@@ -6,6 +6,7 @@ import { telemetryClient } from '../telemetry';
 import { useCallback, useState } from 'react';
 import { fetchEndpointRaw, HTTPMethods } from '../common/utils/FetchUtils';
 import { useDarkThemeContext } from '../common/contexts/DarkThemeContext';
+import { useAuthContext } from '../common/contexts/AuthContext';
 
 const SettingsPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -14,6 +15,7 @@ const SettingsPage = () => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const { setIsDarkTheme } = useDarkThemeContext();
   const isDarkTheme = theme.isDarkMode;
+  const authContext = useAuthContext();
 
   const [isTelemetryEnabled, setIsTelemetryEnabled] = useLocalStorage({
     key: TELEMETRY_ENABLED_STORAGE_KEY,
@@ -59,6 +61,26 @@ const SettingsPage = () => {
       <Typography.Title level={2} withoutMargins>
         <FormattedMessage defaultMessage="Settings" description="Settings page title" />
       </Typography.Title>
+
+      {authContext.authType === 'oauth' && authContext.user && (
+        <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 600 }}>
+          <div css={{ display: 'flex', flexDirection: 'column', marginRight: theme.spacing.lg }}>
+            <Typography.Title level={4}>
+              <FormattedMessage defaultMessage="Authentication" description="Auth settings title" />
+            </Typography.Title>
+            <Typography.Text>
+              <FormattedMessage
+                defaultMessage="Signed in as {username}"
+                description="Auth info showing current user"
+                values={{ username: <strong>{authContext.user.username}</strong> }}
+              />
+            </Typography.Text>
+          </div>
+          <Button componentId="mlflow.settings.auth.sign-out-button" onClick={() => authContext.logout()}>
+            <FormattedMessage defaultMessage="Sign out" description="Sign out button on settings page" />
+          </Button>
+        </div>
+      )}
 
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: 600 }}>
         <div css={{ display: 'flex', flexDirection: 'column', marginRight: theme.spacing.lg }}>
