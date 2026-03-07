@@ -255,7 +255,7 @@ def _parse_span_data(span_data: oai.SpanData) -> tuple[Any, Any, dict[str, Any]]
 def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any, dict[str, Any]]:
     inputs = span_data.input
     response = span_data.response
-    response_dict = response.model_dump() if response else {}
+    response_dict = response.model_dump(exclude_none=True) if response else {}
     outputs = response_dict.get("output")
     attributes = {k: v for k, v in response_dict.items() if k != "output"}
 
