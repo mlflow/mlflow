@@ -2965,6 +2965,22 @@ def test_basic_auth_with_wrong_password_falls_through_to_authenticate(
     mock_auth_store.authenticate_user.assert_called_once_with("alice", "wrong-password")
 
 
+def test_basic_auth_internal_token_rejected_on_non_gateway_route(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
+
+    from mlflow.server.auth import _authenticate_fastapi_request
+
+    _authenticate_fastapi_request(request)
+
+    # Internal token should NOT be accepted on non-gateway routes — falls through
+    # to store.authenticate_user instead
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "internal-secret")
+
+
 def test_basic_auth_no_internal_token_uses_normal_auth(
     mock_auth_store, mock_auth_config, monkeypatch
 ):

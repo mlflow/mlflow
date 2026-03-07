@@ -2945,8 +2945,14 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         # The server generates a random token at startup and passes it to workers
         # via _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN. When the password matches that
         # token, we trust the username without calling store.authenticate_user().
+        # Restrict to /gateway/ routes only so the token cannot be used as a
+        # master password on other endpoints (e.g. /v1/traces, /ajax-api/).
         internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
-        if internal_token and secrets.compare_digest(password, internal_token):
+        if (
+            internal_token
+            and request.url.path.startswith("/gateway/")
+            and secrets.compare_digest(password, internal_token)
+        ):
             return store.get_user(username)
 
         if store.authenticate_user(username, password):
