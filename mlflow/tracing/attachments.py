@@ -41,9 +41,7 @@ class Attachment:
 
     def ref(self, trace_id: str) -> str:
         return (
-            f"mlflow-attachment://{self._id}"
-            f"?content_type={self._content_type}"
-            f"&trace_id={trace_id}"
+            f"mlflow-attachment://{self._id}?content_type={self._content_type}&trace_id={trace_id}"
         )
 
     @staticmethod

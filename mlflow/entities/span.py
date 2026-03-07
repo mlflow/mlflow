@@ -112,7 +112,7 @@ class Span:
         # Since the span is immutable, we can cache the attributes to avoid the redundant
         # deserialization of the attribute values.
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
-        self._attachments: dict = {}
+        self._attachments: dict[str, Any] = {}
 
     @property
     @lru_cache(maxsize=1)
@@ -539,7 +539,7 @@ class LiveSpan(Span):
             )
 
         self._span = otel_span
-        self._attachments: dict = {}
+        self._attachments: dict[str, Any] = {}
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)

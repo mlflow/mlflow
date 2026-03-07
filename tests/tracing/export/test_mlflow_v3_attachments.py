@@ -24,9 +24,7 @@ def _make_trace(attachments_map=None):
     return trace
 
 
-@patch("mlflow.tracing.export.mlflow_v3.try_link_prompts_to_trace")
-@patch("mlflow.tracing.export.mlflow_v3.add_size_stats_to_trace_metadata")
-def test_log_trace_uploads_attachments(mock_stats, mock_link, tmp_path):
+def test_log_trace_uploads_attachments(tmp_path):
     att = Attachment(content_type="image/png", content_bytes=b"img")
     trace = _make_trace({att.id: att})
 
@@ -34,9 +32,13 @@ def test_log_trace_uploads_attachments(mock_stats, mock_link, tmp_path):
     returned_info = _make_trace_info_mock()
     mock_client.start_trace.return_value = returned_info
 
-    exporter = MlflowV3SpanExporter(str(tmp_path))
-    exporter._client = mock_client
-    exporter._log_trace(trace, prompts=[])
+    with (
+        patch("mlflow.tracing.export.mlflow_v3.try_link_prompts_to_trace"),
+        patch("mlflow.tracing.export.mlflow_v3.add_size_stats_to_trace_metadata"),
+    ):
+        exporter = MlflowV3SpanExporter(str(tmp_path))
+        exporter._client = mock_client
+        exporter._log_trace(trace, prompts=[])
 
     mock_client._upload_trace_data.assert_called_once_with(returned_info, trace.data)
     mock_client._upload_attachments.assert_called_once()
@@ -45,18 +47,20 @@ def test_log_trace_uploads_attachments(mock_stats, mock_link, tmp_path):
     assert att.id in call_args[0][1]
 
 
-@patch("mlflow.tracing.export.mlflow_v3.try_link_prompts_to_trace")
-@patch("mlflow.tracing.export.mlflow_v3.add_size_stats_to_trace_metadata")
-def test_log_trace_skips_upload_when_no_attachments(mock_stats, mock_link, tmp_path):
+def test_log_trace_skips_upload_when_no_attachments(tmp_path):
     trace = _make_trace()
 
     mock_client = MagicMock()
     returned_info = _make_trace_info_mock()
     mock_client.start_trace.return_value = returned_info
 
-    exporter = MlflowV3SpanExporter(str(tmp_path))
-    exporter._client = mock_client
-    exporter._log_trace(trace, prompts=[])
+    with (
+        patch("mlflow.tracing.export.mlflow_v3.try_link_prompts_to_trace"),
+        patch("mlflow.tracing.export.mlflow_v3.add_size_stats_to_trace_metadata"),
+    ):
+        exporter = MlflowV3SpanExporter(str(tmp_path))
+        exporter._client = mock_client
+        exporter._log_trace(trace, prompts=[])
 
     mock_client._upload_trace_data.assert_called_once()
     mock_client._upload_attachments.assert_not_called()

@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Sequence
+from typing import Any, Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
@@ -690,7 +690,7 @@ class TracingClient:
     def _upload_attachments(
         self,
         trace_info: TraceInfo,
-        attachments: dict,
+        attachments: dict[str, Any],
     ) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         for attachment_id, attachment in attachments.items():
