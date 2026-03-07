@@ -23,6 +23,31 @@ describe('normalizeConversation (OTEL GenAI)', () => {
     ]);
   });
 
+  it('normalizes messages with non-standard role casing', () => {
+    const input = [
+      {
+        role: 'System',
+        parts: [{ type: 'text', content: 'You are a helpful assistant.' }],
+      },
+      {
+        role: 'User',
+        parts: [{ type: 'text', content: 'What is MLflow?' }],
+      },
+      {
+        role: 'Assistant',
+        parts: [{ type: 'text', content: 'MLflow is an open-source platform.' }],
+      },
+    ];
+
+    const result = normalizeConversation(input);
+
+    expect(result).toEqual([
+      expect.objectContaining({ role: 'system', content: 'You are a helpful assistant.' }),
+      expect.objectContaining({ role: 'user', content: 'What is MLflow?' }),
+      expect.objectContaining({ role: 'assistant', content: 'MLflow is an open-source platform.' }),
+    ]);
+  });
+
   it('normalizes tool call request and response', () => {
     const input = [
       {
