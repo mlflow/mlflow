@@ -267,6 +267,12 @@ def test_bad_comparators(entity_type, bad_comparators, key, entity_value):
         ("datasets.name = 'name1' AND datasets.digest = 'digest2'", []),
         ("datasets.context = 'train'", [0]),
         ("datasets.name = 'name1' AND datasets.context = 'train'", [0]),
+        # RLIKE (regex) comparator tests
+        ("params.my_param RLIKE '^A$'", [0, 1]),
+        ("params.my_param RLIKE 'A|B'", [0, 1, 2]),
+        ("tags.tag1 RLIKE '[CD]'", [1, 2]),
+        ("attributes.status RLIKE 'FAIL'", [0, 2]),
+        ("datasets.name RLIKE 'name[12]'", [0, 1, 2]),
     ],
 )
 def test_correct_filtering(filter_string, matching_runs):
@@ -359,6 +365,23 @@ def test_correct_filtering(filter_string, matching_runs):
     ]
     filtered_runs = SearchUtils.filter(runs, filter_string)
     assert set(filtered_runs) == {runs[i] for i in matching_runs}
+
+
+def test_rlike_invalid_regex():
+    run = Run(
+        run_info=RunInfo(
+            run_id="hi",
+            experiment_id=0,
+            user_id="user-id",
+            status=RunStatus.to_string(RunStatus.FAILED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+        run_data=RunData(metrics=[], params=[Param("my_param", "A")], tags=[]),
+    )
+    with pytest.raises(MlflowException, match="Invalid regex pattern"):
+        SearchUtils.filter([run], "params.my_param RLIKE '[invalid'")
 
 
 def test_filter_runs_by_start_time():
