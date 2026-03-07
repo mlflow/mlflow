@@ -72,9 +72,8 @@ def filter_diff(full_diff: str, file_patterns: list[str] | None = None) -> str:
         if line.startswith("diff --git"):
             if match := re.match(r"diff --git a/(.*?) b/(.*?)$", line):
                 file_path = match.group(2)
-                if (
-                    file_path == "dev/null"
-                    or file_patterns
+                if file_path == "dev/null" or (
+                    file_patterns
                     and not any(fnmatch.fnmatch(file_path, pat) for pat in file_patterns)
                 ):
                     in_included_file = False
