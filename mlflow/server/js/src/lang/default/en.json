@@ -2722,6 +2722,10 @@
     "defaultMessage": "Y-axis Log Scale:",
     "description": "Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
   },
+  "HHRU4d": {
+    "defaultMessage": "Detection progress",
+    "description": "Issue detection progress > Title"
+  },
   "HLbyGb": {
     "defaultMessage": "Show more",
     "description": "Button text to show more description text for the entity"
@@ -3758,6 +3762,10 @@
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
   },
+  "Ob5d+s": {
+    "defaultMessage": "System metrics",
+    "description": "Run details page > tab selector > System metrics tab"
+  },
   "OcYzCN": {
     "defaultMessage": "Unresolved",
     "description": "Label for a user_frustration assessment with 'unresolved' value"
@@ -3841,6 +3849,10 @@
   "PGbCZD": {
     "defaultMessage": "Production",
     "description": "Column title for production phase version in the registered model page"
+  },
+  "PIsgM0": {
+    "defaultMessage": "Experiments",
+    "description": "Issue detection run details > Breadcrumb > Experiments"
   },
   "PKYh23": {
     "defaultMessage": "Additional runs",
@@ -6299,6 +6311,10 @@
     "defaultMessage": "You need to provide values for all defined inputs",
     "description": "Experiment page > new run modal > invalid state - no prompt inputs provided"
   },
+  "fnKCv5": {
+    "defaultMessage": "Cancel",
+    "description": "Issue detection progress > Cancel button"
+  },
   "fq8v6G": {
     "defaultMessage": "Trace name",
     "description": "Column label for trace name"
@@ -6362,6 +6378,10 @@
   "g56Cuk": {
     "defaultMessage": "Delete {count, plural, one { # trace } other { # traces }}",
     "description": "Experiment page > traces view controls > Delete traces modal > Delete button"
+  },
+  "g734JR": {
+    "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, {identifiedIssues} issues identified so far",
+    "description": "Issue detection progress > Progress summary"
   },
   "g7xNvF": {
     "defaultMessage": "Display points",
@@ -6522,10 +6542,6 @@
   "hDExYR": {
     "defaultMessage": "Fallback Model {order}",
     "description": "Label for fallback model"
-  },
-  "hFlaPP": {
-    "defaultMessage": "System metrics",
-    "description": "Run details page > tab selector > Model metrics tab"
   },
   "hHNj31": {
     "defaultMessage": "Cancel",
@@ -7887,6 +7903,10 @@
     "defaultMessage": "Experiment id copied",
     "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
   },
+  "qIHqi7": {
+    "defaultMessage": "Evaluation runs",
+    "description": "Issue detection run details > Breadcrumb > Evaluation runs"
+  },
   "qIsNL0": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Parameters table > Value column header"
@@ -8126,6 +8146,10 @@
   "rjhiii": {
     "defaultMessage": "Trace failed to render",
     "description": "Title for the error state in the model trace explorer"
+  },
+  "rk4Qif": {
+    "defaultMessage": "Identifying issues from traces...",
+    "description": "Issue detection progress > Step label"
   },
   "rmAWZX": {
     "defaultMessage": "just now",
