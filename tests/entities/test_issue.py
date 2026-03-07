@@ -1,5 +1,41 @@
-from mlflow.entities.issue import Issue
+import pytest
+
+from mlflow.entities.issue import Issue, IssueStatus
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
+
+
+def test_issue_status_enum_values():
+    assert IssueStatus.PENDING.value == "pending"
+    assert IssueStatus.ACCEPTED.value == "accepted"
+    assert IssueStatus.REJECTED.value == "rejected"
+
+
+def test_issue_status_enum_string_behavior():
+    assert IssueStatus.PENDING == "pending"
+    assert IssueStatus.ACCEPTED == "accepted"
+    assert IssueStatus.REJECTED == "rejected"
+
+
+def test_issue_status_enum_from_string():
+    assert IssueStatus("pending") == IssueStatus.PENDING
+    assert IssueStatus("accepted") == IssueStatus.ACCEPTED
+    assert IssueStatus("rejected") == IssueStatus.REJECTED
+
+
+def test_issue_status_enum_invalid_value():
+    with pytest.raises(ValueError, match="'invalid' is not a valid IssueStatus"):
+        IssueStatus("invalid")
+
+
+def test_issue_status_enum_str_method():
+    assert str(IssueStatus.PENDING) == "pending"
+    assert str(IssueStatus.ACCEPTED) == "accepted"
+    assert str(IssueStatus.REJECTED) == "rejected"
+
+
+def test_issue_status_enum_isinstance():
+    assert isinstance(IssueStatus.PENDING, str)
+    assert isinstance(IssueStatus.PENDING, IssueStatus)
 
 
 def test_issue_creation_required_fields():
@@ -8,7 +44,7 @@ def test_issue_creation_required_fields():
         experiment_id="exp-123",
         name="High latency",
         description="API calls are taking too long",
-        status="draft",
+        status=IssueStatus.PENDING,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
     )
@@ -17,7 +53,7 @@ def test_issue_creation_required_fields():
     assert issue.experiment_id == "exp-123"
     assert issue.name == "High latency"
     assert issue.description == "API calls are taking too long"
-    assert issue.status == "draft"
+    assert issue.status == IssueStatus.PENDING
     assert issue.created_timestamp == 1234567890
     assert issue.last_updated_timestamp == 1234567890
     assert issue.confidence is None
@@ -32,7 +68,7 @@ def test_issue_creation_all_fields():
         experiment_id="exp-456",
         name="Token limit exceeded",
         description="Model is hitting token limits frequently",
-        status="accepted",
+        status=IssueStatus.ACCEPTED,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567900,
         confidence="high",
@@ -45,7 +81,7 @@ def test_issue_creation_all_fields():
     assert issue.experiment_id == "exp-456"
     assert issue.name == "Token limit exceeded"
     assert issue.description == "Model is hitting token limits frequently"
-    assert issue.status == "accepted"
+    assert issue.status == IssueStatus.ACCEPTED
     assert issue.created_timestamp == 1234567890
     assert issue.last_updated_timestamp == 1234567900
     assert issue.confidence == "high"
@@ -60,7 +96,7 @@ def test_issue_to_dictionary():
         experiment_id="exp-789",
         name="Authentication failure",
         description="Users are getting auth errors",
-        status="rejected",
+        status=IssueStatus.REJECTED,
         created_timestamp=9876543210,
         last_updated_timestamp=9876543220,
         confidence="medium",
@@ -90,7 +126,7 @@ def test_issue_from_dictionary_all_fields():
         "experiment_id": "exp-999",
         "name": "Low accuracy",
         "description": "Model accuracy below threshold",
-        "status": "draft",
+        "status": "pending",
         "confidence": "low",
         "root_causes": ["Training data quality issues", "Model drift"],
         "source_run_id": "run-xyz",
@@ -105,7 +141,7 @@ def test_issue_from_dictionary_all_fields():
     assert issue.experiment_id == "exp-999"
     assert issue.name == "Low accuracy"
     assert issue.description == "Model accuracy below threshold"
-    assert issue.status == "draft"
+    assert issue.status == IssueStatus.PENDING
     assert issue.confidence == "low"
     assert issue.root_causes == ["Training data quality issues", "Model drift"]
     assert issue.source_run_id == "run-xyz"
@@ -120,7 +156,7 @@ def test_issue_from_dictionary_required_fields_only():
         "experiment_id": "exp-minimal",
         "name": "Minimal issue",
         "description": "Issue with only required fields",
-        "status": "draft",
+        "status": "pending",
         "created_timestamp": 5555555555,
         "last_updated_timestamp": 5555555555,
     }
@@ -131,7 +167,7 @@ def test_issue_from_dictionary_required_fields_only():
     assert issue.experiment_id == "exp-minimal"
     assert issue.name == "Minimal issue"
     assert issue.description == "Issue with only required fields"
-    assert issue.status == "draft"
+    assert issue.status == IssueStatus.PENDING
     assert issue.created_timestamp == 5555555555
     assert issue.last_updated_timestamp == 5555555555
     assert issue.confidence is None
@@ -146,7 +182,7 @@ def test_issue_roundtrip_conversion():
         experiment_id="exp-roundtrip",
         name="Roundtrip test",
         description="Testing dictionary conversion",
-        status="accepted",
+        status=IssueStatus.ACCEPTED,
         created_timestamp=3333333333,
         last_updated_timestamp=4444444444,
         confidence="high",
@@ -177,7 +213,7 @@ def test_issue_to_proto_required_fields():
         experiment_id="exp-proto-1",
         name="Proto test",
         description="Testing proto conversion",
-        status="draft",
+        status=IssueStatus.PENDING,
         created_timestamp=1000000000,
         last_updated_timestamp=1000000001,
     )
@@ -188,7 +224,7 @@ def test_issue_to_proto_required_fields():
     assert proto.experiment_id == "exp-proto-1"
     assert proto.name == "Proto test"
     assert proto.description == "Testing proto conversion"
-    assert proto.status == "draft"
+    assert proto.status == "pending"
     assert proto.created_timestamp == 1000000000
     assert proto.last_updated_timestamp == 1000000001
     assert proto.confidence == ""
@@ -203,7 +239,7 @@ def test_issue_to_proto_all_fields():
         experiment_id="exp-proto-2",
         name="Full proto test",
         description="Testing proto conversion with all fields",
-        status="accepted",
+        status=IssueStatus.ACCEPTED,
         created_timestamp=2000000000,
         last_updated_timestamp=2000000010,
         confidence="very_high",
@@ -233,7 +269,7 @@ def test_issue_from_proto_required_fields():
         experiment_id="exp-from-proto-1",
         name="From proto test",
         description="Testing conversion from proto",
-        status="draft",
+        status="pending",
         created_timestamp=3000000000,
         last_updated_timestamp=3000000001,
     )
@@ -244,7 +280,7 @@ def test_issue_from_proto_required_fields():
     assert issue.experiment_id == "exp-from-proto-1"
     assert issue.name == "From proto test"
     assert issue.description == "Testing conversion from proto"
-    assert issue.status == "draft"
+    assert issue.status == IssueStatus.PENDING
     assert issue.created_timestamp == 3000000000
     assert issue.last_updated_timestamp == 3000000001
     assert issue.confidence is None
@@ -289,7 +325,7 @@ def test_issue_proto_roundtrip_required_fields():
         experiment_id="exp-proto-roundtrip-1",
         name="Proto roundtrip test",
         description="Testing proto roundtrip conversion",
-        status="accepted",
+        status=IssueStatus.ACCEPTED,
         created_timestamp=5000000000,
         last_updated_timestamp=5000000005,
     )
@@ -316,7 +352,7 @@ def test_issue_proto_roundtrip_all_fields():
         experiment_id="exp-proto-roundtrip-2",
         name="Full proto roundtrip test",
         description="Testing proto roundtrip with all fields",
-        status="draft",
+        status=IssueStatus.PENDING,
         created_timestamp=6000000000,
         last_updated_timestamp=6000000030,
         confidence="medium",
