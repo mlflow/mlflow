@@ -95,6 +95,26 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'cookbooks/production-observability',
           label: 'Production Observability',
         },
+        {
+          type: 'doc',
+          id: 'cookbooks/genie-tracing-pipeline',
+          label: 'Genie Conversation Tracing',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/genie-evaluation-judges',
+          label: 'Genie Evaluation with Judges',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/genie-space-analyzer',
+          label: 'Genie Space Analyzer',
+        },
+        {
+          type: 'doc',
+          id: 'cookbooks/genie-vector-search',
+          label: 'Genie Vector Search & Lakebase',
+        },
       ],
     },
     {

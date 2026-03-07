@@ -1,0 +1,502 @@
+---
+title: Genie Space Analyzer and Recommendation Engine
+---
+
+import StepHeader from "@site/src/components/StepHeader";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Search, Wrench, Target } from "lucide-react";
+
+# Genie Space Analyzer and Recommendation Engine
+
+Audit a Databricks Genie space by collecting human feedback, extracting the space configuration, inspecting Unity Catalog metadata, and generating actionable recommendations with an LLM.
+
+:::tip[Prerequisites]
+```bash
+pip install databricks-sdk litellm mlflow>=3.1.0
+```
+This cookbook runs on Databricks. You need a Genie space and optionally human feedback from a [labeling session](/genai/cookbooks/genie-evaluation-judges).
+:::
+
+## What You'll Build
+
+<FeatureHighlights
+  features={[
+    { icon: Search, title: "Full space audit", description: "Extract tables, instructions, SQL expressions, joins, and benchmarks from your Genie space." },
+    { icon: Target, title: "Human-feedback-driven fixes", description: "Every piece of human feedback gets a concrete, copy-paste-ready fix." },
+    { icon: Wrench, title: "Auto-apply recommendations", description: "Optionally apply text instructions, example SQL, SQL expressions, and benchmarks back to the space." },
+  ]}
+/>
+
+<StepHeader number={1} title="Configure the Analyzer" />
+
+```python
+from databricks.sdk import WorkspaceClient
+import json
+import litellm
+import mlflow
+from datetime import datetime
+from mlflow.entities import SpanType
+
+w = WorkspaceClient()
+SPACE_ID = "your-space-id"
+UC_SCHEMA = "main.default"
+ANALYSIS_LLM = "databricks/databricks-claude-opus-4-6"
+MAX_CONVERSATIONS = 50
+EXPERIMENT_NAME = f"/Users/{w.current_user.me().user_name}/genie_mlflow"
+
+mlflow.set_experiment(EXPERIMENT_NAME)
+```
+
+<StepHeader number={2} title="Provide Human Feedback" />
+
+Human feedback is the primary driver of recommendations. Each entry describes a question, what went wrong, and what the correct answer should be.
+
+```python
+HUMAN_FEEDBACK = [
+    {
+        "question": "What was our revenue last quarter?",
+        "issue": "Genie used calendar quarter instead of fiscal quarter.",
+        "expected": "Should filter on fiscal Q (Apr-Jun, Jul-Sep, etc.).",
+    },
+    {
+        "question": "Show me active customers",
+        "issue": "Genie returned all customers. It doesn't know what 'active' means.",
+        "expected": "'Active' = customer with at least one order in the last 6 months.",
+    },
+]
+```
+
+To load feedback from a prior labeling session instead:
+
+```python
+# From JSON file:
+# with open("genie_human_feedback.json", "r") as f:
+#     HUMAN_FEEDBACK = json.load(f)
+
+# From Delta table:
+# feedback_df = spark.sql("SELECT * FROM main.default.genie_human_feedback")
+# HUMAN_FEEDBACK = [row.asDict() for row in feedback_df.collect()]
+```
+
+<StepHeader number={3} title="Extract the Genie Space Configuration" />
+
+Pull the full space config via the Genie SDK -- tables, instructions, example SQL, SQL snippets, joins, benchmarks, and sample questions.
+
+```python
+space = w.genie.get_space(space_id=SPACE_ID, include_serialized_space=True)
+space_meta = {
+    "title": space.title,
+    "description": space.description or "(no description)",
+    "space_id": space.space_id,
+}
+config = json.loads(space.serialized_space) if space.serialized_space else {}
+
+tables = config.get("data_sources", {}).get("tables", [])
+metric_views = config.get("data_sources", {}).get("metric_views", [])
+
+instructions = config.get("instructions", {})
+text_instructions = instructions.get("text_instructions", [])
+example_sqls = instructions.get("example_question_sqls", [])
+sql_functions = instructions.get("sql_functions", [])
+join_specs = instructions.get("join_specs", [])
+
+sql_snippets_obj = instructions.get("sql_snippets", {})
+if not isinstance(sql_snippets_obj, dict):
+    sql_snippets_obj = {}
+snippet_filters = sql_snippets_obj.get("filters", [])
+snippet_expressions = sql_snippets_obj.get("expressions", [])
+snippet_measures = sql_snippets_obj.get("measures", [])
+
+sample_qs = config.get("config", {}).get("sample_questions", [])
+benchmarks = config.get("benchmarks", {}).get("questions", [])
+
+print(f"Space: {space_meta['title']}")
+print(f"Tables: {len(tables)}, Metric views: {len(metric_views)}")
+print(f"Instructions: {len(text_instructions)}, Example SQL: {len(example_sqls)}")
+print(f"SQL snippets: filters={len(snippet_filters)}, "
+      f"expressions={len(snippet_expressions)}, measures={len(snippet_measures)}")
+print(f"Joins: {len(join_specs)}, Benchmarks: {len(benchmarks)}")
+```
+
+<StepHeader number={4} title="Pull Conversation History and API Feedback" />
+
+```python
+convos_resp = w.genie.list_conversations(space_id=SPACE_ID, include_all=True)
+all_convos = convos_resp.conversations or []
+
+conversation_data = []
+for convo in all_convos[:MAX_CONVERSATIONS]:
+    try:
+        msgs_resp = w.genie.list_conversation_messages(
+            space_id=SPACE_ID, conversation_id=convo.conversation_id
+        )
+        for msg in msgs_resp.messages or []:
+            entry = {
+                "conversation_id": convo.conversation_id,
+                "message_id": msg.message_id,
+                "user_question": msg.content or "",
+                "generated_sql": None,
+                "feedback": None,
+                "error": None,
+            }
+            if msg.attachments:
+                for att in msg.attachments:
+                    if att.query:
+                        entry["generated_sql"] = att.query.query
+                    if att.text:
+                        entry["genie_text_response"] = att.text.content
+            if msg.feedback:
+                entry["feedback"] = (
+                    str(msg.feedback.rating) if msg.feedback.rating else None
+                )
+            if msg.error:
+                entry["error"] = str(msg.error)
+            if entry["user_question"]:
+                conversation_data.append(entry)
+    except Exception:
+        pass
+
+total = len(conversation_data)
+positive = sum(
+    1 for c in conversation_data
+    if c["feedback"] and "POSITIVE" in str(c["feedback"])
+)
+negative = sum(
+    1 for c in conversation_data
+    if c["feedback"] and "NEGATIVE" in str(c["feedback"])
+)
+errors = sum(1 for c in conversation_data if c["error"])
+
+print(f"Total: {total} | Positive: {positive} | Negative: {negative} | Errors: {errors}")
+```
+
+<StepHeader number={5} title="Inspect Unity Catalog Table Metadata" />
+
+Check which columns have descriptions and which are missing -- a key driver of Genie accuracy.
+
+```python
+table_metadata = {}
+for tbl in tables + metric_views:
+    full_name = tbl["identifier"]
+    try:
+        cols = spark.sql(f"DESCRIBE TABLE {full_name}").collect()
+        table_comment = ""
+        try:
+            ext = spark.sql(f"DESCRIBE TABLE EXTENDED {full_name}").collect()
+            for row in ext:
+                if row["col_name"] == "Comment":
+                    table_comment = row["data_type"] or ""
+        except Exception:
+            pass
+        table_metadata[full_name] = {
+            "table_comment": table_comment,
+            "genie_description": tbl.get("description", ""),
+            "columns": [
+                {
+                    "name": row["col_name"],
+                    "type": row["data_type"],
+                    "comment": row["comment"] or "",
+                }
+                for row in cols
+                if not row["col_name"].startswith("#")
+            ],
+        }
+        n_cols = len(table_metadata[full_name]["columns"])
+        n_desc = sum(1 for c in table_metadata[full_name]["columns"] if c["comment"])
+        pct = f"{n_desc / n_cols * 100:.0f}%" if n_cols else "N/A"
+        print(f"  {full_name}: {n_cols} cols, {n_desc} described ({pct})")
+    except Exception as e:
+        print(f"  Could not describe {full_name}: {e}")
+        table_metadata[full_name] = {"error": str(e)}
+```
+
+<StepHeader number={6} title="Generate Recommendations with an LLM" />
+
+Build a prompt that includes human feedback, space config, table metadata, and conversation history, then call an LLM to generate structured recommendations.
+
+The prompt asks the LLM to produce:
+1. A fix plan for every human feedback item (SQL expressions, text instructions, example SQL)
+2. Pattern analysis across feedback
+3. Table metadata improvements (column descriptions)
+4. Metric view recommendations (DDL)
+5. Additional instructions, SQL expressions, joins, and benchmarks
+6. A prioritized action plan
+
+```python
+# Build prompt inputs from the extracted data
+human_feedback_block = ""
+for fb in HUMAN_FEEDBACK:
+    human_feedback_block += f"- Q: {fb.get('question', '')}\n"
+    human_feedback_block += (
+        f"  Issue: {fb.get('issue', '')}\n"
+        f"  Expected: {fb.get('expected', '')}\n"
+    )
+
+table_identifiers = [t["identifier"] for t in tables + metric_views]
+
+negative_qs = [
+    c for c in conversation_data
+    if c["feedback"] and "NEGATIVE" in str(c["feedback"])
+]
+error_qs = [c for c in conversation_data if c["error"]]
+
+table_summary = ""
+for tbl_name, meta in table_metadata.items():
+    if "error" in meta:
+        table_summary += f"\n{tbl_name}: ERROR - {meta['error'][:100]}\n"
+        continue
+    table_summary += f"\n{tbl_name}:\n"
+    cols_no = [c["name"] for c in meta["columns"] if not c["comment"]]
+    cols_yes = [
+        f"{c['name']} ({c['comment'][:50]})"
+        for c in meta["columns"]
+        if c["comment"]
+    ]
+    if cols_no:
+        table_summary += f"  Missing descriptions: {', '.join(cols_no[:15])}\n"
+    if cols_yes:
+        table_summary += f"  Has descriptions: {', '.join(cols_yes[:10])}\n"
+
+system_prompt = (
+    "You are an expert Databricks AI/BI Genie space consultant. "
+    "Your top priority is resolving every human-reported issue with concrete, "
+    "copy-paste-ready fixes (SQL expressions, text instructions, example SQL). "
+    "For SQL expressions (sql_snippets), always specify the type "
+    "(filter, expression, or measure), the exact table_identifier, the SQL code, "
+    "synonyms, and usage instructions. "
+    "For benchmarks, always provide both the question AND the expected SQL answer. "
+    "Never give vague advice. Always write the actual implementation."
+)
+
+analysis_prompt = f"""Fix the issues reported in HUMAN FEEDBACK below.
+Every feedback entry MUST have a concrete, implementable fix.
+
+## HUMAN FEEDBACK (PRIMARY)
+{human_feedback_block}
+
+## SPACE CONFIG
+Title: {space_meta['title']}
+Tables ({len(tables)}): {', '.join(table_identifiers[:10])}
+Text instructions: {len(text_instructions)}
+Example SQL: {len(example_sqls)}
+
+## TABLE METADATA
+{table_summary}
+
+## API FEEDBACK
+Total: {total} | Positive: {positive} | Negative: {negative} | Errors: {errors}
+
+Provide: fix plans per issue, SQL expressions, text instructions,
+example SQL, column descriptions, metric views, benchmarks (with SQL),
+and a prioritized action plan."""
+```
+
+Call the LLM with MLflow tracing:
+
+```python
+@mlflow.trace
+def analyze_genie_space(user_prompt, sys_prompt, model):
+    with mlflow.start_span(name="llm_analysis", span_type=SpanType.LLM) as span:
+        span.set_inputs({"model": model, "prompt_length": len(user_prompt)})
+        response = litellm.completion(
+            model=model,
+            messages=[
+                {"role": "system", "content": sys_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=8000,
+            temperature=0.2,
+        )
+        recommendations = response.choices[0].message.content
+        span.set_outputs(recommendations)
+        return {"recommendations": recommendations}
+
+
+with mlflow.start_run(
+    run_name=f"genie_analysis_{datetime.now().strftime('%Y%m%d_%H%M')}"
+) as run:
+    mlflow.log_params({
+        "space_id": SPACE_ID,
+        "analysis_llm": ANALYSIS_LLM,
+        "human_feedback_count": len(HUMAN_FEEDBACK),
+    })
+    run_id = run.info.run_id
+    result = analyze_genie_space(analysis_prompt, system_prompt, ANALYSIS_LLM)
+    recommendations = result["recommendations"]
+    mlflow.log_text(recommendations, "recommendations.md")
+
+print(recommendations)
+```
+
+<StepHeader number={7} title="Extract Structured Actions from Recommendations" />
+
+Parse the LLM output into a structured JSON object for auto-apply.
+
+```python
+extraction_prompt = f"""Extract ALL actionable items into a single JSON object.
+Return ONLY valid JSON, no markdown.
+
+Available tables: {json.dumps(list(set(t["identifier"] for t in tables + metric_views)))}
+
+JSON schema:
+{{
+  "text_instructions": ["instruction text..."],
+  "example_sqls": [{{"question": "Q", "sql": "SELECT ..."}}],
+  "sql_expressions": [
+    {{
+      "type": "filter|expression|measure",
+      "display_name_or_alias": "name",
+      "sql": "SQL code",
+      "table_identifier": "catalog.schema.table"
+    }}
+  ],
+  "table_descriptions": [{{"table_identifier": "cat.sch.tbl", "description": "desc"}}],
+  "column_descriptions": [{{"table_identifier": "cat.sch.tbl", "column_name": "col", "description": "desc"}}],
+  "sample_questions": ["question text"],
+  "benchmarks": [{{"question": "Q", "sql": "SELECT ..."}}]
+}}
+
+Analysis to extract from:
+{recommendations}
+"""
+
+with mlflow.start_run(run_id=run_id):
+    extract_resp = litellm.completion(
+        model=ANALYSIS_LLM,
+        messages=[
+            {"role": "system", "content": "Extract structured data. Return ONLY valid JSON."},
+            {"role": "user", "content": extraction_prompt},
+        ],
+        max_tokens=8000,
+        temperature=0.0,
+    )
+    raw_json = extract_resp.choices[0].message.content.strip()
+    raw_json = raw_json.replace("```json", "").replace("```", "").strip()
+    mlflow.log_text(raw_json, "extracted_actions.json")
+
+actions = json.loads(raw_json)
+print(f"Text instructions: {len(actions.get('text_instructions', []))}")
+print(f"Example SQLs: {len(actions.get('example_sqls', []))}")
+print(f"SQL expressions: {len(actions.get('sql_expressions', []))}")
+print(f"Benchmarks: {len(actions.get('benchmarks', []))}")
+```
+
+<StepHeader number={8} title="Apply Recommendations to the Genie Space" />
+
+:::warning
+Set `DRY_RUN = True` when testing. Applying recommendations overwrites your Genie space configuration. Always back up first and have a human reviewer validate the results.
+:::
+
+```python
+import copy
+import uuid
+
+DRY_RUN = True
+
+# Backup current config
+with open("genie_config_backup.json", "w") as f:
+    json.dump(config, f, indent=2)
+
+new_config = copy.deepcopy(config)
+
+# Ensure structures exist
+new_config.setdefault("instructions", {})
+inst = new_config["instructions"]
+inst.setdefault("text_instructions", [])
+inst.setdefault("example_question_sqls", [])
+inst.setdefault("sql_snippets", {"filters": [], "expressions": [], "measures": []})
+new_config.setdefault("config", {}).setdefault("sample_questions", [])
+new_config.setdefault("benchmarks", {"questions": []})
+
+TYPE_MAP = {"filter": "filters", "expression": "expressions", "measure": "measures"}
+
+# Apply text instructions
+if not inst["text_instructions"]:
+    inst["text_instructions"].append({"id": uuid.uuid4().hex, "content": []})
+ti_entry = inst["text_instructions"][0]
+ti_entry.setdefault("content", [])
+for it in actions.get("text_instructions", []):
+    if it and isinstance(it, str):
+        ti_entry["content"].append(it)
+
+# Apply example SQL
+for eq in actions.get("example_sqls", []):
+    q, sql = eq.get("question", "").strip(), eq.get("sql", "").strip()
+    if q and sql:
+        inst["example_question_sqls"].append({
+            "id": uuid.uuid4().hex, "question": [q], "sql": [sql],
+        })
+
+# Apply SQL expressions
+for expr in actions.get("sql_expressions", []):
+    etype = expr.get("type", "").strip().lower()
+    label = expr.get("display_name_or_alias", "").strip()
+    sql_code = expr.get("sql", "").strip()
+    if etype not in TYPE_MAP or not label or not sql_code:
+        continue
+    entry = {"id": uuid.uuid4().hex, "sql": [sql_code]}
+    if etype == "filter":
+        entry["display_name"] = label
+    else:
+        entry["alias"] = label
+    inst["sql_snippets"][TYPE_MAP[etype]].append(entry)
+
+# Apply benchmarks
+for bm in actions.get("benchmarks", []):
+    q = bm.get("question", "").strip()
+    sql = bm.get("sql", "").strip()
+    if q and sql:
+        new_config["benchmarks"]["questions"].append({
+            "id": uuid.uuid4().hex,
+            "question": [q],
+            "answer": [{"format": "SQL", "content": [sql]}],
+        })
+
+if DRY_RUN:
+    proposed = f"/tmp/genie_proposed_{SPACE_ID[:8]}.json"
+    with open(proposed, "w") as f:
+        json.dump(new_config, f, indent=2)
+    print(f"DRY RUN -- proposed config saved to {proposed}")
+else:
+    updated = w.genie.update_space(
+        space_id=SPACE_ID,
+        serialized_space=json.dumps(new_config),
+    )
+    print(f"Applied! Space: {updated.title} ({updated.space_id})")
+```
+
+Optionally apply Unity Catalog column descriptions:
+
+```python
+APPLY_UC_DESCRIPTIONS = False
+
+if APPLY_UC_DESCRIPTIONS:
+    for cd in actions.get("column_descriptions", []):
+        tbl = cd.get("table_identifier", "").strip()
+        col = cd.get("column_name", "").strip()
+        desc = cd.get("description", "").strip()
+        if tbl and col and desc:
+            try:
+                safe_desc = desc.replace("'", "''")
+                spark.sql(
+                    f"ALTER TABLE {tbl} ALTER COLUMN `{col}` COMMENT '{safe_desc}'"
+                )
+                print(f"  {tbl}.{col}")
+            except Exception as e:
+                print(f"  {tbl}.{col}: {e}")
+```
+
+## Results
+
+After running this cookbook, you have:
+
+1. **A full audit** of your Genie space configuration against Databricks best practices.
+2. **Per-issue fix plans** for every piece of human feedback with concrete SQL expressions, text instructions, and example queries.
+3. **A structured JSON** of all recommendations that can be auto-applied to the Genie space.
+4. **MLflow traces** of the analysis for reproducibility and version tracking.
+
+## Next Steps
+
+- [Genie Conversation Tracing Pipeline](/genai/cookbooks/genie-tracing-pipeline) -- Set up the tracing pipeline that feeds this analyzer
+- [Genie Evaluation with LLM Judges](/genai/cookbooks/genie-evaluation-judges) -- Run automated evaluation and human labeling
+- [Genie Vector Search and Lakebase](/genai/cookbooks/genie-vector-search) -- Add semantic search over past conversations
