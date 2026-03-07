@@ -22,6 +22,7 @@ class Experiment(_MlflowObject):
         creation_time=None,
         last_update_time=None,
         workspace=None,
+        trace_location=None,
     ):
         super().__init__()
         self._experiment_id = experiment_id
@@ -32,6 +33,7 @@ class Experiment(_MlflowObject):
         self._creation_time = creation_time
         self._last_update_time = last_update_time
         self._workspace = resolve_entity_workspace_name(workspace)
+        self._trace_location = trace_location
 
     @property
     def experiment_id(self):
@@ -79,9 +81,23 @@ class Experiment(_MlflowObject):
         self._last_update_time = last_update_time
 
     @property
+    def trace_location(self):
+        """Trace storage location, if configured."""
+        return self._trace_location
+
+    @property
     def workspace(self):
         """Workspace that owns the experiment, if known."""
         return self._workspace
+
+    def __repr__(self):
+        parts = [
+            f"name={self.name!r}",
+            f"experiment_id={self.experiment_id!r}",
+        ]
+        if self._trace_location is not None:
+            parts.append(f"trace_location={self._trace_location!r}")
+        return f"<Experiment: {', '.join(parts)}>"
 
     @classmethod
     def from_proto(cls, proto):

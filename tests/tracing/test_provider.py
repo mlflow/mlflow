@@ -36,6 +36,7 @@ from mlflow.tracing.provider import (
     trace_disabled,
 )
 from mlflow.tracing.utils import get_active_spans_table_name
+from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
 
 from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
 
@@ -710,3 +711,119 @@ def test_experiment_derived_destination_preserved_when_validation_errors(monkeyp
     assert isinstance(destination, UnityCatalog)
     assert destination.table_prefix == "exp"
     assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is not None
+
+
+def _make_experiment(tags=None):
+    from mlflow.entities import Experiment
+    from mlflow.entities.experiment_tag import ExperimentTag
+
+    tag_entities = [ExperimentTag(k, v) for k, v in (tags or {}).items()] if tags else []
+    return Experiment(
+        experiment_id="123",
+        name="test",
+        artifact_location="file:/tmp",
+        lifecycle_stage="active",
+        tags=tag_entities,
+    )
+
+
+def test_resolve_uc_location_from_experiment_tag():
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
+    mlflow.tracing.reset()
+    resolved = UnityCatalog("cat", "sch", table_prefix="pfx")
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="databricks",
+        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+        mock.patch("mlflow.tracing.client.TracingClient") as tc_cls,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _make_experiment(
+            tags={MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID: "some-uuid"}
+        )
+        tc_cls.return_value._get_trace_location.return_value = resolved
+
+        result = _resolve_experiment_uc_location()
+
+        assert result == resolved
+        tc_cls.return_value._get_trace_location.assert_called_once_with("some-uuid")
+
+    mlflow.tracing.reset()
+
+
+def test_resolve_uc_location_returns_none_when_no_tag():
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
+    mlflow.tracing.reset()
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="databricks",
+        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _make_experiment()
+
+        assert _resolve_experiment_uc_location() is None
+
+    mlflow.tracing.reset()
+
+
+def test_resolve_uc_location_returns_none_for_non_databricks():
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
+    mlflow.tracing.reset()
+
+    with mock.patch(
+        "mlflow.tracing.provider.mlflow.get_tracking_uri",
+        return_value="http://local",
+    ):
+        assert _resolve_experiment_uc_location() is None
+
+    mlflow.tracing.reset()
+
+
+def test_get_tracer_does_not_fail_when_experiment_id_resolution_fails():
+    mlflow.tracing.reset()
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="databricks",
+        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", side_effect=RuntimeError("boom")),
+    ):
+        tracer = _get_tracer("test")
+
+    assert tracer is not None
+    mlflow.tracing.reset()
+
+
+def test_resolve_uc_location_returns_none_when_lookup_fails():
+    from mlflow.tracing.provider import _resolve_experiment_uc_location
+
+    mlflow.tracing.reset()
+
+    with (
+        mock.patch(
+            "mlflow.tracing.provider.mlflow.get_tracking_uri",
+            return_value="databricks",
+        ),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="123"),
+        mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store_fn,
+        mock.patch("mlflow.tracing.client.TracingClient") as tc_cls,
+    ):
+        mock_store_fn.return_value.get_experiment.return_value = _make_experiment(
+            tags={MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID: "some-uuid"}
+        )
+        tc_cls.return_value._get_trace_location.side_effect = RuntimeError("boom")
+
+        assert _resolve_experiment_uc_location() is None
+
+    mlflow.tracing.reset()
