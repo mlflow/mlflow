@@ -29,6 +29,7 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
+from tests.transformers.version import IS_TRANSFORMERS_V5_OR_LATER
 
 
 @pytest.fixture
@@ -71,6 +72,11 @@ def test_model_save_and_load(model_path, basic_model):
     Version(sentence_transformers.__version__) < Version("2.4.0"),
     reason="`trust_remote_code` is not supported in Sentence Transformers < 2.3.0 "
     "and `include_prompt` from gte-base-en-v1.5 requires 2.4.0 or above",
+)
+@pytest.mark.skipif(
+    IS_TRANSFORMERS_V5_OR_LATER,
+    reason="Alibaba-NLP/gte-base-en-v1.5 has corrupted position_ids buffers on transformers 5.x "
+    "due to uninitialized meta-device loading (https://github.com/huggingface/transformers/issues/43957)",
 )
 def test_model_save_and_load_with_custom_code(model_path, model_with_remote_code):
     mlflow.sentence_transformers.save_model(model=model_with_remote_code, path=model_path)

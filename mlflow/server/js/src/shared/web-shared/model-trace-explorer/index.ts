@@ -5,6 +5,10 @@ export { ModelTraceExplorerSkeleton } from './ModelTraceExplorerSkeleton';
 export { ModelTraceExplorerOSSNotebookRenderer } from './oss-notebook-renderer/ModelTraceExplorerOSSNotebookRenderer';
 export { default as ModelTraceExplorerResizablePane } from './ModelTraceExplorerResizablePane';
 export type { ModelTraceExplorerResizablePaneRef } from './ModelTraceExplorerResizablePane';
+export {
+  ModelTraceExplorerPreferencesProvider,
+  useModelTraceExplorerPreferences,
+} from './ModelTraceExplorerPreferencesContext';
 export { AssessmentsPane } from './assessments-pane/AssessmentsPane';
 export {
   isModelTrace,
@@ -29,6 +33,7 @@ export {
   SOURCE_NAME_METADATA_KEY,
   SOURCE_TYPE_METADATA_KEY,
   TOKEN_USAGE_METADATA_KEY,
+  COST_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   SELECTED_TRACE_ID_QUERY_PARAM,
   ASSESSMENT_SESSION_METADATA_KEY,
@@ -41,6 +46,7 @@ export {
   shouldUseModelTraceExplorerDrawerUI,
   shouldUseUnifiedModelTraceComparisonUI,
   isEvaluatingTracesInDetailsViewEnabled,
+  shouldEnableTracesTableStatePersistence,
 } from './FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from './contexts/AssessmentSchemaContext';
 export * from './ModelTrace.types';
@@ -48,7 +54,7 @@ export * from './TraceMetrics.types';
 export * from './oss-notebook-renderer/mlflow-fetch-utils';
 
 export { getAssessmentValue, isFeedbackAssessment, isExpectationAssessment } from './assessments-pane/utils';
-export { TracesServiceV3, TracesServiceV4 } from './api';
+export { TracesServiceV3, TracesServiceV4, getExperimentTraceV3 } from './api';
 export { shouldUseTracesV4API } from './FeatureUtils';
 export { useUnifiedTraceTagsModal } from './hooks/useUnifiedTraceTagsModal';
 export { useArrayMemo } from './hooks/useArrayMemo';
@@ -65,7 +71,12 @@ export { SingleChatTurnMessages } from './session-view/SingleChatTurnMessages';
 export { ModelTraceExplorerChatMessage } from './right-pane/ModelTraceExplorerChatMessage';
 export { SpanModelCostBadge } from './right-pane/SpanModelCostBadge';
 export { SingleChatTurnAssessments } from './session-view/SingleChatTurnAssessments';
-export { getTraceTokenUsage, createTraceV4LongIdentifier, isSessionLevelAssessment } from './ModelTraceExplorer.utils';
+export {
+  getTraceTokenUsage,
+  getTraceCost,
+  createTraceV4LongIdentifier,
+  isSessionLevelAssessment,
+} from './ModelTraceExplorer.utils';
 export { CompareModelTraceExplorer } from './CompareModelTraceExplorer';
 export { useGetTracesById } from './hooks/useGetTracesById';
 export {
@@ -76,3 +87,5 @@ export {
   type DrawerComponentType,
 } from './ModelTraceExplorerContext';
 export { ModelTraceExplorerDrawer, type ModelTraceExplorerDrawerProps } from './ModelTraceExplorerDrawer';
+export { formatCostUSD } from './CostUtils';
+export { SimplifiedAssessmentView } from './right-pane/SimplifiedAssessmentView';

@@ -1,4 +1,5 @@
-import { createLazyRouteElement, RouteHandle, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
+import type { RouteHandle } from '../common/utils/RoutingUtils';
+import { createLazyRouteElement, DEFAULT_ASSISTANT_PROMPTS } from '../common/utils/RoutingUtils';
 
 import { PageId, RoutePaths } from './routes';
 
@@ -160,7 +161,7 @@ const getExperimentPageRouteDefs = () => {
           pageId: PageId.experimentPageTabScorers,
           element: createLazyRouteElement(() => import('./pages/experiment-scorers/ExperimentScorersPage')),
           handle: {
-            getPageTitle: (params) => `Scorers - Experiment ${params['experimentId']}`,
+            getPageTitle: (params) => `Judges - Experiment ${params['experimentId']}`,
             getAssistantPrompts: () => [
               'How do I create LLM judge for testing the quality of my agent?',
               'Which built-in LLM judges should I use for my project?',
@@ -217,7 +218,7 @@ const getExperimentPageRouteDefs = () => {
 export const getRouteDefs = () => [
   {
     path: RoutePaths.rootRoute,
-    element: createLazyRouteElement(() => import('../home/HomePage')),
+    element: createLazyRouteElement(() => import('../home/RootPage')),
     pageId: PageId.home,
     handle: {
       getPageTitle: () => 'Home',

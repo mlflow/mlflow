@@ -6,8 +6,8 @@ import type { FormatDateOptions } from 'react-intl';
 import type { ThemeType } from '@databricks/design-system';
 import { ArrowRightIcon, Tag, Tooltip, Typography, useDesignSystemTheme, UserIcon } from '@databricks/design-system';
 import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+import { ExpectationValuePreview } from '../../model-trace-explorer/assessments-pane/ExpectationValuePreview';
 
 import { GenAITracesTableContext } from '../GenAITracesTableContext';
 
@@ -39,6 +39,8 @@ import {
   RESPONSE_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   SESSION_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
   SOURCE_COLUMN_ID,
   STATE_COLUMN_ID,
   TAGS_COLUMN_ID,
@@ -50,10 +52,11 @@ import {
 import type { AssessmentInfo, EvalTraceComparisonEntry } from '../types';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
-import { timeSinceStr } from '../utils/DisplayUtils';
+import { highlightSearchInText, timeSinceStr } from '../utils/DisplayUtils';
 import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
   getCustomMetadataKeyFromColumnId,
+  getExperimentIdFromTraceLocation,
   getTagKeyFromColumnId,
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
@@ -343,6 +346,12 @@ export const inputColumnCellRenderer = (
     : undefined;
 
   const inputColumnTitle = currentInputColumnTitle || otherInputColumnTitle;
+  const meta = row?.table?.options?.meta as
+    | { getRunColor?: (runUuid: string) => string; searchQuery?: string }
+    | undefined;
+  const searchQuery = meta?.searchQuery;
+  const displayContent =
+    inputColumnTitle && searchQuery ? highlightSearchInText(String(inputColumnTitle), searchQuery) : inputColumnTitle;
 
   return (
     <div
@@ -366,8 +375,8 @@ export const inputColumnCellRenderer = (
         componentId="mlflow.evaluations_review.table_ui.evaluation_id_link"
         onClick={() => onChangeEvaluationId(evalId, value.currentRunValue?.traceInfo)}
       >
-        {inputColumnTitle ? (
-          inputColumnTitle
+        {displayContent ? (
+          displayContent
         ) : (
           <span
             css={{
@@ -407,15 +416,16 @@ export const inputColumnCellRenderer = (
 };
 
 export const traceInfoCellRenderer = (
-  experimentId: string,
   isComparing: boolean,
   colId: string,
   comparisonEntry: EvalTraceComparisonEntry,
   onChangeEvaluationId: (evalId: string, traceInfo?: ModelTraceInfoV3) => void,
   intl: IntlShape,
   theme: ThemeType,
+  experimentId?: string,
   onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
   traceIdToTurnMap?: Record<string, number>,
+  searchQuery?: string,
 ) => {
   const currentTraceInfo = comparisonEntry.currentRunValue?.traceInfo;
   const otherTraceInfo = isComparing ? comparisonEntry.otherRunValue?.traceInfo : undefined;
@@ -618,7 +628,12 @@ export const traceInfoCellRenderer = (
       return <NullCell />;
     }
 
-    return <RunName experimentId={experimentId} runUuid={runUuid} />;
+    return (
+      <RunName
+        experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location) ?? experimentId}
+        runUuid={runUuid}
+      />
+    );
   } else if (colId === USER_COLUMN_ID) {
     const value = currentTraceInfo?.trace_metadata?.['mlflow.trace.user'] || currentTraceInfo?.tags?.['mlflow.user'];
     const otherValue = otherTraceInfo?.trace_metadata?.['mlflow.trace.user'] || otherTraceInfo?.tags?.['mlflow.user'];
@@ -665,6 +680,8 @@ export const traceInfoCellRenderer = (
   } else if (colId === TRACE_ID_COLUMN_ID) {
     const value = currentTraceInfo?.trace_id;
     const otherValue = otherTraceInfo?.trace_id;
+    const displayValue = value && searchQuery ? highlightSearchInText(value, searchQuery) : value;
+    const displayOtherValue = otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
     return (
       <StackedComponents
         first={
@@ -683,7 +700,7 @@ export const traceInfoCellRenderer = (
                   whiteSpace: 'nowrap',
                 }}
               >
-                {value}
+                {displayValue}
               </span>
             </Tag>
           ) : (
@@ -708,7 +725,7 @@ export const traceInfoCellRenderer = (
                   whiteSpace: 'nowrap',
                 }}
               >
-                {otherValue}
+                {displayOtherValue}
               </span>
             </Tag>
           ) : (
@@ -730,7 +747,11 @@ export const traceInfoCellRenderer = (
       <StackedComponents
         first={
           value ? (
-            <SessionIdLinkWrapper sessionId={value} experimentId={experimentId} traceId={currentTraceId}>
+            <SessionIdLinkWrapper
+              sessionId={value}
+              experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location) ?? experimentId}
+              traceId={currentTraceId}
+            >
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
@@ -763,7 +784,11 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <SessionIdLinkWrapper sessionId={otherValue} experimentId={experimentId} traceId={otherTraceId}>
+            <SessionIdLinkWrapper
+              sessionId={otherValue}
+              experimentId={getExperimentIdFromTraceLocation(otherTraceInfo?.trace_location) ?? experimentId}
+              traceId={otherTraceId}
+            >
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
@@ -798,12 +823,14 @@ export const traceInfoCellRenderer = (
   } else if (colId === RESPONSE_COLUMN_ID) {
     const value = currentTraceInfo ? formatResponseTitle(getTraceInfoOutputs(currentTraceInfo)) : '';
     const otherValue = otherTraceInfo ? formatResponseTitle(getTraceInfoOutputs(otherTraceInfo)) : '';
+    const displayValue = value && searchQuery ? highlightSearchInText(value, searchQuery) : value;
+    const displayOtherValue = otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
     return (
       <StackedComponents
         first={
-          value ? (
+          displayValue ? (
             <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>
-              {value}
+              {displayValue}
             </div>
           ) : (
             <NullCell isComparing={isComparing} />
@@ -811,9 +838,9 @@ export const traceInfoCellRenderer = (
         }
         second={
           isComparing &&
-          (otherValue ? (
+          (displayOtherValue ? (
             <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherValue}>
-              {otherValue}
+              {displayOtherValue}
             </div>
           ) : (
             <NullCell isComparing={isComparing} />
@@ -951,6 +978,9 @@ export const traceInfoCellRenderer = (
         }
       />
     );
+  } else if (colId === SIMULATION_GOAL_COLUMN_ID || colId === SIMULATION_PERSONA_COLUMN_ID) {
+    // Goal/Persona are session-level columns, only rendered in session header rows
+    return <NullCell isComparing={isComparing} />;
   }
 
   const value = currentTraceInfo ? stringifyValue(getTraceInfoValueWithColId(currentTraceInfo, colId)) : '';

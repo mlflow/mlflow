@@ -5,15 +5,14 @@ import type {
   ExpectationAssessment,
   FeedbackAssessment,
   ModelTrace,
+  ModelTraceLocation,
   ModelTraceSpan,
   ModelTraceInfoV3,
   RetrieverDocument,
-} from '@databricks/web-shared/model-trace-explorer';
-import {
-  createTraceV4LongIdentifier,
-  getAssessmentValue,
-  ModelTraceSpanType,
-} from '@databricks/web-shared/model-trace-explorer';
+} from '../../model-trace-explorer/ModelTrace.types';
+import { createTraceV4LongIdentifier } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import { getAssessmentValue } from '../../model-trace-explorer/assessments-pane/utils';
+import { ModelTraceSpanType } from '../../model-trace-explorer/ModelTrace.types';
 
 import { doesTraceSupportV4API } from './TraceLocationUtils';
 import {
@@ -46,6 +45,16 @@ export const DEFAULT_RUN_PLACEHOLDER_NAME = 'monitor';
 
 const SPANS_LOCATION_TAG_KEY = 'mlflow.trace.spansLocation';
 export const TRACKING_STORE_SPANS_LOCATION = 'TRACKING_STORE';
+
+/**
+ * Extracts the experiment ID from a trace location, if it is an MLflow experiment location.
+ */
+export const getExperimentIdFromTraceLocation = (location?: ModelTraceLocation): string | undefined => {
+  if (location?.type === 'MLFLOW_EXPERIMENT') {
+    return location.mlflow_experiment.experiment_id;
+  }
+  return undefined;
+};
 
 export const getRowIdFromEvaluation = (evaluation?: RunEvaluationTracesDataEntry) => {
   return evaluation?.evaluationId || '';

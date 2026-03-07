@@ -22,7 +22,10 @@ from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )
-from mlflow.metrics.genai.model_utils import _parse_model_uri
+from mlflow.metrics.genai.model_utils import (
+    _parse_model_uri,
+    convert_mlflow_uri_to_litellm,
+)
 from mlflow.utils import AttrDict
 
 # Import dspy - raise exception if not installed
@@ -285,32 +288,6 @@ def _sanitize_assessment_name(name: str) -> str:
     return name.lower().strip()
 
 
-def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
-    """
-    Convert MLflow model URI format to LiteLLM format.
-
-    MLflow uses URIs like 'openai:/gpt-4' while LiteLLM expects 'openai/gpt-4'.
-    For Databricks endpoints, MLflow uses 'endpoints:/endpoint-name' which needs
-    to be converted to 'databricks/endpoints/endpoint-name' for LiteLLM.
-
-    Args:
-        model_uri: MLflow model URI (e.g., 'openai:/gpt-4', 'endpoints:/my-endpoint')
-
-    Returns:
-        LiteLLM-compatible model string (e.g., 'openai/gpt-4', 'databricks/endpoints/my-endpoint')
-    """
-    try:
-        scheme, path = _parse_model_uri(model_uri)
-        # MLflow's "endpoints:/my-endpoint" is a Databricks serving endpoint URI.
-        # LiteLLM expects "databricks/{endpoint-name}" for Databricks endpoints,
-        # so we normalize both "endpoints" and "databricks" schemes to "databricks".
-        if scheme in ("endpoints", "databricks"):
-            return f"databricks/{path}"
-        return f"{scheme}/{path}"
-    except Exception as e:
-        raise MlflowException(f"Failed to convert MLflow URI to LiteLLM format: {e}")
-
-
 def convert_litellm_to_mlflow_uri(litellm_model: str) -> str:
     """
     Convert LiteLLM model format to MLflow URI format.
@@ -411,15 +388,23 @@ def trace_to_dspy_example(trace: Trace, judge: Judge) -> Optional["dspy.Example"
                 ),
                 reverse=True,
             )
-            for assessment in sorted_assessments:
-                sanitized_assessment_name = _sanitize_assessment_name(assessment.name)
-                sanitized_judge_name = _sanitize_assessment_name(judge.name)
-                if (
-                    sanitized_assessment_name == sanitized_judge_name
-                    and assessment.source.source_type == AssessmentSourceType.HUMAN
-                ):
-                    expected_result = assessment
-                    break
+            sanitized_judge_name = _sanitize_assessment_name(judge.name)
+            matching_assessments = [
+                a
+                for a in sorted_assessments
+                if _sanitize_assessment_name(a.name) == sanitized_judge_name
+                and a.source.source_type == AssessmentSourceType.HUMAN
+            ]
+
+            if len(matching_assessments) > 1:
+                _logger.warning(
+                    f"Found {len(matching_assessments)} human assessments with name "
+                    f"'{judge.name}' in trace {trace.info.trace_id}. "
+                    f"Only the most recent one will be used for alignment."
+                )
+
+            if matching_assessments:
+                expected_result = matching_assessments[0]
 
         if not expected_result:
             _logger.warning(

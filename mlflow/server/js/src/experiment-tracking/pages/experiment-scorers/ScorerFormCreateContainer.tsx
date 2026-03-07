@@ -10,12 +10,16 @@ interface ScorerFormCreateContainerProps {
   experimentId: string;
   onClose: () => void;
   initialScorerType?: ScorerFormData['scorerType'];
+  initialScope?: ScorerEvaluationScope;
+  initialItemId?: string;
 }
 
 const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({
   experimentId,
   onClose,
   initialScorerType = 'llm',
+  initialScope,
+  initialItemId,
 }) => {
   // Local error state for synchronous errors
   const [componentError, setComponentError] = useState<string | null>(null);
@@ -37,7 +41,7 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({
       model: '',
       disableMonitoring: false,
       isInstructionsJudge: true, // Custom template is an instructions judge
-      evaluationScope: ScorerEvaluationScope.TRACES,
+      evaluationScope: initialScope ?? ScorerEvaluationScope.TRACES,
     },
   });
 
@@ -113,6 +117,7 @@ const ScorerFormCreateContainer: React.FC<ScorerFormCreateContainerProps> = ({
           handleCancel={handleCancel}
           isSubmitDisabled={isSubmitDisabled}
           experimentId={experimentId}
+          initialSelectedItemIds={initialItemId ? [initialItemId] : undefined}
         />
       </FormProvider>
     </div>

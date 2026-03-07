@@ -9,7 +9,7 @@ import TabItem from "@theme/TabItem";
 
 # Contributing to MLflow Tracing
 
-Welcome to the MLflow Tracing contribution guide! This step-by-step resource will assist you in implementing additional GenAI library integrations for tracing into MLflow.
+Welcome to the MLflow Tracing contribution guide! This step-by-step resource will assist you in implementing additional LLM and AI agent framework integrations for tracing into MLflow.
 
 :::tip
 If you have any questions during the process, try the **"Ask AI"** feature in the bottom-right corner. It can provide both reference documentation and quick answers to common questions about MLflow.
@@ -59,7 +59,7 @@ If you are not sure about the answers, revisit the docs for a quick refresh.
 
 ## Step 3. Understand the Integration Library
 
-From a tracing perspective, GenAI libraries can be categorized into two types:
+From a tracing perspective, LLM and AI agent libraries can be categorized into two types:
 
 **🧠 LLM Providers or Wrappers**
 
@@ -116,7 +116,7 @@ There are a few gotchas to watch out for when integrating with MLflow Tracing:
 The MLflow TypeScript tracing SDK lives under the [`libs/typescript`](https://github.com/mlflow/mlflow/tree/master/libs/typescript) npm workspace. When implementing a new integration:
 
 1. **Create a Workspace Package**: Scaffold `libs/typescript/integrations/<provider>` using the [OpenAI integration](https://github.com/mlflow/mlflow/tree/master/libs/typescript/integrations/openai) as a template, including `package.json`, `tsconfig.json`, and optional docs.
-2. **Expose Instrumentation Helpers**: Implement the tracing entry points in `src/`—for example, a `traced<Client>()` wrapper or `register()` function that wires the integration into `mlflow-tracing`.
+2. **Expose Instrumentation Helpers**: Implement the tracing entry points in `src/`—for example, a `traced<Client>()` wrapper or `register()` function that wires the integration into `@mlflow/core`.
 3. **Document and Test**: Add README snippets or inline docs plus unit/integration tests under `tests/` so reviewers can validate the new instrumentation.
 4. **Update Workspace Scripts**: Extend the root [`package.json`](https://github.com/mlflow/mlflow/blob/master/libs/typescript/package.json) `build:integrations` or `test:integrations` commands if the new package needs custom build or test steps.
 

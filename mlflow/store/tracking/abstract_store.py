@@ -7,6 +7,7 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     DatasetRecord,
+    Issue,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -64,6 +65,11 @@ class AbstractStore(GatewayStoreMixin):
         derived class would be forced to create one.
         """
         self._async_logging_queue = AsyncLoggingQueue(logging_func=self.log_batch)
+
+    @property
+    def supports_workspaces(self) -> bool:
+        """Return whether workspaces are supported by this tracking store."""
+        return False
 
     @abstractmethod
     def search_experiments(
@@ -593,6 +599,70 @@ class AbstractStore(GatewayStoreMixin):
             assessment_id: The ID of the assessment to be deleted.
         """
         raise NotImplementedError
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: str,
+        confidence: str | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status.
+            confidence: Optional confidence level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        confidence: str | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            confidence: Optional new confidence level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        raise MlflowNotImplementedException()
 
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
@@ -1234,6 +1304,24 @@ class AbstractStore(GatewayStoreMixin):
         raise NotImplementedError(self.__class__.__name__)
 
     @requires_sql_backend
+    def delete_dataset_records(
+        self,
+        dataset_id: str,
+        dataset_record_ids: list[str],
+    ) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
@@ -1366,13 +1454,13 @@ class AbstractStore(GatewayStoreMixin):
             f"Unlinking traces from runs is not implemented for {self.__class__.__name__}."
         )
 
-    def link_prompts_to_trace(self, _trace_id: str, _prompt_versions: list[PromptVersion]) -> None:
+    def link_prompts_to_trace(self, trace_id: str, prompt_versions: list[PromptVersion]) -> None:
         """
         Link multiple prompt versions to a trace by creating entity associations.
 
         Args:
-            _trace_id: ID of the trace to link prompt versions to.
-            _prompt_versions: List of PromptVersion objects to link.
+            trace_id: ID of the trace to link prompt versions to.
+            prompt_versions: List of PromptVersion objects to link.
 
         Raises:
             NotImplementedError: If the operation is not supported by this store.

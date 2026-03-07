@@ -46,7 +46,7 @@ def get_conda_bin_executable(executable_name):
     if conda_home := MLFLOW_CONDA_HOME.get():
         return os.path.join(conda_home, f"bin/{executable_name}")
     # Use CONDA_EXE as per https://github.com/conda/conda/issues/7126
-    if conda_exe := os.getenv(CONDA_EXE):
+    if conda_exe := os.environ.get(CONDA_EXE):
         conda_bin_dir = os.path.dirname(conda_exe)
         return os.path.join(conda_bin_dir, executable_name)
     return executable_name

@@ -42,7 +42,7 @@ from mlflow.genai.scorers.phoenix import Hallucination, Relevance
 eval_dataset = [
     {
         "inputs": {"query": "What is MLflow?"},
-        "outputs": "MLflow is an open-source platform for managing machine learning workflows.",
+        "outputs": "MLflow is an open-source AI engineering platform.",
         "expectations": {
             "context": "MLflow is an ML platform for experiment tracking and model deployment."
         },
@@ -114,8 +114,8 @@ feedback = scorer(
   />
   <TileCard
     icon={Shield}
-    title="Predefined Scorers"
-    description="Explore MLflow's built-in evaluation scorers"
+    title="Built-in Judges"
+    description="Explore MLflow's built-in evaluation judges"
     href="/genai/eval-monitor/scorers/llm-judge/predefined"
   />
 </TilesGrid>

@@ -1,8 +1,8 @@
 import { describe, it, expect } from '@jest/globals';
 
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-
 import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+
 import type { AssessmentInfo } from '../types';
 
 import {
@@ -42,7 +42,7 @@ describe('SessionAggregationUtils', () => {
 
     it('returns zero counts for empty traces array', () => {
       const result = aggregatePassFailAssessments([], assessmentInfo);
-      expect(result).toEqual({ passCount: 0, totalCount: 0 });
+      expect(result).toEqual({ passCount: 0, totalCount: 0, errorCount: 0 });
     });
 
     it('counts all passing assessments correctly', () => {
@@ -64,7 +64,7 @@ describe('SessionAggregationUtils', () => {
       ];
 
       const result = aggregatePassFailAssessments(traces, assessmentInfo);
-      expect(result).toEqual({ passCount: 2, totalCount: 2 });
+      expect(result).toEqual({ passCount: 2, totalCount: 2, errorCount: 0 });
     });
 
     it('counts all failing assessments correctly', () => {
@@ -86,7 +86,7 @@ describe('SessionAggregationUtils', () => {
       ];
 
       const result = aggregatePassFailAssessments(traces, assessmentInfo);
-      expect(result).toEqual({ passCount: 0, totalCount: 2 });
+      expect(result).toEqual({ passCount: 0, totalCount: 2, errorCount: 0 });
     });
 
     it('counts mixed pass/fail assessments correctly', () => {
@@ -122,7 +122,7 @@ describe('SessionAggregationUtils', () => {
       ];
 
       const result = aggregatePassFailAssessments(traces, assessmentInfo);
-      expect(result).toEqual({ passCount: 2, totalCount: 4 });
+      expect(result).toEqual({ passCount: 2, totalCount: 4, errorCount: 0 });
     });
 
     it('skips traces without the target assessment', () => {
@@ -145,7 +145,7 @@ describe('SessionAggregationUtils', () => {
       ];
 
       const result = aggregatePassFailAssessments(traces, assessmentInfo);
-      expect(result).toEqual({ passCount: 1, totalCount: 1 });
+      expect(result).toEqual({ passCount: 1, totalCount: 1, errorCount: 0 });
     });
 
     it('skips session-level assessments', () => {
@@ -168,7 +168,7 @@ describe('SessionAggregationUtils', () => {
       ];
 
       const result = aggregatePassFailAssessments(traces, assessmentInfo);
-      expect(result).toEqual({ passCount: 1, totalCount: 1 });
+      expect(result).toEqual({ passCount: 1, totalCount: 1, errorCount: 0 });
     });
 
     it('skips assessments without feedback', () => {
@@ -190,7 +190,7 @@ describe('SessionAggregationUtils', () => {
       ];
 
       const result = aggregatePassFailAssessments(traces, assessmentInfo);
-      expect(result).toEqual({ passCount: 1, totalCount: 1 });
+      expect(result).toEqual({ passCount: 1, totalCount: 1, errorCount: 0 });
     });
 
     it('works with boolean dtype', () => {
@@ -220,7 +220,7 @@ describe('SessionAggregationUtils', () => {
       ];
 
       const result = aggregatePassFailAssessments(traces, booleanAssessmentInfo);
-      expect(result).toEqual({ passCount: 2, totalCount: 3 });
+      expect(result).toEqual({ passCount: 2, totalCount: 3, errorCount: 0 });
     });
 
     it('counts multiple assessments with the same name per trace', () => {
@@ -254,7 +254,7 @@ describe('SessionAggregationUtils', () => {
       const result = aggregatePassFailAssessments(traces, assessmentInfo);
       // 3 assessments in first trace + 1 in second = 4 total
       // 2 pass in first trace + 1 pass in second = 3 pass
-      expect(result).toEqual({ passCount: 3, totalCount: 4 });
+      expect(result).toEqual({ passCount: 3, totalCount: 4, errorCount: 0 });
     });
 
     it('filters out invalid assessments (valid === false)', () => {
@@ -285,7 +285,45 @@ describe('SessionAggregationUtils', () => {
 
       const result = aggregatePassFailAssessments(traces, assessmentInfo);
       // Only 2 valid assessments: 1 pass, 1 fail
-      expect(result).toEqual({ passCount: 1, totalCount: 2 });
+      expect(result).toEqual({ passCount: 1, totalCount: 2, errorCount: 0 });
+    });
+
+    it('counts error assessments separately from pass/fail', () => {
+      const traces = [
+        createTrace([
+          {
+            assessment_name: 'correctness',
+            feedback: { value: 'yes' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'correctness',
+            feedback: { error: { error_message: 'Some error occurred' } },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'correctness',
+            feedback: { value: 'no' },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+        createTrace([
+          {
+            assessment_name: 'correctness',
+            feedback: { error: { error_message: 'Another error' } },
+            source: { source_type: 'LLM_JUDGE', source_id: 'test' },
+          },
+        ]),
+      ];
+
+      const result = aggregatePassFailAssessments(traces, assessmentInfo);
+      // 1 pass + 1 fail = 2 total (errors not included in total)
+      // 2 errors counted separately
+      expect(result).toEqual({ passCount: 1, totalCount: 2, errorCount: 2 });
     });
   });
 

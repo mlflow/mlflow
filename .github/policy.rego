@@ -23,6 +23,7 @@ deny_unsafe_checkout contains msg if {
 	# "on.push" becomes "true.push" which is why below statements use "true"
 	# instead of "on".
 	input["true"].pull_request_target
+	not safe_pull_request_target_workflow
 	some job in input.jobs
 	some step in job.steps
 	startswith(step.uses, "actions/checkout@")
@@ -31,6 +32,12 @@ deny_unsafe_checkout contains msg if {
 		"Explicit checkout in a pull_request_target workflow is unsafe. ",
 		"See https://securitylab.github.com/resources/github-actions-preventing-pwn-requests for more information.",
 	])
+}
+
+# Workflows that are safe to use pull_request_target with explicit checkout
+# because they restrict execution to trusted authors via author_association.
+safe_pull_request_target_workflow if {
+	input.name == "UI Preview"
 }
 
 deny_unnecessary_github_token contains msg if {
@@ -52,6 +59,47 @@ deny_github_token_env_var contains msg if {
 	some job in input.jobs
 	job.env.GITHUB_TOKEN
 	msg := "Use GH_TOKEN instead of GITHUB_TOKEN for environment variable names."
+}
+
+deny_github_token_shorthand contains msg if {
+	some job in input.jobs
+	some step in job.steps
+	some key, value in step["with"]
+	contains_github_token(value)
+	msg := sprintf(
+		"Use secrets.GITHUB_TOKEN instead of github.token for consistency (found in step with.%s).",
+		[key],
+	)
+}
+
+deny_github_token_shorthand contains msg if {
+	some job in input.jobs
+	some step in job.steps
+	some key, value in step.env
+	contains_github_token(value)
+	msg := sprintf(
+		"Use secrets.GITHUB_TOKEN instead of github.token for consistency (found in step env.%s).",
+		[key],
+	)
+}
+
+deny_github_token_shorthand contains msg if {
+	some job in input.jobs
+	some key, value in job.env
+	contains_github_token(value)
+	msg := sprintf(
+		"Use secrets.GITHUB_TOKEN instead of github.token for consistency (found in job env.%s).",
+		[key],
+	)
+}
+
+deny_github_token_shorthand contains msg if {
+	some key, value in input.env
+	contains_github_token(value)
+	msg := sprintf(
+		"Use secrets.GITHUB_TOKEN instead of github.token for consistency (found in top-level env.%s).",
+		[key],
+	)
 }
 
 deny_jobs_without_timeout contains msg if {
@@ -104,13 +152,105 @@ deny_wrong_shell_defaults contains msg if {
 	)
 }
 
+deny_github_script_without_retries contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/github-script@")
+	not step["with"].retries
+	msg := sprintf(
+		concat("", [
+			"actions/github-script in job '%s' must have 'retries' set ",
+			"(e.g., retries: 3) for resilience against transient GitHub API failures.",
+		]),
+		[job_id],
+	)
+}
+
 deny_scheduled_workflow_without_repo_check contains msg if {
 	input["true"].schedule
 	not any_job_has_repo_check(input.jobs)
 	msg := "Scheduled workflows must have at least one job with 'if: github.repository == ...' condition"
 }
 
+deny_push_without_branches contains msg if {
+	"push" in object.keys(input["true"])
+	not is_object(input["true"].push)
+	msg := "Push trigger must have a branches filter to avoid running on every branch."
+}
+
+deny_push_without_branches contains msg if {
+	is_object(input["true"].push)
+	not input["true"].push.branches
+	msg := "Push trigger must have a branches filter to avoid running on every branch."
+}
+
+deny_unsafe_interpolation contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	is_unsafe_interpolation(step.run)
+	msg := sprintf(
+		"Unsafe interpolation of a user-controlled github context in run block of job '%s'. Pass it via env: instead.",
+		[job_id],
+	)
+}
+
+deny_unsafe_interpolation contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/github-script@")
+	is_unsafe_interpolation(step["with"].script)
+	msg := sprintf(
+		concat("", [
+			"Unsafe interpolation of a user-controlled github context ",
+			"in github-script of job '%s'. Use env: + process.env instead.",
+		]),
+		[job_id],
+	)
+}
+
 ###########################   RULE HELPERS   ##################################
+# Top-level github contexts that are user-controlled.
+unsafe_top_level_contexts := [
+	"github.head_ref",
+	"github.ref",
+]
+
+# Suffixes of nested github.event.* contexts that are user-controlled.
+# Per https://docs.github.com/en/actions/concepts/security/script-injections
+unsafe_event_suffixes := [
+	"body",
+	"title",
+	"message",
+	"email",
+	"default_branch",
+	"label",
+	"page_name",
+	"name",
+]
+
+is_unsafe_interpolation(value) if {
+	some ctx in unsafe_top_level_contexts
+	regex.match(
+		sprintf(`\$\{\{\s*%s\s*\}\}`, [replace(ctx, ".", "\\.")]),
+		value,
+	)
+}
+
+is_unsafe_interpolation(value) if {
+	some suffix in unsafe_event_suffixes
+
+	# GitHub event context property names are always lowercase (snake_case).
+	# [a-z_.]* also prevents false positives on function calls (e.g., format(...)).
+	regex.match(
+		sprintf(`\$\{\{\s*github\.event\.[a-z_.]*\.%s\s*\}\}`, [suffix]),
+		value,
+	)
+}
+
+contains_github_token(value) if {
+	regex.match(`\$\{\{\s*github\.token\s*\}\}`, value)
+}
+
 jobs_without_permissions(jobs) := {job_id |
 	some job_id, job in jobs
 	not job.permissions

@@ -20,13 +20,13 @@ from opentelemetry import trace
 from opentelemetry.context.contextvars_context import ContextVarsRuntimeContext
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
-from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
 from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocationBase,
     UCSchemaLocation,
+    UnityCatalog,
 )
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
@@ -37,6 +37,7 @@ from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import TraceDestination, UserTraceDestinationRegistry
+from mlflow.tracing.sampling import _MlflowSampler
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import (
@@ -56,7 +57,6 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
-
 
 # A trace destination specified by the user via the `set_destination` function.
 _MLFLOW_TRACE_USER_DESTINATION = UserTraceDestinationRegistry()
@@ -319,8 +319,6 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
 
             - :py:class:`~mlflow.entities.trace_location.MlflowExperimentLocation`: Logs traces to
                 an MLflow experiment.
-            - :py:class:`~mlflow.entities.trace_location.UCSchemaLocation`: Logs traces to a
-                Databricks Unity Catalog schema. Only available in Databricks.
 
         context_local: If False (default), the destination is set globally. If True, the destination
             is isolated per async task or thread, providing isolation in concurrent applications.
@@ -338,16 +336,6 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
         Note: This has the same effect as setting the active MLflow experiment via the
         ``MLFLOW_EXPERIMENT_ID`` environment variable or the ``mlflow.set_experiment`` API,
         but with narrower scope.
-
-        **Logging traces to Databricks Unity Catalog:**
-
-        .. code-block:: python
-
-            from mlflow.entities.trace_location import UCSchemaLocation
-
-            mlflow.tracing.set_destination(
-                UCSchemaLocation(catalog_name="catalog", schema_name="schema")
-            )
 
         **Isolate the destination between async tasks or threads:**
 
@@ -382,14 +370,28 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
             "The destination must be an instance of TraceLocation."
         )
 
-    if isinstance(destination, UCSchemaLocation) and (
-        mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
-    ):
-        mlflow.set_tracking_uri("databricks")
-        _logger.info(
-            "Automatically setting the tracking URI to `databricks` "
-            "because the tracing destination is set to Databricks."
+    if isinstance(destination, UnityCatalog):
+        raise MlflowException.invalid_parameter_value(
+            "UnityCatalog table-prefix destinations are not supported by "
+            "`mlflow.tracing.set_destination`. Use `set_experiment` with a "
+            "UnityCatalog location instead."
         )
+
+    if isinstance(destination, UCSchemaLocation):
+        _logger.warning(
+            "Passing `UCSchemaLocation` to `mlflow.tracing.set_destination` is deprecated "
+            "and will be removed in a future MLflow version. Use `set_experiment` with a "
+            "UnityCatalog location instead. See "
+            "https://docs.databricks.com/aws/en/mlflow3/genai/tracing/trace-unity-catalog"
+        )
+        if mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith(
+            "databricks"
+        ):
+            mlflow.set_tracking_uri("databricks")
+            _logger.info(
+                "Automatically setting the tracking URI to `databricks` "
+                "because the tracing destination is set to Databricks."
+            )
 
     _MLFLOW_TRACE_USER_DESTINATION.set(destination, context_local=context_local)
     _initialize_tracer_provider()
@@ -470,8 +472,8 @@ def _initialize_tracer_provider(disabled=False):
 
     # NB: If otel resource env vars are set explicitly, don't create an empty resource
     # so that they are propagated to otel spans.
-    otel_service_name = os.getenv("OTEL_SERVICE_NAME")
-    otel_resource_attributes = os.getenv("OTEL_RESOURCE_ATTRIBUTES")
+    otel_service_name = os.environ.get("OTEL_SERVICE_NAME")
+    otel_resource_attributes = os.environ.get("OTEL_RESOURCE_ATTRIBUTES")
     resource = None
     sdk_attributes = {
         "telemetry.sdk.language": "python",
@@ -515,12 +517,12 @@ def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dic
     return attributes
 
 
-def _get_trace_sampler() -> TraceIdRatioBased | None:
+def _get_trace_sampler() -> _MlflowSampler | None:
     """
     Get the sampler configuration based on environment variable.
 
     Returns:
-        TraceIdRatioBased sampler or None for default sampling.
+        _MlflowSampler or None for default sampling.
     """
     sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
     if sampling_ratio is not None:
@@ -530,7 +532,7 @@ def _get_trace_sampler() -> TraceIdRatioBased | None:
                 "Ignoring the invalid value and using default sampling (1.0)."
             )
             return None
-        return TraceIdRatioBased(sampling_ratio)
+        return _MlflowSampler(sampling_ratio)
     return None
 
 
@@ -554,14 +556,15 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
     if trace_destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        # In PrPr, users must set the destination to UCSchemaLocation to export traces to UC
-        if isinstance(trace_destination, UCSchemaLocation):
+        # In PrPr, users must set the destination to a Unity Catalog location to export traces.
+        if isinstance(trace_destination, (UCSchemaLocation, UnityCatalog)):
             from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
             from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 
             exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
             processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
             processors.append(processor)
+            _logger.debug("Added DatabricksUCTableSpanProcessor based on trace destination")
 
         elif isinstance(trace_destination, MlflowExperimentLocation):
             if is_in_databricks_model_serving_environment():
@@ -573,10 +576,12 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
                 )
             processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
             processors.append(processor)
+            _logger.debug("Added MlflowSpanProcessor based on trace destination")
 
         # Trace destination has highest precedence; definitely ignore defaults
         # Ignore OTLP (unless dual export is set and we should use OTLP)
         if not (should_use_otlp_exporter() and MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get()):
+            _logger.debug("Rely on trace destination for tracing")
             return processors
 
     # If no explicit trace destination OR we passed the dual exporter check, honor OTLP
@@ -594,6 +599,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
             and not MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.get(),
         )
         processors.append(otel_processor)
+        _logger.debug("Added OtelSpanProcessor")
 
         # We have now added the OTLP processor.
         # If dual export is not set, return.
@@ -608,6 +614,7 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     if is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():
             # May still return an OTLP processor from above, or nothing at all.
+            _logger.debug("Mlflow tracing is not enabled in model serving")
             return processors
 
         from mlflow.tracing.export.inference_table import InferenceTableSpanExporter
@@ -616,9 +623,11 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
         exporter = InferenceTableSpanExporter()
         processor = InferenceTableSpanProcessor(exporter)
         processors.append(processor)
+        _logger.debug("Added InferenceTableSpanProcessor")
     else:
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
         processors.append(processor)
+        _logger.debug("Added MLflow span processors")
 
     return processors
 

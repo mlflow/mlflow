@@ -5,12 +5,20 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 import requests
 from packaging.version import Version
+
+MAX_COMMITS_PER_SCRIPT = 90
+
+
+def chunk_list(lst: list[str], size: int) -> list[list[str]]:
+    return [lst[i : i + size] for i in range(0, len(lst), size)]
 
 
 def get_token() -> str | None:
@@ -191,15 +199,75 @@ def main(version: str, dry_run: bool) -> None:
 
         master_commits = get_commits("master")
         cherry_picks = [c.sha for c in master_commits if c.pr_num in not_cherry_picked]
+
+        # Split into chunks if needed
+        chunks = chunk_list(cherry_picks, MAX_COMMITS_PER_SCRIPT)
+
+        # Print warning if splitting
+        if len(chunks) > 1:
+            print(
+                f"\n⚠️  WARNING: {len(cherry_picks)} commits will be split into "
+                f"{len(chunks)} scripts."
+            )
+            print("Create one PR per script and merge them sequentially:")
+            print("  file PR 1 → merge PR 1 → pull release branch → file PR 2 → merge PR 2 → ...")
+            print("This is required to stay under GitHub's 100-commit rebase merge limit.\n")
+
         print("\n# Steps to cherry-pick the patch PRs:")
         print(
             f"1. Make sure your local master and {release_branch} branches are synced with "
             "upstream."
         )
         print(f"2. Cut a new branch from {release_branch} (e.g. {release_branch}-cherry-picks).")
-        print("3. Run the following command on the new branch:\n")
-        print("git cherry-pick " + " ".join(cherry_picks))
-        print(f"\n4. File a PR against {release_branch}.")
+
+        # Generate script(s)
+        tmp_dir = Path(tempfile.gettempdir())
+        script_paths: list[tuple[Path, int]] = []
+        for i, chunk in enumerate(chunks, 1):
+            if len(chunks) == 1:
+                script_path = tmp_dir / "cherry-pick.sh"
+            else:
+                script_path = tmp_dir / f"cherry-pick-{i}.sh"
+
+            script_content = f"""\
+#!/usr/bin/env bash
+# Cherry-picks for v{version} -> {release_branch}
+# Generated: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}
+# Commits: {len(chunk)} of {len(cherry_picks)} total
+#
+# If conflicts occur, resolve them and run:
+#   git cherry-pick --continue
+
+set -euo pipefail
+
+# Guard: Prevent running on master branch
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$current_branch" == "master" ]]; then
+    echo "ERROR: This script must not be run on the master branch."
+    echo "Please checkout a release branch (e.g., {release_branch}) or a branch derived from it."
+    exit 1
+fi
+
+git cherry-pick {" ".join(chunk)}
+"""
+            script_path.write_text(script_content)
+            script_path.chmod(0o755)
+            script_paths.append((script_path, len(chunk)))
+
+        if len(chunks) == 1:
+            print("3. Run the cherry-pick script on the new branch:\n")
+            print(f"Cherry-pick script written to: {script_paths[0][0]}")
+            print(f"\n4. File a PR against {release_branch}.")
+        else:
+            print("3. For each script (in order):")
+            print(f"   a. Create a new branch from {release_branch}")
+            print("   b. Run the script")
+            print(f"   c. File a PR against {release_branch}")
+            print(f"   d. After merge, pull {release_branch} from remote before the next script\n")
+            print("   Scripts:")
+            for script_path, commit_count in script_paths:
+                print(f"     {script_path} ({commit_count} commits)")
+
         sys.exit(0 if dry_run else 1)
 
 

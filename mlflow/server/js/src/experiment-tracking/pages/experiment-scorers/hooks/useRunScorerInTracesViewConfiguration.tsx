@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { LLM_TEMPLATE, LLMScorer } from '../types';
+import type { LLMScorer } from '../types';
+import { LLM_TEMPLATE } from '../types';
 import { useGetScheduledScorers } from './useGetScheduledScorers';
 import { useExperimentIds } from '../../../components/experiment-page/hooks/useExperimentIds';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -10,7 +11,7 @@ import {
   Input,
   Modal,
   PlusIcon,
-  Radio,
+  Checkbox,
   SearchIcon,
   TableSkeleton,
   Typography,
@@ -20,8 +21,8 @@ import { PillControl } from '@databricks/design-system/development';
 import ScorerModalRenderer from '../ScorerModalRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from '../constants';
 import { useRunSerializedScorer } from './useRunSerializedScorer';
-import { ModelTraceExplorerRunJudgeConfig } from '@databricks/web-shared/model-trace-explorer';
-import { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
+import type { ModelTraceExplorerRunJudgeConfig } from '@databricks/web-shared/model-trace-explorer';
+import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 import { useTemplateOptions } from '../llmScorerUtils';
 import { EndpointSelector } from '../../../components/EndpointSelector';
 import {
@@ -29,13 +30,15 @@ import {
   getEndpointNameFromGatewayModel,
 } from '../../../../gateway/utils/gatewayUtils';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
-import { isEmpty, isObject } from 'lodash';
+import { isEmpty } from 'lodash';
 
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
   RunJudgeModalElement: React.ReactNode;
 }
 
-export const useRunScorerInTracesViewConfiguration = (): UseRunScorerInTracesViewConfigurationReturnType => {
+export const useRunScorerInTracesViewConfiguration = (
+  scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
+): ModelTraceExplorerRunJudgeConfig => {
   const [experimentId] = useExperimentIds();
 
   const scorerFinishSubscribers = useRef<((event: ScorerFinishedEvent) => void)[]>([]);
@@ -53,21 +56,33 @@ export const useRunScorerInTracesViewConfiguration = (): UseRunScorerInTracesVie
     };
   }, []);
 
-  const { evaluateTraces, allEvaluations } = useRunSerializedScorer({ experimentId, onScorerFinished });
+  const { evaluateTraces, allEvaluations, reset } = useRunSerializedScorer({
+    experimentId,
+    onScorerFinished,
+    scope,
+  });
 
   const renderRunJudgeModal = useCallback<NonNullable<ModelTraceExplorerRunJudgeConfig['renderRunJudgeModal']>>(
-    ({ traceId, onClose, visible }) => {
+    ({ itemId, onClose, visible }) => {
       return (
-        <RunJudgeModalImpl visible={visible} traceId={traceId} evaluateTraces={evaluateTraces} onClose={onClose} />
+        <RunJudgeModalImpl
+          scope={scope}
+          visible={visible}
+          itemId={itemId}
+          evaluateTraces={evaluateTraces}
+          onClose={onClose}
+        />
       );
     },
-    [evaluateTraces],
+    [evaluateTraces, scope],
   );
 
   return {
     renderRunJudgeModal,
     evaluations: allEvaluations,
     subscribeToScorerFinished,
+    reset,
+    scope,
   } as UseRunScorerInTracesViewConfigurationReturnType;
 };
 
@@ -75,13 +90,13 @@ export const useRunScorerInTracesViewConfiguration = (): UseRunScorerInTracesVie
  * Dropdown for selecting a judge to run against a trace.
  */
 const RunJudgeModalImpl = ({
-  traceId,
+  itemId,
   evaluateTraces,
   visible,
   onClose,
   scope = ScorerEvaluationScope.TRACES,
 }: {
-  traceId: string;
+  itemId: string;
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
   visible: boolean;
   onClose: () => void;
@@ -101,10 +116,14 @@ const RunJudgeModalImpl = ({
   const [currentEndpointName, setCurrentEndpointName] = useState<string | undefined>(undefined);
 
   const displayedLLMScorers = useMemo(() => {
+    const isDisplayingSessionLevelScorers = scope === ScorerEvaluationScope.SESSIONS;
     return data?.scheduledScorers.filter(
-      (scorer) => scorer.type === 'llm' && scorer.name.toLowerCase().includes(searchValue.toLowerCase()),
+      (scorer) =>
+        scorer.type === 'llm' &&
+        (scorer.isSessionLevelScorer ?? false) === isDisplayingSessionLevelScorers &&
+        scorer.name.toLowerCase().includes(searchValue.toLowerCase()),
     ) as LLMScorer[];
-  }, [data?.scheduledScorers, searchValue]);
+  }, [data?.scheduledScorers, searchValue, scope]);
 
   const displayedTemplates = useMemo(() => {
     // We don't support custom judges or guidelines templates in the traces view.
@@ -116,15 +135,34 @@ const RunJudgeModalImpl = ({
   }, [templateOptions, searchValue]);
 
   const [error, setError] = useState<Error | undefined>(undefined);
-  const [selectedJudge, setSelectedJudge] = useState<LLMScorer | LLM_TEMPLATE | undefined>(undefined);
+  const [selectedScorers, setSelectedScorers] = useState<LLMScorer[]>([]);
+  const [selectedTemplates, setSelectedTemplates] = useState<LLM_TEMPLATE[]>([]);
+
+  const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
+  const hasSelectedTemplates = selectedTemplates.length > 0;
+
+  const toggleScorer = (scorer: LLMScorer) => {
+    setSelectedScorers((prev) => {
+      const isSelected = prev.some((s) => s.name === scorer.name);
+      return isSelected ? prev.filter((s) => s.name !== scorer.name) : [...prev, scorer];
+    });
+  };
+
+  const toggleTemplate = (template: LLM_TEMPLATE) => {
+    setSelectedTemplates((prev) => {
+      const isSelected = prev.includes(template);
+      return isSelected ? prev.filter((t) => t !== template) : [...prev, template];
+    });
+  };
 
   const handleModalConfirm = async () => {
-    if (!selectedJudge) {
+    if (selectedJudgeCount === 0) {
       return;
     }
     setError(undefined);
     try {
-      evaluateTraces(selectedJudge, [traceId], currentEndpointName);
+      selectedScorers.forEach((scorer) => evaluateTraces(scorer, [itemId], currentEndpointName));
+      selectedTemplates.forEach((template) => evaluateTraces(template, [itemId], currentEndpointName));
       onClose();
     } catch (error) {
       setError(error as Error);
@@ -140,16 +178,37 @@ const RunJudgeModalImpl = ({
         componentId="mlflow.experiment-scorers.traces-view-judge-select-modal"
         visible
         onCancel={onClose}
-        title={<FormattedMessage defaultMessage="Run judge on trace" description="Title for run judge modal" />}
+        title={
+          scope === ScorerEvaluationScope.SESSIONS ? (
+            <FormattedMessage
+              defaultMessage="Run judge on session"
+              description="Title for run judge modal in sessions view"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Run judge on trace"
+              description="Title for run judge modal in traces view"
+            />
+          )
+        }
         cancelText={intl.formatMessage({
           defaultMessage: 'Cancel',
           description: 'Button text for canceling a judge run',
         })}
-        okText={intl.formatMessage({
-          defaultMessage: 'Run judge',
-          description: 'Button text for running a judge',
-        })}
-        okButtonProps={{ disabled: !selectedJudge || (!currentEndpointName && judgeSelectionMode === 'template') }}
+        okText={
+          selectedJudgeCount > 1
+            ? intl.formatMessage({
+                defaultMessage: 'Run judges',
+                description: 'Button text for running multiple judges',
+              })
+            : intl.formatMessage({
+                defaultMessage: 'Run judge',
+                description: 'Button text for running a judge',
+              })
+        }
+        okButtonProps={{
+          disabled: selectedJudgeCount === 0 || (hasSelectedTemplates && !currentEndpointName),
+        }}
         onOk={handleModalConfirm}
       >
         <div css={{ display: 'flex', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
@@ -229,8 +288,8 @@ const RunJudgeModalImpl = ({
                   <ScorerOption
                     scorer={scorer}
                     key={scorer.name}
-                    onClick={() => setSelectedJudge(scorer)}
-                    selected={isObject(selectedJudge) && selectedJudge?.name === scorer.name}
+                    onClick={() => toggleScorer(scorer)}
+                    selected={selectedScorers.some((s) => s.name === scorer.name)}
                   />
                 ))
               )}
@@ -240,14 +299,15 @@ const RunJudgeModalImpl = ({
           {judgeSelectionMode === 'template' &&
             displayedTemplates?.map((template) => (
               <TemplateOption
-                selected={selectedJudge === template.value}
+                selected={selectedTemplates.includes(template.value)}
                 template={template}
                 key={template.value}
-                onClick={() => setSelectedJudge(template.value)}
+                onClick={() => toggleTemplate(template.value)}
+                scope={scope}
               />
             ))}
         </div>
-        {judgeSelectionMode === 'template' && (
+        {hasSelectedTemplates && (
           <div
             css={{
               display: 'flex',
@@ -277,6 +337,8 @@ const RunJudgeModalImpl = ({
           experimentId={experimentId}
           mode={SCORER_FORM_MODE.CREATE}
           initialScorerType="llm"
+          initialScope={scope}
+          initialItemId={itemId}
         />
       )}
     </>
@@ -295,19 +357,19 @@ const ScorerOption = ({
   const { theme } = useDesignSystemTheme();
   return (
     <div
-      role="radio"
+      role="checkbox"
       aria-checked={selected}
       css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
       onClick={() => onClick(scorer)}
     >
-      <Radio componentId="mlflow.experiment-scorers.traces-view-judge-llm" checked={selected}>
+      <Checkbox componentId="mlflow.experiment-scorers.traces-view-judge-llm" isChecked={selected}>
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{scorer.name}</Typography.Text>
           <Typography.Hint>
             <FormattedMessage defaultMessage="Custom judge" description="Label indicating a custom judge scorer" />
           </Typography.Hint>
         </div>
-      </Radio>
+      </Checkbox>
     </div>
   );
 };
@@ -316,6 +378,7 @@ const TemplateOption = ({
   template,
   onClick,
   selected,
+  scope,
 }: {
   template: {
     value: LLM_TEMPLATE;
@@ -324,27 +387,34 @@ const TemplateOption = ({
   };
   onClick: (template: LLM_TEMPLATE) => void;
   selected: boolean;
+  scope: ScorerEvaluationScope;
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
     <div
-      role="radio"
+      role="checkbox"
       aria-checked={selected}
       css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
       onClick={() => onClick(template.value)}
     >
-      <Radio componentId="mlflow.experiment-scorers.traces-view-judge-template" checked={selected}>
+      <Checkbox componentId="mlflow.experiment-scorers.traces-view-judge-template" isChecked={selected}>
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{template.label}</Typography.Text>
           <Typography.Hint>
-            {/* TODO: Add session level judges */}
-            <FormattedMessage
-              defaultMessage="Pre-built LLM-as-a-judge | Trace level"
-              description="Label indicating a pre-built LLM-as-a-judge template"
-            />
+            {scope === ScorerEvaluationScope.SESSIONS ? (
+              <FormattedMessage
+                defaultMessage="Pre-built LLM-as-a-judge | Session level"
+                description="Label indicating a pre-built session-level LLM-as-a-judge template"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Pre-built LLM-as-a-judge | Trace level"
+                description="Label indicating a pre-built trace-level LLM-as-a-judge template"
+              />
+            )}
           </Typography.Hint>
         </div>
-      </Radio>
+      </Checkbox>
     </div>
   );
 };

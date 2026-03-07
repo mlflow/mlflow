@@ -17,6 +17,9 @@ import { IntlProvider } from 'react-intl';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
+jest.setTimeout(30000);
+
 jest.mock('../../../../common/utils/LocalStorageUtils');
 
 const mockExperiment = {

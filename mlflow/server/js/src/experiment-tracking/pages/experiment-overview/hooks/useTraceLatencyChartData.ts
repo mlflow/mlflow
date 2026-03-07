@@ -17,6 +17,7 @@ export interface LatencyChartDataPoint {
   p50: number;
   p90: number;
   p99: number;
+  timestampMs: number;
 }
 
 export interface UseTraceLatencyChartDataResult {
@@ -40,14 +41,15 @@ export interface UseTraceLatencyChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
   // Fetch latency metrics with p50, p90, p99 aggregations grouped by time
   const {
     data: latencyData,
     isLoading: isLoadingTimeSeries,
     error: timeSeriesError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
@@ -58,6 +60,7 @@ export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
       { aggregation_type: AggregationType.PERCENTILE, percentile_value: P99 },
     ],
     timeIntervalSeconds,
+    filters,
   });
 
   // Fetch overall average latency (without time bucketing) for the header
@@ -66,12 +69,13 @@ export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
     isLoading: isLoadingAvg,
     error: avgError,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.LATENCY,
     aggregations: [{ aggregation_type: AggregationType.AVG }],
+    filters,
   });
 
   const latencyDataPoints = useMemo(() => latencyData?.data_points || [], [latencyData?.data_points]);
@@ -101,6 +105,7 @@ export function useTraceLatencyChartData(): UseTraceLatencyChartDataResult {
         p50: latency?.p50 || 0,
         p90: latency?.p90 || 0,
         p99: latency?.p99 || 0,
+        timestampMs,
       };
     });
   }, [timeBuckets, latencyByTimestamp, timeIntervalSeconds]);

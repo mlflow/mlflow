@@ -11,6 +11,8 @@ from typing import Any, Callable
 
 import pandas as pd
 
+from mlflow.exceptions import MlflowException
+
 try:
     from tqdm.auto import tqdm
 except ImportError:
@@ -34,7 +36,7 @@ from mlflow.genai.evaluation.session_utils import (
     evaluate_session_level_scorers,
     group_traces_by_session,
 )
-from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
+from mlflow.genai.evaluation.telemetry import emit_metric_usage_event
 from mlflow.genai.evaluation.utils import (
     PGBAR_FORMAT,
     is_none_or_nan,
@@ -210,9 +212,9 @@ def run(
     mlflow.log_metrics(aggregated_metrics)
 
     try:
-        emit_custom_metric_event(scorers, len(eval_items), aggregated_metrics)
+        emit_metric_usage_event(scorers, len(eval_items), len(session_groups), aggregated_metrics)
     except Exception as e:
-        _logger.debug(f"Failed to emit custom metric usage event: {e}", exc_info=True)
+        _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
 
     # Search for all traces in the run. We need to fetch the traces from backend here to include
     # all traces in the result.
@@ -390,9 +392,36 @@ def _compute_eval_scores(
 
 
 def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
+    """Get new expectations for an eval item that haven't been logged to the trace yet.
+
+    This function requires trace support from the backend. If traces are not available,
+    it raises an exception to inform users that their backend needs to be updated.
+
+    Args:
+        eval_item: The evaluation item containing inputs, outputs, expectations,
+            and optionally a trace object.
+
+    Returns:
+        A list of Expectation objects that are new (not already logged to the trace).
+
+    Raises:
+        MlflowException: If the trace is None or trace.info is None, indicating that
+            the backend does not support tracing.
+    """
+
+    # If trace is missing, raise an informative error
+    if eval_item.trace is None or eval_item.trace.info is None:
+        raise MlflowException(
+            "GenAI evaluation requires trace support, but the current backend does not "
+            "support tracing. Please use a backend that supports MLflow tracing (e.g., "
+            "SQLAlchemy-based backends) or update your backend to the latest version. "
+            "For more information, see the MLflow documentation on tracing."
+        )
+
     existing_expectations = {
         a.name for a in eval_item.trace.info.assessments if a.expectation is not None
     }
+
     return [
         exp
         for exp in eval_item.get_expectation_assessments()
@@ -418,11 +447,11 @@ def _log_assessments(
                 AssessmentMetadataKey.SOURCE_RUN_ID: run_id,
             }
 
-        # NB: Root span ID is necessarily to show assessment results in DBX eval UI.
-        if root_span := trace.data._get_root_span():
-            assessment.span_id = root_span.span_id
-        else:
-            _logger.debug(f"No root span found for trace {trace.info.trace_id}")
+        if not assessment.span_id:
+            if root_span := trace.data._get_root_span():
+                assessment.span_id = root_span.span_id
+            else:
+                _logger.debug(f"No root span found for trace {trace.info.trace_id}")
 
         mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
 

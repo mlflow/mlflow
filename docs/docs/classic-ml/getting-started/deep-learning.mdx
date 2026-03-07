@@ -261,13 +261,13 @@ with mlflow.start_run(run_id=run.info.run_id) as run:
     with torch.no_grad():
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
-        output = model(data)
-        loss = loss_fn(output, target)
+            output = model(data)
+            loss = loss_fn(output, target)
 
-        test_loss += loss.item()
-        _, predicted = output.max(1)
-        test_total += target.size(0)
-        test_correct += predicted.eq(target).sum().item()
+            test_loss += loss.item()
+            _, predicted = output.max(1)
+            test_total += target.size(0)
+            test_correct += predicted.eq(target).sum().item()
 
     # Calculate and log final test metrics
     test_loss = test_loss / len(test_loader)

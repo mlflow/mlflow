@@ -92,5 +92,6 @@ class StreamResponsePayload(ResponseModel):
     created: int
     model: str
     choices: list[StreamChoice]
+    usage: CompletionsUsage | None = None
 
     model_config = ConfigDict(json_schema_extra=_STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA)

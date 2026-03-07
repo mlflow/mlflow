@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { FeedbackAssessment, ModelTrace } from '../ModelTrace.types';
+import type { FeedbackAssessment, ModelTrace } from '../ModelTrace.types';
 
 interface TraceScorerJudgeEvaluationResult {
   trace: ModelTrace | null;
@@ -23,11 +23,14 @@ export interface ScorerFinishedEvent {
 
 export interface ModelTraceExplorerRunJudgeConfig {
   renderRunJudgeModal?: ({
-    traceId,
+    itemId,
     visible,
     onClose,
   }: {
-    traceId: string;
+    /**
+     * The ID of the trace or session to run the judge on.
+     */
+    itemId: string;
     visible: boolean;
     onClose: () => void;
   }) => React.ReactNode;
@@ -45,12 +48,16 @@ export interface ModelTraceExplorerRunJudgeConfig {
   >;
   /** Subscribe to scorer update events. Returns unsubscribe function. */
   subscribeToScorerFinished?: (callback: (event: ScorerFinishedEvent) => void) => () => void;
+  /** Reset/cancel evaluations. If requestKey is provided, cancels only that evaluation. */
+  reset?: (requestKey?: string) => void;
+  scope?: 'sessions' | 'traces';
 }
 
 const ModelTraceExplorerRunJudgesContext = React.createContext<ModelTraceExplorerRunJudgeConfig>({
   renderRunJudgeModal: undefined,
   evaluations: undefined,
   subscribeToScorerFinished: undefined,
+  reset: undefined,
 });
 
 /**
@@ -65,12 +72,14 @@ export const ModelTraceExplorerRunJudgesContextProvider = ({
   renderRunJudgeModal,
   evaluations,
   subscribeToScorerFinished,
+  reset,
+  scope,
 }: ModelTraceExplorerRunJudgeConfig & {
   children: React.ReactNode;
 }) => {
   const contextValue = useMemo(
-    () => ({ renderRunJudgeModal, evaluations, subscribeToScorerFinished }),
-    [renderRunJudgeModal, evaluations, subscribeToScorerFinished],
+    () => ({ renderRunJudgeModal, evaluations, subscribeToScorerFinished, reset, scope }),
+    [renderRunJudgeModal, evaluations, subscribeToScorerFinished, reset, scope],
   );
   return (
     <ModelTraceExplorerRunJudgesContext.Provider value={contextValue}>

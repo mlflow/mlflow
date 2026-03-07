@@ -58,7 +58,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
@@ -72,6 +72,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteDataset,
+    DeleteDatasetRecords,
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteGatewayEndpoint,
@@ -115,6 +116,8 @@ from mlflow.protos.service_pb2 import (
     SearchEvaluationDatasets,
     SearchExperiments,
     SearchRuns,
+    SearchTraces,
+    SearchTracesV3,
     SetDatasetTags,
     SetExperimentTag,
     SetTag,
@@ -125,6 +128,12 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
     UpsertDatasetRecords,
+)
+from mlflow.protos.service_pb2 import (
+    FallbackConfig as ProtoFallbackConfig,
+)
+from mlflow.protos.service_pb2 import (
+    GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -142,8 +151,33 @@ from mlflow.utils.rest_utils import (
     MlflowHostCreds,
     get_logged_model_endpoint,
 )
+from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.tracing.helper import create_mock_otel_span
+
+
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request):
+    """
+    Run every test in this module with workspaces disabled and enabled to cover both code paths.
+    """
+
+    # Ensure server version cache doesn't leak between parameter variants
+    RestStore._get_server_version.cache_clear()
+
+    enabled = request.param
+    if enabled:
+        with (
+            WorkspaceContext(DEFAULT_WORKSPACE_NAME),
+            mock.patch(
+                "mlflow.store.workspace_rest_store_mixin.WorkspaceRestStoreMixin.supports_workspaces",
+                return_value=True,
+            ),
+        ):
+            yield enabled
+    else:
+        yield enabled
 
 
 class MyCoolException(Exception):
@@ -167,10 +201,13 @@ def test_successful_http_request():
         # Filter out None arguments
         assert args == ("POST", "https://hello/api/2.0/mlflow/experiments/search")
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        headers = DefaultRequestHeaderProvider().request_headers()
+        if workspace := get_request_workspace():
+            headers["X-MLFLOW-WORKSPACE"] = workspace
         assert kwargs == {
             "allow_redirects": True,
             "json": {"view_type": "ACTIVE_ONLY"},
-            "headers": DefaultRequestHeaderProvider().request_headers(),
+            "headers": headers,
             "verify": True,
             "timeout": 120,
         }
@@ -875,6 +912,49 @@ def test_search_traces_errors():
         store.search_traces(model_id="model_id")
 
 
+def test_search_traces_v3_endpoint_not_found_falls_back_to_v2():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    v2_response = mock.MagicMock()
+    v2_response.traces = []
+    v2_response.next_page_token = ""
+
+    endpoint_not_found = MlflowException("Not found", error_code=ENDPOINT_NOT_FOUND)
+
+    with mock.patch.object(
+        store, "_call_endpoint", side_effect=[endpoint_not_found, v2_response]
+    ) as mock_endpoint:
+        trace_infos, token = store._search_traces(
+            locations=["123", "456"],
+            filter_string="state = 'OK'",
+            max_results=10,
+            order_by=["request_time DESC"],
+            page_token="abc",
+        )
+
+    assert mock_endpoint.call_count == 2
+
+    # First call must target the V3 endpoint
+    v3_call = mock_endpoint.call_args_list[0]
+    assert v3_call.args[0] is SearchTracesV3
+
+    # Second call must use the V2 body with experiment_ids, not locations
+    v2_call = mock_endpoint.call_args_list[1]
+    assert v2_call.args[0] is SearchTraces
+
+    v2_body = json.loads(v2_call.args[1])
+    assert v2_body == {
+        "experiment_ids": ["123", "456"],
+        "filter": "state = 'OK'",
+        "max_results": 10,
+        "order_by": ["request_time DESC"],
+        "page_token": "abc",
+    }
+
+    assert trace_infos == []
+    assert token is None
+
+
 def test_get_artifact_uri_for_trace_compatibility():
     from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 
@@ -936,9 +1016,10 @@ def test_delete_traces(delete_traces_kwargs):
     request = DeleteTraces(**delete_traces_kwargs)
     response.text = json.dumps({"traces_deleted": 1})
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        if "request_ids" in delete_traces_kwargs:
-            delete_traces_kwargs["trace_ids"] = delete_traces_kwargs.pop("request_ids")
-        res = store.delete_traces(**delete_traces_kwargs)
+        call_kwargs = delete_traces_kwargs.copy()
+        if "request_ids" in call_kwargs:
+            call_kwargs["trace_ids"] = call_kwargs.pop("request_ids")
+        res = store.delete_traces(**call_kwargs)
         _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
         assert res == 1
 
@@ -1868,6 +1949,57 @@ def test_upsert_evaluation_dataset_records():
             expected_json,
             endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
         )
+
+
+def test_delete_evaluation_dataset_records():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    record_ids = ["dr-record1", "dr-record2"]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = DeleteDatasetRecords.Response()
+        response.deleted_count = 2
+        mock_call.return_value = response
+
+        result = store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=record_ids,
+        )
+
+        assert result == 2
+
+        req = DeleteDatasetRecords(
+            dataset_record_ids=record_ids,
+        )
+        expected_json = message_to_json(req)
+
+        mock_call.assert_called_once_with(
+            DeleteDatasetRecords,
+            expected_json,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        )
+
+
+def test_delete_evaluation_dataset_records_empty():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    record_ids = ["dr-nonexistent"]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = DeleteDatasetRecords.Response()
+        response.deleted_count = 0
+        mock_call.return_value = response
+
+        result = store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=record_ids,
+        )
+
+        assert result == 0
 
 
 def test_get_evaluation_dataset_experiment_ids():
@@ -3139,14 +3271,8 @@ def test_create_gateway_endpoint():
                 strategy=FallbackStrategy.SEQUENTIAL,
                 max_attempts=2,
             ),
+            usage_tracking=True,
         )
-        from mlflow.protos.service_pb2 import (
-            FallbackConfig as ProtoFallbackConfig,
-        )
-        from mlflow.protos.service_pb2 import (
-            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
-        )
-
         body = message_to_json(
             CreateGatewayEndpoint(
                 name="my-endpoint",
@@ -3174,6 +3300,7 @@ def test_create_gateway_endpoint():
                     strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
                     max_attempts=2,
                 ),
+                usage_tracking=True,
             )
         )
         _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)

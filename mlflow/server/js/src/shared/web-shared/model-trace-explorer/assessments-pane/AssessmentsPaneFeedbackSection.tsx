@@ -5,11 +5,12 @@ import {
   GavelIcon,
   PlusIcon,
   Spacer,
+  StopCircleFillIcon,
   TableSkeleton,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FeedbackAssessment } from '../ModelTrace.types';
+import type { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -56,7 +57,15 @@ const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
   return Object.entries(aggregated);
 };
 
-const AddFeedbackButton = ({ onClick, traceId }: { onClick: () => void; traceId: string }) => {
+const AddFeedbackButton = ({
+  onClick,
+  traceId,
+  sessionId,
+}: {
+  onClick: () => void;
+  traceId: string;
+  sessionId?: string;
+}) => {
   const runJudgeConfiguration = useModelTraceExplorerRunJudgesContext();
   const [judgeModalVisible, setJudgeModalVisible] = useState(false);
 
@@ -71,17 +80,14 @@ const AddFeedbackButton = ({ onClick, traceId }: { onClick: () => void; traceId:
               size="small"
               icon={<PlusIcon />}
             >
-              <FormattedMessage
-                defaultMessage="Add feedback"
-                description="Label for the button to add a new feedback"
-              />
+              <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add new feedback" />
             </Button>
           </DropdownMenu.Trigger>
           <DropdownMenu.Content>
             <DropdownMenu.Item componentId="mlflow.model-trace-explorer.add-human-feedback" onClick={onClick}>
               <FormattedMessage
                 defaultMessage="Human feedback"
-                description="Label for the button to add a human feedback to the trace"
+                description="Label for the button to add human feedback to the trace"
               />
             </DropdownMenu.Item>
             <DropdownMenu.Item
@@ -90,13 +96,13 @@ const AddFeedbackButton = ({ onClick, traceId }: { onClick: () => void; traceId:
             >
               <FormattedMessage
                 defaultMessage="LLM judge feedback"
-                description="Label for the button to add a LLM judge feedback to the trace"
+                description="Label for the button to add LLM judge feedback to the trace"
               />
             </DropdownMenu.Item>
           </DropdownMenu.Content>
         </DropdownMenu.Root>
         {runJudgeConfiguration.renderRunJudgeModal?.({
-          traceId,
+          itemId: sessionId ?? traceId,
           visible: judgeModalVisible,
           onClose: () => setJudgeModalVisible(false),
         })}
@@ -112,7 +118,7 @@ const AddFeedbackButton = ({ onClick, traceId }: { onClick: () => void; traceId:
       icon={<PlusIcon />}
       onClick={onClick}
     >
-      <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add a new feedback" />
+      <FormattedMessage defaultMessage="Add feedback" description="Label for the button to add new feedback" />
     </Button>
   );
 };
@@ -122,17 +128,19 @@ export const AssessmentsPaneFeedbackSection = ({
   feedbacks,
   activeSpanId,
   traceId,
+  sessionId,
 }: {
   enableRunScorer: boolean;
   feedbacks: FeedbackAssessment[];
   activeSpanId?: string;
   traceId: string;
+  sessionId?: string;
 }) => {
   const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
 
-  const { evaluations, subscribeToScorerFinished } = useModelTraceExplorerRunJudgesContext();
+  const { evaluations, subscribeToScorerFinished, reset } = useModelTraceExplorerRunJudgesContext();
 
   // Derive evaluations for this trace from context state
   const currentTraceEvaluations = useMemo(() => {
@@ -206,7 +214,7 @@ export const AssessmentsPaneFeedbackSection = ({
         <div
           css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm, gap: theme.spacing.xs }}
         >
-          <AddFeedbackButton traceId={traceId} onClick={() => setCreateFormVisible(true)} />
+          <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
         </div>
       )}
 
@@ -244,19 +252,36 @@ export const AssessmentsPaneFeedbackSection = ({
           {/* <AssessmentSourceTypeTag sourceType="LLM_JUDGE" /> */}
           <Typography.Text bold>{evaluation.label}</Typography.Text>
           <TableSkeleton lines={3} />
+          {reset && (
+            <Button
+              componentId="shared.model-trace-explorer.cancel-evaluation"
+              size="small"
+              icon={<StopCircleFillIcon />}
+              onClick={() => reset(evaluation.requestKey)}
+            >
+              <FormattedMessage
+                defaultMessage="Cancel judge"
+                description="Button text for canceling judge evaluation"
+              />
+            </Button>
+          )}
         </div>
       ))}
 
-      {groupedFeedbacks.map(([name, valuesMap]) => (
-        <FeedbackGroup
-          key={name}
-          name={name}
-          valuesMap={valuesMap}
-          traceId={traceId}
-          activeSpanId={activeSpanId}
-          loading={loadingEvaluations.some((evaluation) => evaluation.label === name)}
-        />
-      ))}
+      {groupedFeedbacks.map(([name, valuesMap]) => {
+        const loadingEvaluation = loadingEvaluations.find((evaluation) => evaluation.label === name);
+        return (
+          <FeedbackGroup
+            key={name}
+            name={name}
+            valuesMap={valuesMap}
+            traceId={traceId}
+            activeSpanId={activeSpanId}
+            loading={Boolean(loadingEvaluation)}
+            onCancelLoading={loadingEvaluation && reset ? () => reset(loadingEvaluation.requestKey) : undefined}
+          />
+        );
+      })}
       {isSectionEmpty && !createFormVisible && (
         <div
           css={{
@@ -267,10 +292,17 @@ export const AssessmentsPaneFeedbackSection = ({
           }}
         >
           <Typography.Hint>
-            <FormattedMessage
-              defaultMessage="Add a custom feedback to this trace."
-              description="Hint message prompting user to add a new feedback"
-            />{' '}
+            {sessionId ? (
+              <FormattedMessage
+                defaultMessage="Add custom feedback to this session."
+                description="Hint message prompting user to add new feedback to a session"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Add custom feedback to this trace."
+                description="Hint message prompting user to add new feedback to a trace"
+              />
+            )}{' '}
             <Typography.Link
               componentId="shared.model-trace-explorer.feedback-learn-more-link"
               openInNewTab
@@ -281,7 +313,7 @@ export const AssessmentsPaneFeedbackSection = ({
           </Typography.Hint>
           <Spacer size="sm" />
           <div css={{ display: 'flex', gap: 4, justifyContent: 'center' }}>
-            <AddFeedbackButton traceId={traceId} onClick={() => setCreateFormVisible(true)} />
+            <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
           </div>
         </div>
       )}

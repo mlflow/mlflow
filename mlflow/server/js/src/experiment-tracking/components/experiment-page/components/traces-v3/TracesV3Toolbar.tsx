@@ -21,7 +21,7 @@ export const TracesV3Toolbar = ({
         display: 'flex',
         alignItems: 'center',
         width: '100%',
-        borderBottom: `1px solid ${theme.colors.grey100}`,
+        borderBottom: `1px solid ${theme.colors.borderDecorative}`,
         paddingBottom: `${theme.spacing.sm}px`,
       }}
       className={className}
