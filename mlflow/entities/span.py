@@ -112,6 +112,7 @@ class Span:
         # Since the span is immutable, we can cache the attributes to avoid the redundant
         # deserialization of the attribute values.
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
+        self._attachments: dict[str, Any] = {}
 
     @property
     @lru_cache(maxsize=1)
@@ -538,6 +539,7 @@ class LiveSpan(Span):
             )
 
         self._span = otel_span
+        self._attachments: dict[str, Any] = {}
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
@@ -554,11 +556,26 @@ class LiveSpan(Span):
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
+        inputs = self._extract_attachments(inputs)
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
 
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
+        outputs = self._extract_attachments(outputs)
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
+
+    def _extract_attachments(self, value: Any) -> Any:
+        from mlflow.tracing.attachments import Attachment
+
+        if isinstance(value, Attachment):
+            ref = value.ref(self._trace_id)
+            self._attachments[value.id] = value
+            return ref
+        if isinstance(value, dict):
+            return {k: self._extract_attachments(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._extract_attachments(item) for item in value]
+        return value
 
     def set_attributes(self, attributes: dict[str, Any]):
         """
@@ -701,7 +718,9 @@ class LiveSpan(Span):
         :meta private:
         """
         # All state of the live span is already persisted in the OpenTelemetry span object.
-        return Span(self._span)
+        span = Span(self._span)
+        span._attachments = dict(self._attachments)
+        return span
 
     @classmethod
     def from_immutable_span(
