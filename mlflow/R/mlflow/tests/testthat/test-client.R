@@ -1,11 +1,11 @@
 context("client")
 
 teardown({
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
 })
 
 test_that("http(s) clients work as expected", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   with_mocked_bindings(.package = "mlflow", mlflow_rest = function(..., client) {
     args <- list(...)
     expect_true(paste(args[1:2], collapse = "/") == "experiments/search")
@@ -47,7 +47,7 @@ test_that("http(s) clients work as expected", {
 
 
 test_that("http(s) clients works with deprecated env vars", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   with_mocked_bindings(.package = "mlflow", mlflow_rest = function(..., client) {
     args <- list(...)
     expect_true(paste(args[1:2], collapse = "/") == "experiments/search")
@@ -94,7 +94,7 @@ test_that("http(s) clients works with deprecated env vars", {
 })
 
 test_that("rest call handles errors correctly", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   mock_client <- mlflow:::new_mlflow_client_impl(get_host_creds = function() {
      mlflow:::new_mlflow_host_creds(host = "localhost")
   })

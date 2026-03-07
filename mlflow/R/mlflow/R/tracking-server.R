@@ -46,7 +46,8 @@ mlflow_cli_param <- function(args, param, value) {
 #'
 #' Wrapper for `mlflow server`.
 #'
-#' @param file_store The root of the backing file store for experiment and run data.
+#' @param backend_store_uri The URI for the backend store (e.g., 'sqlite:///path/to/mlflow.db' or a file path).
+#' @param file_store (Deprecated) Use backend_store_uri instead.
 #' @param default_artifact_root Local or S3 URI to store artifacts in, for newly created experiments.
 #' @param host The network address to listen on (default: 127.0.0.1).
 #' @param port The port to listen on (default: 5000).
@@ -54,14 +55,30 @@ mlflow_cli_param <- function(args, param, value) {
 #' @param static_prefix A prefix which will be prepended to the path of all static paths.
 #' @param serve_artifacts A flag specifying whether or not to enable artifact serving (default: FALSE).
 #' @export
-mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
+mlflow_server <- function(backend_store_uri = NULL, file_store = NULL, default_artifact_root = NULL,
                           host = "127.0.0.1", port = 5000, workers = NULL, static_prefix = NULL,
                           serve_artifacts = FALSE) {
-  file_store <- fs::path_abs(file_store)
-  if (.Platform$OS.type == "windows") file_store <- paste0("file://", file_store)
+  # Handle deprecated file_store parameter
+  if (!is.null(file_store)) {
+    warning("The 'file_store' parameter is deprecated. Please use 'backend_store_uri' instead.")
+    if (is.null(backend_store_uri)) {
+      backend_store_uri <- file_store
+    }
+  }
+  
+  # Generate default SQLite URI if not provided
+  if (is.null(backend_store_uri)) {
+    backend_store_uri <- paste0("sqlite:///", tempfile(pattern = "mlflow_", fileext = ".db"))
+  }
+
+  # Only convert to absolute path if it's a plain file path (not a URI)
+  if (!grepl("://", backend_store_uri)) {
+    backend_store_uri <- fs::path_abs(backend_store_uri)
+    if (.Platform$OS.type == "windows") backend_store_uri <- paste0("file://", backend_store_uri)
+  }
 
   args <- mlflow_cli_param(list(), "--port", port) %>%
-    mlflow_cli_param("--backend-store-uri", file_store) %>%
+    mlflow_cli_param("--backend-store-uri", backend_store_uri) %>%
     mlflow_cli_param("--default-artifact-root", default_artifact_root) %>%
     mlflow_cli_param("--host", host) %>%
     mlflow_cli_param("--port", port) %>%
@@ -88,7 +105,7 @@ mlflow_server <- function(file_store = "mlruns", default_artifact_root = NULL,
   )
 
   server_url <- getOption("mlflow.ui", paste(host, port, sep = ":"))
-  new_mlflow_server(server_url, handle, file_store = file_store)
+  new_mlflow_server(server_url, handle, backend_store_uri = backend_store_uri)
 }
 
 new_mlflow_server <- function(server_url, handle, ...) {

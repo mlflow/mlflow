@@ -1,12 +1,12 @@
 context("Tracking")
 
 teardown({
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   options(MLflowObservers = NULL)
 })
 
 test_that("mlflow_start_run()/mlflow_get_run() work properly", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   client <- mlflow_client()
   run <- mlflow_start_run(
     client = client,
@@ -31,7 +31,7 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
 })
 
 test_that("a run can be started properly if MLFLOW_RUN_ID is set", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   # Typical use case: Invoke an R script that interacts with the MLflow API from
   # outside of R, e.g. MLproject, Python, CLI
   start_get_id_stop <- function() {
@@ -46,7 +46,7 @@ test_that("a run can be started properly if MLFLOW_RUN_ID is set", {
 })
 
 test_that("mlflow_end_run() works properly", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   mlflow_start_run()
   killed_time <- mlflow:::current_time()
   client <- mlflow_client()
@@ -67,7 +67,7 @@ test_that("mlflow_end_run() works properly", {
 })
 
 test_that("mlflow_start_run()/mlflow_end_run() works properly with nested runs", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   runs <- list(
     mlflow_start_run(),
     mlflow_start_run(nested = TRUE),
@@ -90,7 +90,7 @@ test_that("mlflow_start_run()/mlflow_end_run() works properly with nested runs",
 })
 
 test_that("mlflow_restore_run() work properly", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   client <- mlflow_client()
   run1 <- mlflow_start_run(
     client = client,
@@ -119,13 +119,13 @@ test_that("mlflow_restore_run() work properly", {
 })
 
 test_that("mlflow_set_tag() should return NULL invisibly", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   value <- mlflow_set_tag("foo", "bar")
   expect_null(value)
 })
 
 test_that("logging functionality", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
 
   start_time_lower_bound <- Sys.time()
   mlflow_start_run()
@@ -181,7 +181,7 @@ test_that("logging functionality", {
 })
 
 test_that("mlflow_log_metric() rounds step and timestamp inputs", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   mlflow_start_run()
 
   step_inputs <- runif(10, min = -20, max = 100)
@@ -210,7 +210,7 @@ test_that("mlflow_log_metric() rounds step and timestamp inputs", {
 })
 
 test_that("mlflow_log_metric() with step produces expected metric data", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   mlflow_start_run()
 
   metric_key_1 <- "test_metric_1"
@@ -277,7 +277,7 @@ test_that("mlflow_log_metric() with step produces expected metric data", {
 })
 
 test_that("mlflow_end_run() behavior", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   expect_error(
     mlflow_end_run(),
     "There is no active run to end\\."
@@ -313,7 +313,7 @@ test_that("mlflow_end_run() behavior", {
 })
 
 test_that("with() errors when not passed active run", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   client <- mlflow_client()
   mlflow_set_experiment("exp1")
   run <- mlflow_start_run(client = client)
@@ -327,7 +327,7 @@ test_that("with() errors when not passed active run", {
 })
 
 test_that("mlflow_search_runs() works", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   with(mlflow_start_run(), {
     mlflow_log_metric("test", 10)
   })
@@ -410,7 +410,7 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
 })
 
 test_that("mlflow_log_batch() works", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   mlflow_start_run()
   mlflow_log_batch(
     metrics = data.frame(key = c("mse", "mse", "rmse", "rmse", "nan", "Inf", "-Inf"),
@@ -474,7 +474,7 @@ test_that("mlflow_log_batch() works", {
 })
 
 test_that("mlflow_log_batch() throws for mismatched input data columns", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   mlflow_start_run()
   error_text_regexp <- "*input dataframe must contain exactly the following columns*"
 
@@ -566,7 +566,7 @@ test_that("mlflow_log_batch() throws for mismatched input data columns", {
 })
 
 test_that("mlflow_log_batch() throws for missing entries", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   mlflow_start_run()
   error_text_regexp <- "*input dataframe contains a missing \\('NA'\\) entry*"
 
@@ -680,7 +680,7 @@ test_that("mlflow observers receive tracking event callbacks", {
 })
 
 test_that("mlflow get metric history performs pagination", {
-  mlflow_clear_test_dir("mlruns")
+  mlflow_clear_test_dir()
   run <- mlflow_start_run()
 
   batch_size <- 1000
