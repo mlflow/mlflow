@@ -132,16 +132,25 @@ def _parse_json(value):
 def _set_inputs_outputs(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
     inputs = []
     outputs = []
+    
     for event in span.events:
-        if event.name in {"gen_ai.user.message", "gen_ai.tool.message"}:
+        if event.name == "gen_ai.tool.message":
+            # Tool message: set directly as dict
             content = _parse_json(event.attributes.get("content"))
-            role = "user" if event.name == "gen_ai.user.message" else "tool"
-            inputs.append({"role": role, "content": content})
+            mlflow_span.set_inputs(content)
+        elif event.name == "gen_ai.user.message":
+            # User message: append to list for conversation
+            content = _parse_json(event.attributes.get("content"))
+            inputs.append({"role": "user", "content": content})
         elif event.name == "gen_ai.choice":
             message = _parse_json(event.attributes.get("message"))
             outputs.append(message)
+    
+    # Set conversation inputs if any were collected
     if inputs:
         mlflow_span.set_inputs(inputs)
+    
+    # Set outputs 
     if outputs:
         mlflow_span.set_outputs(outputs if len(outputs) > 1 else outputs[0])
 
