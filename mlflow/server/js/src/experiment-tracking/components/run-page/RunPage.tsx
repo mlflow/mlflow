@@ -16,7 +16,7 @@ import Utils from '../../../common/utils/Utils';
 import { RunPageTabName } from '../../constants';
 import { RenameRunModal } from '../modals/RenameRunModal';
 import { RunViewArtifactTab } from './RunViewArtifactTab';
-import { RunViewHeader } from './RunViewHeader';
+import { RunViewHeader, type RunViewHeaderProps } from './RunViewHeader';
 import { RunViewOverview } from './RunViewOverview';
 import { useRunDetailsPageData } from './hooks/useRunDetailsPageData';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
@@ -53,7 +53,17 @@ const RunPageLoadingState = () => (
   </PageContainer>
 );
 
-export const RunPage = () => {
+export interface RunPageProps {
+  /** Custom breadcrumbs to display in the header */
+  customBreadcrumbs?: RunViewHeaderProps['customBreadcrumbs'];
+  /** Props to pass to RunViewModeSwitch for custom tab configuration */
+  tabSwitchProps?: RunViewHeaderProps['tabSwitchProps'];
+  /** Custom callback after successful run deletion */
+  onDeleteSuccess?: (experimentId: string) => void;
+}
+
+export const RunPage = (props: RunPageProps) => {
+  const { customBreadcrumbs, tabSwitchProps, onDeleteSuccess } = props;
   const { runUuid, experimentId } = useParams<{
     runUuid: string;
     experimentId: string;
@@ -284,6 +294,8 @@ export const RunPage = () => {
           artifactRootUri={runInfo?.artifactUri ?? undefined}
           registeredModelVersionSummaries={registeredModelVersionSummaries}
           isLoading={loading || isLoadingLoggedModels}
+          customBreadcrumbs={customBreadcrumbs}
+          tabSwitchProps={tabSwitchProps}
         />
         {/* Scroll tab contents independently within own container */}
         <div css={{ flex: 1, overflow: 'auto', marginBottom: theme.spacing.sm, display: 'flex' }}>
@@ -302,7 +314,11 @@ export const RunPage = () => {
         onClose={() => setDeleteModalVisible(false)}
         isOpen={deleteModalVisible}
         onSuccess={() => {
-          navigate(Routes.getExperimentPageRoute(safeExperimentId));
+          if (onDeleteSuccess) {
+            onDeleteSuccess(safeExperimentId);
+          } else {
+            navigate(Routes.getExperimentPageRoute(safeExperimentId));
+          }
         }}
       />
     </>

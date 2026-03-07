@@ -3758,6 +3758,10 @@
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
   },
+  "Ob5d+s": {
+    "defaultMessage": "System metrics",
+    "description": "Run details page > tab selector > System metrics tab"
+  },
   "OcYzCN": {
     "defaultMessage": "Unresolved",
     "description": "Label for a user_frustration assessment with 'unresolved' value"
@@ -3841,6 +3845,10 @@
   "PGbCZD": {
     "defaultMessage": "Production",
     "description": "Column title for production phase version in the registered model page"
+  },
+  "PIsgM0": {
+    "defaultMessage": "Experiments",
+    "description": "Issue detection run details > Breadcrumb > Experiments"
   },
   "PKYh23": {
     "defaultMessage": "Additional runs",
@@ -6523,10 +6531,6 @@
     "defaultMessage": "Fallback Model {order}",
     "description": "Label for fallback model"
   },
-  "hFlaPP": {
-    "defaultMessage": "System metrics",
-    "description": "Run details page > tab selector > Model metrics tab"
-  },
   "hHNj31": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text"
@@ -7886,6 +7890,10 @@
   "qH2cN+": {
     "defaultMessage": "Experiment id copied",
     "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
+  },
+  "qIHqi7": {
+    "defaultMessage": "Evaluation runs",
+    "description": "Issue detection run details > Breadcrumb > Evaluation runs"
   },
   "qIsNL0": {
     "defaultMessage": "Value",
