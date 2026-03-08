@@ -119,10 +119,11 @@ tensorflow:
 
   models:
     minimum: "2.16.0"
-    maximum: "2.20.0"
+    maximum: "2.21.0"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
+      ">= 2.21.0": ["tensorboard"]
     run: |
       pytest \
         tests/tensorflow/test_tensorflow2_core_model_export.py \
@@ -132,9 +133,10 @@ tensorflow:
 
   autologging:
     minimum: "2.16.0"
-    maximum: "2.20.0"
+    maximum: "2.21.0"
     requirements:
       "== dev": ["scikit-learn"]
+      ">= 2.21.0": ["tensorboard"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
