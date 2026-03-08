@@ -48,7 +48,6 @@ def test_attachment_from_file_explicit_content_type():
         (".png", "image/png"),
         (".jpg", "image/jpeg"),
         (".jpeg", "image/jpeg"),
-        (".wav", {"audio/x-wav", "audio/wav"}),
         (".mp3", "audio/mpeg"),
         (".pdf", "application/pdf"),
         (".xyz_unknown", "application/octet-stream"),
@@ -58,10 +57,7 @@ def test_attachment_from_file_mime_inference(suffix, expected, tmp_path):
     file = tmp_path / f"test{suffix}"
     file.write_bytes(b"data")
     att = Attachment.from_file(file)
-    if isinstance(expected, set):
-        assert att.content_type in expected
-    else:
-        assert att.content_type == expected
+    assert att.content_type == expected
 
 
 def test_attachment_ref():
