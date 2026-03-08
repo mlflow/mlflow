@@ -34,3 +34,19 @@ export async function getTraceArtifact(requestId: string): Promise<ModelTrace | 
     return 'Unknown error occurred';
   }
 }
+
+export async function getTraceAttachment(traceId: string, attachmentId: string): Promise<ArrayBuffer | undefined> {
+  try {
+    const url = getAjaxUrl(
+      `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(traceId)}&path=${encodeURIComponent(attachmentId)}`,
+    );
+    // eslint-disable-next-line no-restricted-globals -- direct fetch needed for binary response
+    const response = await fetch(url);
+    if (!response.ok) {
+      return undefined;
+    }
+    return await response.arrayBuffer();
+  } catch (e) {
+    return undefined;
+  }
+}
