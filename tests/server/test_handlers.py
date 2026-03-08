@@ -2575,6 +2575,34 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
 
 
+def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store):
+    trace_id = "test-trace-attachment-123"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id("3"),
+        request_time=1234567890,
+        execution_duration=4000,
+        state=TraceState.OK,
+    )
+
+    mock_tracking_store.get_trace_info.return_value = trace_info
+
+    mock_artifact_repo = mock.MagicMock()
+    mock_artifact_repo.download_trace_attachment.return_value = b"\x89PNG fake image"
+
+    with mock.patch(
+        "mlflow.server.handlers._get_trace_artifact_repo", return_value=mock_artifact_repo
+    ):
+        query = {"request_id": trace_id, "path": "abc-123"}
+        with app.test_request_context(method="GET", query_string=query):
+            response = get_trace_artifact_handler()
+
+    mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
+    mock_artifact_repo.download_trace_attachment.assert_called_once_with("abc-123")
+    assert response.status_code == 200
+
+
 def test_delete_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
     """Test v2 delete_trace_tag handler with request_id parameter.
 
