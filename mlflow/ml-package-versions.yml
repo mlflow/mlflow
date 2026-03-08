@@ -603,6 +603,10 @@ langchain:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.3.20"
     maximum: "1.2.10"
+    unsupported: [
+        # Chain.save() broken in 0.3.28 due to model_dump() regression: https://github.com/langchain-ai/langchain/issues/35665
+        "== 0.3.28",
+      ]
     requirements:
       ">= 0.0.0": [
           "pyspark",
