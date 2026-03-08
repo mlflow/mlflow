@@ -264,11 +264,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.16.0",
-            "maximum": "2.20.0"
+            "maximum": "2.21.0"
         },
         "autologging": {
             "minimum": "2.16.0",
-            "maximum": "2.20.0"
+            "maximum": "2.21.0"
         }
     },
     "xgboost": {
