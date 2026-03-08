@@ -557,7 +557,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.64.0"
-    maximum: "2.21.0"
+    maximum: "2.26.0"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
