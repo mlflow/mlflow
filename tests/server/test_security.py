@@ -204,6 +204,7 @@ def test_notebook_trace_renderer_skips_x_frame_options(monkeypatch: pytest.Monke
     [
         ("*", "any.domain.com", 200),
         ("*.example.com", "app.example.com", 200),
+        ("*.example.com", "sub.app.example.com", 200),
         ("*.example.com", "evil.com", 403),
     ],
 )
@@ -215,6 +216,26 @@ def test_wildcard_hosts(
     client = Client(test_app)
 
     response = client.get("/test", headers={"Host": host_header})
+    assert response.status_code == expected_status
+
+
+@pytest.mark.parametrize(
+    ("allowed_origins", "origin", "expected_status"),
+    [
+        ("*", "http://any.domain.com", 200),
+        ("http://*.example.com", "http://app.example.com", 200),
+        ("http://*.example.com", "http://sub.app.example.com", 200),
+        ("http://*.example.com", "http://evil.com", 403),
+    ],
+)
+def test_wildcard_origins(
+    test_app, allowed_origins, origin, expected_status, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setenv("MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", allowed_origins)
+    security.init_security_middleware(test_app)
+    client = Client(test_app)
+
+    response = client.post("/api/2.0/mlflow/experiments/list", headers={"Origin": origin})
     assert response.status_code == expected_status
 
 
