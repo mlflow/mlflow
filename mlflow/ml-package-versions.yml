@@ -205,7 +205,7 @@ onnx:
     pip_release: "onnx"
     install_dev: |
       # This workflow describes how to build a wheel for Linux:
-      # https://github.com/onnx/onnx/blob/main/.github/workflows/release_linux.yml
+      # https://github.com/onnx/onnx/blob/bf3f63ece5cadea625265a42e17dd685f4cf17eb/.github/workflows/release_linux.yml
       tmp_dir=$(mktemp -d)
       git clone --recurse-submodules --shallow-submodules --depth=1 https://github.com/onnx/onnx.git $tmp_dir
       cd $tmp_dir
