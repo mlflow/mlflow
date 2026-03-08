@@ -1,0 +1,173 @@
+---
+sidebar_label: Gemini CLI
+---
+
+import { Users, BookOpen, Scale } from "lucide-react";
+
+import ImageBox from "@site/src/components/ImageBox";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+
+# Tracing Gemini CLI
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing for [Gemini CLI](https://github.com/google-gemini/gemini-cli), Google's open-source terminal-based AI coding agent powered by Gemini models.
+
+After setting up auto tracing, MLflow will automatically capture traces of your Gemini CLI conversations and log them to the active MLflow experiment. The trace automatically captures information such as:
+
+- User prompts and assistant responses
+- Tool usage (file operations, shell commands, code edits, etc.)
+- Conversation timing and duration
+- Tool execution results
+- Token usage (input, output, and total tokens)
+- Session metadata including working directory and user
+
+## Setup
+
+Gemini CLI tracing is configured using the `mlflow autolog gemini-cli` CLI command, which sets up [Gemini CLI hooks](https://geminicli.com/docs/hooks/) to automatically capture conversation traces.
+
+### Requirements
+
+- MLflow >= 3.5 (`pip install 'mlflow[genai]>=3.5'`)
+- [Gemini CLI](https://github.com/google-gemini/gemini-cli) installed and configured
+
+### Basic Setup
+
+```bash
+# Set up tracing in current directory
+mlflow autolog gemini-cli
+
+# Set up tracing in specific directory
+mlflow autolog gemini-cli ~/my-project
+
+# Check tracing status
+mlflow autolog gemini-cli --status
+
+# Disable tracing
+mlflow autolog gemini-cli --disable
+```
+
+### Configuration Examples
+
+```bash
+# Set up with custom tracking URI
+mlflow autolog gemini-cli -u file://./custom-mlruns
+mlflow autolog gemini-cli -u sqlite:///mlflow.db
+
+# Set up with Databricks backend and a specific experiment ID
+mlflow autolog gemini-cli -u databricks -e 123456789
+
+# Set up with specific experiment
+mlflow autolog gemini-cli -n "My AI Project"
+```
+
+### Environment Variables
+
+After running the setup command, set the following environment variables in your shell:
+
+```bash
+# Required: Enable MLflow tracing for Gemini CLI
+export MLFLOW_GEMINI_CLI_TRACING_ENABLED=true
+
+# Optional: MLflow tracking server URI
+export MLFLOW_TRACKING_URI=http://localhost:5000
+
+# Optional: Experiment ID or name
+export MLFLOW_EXPERIMENT_ID=123456
+```
+
+### How It Works
+
+1. **Setup Phase**: The `mlflow autolog gemini-cli` command configures Gemini CLI hooks in a `.gemini/settings.json` file in your project directory
+2. **Automatic Tracing**: When you use the `gemini` command in the configured directory, the `SessionEnd` hook automatically processes the conversation transcript and creates an MLflow trace
+3. **View Results**: Use the MLflow UI to explore your traces
+
+### Basic Example
+
+```bash
+# Set up tracing in your project
+mlflow autolog gemini-cli ~/my-project
+
+# Set environment variables
+export MLFLOW_GEMINI_CLI_TRACING_ENABLED=true
+
+# Navigate to project directory
+cd ~/my-project
+
+# Use Gemini CLI normally - tracing happens automatically
+gemini "help me refactor this Python function to be more efficient"
+
+# View traces in MLflow UI
+mlflow server
+```
+
+## Tracking Token Usage and Cost
+
+MLflow automatically tracks token usage for Gemini CLI conversations. The token usage for each LLM call will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
+
+## Troubleshooting
+
+### Check CLI Status
+
+```bash
+mlflow autolog gemini-cli --status
+```
+
+This shows:
+
+- Whether tracing is enabled
+- Current tracking URI
+- Configured experiment
+
+### Common Issues
+
+**Tracing not working:**
+
+- Ensure `MLFLOW_GEMINI_CLI_TRACING_ENABLED=true` is set in your shell environment
+- Check that `.gemini/settings.json` exists in your project directory
+- Verify the `SessionEnd` hook is present in the settings file
+- Review logs in `.gemini/mlflow/gemini_tracing.log`
+
+**Missing traces:**
+
+- Verify the tracking URI is accessible
+- Check that the MLflow server is running
+- Review logs in `.gemini/mlflow/gemini_tracing.log`
+
+### Disable Tracing
+
+To stop automatic tracing:
+
+```bash
+mlflow autolog gemini-cli --disable
+```
+
+This removes the hooks from `.gemini/settings.json` but preserves existing traces.
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Scale}
+    iconSize={48}
+    title="Evaluate the Agent"
+    description="Learn how to evaluate the agent's performance with LLM judges."
+    href="/genai/eval-monitor/running-evaluation/agents"
+    linkText="Evaluate agents →"
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Manage Prompts"
+    description="Learn how to manage prompts with MLflow's prompt registry."
+    href="/genai/prompt-registry"
+    linkText="Manage prompts →"
+  />
+  <TileCard
+    icon={Users}
+    iconSize={48}
+    title="Automatic Agent Optimization"
+    description="Automatically optimize the agent end-to-end with state-of-the-art algorithms."
+    href="/genai/prompt-registry/optimize-prompts"
+    linkText="Optimize prompts →"
+  />
+</TilesGrid>
