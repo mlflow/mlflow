@@ -14,7 +14,7 @@ defaults:
 
 jobs:
   label-pr-size:
-    if: github.event.pull_request.draft == false
+    if: (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot')
     runs-on: ubuntu-slim
     permissions:
       pull-requests: write

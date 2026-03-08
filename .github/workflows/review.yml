@@ -26,7 +26,7 @@ jobs:
     # TODO: Remove `github.event.pull_request.user.login == 'harupy'` after testing
     if: >
       (github.event_name == 'pull_request_target' &&
-       github.event.pull_request.draft == false &&
+       (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot') &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) &&
        github.event.pull_request.user.login == 'harupy')
       ||
