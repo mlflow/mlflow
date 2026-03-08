@@ -21,7 +21,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.64.0",
-            "maximum": "2.21.0"
+            "maximum": "2.26.0"
         }
     },
     "dspy": {
