@@ -2,6 +2,7 @@
 import io
 import json
 import logging
+import mimetypes
 import os
 import pathlib
 import posixpath
@@ -3832,12 +3833,23 @@ def _fetch_trace_data_from_store(
 @_disable_if_artifacts_only
 def get_trace_artifact_handler() -> Response:
     request_id = request.args.get("request_id")
+    path = request.args.get("path")
 
     if not request_id:
         raise MlflowException(
             'Request must include the "request_id" query parameter.',
             error_code=BAD_REQUEST,
         )
+
+    if path:
+        store = _get_tracking_store()
+        trace_info = store.get_trace_info(request_id)
+        repo = _get_trace_artifact_repo(trace_info)
+        content_bytes = repo.download_trace_attachment(path)
+        buf = io.BytesIO(content_bytes)
+        mimetype, _ = mimetypes.guess_type(path)
+        mimetype = mimetype or "application/octet-stream"
+        return send_file(buf, mimetype=mimetype)
 
     store = _get_tracking_store()
     trace_data = _fetch_trace_data_from_store(store, request_id)
