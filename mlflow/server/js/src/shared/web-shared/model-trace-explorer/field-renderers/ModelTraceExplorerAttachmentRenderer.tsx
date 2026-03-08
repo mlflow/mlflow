@@ -82,6 +82,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
             {title}
           </Typography.Text>
         )}
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <audio controls>
           <source src={mediaUrl} type={contentType} />
         </audio>
