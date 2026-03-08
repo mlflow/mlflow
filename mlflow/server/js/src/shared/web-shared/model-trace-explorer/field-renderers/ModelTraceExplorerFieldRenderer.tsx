@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { ModelTraceExplorerAttachmentRenderer } from './ModelTraceExplorerAttachmentRenderer';
 import { ModelTraceExplorerChatToolsRenderer } from './ModelTraceExplorerChatToolsRenderer';
 import { ModelTraceExplorerRetrieverFieldRenderer } from './ModelTraceExplorerRetrieverFieldRenderer';
 import { ModelTraceExplorerTextFieldRenderer } from './ModelTraceExplorerTextFieldRenderer';
@@ -12,6 +13,24 @@ import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
+
+function parseAttachmentUri(uri: string): { attachmentId: string; traceId: string; contentType: string } | null {
+  try {
+    const parsed = new URL(uri);
+    if (parsed.protocol !== 'mlflow-attachment:') {
+      return null;
+    }
+    const attachmentId = parsed.hostname;
+    const contentType = parsed.searchParams.get('content_type');
+    const traceId = parsed.searchParams.get('trace_id');
+    if (!attachmentId || !contentType || !traceId) {
+      return null;
+    }
+    return { attachmentId, contentType, traceId };
+  } catch {
+    return null;
+  }
+}
 
 export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 
@@ -111,6 +130,19 @@ export const ModelTraceExplorerFieldRenderer = ({
   }
 
   if (dataIsScalar) {
+    if (isString(parsedData)) {
+      const attachment = parseAttachmentUri(parsedData);
+      if (attachment) {
+        return (
+          <ModelTraceExplorerAttachmentRenderer
+            title={title}
+            attachmentId={attachment.attachmentId}
+            traceId={attachment.traceId}
+            contentType={attachment.contentType}
+          />
+        );
+      }
+    }
     return <ModelTraceExplorerTextFieldRenderer title={title} value={String(parsedData)} />;
   }
 
