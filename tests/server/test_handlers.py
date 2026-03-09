@@ -4459,7 +4459,7 @@ def test_update_issue():
     ):
         mock_store.return_value.update_issue.return_value = updated_issue
 
-        response = _update_issue()
+        response = _update_issue("iss-update-123")
 
         mock_store.return_value.update_issue.assert_called_once()
         call_kwargs = mock_store.return_value.update_issue.call_args[1]
