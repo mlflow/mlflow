@@ -28,6 +28,7 @@ from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.data.meta_dataset import MetaDataset
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
+    IssueStatus,
     LifecycleStage,
     Metric,
     Param,
@@ -2761,3 +2762,91 @@ def test_import_checkpoints_without_run():
             ),
         ):
             mlflow.import_checkpoints("/Volumes/checkpoints")
+
+
+def test_create_issue_basic():
+    exp_id = mlflow.create_experiment("test_create_issue")
+
+    issue = mlflow.create_issue(
+        name="Test issue",
+        description="This is a test issue",
+        experiment_id=exp_id,
+        status=IssueStatus.PENDING,
+    )
+
+    assert issue.issue_id.startswith("iss-")
+    assert issue.experiment_id == exp_id
+    assert issue.name == "Test issue"
+    assert issue.description == "This is a test issue"
+    assert issue.status == IssueStatus.PENDING
+    assert issue.confidence is None
+    assert issue.root_causes is None
+    assert issue.source_run_id is None
+    assert issue.created_by is None
+    assert issue.created_timestamp > 0
+    assert issue.last_updated_timestamp == issue.created_timestamp
+
+
+def test_create_issue_with_all_fields():
+    exp_id = mlflow.create_experiment("test_create_issue_all_fields")
+
+    with mlflow.start_run(experiment_id=exp_id) as run:
+        issue = mlflow.create_issue(
+            name="High latency",
+            description="API response times exceed threshold",
+            experiment_id=exp_id,
+            status=IssueStatus.ACCEPTED,
+            confidence="high",
+            root_causes=["Database query slow", "Network congestion"],
+            source_run_id=run.info.run_id,
+            created_by="monitoring_system",
+        )
+
+    assert issue.issue_id.startswith("iss-")
+    assert issue.experiment_id == exp_id
+    assert issue.name == "High latency"
+    assert issue.description == "API response times exceed threshold"
+    assert issue.status == IssueStatus.ACCEPTED
+    assert issue.confidence == "high"
+    assert issue.root_causes == ["Database query slow", "Network congestion"]
+    assert issue.source_run_id == run.info.run_id
+    assert issue.created_by == "monitoring_system"
+    assert issue.created_timestamp > 0
+
+
+def test_create_issue_default_status():
+    exp_id = mlflow.create_experiment("test_create_issue_default")
+
+    issue = mlflow.create_issue(
+        name="Test issue with default status",
+        description="Testing default status behavior",
+        experiment_id=exp_id,
+    )
+
+    assert issue.status == IssueStatus.PENDING
+
+
+def test_create_issue_with_string_status():
+    exp_id = mlflow.create_experiment("test_create_issue_string_status")
+
+    issue = mlflow.create_issue(
+        name="Test issue with string status",
+        description="Testing string status conversion",
+        experiment_id=exp_id,
+        status="accepted",
+    )
+
+    assert issue.status == IssueStatus.ACCEPTED
+
+
+def test_create_issue_with_active_experiment():
+    exp_id = mlflow.create_experiment("test_create_issue_active_exp")
+    mlflow.set_experiment(experiment_id=exp_id)
+
+    issue = mlflow.create_issue(
+        name="Test issue with active experiment",
+        description="Testing active experiment behavior",
+        status=IssueStatus.PENDING,
+    )
+
+    assert issue.experiment_id == exp_id
