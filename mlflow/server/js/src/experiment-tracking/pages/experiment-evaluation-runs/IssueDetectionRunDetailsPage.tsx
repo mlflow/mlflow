@@ -1,10 +1,11 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import { RunPage } from '../../components/run-page/RunPage';
 import { ExperimentPageTabName, RunPageTabName } from '../../constants';
 import Routes from '../../routes';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
+import { IssueDetectionRunOverview } from '../../components/run-page/overview/IssueDetectionRunOverview';
 
 /**
  * Thin wrapper around RunPage for issue detection run details.
@@ -47,6 +48,10 @@ export const IssueDetectionRunDetailsPage = () => {
     navigate(Routes.getExperimentPageTabRoute(expId, ExperimentPageTabName.EvaluationRuns));
   };
 
+  const handleCancelDetection = useCallback(() => {
+    // TODO: Implement cancel detection logic
+  }, []);
+
   return (
     <RunPage
       customBreadcrumbs={customBreadcrumbs}
@@ -56,6 +61,17 @@ export const IssueDetectionRunDetailsPage = () => {
         visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES],
       }}
       onDeleteSuccess={handleDeleteSuccess}
+      renderCustomOverview={({ runUuid, runInfo, tags, onRunDataUpdated }) => (
+        <IssueDetectionRunOverview
+          runUuid={runUuid}
+          runInfo={runInfo}
+          tags={tags}
+          onRunDataUpdated={onRunDataUpdated}
+          progressProps={{
+            onCancel: handleCancelDetection,
+          }}
+        />
+      )}
     />
   );
 };
