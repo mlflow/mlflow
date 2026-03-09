@@ -255,8 +255,7 @@ const WebhooksSettings = () => {
     return descriptor ? intl.formatMessage(descriptor) : key;
   };
 
-  const formatEvents = (events: WebhookEvent[]) =>
-    events.map((e) => formatEventLabel(e.entity, e.action)).join(', ');
+  const formatEvents = (events: WebhookEvent[]) => events.map((e) => formatEventLabel(e.entity, e.action)).join(', ');
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>

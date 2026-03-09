@@ -100,9 +100,7 @@ describe('WebhooksSettings', () => {
     await userEvent.click(createButtons[createButtons.length - 1]);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Name must start and end with a letter or digit/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Name must start and end with a letter or digit/)).toBeInTheDocument();
     });
   });
 
