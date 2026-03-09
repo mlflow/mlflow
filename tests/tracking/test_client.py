@@ -2527,7 +2527,7 @@ def test_delete_prompt_version_invalidates_latest_cache(tracking_uri):
 def test_set_prompt_model_config_invalidates_latest_cache(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    cache_ttl_seconds = 1
+    cache_ttl_seconds = 60
     prompt = client.register_prompt(name="test_prompt", template="test")
     prompt_before_update = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
     assert prompt_before_update.model_config is None
@@ -2546,7 +2546,7 @@ def test_set_prompt_model_config_invalidates_latest_cache(tracking_uri):
 def test_delete_prompt_model_config_invalidates_latest_cache(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    cache_ttl_seconds = 1
+    cache_ttl_seconds = 60
     model_config = {"model_name": "gpt-4", "temperature": 0.7}
     prompt = client.register_prompt(
         name="test_prompt",
