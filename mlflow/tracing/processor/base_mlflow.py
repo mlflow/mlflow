@@ -19,6 +19,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
+from mlflow.tracing.context import get_configured_trace_metadata, get_configured_trace_tags
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
@@ -31,7 +32,6 @@ from mlflow.tracing.utils import (
     should_compute_cost_client_side,
     update_trace_state_from_span_conditionally,
 )
-from mlflow.tracing.utils.config import get_configured_trace_metadata, get_configured_trace_tags
 from mlflow.tracing.utils.environment import resolve_env_metadata
 from mlflow.tracking.fluent import (
     _get_active_model_id_global,

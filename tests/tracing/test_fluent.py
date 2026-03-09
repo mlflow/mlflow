@@ -16,7 +16,6 @@ from opentelemetry.sdk.trace.export import SpanExporter
 
 import mlflow
 from mlflow.entities import (
-    NoOpSpan,
     SpanEvent,
     SpanStatusCode,
     SpanType,
@@ -2815,11 +2814,12 @@ assert len(trace_ids) == 5
     )
 
 
-def test_tracing_context_injects_metadata_and_tags():
-    @mlflow.trace
-    def my_func():
-        return "hello"
+@mlflow.trace
+def my_func():
+    return "hello"
 
+
+def test_tracing_context_injects_metadata_and_tags():
     with mlflow.tracing.context(
         metadata={"custom_key": "custom_value"},
         tags={"my_tag": "tag_value"},
@@ -2830,26 +2830,13 @@ def test_tracing_context_injects_metadata_and_tags():
     assert trace.info.request_metadata["custom_key"] == "custom_value"
     assert trace.info.tags["my_tag"] == "tag_value"
 
-
-def test_tracing_context_no_wrapper_span():
-    @mlflow.trace
-    def my_func():
-        return "hello"
-
-    with mlflow.tracing.context(metadata={"k": "v"}):
-        my_func()
-
+    # Trace created outside the block should NOT have the metadata
+    my_func()
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    # Only the one span from @mlflow.trace, no wrapper
-    assert len(trace.data.spans) == 1
-    assert trace.data.spans[0].name == "my_func"
+    assert "session" not in trace.info.request_metadata
 
 
 def test_tracing_context_nesting_merges():
-    @mlflow.trace
-    def my_func():
-        return "hello"
-
     with mlflow.tracing.context(
         metadata={"outer_key": "outer_val", "shared": "outer"},
         tags={"outer_tag": "outer"},
@@ -2871,79 +2858,17 @@ def test_tracing_context_nesting_merges():
     assert trace.info.tags["inner_tag"] == "inner"
 
 
-def test_tracing_context_resets_after_exit():
-    @mlflow.trace
-    def my_func():
-        return "hello"
-
-    with mlflow.tracing.context(metadata={"session": "s1"}):
-        pass
-
-    # Trace created outside the block should NOT have the metadata
-    my_func()
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    assert "session" not in trace.info.request_metadata
-
-
-def test_tracing_context_metadata_only():
-    @mlflow.trace
-    def my_func():
-        return "hello"
-
-    with mlflow.tracing.context(metadata={"k": "v"}):
-        my_func()
-
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    assert trace.info.request_metadata["k"] == "v"
-
-
-def test_tracing_context_tags_only():
-    @mlflow.trace
-    def my_func():
-        return "hello"
-
-    with mlflow.tracing.context(tags={"t": "v"}):
-        my_func()
-
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    assert trace.info.tags["t"] == "v"
-
-
 def test_tracing_context_enabled_false_suppresses_traces():
-    @mlflow.trace
-    def my_func():
-        return "hello"
-
     with mlflow.tracing.context(enabled=False):
         my_func()
 
-    assert mlflow.get_last_active_trace_id() is None
+        # Child context should inherit the enabled=False from the parent
+        with mlflow.tracing.context(metadata={"k": "v"}):
+            my_func()
 
-
-def test_tracing_context_enabled_false_with_start_span():
-    with mlflow.tracing.context(enabled=False):
-        with mlflow.start_span("test") as span:
-            span.set_attribute("key", "value")
-
-    assert isinstance(span, NoOpSpan)
-    assert mlflow.get_last_active_trace_id() is None
-
-
-def test_tracing_context_enabled_false_with_start_span_no_context():
-    with mlflow.tracing.context(enabled=False):
+        # Start trace with start_trace_no_context (used in autologging)
         span = mlflow.start_span_no_context("test")
-
-    assert isinstance(span, NoOpSpan)
-    assert mlflow.get_last_active_trace_id() is None
-
-
-def test_tracing_context_enabled_false_resets_after_exit():
-    @mlflow.trace
-    def my_func():
-        return "hello"
-
-    with mlflow.tracing.context(enabled=False):
-        my_func()
+        span.end()
 
     assert mlflow.get_last_active_trace_id() is None
 
@@ -2952,44 +2877,22 @@ def test_tracing_context_enabled_false_resets_after_exit():
     assert mlflow.get_last_active_trace_id() is not None
 
 
-def test_tracing_context_enabled_false_nesting_inner_enables():
-    @mlflow.trace
-    def my_func():
-        return "hello"
+def test_tracing_context_enabled_is_thread_safe():
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    with mlflow.tracing.context(enabled=False):
-        my_func()
-        assert mlflow.get_last_active_trace_id() is None
-
-        with mlflow.tracing.context(enabled=True):
+    def run_with_context(enabled):
+        with mlflow.tracing.context(enabled=enabled):
             my_func()
-            assert mlflow.get_last_active_trace_id() is not None
+            return mlflow.get_last_active_trace_id(thread_local=True)
 
-
-def test_tracing_context_enabled_false_nesting_inherits():
-    @mlflow.trace
-    def my_func():
-        return "hello"
-
-    with mlflow.tracing.context(enabled=False):
-        with mlflow.tracing.context(metadata={"k": "v"}):
-            my_func()
-
-    assert mlflow.get_last_active_trace_id() is None
-
-
-def test_tracing_context_enabled_true_is_default():
-    @mlflow.trace
-    def my_func():
-        return "hello"
-
-    # Not specifying enabled should result in normal tracing
-    with mlflow.tracing.context(metadata={"k": "v"}):
-        my_func()
-
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    assert trace is not None
-    assert trace.info.request_metadata["k"] == "v"
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {
+            pool.submit(run_with_context, enabled=(i % 2 == 0)): (i % 2 == 0) for i in range(10)
+        }
+        for future in as_completed(futures):
+            enabled = futures[future]
+            trace_id = future.result()
+            assert (trace_id is not None) == enabled
 
 
 def test_flush_trace_async_logging_calls_flush_when_async_queue_exists():

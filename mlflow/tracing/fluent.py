@@ -33,6 +33,7 @@ from mlflow.tracing.constant import (
     SpanAttributeKey,
     TraceMetadataKey,
 )
+from mlflow.tracing.context import _USER_TRACE_CONTEXT
 from mlflow.tracing.provider import (
     get_current_otel_span,
     is_tracing_enabled,
@@ -48,7 +49,6 @@ from mlflow.tracing.utils import (
     exclude_immutable_tags,
     get_otel_attribute,
 )
-from mlflow.tracing.utils.config import _USER_TRACE_CONTEXT, _UserTraceContext
 from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
@@ -1443,68 +1443,6 @@ def set_trace_tag(trace_id: str, key: str, value: str):
             it will be truncated when stored.
     """
     TracingClient().set_trace_tag(trace_id, key, value)
-
-
-@contextlib.contextmanager
-def context(
-    metadata: dict[str, str] | None = None,
-    tags: dict[str, str] | None = None,
-    enabled: bool | None = None,
-) -> Generator[None, None, None]:
-    """
-    A context manager that injects metadata and/or tags into any trace created
-    within its scope, without creating a wrapper span. It can also be used to
-    selectively disable tracing within the scope.
-
-    This is useful when you need to attach trace-level information (e.g. session
-    IDs) to traces produced by code you don't control like auto-instrumented libraries,
-    or when you want to suppress tracing for a specific code block without affecting
-    the global tracing state.
-
-    .. code-block:: python
-
-        import mlflow
-
-        # Enable auto-tracing for LangChain
-        mlflow.langchain.autolog()
-
-        with mlflow.tracing.context(
-            # Specify metadata and tags you want to inject into the trace
-            metadata={"mlflow.trace.session": "session-123"},
-            tags={"mlflow.simulation.goal": "Learn about MLflow"},
-        ):
-            # Any trace created inside this block will carry the metadata and tags.
-            agent.invoke("What is the capital of France?")
-
-        # Disable tracing within a specific block
-        with mlflow.tracing.context(enabled=False):
-            # No traces will be created inside this block.
-            agent.invoke("This call will not be traced")
-
-    Args:
-        metadata: Key-value pairs to inject into the trace's ``request_metadata``
-            (immutable after trace creation).
-        tags: Key-value pairs to inject into the trace's ``tags``.
-        enabled: Whether tracing is enabled within the scope. If ``False``, all
-            tracing calls within the scope will return ``NoOpSpan`` without creating
-            any traces. If ``None`` (default), the value is inherited from the outer
-            scope. This does not affect the global tracing state set by
-            :py:func:`mlflow.tracing.disable`.
-    """
-    current = _USER_TRACE_CONTEXT.get()
-
-    # Merge with any outer context scope
-    merged_metadata = {**(current.metadata if current else {}), **(metadata or {})}
-    merged_tags = {**(current.tags if current else {}), **(tags or {})}
-    resolved_enabled = enabled if enabled is not None else (current.enabled if current else None)
-
-    token = _USER_TRACE_CONTEXT.set(
-        _UserTraceContext(metadata=merged_metadata, tags=merged_tags, enabled=resolved_enabled)
-    )
-    try:
-        yield
-    finally:
-        _USER_TRACE_CONTEXT.reset(token)
 
 
 @deprecated_parameter("request_id", "trace_id", version="3.0.0")
