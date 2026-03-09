@@ -76,6 +76,7 @@ from mlflow.exceptions import (
     _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
 )
+from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
@@ -196,6 +197,7 @@ from mlflow.protos.service_pb2 import (
     LinkTracesToRun,
     ListArtifacts,
     ListGatewayBudgetPolicies,
+    ListGatewayBudgetWindows,
     ListGatewayEndpointBindings,
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
@@ -254,6 +256,7 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
+from mlflow.server.gateway_budget import maybe_refresh_budget_policies
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
@@ -5112,7 +5115,8 @@ def _create_budget_policy():
             message=f"Invalid budget_action: {request_message.budget_action}",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    policy = _get_tracking_store().create_budget_policy(
+    store = _get_tracking_store()
+    policy = store.create_budget_policy(
         budget_unit=budget_unit,
         budget_amount=request_message.budget_amount,
         duration_unit=duration_unit,
@@ -5121,6 +5125,8 @@ def _create_budget_policy():
         budget_action=budget_action,
         created_by=request_message.created_by or None,
     )
+    get_budget_tracker().invalidate()
+    maybe_refresh_budget_policies(store)
     response_message = CreateGatewayBudgetPolicy.Response()
     response_message.budget_policy.CopyFrom(policy.to_proto())
     return _wrap_response(response_message)
@@ -5185,7 +5191,8 @@ def _update_budget_policy():
                 message=f"Invalid budget_action: {request_message.budget_action}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-    policy = _get_tracking_store().update_budget_policy(
+    store = _get_tracking_store()
+    policy = store.update_budget_policy(
         budget_policy_id=request_message.budget_policy_id,
         budget_unit=budget_unit,
         budget_amount=request_message.budget_amount
@@ -5199,6 +5206,8 @@ def _update_budget_policy():
         budget_action=budget_action,
         updated_by=request_message.updated_by or None,
     )
+    get_budget_tracker().invalidate()
+    maybe_refresh_budget_policies(store)
     response_message = UpdateGatewayBudgetPolicy.Response()
     response_message.budget_policy.CopyFrom(policy.to_proto())
     return _wrap_response(response_message)
@@ -5213,7 +5222,10 @@ def _delete_budget_policy():
             "budget_policy_id": [_assert_required, _assert_string],
         },
     )
-    _get_tracking_store().delete_budget_policy(request_message.budget_policy_id)
+    store = _get_tracking_store()
+    store.delete_budget_policy(request_message.budget_policy_id)
+    get_budget_tracker().invalidate()
+    maybe_refresh_budget_policies(store)
     response_message = DeleteGatewayBudgetPolicy.Response()
     return _wrap_response(response_message)
 
@@ -5236,6 +5248,25 @@ def _list_budget_policies():
     response_message.budget_policies.extend([p.to_proto() for p in budget_policies])
     if budget_policies.token:
         response_message.next_page_token = budget_policies.token
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_budget_windows():
+    _get_request_message(ListGatewayBudgetWindows())
+    store = _get_tracking_store()
+    maybe_refresh_budget_policies(store)
+    windows = get_budget_tracker().get_all_windows()
+    response_message = ListGatewayBudgetWindows.Response()
+    for w in windows:
+        window_msg = ListGatewayBudgetWindows.BudgetWindow(
+            budget_policy_id=w.policy.budget_policy_id,
+            window_start_ms=int(w.window_start.timestamp() * 1000),
+            window_end_ms=int(w.window_end.timestamp() * 1000),
+            current_spend=w.cumulative_spend,
+        )
+        response_message.windows.append(window_msg)
     return _wrap_response(response_message)
 
 
@@ -6422,6 +6453,7 @@ HANDLERS = {
     UpdateGatewayBudgetPolicy: _update_budget_policy,
     DeleteGatewayBudgetPolicy: _delete_budget_policy,
     ListGatewayBudgetPolicies: _list_budget_policies,
+    ListGatewayBudgetWindows: _list_budget_windows,
     # Prompt Optimization APIs
     CreatePromptOptimizationJob: _create_prompt_optimization_job,
     GetPromptOptimizationJob: _get_prompt_optimization_job,

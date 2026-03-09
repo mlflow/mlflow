@@ -1730,6 +1730,10 @@
     "defaultMessage": "File is too large to preview",
     "description": "Label to indicate that the file is too large to preview"
   },
+  "9ygCGK": {
+    "defaultMessage": "Reset period",
+    "description": "Budget reset period label"
+  },
   "A+5KMV": {
     "defaultMessage": "Model ID",
     "description": "Label for the model ID of a logged model on the logged model details page"
@@ -2918,10 +2922,6 @@
     "defaultMessage": "Goal",
     "description": "Label for the simulation goal metadata in chat session metrics"
   },
-  "IauU14": {
-    "defaultMessage": "Duration",
-    "description": "Budget duration label"
-  },
   "Id2mFI": {
     "defaultMessage": "The request was invalid.",
     "description": "Bad request (HTTP STATUS 400) generic error message"
@@ -3221,6 +3221,10 @@
   "Kwz1fc": {
     "defaultMessage": "Artifacts",
     "description": "Label for the artifacts tab on the logged model details page"
+  },
+  "KxeI8I": {
+    "defaultMessage": "Current Spend",
+    "description": "Budget current spend column header"
   },
   "Kya8N3": {
     "defaultMessage": "Pass",
@@ -3613,6 +3617,10 @@
   "NW59bs": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for edit workspace modal"
+  },
+  "NW7qsV": {
+    "defaultMessage": "Window End",
+    "description": "Budget window end date column header"
   },
   "NWbmIK": {
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
@@ -5040,6 +5048,10 @@
     "defaultMessage": "Session ID",
     "description": "Label for the session id section"
   },
+  "XK+0na": {
+    "defaultMessage": "Reset period",
+    "description": "Budget reset period column header"
+  },
   "XLSmZx": {
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
@@ -5586,10 +5598,6 @@
   "au61Yy": {
     "defaultMessage": "Maximum",
     "description": "Experiment page > group by runs control > maximum aggregate function"
-  },
-  "awG/R6": {
-    "defaultMessage": "Duration",
-    "description": "Budget duration column header"
   },
   "awekbG": {
     "defaultMessage": "Cancel",
@@ -7442,6 +7450,10 @@
   "mz/gog": {
     "defaultMessage": "Traffic Split",
     "description": "Summary traffic split label"
+  },
+  "n/MCHF": {
+    "defaultMessage": "Window Start",
+    "description": "Budget window start date column header"
   },
   "n/l2ft": {
     "defaultMessage": "Reset filters",
