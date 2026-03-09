@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from datetime import datetime
 from unittest import mock
@@ -2878,8 +2878,6 @@ def test_tracing_context_enabled_false_suppresses_traces():
 
 
 def test_tracing_context_enabled_is_thread_safe():
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
     def run_with_context(enabled):
         with mlflow.tracing.context(enabled=enabled):
             my_func()

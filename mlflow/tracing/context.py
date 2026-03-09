@@ -58,8 +58,9 @@ def context(
 
         with mlflow.tracing.context(
             # Specify metadata and tags you want to inject into the trace
+            tags={"project": "my-project"},
+            # Reserved metadata key for associating traces with a conversation session.
             metadata={"mlflow.trace.session": "session-123"},
-            tags={"mlflow.simulation.goal": "Learn about MLflow"},
         ):
             # Any trace created inside this block will carry the metadata and tags.
             agent.invoke("What is the capital of France?")
@@ -68,6 +69,19 @@ def context(
         with mlflow.tracing.context(enabled=False):
             # No traces will be created inside this block.
             agent.invoke("This call will not be traced")
+
+    The context manager can be nested to combine multiple sets of metadata and tags. When same key
+    is specified in multiple levels, the value from the inner level takes precedence.
+
+    .. code-block:: python
+
+        import mlflow
+
+        with mlflow.tracing.context(metadata={"foo": "bar", "baz": "qux"}):
+            with mlflow.tracing.context(metadata={"foo": "baz", "qux": "quux"}):
+                my_func()
+
+        # Trace created by my_func will have metadata={"foo": "baz", "baz": "qux", "qux": "quux"}
 
     Args:
         metadata: Key-value pairs to inject into the trace's ``request_metadata``
