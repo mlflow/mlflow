@@ -699,7 +699,7 @@ def test_tracing_headers_preserve_existing_config_headers(is_async):
     assert headers["X-Custom"] == "my-value"
 
 
-def test_tracing_headers_skipped_when_config_is_none(is_async):
+def test_tracing_headers_injected_when_config_is_none(is_async):
     captured_config = {}
 
     if is_async:
@@ -716,11 +716,28 @@ def test_tracing_headers_skipped_when_config_is_none(is_async):
     cls = "AsyncModels" if is_async else "Models"
     with patch(f"google.genai.models.{cls}._generate_content", new=_generate_content):
         mlflow.gemini.autolog()
-        # Call without config — injection is skipped to avoid polluting inner span inputs
+        # Call without config — headers should still be injected
         _call_generate_content(is_async, "test content")
 
     traces = get_traces()
     assert len(traces) == 1
-    # Verify config was not modified (no traceparent injected when config is None)
+
+    # Verify traceparent was injected via config even though original config was None
     config = captured_config["config"]
-    assert config is None
+    if isinstance(config, dict):
+        headers = config.get("http_options", {}).get("headers", {})
+    else:
+        headers = getattr(getattr(config, "http_options", None), "headers", {}) or {}
+    assert "traceparent" in headers
+    assert re.fullmatch(r"00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}", headers["traceparent"])
+
+    # Verify the traceparent is stripped from span inputs
+    for span in traces[0].data.spans:
+        config_input = span.inputs.get("config")
+        if config_input is None:
+            continue
+        if isinstance(config_input, dict):
+            http_headers = config_input.get("http_options", {}).get("headers", {})
+        else:
+            http_headers = getattr(getattr(config_input, "http_options", None), "headers", {}) or {}
+        assert "traceparent" not in http_headers

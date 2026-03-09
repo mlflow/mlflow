@@ -1,3 +1,4 @@
+import copy
 import inspect
 import logging
 from typing import Any
@@ -94,10 +95,11 @@ class TracingSession:
         if not config.log_traces:
             return self
 
+        clean_inputs = _strip_traceparent_from_inputs(self.inputs)
         self.span = mlflow.start_span_no_context(
             name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
             span_type=_get_span_type(self.original.__name__),
-            inputs=self.inputs,
+            inputs=clean_inputs,
             attributes={SpanAttributeKey.MESSAGE_FORMAT: "gemini"},
         )
         if has_generativeai and isinstance(self.instance, generativeai.GenerativeModel):
@@ -255,10 +257,12 @@ def _inject_tracing_headers_genai(kwargs: dict[str, Any], span: LiveSpan):
         if not tracing_headers:
             return
 
-        config = kwargs.get("config")
+        if "config" not in kwargs:
+            return
+
+        config = kwargs["config"]
         if config is None:
-            # Don't create a config from scratch — it would leak into inner span inputs
-            # (e.g. _generate_content) and pollute the trace.
+            kwargs["config"] = {"http_options": {"headers": tracing_headers}}
             return
         elif isinstance(config, dict):
             http_options = config.get("http_options") or {}
@@ -278,6 +282,67 @@ def _inject_tracing_headers_genai(kwargs: dict[str, Any], span: LiveSpan):
                 http_options.headers = tracing_headers | existing_headers
     except Exception:
         _logger.debug("Failed to inject tracing headers for Gemini", exc_info=True)
+
+
+def _strip_traceparent_from_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of inputs with traceparent stripped from config headers.
+
+    The inner _generate_content span receives the SDK-transformed config which
+    includes the injected traceparent header. Strip it so span inputs stay clean
+    without mutating the original config object.
+    """
+    config = inputs.get("config")
+    if config is None:
+        return inputs
+
+    def _has_traceparent(cfg) -> bool:
+        if isinstance(cfg, dict):
+            return "traceparent" in (cfg.get("http_options", {}) or {}).get("headers", {})
+        if http_options := getattr(cfg, "http_options", None):
+            return "traceparent" in (getattr(http_options, "headers", None) or {})
+        return False
+
+    if not _has_traceparent(config):
+        return inputs
+
+    inputs = copy.deepcopy(inputs)
+    config = inputs["config"]
+    if isinstance(config, dict):
+        headers = config.get("http_options", {}).get("headers", {})
+        headers.pop("traceparent", None)
+    else:
+        headers = getattr(getattr(config, "http_options", None), "headers", None)
+        if isinstance(headers, dict):
+            headers.pop("traceparent", None)
+
+    # If the config was created solely for header injection (all other fields are
+    # None/empty), replace it with None to keep span inputs clean.
+    if _is_tracing_only_config(inputs["config"]):
+        inputs["config"] = None
+    return inputs
+
+
+def _is_tracing_only_config(config) -> bool:
+    """Check if a config object was created solely for tracing header injection."""
+    if isinstance(config, dict):
+        http_options = config.get("http_options", {})
+        non_http = {k: v for k, v in config.items() if k != "http_options"}
+        if any(v is not None for v in non_http.values()):
+            return False
+        if isinstance(http_options, dict):
+            return not http_options.get("headers")
+        return False
+    # Pydantic-style config: check if all fields except http_options are None
+    for key, value in (config.to_dict() if hasattr(config, "to_dict") else vars(config)).items():
+        if key == "http_options":
+            continue
+        if value is not None:
+            return False
+    http_options = getattr(config, "http_options", None)
+    if http_options is None:
+        return True
+    headers = getattr(http_options, "headers", None)
+    return not headers
 
 
 def _get_span_type(task_name: str) -> str:
