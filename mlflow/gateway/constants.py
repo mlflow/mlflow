@@ -16,14 +16,12 @@ MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS = 300
 # remove timeouts from the list of the retryable conditions. A long-running timeout with
 # retries for the proxied providers generally indicates an issue with the underlying query or
 # the model being served having issues responding to the query due to parameter configuration.
-MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES = frozenset(
-    [
-        429,  # Too many requests
-        500,  # Server Error
-        502,  # Bad Gateway
-        503,  # Service Unavailable
-    ]
-)
+MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES = frozenset([
+    429,  # Too many requests
+    500,  # Server Error
+    502,  # Bad Gateway
+    503,  # Service Unavailable
+])
 
 # Provider constants
 MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS = 1_000_000

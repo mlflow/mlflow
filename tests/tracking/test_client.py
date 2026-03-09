@@ -50,6 +50,7 @@ from mlflow.exceptions import (
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
+from mlflow.prompt.registry_utils import PromptCache
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.sqlalchemy_store import (
@@ -231,28 +232,26 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
             ),
             TraceData(
                 spans=[
-                    Span.from_dict(
-                        {
-                            "name": "predict",
-                            "context": {
-                                "trace_id": "0x123456789",
-                                "span_id": "0x12345",
-                            },
-                            "parent_id": None,
-                            "start_time": 123000000,
-                            "end_time": 579000000,
-                            "status_code": "OK",
-                            "status_message": "",
-                            "attributes": {
-                                "mlflow.traceRequestId": f'"{trace_id}"',
-                                "mlflow.spanType": '"LLM"',
-                                "mlflow.spanFunctionName": '"predict"',
-                                "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
-                                "mlflow.spanOutputs": '{"answer": 42}',
-                            },
-                            "events": [],
-                        }
-                    )
+                    Span.from_dict({
+                        "name": "predict",
+                        "context": {
+                            "trace_id": "0x123456789",
+                            "span_id": "0x12345",
+                        },
+                        "parent_id": None,
+                        "start_time": 123000000,
+                        "end_time": 579000000,
+                        "status_code": "OK",
+                        "status_message": "",
+                        "attributes": {
+                            "mlflow.traceRequestId": f'"{trace_id}"',
+                            "mlflow.spanType": '"LLM"',
+                            "mlflow.spanFunctionName": '"predict"',
+                            "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
+                            "mlflow.spanOutputs": '{"answer": 42}',
+                        },
+                        "events": [],
+                    })
                 ]
             ),
         )
@@ -453,12 +452,10 @@ def test_client_search_traces_with_large_results(mock_store, mock_artifact_repo)
     )
     assert len(results) == 100
     assert mock_store.batch_get_traces.call_count == 10
-    assert mock_store.batch_get_traces.has_calls(
-        [
-            mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
-            for j in range(10)
-        ]
-    )
+    assert mock_store.batch_get_traces.has_calls([
+        mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
+        for j in range(10)
+    ])
     mock_artifact_repo.download_trace_data.assert_not_called()
 
 
@@ -683,6 +680,13 @@ def disable_prompt_cache():
     yield
     MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS.unset()
     MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS.unset()
+
+
+@pytest.fixture(autouse=True)
+def reset_prompt_cache():
+    PromptCache._reset_instance()
+    yield
+    PromptCache._reset_instance()
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
@@ -1211,12 +1215,10 @@ def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
 def test_set_trace_tag_on_logged_trace(mock_store):
     mlflow.tracking.MlflowClient().set_trace_tag("test", "foo", "bar")
     mlflow.tracking.MlflowClient().set_trace_tag("test", "mlflow.some.reserved.tag", "value")
-    mock_store.set_trace_tag.assert_has_calls(
-        [
-            mock.call("test", "foo", "bar"),
-            mock.call("test", "mlflow.some.reserved.tag", "value"),
-        ]
-    )
+    mock_store.set_trace_tag.assert_has_calls([
+        mock.call("test", "foo", "bar"),
+        mock.call("test", "mlflow.some.reserved.tag", "value"),
+    ])
 
 
 def test_delete_trace_tag_on_active_trace(monkeypatch):
@@ -2477,6 +2479,68 @@ def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
         client.get_prompt_version("test_prompt", 1)
 
 
+def test_delete_prompt_version_invalidates_cached_load_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt_ver = client.register_prompt(name="test_prompt", template="Version 1")
+    loaded = client.load_prompt(prompt_ver.name, version=prompt_ver.version)
+    assert loaded.template == "Version 1"
+
+    client.delete_prompt_version(prompt_ver.name, str(prompt_ver.version))
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Prompt.*name={prompt_ver.name}.*version={prompt_ver.version}.*not found",
+    ):
+        client.get_prompt_version(prompt_ver.name, prompt_ver.version)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Prompt.*name={prompt_ver.name}.*version={prompt_ver.version}.*not found",
+    ):
+        client.load_prompt(prompt_ver.name, version=prompt_ver.version)
+
+
+def test_delete_prompt_version_invalidates_latest_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt_v1 = client.register_prompt(name="test_prompt", template="Version 1")
+    prompt_v2 = client.register_prompt(name=prompt_v1.name, template="Version 2")
+
+    latest_prompt = client.load_prompt(f"prompts:/{prompt_v1.name}@latest")
+    assert latest_prompt.version == prompt_v2.version
+    assert latest_prompt.template == prompt_v2.template
+
+    client.delete_prompt_version(prompt_v2.name, str(prompt_v2.version))
+
+    latest_prompt_after_delete = client.load_prompt(f"prompts:/{prompt_v1.name}@latest")
+    assert latest_prompt_after_delete.version == prompt_v1.version
+    assert latest_prompt_after_delete.template == prompt_v1.template
+
+
+def test_delete_prompt_version_invalidates_alias_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt_v1 = client.register_prompt(name="test_prompt", template="Version 1")
+    client.register_prompt(name=prompt_v1.name, template="Version 2")
+    client.set_prompt_alias(prompt_v1.name, alias="production", version=prompt_v1.version)
+
+    aliased_prompt = client.load_prompt(f"prompts:/{prompt_v1.name}@production")
+    assert aliased_prompt.version == prompt_v1.version
+    assert aliased_prompt.template == prompt_v1.template
+
+    client.delete_prompt_version(prompt_v1.name, str(prompt_v1.version))
+
+    with pytest.raises(
+        MlflowException,
+        match=(
+            r"Prompt (.*) does not exist.|Prompt alias (.*) not found.|"
+            rf"Prompt.*version={prompt_v1.version}.*not found"
+        ),
+    ):
+        client.load_prompt(f"prompts:/{prompt_v1.name}@production")
+
+
 def test_delete_prompt_with_no_versions(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
     mlflow.set_experiment("test_delete_prompt_with_no_versions")
@@ -2495,6 +2559,21 @@ def test_delete_prompt_with_no_versions(tracking_uri):
     # Prompt should be gone
     prompt = client.get_prompt("empty_prompt")
     assert prompt is None
+
+
+def test_delete_prompt_invalidates_cached_load_prompt(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt_ver = client.register_prompt(name="test_prompt", template="Version 1")
+    loaded = client.load_prompt(prompt_ver.name, version=prompt_ver.version)
+    assert loaded.template == "Version 1"
+
+    client.delete_prompt(prompt_ver.name)
+
+    assert client.get_prompt(prompt_ver.name) is None
+
+    with pytest.raises(MlflowException, match=rf"Prompt.*name={prompt_ver.name}.*not found"):
+        client.load_prompt(prompt_ver.name, version=prompt_ver.version)
 
 
 def test_delete_prompt_complete_workflow(tracking_uri):
@@ -2575,12 +2654,11 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
     # Mock Unity Catalog behavior
     client = MlflowClient(registry_uri=registry_uri)
 
-    # Mock the search_prompt_versions to return versions
-    mock_response = Mock()
-    mock_response.prompt_versions = [Mock(version="1")]
+    # Mock the search_prompt_versions to return a PagedList with versions
+    mock_versions = PagedList([Mock(version="1")], None)
 
     with (
-        patch.object(client, "search_prompt_versions", return_value=mock_response),
+        patch.object(client, "search_prompt_versions", return_value=mock_versions),
         patch.object(client, "_registry_uri", registry_uri),
     ):
         with pytest.raises(

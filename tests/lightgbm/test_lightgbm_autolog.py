@@ -243,15 +243,13 @@ def test_lgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
     ):
         mlflow.lightgbm.autolog(log_models=True, log_model_signatures=True, log_input_examples=True)
 
-        X = pd.DataFrame(
-            {
-                "Total Volume": [64236.62, 54876.98, 118220.22],
-                "Total Bags": [8696.87, 9505.56, 8145.35],
-                "Small Bags": [8603.62, 9408.07, 8042.21],
-                "Large Bags": [93.25, 97.49, 103.14],
-                "XLarge Bags": [0.0, 0.0, 0.0],
-            }
-        )
+        X = pd.DataFrame({
+            "Total Volume": [64236.62, 54876.98, 118220.22],
+            "Total Bags": [8696.87, 9505.56, 8145.35],
+            "Small Bags": [8603.62, 9408.07, 8042.21],
+            "Large Bags": [93.25, 97.49, 103.14],
+            "XLarge Bags": [0.0, 0.0, 0.0],
+        })
         y = pd.Series([1, 0, 1])
 
         params = {"n_estimators": 10, "reg_lambda": 1}
@@ -474,14 +472,12 @@ def test_lgb_autolog_batch_metrics_logger_logs_expected_metrics(bst_params, trai
 def ranking_dataset(num_rows=100, num_queries=10):
     # https://stackoverflow.com/a/67621253
     num_rows_per_query = num_rows // num_queries
-    df = pd.DataFrame(
-        {
-            "query_id": [i for i in range(num_queries) for _ in range(num_rows_per_query)],
-            "f1": np.random.random(size=(num_rows,)),
-            "f2": np.random.random(size=(num_rows,)),
-            "relevance": np.random.randint(2, size=(num_rows,)),
-        }
-    )
+    df = pd.DataFrame({
+        "query_id": [i for i in range(num_queries) for _ in range(num_rows_per_query)],
+        "f1": np.random.random(size=(num_rows,)),
+        "f2": np.random.random(size=(num_rows,)),
+        "relevance": np.random.randint(2, size=(num_rows,)),
+    })
     train_size = int(num_rows * 0.75)
     df_train = df[:train_size]
     df_valid = df[train_size:]
@@ -768,9 +764,9 @@ def test_lgb_log_datasets(bst_params, train_set, log_datasets):
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     if log_datasets:
         assert len(dataset_inputs) == 1
-        assert dataset_inputs[0].dataset.schema == json.dumps(
-            {"mlflow_colspec": _infer_schema(train_set.data).to_dict()}
-        )
+        assert dataset_inputs[0].dataset.schema == json.dumps({
+            "mlflow_colspec": _infer_schema(train_set.data).to_dict()
+        })
     else:
         assert len(dataset_inputs) == 0
 
@@ -785,13 +781,13 @@ def test_lgb_log_datasets_with_valid_set(bst_params, train_set, valid_set):
     dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
     assert len(dataset_inputs) == 2
     assert dataset_inputs[0].tags[0].value == "train"
-    assert dataset_inputs[0].dataset.schema == json.dumps(
-        {"mlflow_colspec": _infer_schema(train_set.data).to_dict()}
-    )
+    assert dataset_inputs[0].dataset.schema == json.dumps({
+        "mlflow_colspec": _infer_schema(train_set.data).to_dict()
+    })
     assert dataset_inputs[1].tags[0].value == "eval"
-    assert dataset_inputs[1].dataset.schema == json.dumps(
-        {"mlflow_colspec": _infer_schema(valid_set.data).to_dict()}
-    )
+    assert dataset_inputs[1].dataset.schema == json.dumps({
+        "mlflow_colspec": _infer_schema(valid_set.data).to_dict()
+    })
 
 
 def test_lgb_log_datasets_with_valid_set_with_name(bst_params, train_set, valid_set):
