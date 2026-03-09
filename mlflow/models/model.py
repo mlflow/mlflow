@@ -1152,7 +1152,6 @@ class Model:
             if model_id is not None:
                 model = client.get_logged_model(model_id)
             else:
-                serialization_format = kwargs.pop("serialization_format", None)
                 params = {
                     **(params or {}),
                     **(client.get_run(run_id).data.params if run_id else {}),
@@ -1169,7 +1168,7 @@ class Model:
                     if tags is not None
                     else None,
                     flavor=flavor_name,
-                    serialization_format=serialization_format,
+                    serialization_format=kwargs.pop("serialization_format", None),
                 )
                 _last_logged_model_id.set(model.model_id)
                 if (
