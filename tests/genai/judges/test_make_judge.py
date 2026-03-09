@@ -58,9 +58,9 @@ def mock_databricks_rag_eval(monkeypatch):
         def __init__(self, output_data=None):
             data = output_data or {"result": True, "rationale": "Test passed"}
             self.output = json.dumps(data)
-            self.output_json = json.dumps(
-                {"choices": [{"message": {"role": "assistant", "content": json.dumps(data)}}]}
-            )
+            self.output_json = json.dumps({
+                "choices": [{"message": {"role": "assistant", "content": json.dumps(data)}}]
+            })
             self.error_message = None
 
     class MockManagedRAGClient:
@@ -130,18 +130,16 @@ def mock_invoke_judge_model(monkeypatch):
         calls.append((model_uri, prompt, assessment_name))
 
         # Store latest call details in dict format
-        captured_args.update(
-            {
-                "model_uri": model_uri,
-                "prompt": prompt,
-                "assessment_name": assessment_name,
-                "trace": trace,
-                "num_retries": num_retries,
-                "response_format": response_format,
-                "use_case": use_case,
-                "inference_params": inference_params,
-            }
-        )
+        captured_args.update({
+            "model_uri": model_uri,
+            "prompt": prompt,
+            "assessment_name": assessment_name,
+            "trace": trace,
+            "num_retries": num_retries,
+            "response_format": response_format,
+            "use_case": use_case,
+            "inference_params": inference_params,
+        })
 
         # Return appropriate Feedback based on whether trace is provided
         if trace is not None:
@@ -193,9 +191,9 @@ def mock_trace():
         trace_metadata={
             "mlflow.trace_schema.version": "2",
             "mlflow.traceInputs": json.dumps({"question": "What is MLflow?"}),
-            "mlflow.traceOutputs": json.dumps(
-                {"answer": "MLflow is an open source platform for ML lifecycle management."}
-            ),
+            "mlflow.traceOutputs": json.dumps({
+                "answer": "MLflow is an open source platform for ML lifecycle management."
+            }),
         },
         tags={
             "mlflow.traceName": "test_trace",
@@ -366,9 +364,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
         def __init__(self):
             invalid_text = "This is not valid JSON - maybe the model returned plain text"
             self.output = invalid_text
-            self.output_json = json.dumps(
-                {"choices": [{"message": {"role": "assistant", "content": invalid_text}}]}
-            )
+            self.output_json = json.dumps({
+                "choices": [{"message": {"role": "assistant", "content": invalid_text}}]
+            })
 
     class MockClientInvalid:
         def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
@@ -398,9 +396,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
         def __init__(self):
             data = {"rationale": "Some rationale but no result field"}
             self.output = json.dumps(data)
-            self.output_json = json.dumps(
-                {"choices": [{"message": {"role": "assistant", "content": json.dumps(data)}}]}
-            )
+            self.output_json = json.dumps({
+                "choices": [{"message": {"role": "assistant", "content": json.dumps(data)}}]
+            })
 
     class MockClientMissingField:
         def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
@@ -676,18 +674,16 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
         use_case=None,
         inference_params=None,
     ):
-        captured_args.update(
-            {
-                "model_uri": model_uri,
-                "prompt": prompt,
-                "assessment_name": assessment_name,
-                "trace": trace,
-                "num_retries": num_retries,
-                "response_format": response_format,
-                "use_case": use_case,
-                "inference_params": inference_params,
-            }
-        )
+        captured_args.update({
+            "model_uri": model_uri,
+            "prompt": prompt,
+            "assessment_name": assessment_name,
+            "trace": trace,
+            "num_retries": num_retries,
+            "response_format": response_format,
+            "use_case": use_case,
+            "inference_params": inference_params,
+        })
         return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
 
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
@@ -1449,18 +1445,16 @@ def test_instructions_judge_works_with_evaluate(mock_invoke_judge_model):
 
     assert judge.aggregations == []
 
-    data = pd.DataFrame(
-        {
-            "inputs": [
-                {"question": "What is MLflow?"},
-                {"question": "How to track experiments?"},
-            ],
-            "outputs": [
-                {"response": "MLflow is an open source platform for ML lifecycle."},
-                {"response": "Use mlflow.start_run() to track experiments."},
-            ],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [
+            {"question": "What is MLflow?"},
+            {"question": "How to track experiments?"},
+        ],
+        "outputs": [
+            {"response": "MLflow is an open source platform for ML lifecycle."},
+            {"response": "Use mlflow.start_run() to track experiments."},
+        ],
+    })
 
     result = mlflow.genai.evaluate(data=data, scorers=[judge])
 

@@ -68,20 +68,18 @@ def predict_fn(input_language, output_language, text):
     )
 
     # Run the agent
-    response = agent.invoke(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": user_prompt.format(
-                        input_language=input_language,
-                        output_language=output_language,
-                        text=text,
-                    ),
-                }
-            ]
-        }
-    )
+    response = agent.invoke({
+        "messages": [
+            {
+                "role": "user",
+                "content": user_prompt.format(
+                    input_language=input_language,
+                    output_language=output_language,
+                    text=text,
+                ),
+            }
+        ]
+    })
 
     return response["messages"][-1].content
 

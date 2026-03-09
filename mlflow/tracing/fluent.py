@@ -327,6 +327,7 @@ def _wrap_function(
                 _WrappingContext(fn, args, kwargs) as wrapping_coro,
             ):
                 return wrapping_coro.send(await fn(*args, **kwargs))
+
     else:
 
         def wrapper(*args, **kwargs):
@@ -446,6 +447,7 @@ def _wrap_generator(
                     yield value
                     i += 1
             _end_stream_span(span, inputs, outputs, output_reducer)
+
     else:
 
         async def wrapper(*args, **kwargs):
@@ -843,7 +845,8 @@ def search_traces(
 
         locations: A list of locations to search over. To search over experiments, provide
             a list of experiment IDs. To search over UC tables on databricks, provide
-            a list of locations in the format `<catalog_name>.<schema_name>`.
+            a list of locations in the format
+            `<catalog_name>.<schema_name>[.<table_prefix>]`.
             If not provided, the search will be performed across the current active experiment.
 
     Returns:
@@ -999,7 +1002,8 @@ def search_sessions(
             the trace metadata is returned. Default is ``True``.
         locations: A list of locations to search over. To search over experiments, provide
             a list of experiment IDs. To search over UC tables on databricks, provide
-            a list of locations in the format `<catalog_name>.<schema_name>`.
+            a list of locations in the format
+            `<catalog_name>.<schema_name>[.<table_prefix>]`.
             If not provided, the search will be performed across the current active experiment.
 
     Returns:

@@ -20,6 +20,12 @@ from mlflow.entities import (
     RunTag,
 )
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+)
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
@@ -60,15 +66,19 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     CreateWebhookEvent,
     EvaluateEvent,
+    GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
     GatewayCreateSecretEvent,
+    GatewayDeleteBudgetPolicyEvent,
     GatewayDeleteEndpointEvent,
     GatewayDeleteSecretEvent,
     GatewayGetEndpointEvent,
     GatewayInvocationEvent,
+    GatewayListBudgetPoliciesEvent,
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
     GatewayStartEvent,
+    GatewayUpdateBudgetPolicyEvent,
     GatewayUpdateEndpointEvent,
     GatewayUpdateSecretEvent,
     GenAIEvaluateEvent,
@@ -559,13 +569,11 @@ def test_genai_evaluate_telemetry_data_fields(
         )
 
         # Test with pandas DataFrame
-        df_data = pd.DataFrame(
-            [
-                {"inputs": {"question": "Q1"}, "outputs": "A1"},
-                {"inputs": {"question": "Q2"}, "outputs": "A2"},
-                {"inputs": {"question": "Q3"}, "outputs": "A3"},
-            ]
-        )
+        df_data = pd.DataFrame([
+            {"inputs": {"question": "Q1"}, "outputs": "A1"},
+            {"inputs": {"question": "Q2"}, "outputs": "A2"},
+            {"inputs": {"question": "Q3"}, "outputs": "A3"},
+        ])
         mlflow.genai.evaluate(data=df_data, scorers=[sample_scorer])
         expected_params = {
             "predict_fn_provided": False,
@@ -1278,13 +1286,11 @@ def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
         data = [record["data"] for record in mock_requests]
         params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
         assert (
-            json.dumps(
-                {
-                    "flavor": mlflow.openai.FLAVOR_NAME,
-                    "log_traces": True,
-                    "disable": False,
-                }
-            )
+            json.dumps({
+                "flavor": mlflow.openai.FLAVOR_NAME,
+                "log_traces": True,
+                "disable": False,
+            })
             in params
         )
         assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
@@ -1455,16 +1461,14 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
     model("How does MLflow work?", session_id="test_session")
     trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
-    test_data = pd.DataFrame(
-        [
-            {
-                "trace": trace_1,
-            },
-            {
-                "trace": trace_2,
-            },
-        ]
-    )
+    test_data = pd.DataFrame([
+        {
+            "trace": trace_1,
+        },
+        {
+            "trace": trace_2,
+        },
+    ])
 
     mock_feedback = Feedback(
         name="test_feedback",
@@ -1694,12 +1698,10 @@ def test_scorer_call_wrapped_builtin_scorer_from_genai_evaluate(
     model("How does MLflow work?", session_id="test_session")
     trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
-    test_data = pd.DataFrame(
-        [
-            {"trace": trace_1},
-            {"trace": trace_2},
-        ]
-    )
+    test_data = pd.DataFrame([
+        {"trace": trace_1},
+        {"trace": trace_2},
+    ])
 
     mock_feedback = Feedback(
         name="user_frustration",
@@ -1891,6 +1893,58 @@ def test_gateway_secret_crud_telemetry(
     )
 
     store.delete_gateway_secret(secret_id=secret2.secret_id)
+
+
+def test_gateway_budget_policy_crud_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    db_path = tmp_path / "mlflow.db"
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+
+    policy = store.create_budget_policy(
+        budget_unit=BudgetUnit.USD,
+        budget_amount=100.0,
+        duration_unit=BudgetDurationUnit.DAYS,
+        duration_value=30,
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+        created_by="test-user",
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayCreateBudgetPolicyEvent.name,
+        {
+            "budget_unit": "USD",
+            "duration_unit": "DAYS",
+            "target_scope": "GLOBAL",
+            "budget_action": "ALERT",
+        },
+    )
+
+    store.list_budget_policies()
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayListBudgetPoliciesEvent.name,
+    )
+
+    store.update_budget_policy(
+        budget_policy_id=policy.budget_policy_id,
+        budget_amount=200.0,
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayUpdateBudgetPolicyEvent.name,
+    )
+
+    store.delete_budget_policy(budget_policy_id=policy.budget_policy_id)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayDeleteBudgetPolicyEvent.name,
+    )
 
 
 @pytest.mark.asyncio

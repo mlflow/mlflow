@@ -47,12 +47,10 @@ class MetaDataset(Dataset):
         source = mlflow.data.http_dataset_source.HTTPDatasetSource(
             url="https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
         )
-        schema = Schema(
-            [
-                ColSpec(type=mlflow.types.DataType.string, name="text"),
-                ColSpec(type=mlflow.types.DataType.integer, name="label"),
-            ]
-        )
+        schema = Schema([
+            ColSpec(type=mlflow.types.DataType.string, name="text"),
+            ColSpec(type=mlflow.types.DataType.integer, name="label"),
+        ])
         ds = mlflow.data.meta_dataset.MetaDataset(source, schema=schema)
 
         with mlflow.start_run() as run:

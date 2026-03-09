@@ -425,6 +425,7 @@ mlflow.entities.Issue.to_proto
 mlflow.entities.IssueReference
 mlflow.entities.IssueReference.from_dictionary
 mlflow.entities.IssueReference.from_proto
+mlflow.entities.IssueStatus
 mlflow.entities.LifecycleStage
 mlflow.entities.LifecycleStage.is_valid
 mlflow.entities.LifecycleStage.matches_view_type
@@ -578,6 +579,9 @@ mlflow.entities.TraceState.to_proto
 mlflow.entities.UCSchemaLocation
 mlflow.entities.UCSchemaLocation.from_dict
 mlflow.entities.UCSchemaLocation.to_dict
+mlflow.entities.UnityCatalog
+mlflow.entities.UnityCatalog.from_dict
+mlflow.entities.UnityCatalog.to_dict
 mlflow.entities.ViewType
 mlflow.entities.ViewType.from_proto
 mlflow.entities.ViewType.from_string
@@ -639,6 +643,7 @@ mlflow.entities.gateway_endpoint.RoutingStrategy
 mlflow.entities.gateway_secrets.GatewaySecretInfo
 mlflow.entities.input_tag.InputTag
 mlflow.entities.issue.Issue
+mlflow.entities.issue.IssueStatus
 mlflow.entities.lifecycle_stage.LifecycleStage
 mlflow.entities.logged_model.LoggedModel
 mlflow.entities.logged_model_input.LoggedModelInput
@@ -720,6 +725,7 @@ mlflow.entities.trace_location.MlflowExperimentLocation
 mlflow.entities.trace_location.TraceLocation
 mlflow.entities.trace_location.TraceLocationType
 mlflow.entities.trace_location.UCSchemaLocation
+mlflow.entities.trace_location.UnityCatalog
 mlflow.entities.trace_state.TraceState
 mlflow.entities.view_type.ViewType
 mlflow.entities.webhook.Webhook

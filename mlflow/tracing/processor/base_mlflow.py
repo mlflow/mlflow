@@ -168,16 +168,14 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
 
         # TODO: Remove this once the new trace table UI is available that is based on V3 trace.
         # Until then, these two are still used to render the "request" and "response" columns.
-        trace.info.trace_metadata.update(
-            {
-                TraceMetadataKey.INPUTS: self._truncate_metadata(
-                    root_span.attributes.get(SpanAttributeKey.INPUTS)
-                ),
-                TraceMetadataKey.OUTPUTS: self._truncate_metadata(
-                    root_span.attributes.get(SpanAttributeKey.OUTPUTS)
-                ),
-            }
-        )
+        trace.info.trace_metadata.update({
+            TraceMetadataKey.INPUTS: self._truncate_metadata(
+                root_span.attributes.get(SpanAttributeKey.INPUTS)
+            ),
+            TraceMetadataKey.OUTPUTS: self._truncate_metadata(
+                root_span.attributes.get(SpanAttributeKey.OUTPUTS)
+            ),
+        })
 
         spans = trace.span_dict.values()
         # Aggregate token usage information from all spans

@@ -77,6 +77,7 @@ import {
   COST_METADATA_KEY,
   MLFLOW_SPAN_OUTPUT_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
+  SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
@@ -462,10 +463,13 @@ export const normalizeNewSpanData = (
     inputs,
   );
 
-  // Extract model name and cost info
+  // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
   const cost = getCostFromSpan(
     tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) as string),
+  );
+  const linkedGatewayTraceId = tryDeserializeAttribute(
+    getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,
   );
 
   // remove other private mlflow attributes
@@ -503,6 +507,7 @@ export const normalizeNewSpanData = (
     traceId,
     modelName,
     cost,
+    linkedGatewayTraceId,
   };
 };
 

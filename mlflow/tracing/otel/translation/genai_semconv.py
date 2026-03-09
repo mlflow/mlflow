@@ -92,9 +92,10 @@ class GenAiTranslator(OtelSchemaTranslator):
 
             elif event_name == "gen_ai.assistant.message":
                 if content := event_attrs.get("content"):
-                    messages.append(
-                        {"role": "assistant", "content": self._decode_json_value(content)}
-                    )
+                    messages.append({
+                        "role": "assistant",
+                        "content": self._decode_json_value(content),
+                    })
 
         return json.dumps(messages) if messages else None
 
@@ -120,11 +121,9 @@ class GenAiTranslator(OtelSchemaTranslator):
             if event_name == "gen_ai.choice":
                 if content := event_attrs.get("content"):
                     role = event_attrs.get("role", "assistant")
-                    messages.append(
-                        {
-                            "role": self._decode_json_value(role),
-                            "content": self._decode_json_value(content),
-                        }
-                    )
+                    messages.append({
+                        "role": self._decode_json_value(role),
+                        "content": self._decode_json_value(content),
+                    })
 
         return json.dumps(messages) if messages else None

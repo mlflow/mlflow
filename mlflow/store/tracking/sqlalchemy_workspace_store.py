@@ -84,7 +84,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         if model is SqlLoggedModel:
             workspace_experiment_ids = (
-                session.query(SqlExperiment.experiment_id)
+                session
+                .query(SqlExperiment.experiment_id)
                 .filter(SqlExperiment.workspace == workspace)
                 .subquery()
             )
@@ -152,7 +153,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
         if for_update_or_delete:
             workspace = self._get_active_workspace()
             workspace_experiment_ids = (
-                session.query(SqlExperiment.experiment_id)
+                session
+                .query(SqlExperiment.experiment_id)
                 .filter(SqlExperiment.workspace == workspace)
                 .subquery()
             )
@@ -167,7 +169,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     def _filter_experiment_ids(self, session, experiment_ids):
         workspace = self._get_active_workspace()
         rows = (
-            session.query(SqlExperiment.experiment_id)
+            session
+            .query(SqlExperiment.experiment_id)
             .filter(
                 SqlExperiment.experiment_id.in_(experiment_ids),
                 SqlExperiment.workspace == workspace,
@@ -188,7 +191,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         if entity_type == EntityAssociationType.EXPERIMENT:
             rows = (
-                session.query(SqlExperiment.experiment_id)
+                session
+                .query(SqlExperiment.experiment_id)
                 .filter(
                     SqlExperiment.experiment_id.in_(entity_ids),
                     SqlExperiment.workspace == workspace,
@@ -199,7 +203,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         if entity_type == EntityAssociationType.RUN:
             rows = (
-                session.query(SqlRun.run_uuid)
+                session
+                .query(SqlRun.run_uuid)
                 .join(SqlExperiment, SqlRun.experiment_id == SqlExperiment.experiment_id)
                 .filter(SqlRun.run_uuid.in_(entity_ids), SqlExperiment.workspace == workspace)
                 .all()
@@ -208,7 +213,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         if entity_type == EntityAssociationType.TRACE:
             rows = (
-                session.query(SqlTraceInfo.request_id)
+                session
+                .query(SqlTraceInfo.request_id)
                 .join(SqlExperiment, SqlTraceInfo.experiment_id == SqlExperiment.experiment_id)
                 .filter(
                     SqlTraceInfo.request_id.in_(entity_ids),
@@ -220,7 +226,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         if entity_type == EntityAssociationType.EVALUATION_DATASET:
             rows = (
-                session.query(SqlEvaluationDataset.dataset_id)
+                session
+                .query(SqlEvaluationDataset.dataset_id)
                 .filter(
                     SqlEvaluationDataset.dataset_id.in_(entity_ids),
                     SqlEvaluationDataset.workspace == workspace,
@@ -240,7 +247,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             # SqlEntityAssociation.destination_id. PostgreSQL requires explicit type
             # matching for IN comparisons.
             subquery = (
-                session.query(
+                session
+                .query(
                     sql.cast(SqlExperiment.experiment_id, sqlalchemy.String).label("experiment_id")
                 )
                 .filter(SqlExperiment.workspace == workspace)
@@ -249,7 +257,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             id_source = subquery.c.experiment_id
         elif target_type == EntityAssociationType.RUN:
             subquery = (
-                session.query(SqlRun.run_uuid)
+                session
+                .query(SqlRun.run_uuid)
                 .join(SqlExperiment, SqlRun.experiment_id == SqlExperiment.experiment_id)
                 .filter(SqlExperiment.workspace == workspace)
                 .subquery()
@@ -257,7 +266,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             id_source = subquery.c.run_uuid
         elif target_type == EntityAssociationType.TRACE:
             subquery = (
-                session.query(SqlTraceInfo.request_id)
+                session
+                .query(SqlTraceInfo.request_id)
                 .join(SqlExperiment, SqlTraceInfo.experiment_id == SqlExperiment.experiment_id)
                 .filter(SqlExperiment.workspace == workspace)
                 .subquery()
@@ -265,7 +275,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
             id_source = subquery.c.request_id
         elif target_type == EntityAssociationType.EVALUATION_DATASET:
             subquery = (
-                session.query(SqlEvaluationDataset.dataset_id)
+                session
+                .query(SqlEvaluationDataset.dataset_id)
                 .filter(SqlEvaluationDataset.workspace == workspace)
                 .subquery()
             )
@@ -277,7 +288,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
     def _filter_endpoint_binding_query(self, session, query):
         endpoint_ids_subquery = (
-            self._get_query(session, SqlGatewayEndpoint)
+            self
+            ._get_query(session, SqlGatewayEndpoint)
             .with_entities(SqlGatewayEndpoint.endpoint_id)
             .subquery()
         )
@@ -288,7 +300,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     def _validate_run_accessible(self, session, run_id: str) -> None:
         workspace = self._get_active_workspace()
         exists_row = (
-            session.query(SqlRun.run_uuid)
+            session
+            .query(SqlRun.run_uuid)
             .filter(SqlRun.run_uuid == run_id)
             .filter(
                 SqlRun.experiment_id.in_(
@@ -308,7 +321,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     def _validate_trace_accessible(self, session, trace_id: str) -> None:
         workspace = self._get_active_workspace()
         exists_row = (
-            session.query(SqlTraceInfo.request_id)
+            session
+            .query(SqlTraceInfo.request_id)
             .filter(SqlTraceInfo.request_id == trace_id)
             .filter(
                 SqlTraceInfo.experiment_id.in_(
@@ -328,7 +342,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
     def _validate_dataset_accessible(self, session, dataset_id: str) -> None:
         workspace = self._get_active_workspace()
         exists_row = (
-            session.query(SqlEvaluationDataset.dataset_id)
+            session
+            .query(SqlEvaluationDataset.dataset_id)
             .filter(SqlEvaluationDataset.dataset_id == dataset_id)
             .filter(SqlEvaluationDataset.workspace == workspace)
             .first()
@@ -341,14 +356,16 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
     def _get_sql_assessment(self, session, trace_id: str, assessment_id: str) -> SqlAssessments:
         trace_subquery = (
-            self._trace_query(session)
+            self
+            ._trace_query(session)
             .with_entities(SqlTraceInfo.request_id)
             .filter(SqlTraceInfo.request_id == trace_id)
             .subquery()
         )
 
         sql_assessment = (
-            session.query(SqlAssessments)
+            session
+            .query(SqlAssessments)
             .join(trace_subquery, SqlAssessments.trace_id == trace_subquery.c.request_id)
             .filter(SqlAssessments.assessment_id == assessment_id)
             .one_or_none()
@@ -415,7 +432,8 @@ class WorkspaceAwareSqlAlchemyStore(WorkspaceAwareMixin, SqlAlchemyStore):
 
         creation_time = get_current_time_millis()
         existing = (
-            session.query(SqlExperiment)
+            session
+            .query(SqlExperiment)
             .filter(
                 SqlExperiment.name == Experiment.DEFAULT_EXPERIMENT_NAME,
                 SqlExperiment.workspace == workspace,

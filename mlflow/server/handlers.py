@@ -264,7 +264,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
-from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
@@ -1872,18 +1872,16 @@ def get_metric_history_bulk_handler():
                 ),
                 key=lambda metric: (metric.timestamp, metric.step, metric.value),
             )
-            metrics_with_run_ids.extend(
-                [
-                    {
-                        "key": metric.key,
-                        "value": metric.value,
-                        "timestamp": metric.timestamp,
-                        "step": metric.step,
-                        "run_id": run_id,
-                    }
-                    for metric in metrics_for_run
-                ]
-            )
+            metrics_with_run_ids.extend([
+                {
+                    "key": metric.key,
+                    "value": metric.value,
+                    "timestamp": metric.timestamp,
+                    "step": metric.step,
+                    "run_id": run_id,
+                }
+                for metric in metrics_for_run
+            ])
         return metrics_with_run_ids
 
     if hasattr(store, "get_metric_history_bulk"):
@@ -2008,9 +2006,9 @@ def search_datasets_impl(request_message):
 
     if hasattr(store, "_search_datasets"):
         response_message = SearchDatasets.Response()
-        response_message.dataset_summaries.extend(
-            [summary.to_proto() for summary in store._search_datasets(experiment_ids)]
-        )
+        response_message.dataset_summaries.extend([
+            summary.to_proto() for summary in store._search_datasets(experiment_ids)
+        ])
         return response_message
     else:
         return _not_implemented()
@@ -5231,7 +5229,7 @@ def _list_budget_policies():
         },
     )
     budget_policies = _get_tracking_store().list_budget_policies(
-        max_results=request_message.max_results,
+        max_results=request_message.max_results or SEARCH_MAX_RESULTS_DEFAULT,
         page_token=request_message.page_token or None,
     )
     response_message = ListGatewayBudgetPolicies.Response()
@@ -5254,12 +5252,10 @@ def _get_server_info():
         store_type = "SqlStore"
     else:
         store_type = None
-    return jsonify(
-        {
-            "store_type": store_type,
-            "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
-        }
-    )
+    return jsonify({
+        "store_type": store_type,
+        "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
+    })
 
 
 @catch_mlflow_exception
@@ -5298,19 +5294,15 @@ def _get_provider_config():
 @_disable_if_artifacts_only
 def _get_secrets_config():
     if not _PROVIDER_BACKEND_AVAILABLE:
-        return jsonify(
-            {
-                "secrets_available": False,
-                "using_default_passphrase": False,
-            }
-        )
+        return jsonify({
+            "secrets_available": False,
+            "using_default_passphrase": False,
+        })
     kek_manager = KEKManager()
-    return jsonify(
-        {
-            "secrets_available": True,
-            "using_default_passphrase": kek_manager.using_default_passphrase,
-        }
-    )
+    return jsonify({
+        "secrets_available": True,
+        "using_default_passphrase": kek_manager.using_default_passphrase,
+    })
 
 
 @catch_mlflow_exception
@@ -5543,14 +5535,12 @@ def _generate_demo():
         all_exist = all(demo_registry.get(name)().is_generated() for name in generator_names)
 
     if experiment and all_exist:
-        return jsonify(
-            {
-                "status": "exists",
-                "experiment_id": experiment.experiment_id,
-                "features_generated": [],
-                "navigation_url": f"/experiments/{experiment.experiment_id}",
-            }
-        )
+        return jsonify({
+            "status": "exists",
+            "experiment_id": experiment.experiment_id,
+            "features_generated": [],
+            "navigation_url": f"/experiments/{experiment.experiment_id}",
+        })
 
     with _demo_generate_lock:
         results = generate_all_demos(features=features)
@@ -5559,14 +5549,12 @@ def _generate_demo():
     experiment_id = experiment.experiment_id if experiment else None
     navigation_url = f"/experiments/{experiment_id}" if experiment_id else "/experiments"
 
-    return jsonify(
-        {
-            "status": "created",
-            "experiment_id": experiment_id,
-            "features_generated": [r.feature for r in results],
-            "navigation_url": navigation_url,
-        }
-    )
+    return jsonify({
+        "status": "created",
+        "experiment_id": experiment_id,
+        "features_generated": [r.feature for r in results],
+        "navigation_url": navigation_url,
+    })
 
 
 @catch_mlflow_exception
@@ -5593,12 +5581,10 @@ def _delete_demo():
     if experiment and experiment.lifecycle_stage == "active":
         store.delete_experiment(experiment.experiment_id)
 
-    return jsonify(
-        {
-            "status": "deleted",
-            "features_deleted": deleted_features,
-        }
-    )
+    return jsonify({
+        "status": "deleted",
+        "features_deleted": deleted_features,
+    })
 
 
 def get_internal_online_scoring_endpoints():

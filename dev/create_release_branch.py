@@ -31,9 +31,13 @@ def main(new_version: str, remote: str, dry_run: bool = False) -> None:
         print(f"Creating {release_branch}")
         subprocess.check_call(["git", "checkout", "-b", release_branch, "master"])
         print(f"Pushing {release_branch} to {remote}")
-        subprocess.check_call(
-            ["git", "push", remote, release_branch, *(["--dry-run"] if dry_run else [])]
-        )
+        subprocess.check_call([
+            "git",
+            "push",
+            remote,
+            release_branch,
+            *(["--dry-run"] if dry_run else []),
+        ])
     finally:
         subprocess.check_call(["git", "checkout", prev_branch])
 

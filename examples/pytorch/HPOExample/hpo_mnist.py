@@ -81,14 +81,12 @@ def objective(trial, args, train_loader, test_loader, device):
     # Start nested MLflow run for this trial
     with mlflow.start_run(nested=True, run_name=f"trial_{trial.number}"):
         # Log hyperparameters
-        mlflow.log_params(
-            {
-                "lr": lr,
-                "hidden_size": hidden_size,
-                "dropout_rate": dropout_rate,
-                "batch_size": batch_size,
-            }
-        )
+        mlflow.log_params({
+            "lr": lr,
+            "hidden_size": hidden_size,
+            "dropout_rate": dropout_rate,
+            "batch_size": batch_size,
+        })
 
         # Create model and optimizer
         model = SimpleNet(hidden_size, dropout_rate).to(device)
@@ -117,9 +115,10 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load MNIST data
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-    )
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,)),
+    ])
 
     train_dataset = datasets.MNIST("./data", train=True, download=True, transform=transform)
     test_dataset = datasets.MNIST("./data", train=False, transform=transform)
@@ -141,12 +140,10 @@ def main():
         )
 
         # Log best results to parent run
-        mlflow.log_metrics(
-            {
-                "best_accuracy": study.best_value,
-                "best_trial": study.best_trial.number,
-            }
-        )
+        mlflow.log_metrics({
+            "best_accuracy": study.best_value,
+            "best_trial": study.best_trial.number,
+        })
         # Log best hyperparameters with 'best_' prefix to avoid conflicts
         best_params = {f"best_{k}": v for k, v in study.best_params.items()}
         mlflow.log_params(best_params)

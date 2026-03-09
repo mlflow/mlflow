@@ -1,4 +1,4 @@
-# MLflow evaluation examples for GenAI
+# MLflow evaluation examples
 
 This page presents some common usage patterns for the evaluation harness, including data patterns and `predict_fn` patterns.
 
@@ -11,12 +11,10 @@ MLflow Evaluation Datasets are useful when you need to convert traces to evaluat
 ```python
 import mlflow
 from mlflow.genai.scorers import Correctness, Safety
-from my_app import agent  # Your GenAI app with tracing
+from my_app import agent  # Your app with tracing
 
 # Load versioned evaluation dataset
-dataset = mlflow.genai.datasets.get_dataset(
-    dataset_id="d-7f2e3a9b8c1d4e5f6a7b8c9d0e1f2a3b"
-)
+dataset = mlflow.genai.datasets.get_dataset(dataset_id="d-7f2e3a9b8c1d4e5f6a7b8c9d0e1f2a3b")
 
 # Run evaluation
 results = mlflow.genai.evaluate(
@@ -35,27 +33,21 @@ Use a simple list of dictionaries for quick prototyping without creating a forma
 ```python
 import mlflow
 from mlflow.genai.scorers import Correctness, RelevanceToQuery
-from my_app import agent  # Your GenAI app with tracing
+from my_app import agent  # Your app with tracing
 
 # Define test data as a list of dictionaries
 eval_data = [
     {
         "inputs": {"question": "What is MLflow?"},
-        "expectations": {
-            "expected_facts": ["open-source platform", "ML lifecycle management"]
-        },
+        "expectations": {"expected_facts": ["open-source", "AI engineering platform"]},
     },
     {
         "inputs": {"question": "How do I track experiments?"},
-        "expectations": {
-            "expected_facts": ["mlflow.start_run()", "log metrics", "log parameters"]
-        },
+        "expectations": {"expected_facts": ["mlflow.start_run()", "log metrics", "log parameters"]},
     },
     {
         "inputs": {"question": "What are MLflow's main components?"},
-        "expectations": {
-            "expected_facts": ["Tracking", "Projects", "Models", "Registry"]
-        },
+        "expectations": {"expected_facts": ["Tracking", "Projects", "Models", "Registry"]},
     },
 ]
 
@@ -77,25 +69,19 @@ Use Pandas DataFrames for evaluation when working with CSV files or existing dat
 import mlflow
 import pandas as pd
 from mlflow.genai.scorers import Correctness, Safety
-from my_app import agent  # Your GenAI app with tracing
+from my_app import agent  # Your app with tracing
 
 # Create evaluation data as a Pandas DataFrame
-eval_df = pd.DataFrame(
-    [
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "expectations": {
-                "expected_response": "MLflow is an open-source platform for ML lifecycle management"
-            },
-        },
-        {
-            "inputs": {"question": "How do I log metrics?"},
-            "expectations": {
-                "expected_response": "Use mlflow.log_metric() to log metrics"
-            },
-        },
-    ]
-)
+eval_df = pd.DataFrame([
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "expectations": {"expected_response": "MLflow is an open-source AI engineering platform"},
+    },
+    {
+        "inputs": {"question": "How do I log metrics?"},
+        "expectations": {"expected_response": "Use mlflow.log_metric() to log metrics"},
+    },
+])
 
 # Run evaluation
 results = mlflow.genai.evaluate(
@@ -114,7 +100,7 @@ The DataFrame must comply with the [evaluation dataset schema](/genai/datasets/s
 ```python
 import mlflow
 from mlflow.genai.scorers import Safety, RelevanceToQuery
-from my_app import agent  # Your GenAI app with tracing
+from my_app import agent  # Your app with tracing
 
 # Load evaluation data from a Parquet file or any Spark-compatible source
 eval_df = spark.read.parquet("path/to/evaluation/data")
@@ -138,7 +124,7 @@ import mlflow
 from mlflow.genai.scorers import RelevanceToQuery, Safety
 
 
-# Your GenAI app that accepts 'question' as a parameter
+# Your app that accepts 'question' as a parameter
 @mlflow.trace
 def my_chatbot_app(question: str) -> dict:
     # Your app logic here
@@ -169,7 +155,7 @@ import mlflow
 from mlflow.genai.scorers import RelevanceToQuery, Safety
 
 
-# Your existing GenAI app with different parameter names
+# Your existing app with different parameter names
 @mlflow.trace
 def customer_support_bot(user_message: str, chat_history: list = None) -> dict:
     # Your app logic here
