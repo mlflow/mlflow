@@ -5818,7 +5818,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Create SqlIssue record
             sql_issue = SqlIssue(
                 issue_id=issue_id,
-                experiment_id=experiment_id,
+                experiment_id=int(experiment_id),
                 name=name,
                 description=description,
                 status=status.value,
@@ -5943,7 +5943,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             query = self._get_query(session, SqlIssue)
 
             if experiment_id:
-                query = query.filter(SqlIssue.experiment_id == experiment_id)
+                query = query.filter(SqlIssue.experiment_id == int(experiment_id))
 
             if filter_string:
                 parsed_filters = SearchIssuesUtils.parse_search_filter(filter_string)
