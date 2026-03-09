@@ -4021,9 +4021,9 @@ def _create_issue():
     request_message = _get_request_message(
         CreateIssue(),
         schema={
-            "name": [_assert_required],
-            "description": [_assert_required],
-            "experiment_id": [_assert_required],
+            "name": [_assert_required, _assert_string],
+            "description": [_assert_required, _assert_string],
+            "experiment_id": [_assert_required, _assert_string],
         },
     )
 
@@ -4060,7 +4060,7 @@ def _update_issue(issue_id):
         },
     )
 
-    status = IssueStatus(request_message.status) if request_message.status else None
+    status = IssueStatus(request_message.status) if request_message.HasField("status") else None
 
     updated_issue = _get_tracking_store().update_issue(
         issue_id=issue_id,
