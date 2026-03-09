@@ -96,11 +96,11 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ steps.prompt.outputs.prompt }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           OUTPUT_FILE="/tmp/output.json"
 
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
-          EVENT_NAME="${{ github.event_name }}"
           if [ "$EVENT_NAME" = "pull_request" ]; then
             ARGS=("Hi")
           else
