@@ -926,6 +926,18 @@ _VALIDATION_EXEMPT_ARGUMENTS = [
     ValidationExemptArgument("tensorflow", "fit", is_iterator, 1, "x"),
     ValidationExemptArgument("keras", "fit", is_iterator, 1, "x"),
     ValidationExemptArgument("dspy", "__call__", lambda x: isinstance(x, Callable), 2, "metric"),
+    # Autologging injects tracing context headers as `extra_headers` to enable distributed
+    # tracing between client spans and gateway spans. The user may or may not have passed
+    # `extra_headers` originally, so the argument value will differ from the user's input.
+    ValidationExemptArgument("openai", "create", lambda x: True, None, "extra_headers"),
+    ValidationExemptArgument("openai", "parse", lambda x: True, None, "extra_headers"),
+    ValidationExemptArgument("anthropic", "create", lambda x: True, None, "extra_headers"),
+    # Gemini header injection goes through config.http_options.headers
+    ValidationExemptArgument("gemini", "generate_content", lambda x: True, None, "config"),
+    ValidationExemptArgument("gemini", "_generate_content", lambda x: True, None, "config"),
+    ValidationExemptArgument("gemini", "send_message", lambda x: True, None, "config"),
+    ValidationExemptArgument("gemini", "count_tokens", lambda x: True, None, "config"),
+    ValidationExemptArgument("gemini", "embed_content", lambda x: True, None, "config"),
 ]
 
 

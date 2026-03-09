@@ -1,9 +1,11 @@
 import logging
 from contextlib import contextmanager
 
+from opentelemetry import trace
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 
 import mlflow
+from mlflow.entities.span import LiveSpan
 from mlflow.telemetry.events import TracingContextPropagation
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.provider import get_context_api, get_current_context, get_current_otel_span
@@ -64,6 +66,19 @@ def get_tracing_context_headers_for_http_request() -> dict[str, str]:
         )
     headers = {}
     TraceContextTextMapPropagator().inject(carrier=headers, context=get_current_context())
+    return headers
+
+
+def _get_tracing_headers_from_span(span: LiveSpan) -> dict[str, str]:
+    """Get traceparent headers pointing to the given span.
+
+    Unlike get_tracing_context_headers_for_http_request(), this does not rely on
+    the global context. It creates a temporary context with the given span and
+    extracts the traceparent header from it.
+    """
+    headers = {}
+    ctx = trace.set_span_in_context(span._span)
+    TraceContextTextMapPropagator().inject(carrier=headers, context=ctx)
     return headers
 
 
