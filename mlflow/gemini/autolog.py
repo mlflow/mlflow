@@ -1,4 +1,3 @@
-import copy
 import inspect
 import logging
 from typing import Any
@@ -95,11 +94,10 @@ class TracingSession:
         if not config.log_traces:
             return self
 
-        clean_inputs = _strip_http_headers_from_inputs(self.inputs)
         self.span = mlflow.start_span_no_context(
             name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
             span_type=_get_span_type(self.original.__name__),
-            inputs=clean_inputs,
+            inputs=self.inputs,
             attributes={SpanAttributeKey.MESSAGE_FORMAT: "gemini"},
         )
         if has_generativeai and isinstance(self.instance, generativeai.GenerativeModel):
@@ -242,7 +240,7 @@ def _log_genai_tool_definition(model, inputs, span):
         _logger.warning(f"Failed to set tool definitions for {span}. Error: {e}")
 
 
-_HEADER_INJECTION_METHODS = {"generate_content", "send_message", "count_tokens", "embed_content"}
+_HEADER_INJECTION_METHODS = {"_generate_content", "send_message", "count_tokens", "embed_content"}
 
 
 def _should_inject_headers(original) -> bool:
@@ -282,44 +280,6 @@ def _inject_tracing_headers_genai(kwargs: dict[str, Any], span: LiveSpan):
                 http_options.headers = tracing_headers | existing_headers
     except Exception:
         _logger.debug("Failed to inject tracing headers for Gemini", exc_info=True)
-
-
-def _strip_http_headers_from_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
-    """Return inputs with http_options.headers removed from config.
-
-    Headers are transport-level details (including injected traceparent) that
-    shouldn't appear in span inputs. If the config was created solely for
-    header injection, replaces it with None entirely.
-    """
-    config = inputs.get("config")
-    if config is None:
-        return inputs
-
-    def _get_headers(cfg):
-        if isinstance(cfg, dict):
-            return (cfg.get("http_options") or {}).get("headers")
-        if http_opts := getattr(cfg, "http_options", None):
-            return getattr(http_opts, "headers", None)
-        return None
-
-    if not _get_headers(config):
-        return inputs
-
-    # Deep-copy to avoid mutating the original config passed to the SDK
-    inputs = copy.deepcopy(inputs)
-    config = inputs["config"]
-    if isinstance(config, dict):
-        config.pop("http_options", None)
-        # If config has no remaining user-set fields, replace with None
-        if not any(v is not None for v in config.values()):
-            inputs["config"] = None
-    else:
-        config.http_options = None
-        # Check if the Pydantic config has any user-set fields
-        cfg_dict = config.model_dump() if hasattr(config, "model_dump") else vars(config)
-        if not any(v is not None for v in cfg_dict.values()):
-            inputs["config"] = None
-    return inputs
 
 
 def _get_span_type(task_name: str) -> str:

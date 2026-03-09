@@ -942,13 +942,6 @@ _VALIDATION_EXEMPT_ARGUMENTS = [
     # None, a dict, or a Pydantic-style object with an http_options attribute.
     ValidationExemptArgument(
         "gemini",
-        "generate_content",
-        lambda x: x is None or isinstance(x, dict) or hasattr(x, "http_options"),
-        None,
-        "config",
-    ),
-    ValidationExemptArgument(
-        "gemini",
         "_generate_content",
         lambda x: x is None or isinstance(x, dict) or hasattr(x, "http_options"),
         None,
