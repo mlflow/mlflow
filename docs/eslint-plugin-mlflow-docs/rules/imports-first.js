@@ -17,8 +17,7 @@ module.exports = {
     fixable: null,
     schema: [],
     messages: {
-      importNotAtTop:
-        'Import "{{source}}" should be at the top of the file. Move all imports before any content.',
+      importNotAtTop: 'Import "{{source}}" should be at the top of the file. Move all imports before any content.',
     },
   },
 
