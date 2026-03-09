@@ -1,9 +1,16 @@
+import logging
+
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
 from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
-from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_OTEL_GENAI_SEMCONV,
+    MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+)
+
+_logger = logging.getLogger(__name__)
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -61,7 +68,19 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
         if self._should_register_traces and not span.parent:
             self._trace_manager.pop_trace(span.context.trace_id)
 
+        if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get():
+            span = self._translate_span(span)
+
         super().on_end(span)
+
+    def _translate_span(self, span: OTelReadableSpan) -> OTelReadableSpan:
+        try:
+            from mlflow.tracing.export.genai_semconv.translator import translate_span_to_genai
+
+            return translate_span_to_genai(span)
+        except Exception:
+            _logger.debug("Failed to translate span to GenAI semconv", exc_info=True)
+            return span
 
     def _create_trace_info(self, span: OTelReadableSpan) -> TraceInfo:
         """Create a TraceInfo object from an OpenTelemetry span."""
