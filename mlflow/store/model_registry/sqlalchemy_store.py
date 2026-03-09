@@ -69,8 +69,6 @@ from mlflow.utils.validation import (
 )
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-from mlflow.utils.validation import _validate_model_name
-
 _logger = logging.getLogger(__name__)
 
 # For each database table, fetch its columns and define an appropriate attribute for each column
