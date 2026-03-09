@@ -1,4 +1,5 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { BudgetsList } from './BudgetsList';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
@@ -95,7 +96,6 @@ describe('BudgetsList', () => {
   });
 
   test('calls onEditClick when edit button is clicked', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onEditClick = jest.fn();
 
     jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
@@ -117,7 +117,6 @@ describe('BudgetsList', () => {
   });
 
   test('calls onDeleteClick when delete button is clicked', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onDeleteClick = jest.fn();
 
     jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
