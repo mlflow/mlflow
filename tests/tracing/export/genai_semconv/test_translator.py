@@ -59,10 +59,10 @@ def test_translate_span_type_to_operation(span_type, expected_operation):
     "span_type",
     ["CHAIN", "WORKFLOW", "PARSER", "MEMORY", "GUARDRAIL", "EVALUATOR", "RETRIEVER", "RERANKER"],
 )
-def test_translate_unmapped_span_type_returns_no_operation(span_type):
+def test_translate_unmapped_span_type_passes_through_value(span_type):
     span = _make_span(attributes={SpanAttributeKey.SPAN_TYPE: json.dumps(span_type)})
     result = _translate_universal_attributes(span)
-    assert GenAiSemconvKey.OPERATION_NAME not in result
+    assert result[GenAiSemconvKey.OPERATION_NAME] == span_type
 
 
 def test_translate_model_name():
@@ -140,7 +140,12 @@ def test_translate_malformed_json_attributes():
     ("operation", "model", "expected_name", "expected_kind"),
     [
         ("chat", "gpt-4o", "chat gpt-4o", SpanKind.CLIENT),
-        ("embeddings", "text-embedding-3-small", "embeddings text-embedding-3-small", SpanKind.CLIENT),
+        (
+            "embeddings",
+            "text-embedding-3-small",
+            "embeddings text-embedding-3-small",
+            SpanKind.CLIENT,
+        ),
         ("generate_content", "gemini-pro", "generate_content gemini-pro", SpanKind.CLIENT),
         ("execute_tool", None, "execute_tool", SpanKind.INTERNAL),
         ("invoke_agent", None, "invoke_agent", SpanKind.INTERNAL),
@@ -164,10 +169,10 @@ def test_span_name_and_kind(operation, model, expected_name, expected_kind):
     assert result.kind == expected_kind
 
 
-def test_span_name_no_operation_keeps_original():
+def test_span_name_unmapped_type_uses_span_type():
     span = _make_span(name="my_chain", attributes={SpanAttributeKey.SPAN_TYPE: json.dumps("CHAIN")})
     result = translate_span_to_genai(span)
-    assert result.name == "my_chain"
+    assert result.name == "CHAIN"
 
 
 # --- translate_span_to_genai (end-to-end) ---
@@ -203,10 +208,10 @@ def test_unmapped_span_type_passes_through():
     span = _make_span(name="my_chain", attributes=attrs)
     result = translate_span_to_genai(span)
 
-    assert GenAiSemconvKey.OPERATION_NAME not in result.attributes
+    assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "CHAIN"
     assert result.attributes["custom.attribute"] == "preserved"
     assert not any(k.startswith("mlflow.") for k in result.attributes)
-    assert result.name == "my_chain"
+    assert result.name == "CHAIN"
 
 
 def test_non_mlflow_attributes_preserved():

@@ -21,23 +21,12 @@ _logger = logging.getLogger(__name__)
 
 # Span type → GenAI operation name mapping.
 # https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
-_SPAN_TYPE_TO_OPERATION: dict[str, str | None] = {
+_SPAN_TYPE_TO_OPERATION: dict[str, str] = {
     SpanType.CHAT_MODEL: "chat",
     SpanType.LLM: "generate_content",
     SpanType.EMBEDDING: "embeddings",
     SpanType.TOOL: "execute_tool",
     SpanType.AGENT: "invoke_agent",
-    # No natural GenAI semconv equivalent — pass through as-is
-    SpanType.RETRIEVER: None,
-    SpanType.RERANKER: None,
-    SpanType.CHAIN: None,
-    SpanType.WORKFLOW: None,
-    SpanType.PARSER: None,
-    SpanType.MEMORY: None,
-    SpanType.GUARDRAIL: None,
-    SpanType.EVALUATOR: None,
-    SpanType.TASK: None,
-    SpanType.UNKNOWN: None,
 }
 
 # GenAI semconv requires CLIENT for inference spans and INTERNAL for tool/agent spans.
@@ -83,10 +72,11 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
 def _translate_universal_attributes(span: ReadableSpan) -> dict[str, Any]:
     genai_attrs: dict[str, Any] = {}
 
-    # 1. Operation name from span type
+    # 1. Operation name from span type (use mapped value or pass through as-is)
     if span_type := get_otel_attribute(span, SpanAttributeKey.SPAN_TYPE):
-        if operation := _SPAN_TYPE_TO_OPERATION.get(span_type):
-            genai_attrs[GenAiSemconvKey.OPERATION_NAME] = operation
+        genai_attrs[GenAiSemconvKey.OPERATION_NAME] = _SPAN_TYPE_TO_OPERATION.get(
+            span_type, span_type
+        )
 
     # 2. Model
     if model := get_otel_attribute(span, SpanAttributeKey.MODEL):
@@ -124,9 +114,7 @@ def _build_genai_span_name(original_name: str, genai_attrs: dict[str, Any]) -> s
 
     if operation and model:
         return f"{operation} {model}"
-    if operation:
-        return operation
-    return original_name
+    return operation or original_name
 
 
 def _get_genai_span_kind(genai_attrs: dict[str, Any], original_kind: SpanKind) -> SpanKind:
@@ -136,9 +124,7 @@ def _get_genai_span_kind(genai_attrs: dict[str, Any], original_kind: SpanKind) -
     GenAI semconv requires CLIENT for inference spans and INTERNAL for tool/agent spans.
     """
     operation = genai_attrs.get(GenAiSemconvKey.OPERATION_NAME)
-    if operation and operation in _OPERATION_TO_SPAN_KIND:
-        return _OPERATION_TO_SPAN_KIND[operation]
-    return original_kind
+    return _OPERATION_TO_SPAN_KIND.get(operation, original_kind) if operation else original_kind
 
 
 def _create_passthrough_span(span: ReadableSpan, original_attrs: dict[str, Any]) -> ReadableSpan:
@@ -171,5 +157,3 @@ def _build_readable_span(
         start_time=original.start_time,
         end_time=original.end_time,
     )
-
-
