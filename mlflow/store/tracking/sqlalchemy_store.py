@@ -6521,7 +6521,8 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             # Query assessments table for issue references
             # IssueReference assessments have assessment_type='issue' and name=issue_id
             issue_subquery = (
-                session.query(SqlAssessments.trace_id.label("request_id"))
+                session
+                .query(SqlAssessments.trace_id.label("request_id"))
                 .filter(
                     SqlAssessments.assessment_type == "issue",
                     SqlAssessments.name == value,
