@@ -33,17 +33,22 @@ def _build_socket_options():
     """Returns socket options with TCP keepalive enabled.
 
     Reads configuration from MLFLOW_HTTP_TCP_KEEPALIVE_* environment variables.
-    Uses os.environ directly to avoid importing mlflow in this file.
     """
+    from mlflow.environment_variables import (
+        MLFLOW_HTTP_TCP_KEEPALIVE,
+        MLFLOW_HTTP_TCP_KEEPALIVE_COUNT,
+        MLFLOW_HTTP_TCP_KEEPALIVE_IDLE,
+        MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL,
+    )
+
     socket_options = list(HTTPConnection.default_socket_options or [])
 
-    enabled = os.environ.get("MLFLOW_HTTP_TCP_KEEPALIVE", "true").lower() in ("true", "1")
-    if not enabled:
+    if not MLFLOW_HTTP_TCP_KEEPALIVE.get():
         return socket_options
 
-    idle = int(os.environ.get("MLFLOW_HTTP_TCP_KEEPALIVE_IDLE", "30"))
-    interval = int(os.environ.get("MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL", "10"))
-    count = int(os.environ.get("MLFLOW_HTTP_TCP_KEEPALIVE_COUNT", "3"))
+    idle = MLFLOW_HTTP_TCP_KEEPALIVE_IDLE.get()
+    interval = MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL.get()
+    count = MLFLOW_HTTP_TCP_KEEPALIVE_COUNT.get()
 
     socket_options.append((socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1))
 
