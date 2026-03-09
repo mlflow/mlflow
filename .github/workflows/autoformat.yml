@@ -231,7 +231,7 @@ jobs:
 
       - name: Configure git
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ needs.check-comment.outputs.pull_number }}
           REPO: ${{ github.repository }}
         run: |
