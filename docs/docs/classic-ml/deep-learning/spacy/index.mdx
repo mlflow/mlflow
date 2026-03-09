@@ -78,21 +78,16 @@ TRAIN_DATA = [
 ]
 
 # Convert to Examples
-examples = [
-    Example.from_dict(nlp.make_doc(text), annotations)
-    for text, annotations in TRAIN_DATA
-]
+examples = [Example.from_dict(nlp.make_doc(text), annotations) for text, annotations in TRAIN_DATA]
 
 # Initialize and train
 optimizer = nlp.initialize()
 
 with mlflow.start_run():
-    mlflow.log_params(
-        {
-            "model": "blank_en",
-            "pipeline": "ner",
-        }
-    )
+    mlflow.log_params({
+        "model": "blank_en",
+        "pipeline": "ner",
+    })
 
     for epoch in range(10):
         losses = {}

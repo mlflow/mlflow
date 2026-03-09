@@ -61,9 +61,9 @@ def autolog(
             name = f"{self.__class__.__name__}.{original.__name__}"
             with mlflow.start_span(name, span_type=SpanType.LLM) as span:
                 inputs = construct_full_inputs(original, self, *args, **kwargs)
-                span.set_inputs(
-                    {key: _convert_value_to_dict(value) for key, value in inputs.items()}
-                )
+                span.set_inputs({
+                    key: _convert_value_to_dict(value) for key, value in inputs.items()
+                })
                 span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "autogen")
 
                 # Extract model name from client instance
@@ -92,9 +92,9 @@ def autolog(
             name = f"{agent_name}.{original.__name__}"
             with mlflow.start_span(name, span_type=SpanType.AGENT) as span:
                 inputs = construct_full_inputs(original, self, *args, **kwargs)
-                span.set_inputs(
-                    {key: _convert_value_to_dict(value) for key, value in inputs.items()}
-                )
+                span.set_inputs({
+                    key: _convert_value_to_dict(value) for key, value in inputs.items()
+                })
 
                 if tools := getattr(self, "_tools", None):
                     log_tools(span, tools)

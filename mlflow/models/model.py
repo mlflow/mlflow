@@ -1116,22 +1116,20 @@ class Model:
             metrics_for_step = []
             for metric_name in metric_names:
                 history = client.get_metric_history(run_id, metric_name)
-                metrics_for_step.extend(
-                    [
-                        Metric(
-                            key=metric.key,
-                            value=metric.value,
-                            timestamp=metric.timestamp,
-                            step=metric.step,
-                            dataset_name=metric.dataset_name,
-                            dataset_digest=metric.dataset_digest,
-                            run_id=metric.run_id,
-                            model_id=model_id,
-                        )
-                        for metric in history
-                        if metric.step == step and metric.model_id is None
-                    ]
-                )
+                metrics_for_step.extend([
+                    Metric(
+                        key=metric.key,
+                        value=metric.value,
+                        timestamp=metric.timestamp,
+                        step=metric.step,
+                        dataset_name=metric.dataset_name,
+                        dataset_digest=metric.dataset_digest,
+                        run_id=metric.run_id,
+                        model_id=model_id,
+                    )
+                    for metric in history
+                    if metric.step == step and metric.model_id is None
+                ])
             client.log_batch(run_id=run_id, metrics=metrics_for_step)
 
         # Only one of Auth policy and resources should be defined

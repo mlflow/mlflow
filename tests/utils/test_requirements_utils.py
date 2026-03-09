@@ -484,12 +484,10 @@ def test_warn_dependency_requirement_mismatches():
         # Test case: multiple mismatched packages
         with mock.patch(
             "mlflow.utils.requirements_utils._get_installed_version",
-            gen_mock_get_installed_version_fn(
-                {
-                    "scikit-learn": "999.99.11",
-                    "cloudpickle": "999.99.22",
-                }
-            ),
+            gen_mock_get_installed_version_fn({
+                "scikit-learn": "999.99.11",
+                "cloudpickle": "999.99.22",
+            }),
         ):
             warn_dependency_requirement_mismatches(
                 model_requirements=[
@@ -597,12 +595,10 @@ def test_suppress_warn_dependency_requirement_mismatches_ignore_some_packages(ig
         # Test case: multiple mismatched packages
         with mock.patch(
             "mlflow.utils.requirements_utils._get_installed_version",
-            gen_mock_get_installed_version_fn(
-                {
-                    ignore_package_name: "9.99.11",
-                    "cloudpickle": "999.99.22",
-                }
-            ),
+            gen_mock_get_installed_version_fn({
+                ignore_package_name: "9.99.11",
+                "cloudpickle": "999.99.22",
+            }),
         ):
             warn_dependency_requirement_mismatches(
                 model_requirements=[

@@ -65,12 +65,10 @@ def lgb_model():
 @pytest.fixture(scope="module")
 def lgb_model_signature():
     return ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="sepal length (cm)", type=DataType.double),
-                ColSpec(name="sepal width (cm)", type=DataType.double),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(name="sepal length (cm)", type=DataType.double),
+            ColSpec(name="sepal width (cm)", type=DataType.double),
+        ]),
         outputs=Schema([TensorSpec(np.dtype("float64"), (-1, 3))]),
     )
 
@@ -553,12 +551,10 @@ def test_model_log_with_signature_inference(lgb_model):
 
     mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="sepal length (cm)", type=DataType.double),
-                ColSpec(name="sepal width (cm)", type=DataType.double),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(name="sepal length (cm)", type=DataType.double),
+            ColSpec(name="sepal width (cm)", type=DataType.double),
+        ]),
         outputs=Schema([TensorSpec(np.dtype("float64"), (-1, 3))]),
     )
 

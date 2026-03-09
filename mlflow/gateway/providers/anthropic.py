@@ -83,18 +83,16 @@ class AnthropicAdapter(ProviderAdapter):
                     m.pop("tool_calls")
                 converted_messages.append(m)
             elif m["role"] == "tool":
-                converted_messages.append(
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": m["tool_call_id"],
-                                "content": m["content"],
-                            }
-                        ],
-                    }
-                )
+                converted_messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": m["tool_call_id"],
+                            "content": m["content"],
+                        }
+                    ],
+                })
             else:
                 _logger.info(f"Discarded unknown message: {m}")
 
@@ -118,13 +116,11 @@ class AnthropicAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                converted_tools.append(
-                    {
-                        "name": tool_function["name"],
-                        "description": tool_function["description"],
-                        "input_schema": tool_function["parameters"],
-                    }
-                )
+                converted_tools.append({
+                    "name": tool_function["name"],
+                    "description": tool_function["description"],
+                    "input_schema": tool_function["parameters"],
+                })
 
             payload["tools"] = converted_tools
 

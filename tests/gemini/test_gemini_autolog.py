@@ -73,6 +73,7 @@ def _dummy_generate_content(is_async: bool):
 
         async def _generate_content(self, model, contents, config):
             return _DUMMY_GENERATE_CONTENT_RESPONSE
+
     else:
 
         def _generate_content(self, model, contents, config):
@@ -220,6 +221,7 @@ def test_generate_content_tracing_with_error(is_async):
 
         async def _generate_content(self, model, contents, config):
             raise Exception("dummy error")
+
     else:
 
         def _generate_content(self, model, contents, config):
@@ -330,6 +332,7 @@ def test_generate_content_tool_calling_autolog(is_async, mock_litellm_cost):
 
         async def _generate_content(self, model, contents, config):
             return response
+
     else:
 
         def _generate_content(self, model, contents, config):
@@ -398,52 +401,44 @@ def test_generate_content_tool_calling_autolog(is_async, mock_litellm_cost):
 
 
 def test_generate_content_tool_calling_chat_history_autolog(is_async, mock_litellm_cost):
-    question_content = genai.types.Content(
-        **{
-            "parts": [
-                {
-                    "text": "I have 57 cats, each owns 44 mittens, how many mittens in total?",
-                }
-            ],
-            "role": "user",
-        }
-    )
+    question_content = genai.types.Content(**{
+        "parts": [
+            {
+                "text": "I have 57 cats, each owns 44 mittens, how many mittens in total?",
+            }
+        ],
+        "role": "user",
+    })
 
-    tool_call_content = genai.types.Content(
-        **{
+    tool_call_content = genai.types.Content(**{
+        "parts": [
+            {
+                "function_call": {
+                    "name": "multiply",
+                    "args": {
+                        "a": 57.0,
+                        "b": 44.0,
+                    },
+                }
+            }
+        ],
+        "role": "model",
+    })
+
+    tool_response_content = genai.types.Content(**{
+        "parts": [{"function_response": {"name": "multiply", "response": {"result": 2508.0}}}],
+        "role": "user",
+    })
+
+    response = _generate_content_response(
+        genai.types.Content(**{
             "parts": [
                 {
-                    "function_call": {
-                        "name": "multiply",
-                        "args": {
-                            "a": 57.0,
-                            "b": 44.0,
-                        },
-                    }
+                    "text": "57 cats * 44 mittens/cat = 2508 mittens in total.",
                 }
             ],
             "role": "model",
-        }
-    )
-
-    tool_response_content = genai.types.Content(
-        **{
-            "parts": [{"function_response": {"name": "multiply", "response": {"result": 2508.0}}}],
-            "role": "user",
-        }
-    )
-
-    response = _generate_content_response(
-        genai.types.Content(
-            **{
-                "parts": [
-                    {
-                        "text": "57 cats * 44 mittens/cat = 2508 mittens in total.",
-                    }
-                ],
-                "role": "model",
-            }
-        )
+        })
     )
 
     cls = "AsyncModels" if is_async else "Models"
@@ -452,6 +447,7 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async, mock_litel
 
         async def _generate_content(self, model, contents, config):
             return response
+
     else:
 
         def _generate_content(self, model, contents, config):
@@ -606,6 +602,7 @@ def test_generate_content_cached_tokens(is_async, mock_litellm_cost):
 
         async def _generate_content(self, model, contents, config):
             return cached_response
+
     else:
 
         def _generate_content(self, model, contents, config):

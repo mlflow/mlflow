@@ -777,45 +777,6 @@ wheels = [
 ]
 
 [[package]]
-name = "black"
-version = "23.7.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "click" },
-    { name = "mypy-extensions" },
-    { name = "packaging" },
-    { name = "pathspec" },
-    { name = "platformdirs" },
-    { name = "tomli", marker = "python_full_version < '3.11'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e9/20/29d7a6614606785923edf9e8ec3ff630231992cc2fabc02eacb0d475372e/black-23.7.0.tar.gz", hash = "sha256:022a582720b0d9480ed82576c920a8c1dde97cc38ff11d8d8859b3bd6ca9eedb", size = 586177, upload-time = "2023-07-11T00:21:22.399Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/90/65/742e1dbcced37750a5c6bd450eb2ecd2b3d8eced31918be6dc0e7c23caaf/black-23.7.0-cp310-cp310-macosx_10_16_arm64.whl", hash = "sha256:5c4bc552ab52f6c1c506ccae05681fab58c3f72d59ae6e6639e8885e94fe2587", size = 1342188, upload-time = "2023-07-11T00:32:13.042Z" },
-    { url = "https://files.pythonhosted.org/packages/10/bb/025dced0f7a2c00c59810700fbdab877b9a49cf817383133b79b0df5f0fe/black-23.7.0-cp310-cp310-macosx_10_16_universal2.whl", hash = "sha256:552513d5cd5694590d7ef6f46e1767a4df9af168d449ff767b13b084c020e63f", size = 2676824, upload-time = "2023-07-11T00:40:36.3Z" },
-    { url = "https://files.pythonhosted.org/packages/f5/07/24fc7f8381b18fb83adf619f137628da9993387e2a35616ee95cc4fccb5c/black-23.7.0-cp310-cp310-macosx_10_16_x86_64.whl", hash = "sha256:86cee259349b4448adb4ef9b204bb4467aae74a386bce85d56ba4f5dc0da27be", size = 1520260, upload-time = "2023-07-11T00:38:06.415Z" },
-    { url = "https://files.pythonhosted.org/packages/e4/17/a819f00990e8cf4e652186603ddc8d29477362da2b7717858732b6abd13d/black-23.7.0-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:501387a9edcb75d7ae8a4412bb8749900386eaef258f1aefab18adddea1936bc", size = 1658854, upload-time = "2023-07-11T00:29:17.054Z" },
-    { url = "https://files.pythonhosted.org/packages/f4/5d/d92ee301ec03a78945bd5e9d750446449832a1bf2d12919f667baec7b404/black-23.7.0-cp310-cp310-win_amd64.whl", hash = "sha256:fb074d8b213749fa1d077d630db0d5f8cc3b2ae63587ad4116e8a436e9bbe995", size = 1285147, upload-time = "2023-07-11T00:34:08.606Z" },
-    { url = "https://files.pythonhosted.org/packages/4c/a5/e9f138d6bacc9f31906cbd5afe674ed2c48c59f5a7e46bcc466d760cd375/black-23.7.0-cp311-cp311-macosx_10_16_arm64.whl", hash = "sha256:b5b0ee6d96b345a8b420100b7d71ebfdd19fab5e8301aff48ec270042cd40ac2", size = 1327029, upload-time = "2023-07-11T00:32:15.333Z" },
-    { url = "https://files.pythonhosted.org/packages/ca/4e/6d625c4030280d7c8b17e014ad6a6ba434acd8c6bd86d8f375d6a1235dfe/black-23.7.0-cp311-cp311-macosx_10_16_universal2.whl", hash = "sha256:893695a76b140881531062d48476ebe4a48f5d1e9388177e175d76234ca247cd", size = 2644908, upload-time = "2023-07-11T00:40:38.831Z" },
-    { url = "https://files.pythonhosted.org/packages/51/32/4dacd14494e60d93cbfaea023f9a82c1db998ddfa5a359afeaf5e2c11f8c/black-23.7.0-cp311-cp311-macosx_10_16_x86_64.whl", hash = "sha256:c333286dc3ddca6fdff74670b911cccedacb4ef0a60b34e491b8a67c833b343a", size = 1503071, upload-time = "2023-07-11T00:38:08.105Z" },
-    { url = "https://files.pythonhosted.org/packages/4d/24/06c20da91df8d0b0f67e2dd3ce0feedff0b0fa6792e24e3f83452f3c38a2/black-23.7.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:831d8f54c3a8c8cf55f64d0422ee875eecac26f5f649fb6c1df65316b67c8926", size = 1643345, upload-time = "2023-07-11T00:29:19.67Z" },
-    { url = "https://files.pythonhosted.org/packages/51/7a/ede3fec916bb5c00005a16e60c3be9d00b076f462ee38e7b396c5fea3411/black-23.7.0-cp311-cp311-win_amd64.whl", hash = "sha256:7f3bf2dec7d541b4619b8ce526bda74a6b0bffc480a163fed32eb8b3c9aed8ad", size = 1293544, upload-time = "2023-07-11T00:34:11.463Z" },
-    { url = "https://files.pythonhosted.org/packages/32/df/1d4ca6b76b0a077599b133b9c9dceea0b465938170043d886d4821809d40/black-23.7.0-py3-none-any.whl", hash = "sha256:9fd59d418c60c0348505f2ddf9609c1e1de8e7493eab96198fc89d9f865e7a96", size = 181130, upload-time = "2023-07-11T00:21:20.056Z" },
-]
-
-[[package]]
-name = "blacken-docs"
-version = "1.18.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "black" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/12/a9/99fe0283575297466df65eb54873a892f0db5fd24459abef4c2691db883a/blacken_docs-1.18.0.tar.gz", hash = "sha256:47bed628679d008a8eb55d112df950582e68d0f57615223929e366348d935444", size = 14743, upload-time = "2024-06-30T07:08:25.539Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3d/7e/532f6c8b81346c2337c54b0e16f49f2968d86b0c535d6318b3f21f3ff4cf/blacken_docs-1.18.0-py3-none-any.whl", hash = "sha256:64f592246784131e9f84dad1db397f44eeddc77fdf01726bab920a3f00a3815c", size = 8243, upload-time = "2024-06-30T07:08:23.737Z" },
-]
-
-[[package]]
 name = "bleach"
 version = "6.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4401,8 +4362,6 @@ build = [
 ]
 dev = [
     { name = "aiohttp" },
-    { name = "black" },
-    { name = "blacken-docs" },
     { name = "build" },
     { name = "claude-agent-sdk" },
     { name = "clint" },
@@ -4470,8 +4429,6 @@ docs = [
 ]
 lint = [
     { name = "aiohttp" },
-    { name = "black" },
-    { name = "blacken-docs" },
     { name = "claude-agent-sdk" },
     { name = "clint" },
     { name = "mypy" },
@@ -4599,8 +4556,6 @@ build = [
 ]
 dev = [
     { name = "aiohttp" },
-    { name = "black", specifier = "==23.7.0" },
-    { name = "blacken-docs", specifier = "==1.18.0" },
     { name = "build" },
     { name = "claude-agent-sdk" },
     { name = "clint", editable = "dev/clint" },
@@ -4664,8 +4619,6 @@ docs = [
 ]
 lint = [
     { name = "aiohttp" },
-    { name = "black", specifier = "==23.7.0" },
-    { name = "blacken-docs", specifier = "==1.18.0" },
     { name = "claude-agent-sdk" },
     { name = "clint", editable = "dev/clint" },
     { name = "mypy", specifier = "==1.17.1" },

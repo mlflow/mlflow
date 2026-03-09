@@ -519,9 +519,9 @@ def test_graphql_search_model_versions(client, monkeypatch):
     resp.raise_for_status()
     payload = resp.json()
     assert payload.get("errors") in (None, [])
-    names = sorted(
-        {mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]}
-    )
+    names = sorted({
+        mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]
+    })
     assert names == [f"gql_mv_model{i}" for i in range(5)]
 
     # user2 only sees versions for readable models via GraphQL
@@ -533,9 +533,9 @@ def test_graphql_search_model_versions(client, monkeypatch):
     resp.raise_for_status()
     payload = resp.json()
     assert payload.get("errors") in (None, [])
-    names = sorted(
-        {mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]}
-    )
+    names = sorted({
+        mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]
+    })
     assert names == [f"gql_mv_model{i}" for i in readable]
 
 

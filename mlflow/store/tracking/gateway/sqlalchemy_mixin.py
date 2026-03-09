@@ -619,7 +619,8 @@ class SqlAlchemyGatewayStoreMixin:
             all_model_def_ids = {config.model_definition_id for config in model_configs}
 
             existing_model_defs = (
-                self._get_query(session, SqlGatewayModelDefinition)
+                self
+                ._get_query(session, SqlGatewayModelDefinition)
                 .filter(SqlGatewayModelDefinition.model_definition_id.in_(all_model_def_ids))
                 .all()
             )
@@ -652,15 +653,13 @@ class SqlAlchemyGatewayStoreMixin:
             ]
             fallback_config_json = None
             if fallback_config or fallback_model_def_ids:
-                fallback_config_json = json.dumps(
-                    {
-                        "strategy": fallback_config.strategy.value
-                        if fallback_config and fallback_config.strategy
-                        else None,
-                        "max_attempts": fallback_config.max_attempts if fallback_config else None,
-                        "model_definition_ids": fallback_model_def_ids,
-                    }
-                )
+                fallback_config_json = json.dumps({
+                    "strategy": fallback_config.strategy.value
+                    if fallback_config and fallback_config.strategy
+                    else None,
+                    "max_attempts": fallback_config.max_attempts if fallback_config else None,
+                    "model_definition_ids": fallback_model_def_ids,
+                })
 
             sql_endpoint = self._with_workspace_field(
                 SqlGatewayEndpoint(
@@ -826,15 +825,13 @@ class SqlAlchemyGatewayStoreMixin:
                     for config in model_configs
                     if config.linkage_type == GatewayModelLinkageType.FALLBACK
                 ]
-                sql_endpoint.fallback_config_json = json.dumps(
-                    {
-                        "strategy": fallback_config.strategy.value
-                        if fallback_config and fallback_config.strategy
-                        else None,
-                        "max_attempts": fallback_config.max_attempts if fallback_config else None,
-                        "model_definition_ids": fallback_model_def_ids,
-                    }
-                )
+                sql_endpoint.fallback_config_json = json.dumps({
+                    "strategy": fallback_config.strategy.value
+                    if fallback_config and fallback_config.strategy
+                    else None,
+                    "max_attempts": fallback_config.max_attempts if fallback_config else None,
+                    "model_definition_ids": fallback_model_def_ids,
+                })
 
             # Update fallback_config_json if only fallback_config provided (without model_configs)
             elif fallback_config is not None:
@@ -844,15 +841,13 @@ class SqlAlchemyGatewayStoreMixin:
                     if sql_endpoint.fallback_config_json
                     else {}
                 )
-                sql_endpoint.fallback_config_json = json.dumps(
-                    {
-                        "strategy": fallback_config.strategy.value
-                        if fallback_config.strategy
-                        else None,
-                        "max_attempts": fallback_config.max_attempts,
-                        "model_definition_ids": existing_config.get("model_definition_ids", []),
-                    }
-                )
+                sql_endpoint.fallback_config_json = json.dumps({
+                    "strategy": fallback_config.strategy.value
+                    if fallback_config.strategy
+                    else None,
+                    "max_attempts": fallback_config.max_attempts,
+                    "model_definition_ids": existing_config.get("model_definition_ids", []),
+                })
 
             sql_endpoint.last_updated_at = get_current_time_millis()
             if updated_by:
@@ -1015,7 +1010,8 @@ class SqlAlchemyGatewayStoreMixin:
             sql_mapping = query.first()
             if not sql_mapping:
                 sql_endpoint = (
-                    self._get_query(session, SqlGatewayEndpoint)
+                    self
+                    ._get_query(session, SqlGatewayEndpoint)
                     .filter(SqlGatewayEndpoint.endpoint_id == endpoint_id)
                     .first()
                 )
@@ -1324,7 +1320,8 @@ class SqlAlchemyGatewayStoreMixin:
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         with self.ManagedSessionMaker() as session:
             query = (
-                self._get_query(session, SqlGatewayBudgetPolicy)
+                self
+                ._get_query(session, SqlGatewayBudgetPolicy)
                 .order_by(SqlGatewayBudgetPolicy.budget_policy_id)
                 .offset(offset)
                 .limit(max_results + 1)
@@ -1343,7 +1340,8 @@ class SqlAlchemyGatewayStoreMixin:
     ) -> float:
         with self.ManagedSessionMaker() as session:
             query = (
-                session.query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
+                session
+                .query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
                 .join(SqlTraceInfo, SqlTraceInfo.request_id == SqlSpanMetrics.trace_id)
                 .join(
                     SqlTraceMetadata,

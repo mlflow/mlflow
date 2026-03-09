@@ -357,7 +357,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def _initialize_store_state(self):
         with self.ManagedSessionMaker() as session:
             workspace_scoped_experiment = (
-                session.query(SqlExperiment.experiment_id)
+                session
+                .query(SqlExperiment.experiment_id)
                 .filter(SqlExperiment.workspace.isnot(None))
                 .filter(SqlExperiment.workspace != DEFAULT_WORKSPACE_NAME)
                 .first()
@@ -574,7 +575,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
         experiment = (
-            self._get_query(session, SqlExperiment)
+            self
+            ._get_query(session, SqlExperiment)
             .options(*query_options)
             .filter(
                 SqlExperiment.experiment_id == experiment_id_int,
@@ -680,7 +682,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         with self.ManagedSessionMaker() as session:
             stages = LifecycleStage.view_type_to_stages(ViewType.ALL)
             experiment = (
-                self._get_query(session, SqlExperiment)
+                self
+                ._get_query(session, SqlExperiment)
                 .options(*self._get_eager_experiment_query_options())
                 .filter(
                     SqlExperiment.name == experiment_name,
@@ -733,7 +736,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def _list_run_infos(self, session, experiment_id):
         return (
-            self._get_query(session, SqlRun)
+            self
+            ._get_query(session, SqlRun)
             .filter(SqlRun.experiment_id == int(experiment_id))
             .all()
         )
@@ -819,7 +823,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         query_options = self._get_eager_run_query_options() if eager else []
         runs = (
-            self._get_query(session, SqlRun)
+            self
+            ._get_query(session, SqlRun)
             .options(*query_options)
             .filter(SqlRun.run_uuid == run_uuid)
             .all()
@@ -843,7 +848,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def _get_run_inputs(self, session, run_uuids):
         datasets_with_tags = (
-            session.query(
+            session
+            .query(
                 SqlInput.input_uuid,
                 SqlInput.destination_id.label("run_uuid"),
                 SqlDataset,
@@ -929,7 +935,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def _try_get_run_tag(self, session, run_id, tagKey, eager=False):
         query_options = self._get_eager_run_query_options() if eager else []
         return (
-            session.query(SqlTag)
+            session
+            .query(SqlTag)
             .options(*query_options)
             .filter(SqlTag.run_uuid == run_id, SqlTag.key == tagKey)
             .one_or_none()
@@ -986,7 +993,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         current_time = get_current_time_millis()
         with self.ManagedSessionMaker() as session:
             runs = (
-                self._get_query(session, SqlRun)
+                self
+                ._get_query(session, SqlRun)
                 .filter(
                     SqlRun.lifecycle_stage == LifecycleStage.DELETED,
                     SqlRun.deleted_time <= (current_time - older_than),
@@ -1083,7 +1091,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 for metric_key_batch in metric_key_batches:
                     # obtain the metric history corresponding to the given metrics
                     metric_history = (
-                        session.query(SqlMetric)
+                        session
+                        .query(SqlMetric)
                         .filter(
                             SqlMetric.run_uuid == run_id,
                             SqlMetric.key.in_(metric_key_batch),
@@ -1163,7 +1172,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 for batch in metric_key_batches:
                     existing_metrics = (
-                        session.query(SqlLoggedModelMetric)
+                        session
+                        .query(SqlLoggedModelMetric)
                         .filter(
                             SqlLoggedModelMetric.run_id == run_id,
                             SqlLoggedModelMetric.metric_name.in_(batch),
@@ -1218,7 +1228,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         for metric_key_batch in metric_key_batches:
             # First, determine which metric keys are present in the database
             latest_metrics_key_records_from_db = (
-                session.query(SqlLatestMetric.key)
+                session
+                .query(SqlLatestMetric.key)
                 .filter(
                     SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
                     SqlLatestMetric.key.in_(metric_key_batch),
@@ -1235,7 +1246,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     record[0] for record in latest_metrics_key_records_from_db
                 ]
                 latest_metrics_batch = (
-                    session.query(SqlLatestMetric)
+                    session
+                    .query(SqlLatestMetric)
                     .filter(
                         SqlLatestMetric.run_uuid == logged_metrics[0].run_uuid,
                         SqlLatestMetric.key.in_(latest_metric_keys_from_db),
@@ -1357,7 +1369,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             run_ids = self._filter_entity_ids(session, EntityAssociationType.RUN, list(run_ids))
 
             metrics = (
-                session.query(SqlMetric)
+                session
+                .query(SqlMetric)
                 .filter(
                     SqlMetric.key == metric_key,
                     SqlMetric.run_uuid.in_(run_ids),
@@ -1383,7 +1396,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         with self.ManagedSessionMaker() as session:
             self._validate_run_accessible(session, run_id)
             max_step = (
-                session.query(func.max(SqlMetric.step))
+                session
+                .query(func.max(SqlMetric.step))
                 .filter(SqlMetric.run_uuid == run_id, SqlMetric.key == metric_key)
                 .scalar()
             )
@@ -1393,7 +1407,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         with self.ManagedSessionMaker() as session:
             self._validate_run_accessible(session, run_id)
             metrics = (
-                session.query(SqlMetric)
+                session
+                .query(SqlMetric)
                 .filter(
                     SqlMetric.key == metric_key,
                     SqlMetric.run_uuid == run_id,
@@ -1435,7 +1450,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # input does not have the MLFLOW_DATASET_CONTEXT tag, we still return that entry as part
             # of the final result with the context set to None.
             summaries = (
-                session.query(
+                session
+                .query(
                     SqlDataset.experiment_id,
                     SqlDataset.name,
                     SqlDataset.digest,
@@ -1528,13 +1544,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             for param in params:
                 if param.key in existing_params:
                     if param.value != existing_params[param.key]:
-                        non_matching_params.append(
-                            {
-                                "key": param.key,
-                                "old_value": existing_params[param.key],
-                                "new_value": param.value,
-                            }
-                        )
+                        non_matching_params.append({
+                            "key": param.key,
+                            "old_value": existing_params[param.key],
+                            "new_value": param.value,
+                        })
                     continue
                 new_params.append(SqlParam(run_uuid=run_id, key=param.key, value=param.value))
 
@@ -1583,7 +1597,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             ).to_mlflow_entity()
             self._check_experiment_is_active(experiment)
             filtered_tags = (
-                session.query(SqlExperimentTag)
+                session
+                .query(SqlExperimentTag)
                 .filter_by(experiment_id=int(experiment_id), key=key)
                 .all()
             )
@@ -1641,7 +1656,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             def _try_insert_tags(attempt_number, max_retries):
                 try:
                     current_tags = (
-                        session.query(SqlTag)
+                        session
+                        .query(SqlTag)
                         .filter(
                             SqlTag.run_uuid == run_id,
                             SqlTag.key.in_([t.key for t in tags]),
@@ -1777,7 +1793,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             experiment_ids = [int(e) for e in experiment_ids]
             experiment_ids = self._filter_experiment_ids(session, experiment_ids)
             stmt = (
-                stmt.distinct()
+                stmt
+                .distinct()
                 .options(*self._get_eager_run_query_options())
                 .filter(
                     SqlRun.experiment_id.in_(experiment_ids),
@@ -1923,7 +1940,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # find all datasets with the same name and digest
             # if the dataset already exists, use the existing dataset uuid
             existing_datasets = (
-                session.query(SqlDataset)
+                session
+                .query(SqlDataset)
                 .filter(SqlDataset.experiment_id == experiment_id)
                 .filter(SqlDataset.name.in_(dataset_names_to_check))
                 .filter(SqlDataset.digest.in_(dataset_digests_to_check))
@@ -1964,7 +1982,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # find all inputs with the same source_id and destination_id
             # if the input already exists, use the existing input uuid
             existing_inputs = (
-                session.query(SqlInput)
+                session
+                .query(SqlInput)
                 .filter(SqlInput.source_type == "DATASET")
                 .filter(SqlInput.source_id.in_(dataset_uuids.values()))
                 .filter(SqlInput.destination_type == "RUN")
@@ -2044,7 +2063,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         return [
             LoggedModelInput(model_id=input.destination_id)
             for input in (
-                session.query(SqlInput)
+                session
+                .query(SqlInput)
                 .filter(
                     SqlInput.source_type == "RUN_INPUT",
                     SqlInput.source_id == run_id,
@@ -2061,7 +2081,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     ) -> list[LoggedModelOutput]:
         return [
             LoggedModelOutput(model_id=output.destination_id, step=output.step)
-            for output in session.query(SqlInput)
+            for output in session
+            .query(SqlInput)
             .filter(
                 SqlInput.source_type == "RUN_OUTPUT",
                 SqlInput.source_id == run_id,
@@ -2080,7 +2101,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns a dict mapping run_id to list of LoggedModelOutput.
         """
         outputs = (
-            session.query(SqlInput)
+            session
+            .query(SqlInput)
             .filter(
                 SqlInput.source_type == "RUN_OUTPUT",
                 SqlInput.source_id.in_(run_ids),
@@ -2177,7 +2199,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
     def _get_logged_model_record(self, session, model_id: str) -> SqlLoggedModel:
         logged_model = (
-            self._get_query(session, SqlLoggedModel)
+            self
+            ._get_query(session, SqlLoggedModel)
             .filter(SqlLoggedModel.model_id == model_id)
             .one_or_none()
         )
@@ -2223,7 +2246,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         current_time = get_current_time_millis()
         with self.ManagedSessionMaker() as session:
             models = (
-                self._get_query(session, SqlLoggedModel)
+                self
+                ._get_query(session, SqlLoggedModel)
                 .filter(
                     SqlLoggedModel.lifecycle_stage == LifecycleStage.DELETED,
                     SqlLoggedModel.last_updated_timestamp_ms <= (current_time - older_than),
@@ -2258,7 +2282,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         with self.ManagedSessionMaker() as session:
             self._get_logged_model_record(session, model_id)
             count = (
-                session.query(SqlLoggedModelTag)
+                session
+                .query(SqlLoggedModelTag)
                 .filter(
                     SqlLoggedModelTag.model_id == model_id,
                     SqlLoggedModelTag.tag_key == key,
@@ -2318,7 +2343,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # First, check if the scorer exists in the scorers table
             scorer = (
-                session.query(SqlScorer)
+                session
+                .query(SqlScorer)
                 .filter(
                     SqlScorer.experiment_id == experiment_id,
                     SqlScorer.scorer_name == name,
@@ -2339,7 +2365,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Find the maximum version for this scorer
             max_version = (
-                session.query(func.max(SqlScorerVersion.scorer_version))
+                session
+                .query(func.max(SqlScorerVersion.scorer_version))
                 .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
                 .scalar()
             )
@@ -2360,7 +2387,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Verify endpoint exists in DB (handles mocked tests and race conditions)
             if endpoint_id is not None:
                 endpoint_exists = (
-                    self._get_query(session, SqlGatewayEndpoint)
+                    self
+                    ._get_query(session, SqlGatewayEndpoint)
                     .filter(SqlGatewayEndpoint.endpoint_id == endpoint_id)
                     .first()
                 )
@@ -2407,7 +2435,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # First, get all scorer_ids for this experiment
             scorer_ids = [
                 scorer.scorer_id
-                for scorer in session.query(SqlScorer.scorer_id)
+                for scorer in session
+                .query(SqlScorer.scorer_id)
                 .filter(SqlScorer.experiment_id == experiment.experiment_id)
                 .all()
             ]
@@ -2417,7 +2446,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Query the latest version for each scorer_id
             latest_versions = (
-                session.query(
+                session
+                .query(
                     SqlScorerVersion.scorer_id,
                     func.max(SqlScorerVersion.scorer_version).label("max_version"),
                 )
@@ -2428,7 +2458,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Query the actual scorer version records with the latest versions
             sql_scorer_versions = (
-                session.query(SqlScorerVersion)
+                session
+                .query(SqlScorerVersion)
                 .join(
                     latest_versions,
                     (SqlScorerVersion.scorer_id == latest_versions.c.scorer_id)
@@ -2440,9 +2471,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
             # Batch resolve gateway endpoint IDs to names
-            resolved_scorers = self._batch_resolve_endpoint_in_serialized_scorers(
-                [sv.serialized_scorer for sv in sql_scorer_versions]
-            )
+            resolved_scorers = self._batch_resolve_endpoint_in_serialized_scorers([
+                sv.serialized_scorer for sv in sql_scorer_versions
+            ])
             return [
                 ScorerVersion(
                     experiment_id=str(sv.scorer.experiment_id),
@@ -2478,7 +2509,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # First, get the scorer record
             scorer = (
-                session.query(SqlScorer)
+                session
+                .query(SqlScorer)
                 .filter(
                     SqlScorer.experiment_id == experiment.experiment_id,
                     SqlScorer.scorer_name == name,
@@ -2540,7 +2572,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # First, get the scorer record
             scorer = (
-                session.query(SqlScorer)
+                session
+                .query(SqlScorer)
                 .filter(
                     SqlScorer.experiment_id == experiment.experiment_id,
                     SqlScorer.scorer_name == name,
@@ -2615,7 +2648,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # First, get the scorer record
             scorer = (
-                session.query(SqlScorer)
+                session
+                .query(SqlScorer)
                 .filter(
                     SqlScorer.experiment_id == experiment.experiment_id,
                     SqlScorer.scorer_name == name,
@@ -2631,7 +2665,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Query for all versions of the scorer
             sql_scorer_versions = (
-                session.query(SqlScorerVersion)
+                session
+                .query(SqlScorerVersion)
                 .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
                 .order_by(SqlScorerVersion.scorer_version.asc())
                 .all()
@@ -2644,9 +2679,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             # Batch resolve gateway endpoint IDs to names
-            resolved_scorers = self._batch_resolve_endpoint_in_serialized_scorers(
-                [sv.serialized_scorer for sv in sql_scorer_versions]
-            )
+            resolved_scorers = self._batch_resolve_endpoint_in_serialized_scorers([
+                sv.serialized_scorer for sv in sql_scorer_versions
+            ])
             return [
                 ScorerVersion(
                     experiment_id=str(sv.scorer.experiment_id),
@@ -2678,7 +2713,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             results = (
-                self._get_query(session, SqlOnlineScoringConfig)
+                self
+                ._get_query(session, SqlOnlineScoringConfig)
                 .filter(SqlOnlineScoringConfig.scorer_id.in_(scorer_ids))
                 .all()
             )
@@ -2731,7 +2767,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             self._check_experiment_is_active(experiment)
 
             scorer = (
-                session.query(SqlScorer)
+                session
+                .query(SqlScorer)
                 .filter(
                     SqlScorer.experiment_id == experiment.experiment_id,
                     SqlScorer.scorer_name == scorer_name,
@@ -2746,7 +2783,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Get the latest scorer version to validate online scoring compatibility
             latest_version = (
-                session.query(SqlScorerVersion)
+                session
+                .query(SqlScorerVersion)
                 .filter(SqlScorerVersion.scorer_id == scorer.scorer_id)
                 .order_by(SqlScorerVersion.scorer_version.desc())
                 .first()
@@ -2814,7 +2852,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         with self.ManagedSessionMaker() as session:
             # Subquery to get the max version for each scorer
             max_version_subquery = (
-                session.query(
+                session
+                .query(
                     SqlScorerVersion.scorer_id,
                     func.max(SqlScorerVersion.scorer_version).label("max_version"),
                 )
@@ -2824,7 +2863,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Get all online configs with sample_rate > 0, joined with their latest version
             results = (
-                self._get_query(session, SqlOnlineScoringConfig)
+                self
+                ._get_query(session, SqlOnlineScoringConfig)
                 .filter(SqlOnlineScoringConfig.sample_rate > 0)
                 .join(SqlScorer, SqlOnlineScoringConfig.scorer_id == SqlScorer.scorer_id)
                 .join(
@@ -2909,13 +2949,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         f"Invalid order by field name: {field_name}"
                     )
                 # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
-                order_by_clauses.extend(
-                    [
-                        # Sort nulls last
-                        sqlalchemy.case((col.is_(None), 1), else_=0).asc(),
-                        col.asc() if ascending else col.desc(),
-                    ]
-                )
+                order_by_clauses.extend([
+                    # Sort nulls last
+                    sqlalchemy.case((col.is_(None), 1), else_=0).asc(),
+                    col.asc() if ascending else col.desc(),
+                ])
                 continue
 
             entity, name = field_name.split(".", 1)
@@ -2933,10 +2971,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 dataset_filter.append(SqlLoggedModelMetric.dataset_digest == dataset_digest)
 
             subquery = (
-                session.query(
+                session
+                .query(
                     SqlLoggedModelMetric.model_id,
                     SqlLoggedModelMetric.metric_value,
-                    func.rank()
+                    func
+                    .rank()
                     .over(
                         partition_by=[
                             SqlLoggedModelMetric.model_id,
@@ -2959,13 +2999,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             models = models.outerjoin(subquery)
             # Why not use `nulls_last`? Because it's not supported by all dialects (e.g., MySQL)
-            order_by_clauses.extend(
-                [
-                    # Sort nulls last
-                    sqlalchemy.case((subquery.c.metric_value.is_(None), 1), else_=0).asc(),
-                    subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc(),
-                ]
-            )
+            order_by_clauses.extend([
+                # Sort nulls last
+                sqlalchemy.case((subquery.c.metric_value.is_(None), 1), else_=0).asc(),
+                subquery.c.metric_value.asc() if ascending else subquery.c.metric_value.desc(),
+            ])
 
         if not has_creation_timestamp:
             order_by_clauses.append(SqlLoggedModel.creation_timestamp_ms.desc())
@@ -3015,7 +3053,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelParam)
+                    session
+                    .query(SqlLoggedModelParam)
                     .filter(
                         SqlLoggedModelParam.param_key == comp.entity.key,
                         comp_func(SqlLoggedModelParam.param_value, comp.value),
@@ -3024,7 +3063,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
             elif comp.entity.type == EntityType.TAG:
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelTag)
+                    session
+                    .query(SqlLoggedModelTag)
                     .filter(
                         SqlLoggedModelTag.tag_key == comp.entity.key,
                         comp_func(SqlLoggedModelTag.tag_value, comp.value),
@@ -3039,7 +3079,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         # filter for models that have any metrics on the datasets
         if dataset_filters and not has_metric_filters:
             subquery = (
-                session.query(SqlLoggedModelMetric.model_id)
+                session
+                .query(SqlLoggedModelMetric.model_id)
                 .filter(sqlalchemy.or_(*dataset_filters))
                 .distinct()
                 .subquery()
@@ -3187,7 +3228,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 # We cannot set the tag in TraceInfo directly because this may be invoked by
                 # older mlflow clients that log spans to artifact repository.
                 db_sql_trace_info = (
-                    self._trace_query(session)
+                    self
+                    ._trace_query(session)
                     .filter(SqlTraceInfo.request_id == trace_id)
                     .one_or_none()
                 )
@@ -3384,7 +3426,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 #   trace_id is unique in those tables.
                 #   Be careful when changing the query building logic, as it may break this
                 #   uniqueness property and require deduplication, which can be expensive.
-                stmt.filter(SqlTraceInfo.experiment_id.in_(locations))
+                stmt
+                .filter(SqlTraceInfo.experiment_id.in_(locations))
                 .order_by(*parsed_orderby)
                 .offset(offset)
                 .limit(max_results)
@@ -3514,7 +3557,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         candidate_metadata = aliased(SqlTraceMetadata)
         return (
-            session.query(candidate_metadata.value.label("session_id"))
+            session
+            .query(candidate_metadata.value.label("session_id"))
             .join(
                 SqlTraceInfo,
                 (SqlTraceInfo.request_id == candidate_metadata.request_id)
@@ -3551,7 +3595,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         # Subquery: first trace timestamp for each session
         first_trace_metadata = aliased(SqlTraceMetadata)
         first_traces = (
-            self._trace_query(session)
+            self
+            ._trace_query(session)
             .with_entities(
                 first_trace_metadata.value.label("session_id"),
                 func.min(SqlTraceInfo.timestamp_ms).label("first_timestamp"),
@@ -3598,7 +3643,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         # Apply session-specific filters
         return (
-            filtered_trace_query.filter(
+            filtered_trace_query
+            .filter(
                 SqlTraceInfo.experiment_id == experiment_id,
                 filtered_first_trace_metadata.key == TraceMetadataKey.TRACE_SESSION,
             )
@@ -3617,7 +3663,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         session_metadata = aliased(SqlTraceMetadata)
         stats_query = (
-            self._trace_query(session)
+            self
+            ._trace_query(session)
             .with_entities(
                 session_metadata.value.label("session_id"),
                 func.min(SqlTraceInfo.timestamp_ms).label("first_trace_timestamp_ms"),
@@ -3635,7 +3682,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         )
 
         return (
-            stats_query.filter(SqlTraceInfo.experiment_id == experiment_id)
+            stats_query
+            .filter(SqlTraceInfo.experiment_id == experiment_id)
             .group_by(session_metadata.value)
             .subquery()
         )
@@ -3654,7 +3702,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         (last_trace_timestamp_ms ASC, session_id ASC) for deterministic pagination.
         """
         query = (
-            session.query(
+            session
+            .query(
                 sessions_with_stats.c.session_id,
                 sessions_with_stats.c.first_trace_timestamp_ms,
                 sessions_with_stats.c.last_trace_timestamp_ms,
@@ -3803,7 +3852,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 filters.append(SqlTraceInfo.request_id.in_(trace_ids))
             if max_traces:
                 limited_subquery = (
-                    self._trace_query(session)
+                    self
+                    ._trace_query(session)
                     .with_entities(SqlTraceInfo.request_id)
                     .filter(*filters)
                     .order_by(SqlTraceInfo.timestamp_ms)
@@ -3813,7 +3863,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 filters.append(SqlTraceInfo.request_id.in_(select(limited_subquery.c.request_id)))
 
             return (
-                self._trace_query(session, for_update_or_delete=True)
+                self
+                ._trace_query(session, for_update_or_delete=True)
                 .filter(and_(*filters))
                 .delete(synchronize_session="fetch")
             )
@@ -3838,7 +3889,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             if sql_assessment.overrides:
                 update_count = (
-                    session.query(SqlAssessments)
+                    session
+                    .query(SqlAssessments)
                     .filter(
                         SqlAssessments.trace_id == sql_assessment.trace_id,
                         SqlAssessments.assessment_id == sql_assessment.overrides,
@@ -3989,16 +4041,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             session.query(SqlAssessments).filter(
                 SqlAssessments.trace_id == trace_id, SqlAssessments.assessment_id == assessment_id
-            ).update(
-                {
-                    "name": updated_assessment.name,
-                    "value": value_json,
-                    "error": error_json,
-                    "last_updated_timestamp": updated_timestamp,
-                    "rationale": updated_assessment.rationale,
-                    "assessment_metadata": metadata_json,
-                }
-            )
+            ).update({
+                "name": updated_assessment.name,
+                "value": value_json,
+                "error": error_json,
+                "last_updated_timestamp": updated_timestamp,
+                "rationale": updated_assessment.rationale,
+                "assessment_metadata": metadata_json,
+            })
 
             return updated_assessment
 
@@ -4017,7 +4067,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             self._validate_trace_accessible(session, trace_id)
 
             assessment_to_delete = (
-                session.query(SqlAssessments)
+                session
+                .query(SqlAssessments)
                 .filter_by(trace_id=trace_id, assessment_id=assessment_id)
                 .first()
             )
@@ -4038,7 +4089,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
     def _get_sql_assessment(self, session, trace_id: str, assessment_id: str) -> SqlAssessments:
         """Helper method to get SqlAssessments object."""
         sql_assessment = (
-            session.query(SqlAssessments)
+            session
+            .query(SqlAssessments)
             .filter(
                 SqlAssessments.trace_id == trace_id, SqlAssessments.assessment_id == assessment_id
             )
@@ -4092,7 +4144,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             )
 
             existing_associations = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(
                     SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
                     SqlEntityAssociation.source_id.in_(trace_ids),
@@ -4137,7 +4190,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Check for existing associations
             existing_associations = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(
                     SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
                     SqlEntityAssociation.source_id == trace_id,
@@ -4279,7 +4333,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         # NB: MSSQL does not support exists queries within subjoins so a slightly
         # less efficient subquery LEFT JOIN is used to support all backends.
         query = (
-            session.query(
+            session
+            .query(
                 func.count(base_request_id).label("total"),
                 func.count(filter1_alias.c.request_id).label("filter1"),
                 func.count(filter2_alias.c.request_id).label("filter2"),
@@ -4493,7 +4548,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             if aggregated_token_usage:
                 trace_token_usage_record = (
-                    session.query(SqlTraceMetadata)
+                    session
+                    .query(SqlTraceMetadata)
                     .filter(
                         SqlTraceMetadata.request_id == trace_id,
                         SqlTraceMetadata.key == TraceMetadataKey.TOKEN_USAGE,
@@ -4523,7 +4579,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Handle cost aggregation
             if aggregated_cost:
                 trace_cost_record = (
-                    session.query(SqlTraceMetadata)
+                    session
+                    .query(SqlTraceMetadata)
                     .filter(
                         SqlTraceMetadata.request_id == trace_id,
                         SqlTraceMetadata.key == TraceMetadataKey.COST,
@@ -4544,7 +4601,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             if session_id:
                 existing_session_id = (
-                    session.query(SqlTraceMetadata)
+                    session
+                    .query(SqlTraceMetadata)
                     .filter(
                         SqlTraceMetadata.request_id == trace_id,
                         SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
@@ -4674,7 +4732,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_trace_info = (
-                self._trace_query(session)
+                self
+                ._trace_query(session)
                 .options(joinedload(SqlTraceInfo.spans))
                 .filter(SqlTraceInfo.request_id == trace_id)
                 .one_or_none()
@@ -4715,7 +4774,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         with self.ManagedSessionMaker() as session:
             # Load traces and their spans in one go
             sql_trace_infos = (
-                self._trace_query(session)
+                self
+                ._trace_query(session)
                 .options(joinedload(SqlTraceInfo.spans))
                 .filter(SqlTraceInfo.request_id.in_(trace_ids))
                 .order_by(order_case)
@@ -4756,7 +4816,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         )
         with self.ManagedSessionMaker() as session:
             sql_trace_infos = (
-                self._trace_query(session)
+                self
+                ._trace_query(session)
                 .filter(SqlTraceInfo.request_id.in_(trace_ids))
                 .order_by(order_case)
                 .all()
@@ -5014,7 +5075,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     session.add(association)
 
             sql_dataset_with_tags = (
-                self._dataset_query(session)
+                self
+                ._dataset_query(session)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
                 .one()
             )
@@ -5037,7 +5099,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_dataset = (
-                self._dataset_query(session)
+                self
+                ._dataset_query(session)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
                 .one_or_none()
             )
@@ -5060,7 +5123,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             sql_dataset = (
-                self._dataset_query(session)
+                self
+                ._dataset_query(session)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
                 .one_or_none()
             )
@@ -5208,7 +5272,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             Profile dictionary with current statistics
         """
         total_records = (
-            session.query(SqlEvaluationDatasetRecord)
+            session
+            .query(SqlEvaluationDatasetRecord)
             .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
             .count()
         )
@@ -5276,7 +5341,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             self._validate_dataset_accessible(session, dataset_id)
 
             query = (
-                session.query(SqlEvaluationDatasetRecord)
+                session
+                .query(SqlEvaluationDatasetRecord)
                 .filter(SqlEvaluationDatasetRecord.dataset_id == dataset_id)
                 .order_by(
                     SqlEvaluationDatasetRecord.created_time,
@@ -5338,7 +5404,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 return
 
             deleted_count = (
-                session.query(SqlEvaluationDatasetTag)
+                session
+                .query(SqlEvaluationDatasetTag)
                 .filter_by(dataset_id=dataset_id, key=key)
                 .delete()
             )
@@ -5376,7 +5443,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 input_hash = hashlib.sha256(inputs_json.encode()).hexdigest()
 
                 existing_record = (
-                    session.query(SqlEvaluationDatasetRecord)
+                    session
+                    .query(SqlEvaluationDatasetRecord)
                     .filter(
                         SqlEvaluationDatasetRecord.dataset_id == dataset_id,
                         SqlEvaluationDatasetRecord.input_hash == input_hash,
@@ -5422,7 +5490,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     inserted_count += 1
 
             dataset_info = (
-                self._dataset_query(session)
+                self
+                ._dataset_query(session)
                 .with_entities(SqlEvaluationDataset.schema, SqlEvaluationDataset.name)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
                 .first()
@@ -5474,7 +5543,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             self._validate_dataset_accessible(session, dataset_id)
 
             deleted_count = (
-                session.query(SqlEvaluationDatasetRecord)
+                session
+                .query(SqlEvaluationDatasetRecord)
                 .filter(
                     SqlEvaluationDatasetRecord.dataset_id == dataset_id,
                     SqlEvaluationDatasetRecord.dataset_record_id.in_(dataset_record_ids),
@@ -5490,7 +5560,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 return 0
 
             dataset = (
-                self._get_query(session, SqlEvaluationDataset)
+                self
+                ._get_query(session, SqlEvaluationDataset)
                 .filter(SqlEvaluationDataset.dataset_id == dataset_id)
                 .first()
             )
@@ -5549,7 +5620,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             for key, value in tags.items():
                 if value is not None:
                     existing_tag = (
-                        session.query(SqlEvaluationDatasetTag)
+                        session
+                        .query(SqlEvaluationDatasetTag)
                         .filter_by(dataset_id=dataset_id, key=key)
                         .first()
                     )
@@ -5670,7 +5742,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             accessible_exp_ids = (
                 {
                     str(row[0])
-                    for row in self._get_query(session, SqlExperiment)
+                    for row in self
+                    ._get_query(session, SqlExperiment)
                     .filter(SqlExperiment.experiment_id.in_(experiment_ids_str))
                     .with_entities(SqlExperiment.experiment_id)
                     .all()
@@ -5687,7 +5760,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     )
 
             existing_associations = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(
                     SqlEntityAssociation.source_id == dataset_id,
                     SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
@@ -5736,13 +5810,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             existing_associations = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(
                     SqlEntityAssociation.source_id == dataset_id,
                     SqlEntityAssociation.source_type == EntityAssociationType.EVALUATION_DATASET,
-                    SqlEntityAssociation.destination_id.in_(
-                        [str(exp_id) for exp_id in experiment_ids]
-                    ),
+                    SqlEntityAssociation.destination_id.in_([
+                        str(exp_id) for exp_id in experiment_ids
+                    ]),
                     SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
                 )
                 .all()
@@ -6167,7 +6242,8 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
             elif entity == SqlDataset:
                 if key_name == "context":
                     dataset_filters.append(
-                        session.query(entity, SqlInput, SqlInputTag)
+                        session
+                        .query(entity, SqlInput, SqlInputTag)
                         .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
                         .join(
                             SqlInputTag,
@@ -6186,7 +6262,8 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                         getattr(SqlDataset, key_name), value
                     )
                     dataset_filters.append(
-                        session.query(entity, SqlInput)
+                        session
+                        .query(entity, SqlInput)
                         .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
                         .filter(dataset_attr_filter)
                         .subquery()
@@ -6482,7 +6559,8 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     # The prompt version ID is stored as "name/version"
                     prompt_id = value
                     association_subquery = (
-                        session.query(SqlEntityAssociation.source_id.label("request_id"))
+                        session
+                        .query(SqlEntityAssociation.source_id.label("request_id"))
                         .filter(
                             SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
                             SqlEntityAssociation.destination_type
@@ -6580,7 +6658,8 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     SqlAssessments.value, value
                 )
                 feedback_subquery = (
-                    session.query(SqlAssessments.trace_id.label("request_id"))
+                    session
+                    .query(SqlAssessments.trace_id.label("request_id"))
                     .filter(
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
@@ -6616,7 +6695,8 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     # 'span.name = "search_web" AND span.status = "OK"'
     if span_filter_conditions:
         combined_span_subquery = (
-            session.query(SqlSpan.trace_id.label("request_id"))
+            session
+            .query(SqlSpan.trace_id.label("request_id"))
             .filter(*span_filter_conditions)
             .distinct()
             .subquery()

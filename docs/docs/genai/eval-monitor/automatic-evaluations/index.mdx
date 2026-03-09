@@ -126,9 +126,7 @@ registered_frustration_judge.start(
 from mlflow.genai.scorers import get_scorer, ScorerSamplingConfig
 
 judge = get_scorer(name="tool_call_correctness")
-judge.update(
-    sampling_config=ScorerSamplingConfig(sample_rate=0.3)
-)  # Change sample rate
+judge.update(sampling_config=ScorerSamplingConfig(sample_rate=0.3))  # Change sample rate
 judge.stop()  # Or, disable the judge
 ```
 

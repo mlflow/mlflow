@@ -327,6 +327,7 @@ def _wrap_function(
                 _WrappingContext(fn, args, kwargs) as wrapping_coro,
             ):
                 return wrapping_coro.send(await fn(*args, **kwargs))
+
     else:
 
         def wrapper(*args, **kwargs):
@@ -446,6 +447,7 @@ def _wrap_generator(
                     yield value
                     i += 1
             _end_stream_span(span, inputs, outputs, output_reducer)
+
     else:
 
         async def wrapper(*args, **kwargs):

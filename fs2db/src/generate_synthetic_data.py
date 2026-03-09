@@ -115,22 +115,18 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
             ) as run:
                 run_ids.append(run.info.run_id)
 
-                mlflow.log_params(
-                    {
-                        "learning_rate": "0.001",
-                        "batch_size": "32",
-                        "model_type": f"model_v{run_idx}",
-                    }
-                )
+                mlflow.log_params({
+                    "learning_rate": "0.001",
+                    "batch_size": "32",
+                    "model_type": f"model_v{run_idx}",
+                })
 
-                mlflow.log_metrics(
-                    {
-                        "accuracy": 0.85 + run_idx * 0.01,
-                        "loss": 0.35 - run_idx * 0.01,
-                        "zero_metric": 0.0,
-                        "negative_metric": -1.5 + run_idx * 0.1,
-                    }
-                )
+                mlflow.log_metrics({
+                    "accuracy": 0.85 + run_idx * 0.01,
+                    "loss": 0.35 - run_idx * 0.01,
+                    "zero_metric": 0.0,
+                    "negative_metric": -1.5 + run_idx * 0.1,
+                })
                 for step in range(5):
                     mlflow.log_metric("train_loss", 1.0 - step * 0.15, step=step)
 
@@ -142,9 +138,11 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
 
     # NaN / Inf metrics (on first run of first experiment)
     with mlflow.start_run(run_id=result[0].run_ids[0]):
-        mlflow.log_metrics(
-            {"nan_metric": math.nan, "inf_metric": math.inf, "neg_inf_metric": -math.inf}
-        )
+        mlflow.log_metrics({
+            "nan_metric": math.nan,
+            "inf_metric": math.inf,
+            "neg_inf_metric": -math.inf,
+        })
 
     # Unicode experiment name and tag values
     unicode_exp_id = client.create_experiment(
