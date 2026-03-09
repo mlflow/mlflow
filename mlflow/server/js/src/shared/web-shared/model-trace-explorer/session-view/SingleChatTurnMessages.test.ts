@@ -77,12 +77,7 @@ describe('rankByKeyImportance', () => {
 
     it('should rank preferred keys in priority order: response > output > outputs > generations', () => {
       const items = toItems('generations', 'outputs', 'output', 'response');
-      expect(keys(items.sort(rankOutputByImportance))).toEqual([
-        'response',
-        'output',
-        'outputs',
-        'generations',
-      ]);
+      expect(keys(items.sort(rankOutputByImportance))).toEqual(['response', 'output', 'outputs', 'generations']);
     });
 
     it('should be case-insensitive', () => {
