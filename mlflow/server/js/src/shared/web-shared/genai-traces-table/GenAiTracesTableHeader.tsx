@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
   TableRowSelectCell,
+  Tooltip,
   useDesignSystemTheme,
   ChevronDownIcon,
 } from '@databricks/design-system';
@@ -15,8 +16,26 @@ import { useIntl } from '@databricks/i18n';
 
 import { EvaluationsAssessmentHoverCard } from './components/EvaluationsAssessmentHoverCard';
 import { AssessmentColumnSummary } from './components/charts/AssessmentColumnSummary';
-import { createAssessmentColumnId } from './hooks/useTableColumns';
 import {
+  createAssessmentColumnId,
+  TRACE_ID_COLUMN_ID,
+  INPUTS_COLUMN_ID,
+  RESPONSE_COLUMN_ID,
+  SESSION_COLUMN_ID,
+  USER_COLUMN_ID,
+  TRACE_NAME_COLUMN_ID,
+  TOKENS_COLUMN_ID,
+  EXECUTION_DURATION_COLUMN_ID,
+  REQUEST_TIME_COLUMN_ID,
+  STATE_COLUMN_ID,
+  SOURCE_COLUMN_ID,
+  LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
+  RUN_NAME_COLUMN_ID,
+  TAGS_COLUMN_ID,
+} from './hooks/useTableColumns';
+import {
+  TracesTableColumnGroup,
   type AssessmentAggregates,
   type AssessmentFilter,
   type AssessmentInfo,
@@ -24,6 +43,70 @@ import {
   type EvalTraceComparisonEntry,
 } from './types';
 import { escapeCssSpecialCharacters } from './utils/DisplayUtils';
+
+const MLFLOW_DOCS_BASE_URL = 'https://mlflow.org/docs/latest';
+
+const COLUMN_TOOLTIPS: Record<string, { description: string; docsUrl?: string }> = {
+  [TRACE_ID_COLUMN_ID]: {
+    description: 'Unique identifier for the trace',
+  },
+  [INPUTS_COLUMN_ID]: {
+    description: "Inputs of the trace, derived from the root span's inputs",
+  },
+  [RESPONSE_COLUMN_ID]: {
+    description: "Outputs of the trace, derived from the root span's outputs",
+  },
+  [SESSION_COLUMN_ID]: {
+    description: 'A unique identifier for the session or conversation for grouping traces',
+    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/track-users-sessions/`,
+  },
+  [USER_COLUMN_ID]: {
+    description: 'Application user who triggered the trace',
+    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/track-users-sessions/`,
+  },
+  [TRACE_NAME_COLUMN_ID]: {
+    description: "Name of the trace, derived from the root span's name",
+  },
+  [TOKENS_COLUMN_ID]: {
+    description: 'Aggregated input/output/total token usage across all spans in the trace',
+    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/token-usage-cost`,
+  },
+  [EXECUTION_DURATION_COLUMN_ID]: {
+    description: 'Total trace duration',
+  },
+  [REQUEST_TIME_COLUMN_ID]: {
+    description: 'When the trace was created',
+  },
+  [STATE_COLUMN_ID]: {
+    description: 'Trace status: OK, ERROR, or IN_PROGRESS',
+  },
+  [SOURCE_COLUMN_ID]: {
+    description: 'Entry point or script that generated the trace',
+    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/track-environments-context`,
+  },
+  [LOGGED_MODEL_COLUMN_ID]: {
+    description: 'Associated model version',
+  },
+  [LINKED_PROMPTS_COLUMN_ID]: {
+    description: 'Linked prompt versions from Prompt Registry',
+    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/prompt-registry/use-prompts-in-apps#linking-with-trace`,
+  },
+  [RUN_NAME_COLUMN_ID]: {
+    description: 'Associated MLflow Run if the trace was generated within an MLflow run context',
+  },
+  [TAGS_COLUMN_ID]: {
+    description: 'User-defined key-value pairs',
+    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/tracing/attach-tags`,
+  },
+  [`${TracesTableColumnGroup.ASSESSMENT}-group`]: {
+    description: 'Feedback scores logged to the trace',
+    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/eval-monitor`,
+  },
+  [`${TracesTableColumnGroup.EXPECTATION}-group`]: {
+    description: 'Ground truth values annotated to the trace',
+    docsUrl: `${MLFLOW_DOCS_BASE_URL}/genai/assessments/expectations`,
+  },
+};
 
 interface GenAiTracesTableHeaderProps {
   enableRowSelection?: boolean;
@@ -155,6 +238,7 @@ export const GenAiTracesTableHeader = React.memo(
                   {flexRender(header.column.columnDef.header, header.getContext())}
                 </div>
               );
+              const tooltipInfo = COLUMN_TOOLTIPS[header.column.id];
               const titleElement =
                 assessmentInfo && !disableAssessmentTooltips ? (
                   <HoverCard
@@ -173,6 +257,33 @@ export const GenAiTracesTableHeader = React.memo(
                     }
                     trigger={title}
                   />
+                ) : !isNil(title) && tooltipInfo ? (
+                  <Tooltip
+                    componentId="mlflow.traces-table.column-header-tooltip"
+                    content={
+                      <span>
+                        {tooltipInfo.description}.
+                        {tooltipInfo.docsUrl && (
+                          <>
+                            {' '}
+                            <a
+                              href={tooltipInfo.docsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              css={{ color: theme.colors.blue400 }}
+                            >
+                              {intl.formatMessage({
+                                defaultMessage: 'Learn more',
+                                description: 'Link text in column header tooltip that opens documentation in a new tab',
+                              })}
+                            </a>
+                          </>
+                        )}
+                      </span>
+                    }
+                  >
+                    {title}
+                  </Tooltip>
                 ) : !isNil(title) ? (
                   title
                 ) : null;

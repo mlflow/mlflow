@@ -5044,6 +5044,10 @@
     "defaultMessage": "Please select models in `Advanced settings` below",
     "description": "Message when provider has no default models"
   },
+  "XREd2h": {
+    "defaultMessage": "Learn more",
+    "description": "Link text in column header tooltip that opens documentation in a new tab"
+  },
   "XX8+x1": {
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
