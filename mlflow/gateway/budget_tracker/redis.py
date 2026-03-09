@@ -7,7 +7,13 @@ import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from mlflow.entities.gateway_budget_policy import BudgetAction, GatewayBudgetPolicy
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+    GatewayBudgetPolicy,
+)
 from mlflow.gateway.budget_tracker import (
     BudgetTracker,
     BudgetWindow,
@@ -99,12 +105,6 @@ def _serialize_policy(policy: GatewayBudgetPolicy) -> str:
 
 
 def _deserialize_policy(data: str) -> GatewayBudgetPolicy:
-    from mlflow.entities.gateway_budget_policy import (
-        BudgetDurationUnit,
-        BudgetTargetScope,
-        BudgetUnit,
-    )
-
     d = json.loads(data)
     return GatewayBudgetPolicy(
         budget_policy_id=d["budget_policy_id"],
