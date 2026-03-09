@@ -4038,7 +4038,7 @@ def _create_issue():
         "created_by": request_message.created_by or None,
     }
 
-    if request_message.status:
+    if request_message.HasField("status"):
         create_kwargs["status"] = IssueStatus(request_message.status)
 
     created_issue = _get_tracking_store().create_issue(**create_kwargs)
@@ -4101,7 +4101,7 @@ def _search_issues():
         "page_token": request_message.page_token or None,
     }
 
-    if request_message.max_results:
+    if request_message.HasField("max_results"):
         search_kwargs["max_results"] = request_message.max_results
 
     issues = _get_tracking_store().search_issues(**search_kwargs)
