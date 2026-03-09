@@ -33,7 +33,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.entities.trace_location import UnityCatalog
+from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
@@ -54,11 +54,7 @@ from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.provider import (
-    _clear_experiment_derived_destination,
-    _get_experiment_derived_destination_experiment_id,
     _get_trace_exporter,
-    _mark_provider_for_reinit,
-    _set_experiment_derived_destination,
 )
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
@@ -246,7 +242,6 @@ def set_experiment(
     resolved_location = _resolve_experiment_trace_destination(
         experiment=experiment,
         trace_location=trace_location,
-        client=client,
     )
 
     global _active_experiment_id
@@ -268,31 +263,45 @@ def _apply_experiment_trace_destination_state(
 ) -> None:
     """Apply post-resolution trace destination state mutations for set_experiment.
 
-    This helper preserves existing no-trace-location behavior by avoiding unconditional
-    provider re-initialization, while ensuring UC-linked experiment transitions and
-    stale experiment-derived cache transitions are handled correctly.
+    Every set_experiment call clears the global destination slot to prevent stale
+    routing, then sets the new destination if one was resolved. The tracer provider
+    is re-initialized only when transitioning between UC and non-UC experiments
+    (i.e., the processor type changes).
     """
+    from mlflow.tracing.provider import (
+        _MLFLOW_TRACE_USER_DESTINATION,
+        _initialize_tracer_provider,
+        is_tracing_enabled,
+    )
+
+    was_uc_destination = isinstance(
+        _MLFLOW_TRACE_USER_DESTINATION.get(), (UCSchemaLocation, UnityCatalog)
+    )
+
+    # Only clear the global slot when transitioning away from a UC destination
+    # to prevent stale UC routing. Non-UC destinations (e.g. from set_destination)
+    # are preserved across set_experiment calls.
+    if was_uc_destination:
+        _MLFLOW_TRACE_USER_DESTINATION.set(None)
+
     if resolved_location is not None:
-        _set_experiment_derived_destination(resolved_location)
-        experiment._trace_location = resolved_location
-        return
+        _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
+        experiment._set_trace_location(resolved_location)
 
-    # If the active experiment is UC-linked via backend tag, force provider
-    # re-init so lazy auto-resolution runs for the new active experiment.
-    if _extract_telemetry_profile_id(experiment):
-        _mark_provider_for_reinit()
-        return
+    is_uc_destination = resolved_location is not None or bool(
+        _extract_telemetry_profile_id(experiment)
+    )
 
-    # If cached experiment-derived destination belongs to a different experiment,
-    # clear it to avoid stale routing.
-    if cached_experiment_id := _get_experiment_derived_destination_experiment_id():
-        if cached_experiment_id != experiment.experiment_id:
-            _clear_experiment_derived_destination()
+    # Re-initialize provider when switching between UC and non-UC (processor type changes).
+    # UC-to-UC switches don't need reinit because the processor reads the destination
+    # from the registry at trace time.
+    if was_uc_destination != is_uc_destination and is_tracing_enabled():
+        _initialize_tracer_provider()
 
 
 def _extract_telemetry_profile_id(experiment: Experiment) -> str | None:
     tags = experiment.tags or {}
-    return tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID) or None
+    return tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID)
 
 
 def _locations_match(a: UnityCatalog, b: UnityCatalog) -> bool:
@@ -306,7 +315,6 @@ def _locations_match(a: UnityCatalog, b: UnityCatalog) -> bool:
 def _resolve_experiment_trace_destination(
     experiment: Experiment,
     trace_location: UnityCatalog | None,
-    client: TrackingServiceClient,
 ) -> UnityCatalog | None:
     """Resolve the trace destination for an experiment without mutating state.
 
@@ -316,13 +324,12 @@ def _resolve_experiment_trace_destination(
     Returns:
         The resolved UnityCatalog location if one was configured, or None.
     """
-    if trace_location is not None and not isinstance(trace_location, UnityCatalog):
+    if trace_location is None:
+        return None
+    if not isinstance(trace_location, UnityCatalog):
         raise MlflowException.invalid_parameter_value(
             "`trace_location` must be an instance of `mlflow.entities.UnityCatalog`."
         )
-
-    if trace_location is None:
-        return None
 
     if not is_databricks_uri(_resolve_tracking_uri()):
         raise MlflowException.invalid_parameter_value(
@@ -350,8 +357,7 @@ def _resolve_experiment_trace_destination(
             return existing_location
         raise MlflowException.invalid_parameter_value(
             f"Experiment '{experiment.name}' is already linked to a different "
-            f"trace location. Existing: {existing_location.full_table_prefix}, "
-            f"requested: {trace_location}."
+            f"trace location {existing_location.full_table_prefix}."
         )
 
     # Experiment has no existing link — register the location in the backend

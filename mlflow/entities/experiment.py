@@ -85,19 +85,13 @@ class Experiment(_MlflowObject):
         """Trace storage location, if configured."""
         return self._trace_location
 
+    def _set_trace_location(self, trace_location):
+        self._trace_location = trace_location
+
     @property
     def workspace(self):
         """Workspace that owns the experiment, if known."""
         return self._workspace
-
-    def __repr__(self):
-        parts = [
-            f"name={self.name!r}",
-            f"experiment_id={self.experiment_id!r}",
-        ]
-        if self._trace_location is not None:
-            parts.append(f"trace_location={self._trace_location!r}")
-        return f"<Experiment: {', '.join(parts)}>"
 
     @classmethod
     def from_proto(cls, proto):

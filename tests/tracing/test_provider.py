@@ -642,75 +642,26 @@ def test_set_destination_from_env_var_databricks_uc_with_table_prefix_rejected_o
         _get_tracer("test")
 
 
-def test_destination_resolution_precedence_with_experiment_derived(monkeypatch):
+def test_destination_resolution_precedence(monkeypatch):
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     _MLFLOW_TRACE_USER_DESTINATION.reset()
     monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
-    monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: "exp-1")
 
-    experiment_derived = UnityCatalog("catalog", "schema", table_prefix="exp")
+    # Env fallback is lowest priority.
+    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
+    assert isinstance(destination, UCSchemaLocation)
+
+    # Global slot wins over env.
     global_destination = UnityCatalog("catalog", "schema", table_prefix="global")
-    local_destination = UnityCatalog("catalog", "schema", table_prefix="local")
-
-    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
-        experiment_derived,
-        experiment_id="exp-1",
-    )
-    assert _MLFLOW_TRACE_USER_DESTINATION.get().table_prefix == "exp"
-
     _MLFLOW_TRACE_USER_DESTINATION.set(global_destination)
     assert _MLFLOW_TRACE_USER_DESTINATION.get().table_prefix == "global"
 
+    # Context-local wins over global.
+    local_destination = UnityCatalog("catalog", "schema", table_prefix="local")
     _MLFLOW_TRACE_USER_DESTINATION.set(local_destination, context_local=True)
     assert _MLFLOW_TRACE_USER_DESTINATION.get().table_prefix == "local"
     _MLFLOW_TRACE_USER_DESTINATION.reset()
-
-
-def test_experiment_derived_destination_invalidates_when_experiment_changes(monkeypatch):
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-    # Pre-set tracking URI so the env fallback doesn't trigger set_tracking_uri →
-    # reset() which would clear _experiment_derived as a side effect.
-    mlflow.set_tracking_uri("databricks")
-    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema")
-    monkeypatch.setattr("mlflow.tracking.fluent._get_experiment_id", lambda: "exp-2")
-
-    experiment_derived = UnityCatalog("catalog", "schema", table_prefix="exp")
-    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
-        experiment_derived,
-        experiment_id="exp-1",
-    )
-
-    # Cached experiment-derived value no longer matches active experiment.
-    # Registry should fall through to env resolution without clearing the cache
-    # (get() must not mutate state).
-    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
-    assert isinstance(destination, UCSchemaLocation)
-    assert destination.catalog_name == "catalog"
-    assert destination.schema_name == "schema"
-    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is not None
-
-
-def test_experiment_derived_destination_preserved_when_validation_errors(monkeypatch):
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-    experiment_derived = UnityCatalog("catalog", "schema", table_prefix="exp")
-    _MLFLOW_TRACE_USER_DESTINATION.set_experiment_derived(
-        experiment_derived,
-        experiment_id="exp-1",
-    )
-    monkeypatch.setattr(
-        "mlflow.tracking.fluent._get_experiment_id",
-        lambda: (_ for _ in ()).throw(RuntimeError("transient failure")),
-    )
-
-    destination = _MLFLOW_TRACE_USER_DESTINATION.get()
-    assert isinstance(destination, UnityCatalog)
-    assert destination.table_prefix == "exp"
-    assert _MLFLOW_TRACE_USER_DESTINATION._experiment_derived is not None
 
 
 def _make_experiment(tags=None):

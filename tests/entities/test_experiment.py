@@ -99,4 +99,9 @@ def test_string_repr():
         creation_time=1662004217511,
         last_update_time=1662004217511,
     )
-    assert str(exp) == "<Experiment: name='myname', experiment_id=0>"
+    assert str(exp) == (
+        "<Experiment: artifact_location='hi', creation_time=1662004217511, "
+        "experiment_id=0, last_update_time=1662004217511, "
+        "lifecycle_stage='active', name='myname', tags={}, "
+        "trace_location=None, workspace='default'>"
+    )

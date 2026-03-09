@@ -40,11 +40,7 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
         location = get_active_spans_table_name()
 
         if not location:
-            _logger.warning(
-                "No active spans table name found for Unity Catalog destination. "
-                "Spans will not be written to the UC table. This may indicate the "
-                "backend did not return table names in the trace location response."
-            )
+            _logger.debug("No active spans table name found. Skipping span export.")
             return
 
         # Wrapping with MLflow span interface for easier downstream handling

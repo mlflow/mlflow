@@ -6,6 +6,7 @@ from mlflow.entities import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 from mlflow.tracking.fluent import (
     _apply_experiment_trace_destination_state,
     _resolve_experiment_trace_destination,
@@ -29,7 +30,6 @@ def test_invalid_type_raises():
         _resolve_experiment_trace_destination(
             experiment=_experiment(),
             trace_location="not-a-location",
-            client=mock.MagicMock(),
         )
 
 
@@ -40,7 +40,6 @@ def test_uc_schema_location_is_rejected():
         _resolve_experiment_trace_destination(
             experiment=_experiment(),
             trace_location=UCSchemaLocation("catalog", "schema"),
-            client=mock.MagicMock(),
         )
 
 
@@ -48,7 +47,6 @@ def test_no_trace_location_returns_none():
     result = _resolve_experiment_trace_destination(
         experiment=_experiment(),
         trace_location=None,
-        client=mock.MagicMock(),
     )
     assert result is None
 
@@ -62,7 +60,6 @@ def test_non_databricks_backend_raises():
             _resolve_experiment_trace_destination(
                 experiment=_experiment(),
                 trace_location=UnityCatalog("catalog", "schema", "prefix"),
-                client=mock.MagicMock(),
             )
 
 
@@ -82,10 +79,10 @@ def test_creates_and_links_when_no_existing_location():
         result = _resolve_experiment_trace_destination(
             experiment=_experiment(),
             trace_location=requested,
-            client=mock.MagicMock(),
         )
 
         assert result is resolved
+        tc._get_trace_location.assert_not_called()
         tc._create_or_get_trace_location.assert_called_once_with(requested)
         tc._link_trace_location.assert_called_once_with(
             experiment_id="123",
@@ -111,7 +108,6 @@ def test_noop_when_existing_location_matches():
         result = _resolve_experiment_trace_destination(
             experiment=experiment,
             trace_location=requested,
-            client=mock.MagicMock(),
         )
 
         assert result is existing
@@ -139,7 +135,6 @@ def test_errors_when_existing_location_differs():
             _resolve_experiment_trace_destination(
                 experiment=experiment,
                 trace_location=requested,
-                client=mock.MagicMock(),
             )
 
 
@@ -147,71 +142,98 @@ def test_apply_state_sets_destination_when_resolved():
     experiment = _experiment()
     resolved = UnityCatalog("catalog", "schema", table_prefix="prefix")
 
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
     with (
-        mock.patch("mlflow.tracking.fluent._set_experiment_derived_destination") as set_dest,
-        mock.patch("mlflow.tracking.fluent._mark_provider_for_reinit") as mark_reinit,
-        mock.patch("mlflow.tracking.fluent._clear_experiment_derived_destination") as clear_dest,
+        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
+        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
     ):
         _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=resolved)
 
-        set_dest.assert_called_once_with(resolved)
-        mark_reinit.assert_not_called()
-        clear_dest.assert_not_called()
-        assert experiment.trace_location is resolved
+    assert _MLFLOW_TRACE_USER_DESTINATION.get() is resolved
+    assert experiment.trace_location is resolved
+    init_provider.assert_called_once()
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
 
 
-def test_apply_state_marks_reinit_for_uc_linked_experiment():
+def test_apply_state_reinits_for_uc_linked_experiment():
     experiment = _experiment(tags={MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID: "uuid"})
 
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
     with (
-        mock.patch("mlflow.tracking.fluent._set_experiment_derived_destination") as set_dest,
-        mock.patch("mlflow.tracking.fluent._mark_provider_for_reinit") as mark_reinit,
-        mock.patch("mlflow.tracking.fluent._clear_experiment_derived_destination") as clear_dest,
-        mock.patch(
-            "mlflow.tracking.fluent._get_experiment_derived_destination_experiment_id",
-            return_value=None,
-        ),
+        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
+        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
     ):
         _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=None)
 
-        mark_reinit.assert_called_once_with()
-        set_dest.assert_not_called()
-        clear_dest.assert_not_called()
+    assert _MLFLOW_TRACE_USER_DESTINATION._global_value is None
+    init_provider.assert_called_once()
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
 
 
-def test_apply_state_clears_stale_cached_destination_for_non_uc_experiment():
+def test_apply_state_clears_global_slot_on_experiment_switch():
+    experiment = _experiment()
+    old_dest = UnityCatalog("catalog", "schema", table_prefix="old")
+
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    _MLFLOW_TRACE_USER_DESTINATION.set(old_dest)
+    assert _MLFLOW_TRACE_USER_DESTINATION.get() is old_dest
+
+    with (
+        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
+        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
+    ):
+        _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=None)
+
+    assert _MLFLOW_TRACE_USER_DESTINATION._global_value is None
+    init_provider.assert_called_once()
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+
+
+def test_apply_state_skips_reinit_when_no_previous_destination():
     experiment = _experiment()
 
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
     with (
-        mock.patch("mlflow.tracking.fluent._set_experiment_derived_destination") as set_dest,
-        mock.patch("mlflow.tracking.fluent._mark_provider_for_reinit") as mark_reinit,
-        mock.patch("mlflow.tracking.fluent._clear_experiment_derived_destination") as clear_dest,
-        mock.patch(
-            "mlflow.tracking.fluent._get_experiment_derived_destination_experiment_id",
-            return_value="different-experiment",
-        ),
+        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
+        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
     ):
         _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=None)
 
-        clear_dest.assert_called_once_with()
-        set_dest.assert_not_called()
-        mark_reinit.assert_not_called()
+    init_provider.assert_not_called()
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
 
 
-def test_apply_state_noop_for_non_uc_experiment_without_stale_cache():
+def test_apply_state_skips_reinit_for_uc_to_uc_switch():
     experiment = _experiment()
+    old_dest = UnityCatalog("catalog", "schema", table_prefix="old")
+    new_dest = UnityCatalog("catalog", "schema", table_prefix="new")
+
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    _MLFLOW_TRACE_USER_DESTINATION.set(old_dest)
 
     with (
-        mock.patch("mlflow.tracking.fluent._set_experiment_derived_destination") as set_dest,
-        mock.patch("mlflow.tracking.fluent._mark_provider_for_reinit") as mark_reinit,
-        mock.patch("mlflow.tracking.fluent._clear_experiment_derived_destination") as clear_dest,
-        mock.patch(
-            "mlflow.tracking.fluent._get_experiment_derived_destination_experiment_id",
-            return_value=experiment.experiment_id,
-        ),
+        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
+        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
+    ):
+        _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=new_dest)
+
+    assert _MLFLOW_TRACE_USER_DESTINATION.get() is new_dest
+    init_provider.assert_not_called()
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+
+
+def test_apply_state_skips_reinit_when_tracing_disabled():
+    experiment = _experiment()
+    old_dest = UnityCatalog("catalog", "schema", table_prefix="old")
+
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    _MLFLOW_TRACE_USER_DESTINATION.set(old_dest)
+
+    with (
+        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
+        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=False),
     ):
         _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=None)
 
-        set_dest.assert_not_called()
-        mark_reinit.assert_not_called()
-        clear_dest.assert_not_called()
+    init_provider.assert_not_called()
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
