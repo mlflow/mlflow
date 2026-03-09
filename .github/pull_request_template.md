@@ -91,5 +91,5 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 
 <!-- Do not modify or remove any text inside the parentheses. Keep both checkboxes below. -->
 
-- [ ] Yes (this PR is critical and needs to be in the next patch release)
-- [ ] No (this PR can wait for the next minor release)
+- [ ] This PR is critical and needs to be in the next patch release
+- [ ] This PR can wait for the next minor release
