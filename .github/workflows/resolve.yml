@@ -119,8 +119,12 @@ jobs:
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve\s*||' | xargs)
-          echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
+          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve||')
+          {
+            echo 'prompt<<PROMPT_EOF'
+            echo "$PROMPT"
+            echo 'PROMPT_EOF'
+          } >> "$GITHUB_OUTPUT"
 
   resolve:
     needs: precheck
