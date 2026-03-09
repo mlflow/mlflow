@@ -6159,9 +6159,9 @@ class MlflowClient:
         registry_client = self._get_registry_client()
         registry_client.delete_prompt_version(name, version)
 
-        # Invalidate all cache entries for this prompt name since aliases and
-        # "latest" may also resolve to the deleted version.
-        PromptCache.get_instance().delete_all(name)
+        cache = PromptCache.get_instance()
+        cache.delete(name, version=int(version))
+        cache.delete(name, alias="latest")
 
     @require_prompt_registry
     @translate_prompt_exception
