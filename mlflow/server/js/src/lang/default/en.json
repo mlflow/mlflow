@@ -167,6 +167,10 @@
     "defaultMessage": "Error",
     "description": "Error assessment label for filter dropdown"
   },
+  "/FWWkj": {
+    "defaultMessage": "Issue detection run",
+    "description": "Tooltip for the AI icon indicating this is an issue detection run"
+  },
   "/G/eHs": {
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
