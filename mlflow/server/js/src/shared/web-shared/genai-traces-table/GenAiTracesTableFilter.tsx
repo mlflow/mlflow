@@ -32,7 +32,7 @@ export const GenAiTracesTableFilter = ({
   filters: TableFilter[];
   setFilters: (filters: TableFilter[]) => void;
   assessmentInfos: AssessmentInfo[];
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
   isLoading?: boolean;
@@ -165,7 +165,7 @@ const FilterForm = ({
   filters: TableFilter[];
   assessmentInfos: AssessmentInfo[];
   setFilters: (filters: TableFilter[]) => void;
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
   usesV4APIs?: boolean;

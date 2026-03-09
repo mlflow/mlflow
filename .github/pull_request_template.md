@@ -2,8 +2,9 @@
 
 ### Related Issues/PRs
 
-<!-- Uncomment 'Resolve' if this PR can close the linked items. -->
-<!-- Resolve --> #xxx
+<!-- 🚨 Choose either "Closes" (auto-close on merge) or "Relates to" (reference only). 🚨 -->
+
+Closes | Relates to #issue_number
 
 ### What changes are proposed in this pull request?
 
@@ -19,7 +20,7 @@
 
 ### Does this PR require documentation update?
 
-- [ ] No. You can skip the rest of this section.
+- [ ] No.
 - [ ] Yes. I've updated:
   - [ ] Examples
   - [ ] API references
@@ -29,7 +30,7 @@
 
 <!-- When updating APIs or feature usage, please ensure the MLflow Skills repository reflects those changes. -->
 
-- [ ] No. You can skip the rest of this section.
+- [ ] No.
 - [ ] Yes. Please link the corresponding PR or explain how you plan to update it.
 
 <!-- Provide the link to the Skills repository PR or a brief explanation of the changes needed. -->
@@ -38,7 +39,7 @@
 
 #### Is this a user-facing change?
 
-- [ ] No. You can skip the rest of this section.
+- [ ] No.
 - [ ] Yes. Give a description of this change to be included in the release notes for MLflow users.
 
 <!-- Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change. -->

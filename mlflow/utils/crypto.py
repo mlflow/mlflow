@@ -157,10 +157,10 @@ class KEKManager:
 
     def __init__(self, passphrase: str | None = None, kek_version: int | None = None):
         if passphrase is None:
-            passphrase = os.getenv(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
+            passphrase = os.environ.get(CRYPTO_KEK_PASSPHRASE_ENV_VAR)
 
         if kek_version is None:
-            kek_version = int(os.getenv(CRYPTO_KEK_VERSION_ENV_VAR, "1"))
+            kek_version = int(os.environ.get(CRYPTO_KEK_VERSION_ENV_VAR, "1"))
 
         # Use default passphrase if none provided
         self._using_default_passphrase = not passphrase

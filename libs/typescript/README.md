@@ -11,8 +11,8 @@
 
 <p align="center">
   <a href="https://github.com/mlflow/mlflow"><img src="https://img.shields.io/github/stars/mlflow/mlflow?style=social" alt="stars"></a>
-  <a href="https://www.npmjs.com/package/mlflow-tracing"><img src="https://img.shields.io/npm/v/mlflow-tracing.svg" alt="version"></a>
-  <a href="https://www.npmjs.com/package/mlflow-tracing"><img src="https://img.shields.io/npm/dt/mlflow-tracing.svg" alt="downloads"></a>
+  <a href="https://www.npmjs.com/package/@mlflow/core"><img src="https://img.shields.io/npm/v/%40mlflow%2Fcore.svg" alt="version"></a>
+  <a href="https://www.npmjs.com/package/@mlflow/core"><img src="https://img.shields.io/npm/dt/%40mlflow%2Fcore.svg" alt="downloads"></a>
   <a href="https://github.com/mlflow/mlflow/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/mlflow/mlflow" alt="license"></a>
 </p>
 
@@ -23,15 +23,15 @@ MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com
 
 ## Packages
 
-| Package                                | NPM                                                                                                                                         | Description                                                |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [mlflow-tracing](./core)               | [![npm package](https://img.shields.io/npm/v/mlflow-tracing?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing)               | The core tracing functionality and manual instrumentation. |
-| [mlflow-openai](./integrations/openai) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-openai?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-openai) | Auto-instrumentation integration for OpenAI.               |
+| Package                                 | NPM                                                                                                                               | Description                                                |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [@mlflow/core](./core)                  | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fcore?style=flat-square)](https://www.npmjs.com/package/@mlflow/core)     | The core tracing functionality and manual instrumentation. |
+| [@mlflow/openai](./integrations/openai) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai) | Auto-instrumentation integration for OpenAI.               |
 
 ## Installation
 
 ```bash
-npm install mlflow-tracing
+npm install @mlflow/core
 ```
 
 > [!NOTE]
@@ -51,7 +51,7 @@ Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one
 Instantiate MLflow SDK in your application:
 
 ```typescript
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',
@@ -72,7 +72,7 @@ export MLFLOW_EXPERIMENT_ID=123456789
 ```
 
 ```typescript
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 
 mlflow.init(); // Uses the values from the environment
 ```

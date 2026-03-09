@@ -417,9 +417,7 @@ def log_model(
         # Log the model
         artifact_path = "model"
         with mlflow.start_run():
-            model_info = mlflow.lightgbm.log_model(
-                model, name=artifact_path, signature=signature
-            )
+            model_info = mlflow.lightgbm.log_model(model, name=artifact_path, signature=signature)
 
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")

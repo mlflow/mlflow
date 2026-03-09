@@ -163,7 +163,7 @@ const SelectTracesModalImpl = ({
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
           <TracesV3Logs
             disableActions
-            experimentId={experimentId}
+            experimentIds={[experimentId]}
             timeRange={timeRange}
             customDefaultSelectedColumns={customDefaultSelectedColumns}
             // TODO: Move date selector to the toolbar in all callsites permanently

@@ -1380,13 +1380,13 @@ def test_deploy_cli_updates_sagemaker_and_s3_resources_in_replace_mode(
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
     }
-    if os.getenv("http_proxy") is not None:
+    if os.environ.get("http_proxy") is not None:
         expected_model_environment.update({"http_proxy": os.environ["http_proxy"]})
 
-    if os.getenv("https_proxy") is not None:
+    if os.environ.get("https_proxy") is not None:
         expected_model_environment.update({"https_proxy": os.environ["https_proxy"]})
 
-    if os.getenv("no_proxy") is not None:
+    if os.environ.get("no_proxy") is not None:
         expected_model_environment.update({"no_proxy": os.environ["no_proxy"]})
 
     assert model_environment == expected_model_environment

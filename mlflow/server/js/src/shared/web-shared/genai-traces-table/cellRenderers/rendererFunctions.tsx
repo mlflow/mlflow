@@ -56,6 +56,7 @@ import { highlightSearchInText, timeSinceStr } from '../utils/DisplayUtils';
 import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
   getCustomMetadataKeyFromColumnId,
+  getExperimentIdFromTraceLocation,
   getTagKeyFromColumnId,
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
@@ -415,13 +416,13 @@ export const inputColumnCellRenderer = (
 };
 
 export const traceInfoCellRenderer = (
-  experimentId: string,
   isComparing: boolean,
   colId: string,
   comparisonEntry: EvalTraceComparisonEntry,
   onChangeEvaluationId: (evalId: string, traceInfo?: ModelTraceInfoV3) => void,
   intl: IntlShape,
   theme: ThemeType,
+  experimentId?: string,
   onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
   traceIdToTurnMap?: Record<string, number>,
   searchQuery?: string,
@@ -627,7 +628,12 @@ export const traceInfoCellRenderer = (
       return <NullCell />;
     }
 
-    return <RunName experimentId={experimentId} runUuid={runUuid} />;
+    return (
+      <RunName
+        experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location) ?? experimentId}
+        runUuid={runUuid}
+      />
+    );
   } else if (colId === USER_COLUMN_ID) {
     const value = currentTraceInfo?.trace_metadata?.['mlflow.trace.user'] || currentTraceInfo?.tags?.['mlflow.user'];
     const otherValue = otherTraceInfo?.trace_metadata?.['mlflow.trace.user'] || otherTraceInfo?.tags?.['mlflow.user'];
@@ -741,7 +747,11 @@ export const traceInfoCellRenderer = (
       <StackedComponents
         first={
           value ? (
-            <SessionIdLinkWrapper sessionId={value} experimentId={experimentId} traceId={currentTraceId}>
+            <SessionIdLinkWrapper
+              sessionId={value}
+              experimentId={getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location) ?? experimentId}
+              traceId={currentTraceId}
+            >
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
@@ -774,7 +784,11 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <SessionIdLinkWrapper sessionId={otherValue} experimentId={experimentId} traceId={otherTraceId}>
+            <SessionIdLinkWrapper
+              sessionId={otherValue}
+              experimentId={getExperimentIdFromTraceLocation(otherTraceInfo?.trace_location) ?? experimentId}
+              traceId={otherTraceId}
+            >
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"

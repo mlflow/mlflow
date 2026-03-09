@@ -839,6 +839,120 @@ def test_search_experiments_filter_by_tag(store: SqlAlchemyStore):
     assert len(experiments) == 0
 
 
+def test_search_experiments_filter_by_tag_is_null(store: SqlAlchemyStore):
+    experiments = [
+        ("exp1", [ExperimentTag("key1", "value"), ExperimentTag("key2", "value")]),
+        ("exp2", [ExperimentTag("key1", "value")]),
+        ("exp3", []),
+    ]
+    for name, tags in experiments:
+        time.sleep(0.001)
+        store.create_experiment(name, tags=tags)
+
+    # IS NOT NULL: experiments that have key1
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL")
+    assert [e.name for e in results] == ["exp2", "exp1"]
+
+    # IS NULL: experiments that don't have key2 (includes Default)
+    results = store.search_experiments(filter_string="tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp3", "exp2", "Default"]
+
+    # Combined IS NOT NULL and IS NULL
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Combined with value filter
+    results = store.search_experiments(filter_string="tag.key1 = 'value' AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Error: IS NULL on attribute
+    with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported for tags"):
+        store.search_experiments(filter_string="name IS NULL")
+
+
+def test_search_runs_filter_by_tag_and_param_is_null(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "test_search_runs_is_null")
+
+    # run1: has tag1, tag2, param1, param2
+    run1 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=1))
+    store.set_tag(run1.info.run_id, RunTag("tag1", "value1"))
+    store.set_tag(run1.info.run_id, RunTag("tag2", "value2"))
+    store.log_param(run1.info.run_id, Param("param1", "val1"))
+    store.log_param(run1.info.run_id, Param("param2", "val2"))
+
+    # run2: has tag1, param1 only
+    run2 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=2))
+    store.set_tag(run2.info.run_id, RunTag("tag1", "value1"))
+    store.log_param(run2.info.run_id, Param("param1", "val1"))
+
+    # run3: no extra tags or params
+    run3 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=3))
+
+    # IS NOT NULL for tags - runs that have tag1
+    result = store.search_runs(
+        [exp_id],
+        filter_string="tags.tag1 IS NOT NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run1.info.run_id, run2.info.run_id}
+
+    # IS NULL for tags - runs missing tag2
+    result = store.search_runs(
+        [exp_id],
+        filter_string="tags.tag2 IS NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run2.info.run_id, run3.info.run_id}
+
+    # IS NOT NULL for params - runs that have param1
+    result = store.search_runs(
+        [exp_id],
+        filter_string="params.param1 IS NOT NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run1.info.run_id, run2.info.run_id}
+
+    # IS NULL for params - runs missing param2
+    result = store.search_runs(
+        [exp_id],
+        filter_string="params.param2 IS NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run2.info.run_id, run3.info.run_id}
+
+    # Combined: tag IS NOT NULL AND param IS NULL
+    result = store.search_runs(
+        [exp_id],
+        filter_string="tags.tag1 IS NOT NULL AND params.param2 IS NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run2.info.run_id}
+
+    # Combined: IS NULL with value filter
+    result = store.search_runs(
+        [exp_id],
+        filter_string="tags.tag1 = 'value1' AND tags.tag2 IS NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run2.info.run_id}
+
+    # Error: IS NULL on metric
+    with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported"):
+        store.search_runs(
+            [exp_id],
+            filter_string="metrics.acc IS NULL",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+
+    # Error: IS NULL on attribute
+    with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported"):
+        store.search_runs(
+            [exp_id],
+            filter_string="attributes.status IS NULL",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+
+
 def test_search_experiments_filter_by_attribute_and_tag(store: SqlAlchemyStore):
     store.create_experiment("exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")])
     store.create_experiment("exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")])
@@ -6706,6 +6820,58 @@ def test_search_traces_with_metadata_is_not_null_filter(store: SqlAlchemyStore):
     assert trace_ids == {trace1_id}
 
 
+def test_search_traces_with_tag_is_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_tag_is_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, tags={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, tags={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, tags={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.region IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.env IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='tag.region IS NULL AND tag.env = "staging"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id}
+
+
+def test_search_traces_with_tag_is_not_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_tag_is_not_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, tags={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, tags={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, tags={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.region IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.env IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='tag.region IS NOT NULL AND tag.env = "production"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+
 @pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
 def test_search_traces_with_metadata_rlike_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_metadata_rlike")
@@ -9632,6 +9798,76 @@ def test_assessment_with_error(store_and_trace_info):
     assert retrieved_feedback.error.stack_trace is not None
     assert "ValueError: Test error message" in retrieved_feedback.error.stack_trace
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
+
+
+def test_start_trace_with_assessments_missing_trace_id(store):
+    """
+    Regression test for NOT NULL constraint on assessments.trace_id during trace export.
+
+    During normal trace export (MlflowV3SpanExporter), two things happen:
+
+    1. log_spans() is called incrementally as each span completes. Internally this calls
+       start_trace(), creating the trace row in the DB.
+    2. When the root span finishes, _log_trace() calls start_trace() again with the full
+       TraceInfo — including any assessments attached to the trace.
+
+    Because the trace row already exists from step 1, the second start_trace() hits an
+    IntegrityError and falls back to session.merge(). Assessments created standalone
+    (e.g. returned by custom metric functions) have trace_id=None by design. Without
+    backfilling trace_id before the merge, SQLAlchemy updates the assessment row with
+    trace_id=NULL, violating the NOT NULL constraint on assessments.trace_id.
+    """
+    exp_id = store.create_experiment("test_assessment_trace_id")
+    timestamp_ms = get_current_time_millis()
+    trace_id = f"tr-{uuid.uuid4()}"
+
+    # Step 1: log_spans() creates the trace row as spans are exported incrementally.
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"cr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    # Assessment with trace_id=None, as returned by custom metric functions.
+    assessment = Feedback(
+        name="test_feedback",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1"),
+        trace_id=None,
+        value="good",
+    )
+
+    # Step 2: _log_trace() calls start_trace() with the full TraceInfo (including
+    # assessments) after the root span finishes. The trace already exists from step 1,
+    # so this hits the IntegrityError -> session.merge() path. Before the fix, this
+    # raised sqlite3.IntegrityError because assessment.trace_id was None.
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"cr-{uuid.uuid4()}",
+            request_preview="request",
+            response_preview="response",
+            assessments=[assessment],
+        ),
+    )
+
+    assert len(result.assessments) == 1
+    assert result.assessments[0].trace_id == trace_id
+    assert result.assessments[0].name == "test_feedback"
 
 
 def test_dataset_crud_operations(store):
@@ -13102,6 +13338,44 @@ def test_log_spans_then_start_trace_preserves_tag(store: SqlAlchemyStore):
 
     trace_info = store.get_trace_info(trace_id)
     assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+
+
+def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_preview_preserved")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="llm_call",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+        attributes={
+            "input.value": '{"messages": [{"role": "user", "content": "Hello"}]}',
+            "output.value": '{"choices": [{"message": {"role": "assistant", "content": "Hi"}}]}',
+            "openinference.span.kind": "LLM",
+        },
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    store.start_trace(trace_info_for_start)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview is not None
+    assert trace_info.response_preview is not None
+    assert "Hello" in trace_info.request_preview
+    assert "Hi" in trace_info.response_preview
 
 
 @pytest.mark.skipif(

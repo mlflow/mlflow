@@ -777,9 +777,7 @@ def get_run(run_id: str) -> Run:
         with mlflow.start_run() as run:
             mlflow.log_param("p", 0)
         run_id = run.info.run_id
-        print(
-            f"run_id: {run_id}; lifecycle_stage: {mlflow.get_run(run_id).info.lifecycle_stage}"
-        )
+        print(f"run_id: {run_id}; lifecycle_stage: {mlflow.get_run(run_id).info.lifecycle_stage}")
 
     .. code-block:: text
         :caption: Output
@@ -886,7 +884,13 @@ def flush_trace_async_logging(terminate=False) -> None:
         terminate: If True, shut down the logging threads after flushing.
     """
     try:
-        _get_trace_exporter()._async_queue.flush(terminate=terminate)
+        trace_exporter = _get_trace_exporter()
+    except Exception as e:
+        _logger.debug(f"Failed to get trace exporter: {e}", exc_info=True)
+        return
+    try:
+        if hasattr(trace_exporter, "_async_queue"):
+            trace_exporter._async_queue.flush(terminate=terminate)
     except Exception as e:
         _logger.error(f"Failed to flush trace async logging: {e}")
 
@@ -2524,8 +2528,7 @@ def import_checkpoints(
             # ... training code that writes checkpoints to a UC Volume ...
             logged_models = mlflow.import_checkpoints(
                 checkpoint_path=(
-                    "/Volumes/mycatalog/myschema/myvolume/"
-                    "mytrainingmodel/trainingrun1/checkpoints"
+                    "/Volumes/mycatalog/myschema/myvolume/mytrainingmodel/trainingrun1/checkpoints"
                 ),
                 # You can omit `source_run_id` if there is an active run.
                 # source_run_id=run.info.run_id,

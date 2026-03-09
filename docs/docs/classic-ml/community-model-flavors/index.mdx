@@ -1,3 +1,8 @@
+---
+title: Community ML Model Flavors | MLflow AI Platform
+description: Discover community-built MLflow model flavors for additional ML framework integrations.
+---
+
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
@@ -13,7 +18,7 @@ Most community flavors are available via PyPI:
 
 ```bash
 # Time series forecasting
-pip install mlflow[sktime]
+pip install 'mlflow[sktime]'
 pip install mlflavors
 
 # Visualization and plotting
@@ -21,7 +26,7 @@ pip install mlflow-vizmod
 
 # Big data and cloud platforms
 pip install bigmlflow
-pip install mlflow[aliyun-oss]
+pip install 'mlflow[aliyun-oss]'
 ```
 
 ### Basic Usage Pattern
@@ -55,7 +60,7 @@ predictions = loaded_model.predict(new_data)
 Unified interface for time series forecasting, classification, and transformation.
 
 ```bash
-pip install sktime[mlflow]
+pip install 'sktime[mlflow]'
 ```
 
 ```python

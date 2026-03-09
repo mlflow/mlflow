@@ -2103,3 +2103,77 @@ def test_gateway_config_resolver_scopes_endpoints(gateway_workspace_store):
         )
         assert config_a.endpoint_id == endpoint_a.endpoint_id
         assert config_a.models[0].secret_value["api_key"] == "val-a"
+
+
+def test_get_issue_is_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        exp_id_a = workspace_tracking_store.create_experiment("issue-exp-a")
+        issue_a = workspace_tracking_store.create_issue(
+            experiment_id=exp_id_a,
+            name="Issue A",
+            description="Test issue in workspace A",
+            status="open",
+        )
+        retrieved_issue = workspace_tracking_store.get_issue(issue_a.issue_id)
+        assert retrieved_issue.issue_id == issue_a.issue_id
+        assert retrieved_issue.name == "Issue A"
+
+    with WorkspaceContext("team-b"):
+        with pytest.raises(
+            MlflowException, match=f"Issue with ID '{issue_a.issue_id}' not found"
+        ) as excinfo:
+            workspace_tracking_store.get_issue(issue_a.issue_id)
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_create_issue_is_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        exp_id_a = workspace_tracking_store.create_experiment("issue-exp-create-a")
+        issue_a = workspace_tracking_store.create_issue(
+            experiment_id=exp_id_a,
+            name="Issue Create Test A",
+            description="Test issue creation in workspace A",
+            status="open",
+        )
+        assert issue_a.name == "Issue Create Test A"
+
+    with WorkspaceContext("team-b"):
+        exp_id_b = workspace_tracking_store.create_experiment("issue-exp-create-b")
+        issue_b = workspace_tracking_store.create_issue(
+            experiment_id=exp_id_b,
+            name="Issue Create Test B",
+            description="Test issue creation in workspace B",
+            status="open",
+        )
+        assert issue_b.name == "Issue Create Test B"
+
+        with pytest.raises(MlflowException, match=f"Issue with ID '{issue_a.issue_id}' not found"):
+            workspace_tracking_store.get_issue(issue_a.issue_id)
+
+
+def test_update_issue_is_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        exp_id_a = workspace_tracking_store.create_experiment("issue-exp-update-a")
+        issue_a = workspace_tracking_store.create_issue(
+            experiment_id=exp_id_a,
+            name="Original Name",
+            description="Original description",
+            status="open",
+        )
+        updated_issue = workspace_tracking_store.update_issue(
+            issue_id=issue_a.issue_id,
+            name="Updated Name A",
+            status="in_progress",
+        )
+        assert updated_issue.name == "Updated Name A"
+        assert updated_issue.status == "in_progress"
+
+    with WorkspaceContext("team-b"):
+        with pytest.raises(
+            MlflowException, match=f"Issue with ID '{issue_a.issue_id}' not found"
+        ) as excinfo:
+            workspace_tracking_store.update_issue(
+                issue_id=issue_a.issue_id,
+                name="Should not update",
+            )
+        assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"

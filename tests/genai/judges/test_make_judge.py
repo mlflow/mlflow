@@ -1046,11 +1046,13 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     experiment = mlflow.create_experiment("test_judge_registration")
 
     original_instructions = "Evaluate if the {{ outputs }} is professional and formal."
+    inference_params = {"temperature": 0.2, "max_tokens": 64}
     judge = make_judge(
         name="test_judge",
         instructions=original_instructions,
         feedback_value_type=str,
         model="openai:/gpt-4",
+        inference_params=inference_params,
     )
 
     assert judge.instructions == original_instructions
@@ -1063,6 +1065,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert "instructions_judge_pydantic_data" in serialized
     assert serialized["instructions_judge_pydantic_data"]["instructions"] == original_instructions
     assert serialized["instructions_judge_pydantic_data"]["model"] == "openai:/gpt-4"
+    assert serialized["instructions_judge_pydantic_data"]["inference_params"] == inference_params
 
     store = _get_scorer_store()
     version = store.register_scorer(experiment, judge)
@@ -1074,6 +1077,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert retrieved_scorer.name == "test_judge"
     assert retrieved_scorer.instructions == original_instructions
     assert retrieved_scorer.model == "openai:/gpt-4"
+    assert retrieved_scorer.inference_params == inference_params
     assert retrieved_scorer.template_variables == {"outputs"}
 
     deserialized = Scorer.model_validate(serialized)
@@ -1081,6 +1085,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert deserialized.name == judge.name
     assert deserialized.instructions == original_instructions
     assert deserialized.model == judge.model
+    assert deserialized.inference_params == inference_params
     assert deserialized.template_variables == {"outputs"}
 
     test_output = {"response": "This output demonstrates professional communication."}
@@ -1823,14 +1828,14 @@ def test_unused_parameters_warning(
         judge(**provided_params)
 
         if "{{ trace }}" in instructions:
-            assert not mock_logger.warning.called
+            assert not mock_logger.debug.called
         else:
-            assert mock_logger.warning.called
+            assert mock_logger.debug.called
 
-            warning_call_args = mock_logger.warning.call_args
-            assert warning_call_args is not None
+            debug_call_args = mock_logger.debug.call_args
+            assert debug_call_args is not None
 
-            warning_msg = warning_call_args[0][0]
+            warning_msg = debug_call_args[0][0]
 
             assert "parameters were provided but are not used" in warning_msg
             assert expected_warning in warning_msg
@@ -2589,13 +2594,13 @@ def test_warning_shown_for_explicitly_provided_unused_fields(mock_invoke_judge_m
         model="openai:/gpt-4",
     )
 
-    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.debug") as mock_debug:
         judge(inputs="What is AI?", outputs="This output is not used by the template")
 
-        mock_warning.assert_called_once()
-        warning_message = mock_warning.call_args[0][0]
-        assert "outputs" in warning_message
-        assert "not used by this judge" in warning_message
+        mock_debug.assert_called_once()
+        debug_message = mock_debug.call_args[0][0]
+        assert "outputs" in debug_message
+        assert "not used by this judge" in debug_message
 
 
 def test_no_warning_for_trace_based_judge_with_extra_fields(mock_invoke_judge_model):
@@ -3485,8 +3490,8 @@ def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
     with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
         judge(outputs={"answer": "Test"}, session=[trace1])
 
-        mock_logger.warning.assert_called_once()
-        warning_msg = mock_logger.warning.call_args[0][0]
+        mock_logger.debug.assert_called_once()
+        warning_msg = mock_logger.debug.call_args[0][0]
         assert "conversation" in warning_msg or "session" in warning_msg
         assert "not used by this judge" in warning_msg
 
@@ -3664,3 +3669,20 @@ def test_inference_params_passed_to_invoke_judge_model(mock_invoke_judge_model):
     judge(outputs="test output")
 
     assert mock_invoke_judge_model.captured_args.get("inference_params") == inference_params
+
+
+def test_inference_params_preserved_after_round_trip_serialization():
+    inference_params = {"temperature": 0.5, "max_tokens": 200, "top_p": 0.9}
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is good",
+        model="openai:/gpt-4",
+        inference_params=inference_params,
+    )
+
+    serialized = judge.model_dump()
+    restored = Scorer.model_validate(serialized)
+    restored_from_json = Scorer.model_validate_json(json.dumps(serialized))
+
+    assert restored.inference_params == inference_params
+    assert restored_from_json.inference_params == inference_params

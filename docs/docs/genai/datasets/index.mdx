@@ -1,3 +1,8 @@
+---
+title: Building Agent & LLM Evaluation Datasets | MLflow AI Platform
+description: Create labeled and unlabeled evaluation datasets to systematically test and improve your agent and LLM applications with MLflow.
+---
+
 import ImageBox from '@site/src/components/ImageBox';
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
@@ -9,7 +14,7 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Building MLflow evaluation datasets
 
-To systematically test and improve a GenAI application, you use an evaluation dataset. An evaluation dataset is a selected set of example inputs — either labeled (with known expected outputs, i.e. ground-truth expectations) or unlabeled (without ground-truth). Evaluation datasets help you improve your app's performance in the following ways:
+To systematically test and improve an LLM application or AI agent, you use an evaluation dataset. An evaluation dataset is a selected set of example inputs — either labeled (with known expected outputs, i.e. ground-truth expectations) or unlabeled (without ground-truth). Evaluation datasets help you improve your app's performance in the following ways:
 
 - Improve quality by testing fixes against known problematic examples from production.
 - Prevent regressions. Create a "golden set" of examples that must always work correctly.
@@ -33,7 +38,7 @@ a simple local configuration for MLflow, use the sqlite option when starting MLf
 
 You can use any of the following to create an evaluation dataset:
 
-- Existing traces. If you have already captured traces from a GenAI application, you can use them to create an evaluation dataset based on real-world scenarios.
+- Existing traces. If you have already captured traces from an LLM application or AI agent, you can use them to create an evaluation dataset based on real-world scenarios.
 - Manually created examples. Define test cases by hand using dictionaries or DataFrames. This is useful for targeting specific edge cases or creating "golden" test cases that must always pass.
 
 This page describes how to create an MLflow evaluation dataset. You can create datasets from traces using either the MLflow Monitoring UI or the SDK. You can also use other types of datasets, such as Pandas DataFrames or a list of dictionaries. See [Evaluation examples](/genai/eval-monitor/running-evaluation/eval-examples) for more examples.
@@ -242,7 +247,7 @@ df = pd.DataFrame(
                 "domain": "general",
             },
             "expectations": {
-                "expected_answer": "MLflow is an open-source platform for ML",
+                "expected_answer": "MLflow is an open-source AI engineering platform",
                 "must_mention": ["tracking", "experiments", "models"],
             },
         },
@@ -369,7 +374,7 @@ dataset = dataset.merge_records(new_cases)
 
 ## Next Steps
 
-Ready to improve your GenAI testing? Start with these resources:
+Ready to improve your LLM and AI agent testing? Start with these resources:
 
 <TilesGrid>
   <TileCard
