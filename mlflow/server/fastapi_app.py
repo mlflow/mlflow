@@ -7,6 +7,8 @@ to FastAPI endpoints.
 """
 
 import json
+import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.wsgi import WSGIMiddleware
@@ -29,6 +31,8 @@ from mlflow.utils.workspace_context import (
     set_server_request_workspace,
 )
 from mlflow.version import VERSION
+
+_logger = logging.getLogger(__name__)
 
 
 def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
@@ -58,6 +62,21 @@ def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
     fastapi_app.state.workspace_middleware_added = True
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    try:
+        from mlflow.server.gateway_budget import maybe_refresh_budget_policies
+        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        store = _get_store()
+        if isinstance(store, SqlAlchemyStore):
+            maybe_refresh_budget_policies(store)
+    except Exception:
+        _logger.debug("Failed to refresh budget policies on startup", exc_info=True)
+    yield
+
+
 def create_fastapi_app(flask_app: Flask = flask_app):
     """
     Create a FastAPI application that wraps the existing Flask app.
@@ -75,6 +94,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
         docs_url=None,
         redoc_url=None,
         openapi_url=None,
+        lifespan=_lifespan,
     )
 
     # Initialize security middleware BEFORE adding routes

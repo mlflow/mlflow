@@ -76,6 +76,7 @@ from mlflow.exceptions import (
     _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
 )
+from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
@@ -5123,6 +5124,7 @@ def _create_budget_policy():
         budget_action=budget_action,
         created_by=request_message.created_by or None,
     )
+    get_budget_tracker().invalidate()
     response_message = CreateGatewayBudgetPolicy.Response()
     response_message.budget_policy.CopyFrom(policy.to_proto())
     return _wrap_response(response_message)
@@ -5201,6 +5203,7 @@ def _update_budget_policy():
         budget_action=budget_action,
         updated_by=request_message.updated_by or None,
     )
+    get_budget_tracker().invalidate()
     response_message = UpdateGatewayBudgetPolicy.Response()
     response_message.budget_policy.CopyFrom(policy.to_proto())
     return _wrap_response(response_message)
@@ -5216,6 +5219,7 @@ def _delete_budget_policy():
         },
     )
     _get_tracking_store().delete_budget_policy(request_message.budget_policy_id)
+    get_budget_tracker().invalidate()
     response_message = DeleteGatewayBudgetPolicy.Response()
     return _wrap_response(response_message)
 
