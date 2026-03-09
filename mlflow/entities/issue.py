@@ -1,10 +1,22 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
+
+
+class IssueStatus(str, Enum):
+    """Enum for status of an :py:class:`mlflow.entities.Issue`."""
+
+    PENDING = "pending"
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+
+    def __str__(self):
+        return self.value
 
 
 @dataclass
@@ -25,7 +37,7 @@ class Issue(_MlflowObject):
     description: str
     """Detailed description of the issue."""
 
-    status: str
+    status: IssueStatus
     """Issue status."""
 
     created_timestamp: int
@@ -53,7 +65,7 @@ class Issue(_MlflowObject):
             "experiment_id": self.experiment_id,
             "name": self.name,
             "description": self.description,
-            "status": self.status,
+            "status": self.status.value,
             "confidence": self.confidence,
             "root_causes": self.root_causes,
             "source_run_id": self.source_run_id,
@@ -70,7 +82,7 @@ class Issue(_MlflowObject):
             experiment_id=issue_dict["experiment_id"],
             name=issue_dict["name"],
             description=issue_dict["description"],
-            status=issue_dict["status"],
+            status=IssueStatus(issue_dict["status"]),
             created_timestamp=issue_dict["created_timestamp"],
             last_updated_timestamp=issue_dict["last_updated_timestamp"],
             confidence=issue_dict.get("confidence"),
@@ -86,7 +98,7 @@ class Issue(_MlflowObject):
         proto_issue.experiment_id = self.experiment_id
         proto_issue.name = self.name
         proto_issue.description = self.description
-        proto_issue.status = self.status
+        proto_issue.status = self.status.value
         proto_issue.created_timestamp = self.created_timestamp
         proto_issue.last_updated_timestamp = self.last_updated_timestamp
 
@@ -109,7 +121,7 @@ class Issue(_MlflowObject):
             experiment_id=proto.experiment_id,
             name=proto.name,
             description=proto.description,
-            status=proto.status,
+            status=IssueStatus(proto.status),
             created_timestamp=proto.created_timestamp,
             last_updated_timestamp=proto.last_updated_timestamp,
             confidence=proto.confidence or None,
