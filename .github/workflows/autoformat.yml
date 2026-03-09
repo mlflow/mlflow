@@ -237,16 +237,15 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           AUTHOR=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json author --jq '.author')
-          AUTHOR_LOGIN=$(echo "$AUTHOR" | jq -r '.login')
           IS_BOT=$(echo "$AUTHOR" | jq -r '.is_bot')
           if [ "$IS_BOT" = "false" ]; then
-            AUTHOR_ID=$(gh api "users/$AUTHOR_LOGIN" --jq '.id')
-            git config user.name "$AUTHOR_LOGIN"
-            git config user.email "${AUTHOR_ID}+${AUTHOR_LOGIN}@users.noreply.github.com"
+            LOGIN=$(echo "$AUTHOR" | jq -r '.login')
           else
-            git config user.name 'mlflow-app[bot]'
-            git config user.email '191841109+mlflow-app[bot]@users.noreply.github.com'
+            LOGIN="mlflow-app[bot]"
           fi
+          ID=$(gh api "users/$LOGIN" --jq '.id')
+          git config user.name "$LOGIN"
+          git config user.email "${ID}+${LOGIN}@users.noreply.github.com"
 
       - name: Merge base branch
         env:
