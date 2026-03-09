@@ -464,6 +464,11 @@ def infer_pip_requirements(
                     "uv export failed or returned no requirements. "
                     "Falling back to package capture based inference."
                 )
+        elif uv_groups or uv_extras:
+            _logger.warning(
+                "uv_groups and/or uv_extras were specified but no uv project was detected. "
+                "These parameters will be ignored. Falling back to package capture based inference."
+            )
 
     raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
 

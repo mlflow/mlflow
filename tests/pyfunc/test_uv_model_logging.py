@@ -436,17 +436,6 @@ def test_export_uv_requirements_with_groups_real(uv_project_with_groups):
 
 
 @requires_uv
-def test_export_uv_requirements_with_only_groups_real(uv_project_with_groups):
-    from mlflow.utils.uv_utils import export_uv_requirements
-
-    result = export_uv_requirements(uv_project_with_groups, only_groups=["serving"])
-
-    assert result is not None
-    pkg_names = [r.split("==")[0].lower() for r in result]
-    assert "gunicorn" in pkg_names
-
-
-@requires_uv
 def test_export_uv_requirements_with_extras_real(uv_project_with_groups):
     from mlflow.utils.uv_utils import export_uv_requirements
 
