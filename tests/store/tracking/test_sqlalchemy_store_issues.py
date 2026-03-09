@@ -501,7 +501,7 @@ def test_search_issues_invalid_max_results(store):
         experiment_id=exp_id,
         name="Test Issue",
         description="Test",
-        status="accepted",
+        status=IssueStatus.ACCEPTED,
     )
 
     with pytest.raises(MlflowException, match=r"Invalid value 0 for parameter 'max_results'"):
