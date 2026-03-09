@@ -873,21 +873,20 @@ def test_search_experiments_filter_by_tag_is_null(store: SqlAlchemyStore):
 def test_search_runs_filter_by_tag_and_param_is_null(store: SqlAlchemyStore):
     exp_id = _create_experiments(store, "test_search_runs_is_null")
 
-    run1 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=1))
-    run2 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=2))
-    run3 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=3))
-
     # run1: has tag1, tag2, param1, param2
+    run1 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=1))
     store.set_tag(run1.info.run_id, RunTag("tag1", "value1"))
     store.set_tag(run1.info.run_id, RunTag("tag2", "value2"))
     store.log_param(run1.info.run_id, Param("param1", "val1"))
     store.log_param(run1.info.run_id, Param("param2", "val2"))
 
     # run2: has tag1, param1 only
+    run2 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=2))
     store.set_tag(run2.info.run_id, RunTag("tag1", "value1"))
     store.log_param(run2.info.run_id, Param("param1", "val1"))
 
     # run3: no extra tags or params
+    run3 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=3))
 
     # IS NOT NULL for tags - runs that have tag1
     result = store.search_runs(
