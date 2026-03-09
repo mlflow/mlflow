@@ -87,13 +87,13 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
     </div>
     </td>
     <td>
-      <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-logged-model.png" alt="MLflow Hero">
+      <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-gateway.png" alt="AI Gateway">
     <div align="center">
         <br>
-        <a href="https://mlflow.org/docs/latest/genai/prompt-version-mgmt/version-tracking/"><strong>📦 App Version Tracking</strong></a>
+        <a href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/"><strong>🌐 AI Gateway</strong></a>
         <br><br>
-        <div>MLflow keeps track of many moving parts in your AI applications, such as models, prompts, tools, and code, with end-to-end lineage.</div><br>
-        <a href="https://mlflow.org/docs/latest/genai/version-tracking/quickstart/">Getting Started →</a>
+        <div>Route requests to any LLM provider through a secure proxy, with built-in credential management, cost tracking, traffic splitting for A/B testing, automatic failover, and beyond.</div><br>
+        <a href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/quickstart/">Getting Started →</a>
         <br><br>
     </div>
     </td>
