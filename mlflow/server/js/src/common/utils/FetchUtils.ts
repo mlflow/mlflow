@@ -96,6 +96,12 @@ export const defaultError = ({ reject, response, err }: any) => {
   // eslint-disable-next-line no-console -- TODO(FEINF-3587)
   console.error('Fetch failed: ', response || err);
   if (response) {
+    // Redirect to login page on 401 (session expired) for OAuth
+    if (response.status === 401 && typeof window !== 'undefined') {
+      const currentUrl = window.location.href;
+      window.location.href = '/auth/login?next=' + encodeURIComponent(currentUrl);
+      return;
+    }
     response.text().then((text: any) => reject(new ErrorWrapper(text, response.status)));
   } else if (err) {
     reject(new ErrorWrapper(err, 500));

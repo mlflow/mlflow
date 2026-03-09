@@ -21,6 +21,7 @@ import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
 import { DarkThemeProvider } from './common/contexts/DarkThemeContext';
 import { telemetryClient } from './telemetry';
 import { ServerInfoProvider } from './experiment-tracking/hooks/useServerInfo';
+import { AuthProvider } from './common/contexts/AuthContext';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -58,7 +59,9 @@ export function MLFlowRoot() {
               <DarkThemeProvider setIsDarkTheme={setIsDarkTheme}>
                 <QueryClientProvider client={queryClient}>
                   <ServerInfoProvider>
-                    <MlflowRouter />
+                    <AuthProvider>
+                      <MlflowRouter />
+                    </AuthProvider>
                   </ServerInfoProvider>
                 </QueryClientProvider>
               </DarkThemeProvider>
