@@ -652,12 +652,10 @@ def test_fetch_sessions_calls_once_per_filter_when_scorers_have_different_filter
     scorer2 = ConversationCompleteness()
     scorer1.name = "scorer1"
     scorer2.name = "scorer2"
-    sampler = OnlineScorerSampler(
-        [
-            make_online_scorer(scorer1, filter_string="tag.env = 'prod'"),
-            make_online_scorer(scorer2, filter_string="tag.env = 'dev'"),
-        ]
-    )
+    sampler = OnlineScorerSampler([
+        make_online_scorer(scorer1, filter_string="tag.env = 'prod'"),
+        make_online_scorer(scorer2, filter_string="tag.env = 'dev'"),
+    ])
     mock_tracking_store.find_completed_sessions.return_value = []
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler, mock_tracking_store
@@ -686,12 +684,10 @@ def test_fetch_sessions_calls_once_per_filter_when_any_scorer_has_no_filter(
     scorer2 = ConversationCompleteness()
     scorer1.name = "scorer1"
     scorer2.name = "scorer2"
-    sampler = OnlineScorerSampler(
-        [
-            make_online_scorer(scorer1, filter_string="tag.env = 'prod'"),
-            make_online_scorer(scorer2, filter_string=None),
-        ]
-    )
+    sampler = OnlineScorerSampler([
+        make_online_scorer(scorer1, filter_string="tag.env = 'prod'"),
+        make_online_scorer(scorer2, filter_string=None),
+    ])
     mock_tracking_store.find_completed_sessions.return_value = []
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler, mock_tracking_store

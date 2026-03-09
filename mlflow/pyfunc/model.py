@@ -553,12 +553,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     .. code-block:: python
 
         chat_agent = MyChatAgent()
-        chat_agent.predict(
-            {
-                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
-                "context": {"conversation_id": "123", "user_id": "456"},
-            }
-        )
+        chat_agent.predict({
+            "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+            "context": {"conversation_id": "123", "user_id": "456"},
+        })
 
     See an example implementation of ``predict`` and ``predict_stream`` for a LangGraph agent in
     the :py:class:`ChatAgentState <mlflow.langchain.chat_agent_langgraph.ChatAgentState>`
@@ -589,12 +587,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
     .. code-block:: python
 
         loaded_model = mlflow.pyfunc.load_model(tmp_path)
-        loaded_model.predict(
-            {
-                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
-                "context": {"conversation_id": "123", "user_id": "456"},
-            }
-        )
+        loaded_model.predict({
+            "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+            "context": {"conversation_id": "123", "user_id": "456"},
+        })
 
     To make logging ChatAgent models as easy as possible, MLflow has built in the following
     features:
@@ -728,12 +724,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         .. code-block:: python
 
             chat_agent = ChatAgent()
-            chat_agent.predict(
-                {
-                    "messages": [{"role": "user", "content": "What is 10 + 10?"}],
-                    "context": {"conversation_id": "123", "user_id": "456"},
-                }
-            )
+            chat_agent.predict({
+                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                "context": {"conversation_id": "123", "user_id": "456"},
+            })
 
         Args:
             messages (List[:py:class:`ChatAgentMessage <mlflow.types.agent.ChatAgentMessage>`]):
@@ -771,12 +765,10 @@ class ChatAgent(PythonModel, metaclass=ABCMeta):
         .. code-block:: python
 
             chat_agent = ChatAgent()
-            for event in chat_agent.predict_stream(
-                {
-                    "messages": [{"role": "user", "content": "What is 10 + 10?"}],
-                    "context": {"conversation_id": "123", "user_id": "456"},
-                }
-            ):
+            for event in chat_agent.predict_stream({
+                "messages": [{"role": "user", "content": "What is 10 + 10?"}],
+                "context": {"conversation_id": "123", "user_id": "456"},
+            }):
                 print(event)
 
         To support streaming the output of your agent, override this method in your subclass of

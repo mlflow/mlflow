@@ -436,3 +436,47 @@ def test_backfill_spend_nonexistent_is_noop():
     tracker.refresh_policies([_make_policy()])
     # Should not raise
     tracker.backfill_spend({"nonexistent-policy": 50.0})
+
+
+# --- get_all_windows tests ---
+
+
+def test_get_all_windows_empty():
+    tracker = InMemoryBudgetTracker()
+    assert tracker.get_all_windows() == []
+
+
+def test_get_all_windows_returns_all_policies():
+    tracker = InMemoryBudgetTracker()
+    policy1 = _make_policy(budget_policy_id="bp-1")
+    policy2 = _make_policy(budget_policy_id="bp-2")
+    tracker.refresh_policies([policy1, policy2])
+
+    windows = tracker.get_all_windows()
+    assert len(windows) == 2
+    ids = {w.policy.budget_policy_id for w in windows}
+    assert ids == {"bp-1", "bp-2"}
+
+
+def test_get_all_windows_reflects_current_spend():
+    tracker = InMemoryBudgetTracker()
+    policy = _make_policy(budget_policy_id="bp-spend", budget_amount=100.0)
+    tracker.refresh_policies([policy])
+    tracker.record_cost(42.5)
+
+    windows = tracker.get_all_windows()
+    assert len(windows) == 1
+    assert windows[0].cumulative_spend == 42.5
+
+
+def test_get_all_windows_after_policy_removed():
+    tracker = InMemoryBudgetTracker()
+    policy1 = _make_policy(budget_policy_id="bp-1")
+    policy2 = _make_policy(budget_policy_id="bp-2")
+    tracker.refresh_policies([policy1, policy2])
+
+    tracker.refresh_policies([policy1])
+
+    windows = tracker.get_all_windows()
+    assert len(windows) == 1
+    assert windows[0].policy.budget_policy_id == "bp-1"

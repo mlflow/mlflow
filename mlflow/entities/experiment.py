@@ -112,7 +112,7 @@ class Experiment(_MlflowObject):
             experiment.creation_time = self.creation_time
         if self.last_update_time:
             experiment.last_update_time = self.last_update_time
-        experiment.tags.extend(
-            [ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()]
-        )
+        experiment.tags.extend([
+            ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()
+        ])
         return experiment

@@ -206,9 +206,7 @@ for webhook in webhooks:
 
 # Continue to next page if available
 if webhooks.next_page_token:
-    next_page = client.list_webhooks(
-        max_results=10, page_token=webhooks.next_page_token
-    )
+    next_page = client.list_webhooks(max_results=10, page_token=webhooks.next_page_token)
 ```
 
 To retrieve all webhooks across multiple pages:
@@ -385,9 +383,7 @@ WEBHOOK_SECRET = "your-secret-key"
 MAX_TIMESTAMP_AGE = 300  # 5 minutes
 
 
-def verify_timestamp_freshness(
-    timestamp_str: str, max_age: int = MAX_TIMESTAMP_AGE
-) -> bool:
+def verify_timestamp_freshness(timestamp_str: str, max_age: int = MAX_TIMESTAMP_AGE) -> bool:
     """Verify that the webhook timestamp is recent enough to prevent replay attacks"""
     try:
         webhook_timestamp = int(timestamp_str)
@@ -553,9 +549,7 @@ if __name__ == "__main__":
 
    # Create a model version to trigger the webhook
    client.create_registered_model("test-model")
-   client.create_model_version(
-       name="test-model", source="s3://bucket/model", run_id="abc123"
-   )
+   client.create_model_version(name="test-model", source="s3://bucket/model", run_id="abc123")
    ```
 
 ## Troubleshooting
