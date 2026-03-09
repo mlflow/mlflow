@@ -22,7 +22,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import extract_provider_from_model_string, maybe_set_prediction_context
+from mlflow.tracing.utils import maybe_set_prediction_context
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.utils import _get_fully_qualified_class_name
 from mlflow.utils.autologging_utils import (
@@ -167,8 +167,9 @@ class MlflowCallback(BaseCallback):
             SpanAttributeKey.MESSAGE_FORMAT: "dspy",
             SpanAttributeKey.MODEL: instance.model,
         }
-        if provider := extract_provider_from_model_string(instance.model):
-            attributes[SpanAttributeKey.MODEL_PROVIDER] = provider
+        match instance.model.split("/", 1):
+            case [provider, _]:
+                attributes[SpanAttributeKey.MODEL_PROVIDER] = provider
 
         inputs = self._unpack_kwargs(inputs)
 

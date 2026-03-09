@@ -9,7 +9,7 @@ from mlflow.entities import SpanType
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import construct_full_inputs, extract_provider_from_model_string
+from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
@@ -71,8 +71,9 @@ def autolog(
                 if model := getattr(self, "model", None):
                     if isinstance(model, str):
                         span.set_attribute(SpanAttributeKey.MODEL, model)
-                        if provider := extract_provider_from_model_string(model):
-                            span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
+                        match model.split("/", 1):
+                            case [provider, _]:
+                                span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
                 if tools := inputs.get("tools"):
                     log_tools(span, tools)

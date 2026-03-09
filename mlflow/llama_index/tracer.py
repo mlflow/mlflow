@@ -39,7 +39,7 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import extract_provider_from_model_string, set_span_chat_tools
+from mlflow.tracing.utils import set_span_chat_tools
 
 _logger = logging.getLogger(__name__)
 
@@ -484,8 +484,9 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         if model_dict and (model := model_dict.get("model")):
             span.set_attribute(SpanAttributeKey.MODEL, model)
             if isinstance(model, str):
-                if provider := extract_provider_from_model_string(model):
-                    span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
+                match model.split("/", 1):
+                    case [provider, _]:
+                        span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
     def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
         if raw := response.raw:

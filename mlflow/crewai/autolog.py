@@ -11,7 +11,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import TraceJSONEncoder, extract_provider_from_model_string
+from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -317,8 +317,9 @@ def _set_span_attributes(span: LiveSpan, instance):
             if model := getattr(instance, "model", None):
                 span.set_attribute(SpanAttributeKey.MODEL, model)
                 if isinstance(model, str):
-                    if provider := extract_provider_from_model_string(model):
-                        span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
+                    match model.split("/", 1):
+                        case [provider, _]:
+                            span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
         elif isinstance(instance, Flow):
             for key, value in instance.__dict__.items():
