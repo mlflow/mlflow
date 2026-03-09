@@ -125,10 +125,13 @@ export const useRunJudgesOnTracesConfiguration = (
     setDismissedKeys((prev) => new Set([...prev, requestKey]));
   }, []);
 
-  const JudgesStatusBanner =
-    activeEvaluations.length > 0 ? (
-      <JudgesEvaluationStatusBanner evaluations={activeEvaluations} onDismiss={dismiss} />
-    ) : null;
+  const JudgesStatusBanner = useMemo(
+    () =>
+      activeEvaluations.length > 0 ? (
+        <JudgesEvaluationStatusBanner evaluations={activeEvaluations} onDismiss={dismiss} />
+      ) : null,
+    [activeEvaluations, dismiss],
+  );
 
   const RunJudgesModal = useMemo(
     () => (
