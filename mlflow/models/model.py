@@ -1149,10 +1149,10 @@ class Model:
                 run_id = active_run.info.run_id if (active_run := mlflow.active_run()) else None
 
             flavor_name = kwargs.pop("flavor_name", None)
-            serialization_format = kwargs.get("serialization_format")
             if model_id is not None:
                 model = client.get_logged_model(model_id)
             else:
+                serialization_format = kwargs.get("serialization_format")
                 params = {
                     **(params or {}),
                     **(client.get_run(run_id).data.params if run_id else {}),
