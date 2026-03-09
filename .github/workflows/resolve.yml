@@ -119,7 +119,7 @@ jobs:
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve\s*||' | xargs)
+          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve||')
           echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
 
   resolve:
