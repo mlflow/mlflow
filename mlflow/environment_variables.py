@@ -832,11 +832,12 @@ MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
 )
 
-#: Specifies the export format for OTLP traces.
-#: When set to "genai_semconv", MLflow translates span attributes from
-#: mlflow.* format to OpenTelemetry GenAI Semantic Convention format before export.
-#: (default: ``None``)
-MLFLOW_OTLP_EXPORT_FORMAT = _EnvironmentVariable("MLFLOW_OTLP_EXPORT_FORMAT", str, None)
+#: When set to "true", MLflow translates span attributes from mlflow.* format
+#: to OpenTelemetry GenAI Semantic Convention format before OTLP export.
+#: (default: ``False``)
+MLFLOW_ENABLE_OTEL_GENAI_SEMCONV = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_OTEL_GENAI_SEMCONV", False
+)
 
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(

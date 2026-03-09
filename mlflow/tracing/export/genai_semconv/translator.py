@@ -15,6 +15,7 @@ from opentelemetry.trace import SpanKind
 
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import GenAiSemconvKey, SpanAttributeKey
+from mlflow.tracing.utils import get_otel_attribute
 
 _logger = logging.getLogger(__name__)
 
@@ -26,9 +27,9 @@ _SPAN_TYPE_TO_OPERATION: dict[str, str | None] = {
     SpanType.EMBEDDING: "embeddings",
     SpanType.TOOL: "execute_tool",
     SpanType.AGENT: "invoke_agent",
-    SpanType.RETRIEVER: "execute_tool",
-    SpanType.RERANKER: "execute_tool",
     # No natural GenAI semconv equivalent — pass through as-is
+    SpanType.RETRIEVER: None,
+    SpanType.RERANKER: None,
     SpanType.CHAIN: None,
     SpanType.WORKFLOW: None,
     SpanType.PARSER: None,
@@ -63,7 +64,7 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
     """
     original_attrs = dict(span.attributes or {})
 
-    genai_attrs = _translate_universal_attributes(original_attrs)
+    genai_attrs = _translate_universal_attributes(span)
 
     if not genai_attrs:
         # No GenAI mapping — strip mlflow.* attrs and pass through
@@ -79,29 +80,24 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
     return _build_readable_span(span, name=new_name, attributes=merged_attrs, kind=new_kind)
 
 
-def _translate_universal_attributes(mlflow_attrs: dict[str, Any]) -> dict[str, Any]:
+def _translate_universal_attributes(span: ReadableSpan) -> dict[str, Any]:
     genai_attrs: dict[str, Any] = {}
 
     # 1. Operation name from span type
-    span_type = _parse_json_attr(mlflow_attrs.get(SpanAttributeKey.SPAN_TYPE))
-    if span_type is not None:
-        operation = _SPAN_TYPE_TO_OPERATION.get(span_type)
-        if operation:
+    if span_type := get_otel_attribute(span, SpanAttributeKey.SPAN_TYPE):
+        if operation := _SPAN_TYPE_TO_OPERATION.get(span_type):
             genai_attrs[GenAiSemconvKey.OPERATION_NAME] = operation
 
     # 2. Model
-    model = _parse_json_attr(mlflow_attrs.get(SpanAttributeKey.MODEL))
-    if model:
+    if model := get_otel_attribute(span, SpanAttributeKey.MODEL):
         genai_attrs[GenAiSemconvKey.REQUEST_MODEL] = model
 
     # 3. Provider
-    provider = _parse_json_attr(mlflow_attrs.get(SpanAttributeKey.MODEL_PROVIDER))
-    if provider:
+    if provider := get_otel_attribute(span, SpanAttributeKey.MODEL_PROVIDER):
         genai_attrs[GenAiSemconvKey.PROVIDER_NAME] = provider
 
     # 4. Token usage
-    usage = _parse_json_attr(mlflow_attrs.get(SpanAttributeKey.CHAT_USAGE))
-    if isinstance(usage, dict):
+    if isinstance(usage := get_otel_attribute(span, SpanAttributeKey.CHAT_USAGE), dict):
         if (input_tokens := usage.get("input_tokens")) is not None:
             genai_attrs[GenAiSemconvKey.USAGE_INPUT_TOKENS] = input_tokens
         if (output_tokens := usage.get("output_tokens")) is not None:
@@ -109,11 +105,9 @@ def _translate_universal_attributes(mlflow_attrs: dict[str, Any]) -> dict[str, A
 
     # 5. Tool attributes (for TOOL spans)
     if span_type == SpanType.TOOL:
-        inputs = _parse_json_attr(mlflow_attrs.get(SpanAttributeKey.INPUTS))
-        if inputs is not None:
+        if (inputs := get_otel_attribute(span, SpanAttributeKey.INPUTS)) is not None:
             genai_attrs[GenAiSemconvKey.TOOL_CALL_ARGUMENTS] = json.dumps(inputs)
-        outputs = _parse_json_attr(mlflow_attrs.get(SpanAttributeKey.OUTPUTS))
-        if outputs is not None:
+        if (outputs := get_otel_attribute(span, SpanAttributeKey.OUTPUTS)) is not None:
             genai_attrs[GenAiSemconvKey.TOOL_CALL_RESULT] = json.dumps(outputs)
 
     return genai_attrs
@@ -179,18 +173,3 @@ def _build_readable_span(
     )
 
 
-def _parse_json_attr(value: Any) -> Any:
-    """
-    Parse a JSON-encoded attribute value.
-
-    MLflow stores span attributes as JSON-encoded strings (e.g., '"gpt-4o"' for strings,
-    '{"input_tokens": 10}' for dicts). This helper unwraps them.
-    """
-    if value is None:
-        return None
-    if isinstance(value, str):
-        try:
-            return json.loads(value)
-        except (json.JSONDecodeError, ValueError):
-            return value
-    return value
