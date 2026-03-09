@@ -21,6 +21,55 @@ _logger = logging.getLogger(__name__)
 # Redis key prefix for all budget tracker keys
 _KEY_PREFIX = "mlflow:budget:"
 
+# Lua script: atomically initialize or roll a window only if the stored
+# window_start differs (or the key doesn't exist). Returns 1 if the window
+# was created/rolled, 0 if it already matched.
+_ENSURE_WINDOW_LUA = """
+local wkey = KEYS[1]
+local new_start = ARGV[1]
+local new_end = ARGV[2]
+local ttl = tonumber(ARGV[3])
+
+local current_start = redis.call('HGET', wkey, 'window_start')
+if current_start == new_start then
+    return 0
+end
+
+redis.call('HSET', wkey,
+    'window_start', new_start,
+    'window_end', new_end,
+    'cumulative_spend', '0.0',
+    'exceeded', '0')
+
+if ttl and ttl > 0 then
+    redis.call('EXPIRE', wkey, ttl)
+end
+
+return 1
+"""
+
+# Lua script: atomically increment spend and flip the exceeded flag exactly
+# once. Returns [new_spend, just_flipped] where just_flipped is 1 if this
+# call was the one that transitioned exceeded from 0 to 1.
+_RECORD_COST_LUA = """
+local wkey = KEYS[1]
+local cost = tonumber(ARGV[1])
+local limit = tonumber(ARGV[2])
+
+local new_spend = redis.call('HINCRBYFLOAT', wkey, 'cumulative_spend', cost)
+new_spend = tonumber(new_spend)
+
+if new_spend >= limit then
+    local was_exceeded = redis.call('HGET', wkey, 'exceeded')
+    if was_exceeded ~= '1' then
+        redis.call('HSET', wkey, 'exceeded', '1')
+        return {tostring(new_spend), 1}
+    end
+end
+
+return {tostring(new_spend), 0}
+"""
+
 
 def _window_key(policy_id: str) -> str:
     return f"{_KEY_PREFIX}window:{policy_id}"
@@ -76,60 +125,64 @@ class RedisBudgetTracker(BudgetTracker):
     """Redis-backed budget tracker for distributed deployments.
 
     Uses Redis to store budget windows, enabling shared budget tracking
-    across multiple gateway instances. Atomic operations (INCRBYFLOAT)
-    ensure correct cost accumulation under concurrent access.
+    across multiple gateway instances. Lua scripts ensure atomicity for
+    window initialization, cost accumulation, and exceeded-flag transitions.
     """
 
     _redis_url: str = "redis://localhost:6379/0"
     _client: object = field(default=None, repr=False)
 
     def __post_init__(self):
-        import redis
-
         if self._client is None:
+            try:
+                import redis
+            except ImportError:
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException(
+                    "The `redis` package is required for RedisBudgetTracker. "
+                    "Install it with: pip install redis"
+                )
             self._client = redis.Redis.from_url(self._redis_url, decode_responses=True)
 
-    def _ensure_window(self, policy: GatewayBudgetPolicy, now: datetime) -> BudgetWindow:
-        """Ensure a valid window exists in Redis for the given policy, returning it."""
+    def _ensure_window(
+        self, policy: GatewayBudgetPolicy, now: datetime
+    ) -> tuple[BudgetWindow, bool]:
+        """Ensure a valid window exists in Redis for the given policy.
+
+        Returns:
+            Tuple of (window, created) where created is True if the window
+            was just initialized or rolled over.
+        """
         pid = policy.budget_policy_id
         wkey = _window_key(pid)
 
         window_start = _compute_window_start(policy.duration_unit, policy.duration_value, now)
         window_end = _compute_window_end(policy.duration_unit, policy.duration_value, window_start)
 
-        stored = self._client.hgetall(wkey)
-
-        if stored and stored.get("window_start") == window_start.isoformat():
-            return BudgetWindow(
-                policy=policy,
-                window_start=window_start,
-                window_end=window_end,
-                cumulative_spend=float(stored.get("cumulative_spend", 0.0)),
-                exceeded=stored.get("exceeded", "0") == "1",
-            )
-
-        # Window expired or doesn't exist — create a new one
-        pipe = self._client.pipeline()
-        pipe.hset(
-            wkey,
-            mapping={
-                "window_start": window_start.isoformat(),
-                "window_end": window_end.isoformat(),
-                "cumulative_spend": "0.0",
-                "exceeded": "0",
-            },
-        )
         ttl_seconds = int((window_end - now).total_seconds()) + 3600
-        pipe.expire(wkey, ttl_seconds)
-        pipe.execute()
+        created = self._client.eval(
+            _ENSURE_WINDOW_LUA,
+            1,
+            wkey,
+            window_start.isoformat(),
+            window_end.isoformat(),
+            ttl_seconds,
+        )
 
-        return BudgetWindow(
+        # Read back final state to capture any concurrent writes
+        stored = self._client.hgetall(wkey)
+        cumulative_spend = float(stored.get("cumulative_spend", 0.0))
+        exceeded = stored.get("exceeded", "0") == "1"
+
+        window = BudgetWindow(
             policy=policy,
             window_start=window_start,
             window_end=window_end,
-            cumulative_spend=0.0,
-            exceeded=False,
+            cumulative_spend=cumulative_spend,
+            exceeded=exceeded,
         )
+        return window, bool(created)
 
     def refresh_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
         now = datetime.now(timezone.utc)
@@ -147,8 +200,7 @@ class RedisBudgetTracker(BudgetTracker):
 
         # Remove stale policies
         existing_ids = self._client.smembers(_policy_set_key())
-        stale_ids = existing_ids - new_policy_ids
-        if stale_ids:
+        if stale_ids := existing_ids - new_policy_ids:
             pipe = self._client.pipeline()
             for stale_id in stale_ids:
                 pipe.delete(_window_key(stale_id))
@@ -161,8 +213,8 @@ class RedisBudgetTracker(BudgetTracker):
             self._client.sadd(_policy_set_key(), *new_policy_ids)
 
         for policy in policies:
-            window = self._ensure_window(policy, now)
-            if window.cumulative_spend == 0.0:
+            window, created = self._ensure_window(policy, now)
+            if created:
                 fresh_windows.append(window)
 
         self.mark_refreshed()
@@ -179,26 +231,30 @@ class RedisBudgetTracker(BudgetTracker):
         policy_ids = self._client.smembers(_policy_set_key())
 
         for pid in policy_ids:
-            policy_data = self._client.hget(_policy_key(pid), "data")
-            if policy_data is None:
+            if not (policy_data := self._client.hget(_policy_key(pid), "data")):
                 continue
             policy = _deserialize_policy(policy_data)
 
             if not _policy_applies(policy, workspace):
                 continue
 
-            window = self._ensure_window(policy, now)
+            window, _created = self._ensure_window(policy, now)
 
-            # Atomically increment spend
-            new_spend = self._client.hincrbyfloat(_window_key(pid), "cumulative_spend", cost_usd)
+            # Atomically increment spend and flip exceeded flag
+            result = self._client.eval(
+                _RECORD_COST_LUA,
+                1,
+                _window_key(pid),
+                str(cost_usd),
+                str(policy.budget_amount),
+            )
+            new_spend = float(result[0])
+            just_flipped = int(result[1])
 
-            if new_spend >= policy.budget_amount:
-                was_exceeded = self._client.hget(_window_key(pid), "exceeded")
-                if was_exceeded != "1":
-                    self._client.hset(_window_key(pid), "exceeded", "1")
-                    window.cumulative_spend = new_spend
-                    window.exceeded = True
-                    newly_exceeded.append(window)
+            if just_flipped:
+                window.cumulative_spend = new_spend
+                window.exceeded = True
+                newly_exceeded.append(window)
 
         return newly_exceeded
 
@@ -211,8 +267,7 @@ class RedisBudgetTracker(BudgetTracker):
         policy_ids = self._client.smembers(_policy_set_key())
 
         for pid in policy_ids:
-            policy_data = self._client.hget(_policy_key(pid), "data")
-            if policy_data is None:
+            if not (policy_data := self._client.hget(_policy_key(pid), "data")):
                 continue
             policy = _deserialize_policy(policy_data)
 
@@ -227,8 +282,7 @@ class RedisBudgetTracker(BudgetTracker):
             if not stored:
                 continue
 
-            window_end_str = stored.get("window_end")
-            if window_end_str:
+            if window_end_str := stored.get("window_end"):
                 window_end = datetime.fromisoformat(window_end_str)
                 if now >= window_end:
                     continue
@@ -247,8 +301,7 @@ class RedisBudgetTracker(BudgetTracker):
             if not self._client.exists(wkey):
                 continue
 
-            policy_data = self._client.hget(_policy_key(budget_policy_id), "data")
-            if policy_data is None:
+            if not (policy_data := self._client.hget(_policy_key(budget_policy_id), "data")):
                 continue
             policy = _deserialize_policy(policy_data)
 
@@ -264,8 +317,7 @@ class RedisBudgetTracker(BudgetTracker):
         if not stored:
             return None
 
-        policy_data = self._client.hget(_policy_key(budget_policy_id), "data")
-        if policy_data is None:
+        if not (policy_data := self._client.hget(_policy_key(budget_policy_id), "data")):
             return None
 
         policy = _deserialize_policy(policy_data)

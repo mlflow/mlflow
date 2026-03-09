@@ -38,8 +38,7 @@ def get_budget_tracker() -> BudgetTracker:
     if _budget_tracker is None:
         with _tracker_lock:
             if _budget_tracker is None:
-                redis_url = MLFLOW_GATEWAY_BUDGET_REDIS_URL.get()
-                if redis_url:
+                if redis_url := MLFLOW_GATEWAY_BUDGET_REDIS_URL.get():
                     from mlflow.gateway.budget_tracker.redis import RedisBudgetTracker
 
                     _budget_tracker = RedisBudgetTracker(_redis_url=redis_url)

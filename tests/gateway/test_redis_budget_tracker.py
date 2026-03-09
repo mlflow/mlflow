@@ -232,6 +232,27 @@ def test_refresh_policies_returns_new_windows():
     assert ids == {"bp-1", "bp-2"}
 
 
+def test_refresh_policies_is_idempotent_for_existing_policies():
+    tracker = _make_tracker()
+    policy = _make_policy(budget_policy_id="bp-1", budget_amount=100.0)
+
+    first_windows = tracker.refresh_policies([policy])
+    assert len(first_windows) == 1
+
+    tracker.backfill_spend({"bp-1": 42.5})
+    window_before = tracker._get_window_info("bp-1")
+    assert window_before.cumulative_spend == 42.5
+
+    # Second call with the same policy should not create a new window
+    second_windows = tracker.refresh_policies([policy])
+    assert len(second_windows) == 0
+
+    # Existing window state should be preserved
+    window_after = tracker._get_window_info("bp-1")
+    assert window_after.cumulative_spend == window_before.cumulative_spend
+    assert window_after.exceeded == window_before.exceeded
+
+
 def test_get_budget_tracker_returns_redis_when_configured():
     from mlflow.gateway.budget_tracker.redis import RedisBudgetTracker
 
