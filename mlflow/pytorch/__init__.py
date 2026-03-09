@@ -648,17 +648,17 @@ def _load_by_pickle_check(is_loading_state_dict: bool):
     ):
         if load_state_dict:
             raise MlflowException(
-                "Deserializing model using pickle is disallowed, but this model is saved "
-                "in pickle format. The workaround is to set environment variable "
-                "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing model "
-                "using pickle."
+                "Deserializing model using pickle is disallowed, but this state dict is saved "
+                "in pickle format. You can set  set environment variable "
+                "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing state "
+                "dict using pickle."
             )
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
             "in pickle format. The recommended way is to save the model with "
             "'serialization_format=True' like "
-            "`mlflow.pytorch.save_model(model, path, serialization_format='pt2')`,"
-            " Another workaround is to set environment variable "
+            "`mlflow.pytorch.save_model(model, path, serialization_format='pt2')`, "
+            "or you can set environment variable "
             "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing model "
             "using pickle."
         )
