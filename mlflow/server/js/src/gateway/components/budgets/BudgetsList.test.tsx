@@ -102,6 +102,62 @@ describe('BudgetsList', () => {
     expect(screen.getByText('Alert')).toBeInTheDocument();
   });
 
+  test('renders window columns with spend data when available', () => {
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [mockPolicies[0]],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    jest.mocked(useBudgetWindowsQuery).mockReturnValue({
+      data: {
+        'bp-1': {
+          budget_policy_id: 'bp-1',
+          window_start_ms: new Date('2026-03-01T00:00:00Z').getTime(),
+          window_end_ms: new Date('2026-03-02T00:00:00Z').getTime(),
+          current_spend: 42.5,
+        },
+      },
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    // Current spend should be formatted as budget amount
+    expect(screen.getByText('$42.50')).toBeInTheDocument();
+  });
+
+  test('renders dash placeholders when no window data exists', () => {
+    jest.mocked(useBudgetPoliciesQuery).mockReturnValue({
+      data: [mockPolicies[0]],
+      isLoading: false,
+      error: undefined,
+      refetch: jest.fn(),
+    } as any);
+
+    jest.mocked(useBudgetWindowsQuery).mockReturnValue({
+      data: {},
+      isLoading: false,
+      error: undefined,
+    });
+
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <BudgetsList />
+      </MemoryRouter>,
+    );
+
+    // Should show em-dash placeholders for missing window data
+    const dashes = screen.getAllByText('—');
+    expect(dashes.length).toBe(3); // Window Start, Window End, Current Spend
+  });
+
   test('calls onEditClick when edit button is clicked', async () => {
     const onEditClick = jest.fn();
 
