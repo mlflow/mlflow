@@ -450,6 +450,40 @@ class GatewayListEndpointsEvent(Event):
         }
 
 
+# Gateway Budget Policy CRUD Events
+class GatewayCreateBudgetPolicyEvent(Event):
+    name: str = "gateway_create_budget_policy"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "budget_unit": str(arguments.get("budget_unit"))
+            if arguments.get("budget_unit")
+            else None,
+            "duration_unit": str(arguments.get("duration_unit"))
+            if arguments.get("duration_unit")
+            else None,
+            "target_scope": str(arguments.get("target_scope"))
+            if arguments.get("target_scope")
+            else None,
+            "budget_action": str(arguments.get("budget_action"))
+            if arguments.get("budget_action")
+            else None,
+        }
+
+
+class GatewayUpdateBudgetPolicyEvent(Event):
+    name: str = "gateway_update_budget_policy"
+
+
+class GatewayDeleteBudgetPolicyEvent(Event):
+    name: str = "gateway_delete_budget_policy"
+
+
+class GatewayListBudgetPoliciesEvent(Event):
+    name: str = "gateway_list_budget_policies"
+
+
 # Gateway Secret CRUD Events
 class GatewayCreateSecretEvent(Event):
     name: str = "gateway_create_secret"

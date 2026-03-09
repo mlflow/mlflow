@@ -60,15 +60,19 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     CreateWebhookEvent,
     EvaluateEvent,
+    GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
     GatewayCreateSecretEvent,
+    GatewayDeleteBudgetPolicyEvent,
     GatewayDeleteEndpointEvent,
     GatewayDeleteSecretEvent,
     GatewayGetEndpointEvent,
     GatewayInvocationEvent,
+    GatewayListBudgetPoliciesEvent,
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
     GatewayStartEvent,
+    GatewayUpdateBudgetPolicyEvent,
     GatewayUpdateEndpointEvent,
     GatewayUpdateSecretEvent,
     GenAIEvaluateEvent,
@@ -1891,6 +1895,58 @@ def test_gateway_secret_crud_telemetry(
     )
 
     store.delete_gateway_secret(secret_id=secret2.secret_id)
+
+
+def test_gateway_budget_policy_crud_telemetry(
+    mock_requests, mock_telemetry_client: TelemetryClient, tmp_path
+):
+    db_path = tmp_path / "mlflow.db"
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+
+    policy = store.create_budget_policy(
+        budget_unit="USD",
+        budget_amount=100.0,
+        duration_unit="DAYS",
+        duration_value=30,
+        target_scope="GLOBAL",
+        budget_action="ALERT",
+        created_by="test-user",
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayCreateBudgetPolicyEvent.name,
+        {
+            "budget_unit": "USD",
+            "duration_unit": "DAYS",
+            "target_scope": "GLOBAL",
+            "budget_action": "ALERT",
+        },
+    )
+
+    store.list_budget_policies()
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayListBudgetPoliciesEvent.name,
+    )
+
+    store.update_budget_policy(
+        budget_policy_id=policy.budget_policy_id,
+        budget_amount=200.0,
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayUpdateBudgetPolicyEvent.name,
+    )
+
+    store.delete_budget_policy(budget_policy_id=policy.budget_policy_id)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayDeleteBudgetPolicyEvent.name,
+    )
 
 
 @pytest.mark.asyncio
