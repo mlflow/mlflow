@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { DesignSystemObservabilityEvent } from '../types';
+import type { DesignSystemObservabilityEvent } from '../types';
 import { telemetryClient } from '../TelemetryClient';
 
 export const useLogTelemetryEvent = () => {

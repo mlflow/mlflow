@@ -151,9 +151,10 @@ def test_list_artifacts(mock_client, root_path):
     blob_props.size = 42
     blob_props.name = posixpath.join(TEST_ROOT_PATH, "file")
 
-    mock_client.get_container_client().walk_blobs.return_value = MockBlobList(
-        [dir_prefix, blob_props]
-    )
+    mock_client.get_container_client().walk_blobs.return_value = MockBlobList([
+        dir_prefix,
+        blob_props,
+    ])
 
     artifacts = repo.list_artifacts()
     mock_client.get_container_client().walk_blobs.assert_called_with(name_starts_with="some/path/")

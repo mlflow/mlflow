@@ -40,6 +40,7 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, TraceMetadataKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.conftest import async_logging_enabled
@@ -748,6 +749,8 @@ async def test_langchain_autolog_token_usage(mock_litellm_cost):
         assert chat_model_span.model_name == "gpt-3.5-turbo"
 
     def _validate_cost(trace):
+        if IS_TRACING_SDK_ONLY:
+            return
         # Find the ChatOpenAI span
         chat_model_span = next(s for s in trace.data.spans if s.name == "ChatOpenAI")
         assert chat_model_span.llm_cost == {

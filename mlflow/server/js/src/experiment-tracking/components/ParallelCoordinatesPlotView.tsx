@@ -91,7 +91,6 @@ export class ParallelCoordinatesPlotView extends React.Component<
   // needs to be called every time chart updates. More information about currently available label
   // setting here: https://plot.ly/javascript/reference/#parcoords-labelfont
   updateMetricAxisLabelStyle = () => {
-    /* eslint-disable no-param-reassign */
     const metricsKeySet = new Set(this.props.metricKeys);
     // TODO(Zangr) 2019-06-20 This assumes name uniqueness across params & metrics. Find a way to
     // make it more deterministic. Ex. Add add different data attributes to indicate axis kind.

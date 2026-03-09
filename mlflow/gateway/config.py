@@ -11,6 +11,7 @@ import yaml
 from pydantic import ConfigDict, ValidationError, field_validator, model_validator
 from pydantic.json import pydantic_encoder
 
+from mlflow.environment_variables import MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel
 from mlflow.gateway.constants import (
@@ -299,11 +300,11 @@ def _resolve_api_key_from_input(api_key_input):
 
     Input formats accepted:
 
+    - environment variable name that stores the api key (prefixed with ``$``)
     - Path to a file as a string which will have the key loaded from it
-    - environment variable name that stores the api key
+      (only when ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE`` is ``true``)
     - the api key itself
     """
-
     if not isinstance(api_key_input, str):
         raise MlflowException.invalid_parameter_value(
             "The api key provided is not a string. Please provide either an environment "
@@ -313,22 +314,23 @@ def _resolve_api_key_from_input(api_key_input):
     # try reading as an environment variable
     if api_key_input.startswith("$"):
         env_var_name = api_key_input[1:]
-        if env_var := os.getenv(env_var_name):
+        if env_var := os.environ.get(env_var_name):
             return env_var
         else:
             raise MlflowException.invalid_parameter_value(
                 f"Environment variable {env_var_name!r} is not set"
             )
 
-    # try reading from a local path
-    file = pathlib.Path(api_key_input)
-    try:
-        if file.is_file():
-            return file.read_text()
-    except OSError:
-        # `is_file` throws an OSError if `api_key_input` exceeds the maximum filename length
-        # (e.g., 255 characters on Unix).
-        pass
+    # try reading from a local path (only for legacy YAML-config gateway)
+    if MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.get():
+        file = pathlib.Path(api_key_input)
+        try:
+            if file.is_file():
+                return file.read_text()
+        except OSError:
+            # `is_file` throws an OSError if `api_key_input` exceeds the maximum filename length
+            # (e.g., 255 characters on Unix).
+            pass
 
     # if the key itself is passed, return
     return api_key_input

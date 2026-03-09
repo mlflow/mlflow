@@ -15,6 +15,7 @@ from mlflow.utils.environment import infer_pip_requirements
 from mlflow.utils.os import is_windows
 from mlflow.utils.requirements_utils import (
     _capture_imported_modules,
+    _check_requirement_satisfied,
     _get_installed_version,
     _get_pinned_requirement,
     _infer_requirements,
@@ -208,7 +209,7 @@ def test_capture_imported_modules():
     from mlflow.utils._capture_modules import _CaptureImportedModules
 
     with _CaptureImportedModules() as cap:
-        import math  # clint: disable=lazy-builtin-import  # noqa: F401
+        import math  # clint: disable=lazy-import  # noqa: F401
 
         __import__("pandas")
         importlib.import_module("numpy")
@@ -405,7 +406,12 @@ def test_capture_imported_modules_include_deps_by_params():
         ("mlflow.deployments", False),
     ],
 )
-def test_capture_imported_modules_includes_gateway_extra(module_to_import, should_capture_extra):
+def test_capture_imported_modules_includes_gateway_extra(
+    module_to_import, should_capture_extra, monkeypatch
+):
+    # Disable UV auto-detect to ensure model-based inference is used
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, inputs, params=None):
             importlib.import_module(module_to_import)
@@ -426,7 +432,10 @@ def test_capture_imported_modules_includes_gateway_extra(module_to_import, shoul
     assert (f"mlflow[gateway]=={mlflow.__version__}" in pip_requirements) == should_capture_extra
 
 
-def test_gateway_extra_not_captured_when_importing_deployment_client_only():
+def test_gateway_extra_not_captured_when_importing_deployment_client_only(monkeypatch):
+    # Disable UV auto-detect to ensure model-based inference is used
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):
             from mlflow.deployments import get_deploy_client  # noqa: F401
@@ -475,12 +484,10 @@ def test_warn_dependency_requirement_mismatches():
         # Test case: multiple mismatched packages
         with mock.patch(
             "mlflow.utils.requirements_utils._get_installed_version",
-            gen_mock_get_installed_version_fn(
-                {
-                    "scikit-learn": "999.99.11",
-                    "cloudpickle": "999.99.22",
-                }
-            ),
+            gen_mock_get_installed_version_fn({
+                "scikit-learn": "999.99.11",
+                "cloudpickle": "999.99.22",
+            }),
         ):
             warn_dependency_requirement_mismatches(
                 model_requirements=[
@@ -553,6 +560,16 @@ model's environment and install dependencies using the resulting environment fil
         mock_warning.assert_not_called()
 
 
+def test_check_requirement_satisfied_skips_non_matching_marker():
+    result = _check_requirement_satisfied("numpy==999.0.0 ; python_full_version < '3.0'")
+    assert result is None
+
+
+def test_check_requirement_satisfied_checks_matching_marker():
+    result = _check_requirement_satisfied("numpy==999.0.0 ; python_full_version >= '3.0'")
+    assert result is not None
+
+
 @pytest.mark.parametrize(
     "ignore_package_name",
     [
@@ -578,12 +595,10 @@ def test_suppress_warn_dependency_requirement_mismatches_ignore_some_packages(ig
         # Test case: multiple mismatched packages
         with mock.patch(
             "mlflow.utils.requirements_utils._get_installed_version",
-            gen_mock_get_installed_version_fn(
-                {
-                    ignore_package_name: "9.99.11",
-                    "cloudpickle": "999.99.22",
-                }
-            ),
+            gen_mock_get_installed_version_fn({
+                ignore_package_name: "9.99.11",
+                "cloudpickle": "999.99.22",
+            }),
         ):
             warn_dependency_requirement_mismatches(
                 model_requirements=[

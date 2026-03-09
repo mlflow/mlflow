@@ -119,6 +119,7 @@ class TracingSession:
             # Chat instances store model in _model attribute
             if model := (self.inputs.get("model") or getattr(self.instance, "_model", None)):
                 self.span.set_attribute(SpanAttributeKey.MODEL, model)
+                self.span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, "gemini")
         except Exception as e:
             _logger.debug(f"Failed to extract model for span {self.span.name}: {e}", exc_info=True)
 
@@ -271,5 +272,7 @@ def _parse_usage(output):
         usage_dict[TokenUsageKey.OUTPUT_TOKENS] = candidate_tokens
     if (total_tokens := usage.total_token_count) is not None:
         usage_dict[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+    if (cached_tokens := getattr(usage, "cached_content_token_count", None)) is not None:
+        usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached_tokens
 
     return usage_dict or None

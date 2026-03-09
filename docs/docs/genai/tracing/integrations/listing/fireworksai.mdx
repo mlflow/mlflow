@@ -44,7 +44,7 @@ pip install 'mlflow[genai]' openai
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
 ```bash
-npm install mlflow-openai openai
+npm install @mlflow/openai openai
 ```
   </TabItem>
 </Tabs>
@@ -82,9 +82,7 @@ npm install mlflow-openai openai
     # Use the client as usual - traces will be automatically captured
     response = client.chat.completions.create(
         model="accounts/fireworks/models/deepseek-v3-0324",  # For other models see: https://fireworks.ai/models
-        messages=[
-            {"role": "user", "content": "Why is open source better than closed source?"}
-        ],
+        messages=[{"role": "user", "content": "Why is open source better than closed source?"}],
     )
     ```
 
@@ -94,7 +92,7 @@ npm install mlflow-openai openai
 
     ```typescript
     import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+    import { tracedOpenAI } from "@mlflow/openai";
 
     // Wrap the OpenAI client and point to FireworksAI endpoint
     const client = tracedOpenAI(
@@ -176,7 +174,7 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
   <TabItem value="typescript" label="JS / TS">
     ```typescript
     import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+    import { tracedOpenAI } from "@mlflow/openai";
 
     // Configure OpenAI client for FireworksAI
     const client = tracedOpenAI(
@@ -222,9 +220,7 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
 
     stream = client.chat.completions.create(
         model="accounts/fireworks/models/deepseek-v3-0324",
-        messages=[
-            {"role": "user", "content": "How fast would a glass of water freeze on Titan?"}
-        ],
+        messages=[{"role": "user", "content": "How fast would a glass of water freeze on Titan?"}],
         stream=True,  # Enable streaming response
     )
     for chunk in stream:
@@ -325,13 +321,11 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
                 else:
                     raise RuntimeError("An invalid tool is returned from the assistant!")
 
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": tool_result,
-                    }
-                )
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": tool_result,
+                })
 
             # Send the tool results to the model and get a new response
             response = client.chat.completions.create(
@@ -350,53 +344,9 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
 </Tabs>
 </TabsWrapper>
 
-## Token Usage
+## Tracking Token Usage and Cost
 
-MLflow supports token usage tracking for FireworksAI. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be available in the `token_usage` field of the trace info object.
-
-```python
-import json
-import mlflow
-
-mlflow.openai.autolog()
-
-# Run the tool calling agent defined in the previous section
-question = "What's the weather like in Paris today?"
-answer = run_tool_agent(question)
-
-# Get the trace object just created
-last_trace_id = mlflow.get_last_active_trace_id()
-trace = mlflow.get_trace(trace_id=last_trace_id)
-
-# Print the token usage
-total_usage = trace.info.token_usage
-print("== Total token usage: ==")
-print(f"  Input tokens: {total_usage['input_tokens']}")
-print(f"  Output tokens: {total_usage['output_tokens']}")
-print(f"  Total tokens: {total_usage['total_tokens']}")
-
-# Print the token usage for each LLM call
-print("\n== Detailed usage for each LLM call: ==")
-for span in trace.data.spans:
-    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
-        print(f"{span.name}:")
-        print(f"  Input tokens: {usage['input_tokens']}")
-        print(f"  Output tokens: {usage['output_tokens']}")
-        print(f"  Total tokens: {usage['total_tokens']}")
-```
-
-```bash
-== Total token usage: ==
-  Input tokens: 20
-  Output tokens: 283
-  Total tokens: 303
-
-== Detailed usage for each LLM call: ==
-Completions:
-  Input tokens: 20
-  Output tokens: 283
-  Total tokens: 303
-```
+MLflow automatically tracks token usage and cost for FireworksAI. The token usage for each LLM call will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
 
 ## Disable auto-tracing
 

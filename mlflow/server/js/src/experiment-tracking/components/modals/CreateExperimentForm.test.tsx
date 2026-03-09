@@ -6,7 +6,6 @@ import { CreateExperimentForm } from './CreateExperimentForm';
 describe('Render test', () => {
   const minimalProps = {
     visible: true,
-    // eslint-disable-next-line no-unused-vars
     form: { getFieldDecorator: jest.fn((opts) => (c: any) => c) },
   };
 

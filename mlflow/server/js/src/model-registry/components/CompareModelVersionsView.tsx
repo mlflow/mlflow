@@ -559,7 +559,6 @@ export class CompareModelVersionsViewImpl extends Component<
     );
   }
 
-  // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list: any,
     fieldName: any,

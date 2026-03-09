@@ -4,8 +4,8 @@ import { useLocation } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
+import type { ExperimentPageSideNavSectionKey } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/constants';
 import {
-  ExperimentPageSideNavSectionKey,
   getExperimentPageSideNavSectionLabel,
   useExperimentPageSideNavConfig,
 } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/constants';
@@ -14,7 +14,10 @@ import { WorkflowType } from '../contexts/WorkflowTypeContext';
 import { useGetExperimentPageActiveTabByRoute } from '../../experiment-tracking/components/experiment-page/hooks/useGetExperimentPageActiveTabByRoute';
 import { ExperimentPageTabName } from '../../experiment-tracking/constants';
 import { FormattedMessage } from 'react-intl';
-import { isTracesRelatedTab } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/utils';
+import {
+  isTracesRelatedTab,
+  getTimeRangeQueryString,
+} from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/utils';
 import { Fragment } from 'react';
 
 // pass a dummy function to avoid highlighting the experiment back link
@@ -98,7 +101,7 @@ export const MlflowSidebarExperimentItems = ({
                 key={item.componentId}
                 to={{
                   pathname: ExperimentTrackingRoutes.getExperimentPageTabRoute(experimentId ?? '', item.tabName),
-                  search: preserveQueryParams ? search : undefined,
+                  search: preserveQueryParams ? search : getTimeRangeQueryString(search),
                 }}
                 componentId={item.componentId}
                 isActive={isActive}

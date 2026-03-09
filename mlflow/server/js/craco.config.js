@@ -281,10 +281,11 @@ module.exports = function () {
           'vfile/do-not-use-conditional-minurl': '<rootDir>/node_modules/vfile/lib/minurl.browser.js',
           // other aliases
           '@databricks/i18n': '<rootDir>/src/i18n/i18n',
-          '@databricks/web-shared/query-client': '<rootDir>/src/common/utils/reactQueryHooks',
           '@databricks/design-system/(.+)': '<rootDir>/node_modules/@databricks/design-system/dist/$1',
           '@databricks/web-shared/(.*)': '<rootDir>/src/shared/web-shared/$1',
           '@mlflow/mlflow/(.*)': '<rootDir>/$1',
+          // mock files for recharts components
+          '^recharts$': '<rootDir>/__mocks__/recharts.tsx',
         };
 
         jestConfig.moduleNameMapper = moduleNameMapper;

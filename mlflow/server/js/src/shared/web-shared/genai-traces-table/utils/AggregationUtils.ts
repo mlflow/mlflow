@@ -2,7 +2,7 @@ import { first, isNil } from 'lodash';
 
 import type { ThemeType } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
-import { ASSESSMENT_SESSION_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
+import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
 
 import { getAssessmentValueBarBackgroundColor } from './Colors';
 import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';

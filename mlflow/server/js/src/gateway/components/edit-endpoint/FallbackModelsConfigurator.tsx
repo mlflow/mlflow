@@ -93,7 +93,11 @@ export const FallbackModelsConfigurator = ({
           />
         ))}
 
-        <Button componentId={`${componentIdPrefix}.add`} icon={<PlusIcon />} onClick={handleAddModel}>
+        <Button
+          componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_FallbackModelsConfigurator.tsx_96"
+          icon={<PlusIcon />}
+          onClick={handleAddModel}
+        >
           <FormattedMessage defaultMessage="Add fallback" description="Button to add fallback model" />
         </Button>
       </div>

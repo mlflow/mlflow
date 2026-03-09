@@ -22,8 +22,6 @@ from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
 
-_ANTHROPIC_STRUCTURED_OUTPUTS_HEADER = "structured-outputs-2025-11-13"
-
 
 class AnthropicAdapter(ProviderAdapter):
     @classmethod
@@ -83,18 +81,16 @@ class AnthropicAdapter(ProviderAdapter):
                     m.pop("tool_calls")
                 converted_messages.append(m)
             elif m["role"] == "tool":
-                converted_messages.append(
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": m["tool_call_id"],
-                                "content": m["content"],
-                            }
-                        ],
-                    }
-                )
+                converted_messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": m["tool_call_id"],
+                            "content": m["content"],
+                        }
+                    ],
+                })
             else:
                 _logger.info(f"Discarded unknown message: {m}")
 
@@ -118,13 +114,11 @@ class AnthropicAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                converted_tools.append(
-                    {
-                        "name": tool_function["name"],
-                        "description": tool_function["description"],
-                        "input_schema": tool_function["parameters"],
-                    }
-                )
+                converted_tools.append({
+                    "name": tool_function["name"],
+                    "description": tool_function["description"],
+                    "input_schema": tool_function["parameters"],
+                })
 
             payload["tools"] = converted_tools
 
@@ -143,12 +137,15 @@ class AnthropicAdapter(ProviderAdapter):
                     payload["tool_choice"] = {"type": "tool", "name": name}
 
         # Transform response_format for Anthropic structured outputs
-        # Anthropic uses output_format with {"type": "json_schema", "schema": {...}}
+        # Anthropic uses output_config.format with {"type": "json_schema", "schema": {...}}
         if response_format := payload.pop("response_format", None):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
-                payload["output_format"] = {
-                    "type": "json_schema",
-                    "schema": response_format["json_schema"],
+                json_schema = response_format["json_schema"]
+                payload["output_config"] = {
+                    "format": {
+                        "type": "json_schema",
+                        "schema": json_schema.get("schema", {}),
+                    }
                 }
 
         return payload
@@ -193,8 +190,22 @@ class AnthropicAdapter(ProviderAdapter):
         # }
         # ```
         from mlflow.anthropic.chat import convert_message_to_mlflow_chat
+        from mlflow.types.chat import TextContentPart
 
         stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
+
+        message = convert_message_to_mlflow_chat(resp)
+
+        # Normalize content to OpenAI wire format: `content` must be a str or null,
+        # never a list. Anthropic returns a list of content blocks; we collapse all
+        # TextContentPart entries into a single string. Non-text parts (images, etc.)
+        # are dropped here since they have no OpenAI chat.completion equivalent.
+        # For tool-call-only responses the list will be empty, so content becomes None.
+        if isinstance(message.content, list):
+            text = "".join(
+                part.text for part in message.content if isinstance(part, TextContentPart)
+            )
+            message.content = text or None
 
         return chat.ResponsePayload(
             id=resp["id"],
@@ -204,19 +215,34 @@ class AnthropicAdapter(ProviderAdapter):
             choices=[
                 chat.Choice(
                     index=0,
-                    # TODO: Remove this casting once
-                    # https://github.com/mlflow/mlflow/pull/14160 is merged
-                    message=chat.ResponseMessage(
-                        **convert_message_to_mlflow_chat(resp).model_dump()
-                    ),
+                    message=chat.ResponseMessage(**message.model_dump()),
                     finish_reason=stop_reason,
                 )
             ],
-            usage=chat.ChatUsage(
-                prompt_tokens=resp["usage"]["input_tokens"],
-                completion_tokens=resp["usage"]["output_tokens"],
-                total_tokens=resp["usage"]["input_tokens"] + resp["usage"]["output_tokens"],
-            ),
+            usage=cls._build_chat_usage(resp["usage"]),
+        )
+
+    @classmethod
+    def _build_chat_usage(cls, usage_data: dict[str, Any]) -> chat.ChatUsage:
+        input_tokens = usage_data.get("input_tokens")
+        output_tokens = usage_data.get("output_tokens")
+        total_tokens = None
+        if input_tokens is not None and output_tokens is not None:
+            total_tokens = input_tokens + output_tokens
+        prompt_tokens_details = None
+        if "cache_read_input_tokens" in usage_data:
+            prompt_tokens_details = chat.PromptTokensDetails(
+                cached_tokens=usage_data["cache_read_input_tokens"]
+            )
+        extra = {}
+        if "cache_creation_input_tokens" in usage_data:
+            extra["cache_creation_input_tokens"] = usage_data["cache_creation_input_tokens"]
+        return chat.ChatUsage(
+            prompt_tokens=input_tokens,
+            completion_tokens=output_tokens,
+            total_tokens=total_tokens,
+            prompt_tokens_details=prompt_tokens_details,
+            **extra,
         )
 
     @classmethod
@@ -257,16 +283,7 @@ class AnthropicAdapter(ProviderAdapter):
         # Extract usage from accumulated usage data (message_delta events)
         usage = None
         if usage_data := resp.get("_usage_data"):
-            input_tokens = usage_data.get("input_tokens")
-            output_tokens = usage_data.get("output_tokens")
-            total_tokens = None
-            if input_tokens is not None and output_tokens is not None:
-                total_tokens = input_tokens + output_tokens
-            usage = chat.ChatUsage(
-                prompt_tokens=input_tokens,
-                completion_tokens=output_tokens,
-                total_tokens=total_tokens,
-            )
+            usage = cls._build_chat_usage(usage_data)
 
         return chat.StreamResponsePayload(
             id=resp["id"],
@@ -412,17 +429,6 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         """
         result_headers = self.headers.copy()
 
-        # Add conditional beta header based on payload
-        if payload and payload.get("output_format"):
-            if payload["output_format"].get("type") == "json_schema":
-                if "anthropic-beta" not in result_headers:
-                    result_headers["anthropic-beta"] = _ANTHROPIC_STRUCTURED_OUTPUTS_HEADER
-                else:
-                    if _ANTHROPIC_STRUCTURED_OUTPUTS_HEADER not in result_headers["anthropic-beta"]:
-                        result_headers["anthropic-beta"] = (
-                            f"{result_headers['anthropic-beta']},{_ANTHROPIC_STRUCTURED_OUTPUTS_HEADER}"
-                        )
-
         if headers:
             client_headers = headers.copy()
             client_headers.pop("host", None)
@@ -479,9 +485,13 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             if resp["type"] == "message_start":
                 metadata["id"] = resp["message"]["id"]
                 metadata["model"] = resp["message"]["model"]
-                # Capture input_tokens from message_start
+                # Capture input_tokens and cache tokens from message_start
                 if message_usage := resp["message"].get("usage"):
                     usage_data["input_tokens"] = message_usage.get("input_tokens")
+                    if (cached := message_usage.get("cache_read_input_tokens")) is not None:
+                        usage_data["cache_read_input_tokens"] = cached
+                    if (created := message_usage.get("cache_creation_input_tokens")) is not None:
+                        usage_data["cache_creation_input_tokens"] = created
                 continue
 
             if resp["type"] not in (
@@ -568,12 +578,18 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         {
             "usage": {
                 "input_tokens": int,
-                "output_tokens": int
+                "output_tokens": int,
+                "cache_read_input_tokens": int,
+                "cache_creation_input_tokens": int
             }
         }
         """
         return self._extract_token_usage_from_dict(
-            result.get("usage"), "input_tokens", "output_tokens"
+            result.get("usage"),
+            "input_tokens",
+            "output_tokens",
+            cache_read_key="cache_read_input_tokens",
+            cache_creation_key="cache_creation_input_tokens",
         )
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
@@ -581,7 +597,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
         Extract token usage from Anthropic streaming chunks.
 
         Anthropic streaming format:
-        - message_start event: {"message": {"usage": {"input_tokens": X}}}
+        - message_start event: {"message": {"usage": {"input_tokens": X, ...}}}
         - message_delta event: {"usage": {"output_tokens": Y}}
 
         Returns:
@@ -593,9 +609,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             match data:
                 case {
                     "type": "message_start",
-                    "message": {"usage": {"input_tokens": int(input_tokens)}},
+                    "message": {"usage": dict(msg_usage)},
                 }:
-                    usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                    if (input_tokens := msg_usage.get("input_tokens")) is not None:
+                        usage[TokenUsageKey.INPUT_TOKENS] = input_tokens
+                    if (cached := msg_usage.get("cache_read_input_tokens")) is not None:
+                        usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+                    if (created := msg_usage.get("cache_creation_input_tokens")) is not None:
+                        usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
                 case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
                     usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
         return usage

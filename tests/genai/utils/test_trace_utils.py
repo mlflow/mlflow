@@ -347,6 +347,33 @@ def create_span(
                 ],
             },
         ),
+        # one retrieval step - string outputs (UC schema casts attributes to MAP<STRING, STRING>)
+        (
+            [
+                create_span(
+                    span_id=1,
+                    parent_id=None,
+                    inputs="What is the capital of France?",
+                    outputs=json.dumps([
+                        {
+                            "page_content": "document content 1",
+                            "metadata": {"doc_uri": "uri1"},
+                        },
+                        {
+                            "page_content": "document content 2",
+                            "metadata": {"doc_uri": "uri2"},
+                        },
+                    ]),
+                    span_type=SpanType.RETRIEVER,
+                ),
+            ],
+            {
+                "0000000000000001": [
+                    {"doc_uri": "uri1", "content": "document content 1"},
+                    {"doc_uri": "uri2", "content": "document content 2"},
+                ],
+            },
+        ),
         # one retrieval step - empty retrieval span outputs
         (
             [
@@ -1375,15 +1402,13 @@ def test_extract_available_tools_from_trace_with_invalid_tools(has_valid_tool, e
                 set_span_chat_tools(span1, valid_tool)
 
         with mlflow.start_span(name="llm2", span_type="LLM") as span2:
-            span2.set_inputs(
-                {
-                    "messages": [{"role": "user", "content": "test"}],
-                    "tools": [
-                        {"invalid": "tool"},  # Missing required fields
-                        {"type": "function"},  # Missing function field
-                    ],
-                }
-            )
+            span2.set_inputs({
+                "messages": [{"role": "user", "content": "test"}],
+                "tools": [
+                    {"invalid": "tool"},  # Missing required fields
+                    {"type": "function"},  # Missing function field
+                ],
+            })
 
     trace = mlflow.get_trace(parent.trace_id)
     extracted_tools = extract_available_tools_from_trace(trace)
@@ -1401,17 +1426,15 @@ def test_extract_available_tools_from_trace_with_invalid_tools(has_valid_tool, e
 
 def test_extract_available_tools_llm_fallback_triggered_when_no_tools_found(monkeypatch):
     with mlflow.start_span(name="llm_span", span_type=SpanType.LLM) as span:
-        span.set_inputs(
-            {
-                "messages": [{"role": "user", "content": "test"}],
-                "tools": [
-                    {
-                        "tool_name": "hard_to_extract_tool",
-                        "description": "A tool that is hard to extract",
-                    }
-                ],
-            }
-        )
+        span.set_inputs({
+            "messages": [{"role": "user", "content": "test"}],
+            "tools": [
+                {
+                    "tool_name": "hard_to_extract_tool",
+                    "description": "A tool that is hard to extract",
+                }
+            ],
+        })
         span.set_outputs({"response": "result"})
 
     trace = mlflow.get_trace(span.trace_id)
@@ -1537,15 +1560,13 @@ def test_evaluate_with_trace_column_preserves_traces():
     original_trace = mlflow.get_trace(span.trace_id)
     original_trace_id = original_trace.info.trace_id
 
-    eval_df = pd.DataFrame(
-        [
-            {
-                "trace": original_trace,
-                "inputs": {"question": "What is MLflow?"},
-                "outputs": {"answer": "MLflow is an ML platform"},
-            }
-        ]
-    )
+    eval_df = pd.DataFrame([
+        {
+            "trace": original_trace,
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": {"answer": "MLflow is an ML platform"},
+        }
+    ])
 
     mlflow.genai.evaluate(data=eval_df, scorers=[dummy_scorer])
 

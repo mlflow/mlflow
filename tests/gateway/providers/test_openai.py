@@ -10,7 +10,7 @@ from mlflow.gateway.config import EndpointConfig, OpenAIConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import PassthroughAction
-from mlflow.gateway.providers.openai import OpenAIProvider
+from mlflow.gateway.providers.openai import OpenAIAdapter, OpenAIProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.tools import (
@@ -118,11 +118,9 @@ async def _run_test_chat(provider):
                 "total_tokens": 20,
             },
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/chat/completions",
             json={
@@ -238,11 +236,9 @@ async def _run_test_chat_stream(resp, provider):
             },
         ]
 
-        mock_build_client.assert_called_once_with(
-            headers={
-                "authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/chat/completions",
             json={
@@ -403,12 +399,10 @@ async def _run_test_completions(resp, provider):
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "authorization": "Bearer key",
-                "OpenAI-Organization": "test-organization",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
+        assert call_headers.get("OpenAI-Organization") == "test-organization"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/completions",
             json={
@@ -526,12 +520,10 @@ async def _run_test_completions_stream(resp, provider):
             },
         ]
 
-        mock_build_client.assert_called_once_with(
-            headers={
-                "authorization": "Bearer key",
-                "OpenAI-Organization": "test-organization",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
+        assert call_headers.get("OpenAI-Organization") == "test-organization"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/completions",
             json={
@@ -608,11 +600,9 @@ async def _run_test_embeddings(provider):
             "model": "text-embedding-ada-002",
             "usage": {"prompt_tokens": 8, "total_tokens": 8},
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/embeddings",
             json={"model": "text-embedding-ada-002", "input": "This is a test"},
@@ -687,11 +677,9 @@ async def test_embeddings_batch_input():
             "model": "text-embedding-ada-002",
             "usage": {"prompt_tokens": 8, "total_tokens": 8},
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/embeddings",
             json={
@@ -740,11 +728,9 @@ async def test_azure_openai():
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "api-key": "key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("api-key") == "key"
         mock_client.post.assert_called_once_with(
             (
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
@@ -778,11 +764,9 @@ async def test_azuread_openai():
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
-        mock_build_client.assert_called_once_with(
-            headers={
-                "authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             (
                 "https://test-azureopenai.openai.azure.com/openai/deployments/test-gpt35"
@@ -1278,3 +1262,105 @@ def test_extract_streaming_token_usage_responses_api():
         "output_tokens": 65,
         "total_tokens": 74,
     }
+
+
+def test_extract_passthrough_token_usage_with_cached_tokens():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "chatcmpl-123",
+        "usage": {
+            "prompt_tokens": 50,
+            "completion_tokens": 20,
+            "total_tokens": 70,
+            "prompt_tokens_details": {"cached_tokens": 30},
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(PassthroughAction.OPENAI_CHAT, result)
+    assert token_usage == {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "total_tokens": 70,
+        "cache_read_input_tokens": 30,
+    }
+
+
+def test_extract_passthrough_token_usage_responses_api_with_cached_tokens():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "resp_123",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+            "input_tokens_details": {"cached_tokens": 40},
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.OPENAI_RESPONSES, result
+    )
+    assert token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_read_input_tokens": 40,
+    }
+
+
+def test_extract_streaming_token_usage_with_cached_tokens():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"id":"chatcmpl-123","usage":'
+        b'{"prompt_tokens":50,"completion_tokens":20,"total_tokens":70,'
+        b'"prompt_tokens_details":{"cached_tokens":30}}}\n\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "total_tokens": 70,
+        "cache_read_input_tokens": 30,
+    }
+
+
+def test_extract_streaming_token_usage_responses_api_with_cached_tokens():
+    provider = OpenAIProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b'data: {"type":"response.completed","response":{"id":"resp_123",'
+        b'"usage":{"input_tokens":100,"output_tokens":50,"total_tokens":150,'
+        b'"input_tokens_details":{"cached_tokens":40}}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_read_input_tokens": 40,
+    }
+
+
+def test_openai_adapter_build_chat_usage_with_cached_tokens():
+    usage_data = {
+        "prompt_tokens": 50,
+        "completion_tokens": 20,
+        "total_tokens": 70,
+        "prompt_tokens_details": {"cached_tokens": 30},
+    }
+    usage = OpenAIAdapter._build_chat_usage(usage_data)
+    assert usage.prompt_tokens == 50
+    assert usage.completion_tokens == 20
+    assert usage.total_tokens == 70
+    assert usage.prompt_tokens_details is not None
+    assert usage.prompt_tokens_details.cached_tokens == 30
+
+
+def test_openai_adapter_build_chat_usage_without_cached_tokens():
+    usage_data = {
+        "prompt_tokens": 50,
+        "completion_tokens": 20,
+        "total_tokens": 70,
+    }
+    usage = OpenAIAdapter._build_chat_usage(usage_data)
+    assert usage.prompt_tokens == 50
+    assert usage.completion_tokens == 20
+    assert usage.total_tokens == 70
+    assert usage.prompt_tokens_details is None

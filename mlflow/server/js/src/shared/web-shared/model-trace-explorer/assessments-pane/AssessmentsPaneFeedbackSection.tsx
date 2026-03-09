@@ -10,7 +10,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FeedbackAssessment } from '../ModelTrace.types';
+import type { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -292,10 +292,17 @@ export const AssessmentsPaneFeedbackSection = ({
           }}
         >
           <Typography.Hint>
-            <FormattedMessage
-              defaultMessage="Add custom feedback to this trace."
-              description="Hint message prompting user to add new feedback"
-            />{' '}
+            {sessionId ? (
+              <FormattedMessage
+                defaultMessage="Add custom feedback to this session."
+                description="Hint message prompting user to add new feedback to a session"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Add custom feedback to this trace."
+                description="Hint message prompting user to add new feedback to a trace"
+              />
+            )}{' '}
             <Typography.Link
               componentId="shared.model-trace-explorer.feedback-learn-more-link"
               openInNewTab

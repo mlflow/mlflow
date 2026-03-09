@@ -4,6 +4,8 @@ import json
 import os
 from typing import TYPE_CHECKING, Any
 
+from packaging.version import Version
+
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import ALREADY_EXISTS, INVALID_PARAMETER_VALUE
 from mlflow.transformers.hub_utils import get_latest_commit_for_repo
@@ -176,6 +178,7 @@ def build_flavor_config_from_local_checkpoint(
     Generates the flavor metadata from a Hugging Face model repository ID
     e.g. "meta-llama/Meta-Llama-3.1-405B, instead of the pipeline instance in-memory.
     """
+    import transformers
     from transformers import AutoTokenizer, pipelines
     from transformers.utils import is_torch_available
 
@@ -194,15 +197,19 @@ def build_flavor_config_from_local_checkpoint(
 
     task_metadata = pipelines.check_task(task)
     pipeline_class = task_metadata[1]["impl"].__name__
+
     flavor_conf = {
         FlavorKey.TASK: task,
         FlavorKey.INSTANCE_TYPE: pipeline_class,
-        FlavorKey.FRAMEWORK: "pt" if is_torch_available() else "tf",
         FlavorKey.TORCH_DTYPE: str(torch_dtype) if torch_dtype else None,
         FlavorKey.MODEL_TYPE: config["architectures"][0],
         FlavorKey.MODEL_NAME: local_checkpoint_dir,
         FlavorKey.MODEL_BINARY: _MODEL_BINARY_FILE_NAME,
     }
+
+    # pipeline.framework was removed in transformers 5.x
+    if Version(transformers.__version__).major < 5:
+        flavor_conf[FlavorKey.FRAMEWORK] = "pt" if is_torch_available() else "tf"
 
     components = {FlavorKey.TOKENIZER}
     try:
