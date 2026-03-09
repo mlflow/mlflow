@@ -15,6 +15,7 @@ from mlflow.entities import (
     GatewayModelLinkageType,
     GatewayResourceType,
     InputTag,
+    IssueStatus,
     LoggedModelParameter,
     LoggedModelStatus,
     LoggedModelTag,
@@ -843,7 +844,8 @@ def test_workspace_startup_ignores_default_experiment_reserved_location(
 
     with legacy_store.ManagedSessionMaker() as session:
         default_exp = (
-            session.query(SqlExperiment)
+            session
+            .query(SqlExperiment)
             .filter(SqlExperiment.experiment_id == SqlAlchemyStore.DEFAULT_EXPERIMENT_ID)
             .one()
         )
@@ -1047,7 +1049,8 @@ def test_link_traces_to_run_is_workspace_scoped(workspace_tracking_store):
         workspace_tracking_store.link_traces_to_run([trace_id_a], run_b.info.run_id)
         with workspace_tracking_store.ManagedSessionMaker() as session:
             count = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(SqlEntityAssociation.source_id == trace_id_a)
                 .count()
             )
@@ -1061,7 +1064,8 @@ def test_link_traces_to_run_is_workspace_scoped(workspace_tracking_store):
         workspace_tracking_store.link_traces_to_run([trace_id_b], run_b.info.run_id)
         with workspace_tracking_store.ManagedSessionMaker() as session:
             count = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(SqlEntityAssociation.source_id == trace_id_b)
                 .count()
             )
@@ -1394,7 +1398,8 @@ def test_link_prompts_to_trace_is_workspace_scoped(workspace_tracking_store):
 
         with workspace_tracking_store.ManagedSessionMaker() as session:
             count = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(
                     SqlEntityAssociation.source_id == trace_id_a,
                     SqlEntityAssociation.destination_id == "test-prompt/1",
@@ -1419,7 +1424,8 @@ def test_link_prompts_to_trace_is_workspace_scoped(workspace_tracking_store):
 
         with workspace_tracking_store.ManagedSessionMaker() as session:
             count = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(SqlEntityAssociation.source_id == trace_id_a)
                 .count()
             )
@@ -1767,17 +1773,19 @@ def test_get_online_scoring_configs_workspace_scoped(workspace_tracking_store):
             sample_rate=0.4,
         )
 
-        configs = workspace_tracking_store.get_online_scoring_configs(
-            [config_a.scorer_id, config_b.scorer_id]
-        )
+        configs = workspace_tracking_store.get_online_scoring_configs([
+            config_a.scorer_id,
+            config_b.scorer_id,
+        ])
         assert len(configs) == 1
         assert configs[0].scorer_id == config_b.scorer_id
         assert configs[0].sample_rate == 0.4
 
     with WorkspaceContext("team-online-a"):
-        configs = workspace_tracking_store.get_online_scoring_configs(
-            [config_a.scorer_id, config_b.scorer_id]
-        )
+        configs = workspace_tracking_store.get_online_scoring_configs([
+            config_a.scorer_id,
+            config_b.scorer_id,
+        ])
         assert len(configs) == 1
         assert configs[0].scorer_id == config_a.scorer_id
         assert configs[0].sample_rate == 0.2
@@ -2112,7 +2120,7 @@ def test_get_issue_is_workspace_scoped(workspace_tracking_store):
             experiment_id=exp_id_a,
             name="Issue A",
             description="Test issue in workspace A",
-            status="open",
+            status=IssueStatus.PENDING,
         )
         retrieved_issue = workspace_tracking_store.get_issue(issue_a.issue_id)
         assert retrieved_issue.issue_id == issue_a.issue_id
@@ -2133,7 +2141,7 @@ def test_create_issue_is_workspace_scoped(workspace_tracking_store):
             experiment_id=exp_id_a,
             name="Issue Create Test A",
             description="Test issue creation in workspace A",
-            status="open",
+            status=IssueStatus.PENDING,
         )
         assert issue_a.name == "Issue Create Test A"
 
@@ -2143,7 +2151,7 @@ def test_create_issue_is_workspace_scoped(workspace_tracking_store):
             experiment_id=exp_id_b,
             name="Issue Create Test B",
             description="Test issue creation in workspace B",
-            status="open",
+            status=IssueStatus.PENDING,
         )
         assert issue_b.name == "Issue Create Test B"
 
@@ -2158,15 +2166,15 @@ def test_update_issue_is_workspace_scoped(workspace_tracking_store):
             experiment_id=exp_id_a,
             name="Original Name",
             description="Original description",
-            status="open",
+            status=IssueStatus.PENDING,
         )
         updated_issue = workspace_tracking_store.update_issue(
             issue_id=issue_a.issue_id,
             name="Updated Name A",
-            status="in_progress",
+            status=IssueStatus.ACCEPTED,
         )
         assert updated_issue.name == "Updated Name A"
-        assert updated_issue.status == "in_progress"
+        assert updated_issue.status == IssueStatus.ACCEPTED
 
     with WorkspaceContext("team-b"):
         with pytest.raises(
@@ -2187,13 +2195,13 @@ def test_search_issues_is_workspace_scoped(workspace_tracking_store):
             experiment_id=exp_id_a1,
             name="Issue A1",
             description="First issue in workspace A",
-            status="open",
+            status=IssueStatus.PENDING,
         )
         issue_a2 = workspace_tracking_store.create_issue(
             experiment_id=exp_id_a2,
             name="Issue A2",
             description="Second issue in workspace A",
-            status="resolved",
+            status=IssueStatus.ACCEPTED,
         )
 
         # Search all issues in workspace A
@@ -2213,7 +2221,7 @@ def test_search_issues_is_workspace_scoped(workspace_tracking_store):
             experiment_id=exp_id_b,
             name="Issue B",
             description="Issue in workspace B",
-            status="open",
+            status=IssueStatus.PENDING,
         )
 
         # Search all issues in workspace B - should only see team-b's issues
@@ -2226,6 +2234,6 @@ def test_search_issues_is_workspace_scoped(workspace_tracking_store):
         assert len(results) == 0
 
         # Search with filter should only see team-b's issues
-        results = workspace_tracking_store.search_issues(filter_string="status = 'open'")
+        results = workspace_tracking_store.search_issues(filter_string="status = 'pending'")
         assert len(results) == 1
         assert results[0].issue_id == issue_b.issue_id

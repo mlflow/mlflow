@@ -104,16 +104,14 @@ def get_default_pip_requirements(is_spark_connect_model=False):
         reqs.append("pandas<2")
 
     if is_spark_connect_model:
-        reqs.extend(
-            [
-                # Spark connect ML Model uses spark torch distributor to train model
-                _get_pinned_requirement("torch"),
-                # Spark connect ML Model saves feature transformers as sklearn transformer format.
-                _get_pinned_requirement("scikit-learn", module="sklearn"),
-                # Spark connect ML evaluators depend on torcheval package.
-                _get_pinned_requirement("torcheval"),
-            ]
-        )
+        reqs.extend([
+            # Spark connect ML Model uses spark torch distributor to train model
+            _get_pinned_requirement("torch"),
+            # Spark connect ML Model saves feature transformers as sklearn transformer format.
+            _get_pinned_requirement("scikit-learn", module="sklearn"),
+            # Spark connect ML evaluators depend on torcheval package.
+            _get_pinned_requirement("torcheval"),
+        ])
     return reqs
 
 
@@ -1195,7 +1193,8 @@ def autolog(disable=False, silent=False):
         # ensure the org.mlflow:mlflow-spark_2.12:2.16.2 is attached as a library to
         # your cluster
         spark = (
-            SparkSession.builder.config(
+            SparkSession.builder
+            .config(
                 "spark.jars.packages",
                 "org.mlflow:mlflow-spark_2.12:2.16.2",
             )

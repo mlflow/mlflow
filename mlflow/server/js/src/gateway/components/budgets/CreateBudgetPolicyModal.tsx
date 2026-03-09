@@ -155,7 +155,7 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <Typography.Text bold>
-            <FormattedMessage defaultMessage="Duration" description="Budget duration label" />
+            <FormattedMessage defaultMessage="Reset period" description="Budget reset period label" />
           </Typography.Text>
           <SimpleSelect
             id="create-budget-policy-duration"

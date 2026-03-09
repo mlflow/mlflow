@@ -1208,14 +1208,12 @@ def test_passing_params_to_model(data):
 
 
 def test_log_model_with_datetime_input():
-    df = pd.DataFrame(
-        {
-            "datetime": pd.date_range("2022-01-01", periods=5, freq="D"),
-            "x": np.random.uniform(20, 30, 5),
-            "y": np.random.uniform(2, 4, 5),
-            "z": np.random.uniform(0, 10, 5),
-        }
-    )
+    df = pd.DataFrame({
+        "datetime": pd.date_range("2022-01-01", periods=5, freq="D"),
+        "x": np.random.uniform(20, 30, 5),
+        "y": np.random.uniform(2, 4, 5),
+        "z": np.random.uniform(0, 10, 5),
+    })
     model = get_sequential_model()
     model_info = mlflow.pytorch.log_model(model, name="pytorch", input_example=df)
     assert model_info.signature.inputs.inputs[0].type == DataType.datetime
@@ -1354,12 +1352,10 @@ def test_save_and_load_exported_model_with_multi_inputs(model_path):
         serialization_format="pt2",
         input_example=input_example,
         signature=ModelSignature(
-            inputs=Schema(
-                [
-                    TensorSpec(np.dtype("float32"), (-1, 4), "v1"),
-                    TensorSpec(np.dtype("float32"), (-1, 4), "v2"),
-                ]
-            ),
+            inputs=Schema([
+                TensorSpec(np.dtype("float32"), (-1, 4), "v1"),
+                TensorSpec(np.dtype("float32"), (-1, 4), "v2"),
+            ]),
         ),
     )
 

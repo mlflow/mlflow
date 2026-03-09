@@ -65,33 +65,31 @@ class EvaluationExample:
 
     def _format_grading_context(self):
         if isinstance(self.grading_context, dict):
-            return "\n".join(
-                [f"key: {key}\nvalue:\n{value}" for key, value in self.grading_context.items()]
-            )
+            return "\n".join([
+                f"key: {key}\nvalue:\n{value}" for key, value in self.grading_context.items()
+            ])
         else:
             return self.grading_context
 
     def __str__(self) -> str:
-        return PromptTemplate(
-            [
-                """
+        return PromptTemplate([
+            """
 Example Input:
 {input}
 """,
-                """
+            """
 Example Output:
 {output}
 """,
-                """
+            """
 Additional information used by the model:
 {grading_context}
 """,
-                """
+            """
 Example score: {score}
 Example justification: {justification}
         """,
-            ]
-        ).format(
+        ]).format(
             input=self.input,
             output=self.output,
             grading_context=self._format_grading_context(),

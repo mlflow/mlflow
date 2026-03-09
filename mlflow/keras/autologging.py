@@ -182,13 +182,11 @@ def autolog(
         # Prepare data for a 2-class classification.
         data = np.random.uniform([8, 28, 28, 3])
         label = np.random.randint(2, size=8)
-        model = keras.Sequential(
-            [
-                keras.Input([28, 28, 3]),
-                keras.layers.Flatten(),
-                keras.layers.Dense(2),
-            ]
-        )
+        model = keras.Sequential([
+            keras.Input([28, 28, 3]),
+            keras.layers.Flatten(),
+            keras.layers.Dense(2),
+        ])
         model.compile(
             loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
             optimizer=keras.optimizers.Adam(0.001),

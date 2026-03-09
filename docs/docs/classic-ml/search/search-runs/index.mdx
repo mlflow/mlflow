@@ -62,29 +62,23 @@ dataset_context = ["train"] * 5 + ["test"] * 5
 
 for i in range(10):
     with mlflow.start_run():
-        mlflow.log_metrics(
-            {
-                "loss": loss[i],
-                "accuracy": accuracy[i],
-                "log-scale-loss": log_scale_loss[i],
-                "f1 score": f1_score[i],
-            }
-        )
+        mlflow.log_metrics({
+            "loss": loss[i],
+            "accuracy": accuracy[i],
+            "log-scale-loss": log_scale_loss[i],
+            "f1 score": f1_score[i],
+        })
 
-        mlflow.log_params(
-            {
-                "batch_size": batch_size[i],
-                "learning rate": learning_rate[i],
-                "model": model[i],
-            }
-        )
+        mlflow.log_params({
+            "batch_size": batch_size[i],
+            "learning rate": learning_rate[i],
+            "model": model[i],
+        })
 
-        mlflow.set_tags(
-            {
-                "task": task[i],
-                "environment": environment[i],
-            }
-        )
+        mlflow.set_tags({
+            "task": task[i],
+            "environment": environment[i],
+        })
 
         dataset = mlflow.data.from_numpy(
             features=np.random.uniform(size=[20, 28, 28, 3]),
@@ -141,9 +135,7 @@ Second, let's try filtering the runs for our really bad models: `metrics.loss > 
 ```python
 import mlflow
 
-bad_runs = mlflow.search_runs(
-    filter_string="metrics.loss > 0.8", search_all_experiments=True
-)
+bad_runs = mlflow.search_runs(filter_string="metrics.loss > 0.8", search_all_experiments=True)
 print(bad_runs)
 ```
 

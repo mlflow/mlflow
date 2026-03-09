@@ -18,7 +18,8 @@ def test_autologging_disabled_logging_datasource_with_different_formats(
     mlflow.spark.autolog(disable=True)
     for data_format, file_path in format_to_file_path.items():
         df = (
-            spark_session.read.format(data_format)
+            spark_session.read
+            .format(data_format)
             .option("header", "true")
             .option("inferSchema", "true")
             .load(file_path)
@@ -39,7 +40,8 @@ def test_autologging_disabled_logging_with_or_without_active_run(
     data_format = list(format_to_file_path.keys())[0]
     file_path = format_to_file_path[data_format]
     df = (
-        spark_session.read.format(data_format)
+        spark_session.read
+        .format(data_format)
         .option("header", "true")
         .option("inferSchema", "true")
         .load(file_path)
@@ -73,7 +75,8 @@ def test_autologging_disabled_then_enabled(spark_session, format_to_file_path):
     data_format = list(format_to_file_path.keys())[0]
     file_path = format_to_file_path[data_format]
     df = (
-        spark_session.read.format(data_format)
+        spark_session.read
+        .format(data_format)
         .option("header", "true")
         .option("inferSchema", "true")
         .load(file_path)

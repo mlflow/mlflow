@@ -549,7 +549,8 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     if MLFLOW_TRACKING_URI.get():
         with store.ManagedSessionMaker() as session:
             default_exp = (
-                session.query(SqlExperiment)
+                session
+                .query(SqlExperiment)
                 .filter(SqlExperiment.experiment_id == store.DEFAULT_EXPERIMENT_ID)
                 .first()
             )
@@ -568,9 +569,9 @@ def test_single_tenant_store_detects_workspace_scoped_experiments(
     store = SqlAlchemyStore(db_uri, artifact_dir.as_uri())
     exp_id = store.create_experiment("tenant-exp")
     with store.ManagedSessionMaker() as session:
-        session.query(SqlExperiment).filter(SqlExperiment.experiment_id == exp_id).update(
-            {SqlExperiment.workspace: "another-workspace"}
-        )
+        session.query(SqlExperiment).filter(SqlExperiment.experiment_id == exp_id).update({
+            SqlExperiment.workspace: "another-workspace"
+        })
         session.commit()
     store._dispose_engine()
     with pytest.raises(MlflowException, match="non-default workspaces"):
@@ -2640,9 +2641,9 @@ def test_search_with_deterministic_max_results(store: SqlAlchemyStore):
     exp = _create_experiments(store, "test_search_with_deterministic_max_results")
     # Create 10 runs with the same start_time.
     # Sort based on run_id
-    runs = sorted(
-        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)]
-    )
+    runs = sorted([
+        _run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)
+    ])
     for n in [1, 2, 4, 8, 10, 20]:
         assert runs[: min(10, n)] == _search_runs(store, exp, max_results=n)
 
@@ -2650,9 +2651,9 @@ def test_search_with_deterministic_max_results(store: SqlAlchemyStore):
 def test_search_runs_pagination(store: SqlAlchemyStore):
     exp = _create_experiments(store, "test_search_runs_pagination")
     # test returned token behavior
-    runs = sorted(
-        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)]
-    )
+    runs = sorted([
+        _run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)
+    ])
     result = store.search_runs([exp], None, ViewType.ALL, max_results=4)
     assert [r.info.run_id for r in result] == runs[0:4]
     assert result.token is not None
@@ -2667,9 +2668,9 @@ def test_search_runs_pagination(store: SqlAlchemyStore):
 def test_search_runs_pagination_last_page_exact(store: SqlAlchemyStore):
     exp = _create_experiments(store, "test_search_runs_pagination_last_page_exact")
     # Create exactly 8 runs (2 pages of 4 runs each)
-    runs = sorted(
-        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(8)]
-    )
+    runs = sorted([
+        _run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(8)
+    ])
 
     # First page: should return 4 runs and a token
     result = store.search_runs([exp], None, ViewType.ALL, max_results=4)
@@ -2687,9 +2688,9 @@ def test_search_runs_pagination_last_page_exact(store: SqlAlchemyStore):
 def test_search_runs_pagination_with_max_results_none(store: SqlAlchemyStore):
     exp = _create_experiments(store, "test_search_runs_pagination_with_max_results_none")
     # Create 5 runs
-    runs = sorted(
-        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(5)]
-    )
+    runs = sorted([
+        _run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(5)
+    ])
 
     # Call search_runs with max_results=None - should return all runs with no token
     result = store.search_runs([exp], None, ViewType.ALL, max_results=None)
@@ -3673,16 +3674,14 @@ def _generate_large_data(store, nb_runs=1000):
                 "run_uuid": run_id,
             }
             params_list.append(param)
-        latest_metrics_list.append(
-            {
-                "key": "mkey_0",
-                "value": current_run,
-                "timestamp": 100 * 2,
-                "step": 100 * 3,
-                "is_nan": False,
-                "run_uuid": run_id,
-            }
-        )
+        latest_metrics_list.append({
+            "key": "mkey_0",
+            "value": current_run,
+            "timestamp": 100 * 2,
+            "step": 100 * 3,
+            "is_nan": False,
+            "run_uuid": run_id,
+        })
         current_run += 1
 
     # Bulk insert all data in a single transaction
@@ -7924,7 +7923,8 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
     # Verify the span was saved to the database
     with store.ManagedSessionMaker() as session:
         saved_span = (
-            session.query(SqlSpan)
+            session
+            .query(SqlSpan)
             .filter(SqlSpan.trace_id == trace_info.trace_id, SqlSpan.span_id == span.span_id)
             .first()
         )
@@ -8154,7 +8154,8 @@ async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_as
         assert trace.experiment_id == int(experiment_id)
 
         saved_span = (
-            session.query(SqlSpan)
+            session
+            .query(SqlSpan)
             .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
             .one()
         )
@@ -8566,7 +8567,8 @@ def test_log_model_metrics_use_run_experiment_id(store: SqlAlchemyStore):
 
     with store.ManagedSessionMaker() as session:
         logged_metrics = (
-            session.query(SqlLoggedModelMetric)
+            session
+            .query(SqlLoggedModelMetric)
             .filter(SqlLoggedModelMetric.model_id == model.model_id)
             .all()
         )
@@ -11544,9 +11546,9 @@ def test_upsert_online_scoring_config_overwrites(store: SqlAlchemyStore):
 
 def test_upsert_online_scoring_config_rejects_non_gateway_model(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_online_config_non_gateway")
-    non_gateway_scorer = json.dumps(
-        {"instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}}
-    )
+    non_gateway_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}
+    })
     store.register_scorer(experiment_id, "scorer", non_gateway_scorer)
 
     with pytest.raises(MlflowException, match="does not use a gateway model"):
@@ -11563,25 +11565,23 @@ def test_upsert_online_scoring_config_rejects_scorer_requiring_expectations(
     experiment_id = store.create_experiment("test_online_config_expectations")
 
     # Complete serialized scorer with {{ expectations }} template variable
-    expectations_scorer = json.dumps(
-        {
-            "name": "expectations_scorer",
-            "description": None,
-            "aggregations": [],
-            "is_session_level_scorer": False,
-            "mlflow_version": "3.0.0",
-            "serialization_version": 1,
-            "instructions_judge_pydantic_data": {
-                "model": "gateway:/my-endpoint",
-                "instructions": "Compare {{ outputs }} against {{ expectations }}",
-            },
-            "builtin_scorer_class": None,
-            "builtin_scorer_pydantic_data": None,
-            "call_source": None,
-            "call_signature": None,
-            "original_func_name": None,
-        }
-    )
+    expectations_scorer = json.dumps({
+        "name": "expectations_scorer",
+        "description": None,
+        "aggregations": [],
+        "is_session_level_scorer": False,
+        "mlflow_version": "3.0.0",
+        "serialization_version": 1,
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/my-endpoint",
+            "instructions": "Compare {{ outputs }} against {{ expectations }}",
+        },
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+    })
 
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
         store.register_scorer(experiment_id, "expectations_scorer", expectations_scorer)
@@ -11788,7 +11788,8 @@ def test_scorer_deletion_cascades_to_online_configs(store: SqlAlchemyStore):
 
     with store.ManagedSessionMaker() as session:
         assert (
-            session.query(SqlOnlineScoringConfig)
+            session
+            .query(SqlOnlineScoringConfig)
             .filter_by(online_scoring_config_id=config_id)
             .count()
             == 1
@@ -11798,7 +11799,8 @@ def test_scorer_deletion_cascades_to_online_configs(store: SqlAlchemyStore):
 
     with store.ManagedSessionMaker() as session:
         assert (
-            session.query(SqlOnlineScoringConfig)
+            session
+            .query(SqlOnlineScoringConfig)
             .filter_by(online_scoring_config_id=config_id)
             .count()
             == 0
@@ -12520,11 +12522,9 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
             execution_duration=100,
             state=TraceState.OK,
             trace_metadata={
-                TraceMetadataKey.SIZE_STATS: json.dumps(
-                    {
-                        TraceSizeStatsKey.NUM_SPANS: 2,
-                    }
-                ),
+                TraceMetadataKey.SIZE_STATS: json.dumps({
+                    TraceSizeStatsKey.NUM_SPANS: 2,
+                }),
             },
         )
     )
@@ -12576,13 +12576,11 @@ def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
 
     otel_span._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
 
     span = create_mlflow_span(otel_span, trace_id, "LLM")
@@ -12620,13 +12618,11 @@ def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> N
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
     span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
     store.log_spans(experiment_id, [span1])
@@ -12648,13 +12644,11 @@ def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> N
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 200,
-                "output_tokens": 75,
-                "total_tokens": 275,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 200,
+            "output_tokens": 75,
+            "total_tokens": 275,
+        }),
     }
     span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -12682,13 +12676,11 @@ def test_log_spans_cost(store: SqlAlchemyStore) -> None:
 
     otel_span._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.LLM_COST: json.dumps(
-            {
-                "input_cost": 0.01,
-                "output_cost": 0.02,
-                "total_cost": 0.03,
-            }
-        ),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            "input_cost": 0.01,
+            "output_cost": 0.02,
+            "total_cost": 0.03,
+        }),
     }
 
     span = create_mlflow_span(otel_span, trace_id, "LLM")
@@ -12726,13 +12718,11 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.LLM_COST: json.dumps(
-            {
-                "input_cost": 0.01,
-                "output_cost": 0.02,
-                "total_cost": 0.03,
-            }
-        ),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            "input_cost": 0.01,
+            "output_cost": 0.02,
+            "total_cost": 0.03,
+        }),
     }
     span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
     store.log_spans(experiment_id, [span1])
@@ -12754,13 +12744,11 @@ def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.LLM_COST: json.dumps(
-            {
-                "input_cost": 0.005,
-                "output_cost": 0.01,
-                "total_cost": 0.015,
-            }
-        ),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            "input_cost": 0.005,
+            "output_cost": 0.01,
+            "total_cost": 0.015,
+        }),
     }
     span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -12787,13 +12775,11 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id_1, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
     span1 = create_mlflow_span(otel_span1, trace_id_1, "LLM")
     store.log_spans(experiment_id, [span1])
@@ -12809,13 +12795,11 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id_2, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 200,
-                "output_tokens": 100,
-                "total_tokens": 300,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 200,
+            "output_tokens": 100,
+            "total_tokens": 300,
+        }),
     }
     span2 = create_mlflow_span(otel_span2, trace_id_2, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -12967,20 +12951,19 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
         execution_duration=100,
         state=TraceStatus.OK,
         trace_metadata={
-            TraceMetadataKey.TOKEN_USAGE: json.dumps(
-                {
-                    "input_tokens": 100,
-                    "output_tokens": 50,
-                    "total_tokens": 150,
-                }
-            )
+            TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+            })
         },
     )
     store.start_trace(trace_info)
 
     with store.ManagedSessionMaker() as session:
         metrics = (
-            session.query(SqlTraceMetrics)
+            session
+            .query(SqlTraceMetrics)
             .filter(SqlTraceMetrics.request_id == trace_id)
             .order_by(SqlTraceMetrics.key)
             .all()
@@ -13016,13 +12999,11 @@ def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
     )
     otel_span._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.LLM_COST: json.dumps(
-            {
-                CostKey.INPUT_COST: 0.01,
-                CostKey.OUTPUT_COST: 0.02,
-                CostKey.TOTAL_COST: 0.03,
-            }
-        ),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        }),
         SpanAttributeKey.MODEL: json.dumps("gpt-4-turbo"),
         SpanAttributeKey.MODEL_PROVIDER: json.dumps("openai"),
     }
@@ -13031,7 +13012,8 @@ def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
 
     with store.ManagedSessionMaker() as session:
         metrics = (
-            session.query(SqlSpanMetrics)
+            session
+            .query(SqlSpanMetrics)
             .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
             .order_by(SqlSpanMetrics.key)
             .all()
@@ -13045,7 +13027,8 @@ def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
 
         # Check that dimension_attributes is stored on the span
         sql_span = (
-            session.query(SqlSpan)
+            session
+            .query(SqlSpan)
             .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
             .one()
         )
@@ -13067,20 +13050,19 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
     span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
     store.log_spans(experiment_id, [span1])
 
     with store.ManagedSessionMaker() as session:
         metrics = (
-            session.query(SqlTraceMetrics)
+            session
+            .query(SqlTraceMetrics)
             .filter(SqlTraceMetrics.request_id == trace_id)
             .order_by(SqlTraceMetrics.key)
             .all()
@@ -13103,20 +13085,19 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 200,
-                "output_tokens": 75,
-                "total_tokens": 275,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 200,
+            "output_tokens": 75,
+            "total_tokens": 275,
+        }),
     }
     span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
     store.log_spans(experiment_id, [span2])
 
     with store.ManagedSessionMaker() as session:
         metrics = (
-            session.query(SqlTraceMetrics)
+            session
+            .query(SqlTraceMetrics)
             .filter(SqlTraceMetrics.request_id == trace_id)
             .order_by(SqlTraceMetrics.key)
             .all()
@@ -13151,13 +13132,11 @@ def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.LLM_COST: json.dumps(
-            {
-                CostKey.INPUT_COST: 0.001,
-                CostKey.OUTPUT_COST: 0.002,
-                CostKey.TOTAL_COST: 0.003,
-            }
-        ),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            CostKey.INPUT_COST: 0.001,
+            CostKey.OUTPUT_COST: 0.002,
+            CostKey.TOTAL_COST: 0.003,
+        }),
     }
     span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
 
@@ -13171,13 +13150,11 @@ def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.LLM_COST: json.dumps(
-            {
-                CostKey.INPUT_COST: 0.01,
-                CostKey.OUTPUT_COST: 0.02,
-                CostKey.TOTAL_COST: 0.03,
-            }
-        ),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        }),
     }
     span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
 
@@ -13185,7 +13162,8 @@ def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
 
     with store.ManagedSessionMaker() as session:
         all_metrics = (
-            session.query(SqlSpanMetrics)
+            session
+            .query(SqlSpanMetrics)
             .filter(SqlSpanMetrics.trace_id == trace_id)
             .order_by(SqlSpanMetrics.span_id, SqlSpanMetrics.key)
             .all()
@@ -13450,11 +13428,9 @@ def test_get_trace_with_partial_trace(store: SqlAlchemyStore, allow_partial: boo
             execution_duration=100,
             state=TraceState.OK,
             trace_metadata={
-                TraceMetadataKey.SIZE_STATS: json.dumps(
-                    {
-                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
-                    }
-                ),
+                TraceMetadataKey.SIZE_STATS: json.dumps({
+                    TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                }),
             },
         )
     )
@@ -13505,11 +13481,9 @@ def test_get_trace_with_complete_trace(store: SqlAlchemyStore, allow_partial: bo
             execution_duration=100,
             state=TraceState.OK,
             trace_metadata={
-                TraceMetadataKey.SIZE_STATS: json.dumps(
-                    {
-                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
-                    }
-                ),
+                TraceMetadataKey.SIZE_STATS: json.dumps({
+                    TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                }),
             },
         )
     )
