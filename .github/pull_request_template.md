@@ -20,7 +20,7 @@ Closes | Relates to #issue_number
 
 ### Does this PR require documentation update?
 
-- [ ] No. You can skip the rest of this section.
+- [ ] No.
 - [ ] Yes. I've updated:
   - [ ] Examples
   - [ ] API references
@@ -30,7 +30,7 @@ Closes | Relates to #issue_number
 
 <!-- When updating APIs or feature usage, please ensure the MLflow Skills repository reflects those changes. -->
 
-- [ ] No. You can skip the rest of this section.
+- [ ] No.
 - [ ] Yes. Please link the corresponding PR or explain how you plan to update it.
 
 <!-- Provide the link to the Skills repository PR or a brief explanation of the changes needed. -->
@@ -39,7 +39,7 @@ Closes | Relates to #issue_number
 
 #### Is this a user-facing change?
 
-- [ ] No. You can skip the rest of this section.
+- [ ] No.
 - [ ] Yes. Give a description of this change to be included in the release notes for MLflow users.
 
 <!-- Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change. -->
