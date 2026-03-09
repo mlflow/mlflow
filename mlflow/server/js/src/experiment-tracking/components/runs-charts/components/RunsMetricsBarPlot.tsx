@@ -81,6 +81,36 @@ const Y_AXIS_PARAMS = {
 
 const getFixedPointValue = (val: string | number, places = 2) => (typeof val === 'number' ? val.toFixed(places) : val);
 
+/**
+ * Highlight function for multi-metric grouped bar charts.
+ * In grouped mode, plotly renders one `.trace.bars` group per metric,
+ * each containing `g.point` elements (one per run). We need to highlight
+ * the bar at the same run index across ALL trace groups.
+ */
+const highlightGroupedBarTraces = (parent: HTMLElement, hoverIndex: number, selectIndex: number) => {
+  const traceGroups = parent.querySelectorAll('svg .trace.bars');
+  const deselected = hoverIndex === -1 && selectIndex === -1;
+
+  traceGroups.forEach((traceGroup) => {
+    const points = traceGroup.querySelectorAll('g.point');
+
+    points.forEach((point) => point.classList.remove('is-hover-highlight', 'is-selection-highlight'));
+
+    if (hoverIndex > -1) {
+      points[hoverIndex]?.classList.add('is-hover-highlight');
+    }
+    if (selectIndex > -1) {
+      points[selectIndex]?.classList.add('is-selection-highlight');
+    }
+
+    if (deselected) {
+      traceGroup.classList.remove('is-highlight');
+    } else {
+      traceGroup.classList.add('is-highlight');
+    }
+  });
+};
+
 // Color palette for multi-metric grouped bars
 const METRIC_COLORS = [
   '#2196F3', // blue
@@ -120,10 +150,7 @@ export const RunsMetricsBarPlot = React.memo(
     selectedRunUuid,
     onSetDownloadHandler,
   }: RunsMetricsBarPlotProps) => {
-    const metricKeys = useMemo(
-      () => selectedMetricKeys ?? [metricKey],
-      [selectedMetricKeys, metricKey],
-    );
+    const metricKeys = useMemo(() => selectedMetricKeys ?? [metricKey], [selectedMetricKeys, metricKey]);
     const isMultiMetric = metricKeys.length > 1;
 
     const plotData = useMemo(() => {
@@ -209,7 +236,9 @@ export const RunsMetricsBarPlot = React.memo(
       xaxis: {
         title: displayMetricKey ? (isMultiMetric ? undefined : metricKey) : undefined,
         tickfont: { size: 11, color: theme.colors.textSecondary },
-        tickformat: !isMultiMetric ? (customMetricBehaviorDefs[metricKey]?.chartAxisTickFormat ?? undefined) : undefined,
+        tickformat: !isMultiMetric
+          ? (customMetricBehaviorDefs[metricKey]?.chartAxisTickFormat ?? undefined)
+          : undefined,
       },
       yaxis: {
         showticklabels: displayRunNames,
@@ -239,11 +268,16 @@ export const RunsMetricsBarPlot = React.memo(
       }));
     }, [layoutWidth, layoutHeight, margin, metricKey, width, height, displayMetricKey, isMultiMetric]);
 
+    const barHighlightFn = useMemo(
+      () => (isMultiMetric ? highlightGroupedBarTraces : highlightBarTraces),
+      [isMultiMetric],
+    );
+
     const { setHoveredPointIndex } = useRenderRunsChartTraceHighlight(
       containerDiv,
       selectedRunUuid,
       runsData,
-      highlightBarTraces,
+      barHighlightFn,
     );
 
     const hoverCallback = useCallback(

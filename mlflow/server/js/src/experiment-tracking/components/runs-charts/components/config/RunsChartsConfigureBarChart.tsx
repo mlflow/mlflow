@@ -1,13 +1,12 @@
 import { LegacySelect } from '@databricks/design-system';
 import { useCallback, useEffect } from 'react';
-import { isUndefined } from 'lodash';
+import { isEmpty, isUndefined } from 'lodash';
 import type {
   RunsChartsCardConfig,
   RunsChartsBarCardConfig,
   RunsChartsMetricByDatasetEntry,
 } from '../../runs-charts.types';
-import { RunsChartsConfigureField, runsChartsRunCountDefaultOptions } from './RunsChartsConfigure.common';
-import { isEmpty } from 'lodash';
+import { RunsChartsConfigureField } from './RunsChartsConfigure.common';
 import { RunsChartsConfigureMetricWithDatasetSelect } from './RunsChartsConfigureMetricWithDatasetSelect';
 
 /**
@@ -32,7 +31,7 @@ export const RunsChartsConfigureBarChart = ({
       onStateChange((current) => ({
         ...(current as RunsChartsBarCardConfig),
         metricKey,
-        selectedMetricKeys: [metricKey],
+        selectedMetricKeys: [dataAccessKey ?? metricKey],
         datasetName,
         dataAccessKey,
       }));
@@ -60,9 +59,9 @@ export const RunsChartsConfigureBarChart = ({
    */
   useEffect(() => {
     if (isUndefined(state.selectedMetricKeys) && !isUndefined(state.metricKey) && state.metricKey !== '') {
-      updateSelectedMetrics([state.metricKey]);
+      updateSelectedMetrics([state.dataAccessKey ?? state.metricKey]);
     }
-  }, [state.selectedMetricKeys, state.metricKey, updateSelectedMetrics]);
+  }, [state.selectedMetricKeys, state.metricKey, state.dataAccessKey, updateSelectedMetrics]);
 
   /**
    * If somehow metric key is not predetermined, automatically
@@ -100,7 +99,7 @@ export const RunsChartsConfigureBarChart = ({
           <LegacySelect
             css={styles.selectFull}
             mode="multiple"
-            value={emptyMetricsList ? [] : state.selectedMetricKeys ?? (state.metricKey ? [state.metricKey] : [])}
+            value={emptyMetricsList ? [] : (state.selectedMetricKeys ?? (state.metricKey ? [state.metricKey] : []))}
             onChange={updateSelectedMetrics}
             disabled={emptyMetricsList}
             dangerouslySetAntdProps={{ showSearch: true }}

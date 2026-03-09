@@ -519,7 +519,9 @@ export const createEmptyChartCardPredicate = (chartRunData: RunsChartsRunData[])
     }
 
     if (isBarChartCard(chartCardConfig)) {
-      const barMetricKeys = new Set(chartCardConfig.selectedMetricKeys ?? [chartCardConfig.metricKey]);
+      const barMetricKeys = new Set(
+        chartCardConfig.selectedMetricKeys ?? [chartCardConfig.dataAccessKey ?? chartCardConfig.metricKey],
+      );
       return !isIntersectingSet(barMetricKeys, metricsInRuns);
     }
 
