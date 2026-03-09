@@ -20,12 +20,15 @@ from mlflow.server import app as flask_app
 from mlflow.server.assistant.api import assistant_router
 from mlflow.server.fastapi_security import init_fastapi_security
 from mlflow.server.gateway_api import budget_router, gateway_router
+from mlflow.server.gateway_budget import maybe_refresh_budget_policies
 from mlflow.server.job_api import job_api_router
 from mlflow.server.otel_api import otel_router
 from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     resolve_workspace_for_request_if_enabled,
 )
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.workspace_context import (
     clear_server_request_workspace,
     set_server_request_workspace,
@@ -65,10 +68,6 @@ def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     try:
-        from mlflow.server.gateway_budget import maybe_refresh_budget_policies
-        from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-        from mlflow.tracking._tracking_service.utils import _get_store
-
         store = _get_store()
         if isinstance(store, SqlAlchemyStore):
             maybe_refresh_budget_policies(store)
