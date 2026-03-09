@@ -140,10 +140,9 @@ def _inject_tracing_headers(kwargs: dict[str, Any], span: LiveSpan | None):
     if span is None:
         return
     try:
-        tracing_headers = _get_tracing_headers_from_span(span)
-        if tracing_headers:
+        if tracing_headers := _get_tracing_headers_from_span(span):
             existing = kwargs.get("extra_headers") or {}
-            kwargs["extra_headers"] = {**tracing_headers, **existing}
+            kwargs["extra_headers"] = tracing_headers | existing
     except Exception:
         _logger.debug("Failed to inject tracing headers", exc_info=True)
 
