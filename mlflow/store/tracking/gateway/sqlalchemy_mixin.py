@@ -60,13 +60,17 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
 )
 from mlflow.telemetry.events import (
+    GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
     GatewayCreateSecretEvent,
+    GatewayDeleteBudgetPolicyEvent,
     GatewayDeleteEndpointEvent,
     GatewayDeleteSecretEvent,
     GatewayGetEndpointEvent,
+    GatewayListBudgetPoliciesEvent,
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
+    GatewayUpdateBudgetPolicyEvent,
     GatewayUpdateEndpointEvent,
     GatewayUpdateSecretEvent,
 )
@@ -1183,6 +1187,7 @@ class SqlAlchemyGatewayStoreMixin:
 
     # Budget Policy APIs
 
+    @record_usage_event(GatewayCreateBudgetPolicyEvent)
     def create_budget_policy(
         self,
         budget_unit: BudgetUnit,
@@ -1239,6 +1244,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
             return sql_budget_policy.to_mlflow_entity()
 
+    @record_usage_event(GatewayUpdateBudgetPolicyEvent)
     def update_budget_policy(
         self,
         budget_policy_id: str,
@@ -1293,6 +1299,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_budget_policy.to_mlflow_entity()
 
+    @record_usage_event(GatewayDeleteBudgetPolicyEvent)
     def delete_budget_policy(self, budget_policy_id: str) -> None:
         with self.ManagedSessionMaker() as session:
             sql_budget_policy = self._get_entity_or_raise(
@@ -1303,6 +1310,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
             session.delete(sql_budget_policy)
 
+    @record_usage_event(GatewayListBudgetPoliciesEvent)
     def list_budget_policies(
         self,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,

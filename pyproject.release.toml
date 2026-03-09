@@ -102,6 +102,7 @@ mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
+kubernetes = ["kubernetes"]
 langchain = ["langchain>=0.3.20,<=1.2.10"]
 auth = ["Flask-WTF<2"]
 

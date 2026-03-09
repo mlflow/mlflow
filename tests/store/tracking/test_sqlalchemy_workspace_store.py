@@ -2184,3 +2184,55 @@ def test_update_issue_is_workspace_scoped(workspace_tracking_store):
                 name="Should not update",
             )
         assert excinfo.value.error_code == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_search_issues_is_workspace_scoped(workspace_tracking_store):
+    with WorkspaceContext("team-a"):
+        exp_id_a1 = workspace_tracking_store.create_experiment("issue-exp-search-a1")
+        exp_id_a2 = workspace_tracking_store.create_experiment("issue-exp-search-a2")
+        issue_a1 = workspace_tracking_store.create_issue(
+            experiment_id=exp_id_a1,
+            name="Issue A1",
+            description="First issue in workspace A",
+            status="open",
+        )
+        issue_a2 = workspace_tracking_store.create_issue(
+            experiment_id=exp_id_a2,
+            name="Issue A2",
+            description="Second issue in workspace A",
+            status="resolved",
+        )
+
+        # Search all issues in workspace A
+        results = workspace_tracking_store.search_issues()
+        assert len(results) == 2
+        issue_ids = {issue.issue_id for issue in results}
+        assert issue_ids == {issue_a1.issue_id, issue_a2.issue_id}
+
+        # Search by experiment_id in workspace A
+        results = workspace_tracking_store.search_issues(experiment_id=exp_id_a1)
+        assert len(results) == 1
+        assert results[0].issue_id == issue_a1.issue_id
+
+    with WorkspaceContext("team-b"):
+        exp_id_b = workspace_tracking_store.create_experiment("issue-exp-search-b")
+        issue_b = workspace_tracking_store.create_issue(
+            experiment_id=exp_id_b,
+            name="Issue B",
+            description="Issue in workspace B",
+            status="open",
+        )
+
+        # Search all issues in workspace B - should only see team-b's issues
+        results = workspace_tracking_store.search_issues()
+        assert len(results) == 1
+        assert results[0].issue_id == issue_b.issue_id
+
+        # Search by experiment_id from team-a should return no results
+        results = workspace_tracking_store.search_issues(experiment_id=exp_id_a1)
+        assert len(results) == 0
+
+        # Search with filter should only see team-b's issues
+        results = workspace_tracking_store.search_issues(filter_string="status = 'open'")
+        assert len(results) == 1
+        assert results[0].issue_id == issue_b.issue_id

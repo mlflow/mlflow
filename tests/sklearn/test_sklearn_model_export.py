@@ -215,6 +215,16 @@ def test_model_skops_format_trusted_type(sklearn_knn_model, model_path):
     )
 
 
+def test_log_model_skops_no_pip_requirements_warning(sklearn_logreg_model, recwarn):
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_logreg_model.model,
+            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
+        )
+    warning_messages = [str(w.message) for w in recwarn]
+    assert not any("Fall back to return" in msg for msg in warning_messages)
+
+
 def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_path):
     sklearn_model_path = tmp_path / "sklearn_model_empty_exists"
     sklearn_model_path.mkdir()
