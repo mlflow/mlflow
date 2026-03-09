@@ -762,6 +762,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
   },
+  "3CWJEU": {
+    "defaultMessage": "Issues",
+    "description": "Column label for issues"
+  },
   "3D2Znf": {
     "defaultMessage": "Filter by {columnNames}",
     "description": "Experiment page > artifact compare view > search input placeholder"

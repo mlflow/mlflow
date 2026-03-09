@@ -176,6 +176,10 @@ const isFeedbackAssessment = (assessment: Assessment): assessment is FeedbackAss
   return Boolean('feedback' in assessment && assessment.feedback);
 };
 
+const isIssueReferenceAssessment = (assessment: Assessment): assessment is IssueReferenceAssessment => {
+  return Boolean('issue' in assessment && assessment.issue);
+};
+
 const LIST_TRACES_IGNORE_ASSESSMENTS = ['agent/latency_seconds'];
 
 function processExpectationAssessment(assessment: ExpectationAssessment, targets: Record<string, any>): void {
@@ -265,6 +269,7 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
   const overallAssessments: RunEvaluationResultAssessment[] = [];
   const responseAssessmentsByName: Record<string, RunEvaluationResultAssessment[]> = {};
   const targets: Record<string, any> = {};
+  const issues: string[] = [];
 
   traceInfo.assessments?.forEach((assessment) => {
     const assessmentName = assessment.assessment_name;
@@ -281,6 +286,9 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
       processExpectationAssessment(assessment, targets);
     } else if (isFeedbackAssessment(assessment)) {
       processFeedbackAssessment(assessment, overallAssessments, responseAssessmentsByName);
+    } else if (isIssueReferenceAssessment(assessment)) {
+      const issueName = assessment.issue.issue_name || assessmentName;
+      issues.push(issueName);
     }
   });
 
@@ -327,6 +335,7 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
     metrics: {},
     traceInfo,
     fullTraceId: createTraceV4LongIdentifier(traceInfo),
+    issues: issues.length > 0 ? issues : undefined,
   };
 };
 
