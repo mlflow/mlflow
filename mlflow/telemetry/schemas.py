@@ -74,6 +74,8 @@ class TelemetryInfo:
     # minimize the payload size, because these fields are included to every
     # telemetry event.
     ws_enabled: bool | None = None
+    # Managed notebook/ML platform, e.g. "colab", "sagemaker", "azureml", "kaggle"
+    managed_platform: str | None = None
 
 
 @dataclass

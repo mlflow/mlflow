@@ -1,5 +1,7 @@
 from unittest.mock import Mock, patch
 
+import pytest
+
 from mlflow.telemetry.constant import (
     CONFIG_STAGING_URL,
     CONFIG_URL,
@@ -8,10 +10,46 @@ from mlflow.telemetry.constant import (
     UI_CONFIG_URL,
 )
 from mlflow.telemetry.utils import (
+    _detect_managed_platform,
     _get_config_url,
     fetch_ui_telemetry_config,
     is_telemetry_disabled,
 )
+
+
+@pytest.mark.parametrize(
+    ("env_var", "expected"),
+    [
+        ("COLAB_RELEASE_TAG", "colab"),
+        ("COLAB_GPU", "colab"),
+        ("SAGEMAKER_APP_TYPE", "sagemaker"),
+        ("SAGEMAKER_INTERNAL_IMAGE_URI", "sagemaker"),
+        ("AZUREML_RUN_ID", "azureml"),
+        ("AZUREML_ARM_SUBSCRIPTION", "azureml"),
+        ("KAGGLE_KERNEL_RUN_TYPE", "kaggle"),
+        ("PAPERSPACE_CLUSTER_ID", "gradient"),
+        ("DEEPNOTE_PROJECT_ID", "deepnote"),
+    ],
+)
+def test_detect_managed_platform(monkeypatch, env_var, expected):
+    monkeypatch.setenv(env_var, "some_value")
+    assert _detect_managed_platform() == expected
+
+
+def test_detect_managed_platform_none(monkeypatch):
+    for var in [
+        "COLAB_RELEASE_TAG",
+        "COLAB_GPU",
+        "SAGEMAKER_APP_TYPE",
+        "SAGEMAKER_INTERNAL_IMAGE_URI",
+        "AZUREML_RUN_ID",
+        "AZUREML_ARM_SUBSCRIPTION",
+        "KAGGLE_KERNEL_RUN_TYPE",
+        "PAPERSPACE_CLUSTER_ID",
+        "DEEPNOTE_PROJECT_ID",
+    ]:
+        monkeypatch.delenv(var, raising=False)
+    assert _detect_managed_platform() is None
 
 
 def test_is_telemetry_disabled(monkeypatch, bypass_env_check):

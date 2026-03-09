@@ -68,9 +68,39 @@ def _is_in_databricks() -> bool:
     return False
 
 
+def _detect_managed_platform() -> str | None:
+    """Detect if running on a managed notebook/ML platform."""
+    # Google Colab
+    if "COLAB_RELEASE_TAG" in os.environ or "COLAB_GPU" in os.environ:
+        return "colab"
+
+    # Amazon SageMaker
+    if "SAGEMAKER_APP_TYPE" in os.environ or "SAGEMAKER_INTERNAL_IMAGE_URI" in os.environ:
+        return "sagemaker"
+
+    # Azure ML
+    if "AZUREML_RUN_ID" in os.environ or "AZUREML_ARM_SUBSCRIPTION" in os.environ:
+        return "azureml"
+
+    # Kaggle
+    if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
+        return "kaggle"
+
+    # Paperspace Gradient
+    if "PAPERSPACE_CLUSTER_ID" in os.environ:
+        return "gradient"
+
+    # Deepnote
+    if "DEEPNOTE_PROJECT_ID" in os.environ:
+        return "deepnote"
+
+    return None
+
+
 _IS_MLFLOW_DEV_VERSION = Version(VERSION).is_devrelease
 _IS_IN_CI_ENV_OR_TESTING = _is_ci_env_or_testing()
 _IS_IN_DATABRICKS = _is_in_databricks()
+_MANAGED_PLATFORM = _detect_managed_platform()
 _IS_MLFLOW_TESTING_TELEMETRY = _MLFLOW_TESTING_TELEMETRY.get()
 
 
