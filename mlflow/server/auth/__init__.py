@@ -81,6 +81,7 @@ from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
     CancelPromptOptimizationJob,
     CreateExperiment,
+    CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
@@ -91,6 +92,7 @@ from mlflow.protos.service_pb2 import (
     CreateWorkspace,
     DeleteExperiment,
     DeleteExperimentTag,
+    DeleteGatewayBudgetPolicy,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
@@ -137,11 +139,18 @@ from mlflow.protos.service_pb2 import (
     SetLoggedModelTags,
     SetTag,
     UpdateExperiment,
+    UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
     UpdateRun,
     UpdateWorkspace,
+)
+from mlflow.protos.service_pb2 import (
+    GetGatewayBudgetPolicy as GetGatewayBudgetPolicy,
+)
+from mlflow.protos.service_pb2 import (
+    ListGatewayBudgetPolicies as ListGatewayBudgetPolicies,
 )
 from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints as ListGatewayEndpoints,
@@ -1509,6 +1518,10 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
     UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
     DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
+    # Routes for gateway budget policies
+    CreateGatewayBudgetPolicy: sender_is_admin,
+    UpdateGatewayBudgetPolicy: sender_is_admin,
+    DeleteGatewayBudgetPolicy: sender_is_admin,
     # Routes for gateway endpoint-model mappings
     AttachModelToGatewayEndpoint: validate_can_update_gateway_endpoint,
     DetachModelFromGatewayEndpoint: validate_can_update_gateway_endpoint,
