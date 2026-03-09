@@ -176,7 +176,7 @@ from mlflow.tracing.assessment import (
 )
 from mlflow.tracing.fluent import (
     add_trace,
-    configure_trace,
+    context,
     delete_trace_tag,
     get_active_trace_id,
     get_current_active_span,
@@ -212,7 +212,7 @@ __all__ = [
     "active_run",
     # Tracing APIs
     "add_trace",
-    "configure_trace",
+    "context",
     "delete_trace_tag",
     "flush_trace_async_logging",
     "get_active_trace_id",

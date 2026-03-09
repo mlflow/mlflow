@@ -141,7 +141,7 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         elif model_id := maybe_get_logged_model_id():
             metadata[TraceMetadataKey.MODEL_ID] = model_id
 
-        # Append metadata from configure_trace() scope (caller-declared, wins on conflict)
+        # Append metadata from context() scope (caller-declared, wins on conflict)
         if ctx_metadata := get_configured_trace_metadata():
             metadata.update(ctx_metadata)
 
@@ -157,7 +157,7 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         if dependencies_schema := maybe_get_dependencies_schemas():
             tags.update(dependencies_schema)
 
-        # Append tags from configure_trace() scope before trace name
+        # Append tags from context() scope before trace name
         # (trace name tag always wins because it comes last)
         if ctx_tags := get_configured_trace_tags():
             tags.update(ctx_tags)

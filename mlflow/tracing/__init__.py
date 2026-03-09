@@ -9,8 +9,18 @@ from mlflow.tracing.enablement import set_experiment_trace_location, unset_exper
 from mlflow.tracing.provider import disable, enable, reset, set_destination
 from mlflow.tracing.utils import set_span_chat_tools
 
+
+def __getattr__(name):
+    if name == "context":
+        from mlflow.tracing.fluent import context
+
+        return context
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "configure",
+    "context",
     "disable",
     "enable",
     "disable_notebook_display",
