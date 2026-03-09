@@ -100,7 +100,8 @@ jobs:
           OUTPUT_FILE="/tmp/output.json"
 
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          EVENT_NAME="${{ github.event_name }}"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
             ARGS=("Hi")
           else
             ARGS=("/pr-review")
