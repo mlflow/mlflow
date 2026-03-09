@@ -27,6 +27,7 @@ from mlflow.server.workspace_helpers import (
     WORKSPACE_HEADER_NAME,
     resolve_workspace_for_request_if_enabled,
 )
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.workspace_context import (
     clear_server_request_workspace,
@@ -66,9 +67,10 @@ def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
-    store = _get_store()
     try:
-        maybe_refresh_budget_policies(store)
+        store = _get_store()
+        if isinstance(store, SqlAlchemyStore):
+            maybe_refresh_budget_policies(store)
     except Exception:
         _logger.debug("Failed to refresh budget policies on startup", exc_info=True)
     yield
