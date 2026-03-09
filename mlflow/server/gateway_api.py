@@ -43,7 +43,11 @@ from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
-from mlflow.server.gateway_budget import check_budget_limit, make_budget_on_complete
+from mlflow.server.gateway_budget import (
+    check_budget_limit,
+    make_budget_on_complete,
+    maybe_refresh_budget_policies,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.gateway.entities import (
@@ -937,8 +941,8 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
 
 @budget_router.get("/budgets/windows")
 async def list_budget_windows() -> dict[str, dict[str, dict[str, float | int]]]:
-    tracker = get_budget_tracker()
-    windows = tracker.get_all_windows()
+    maybe_refresh_budget_policies(_get_store())
+    windows = get_budget_tracker().get_all_windows()
     return {
         "windows": {
             w.policy.budget_policy_id: {
