@@ -5,6 +5,7 @@ import pytest
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 import mlflow
+from mlflow.openai.genai_semconv_converter import _convert_content
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import provider as tracer_provider_wrapper
 
@@ -221,3 +222,43 @@ def test_autolog_streaming(client, genai_semconv_capture, api):
 
     assert chat_span.attributes["gen_ai.response.model"] == MODEL
     assert not any(k.startswith("mlflow.") for k in chat_span.attributes)
+
+
+@pytest.mark.parametrize(
+    ("content_item", "expected"),
+    [
+        # Chat API: image_url with HTTP URL → UriPart
+        (
+            {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}},
+            {"type": "uri", "modality": "image", "mime_type": "image/png", "uri": "https://example.com/img.png"},
+        ),
+        # Chat API: image_url with data URI → BlobPart
+        (
+            {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,abc123"}},
+            {"type": "blob", "modality": "image", "mime_type": "image/jpeg", "content": "abc123"},
+        ),
+        # Responses API: input_image with HTTP URL → UriPart
+        (
+            {"type": "input_image", "image_url": "https://example.com/img.png"},
+            {"type": "uri", "modality": "image", "mime_type": "image/png", "uri": "https://example.com/img.png"},
+        ),
+        # Responses API: input_image with data URI → BlobPart
+        (
+            {"type": "input_image", "image_url": "data:image/png;base64,xyz789"},
+            {"type": "blob", "modality": "image", "mime_type": "image/png", "content": "xyz789"},
+        ),
+        # Chat API: input_audio → BlobPart
+        (
+            {"type": "input_audio", "input_audio": {"data": "audiodata", "format": "wav"}},
+            {"type": "blob", "modality": "audio", "mime_type": "audio/wav", "content": "audiodata"},
+        ),
+        # Responses API: input_text → TextPart
+        (
+            {"type": "input_text", "text": "hello"},
+            {"type": "text", "content": "hello"},
+        ),
+    ],
+)
+def test_convert_content_multimodal(content_item, expected):
+    result = _convert_content([content_item])
+    assert result == [expected]

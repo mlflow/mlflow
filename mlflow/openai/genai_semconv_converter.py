@@ -161,55 +161,104 @@ class OpenAIResponsesConverter(GenAiSemconvConverter):
 def _convert_message(msg: dict[str, Any]) -> dict[str, Any]:
     """Convert a single OpenAI chat message dict to GenAI semconv format with parts array."""
     role = msg.get("role", "user")
-    parts = []
+    parts = _convert_content(msg.get("content"))
 
-    content = msg.get("content")
+    if tool_calls := msg.get("tool_calls"):
+        parts.extend(_convert_tool_call(tc) for tc in tool_calls)
+
+    if tool_call_id := msg.get("tool_call_id"):
+        return _convert_tool_response(role, tool_call_id, parts)
+
+    return {"role": role, "parts": parts}
+
+
+def _convert_content(content: Any) -> list[dict]:
     if isinstance(content, str):
-        parts.append({"type": "text", "content": content})
-    elif isinstance(content, list):
-        # OpenAI multimodal: [{"type": "text", "text": "..."}, {"type": "image_url", ...}]
+        return [{"type": "text", "content": content}]
+    if isinstance(content, list):
+        parts = []
         for item in content:
             match item:
                 case {"type": "text", "text": str(text)}:
                     parts.append({"type": "text", "content": text})
+                case {"type": "input_text", "text": str(text)}:
+                    parts.append({"type": "text", "content": text})
+                case {"type": "image_url", "image_url": {"url": str(url)}}:
+                    parts.append(_convert_image_url(url))
+                case {"type": "input_image", "image_url": str(url)}:
+                    parts.append(_convert_image_url(url))
+                case {"type": "input_audio", "input_audio": {"data": str(data), "format": str(fmt)}}:
+                    parts.append({
+                        "type": "blob",
+                        "modality": "audio",
+                        "mime_type": f"audio/{fmt}",
+                        "content": data,
+                    })
                 case _:
                     parts.append({"type": "text", "content": json.dumps(item)})
-    elif content is not None:
-        parts.append({"type": "text", "content": str(content)})
+        return parts
+    if content is not None:
+        return [{"type": "text", "content": str(content)}]
+    return []
 
-    # Tool calls → tool_call parts
-    if tool_calls := msg.get("tool_calls"):
-        for tc in tool_calls:
-            func = tc.get("function", {})
-            args_raw = func.get("arguments", "{}")
-            try:
-                arguments = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
-            except (json.JSONDecodeError, TypeError):
-                arguments = args_raw
-            parts.append(
-                {
-                    "type": "tool_call",
-                    "id": tc.get("id"),
-                    "name": func.get("name"),
-                    "arguments": arguments,
-                }
-            )
 
-    # Tool response → tool_call_response part
-    if tool_call_id := msg.get("tool_call_id"):
-        result = (
-            parts[0]["content"]
-            if len(parts) == 1
-            else json.dumps([p["content"] for p in parts])
-            if parts
-            else ""
-        )
+_IMAGE_EXTENSIONS = {
+    ".png": "image/png",
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+}
+
+
+def _convert_image_url(url: str) -> dict:
+    if url.startswith("data:"):
+        # Parse "data:<mime_type>;base64,<content>"
+        header, _, data = url.partition(",")
+        mime_type = header.removeprefix("data:").removesuffix(";base64")
         return {
-            "role": role,
-            "parts": [{"type": "tool_call_response", "id": tool_call_id, "result": result}],
+            "type": "blob",
+            "modality": "image",
+            "mime_type": mime_type,
+            "content": data,
         }
+    # Infer mime_type from file extension
+    dot_idx = url.rfind(".")
+    ext = url[dot_idx:].lower() if dot_idx != -1 else ""
+    # Strip query string / fragment from extension
+    for sep in ("?", "#"):
+        if sep in ext:
+            ext = ext[: ext.index(sep)]
+    mime_type = _IMAGE_EXTENSIONS.get(ext)
+    part = {"type": "uri", "modality": "image", "uri": url}
+    if mime_type:
+        part["mime_type"] = mime_type
+    return part
 
-    return {"role": role, "parts": parts}
+
+def _convert_tool_call(tc: dict) -> dict:
+    func = tc.get("function", {})
+    return {
+        "type": "tool_call",
+        "id": tc.get("id"),
+        "name": func.get("name"),
+        "arguments": _parse_tool_arguments(func.get("arguments", "{}")),
+    }
+
+
+def _convert_tool_response(role: str, tool_call_id: str, parts: list[dict]) -> dict[str, Any]:
+    result = (
+        parts[0]["content"]
+        if len(parts) == 1
+        else json.dumps([p["content"] for p in parts])
+        if parts
+        else ""
+    )
+    return {
+        "role": role,
+        "parts": [{"type": "tool_call_response", "id": tool_call_id, "result": result}],
+    }
 
 
 def _parse_tool_arguments(args: Any) -> Any:
