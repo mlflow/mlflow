@@ -115,7 +115,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
             <FormattedMessage defaultMessage="Budget" description="Budget amount column header" />
           </TableHeader>
           <TableHeader componentId="mlflow.gateway.budgets-list.duration-header" css={{ flex: 1 }}>
-            <FormattedMessage defaultMessage="Duration" description="Budget duration column header" />
+            <FormattedMessage defaultMessage="Reset period" description="Budget reset period column header" />
           </TableHeader>
           <TableHeader componentId="mlflow.gateway.budgets-list.action-header" css={{ flex: 1 }}>
             <FormattedMessage defaultMessage="On Exceeded" description="Budget on exceeded column header" />

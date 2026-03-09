@@ -1726,6 +1726,10 @@
     "defaultMessage": "File is too large to preview",
     "description": "Label to indicate that the file is too large to preview"
   },
+  "9ygCGK": {
+    "defaultMessage": "Reset period",
+    "description": "Budget reset period label"
+  },
   "A+5KMV": {
     "defaultMessage": "Model ID",
     "description": "Label for the model ID of a logged model on the logged model details page"
@@ -2917,10 +2921,6 @@
   "Ia/nT7": {
     "defaultMessage": "Goal",
     "description": "Label for the simulation goal metadata in chat session metrics"
-  },
-  "IauU14": {
-    "defaultMessage": "Duration",
-    "description": "Budget duration label"
   },
   "Id2mFI": {
     "defaultMessage": "The request was invalid.",
@@ -5040,6 +5040,10 @@
     "defaultMessage": "Session ID",
     "description": "Label for the session id section"
   },
+  "XK+0na": {
+    "defaultMessage": "Reset period",
+    "description": "Budget reset period column header"
+  },
   "XLSmZx": {
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
@@ -5590,10 +5594,6 @@
   "au61Yy": {
     "defaultMessage": "Maximum",
     "description": "Experiment page > group by runs control > maximum aggregate function"
-  },
-  "awG/R6": {
-    "defaultMessage": "Duration",
-    "description": "Budget duration column header"
   },
   "awekbG": {
     "defaultMessage": "Cancel",
