@@ -66,12 +66,12 @@ module.exports = async ({ context, github, core }) => {
   }
 
   // TODO: remove the "yes/no" alternatives once all open PRs have switched to the new template
-  const yesRegex = /- \[( |x)\] (yes \()?this PR is critical/gi;
+  const yesRegex = /- \[( |x)\] (yes \()?this PR (will be|is critical)/gi;
   const yesMatches = [...body.matchAll(yesRegex)];
   const yesMatch = yesMatches.length > 0 ? yesMatches[yesMatches.length - 1] : null;
   const yes = yesMatch ? yesMatch[1].toLowerCase() === "x" : false;
   // TODO: remove the "yes/no" alternatives once all open PRs have switched to the new template
-  const noRegex = /- \[( |x)\] (no \()?this PR can wait/gi;
+  const noRegex = /- \[( |x)\] (no \()?this PR (will be|can wait)/gi;
   const noMatches = [...body.matchAll(noRegex)];
   const noMatch = noMatches.length > 0 ? noMatches[noMatches.length - 1] : null;
   const no = noMatch ? noMatch[1].toLowerCase() === "x" : false;
