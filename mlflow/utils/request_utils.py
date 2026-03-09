@@ -15,16 +15,14 @@ from urllib3.util import Retry
 # Response codes that generally indicate transient network failures and merit client retries,
 # based on guidance from cloud service providers
 # (https://docs.microsoft.com/en-us/azure/architecture/best-practices/retry-service-specific#general-rest-and-retry-guidelines)
-_TRANSIENT_FAILURE_RESPONSE_CODES = frozenset(
-    [
-        408,  # Request Timeout
-        429,  # Too Many Requests
-        500,  # Internal Server Error
-        502,  # Bad Gateway
-        503,  # Service Unavailable
-        504,  # Gateway Timeout
-    ]
-)
+_TRANSIENT_FAILURE_RESPONSE_CODES = frozenset([
+    408,  # Request Timeout
+    429,  # Too Many Requests
+    500,  # Internal Server Error
+    502,  # Bad Gateway
+    503,  # Service Unavailable
+    504,  # Gateway Timeout
+])
 
 
 class JitteredRetry(Retry):
@@ -231,7 +229,7 @@ def _get_http_response_with_retries(
 
     # the environment variable is hardcoded here to avoid importing mlflow.
     # however, documentation is available in environment_variables.py
-    env_value = os.getenv("MLFLOW_ALLOW_HTTP_REDIRECTS", "true").lower() in ["true", "1"]
+    env_value = os.environ.get("MLFLOW_ALLOW_HTTP_REDIRECTS", "true").lower() in ["true", "1"]
     allow_redirects = env_value if allow_redirects is None else allow_redirects
 
     return session.request(method, url, allow_redirects=allow_redirects, **kwargs)
