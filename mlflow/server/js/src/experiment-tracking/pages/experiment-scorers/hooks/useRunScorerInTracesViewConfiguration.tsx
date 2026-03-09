@@ -130,14 +130,17 @@ export const useRunJudgesOnTracesConfiguration = (
       <JudgesEvaluationStatusBanner evaluations={activeEvaluations} onDismiss={dismiss} />
     ) : null;
 
-  const RunJudgesModal = (
-    <RunJudgeModalImpl
-      scope={scope}
-      visible={isModalVisible}
-      itemIds={pendingTraceIds}
-      evaluateTraces={evaluateTraces}
-      onClose={handleClose}
-    />
+  const RunJudgesModal = useMemo(
+    () => (
+      <RunJudgeModalImpl
+        scope={scope}
+        visible={isModalVisible}
+        itemIds={pendingTraceIds}
+        evaluateTraces={evaluateTraces}
+        onClose={handleClose}
+      />
+    ),
+    [scope, isModalVisible, pendingTraceIds, evaluateTraces, handleClose],
   );
 
   return { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner, subscribeToScorerFinished };
