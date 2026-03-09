@@ -336,3 +336,14 @@ export interface ListBudgetPoliciesResponse {
   budget_policies: BudgetPolicy[];
   next_page_token?: string;
 }
+
+export interface BudgetPolicyWindow {
+  budget_policy_id: string;
+  window_start_ms: number;
+  window_end_ms: number;
+  current_spend: number;
+}
+
+export interface ListBudgetWindowsResponse {
+  windows: BudgetPolicyWindow[];
+}

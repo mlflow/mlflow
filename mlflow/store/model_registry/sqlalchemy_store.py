@@ -177,7 +177,8 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             exists_non_default_rm = (
-                session.query(SqlRegisteredModel.name)
+                session
+                .query(SqlRegisteredModel.name)
                 .filter(SqlRegisteredModel.workspace.isnot(None))
                 .filter(SqlRegisteredModel.workspace != DEFAULT_WORKSPACE_NAME)
                 .first()
@@ -186,7 +187,8 @@ class SqlAlchemyStore(AbstractStore):
 
             if exists_non_default_rm:
                 name, workspace = (
-                    session.query(SqlRegisteredModel.name, SqlRegisteredModel.workspace)
+                    session
+                    .query(SqlRegisteredModel.name, SqlRegisteredModel.workspace)
                     .filter(SqlRegisteredModel.workspace != DEFAULT_WORKSPACE_NAME)
                     .first()
                 )
@@ -198,7 +200,8 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             exists_non_default_webhook = (
-                session.query(SqlWebhook.webhook_id)
+                session
+                .query(SqlWebhook.webhook_id)
                 .filter(SqlWebhook.workspace.isnot(None))
                 .filter(SqlWebhook.workspace != DEFAULT_WORKSPACE_NAME)
                 .first()
@@ -207,7 +210,8 @@ class SqlAlchemyStore(AbstractStore):
 
             if exists_non_default_webhook:
                 webhook_id, workspace = (
-                    session.query(SqlWebhook.webhook_id, SqlWebhook.workspace)
+                    session
+                    .query(SqlWebhook.webhook_id, SqlWebhook.workspace)
                     .filter(SqlWebhook.workspace != DEFAULT_WORKSPACE_NAME)
                     .first()
                 )
@@ -271,7 +275,8 @@ class SqlAlchemyStore(AbstractStore):
             return {}
 
         row_num = (
-            sqlalchemy.func.row_number()
+            sqlalchemy.func
+            .row_number()
             .over(
                 partition_by=[SqlModelVersion.name, SqlModelVersion.current_stage],
                 order_by=SqlModelVersion.version.desc(),
@@ -517,7 +522,8 @@ class SqlAlchemyStore(AbstractStore):
                 session, parsed_filters, self.engine.dialect.name
             )
             query = (
-                filter_query.options(*self._get_eager_registered_model_query_options())
+                filter_query
+                .options(*self._get_eager_registered_model_query_options())
                 .order_by(*parsed_orderby)
                 .limit(max_results_for_query)
             )
@@ -847,7 +853,8 @@ class SqlAlchemyStore(AbstractStore):
 
     def _get_registered_model_tag(self, session, name, key):
         tags = (
-            self._get_query(session, SqlRegisteredModelTag)
+            self
+            ._get_query(session, SqlRegisteredModelTag)
             .filter(
                 SqlRegisteredModelTag.name == name,
                 SqlRegisteredModelTag.key == key,
@@ -1035,7 +1042,8 @@ class SqlAlchemyStore(AbstractStore):
         if query_options is None:
             query_options = []
         versions = (
-            self._get_query(session, SqlModelVersion)
+            self
+            ._get_query(session, SqlModelVersion)
             .options(*query_options)
             .filter(*conditions)
             .all()
@@ -1290,7 +1298,8 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             query = (
-                filter_query.options(*self._get_eager_model_version_query_options())
+                filter_query
+                .options(*self._get_eager_model_version_query_options())
                 .filter(SqlModelVersion.current_stage != STAGE_DELETED_INTERNAL)
                 .order_by(*parsed_orderby)
                 .limit(max_results_for_query)
@@ -1353,7 +1362,8 @@ class SqlAlchemyStore(AbstractStore):
 
     def _get_model_version_tag(self, session, name, version, key):
         tags = (
-            self._get_query(session, SqlModelVersionTag)
+            self
+            ._get_query(session, SqlModelVersionTag)
             .filter(
                 SqlModelVersionTag.name == name,
                 SqlModelVersionTag.version == version,
@@ -1423,7 +1433,8 @@ class SqlAlchemyStore(AbstractStore):
 
     def _get_registered_model_alias(self, session, name, alias):
         return (
-            self._get_query(session, SqlRegisteredModelAlias)
+            self
+            ._get_query(session, SqlRegisteredModelAlias)
             .filter(
                 SqlRegisteredModelAlias.name == name,
                 SqlRegisteredModelAlias.alias == alias,
@@ -1583,7 +1594,8 @@ class SqlAlchemyStore(AbstractStore):
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         with self.ManagedSessionMaker() as session:
             query = (
-                self._get_query(session, SqlWebhook)
+                self
+                ._get_query(session, SqlWebhook)
                 .filter(SqlWebhook.deleted_timestamp.is_(None))
                 .order_by(SqlWebhook.creation_timestamp.desc())
                 .limit(max_results + 1)
@@ -1619,7 +1631,8 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             # Query webhooks that have the specific event in their related webhook_events
             query = (
-                self._get_query(session, SqlWebhook)
+                self
+                ._get_query(session, SqlWebhook)
                 .join(SqlWebhookEvent)
                 .filter(SqlWebhook.deleted_timestamp.is_(None))
                 .filter(SqlWebhookEvent.entity == event.entity.value)
@@ -1703,7 +1716,8 @@ class SqlAlchemyStore(AbstractStore):
     # Helper methods for webhooks
     def _get_webhook_by_id(self, session: Session, webhook_id: str) -> SqlWebhook:
         if webhook := (
-            self._get_query(session, SqlWebhook)
+            self
+            ._get_query(session, SqlWebhook)
             .filter(
                 SqlWebhook.webhook_id == webhook_id,
                 SqlWebhook.deleted_timestamp.is_(None),

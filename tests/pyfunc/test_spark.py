@@ -127,7 +127,8 @@ def get_spark_session(conf):
     spark_master = os.environ.get("SPARK_MASTER", "local-cluster[2, 1, 1024]")
     # Don't forget to revert these changes prior to pushing a branch!
     return (
-        pyspark.sql.SparkSession.builder.config(conf=conf)
+        pyspark.sql.SparkSession.builder
+        .config(conf=conf)
         .master(spark_master)
         # Uncomment the following line for testing on Apple silicon locally
         # .config("spark.driver.bindAddress", "127.0.0.1")
@@ -269,7 +270,8 @@ def test_spark_udf_env_manager_predict_sklearn_model(
 
     pyfunc_udf = spark_udf(spark, model_path, env_manager=env_manager)
     result = (
-        infer_spark_df.select(pyfunc_udf("a", "b").alias("predictions"))
+        infer_spark_df
+        .select(pyfunc_udf("a", "b").alias("predictions"))
         .toPandas()
         .predictions.to_numpy()
     )
@@ -327,7 +329,8 @@ def test_spark_udf_with_struct_return_type(spark):
 
         data1 = spark.range(2).repartition(1)
         result = (
-            data1.withColumn("res", udf("id"))
+            data1
+            .withColumn("res", udf("id"))
             .select("res.r1", "res.r2", "res.r3", "res.r4", "res.r5", "res.r6", "res.r7")
             .toPandas()
         )
@@ -361,14 +364,12 @@ def test_spark_udf_colspec_struct_return_type_inference(spark):
             python_model=TestModel(),
             signature=ModelSignature(
                 inputs=Schema([ColSpec("long")]),
-                outputs=Schema(
-                    [
-                        ColSpec("integer", "r1"),
-                        ColSpec("float", "r2"),
-                        ColSpec("boolean", "r3"),
-                        ColSpec("string", "r4"),
-                    ]
-                ),
+                outputs=Schema([
+                    ColSpec("integer", "r1"),
+                    ColSpec("float", "r2"),
+                    ColSpec("boolean", "r3"),
+                    ColSpec("string", "r4"),
+                ]),
             ),
         )
 
@@ -412,15 +413,13 @@ def test_spark_udf_tensorspec_struct_return_type_inference(spark):
             python_model=TestModel(),
             signature=ModelSignature(
                 inputs=Schema([ColSpec("long")]),
-                outputs=Schema(
-                    [
-                        TensorSpec(np.dtype(np.int64), (2,), "r1"),
-                        TensorSpec(np.dtype(np.float64), (2,), "r2"),
-                        TensorSpec(np.dtype(np.float64), (2,), "r3"),
-                        TensorSpec(np.dtype(np.float64), (2, 3), "r4"),
-                        TensorSpec(np.dtype(np.float64), (2, 3), "r5"),
-                    ]
-                ),
+                outputs=Schema([
+                    TensorSpec(np.dtype(np.int64), (2,), "r1"),
+                    TensorSpec(np.dtype(np.float64), (2,), "r2"),
+                    TensorSpec(np.dtype(np.float64), (2,), "r3"),
+                    TensorSpec(np.dtype(np.float64), (2, 3), "r4"),
+                    TensorSpec(np.dtype(np.float64), (2, 3), "r5"),
+                ]),
             ),
         )
 
@@ -463,11 +462,9 @@ def test_spark_udf_single_1d_array_return_type_inference(spark):
             python_model=TestModel(),
             signature=ModelSignature(
                 inputs=Schema([ColSpec("long")]),
-                outputs=Schema(
-                    [
-                        TensorSpec(np.dtype(np.int64), (2,)),
-                    ]
-                ),
+                outputs=Schema([
+                    TensorSpec(np.dtype(np.int64), (2,)),
+                ]),
             ),
         )
 
@@ -492,11 +489,9 @@ def test_spark_udf_single_2d_array_return_type_inference(spark):
             python_model=TestModel(),
             signature=ModelSignature(
                 inputs=Schema([ColSpec("long")]),
-                outputs=Schema(
-                    [
-                        TensorSpec(np.dtype(np.float64), (2, 3)),
-                    ]
-                ),
+                outputs=Schema([
+                    TensorSpec(np.dtype(np.float64), (2, 3)),
+                ]),
             ),
         )
 
@@ -523,11 +518,9 @@ def test_spark_udf_single_long_return_type_inference(spark):
             python_model=TestModel(),
             signature=ModelSignature(
                 inputs=Schema([ColSpec("long")]),
-                outputs=Schema(
-                    [
-                        ColSpec("long"),
-                    ]
-                ),
+                outputs=Schema([
+                    ColSpec("long"),
+                ]),
             ),
         )
 
@@ -649,14 +642,12 @@ def test_spark_udf_autofills_no_arguments(spark):
             res = good_data.withColumn("res", udf()).select("res").toPandas()
 
     named_signature_with_optional_input = ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec("long", "a"),
-                ColSpec("long", "b"),
-                ColSpec("long", "c"),
-                ColSpec("long", "d", required=False),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec("long", "a"),
+            ColSpec("long", "b"),
+            ColSpec("long", "c"),
+            ColSpec("long", "d", required=False),
+        ]),
         outputs=Schema([ColSpec("integer")]),
     )
     with mlflow.start_run() as run:
@@ -768,7 +759,8 @@ def test_spark_udf_over_empty_partition(spark):
         assert res_df.res[0] == 32
 
         res_df2 = (
-            spark_df.withColumn("res", python_udf(struct(col("x").alias("a"), col("y").alias("b"))))
+            spark_df
+            .withColumn("res", python_udf(struct(col("x").alias("a"), col("y").alias("b"))))
             .select("res")
             .toPandas()
         )
@@ -891,13 +883,11 @@ def test_spark_udf_datetime_with_model_schema(spark):
     timestamp_remover = ColumnTransformer(
         [("selector", "passthrough", X.columns.drop("timestamp"))], remainder="drop"
     )
-    model = Pipeline(
-        [
-            ("month_extractor", month_extractor),
-            ("timestamp_remover", timestamp_remover),
-            ("knn", KNeighborsClassifier()),
-        ]
-    )
+    model = Pipeline([
+        ("month_extractor", month_extractor),
+        ("timestamp_remover", timestamp_remover),
+        ("knn", KNeighborsClassifier()),
+    ])
     model.fit(X, y)
 
     timestamp_dtype = {"timestamp": "datetime64[ns]"}
@@ -923,13 +913,11 @@ def test_spark_udf_string_datetime_with_model_schema(spark):
     timestamp_remover = ColumnTransformer(
         [("selector", "passthrough", X.columns.drop("timestamp"))], remainder="drop"
     )
-    model = Pipeline(
-        [
-            ("month_extractor", month_extractor),
-            ("timestamp_remover", timestamp_remover),
-            ("knn", KNeighborsClassifier()),
-        ]
-    )
+    model = Pipeline([
+        ("month_extractor", month_extractor),
+        ("timestamp_remover", timestamp_remover),
+        ("knn", KNeighborsClassifier()),
+    ])
     model.fit(X, y)
 
     with mlflow.start_run():
@@ -944,18 +932,16 @@ def test_spark_udf_string_datetime_with_model_schema(spark):
 
 
 def test_spark_udf_with_col_spec_type_input(spark):
-    input_pdf = pd.DataFrame(
-        {
-            "c_bool": [True],
-            "c_int": [10],
-            "c_long": [20],
-            "c_float": [1.5],
-            "c_double": [2.5],
-            "c_str": ["abc"],
-            "c_binary": [b"xyz"],
-            "c_datetime": [pd.to_datetime("2018-01-01")],
-        }
-    )
+    input_pdf = pd.DataFrame({
+        "c_bool": [True],
+        "c_int": [10],
+        "c_long": [20],
+        "c_float": [1.5],
+        "c_double": [2.5],
+        "c_str": ["abc"],
+        "c_binary": [b"xyz"],
+        "c_datetime": [pd.to_datetime("2018-01-01")],
+    })
 
     class TestModel(PythonModel):
         def predict(self, context, model_input, params=None):
@@ -963,18 +949,16 @@ def test_spark_udf_with_col_spec_type_input(spark):
             return model_input[["c_int", "c_float"]]
 
     signature = ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec("boolean", "c_bool"),
-                ColSpec("integer", "c_int"),
-                ColSpec("long", "c_long"),
-                ColSpec("float", "c_float"),
-                ColSpec("double", "c_double"),
-                ColSpec("string", "c_str"),
-                ColSpec("binary", "c_binary"),
-                ColSpec("datetime", "c_datetime"),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec("boolean", "c_bool"),
+            ColSpec("integer", "c_int"),
+            ColSpec("long", "c_long"),
+            ColSpec("float", "c_float"),
+            ColSpec("double", "c_double"),
+            ColSpec("string", "c_str"),
+            ColSpec("binary", "c_binary"),
+            ColSpec("datetime", "c_datetime"),
+        ]),
     )
 
     spark_schema = (
@@ -1042,16 +1026,14 @@ def test_spark_udf_array_of_structs(spark):
             spark,
             f"runs:/{run.info.run_id}/model",
             result_type=ArrayType(
-                StructType(
-                    [
-                        StructField("str", StringType()),
-                        StructField("int", IntegerType()),
-                        StructField("long", LongType()),
-                        StructField("float", FloatType()),
-                        StructField("double", DoubleType()),
-                        StructField("bool", BooleanType()),
-                    ]
-                )
+                StructType([
+                    StructField("str", StringType()),
+                    StructField("int", IntegerType()),
+                    StructField("long", LongType()),
+                    StructField("float", FloatType()),
+                    StructField("double", DoubleType()),
+                    StructField("bool", BooleanType()),
+                ])
             ),
         )
         res = good_data.withColumn("res", udf("a")).select("res").toPandas()
@@ -1112,16 +1094,14 @@ def test_spark_udf_with_params(spark):
             spark,
             f"runs:/{run.info.run_id}/model",
             result_type=ArrayType(
-                StructType(
-                    [
-                        StructField("str_param", StringType()),
-                        StructField("int_param", IntegerType()),
-                        StructField("bool_param", BooleanType()),
-                        StructField("double_param", DoubleType()),
-                        StructField("float_param", FloatType()),
-                        StructField("long_param", LongType()),
-                    ]
-                )
+                StructType([
+                    StructField("str_param", StringType()),
+                    StructField("int_param", IntegerType()),
+                    StructField("bool_param", BooleanType()),
+                    StructField("double_param", DoubleType()),
+                    StructField("float_param", FloatType()),
+                    StructField("long_param", LongType()),
+                ])
             ),
             params=test_params,
         )
@@ -1162,16 +1142,14 @@ def test_spark_udf_with_array_params(spark):
         udf = mlflow.pyfunc.spark_udf(
             spark,
             f"runs:/{run.info.run_id}/model",
-            result_type=StructType(
-                [
-                    StructField("str_array", ArrayType(StringType())),
-                    StructField("int_array", ArrayType(IntegerType())),
-                    StructField("double_array", ArrayType(DoubleType())),
-                    StructField("bool_array", ArrayType(BooleanType())),
-                    StructField("float_array", ArrayType(FloatType())),
-                    StructField("long_array", ArrayType(LongType())),
-                ]
-            ),
+            result_type=StructType([
+                StructField("str_array", ArrayType(StringType())),
+                StructField("int_array", ArrayType(IntegerType())),
+                StructField("double_array", ArrayType(DoubleType())),
+                StructField("bool_array", ArrayType(BooleanType())),
+                StructField("float_array", ArrayType(FloatType())),
+                StructField("long_array", ArrayType(LongType())),
+            ]),
             params=test_params,
         )
 
@@ -1368,14 +1346,12 @@ def test_spark_df_schema_inference_for_map_type(spark):
         }
     ]
     df = spark.createDataFrame(data)
-    expected_schema = Schema(
-        [
-            ColSpec(Array(DataType.string), "arr"),
-            ColSpec(Object([Property("a", DataType.long), Property("b", DataType.long)]), "map1"),
-            ColSpec(Object([Property("e", Array(DataType.string))]), "map2"),
-            ColSpec(DataType.string, "string"),
-        ]
-    )
+    expected_schema = Schema([
+        ColSpec(Array(DataType.string), "arr"),
+        ColSpec(Object([Property("a", DataType.long), Property("b", DataType.long)]), "map1"),
+        ColSpec(Object([Property("e", Array(DataType.string))]), "map2"),
+        ColSpec(DataType.string, "string"),
+    ])
     inferred_schema = infer_signature(df).inputs
     assert inferred_schema == expected_schema
 
@@ -1406,36 +1382,30 @@ def test_spark_udf_structs_and_arrays(spark, tmp_path):
                 [{"double": 0.2}, {"double": 0.3}],
             ),
         ],
-        schema=StructType(
-            [
-                StructField(
-                    "str",
-                    StringType(),
+        schema=StructType([
+            StructField(
+                "str",
+                StringType(),
+            ),
+            StructField(
+                "arr",
+                ArrayType(IntegerType()),
+            ),
+            StructField(
+                "obj",
+                StructType([
+                    StructField("bool", BooleanType()),
+                ]),
+            ),
+            StructField(
+                "obj_arr",
+                ArrayType(
+                    StructType([
+                        StructField("double", DoubleType()),
+                    ])
                 ),
-                StructField(
-                    "arr",
-                    ArrayType(IntegerType()),
-                ),
-                StructField(
-                    "obj",
-                    StructType(
-                        [
-                            StructField("bool", BooleanType()),
-                        ]
-                    ),
-                ),
-                StructField(
-                    "obj_arr",
-                    ArrayType(
-                        StructType(
-                            [
-                                StructField("double", DoubleType()),
-                            ]
-                        )
-                    ),
-                ),
-            ]
-        ),
+            ),
+        ]),
     )
     save_path = tmp_path / "1"
     mlflow.pyfunc.save_model(
@@ -1458,29 +1428,23 @@ def test_spark_udf_structs_and_arrays(spark, tmp_path):
             ([{"arr": [{"bool": True}]}],),
             ([{"arr": [{"bool": False}]}],),
         ],
-        schema=StructType(
-            [
-                StructField(
-                    "test",
-                    ArrayType(
-                        StructType(
-                            [
-                                StructField(
-                                    "arr",
-                                    ArrayType(
-                                        StructType(
-                                            [
-                                                StructField("bool", BooleanType()),
-                                            ]
-                                        )
-                                    ),
-                                ),
-                            ]
-                        )
-                    ),
+        schema=StructType([
+            StructField(
+                "test",
+                ArrayType(
+                    StructType([
+                        StructField(
+                            "arr",
+                            ArrayType(
+                                StructType([
+                                    StructField("bool", BooleanType()),
+                                ])
+                            ),
+                        ),
+                    ])
                 ),
-            ]
-        ),
+            ),
+        ]),
     )
     save_path = tmp_path / "2"
     mlflow.pyfunc.save_model(
@@ -1499,37 +1463,31 @@ def test_spark_udf_infer_return_type(spark, tmp_path):
         def predict(self, context, model_input):
             return model_input
 
-    schema = StructType(
-        [
-            StructField(
-                "str",
-                StringType(),
+    schema = StructType([
+        StructField(
+            "str",
+            StringType(),
+        ),
+        StructField(
+            "arr",
+            ArrayType(IntegerType()),
+        ),
+        StructField(
+            "obj",
+            StructType([
+                StructField("bool", BooleanType()),
+                StructField("obj2", StructType([StructField("str", StringType())])),
+            ]),
+        ),
+        StructField(
+            "obj_arr",
+            ArrayType(
+                StructType([
+                    StructField("double", DoubleType()),
+                ])
             ),
-            StructField(
-                "arr",
-                ArrayType(IntegerType()),
-            ),
-            StructField(
-                "obj",
-                StructType(
-                    [
-                        StructField("bool", BooleanType()),
-                        StructField("obj2", StructType([StructField("str", StringType())])),
-                    ]
-                ),
-            ),
-            StructField(
-                "obj_arr",
-                ArrayType(
-                    StructType(
-                        [
-                            StructField("double", DoubleType()),
-                        ]
-                    )
-                ),
-            ),
-        ]
-    )
+        ),
+    ])
     df = spark.createDataFrame(
         [
             (
@@ -1589,7 +1547,8 @@ def test_spark_udf_env_manager_with_invalid_pythonpath(
         pyfunc_udf = spark_udf(spark, model_path, env_manager="virtualenv")
 
     result = (
-        infer_spark_df.select(pyfunc_udf("a", "b").alias("predictions"))
+        infer_spark_df
+        .select(pyfunc_udf("a", "b").alias("predictions"))
         .toPandas()
         .predictions.to_numpy()
     )
@@ -1630,15 +1589,13 @@ def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch
     try:
         extract_archive_to_dir(model_env_path, extract_dir)
         # Check the extracted python environment installs the expected sklearn package version.
-        subprocess.check_call(
-            [
-                "bash",
-                "-c",
-                f"source /tmp/{archive_name}/virtualenv_envs/{env_name}/bin/activate && "
-                f"python -c "
-                f"\"import sklearn; assert sklearn.__version__ == '{sklearn.__version__}'\"",
-            ]
-        )
+        subprocess.check_call([
+            "bash",
+            "-c",
+            f"source /tmp/{archive_name}/virtualenv_envs/{env_name}/bin/activate && "
+            f"python -c "
+            f"\"import sklearn; assert sklearn.__version__ == '{sklearn.__version__}'\"",
+        ])
     finally:
         shutil.rmtree(f"/tmp/{archive_name}", ignore_errors=True)
 
@@ -1702,11 +1659,9 @@ def test_spark_udf_model_server_timeout(spark, monkeypatch):
     udf = mlflow.pyfunc.spark_udf(
         spark,
         f"runs:/{run.info.run_id}/model",
-        result_type=StructType(
-            [
-                StructField("str_array", ArrayType(StringType())),
-            ]
-        ),
+        result_type=StructType([
+            StructField("str_array", ArrayType(StringType())),
+        ]),
         params=test_params,
         env_manager="virtualenv",
         extra_env={
