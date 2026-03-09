@@ -147,10 +147,6 @@ class InMemoryBudgetTracker(BudgetTracker):
 
         return False, None
 
-    def evict(self, policy_id: str) -> None:
-        with self._lock:
-            self._windows.pop(policy_id, None)
-
     def backfill_spend(self, spend_by_policy: dict[str, float]) -> None:
         """Set cumulative spend on windows from historical data."""
         with self._lock:

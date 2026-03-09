@@ -5127,9 +5127,8 @@ def _create_budget_policy():
         budget_action=budget_action,
         created_by=request_message.created_by or None,
     )
-    if isinstance(store, SqlAlchemyStore):
-        get_budget_tracker().invalidate()
-        maybe_refresh_budget_policies(store)
+    get_budget_tracker().invalidate()
+    maybe_refresh_budget_policies(store)
     response_message = CreateGatewayBudgetPolicy.Response()
     response_message.budget_policy.CopyFrom(policy.to_proto())
     return _wrap_response(response_message)
@@ -5209,11 +5208,8 @@ def _update_budget_policy():
         budget_action=budget_action,
         updated_by=request_message.updated_by or None,
     )
-    if isinstance(store, SqlAlchemyStore):
-        tracker = get_budget_tracker()
-        tracker.evict(request_message.budget_policy_id)
-        tracker.invalidate()
-        maybe_refresh_budget_policies(store)
+    get_budget_tracker().invalidate()
+    maybe_refresh_budget_policies(store)
     response_message = UpdateGatewayBudgetPolicy.Response()
     response_message.budget_policy.CopyFrom(policy.to_proto())
     return _wrap_response(response_message)
@@ -5230,9 +5226,8 @@ def _delete_budget_policy():
     )
     store = _get_tracking_store()
     store.delete_budget_policy(request_message.budget_policy_id)
-    if isinstance(store, SqlAlchemyStore):
-        get_budget_tracker().invalidate()
-        maybe_refresh_budget_policies(store)
+    get_budget_tracker().invalidate()
+    maybe_refresh_budget_policies(store)
     response_message = DeleteGatewayBudgetPolicy.Response()
     return _wrap_response(response_message)
 
