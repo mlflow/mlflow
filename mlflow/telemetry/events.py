@@ -456,19 +456,16 @@ class GatewayCreateBudgetPolicyEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        def _enum_str(val: Any) -> str | None:
+            if val is None:
+                return None
+            return val.value if hasattr(val, "value") else str(val)
+
         return {
-            "budget_unit": str(arguments.get("budget_unit"))
-            if arguments.get("budget_unit")
-            else None,
-            "duration_unit": str(arguments.get("duration_unit"))
-            if arguments.get("duration_unit")
-            else None,
-            "target_scope": str(arguments.get("target_scope"))
-            if arguments.get("target_scope")
-            else None,
-            "budget_action": str(arguments.get("budget_action"))
-            if arguments.get("budget_action")
-            else None,
+            "budget_unit": _enum_str(arguments.get("budget_unit")),
+            "duration_unit": _enum_str(arguments.get("duration_unit")),
+            "target_scope": _enum_str(arguments.get("target_scope")),
+            "budget_action": _enum_str(arguments.get("budget_action")),
         }
 
 

@@ -3,6 +3,12 @@ from unittest.mock import Mock
 import pytest
 
 from mlflow.entities.evaluation_dataset import DatasetGranularity, EvaluationDataset
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+)
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
     AiCommandRunEvent,
@@ -428,10 +434,10 @@ def test_gateway_list_secrets_parse_params(arguments, expected_params):
         ),
         (
             {
-                "budget_unit": "USD",
-                "duration_unit": "MONTHS",
-                "target_scope": "WORKSPACE",
-                "budget_action": "REJECT",
+                "budget_unit": BudgetUnit.USD,
+                "duration_unit": BudgetDurationUnit.MONTHS,
+                "target_scope": BudgetTargetScope.WORKSPACE,
+                "budget_action": BudgetAction.REJECT,
             },
             {
                 "budget_unit": "USD",

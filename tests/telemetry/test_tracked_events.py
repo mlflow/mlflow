@@ -20,6 +20,12 @@ from mlflow.entities import (
     RunTag,
 )
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+)
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
@@ -1904,12 +1910,12 @@ def test_gateway_budget_policy_crud_telemetry(
     store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
 
     policy = store.create_budget_policy(
-        budget_unit="USD",
+        budget_unit=BudgetUnit.USD,
         budget_amount=100.0,
-        duration_unit="DAYS",
+        duration_unit=BudgetDurationUnit.DAYS,
         duration_value=30,
-        target_scope="GLOBAL",
-        budget_action="ALERT",
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
         created_by="test-user",
     )
     validate_telemetry_record(
