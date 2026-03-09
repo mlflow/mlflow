@@ -160,8 +160,15 @@ class CreateLoggedModelEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        if flavor := arguments.get("flavor"):
-            return {"flavor": flavor.removeprefix("mlflow.")}
+        flavor = arguments.get("flavor")
+        serialization_format = arguments.get("serialization_format")
+        if flavor or serialization_format:
+            data: dict[str, Any] = {}
+            if flavor:
+                data["flavor"] = flavor.removeprefix("mlflow.")
+            if serialization_format:
+                data["serialization_format"] = serialization_format
+            return data
         return None
 
 

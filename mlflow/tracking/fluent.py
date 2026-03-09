@@ -2409,6 +2409,7 @@ def _create_logged_model(
     model_type: str | None = None,
     experiment_id: str | None = None,
     flavor: str | None = None,
+    serialization_format: str | None = None,
 ) -> LoggedModel:
     """
     Create a new LoggedModel in the ``PENDING`` state.
@@ -2425,6 +2426,7 @@ def _create_logged_model(
                     type ``"agent"`` in the future.
         experiment_id: The experiment ID of the experiment to which the model belongs.
         flavor: The flavor of the model.
+        serialization_format: The serialization format of the model.
 
     Returns:
         A new LoggedModel in the ``PENDING`` state.
@@ -2447,6 +2449,7 @@ def _create_logged_model(
         params=params,
         model_type=model_type,
         flavor=flavor,
+        serialization_format=serialization_format,
     )
 
 

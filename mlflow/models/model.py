@@ -1149,6 +1149,7 @@ class Model:
                 run_id = active_run.info.run_id if (active_run := mlflow.active_run()) else None
 
             flavor_name = kwargs.pop("flavor_name", None)
+            serialization_format = kwargs.get("serialization_format")
             if model_id is not None:
                 model = client.get_logged_model(model_id)
             else:
@@ -1168,6 +1169,7 @@ class Model:
                     if tags is not None
                     else None,
                     flavor=flavor_name,
+                    serialization_format=serialization_format,
                 )
                 _last_logged_model_id.set(model.model_id)
                 if (
