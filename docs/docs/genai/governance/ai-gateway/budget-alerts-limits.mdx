@@ -81,7 +81,4 @@ Accumulated spend resets to zero at the start of each new window. Budget trackin
 
 ## Authorization
 
-- **Read access** (list, get): All authenticated users
-- **Write access** (create, update, delete): Admin users only
-
-Non-admin users who attempt to create, update, or delete a budget policy receive an HTTP 403 response.
+When [authentication](/auth/index) is enabled for the tracking server, only admin users can create, update, or delete budget policies.
