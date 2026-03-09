@@ -538,13 +538,6 @@ def _get_trace_sampler() -> _MlflowSampler | None:
 
 
 def _resolve_experiment_uc_location() -> UnityCatalog | None:
-    """Lazily resolve the active experiment's UC location from its backend tags.
-
-    Called during provider initialization when no explicit destination has been
-    set. If the active experiment is linked to a UC table-prefix location (via
-    the databricksTelemetryDestinationId tag), resolve it and write to the
-    global destination slot so that traces route to UC.
-    """
     # Lazy imports to avoid circular dependency (tracking.fluent -> tracing.provider).
     from mlflow.tracking.fluent import _get_experiment_id
     from mlflow.utils.uri import is_databricks_uri
@@ -572,9 +565,7 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
 
         from mlflow.tracing.client import TracingClient
 
-        location = TracingClient(tracking_uri)._get_trace_location(telemetry_profile_id)
-        _MLFLOW_TRACE_USER_DESTINATION.set(location)
-        return location
+        return TracingClient(tracking_uri)._get_trace_location(telemetry_profile_id)
     except Exception:
         _logger.debug(
             "Failed to auto-resolve UC location for active experiment",
@@ -605,9 +596,11 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
 
     # If no explicit destination is set, check whether the active experiment is
-    # linked to a UC table-prefix location and auto-resolve it.
+    # linked to a UC table-prefix location. This could happen if the experiment is set
+    # via another mechanism (e.g. env vars) rather than `mlflow.set_experiment`.
     if trace_destination is None:
-        trace_destination = _resolve_experiment_uc_location()
+        if trace_destination := _resolve_experiment_uc_location():
+            _MLFLOW_TRACE_USER_DESTINATION.set(trace_destination)
 
     if trace_destination:
         # In PrPr, users must set the destination to a Unity Catalog location to export traces.

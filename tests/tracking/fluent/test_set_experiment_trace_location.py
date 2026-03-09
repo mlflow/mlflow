@@ -8,8 +8,8 @@ from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 from mlflow.tracking.fluent import (
-    _apply_experiment_trace_destination_state,
-    _resolve_experiment_trace_destination,
+    _register_experiment_trace_location,
+    _sync_trace_destination_and_provider,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
 
@@ -27,7 +27,7 @@ def _experiment(tags=None):
 
 def test_invalid_type_raises():
     with pytest.raises(MlflowException, match="UnityCatalog"):
-        _resolve_experiment_trace_destination(
+        _register_experiment_trace_location(
             experiment=_experiment(),
             trace_location="not-a-location",
         )
@@ -37,14 +37,14 @@ def test_uc_schema_location_is_rejected():
     from mlflow.entities.trace_location import UCSchemaLocation
 
     with pytest.raises(MlflowException, match="UnityCatalog"):
-        _resolve_experiment_trace_destination(
+        _register_experiment_trace_location(
             experiment=_experiment(),
             trace_location=UCSchemaLocation("catalog", "schema"),
         )
 
 
 def test_no_trace_location_returns_none():
-    result = _resolve_experiment_trace_destination(
+    result = _register_experiment_trace_location(
         experiment=_experiment(),
         trace_location=None,
     )
@@ -57,7 +57,7 @@ def test_non_databricks_backend_raises():
         mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=False),
     ):
         with pytest.raises(MlflowException, match="only supported with a Databricks tracking URI"):
-            _resolve_experiment_trace_destination(
+            _register_experiment_trace_location(
                 experiment=_experiment(),
                 trace_location=UnityCatalog("catalog", "schema", "prefix"),
             )
@@ -76,7 +76,7 @@ def test_creates_and_links_when_no_existing_location():
         tc._get_trace_location.return_value = None
         tc._create_or_get_trace_location.return_value = resolved
 
-        result = _resolve_experiment_trace_destination(
+        result = _register_experiment_trace_location(
             experiment=_experiment(),
             trace_location=requested,
         )
@@ -105,7 +105,7 @@ def test_noop_when_existing_location_matches():
         tc = tc_cls.return_value
         tc._get_trace_location.return_value = existing
 
-        result = _resolve_experiment_trace_destination(
+        result = _register_experiment_trace_location(
             experiment=experiment,
             trace_location=requested,
         )
@@ -132,7 +132,7 @@ def test_errors_when_existing_location_differs():
         tc._get_trace_location.return_value = existing
 
         with pytest.raises(MlflowException, match="already linked to a different"):
-            _resolve_experiment_trace_destination(
+            _register_experiment_trace_location(
                 experiment=experiment,
                 trace_location=requested,
             )
@@ -147,10 +147,9 @@ def test_apply_state_sets_destination_when_resolved():
         mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
         mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
     ):
-        _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=resolved)
+        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=resolved)
 
     assert _MLFLOW_TRACE_USER_DESTINATION.get() is resolved
-    assert experiment.trace_location is resolved
     init_provider.assert_called_once()
     _MLFLOW_TRACE_USER_DESTINATION.reset()
 
@@ -163,7 +162,7 @@ def test_apply_state_reinits_for_uc_linked_experiment():
         mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
         mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
     ):
-        _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=None)
+        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=None)
 
     assert _MLFLOW_TRACE_USER_DESTINATION._global_value is None
     init_provider.assert_called_once()
@@ -182,7 +181,7 @@ def test_apply_state_clears_global_slot_on_experiment_switch():
         mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
         mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
     ):
-        _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=None)
+        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=None)
 
     assert _MLFLOW_TRACE_USER_DESTINATION._global_value is None
     init_provider.assert_called_once()
@@ -197,7 +196,7 @@ def test_apply_state_skips_reinit_when_no_previous_destination():
         mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
         mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
     ):
-        _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=None)
+        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=None)
 
     init_provider.assert_not_called()
     _MLFLOW_TRACE_USER_DESTINATION.reset()
@@ -215,7 +214,7 @@ def test_apply_state_skips_reinit_for_uc_to_uc_switch():
         mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
         mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
     ):
-        _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=new_dest)
+        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=new_dest)
 
     assert _MLFLOW_TRACE_USER_DESTINATION.get() is new_dest
     init_provider.assert_not_called()
@@ -233,7 +232,7 @@ def test_apply_state_skips_reinit_when_tracing_disabled():
         mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
         mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=False),
     ):
-        _apply_experiment_trace_destination_state(experiment=experiment, resolved_location=None)
+        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=None)
 
     init_provider.assert_not_called()
     _MLFLOW_TRACE_USER_DESTINATION.reset()

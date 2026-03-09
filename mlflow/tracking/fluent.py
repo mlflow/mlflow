@@ -33,7 +33,7 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
+from mlflow.entities.trace_location import UnityCatalog
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_ENABLE_SGC_RUN_RESUMPTION_FOR_DATABRICKS_JOBS,
@@ -162,8 +162,7 @@ def set_experiment(
             does not exist, an exception is thrown.
         trace_location: Optional UC trace location used to configure the experiment-derived
             tracing destination. Must be an instance of
-            ``mlflow.entities.UnityCatalog(...)``. When provided, this takes precedence over
-            experiment tag-based auto-resolution.
+            ``mlflow.entities.UnityCatalog(...)``.
 
     Returns:
         An instance of :py:class:`mlflow.entities.Experiment` representing the new active
@@ -239,44 +238,36 @@ def set_experiment(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    resolved_location = _resolve_experiment_trace_destination(
+    resolved_location = _register_experiment_trace_location(
         experiment=experiment,
         trace_location=trace_location,
     )
 
     global _active_experiment_id
     _active_experiment_id = experiment.experiment_id
+
     # Set 'MLFLOW_EXPERIMENT_ID' environment variable
     # so that subprocess can inherit it.
     MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
-    _apply_experiment_trace_destination_state(
-        experiment=experiment,
-        resolved_location=resolved_location,
-    )
+    if resolved_location is not None:
+        experiment._set_trace_location(resolved_location)
+
+    _sync_trace_destination_and_provider(resolved_location, experiment)
 
     return experiment
 
 
-def _apply_experiment_trace_destination_state(
-    experiment: Experiment,
+def _sync_trace_destination_and_provider(
     resolved_location: UnityCatalog | None,
+    experiment: Experiment,
 ) -> None:
-    """Apply post-resolution trace destination state mutations for set_experiment.
-
-    Every set_experiment call clears the global destination slot to prevent stale
-    routing, then sets the new destination if one was resolved. The tracer provider
-    is re-initialized only when transitioning between UC and non-UC experiments
-    (i.e., the processor type changes).
-    """
     from mlflow.tracing.provider import (
         _MLFLOW_TRACE_USER_DESTINATION,
         _initialize_tracer_provider,
         is_tracing_enabled,
     )
 
-    was_uc_destination = isinstance(
-        _MLFLOW_TRACE_USER_DESTINATION.get(), (UCSchemaLocation, UnityCatalog)
-    )
+    was_uc_destination = isinstance(_MLFLOW_TRACE_USER_DESTINATION.get(), (UnityCatalog))
 
     # Only clear the global slot when transitioning away from a UC destination
     # to prevent stale UC routing. Non-UC destinations (e.g. from set_destination)
@@ -286,7 +277,6 @@ def _apply_experiment_trace_destination_state(
 
     if resolved_location is not None:
         _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
-        experiment._set_trace_location(resolved_location)
 
     is_uc_destination = resolved_location is not None or bool(
         _extract_telemetry_profile_id(experiment)
@@ -312,7 +302,7 @@ def _locations_match(a: UnityCatalog, b: UnityCatalog) -> bool:
     )
 
 
-def _resolve_experiment_trace_destination(
+def _register_experiment_trace_location(
     experiment: Experiment,
     trace_location: UnityCatalog | None,
 ) -> UnityCatalog | None:
