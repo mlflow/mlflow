@@ -232,28 +232,26 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
             ),
             TraceData(
                 spans=[
-                    Span.from_dict(
-                        {
-                            "name": "predict",
-                            "context": {
-                                "trace_id": "0x123456789",
-                                "span_id": "0x12345",
-                            },
-                            "parent_id": None,
-                            "start_time": 123000000,
-                            "end_time": 579000000,
-                            "status_code": "OK",
-                            "status_message": "",
-                            "attributes": {
-                                "mlflow.traceRequestId": f'"{trace_id}"',
-                                "mlflow.spanType": '"LLM"',
-                                "mlflow.spanFunctionName": '"predict"',
-                                "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
-                                "mlflow.spanOutputs": '{"answer": 42}',
-                            },
-                            "events": [],
-                        }
-                    )
+                    Span.from_dict({
+                        "name": "predict",
+                        "context": {
+                            "trace_id": "0x123456789",
+                            "span_id": "0x12345",
+                        },
+                        "parent_id": None,
+                        "start_time": 123000000,
+                        "end_time": 579000000,
+                        "status_code": "OK",
+                        "status_message": "",
+                        "attributes": {
+                            "mlflow.traceRequestId": f'"{trace_id}"',
+                            "mlflow.spanType": '"LLM"',
+                            "mlflow.spanFunctionName": '"predict"',
+                            "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
+                            "mlflow.spanOutputs": '{"answer": 42}',
+                        },
+                        "events": [],
+                    })
                 ]
             ),
         )
@@ -454,12 +452,10 @@ def test_client_search_traces_with_large_results(mock_store, mock_artifact_repo)
     )
     assert len(results) == 100
     assert mock_store.batch_get_traces.call_count == 10
-    assert mock_store.batch_get_traces.has_calls(
-        [
-            mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
-            for j in range(10)
-        ]
-    )
+    assert mock_store.batch_get_traces.has_calls([
+        mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
+        for j in range(10)
+    ])
     mock_artifact_repo.download_trace_data.assert_not_called()
 
 
@@ -1219,12 +1215,10 @@ def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
 def test_set_trace_tag_on_logged_trace(mock_store):
     mlflow.tracking.MlflowClient().set_trace_tag("test", "foo", "bar")
     mlflow.tracking.MlflowClient().set_trace_tag("test", "mlflow.some.reserved.tag", "value")
-    mock_store.set_trace_tag.assert_has_calls(
-        [
-            mock.call("test", "foo", "bar"),
-            mock.call("test", "mlflow.some.reserved.tag", "value"),
-        ]
-    )
+    mock_store.set_trace_tag.assert_has_calls([
+        mock.call("test", "foo", "bar"),
+        mock.call("test", "mlflow.some.reserved.tag", "value"),
+    ])
 
 
 def test_delete_trace_tag_on_active_trace(monkeypatch):

@@ -61,14 +61,12 @@ def spark_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
     additional_pip_deps = ["/opt/mlflow", f"pyspark=={PYSPARK_VERSION}", "pytest"]
     if PYSPARK_VERSION < Version("3.4"):
-        additional_pip_deps.extend(
-            [
-                # Versions of PySpark < 3.4 are incompatible with pandas >= 2
-                "pandas<2",
-                # pandas<2.0 is incompatible with numpy>=2.0
-                "numpy<2.0",
-            ]
-        )
+        additional_pip_deps.extend([
+            # Versions of PySpark < 3.4 are incompatible with pandas >= 2
+            "pandas<2",
+            # pandas<2.0 is incompatible with numpy>=2.0
+            "numpy<2.0",
+        ])
     _mlflow_conda_env(conda_env, additional_pip_deps=additional_pip_deps)
     return conda_env
 
@@ -140,14 +138,12 @@ def iris_df(spark):
 @pytest.fixture(scope="module")
 def iris_signature():
     return ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="0", type=DataType.double),
-                ColSpec(name="1", type=DataType.double),
-                ColSpec(name="2", type=DataType.double),
-                ColSpec(name="3", type=DataType.double),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(name="0", type=DataType.double),
+            ColSpec(name="1", type=DataType.double),
+            ColSpec(name="2", type=DataType.double),
+            ColSpec(name="3", type=DataType.double),
+        ]),
         outputs=Schema([ColSpec(type=DataType.double)]),
     )
 
@@ -220,12 +216,15 @@ def test_hadoop_filesystem(tmp_path):
     FS.copy_from_local_file(test_dir_0, remote, remove_src=False)
     local = os.path.join(tmp_path, "actual")
     FS.copy_to_local_file(remote, local, remove_src=True)
-    assert sorted(os.listdir(os.path.join(local, "root"))) == sorted(
-        ["subdir", "file_0", ".file_0.crc"]
-    )
-    assert sorted(os.listdir(os.path.join(local, "root", "subdir"))) == sorted(
-        ["file_1", ".file_1.crc"]
-    )
+    assert sorted(os.listdir(os.path.join(local, "root"))) == sorted([
+        "subdir",
+        "file_0",
+        ".file_0.crc",
+    ])
+    assert sorted(os.listdir(os.path.join(local, "root", "subdir"))) == sorted([
+        "file_1",
+        ".file_1.crc",
+    ])
     # compare the files
     with open(os.path.join(test_dir_0, "root", "file_0")) as expected_f:
         with open(os.path.join(local, "root", "file_0")) as actual_f:
@@ -1007,11 +1006,9 @@ def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator
             model,
             artifact_path="model",
             signature=ModelSignature(
-                inputs=Schema(
-                    [
-                        ColSpec(name="features", type=SparkMLVector()),
-                    ]
-                ),
+                inputs=Schema([
+                    ColSpec(name="features", type=SparkMLVector()),
+                ]),
                 outputs=Schema([ColSpec(type=DataType.double)]),
             ),
         )

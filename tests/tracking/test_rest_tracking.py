@@ -1189,12 +1189,10 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
         flask_app.test_request_context() as mock_context,
     ):
         run_ids = [str(i) for i in range(10)]
-        mock_context.request.args = MockRequestArgs(
-            {
-                "run_id": run_ids,
-                "metric_key": "mock_key",
-            }
-        )
+        mock_context.request.args = MockRequestArgs({
+            "run_id": run_ids,
+            "metric_key": "mock_key",
+        })
 
         get_metric_history_bulk_handler()
 
@@ -1463,13 +1461,11 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         (run_id1, metric_history),
         (run_id2, metric_history2),
     ]:
-        expected_metrics.extend(
-            [
-                {**metric, "run_id": run_id}
-                for metric in metric_history
-                if metric["step"] in expected_steps
-            ]
-        )
+        expected_metrics.extend([
+            {**metric, "run_id": run_id}
+            for metric in metric_history
+            if metric["step"] in expected_steps
+        ])
     assert response_limited.json().get("metrics") == expected_metrics
 
     # test metrics with same steps
@@ -2375,12 +2371,10 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
     # Test max root fields limit
     batch_query = (
         "query testQuery {"
-        + " ".join(
-            [
-                f"key_{i}: " + 'test(inputString: "abc") { output }'
-                for i in range(int(MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()) + 2)
-            ]
-        )
+        + " ".join([
+            f"key_{i}: " + 'test(inputString: "abc") { output }'
+            for i in range(int(MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()) + 2)
+        ])
         + "}"
     )
     response = requests.post(
@@ -3191,22 +3185,20 @@ def test_search_datasets_graphql(mlflow_client):
     def sort_dataset_summaries(l1):
         return sorted(l1, key=lambda x: x["digest"])
 
-    expected = sort_dataset_summaries(
-        [
-            {
-                "experimentId": experiment_id,
-                "name": "test-dataset-2",
-                "digest": "12346",
-                "context": "training",
-            },
-            {
-                "experimentId": experiment_id,
-                "name": "test-dataset-1",
-                "digest": "12345",
-                "context": "",
-            },
-        ]
-    )
+    expected = sort_dataset_summaries([
+        {
+            "experimentId": experiment_id,
+            "name": "test-dataset-2",
+            "digest": "12346",
+            "context": "training",
+        },
+        {
+            "experimentId": experiment_id,
+            "name": "test-dataset-1",
+            "digest": "12345",
+            "context": "",
+        },
+    ])
     assert (
         sort_dataset_summaries(json["data"]["mlflowSearchDatasets"]["datasetSummaries"]) == expected
     )

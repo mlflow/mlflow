@@ -252,9 +252,10 @@ def mock_evaluation_dataset():
     dataset.tags = {"env": "test", "version": "1.0"}
     dataset.experiment_ids = ["0", "1"]
     dataset._records = []
-    dataset.schema = json.dumps(
-        {"inputs": {"question": "string"}, "expectations": {"accuracy": "float"}}
-    )
+    dataset.schema = json.dumps({
+        "inputs": {"question": "string"},
+        "expectations": {"accuracy": "float"},
+    })
     dataset.profile = json.dumps({"record_count": 0})
 
     proto_dataset = ProtoDataset()
@@ -3004,30 +3005,28 @@ def test_invoke_scorer_missing_trace_ids():
 
 
 def test_invoke_scorer_submits_jobs(mock_tracking_store):
-    serialized_scorer = json.dumps(
-        {
-            "name": "test_judge",
-            "aggregations": [],
-            "description": None,
-            "is_session_level_scorer": False,
-            "mlflow_version": mlflow.__version__,
-            "serialization_version": 1,
-            "builtin_scorer_class": None,
-            "builtin_scorer_pydantic_data": None,
-            "call_source": None,
-            "call_signature": None,
-            "original_func_name": None,
-            "instructions_judge_pydantic_data": {
-                "instructions": "Test: {{ inputs }}",
-                "model": "openai:/gpt-4",
-                "feedback_value_type": {
-                    "enum": ["Yes", "No"],
-                    "title": "Result",
-                    "type": "string",
-                },
+    serialized_scorer = json.dumps({
+        "name": "test_judge",
+        "aggregations": [],
+        "description": None,
+        "is_session_level_scorer": False,
+        "mlflow_version": mlflow.__version__,
+        "serialization_version": 1,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+        "instructions_judge_pydantic_data": {
+            "instructions": "Test: {{ inputs }}",
+            "model": "openai:/gpt-4",
+            "feedback_value_type": {
+                "enum": ["Yes", "No"],
+                "title": "Result",
+                "type": "string",
             },
-        }
-    )
+        },
+    })
 
     with mock.patch("mlflow.server.jobs.submit_job") as mock_submit:
         mock_job = mock.MagicMock()

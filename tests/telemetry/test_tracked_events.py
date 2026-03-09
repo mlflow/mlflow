@@ -559,13 +559,11 @@ def test_genai_evaluate_telemetry_data_fields(
         )
 
         # Test with pandas DataFrame
-        df_data = pd.DataFrame(
-            [
-                {"inputs": {"question": "Q1"}, "outputs": "A1"},
-                {"inputs": {"question": "Q2"}, "outputs": "A2"},
-                {"inputs": {"question": "Q3"}, "outputs": "A3"},
-            ]
-        )
+        df_data = pd.DataFrame([
+            {"inputs": {"question": "Q1"}, "outputs": "A1"},
+            {"inputs": {"question": "Q2"}, "outputs": "A2"},
+            {"inputs": {"question": "Q3"}, "outputs": "A3"},
+        ])
         mlflow.genai.evaluate(data=df_data, scorers=[sample_scorer])
         expected_params = {
             "predict_fn_provided": False,
@@ -1278,13 +1276,11 @@ def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
         data = [record["data"] for record in mock_requests]
         params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
         assert (
-            json.dumps(
-                {
-                    "flavor": mlflow.openai.FLAVOR_NAME,
-                    "log_traces": True,
-                    "disable": False,
-                }
-            )
+            json.dumps({
+                "flavor": mlflow.openai.FLAVOR_NAME,
+                "log_traces": True,
+                "disable": False,
+            })
             in params
         )
         assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
@@ -1455,16 +1451,14 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
     model("How does MLflow work?", session_id="test_session")
     trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
-    test_data = pd.DataFrame(
-        [
-            {
-                "trace": trace_1,
-            },
-            {
-                "trace": trace_2,
-            },
-        ]
-    )
+    test_data = pd.DataFrame([
+        {
+            "trace": trace_1,
+        },
+        {
+            "trace": trace_2,
+        },
+    ])
 
     mock_feedback = Feedback(
         name="test_feedback",
@@ -1694,12 +1688,10 @@ def test_scorer_call_wrapped_builtin_scorer_from_genai_evaluate(
     model("How does MLflow work?", session_id="test_session")
     trace_2 = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
-    test_data = pd.DataFrame(
-        [
-            {"trace": trace_1},
-            {"trace": trace_2},
-        ]
-    )
+    test_data = pd.DataFrame([
+        {"trace": trace_1},
+        {"trace": trace_2},
+    ])
 
     mock_feedback = Feedback(
         name="user_frustration",

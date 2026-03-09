@@ -96,9 +96,10 @@ def customer_support_agent(messages: List[Dict[str, str]]):
     ]
 
     if tool_results:
-        messages_for_llm.append(
-            {"role": "system", "content": f"Tool results: {', '.join(tool_results)}"}
-        )
+        messages_for_llm.append({
+            "role": "system",
+            "content": f"Tool results: {', '.join(tool_results)}",
+        })
 
     # Call LLM to generate a response
     output = client.chat.completions.create(
@@ -106,11 +107,7 @@ def customer_support_agent(messages: List[Dict[str, str]]):
         messages=cast(Any, messages_for_llm),
     )
 
-    return {
-        "messages": [
-            {"role": "assistant", "content": output.choices[0].message.content}
-        ]
-    }
+    return {"messages": [{"role": "assistant", "content": output.choices[0].message.content}]}
 ```
 
 ## Step 2: Define custom judges
@@ -184,9 +181,7 @@ issue_resolution_judge = make_judge(
         "User's messages: {{ inputs }}\n"
         "Agent's responses: {{ outputs }}"
     ),
-    feedback_value_type=Literal[
-        "fully_resolved", "partially_resolved", "needs_follow_up"
-    ],
+    feedback_value_type=Literal["fully_resolved", "partially_resolved", "needs_follow_up"],
 )
 ```
 
@@ -202,9 +197,7 @@ expected_behaviors_judge = make_judge(
         "Compare the agent's response in {{ outputs }} against the expected behaviors in {{ expectations }}.\n\n"
         "User's question: {{ inputs }}"
     ),
-    feedback_value_type=Literal[
-        "meets_expectations", "partially_meets", "does_not_meet"
-    ],
+    feedback_value_type=Literal["meets_expectations", "partially_meets", "does_not_meet"],
 )
 ```
 

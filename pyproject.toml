@@ -177,8 +177,6 @@ dev = [
 ]
 lint = [
   "ruff==0.15.5",
-  "black==23.7.0",
-  "blacken-docs==1.18.0",
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "types-toml",
@@ -280,6 +278,7 @@ target-version = "py310"
 required-version = "0.15.5"
 force-exclude = true
 extend-include = ["*.ipynb"]
+extension = { mdx = "markdown" }
 extend-exclude = [
   "examples/llama_index/workflow",
   "mlflow/assistant/skills",
@@ -291,6 +290,7 @@ extend-exclude = [
 ]
 
 [tool.ruff.format]
+preview = true
 docstring-code-format = true
 
 [tool.ruff.lint]

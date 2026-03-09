@@ -1555,78 +1555,74 @@ BEFORE_REQUEST_VALIDATORS = {
 }
 
 # Auth-related routes
-BEFORE_REQUEST_VALIDATORS.update(
-    {
-        (SIGNUP, "GET"): validate_can_create_user,
-        (GET_USER, "GET"): validate_can_read_user,
-        (LIST_USERS, "GET"): validate_can_list_users,
-        (AJAX_LIST_USERS, "GET"): validate_can_list_users,
-        (CREATE_USER, "POST"): validate_can_create_user,
-        (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
-        (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
-        (DELETE_USER, "DELETE"): validate_can_delete_user,
-        (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
-        (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
-        (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
-        (DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
-        (GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
-        (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
-        (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
-        (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
-        (GET_SCORER_PERMISSION, "GET"): validate_can_manage_scorer_permission,
-        (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
-        (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
-        (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
-        # Gateway secret permissions
-        (GET_GATEWAY_SECRET_PERMISSION, "GET"): validate_can_manage_gateway_secret,
-        (CREATE_GATEWAY_SECRET_PERMISSION, "POST"): validate_can_manage_gateway_secret,
-        (UPDATE_GATEWAY_SECRET_PERMISSION, "PATCH"): validate_can_manage_gateway_secret,
-        (DELETE_GATEWAY_SECRET_PERMISSION, "DELETE"): validate_can_manage_gateway_secret,
-        # Gateway endpoint permissions
-        (GET_GATEWAY_ENDPOINT_PERMISSION, "GET"): validate_can_manage_gateway_endpoint,
-        (CREATE_GATEWAY_ENDPOINT_PERMISSION, "POST"): validate_can_manage_gateway_endpoint,
-        (UPDATE_GATEWAY_ENDPOINT_PERMISSION, "PATCH"): validate_can_manage_gateway_endpoint,
-        (DELETE_GATEWAY_ENDPOINT_PERMISSION, "DELETE"): validate_can_manage_gateway_endpoint,
-        # Gateway model definition permissions
-        (
-            GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "GET",
-        ): validate_can_manage_gateway_model_definition,
-        (
-            CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "POST",
-        ): validate_can_manage_gateway_model_definition,
-        (
-            UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "PATCH",
-        ): validate_can_manage_gateway_model_definition,
-        (
-            DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "DELETE",
-        ): validate_can_manage_gateway_model_definition,
-    }
-)
+BEFORE_REQUEST_VALIDATORS.update({
+    (SIGNUP, "GET"): validate_can_create_user,
+    (GET_USER, "GET"): validate_can_read_user,
+    (LIST_USERS, "GET"): validate_can_list_users,
+    (AJAX_LIST_USERS, "GET"): validate_can_list_users,
+    (CREATE_USER, "POST"): validate_can_create_user,
+    (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
+    (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
+    (DELETE_USER, "DELETE"): validate_can_delete_user,
+    (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
+    (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
+    (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
+    (DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
+    (GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
+    (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
+    (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
+    (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
+    (GET_SCORER_PERMISSION, "GET"): validate_can_manage_scorer_permission,
+    (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
+    (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
+    (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
+    # Gateway secret permissions
+    (GET_GATEWAY_SECRET_PERMISSION, "GET"): validate_can_manage_gateway_secret,
+    (CREATE_GATEWAY_SECRET_PERMISSION, "POST"): validate_can_manage_gateway_secret,
+    (UPDATE_GATEWAY_SECRET_PERMISSION, "PATCH"): validate_can_manage_gateway_secret,
+    (DELETE_GATEWAY_SECRET_PERMISSION, "DELETE"): validate_can_manage_gateway_secret,
+    # Gateway endpoint permissions
+    (GET_GATEWAY_ENDPOINT_PERMISSION, "GET"): validate_can_manage_gateway_endpoint,
+    (CREATE_GATEWAY_ENDPOINT_PERMISSION, "POST"): validate_can_manage_gateway_endpoint,
+    (UPDATE_GATEWAY_ENDPOINT_PERMISSION, "PATCH"): validate_can_manage_gateway_endpoint,
+    (DELETE_GATEWAY_ENDPOINT_PERMISSION, "DELETE"): validate_can_manage_gateway_endpoint,
+    # Gateway model definition permissions
+    (
+        GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        "GET",
+    ): validate_can_manage_gateway_model_definition,
+    (
+        CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        "POST",
+    ): validate_can_manage_gateway_model_definition,
+    (
+        UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        "PATCH",
+    ): validate_can_manage_gateway_model_definition,
+    (
+        DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        "DELETE",
+    ): validate_can_manage_gateway_model_definition,
+})
 
 # Flask routes (no proto mapping)
-BEFORE_REQUEST_VALIDATORS.update(
-    {
-        (GET_ARTIFACT, "GET"): validate_can_read_run_artifact,
-        (UPLOAD_ARTIFACT, "POST"): validate_can_update_run_artifact,
-        (GET_MODEL_VERSION_ARTIFACT, "GET"): validate_can_read_model_version_artifact,
-        (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
-        (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
-        (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
-        (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
-        (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
-        (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
-        (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
-        (INVOKE_SCORER, "POST"): validate_gateway_proxy,
-        (LIST_WORKSPACE_PERMISSIONS, "GET"): validate_can_list_workspace_permissions,
-        (LIST_WORKSPACE_PERMISSIONS, "POST"): validate_can_modify_workspace_permission,
-        (LIST_WORKSPACE_PERMISSIONS, "DELETE"): validate_can_modify_workspace_permission,
-        (LIST_USER_WORKSPACE_PERMISSIONS, "GET"): sender_is_admin,
-    }
-)
+BEFORE_REQUEST_VALIDATORS.update({
+    (GET_ARTIFACT, "GET"): validate_can_read_run_artifact,
+    (UPLOAD_ARTIFACT, "POST"): validate_can_update_run_artifact,
+    (GET_MODEL_VERSION_ARTIFACT, "GET"): validate_can_read_model_version_artifact,
+    (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
+    (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
+    (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
+    (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
+    (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
+    (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
+    (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
+    (INVOKE_SCORER, "POST"): validate_gateway_proxy,
+    (LIST_WORKSPACE_PERMISSIONS, "GET"): validate_can_list_workspace_permissions,
+    (LIST_WORKSPACE_PERMISSIONS, "POST"): validate_can_modify_workspace_permission,
+    (LIST_WORKSPACE_PERMISSIONS, "DELETE"): validate_can_modify_workspace_permission,
+    (LIST_USER_WORKSPACE_PERMISSIONS, "GET"): sender_is_admin,
+})
 
 # Precompile workspace parameterized paths (e.g., workspace_name) for fast matching.
 WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
@@ -2253,15 +2249,13 @@ def get_after_request_handler(request_class):
     return AFTER_REQUEST_PATH_HANDLERS.get(request_class)
 
 
-_AJAX_GATEWAY_PATHS = frozenset(
-    [
-        GATEWAY_SUPPORTED_PROVIDERS,
-        GATEWAY_SUPPORTED_MODELS,
-        GATEWAY_PROVIDER_CONFIG,
-        GATEWAY_SECRETS_CONFIG,
-        INVOKE_SCORER,
-    ]
-)
+_AJAX_GATEWAY_PATHS = frozenset([
+    GATEWAY_SUPPORTED_PROVIDERS,
+    GATEWAY_SUPPORTED_MODELS,
+    GATEWAY_PROVIDER_CONFIG,
+    GATEWAY_SECRETS_CONFIG,
+    INVOKE_SCORER,
+])
 
 AFTER_REQUEST_HANDLERS = {
     (http_path, method): handler
@@ -2904,15 +2898,13 @@ def get_graphql_authorization_middleware():
 
 
 # Routes that need request body to extract endpoint name for validation
-_ROUTES_NEEDING_BODY = frozenset(
-    (
-        "/gateway/mlflow/v1/chat/completions",
-        "/gateway/openai/v1/chat/completions",
-        "/gateway/openai/v1/embeddings",
-        "/gateway/openai/v1/responses",
-        "/gateway/anthropic/v1/messages",
-    )
-)
+_ROUTES_NEEDING_BODY = frozenset((
+    "/gateway/mlflow/v1/chat/completions",
+    "/gateway/openai/v1/chat/completions",
+    "/gateway/openai/v1/embeddings",
+    "/gateway/openai/v1/responses",
+    "/gateway/anthropic/v1/messages",
+))
 
 
 def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:

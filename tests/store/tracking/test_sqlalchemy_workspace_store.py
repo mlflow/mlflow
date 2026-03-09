@@ -843,7 +843,8 @@ def test_workspace_startup_ignores_default_experiment_reserved_location(
 
     with legacy_store.ManagedSessionMaker() as session:
         default_exp = (
-            session.query(SqlExperiment)
+            session
+            .query(SqlExperiment)
             .filter(SqlExperiment.experiment_id == SqlAlchemyStore.DEFAULT_EXPERIMENT_ID)
             .one()
         )
@@ -1047,7 +1048,8 @@ def test_link_traces_to_run_is_workspace_scoped(workspace_tracking_store):
         workspace_tracking_store.link_traces_to_run([trace_id_a], run_b.info.run_id)
         with workspace_tracking_store.ManagedSessionMaker() as session:
             count = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(SqlEntityAssociation.source_id == trace_id_a)
                 .count()
             )
@@ -1061,7 +1063,8 @@ def test_link_traces_to_run_is_workspace_scoped(workspace_tracking_store):
         workspace_tracking_store.link_traces_to_run([trace_id_b], run_b.info.run_id)
         with workspace_tracking_store.ManagedSessionMaker() as session:
             count = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(SqlEntityAssociation.source_id == trace_id_b)
                 .count()
             )
@@ -1394,7 +1397,8 @@ def test_link_prompts_to_trace_is_workspace_scoped(workspace_tracking_store):
 
         with workspace_tracking_store.ManagedSessionMaker() as session:
             count = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(
                     SqlEntityAssociation.source_id == trace_id_a,
                     SqlEntityAssociation.destination_id == "test-prompt/1",
@@ -1419,7 +1423,8 @@ def test_link_prompts_to_trace_is_workspace_scoped(workspace_tracking_store):
 
         with workspace_tracking_store.ManagedSessionMaker() as session:
             count = (
-                session.query(SqlEntityAssociation)
+                session
+                .query(SqlEntityAssociation)
                 .filter(SqlEntityAssociation.source_id == trace_id_a)
                 .count()
             )
@@ -1767,17 +1772,19 @@ def test_get_online_scoring_configs_workspace_scoped(workspace_tracking_store):
             sample_rate=0.4,
         )
 
-        configs = workspace_tracking_store.get_online_scoring_configs(
-            [config_a.scorer_id, config_b.scorer_id]
-        )
+        configs = workspace_tracking_store.get_online_scoring_configs([
+            config_a.scorer_id,
+            config_b.scorer_id,
+        ])
         assert len(configs) == 1
         assert configs[0].scorer_id == config_b.scorer_id
         assert configs[0].sample_rate == 0.4
 
     with WorkspaceContext("team-online-a"):
-        configs = workspace_tracking_store.get_online_scoring_configs(
-            [config_a.scorer_id, config_b.scorer_id]
-        )
+        configs = workspace_tracking_store.get_online_scoring_configs([
+            config_a.scorer_id,
+            config_b.scorer_id,
+        ])
         assert len(configs) == 1
         assert configs[0].scorer_id == config_a.scorer_id
         assert configs[0].sample_rate == 0.2
