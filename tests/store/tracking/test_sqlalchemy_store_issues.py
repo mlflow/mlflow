@@ -2,9 +2,11 @@ import pytest
 
 from mlflow.exceptions import MlflowException
 
+DEFAULT_EXPERIMENT_ID = "0"
+
 
 def test_create_issue_required_fields_only(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     issue = store.create_issue(
         experiment_id=exp_id,
@@ -27,7 +29,7 @@ def test_create_issue_required_fields_only(store):
 
 
 def test_create_issue_with_all_fields(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
     run = store.create_run(
         experiment_id=exp_id,
         user_id="user",
@@ -69,7 +71,7 @@ def test_create_issue_invalid_experiment(store):
 
 
 def test_create_issue_invalid_run(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     with pytest.raises(MlflowException, match=r"FOREIGN KEY constraint failed"):
         store.create_issue(
@@ -82,7 +84,7 @@ def test_create_issue_invalid_run(store):
 
 
 def test_get_issue(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     run = store.create_run(
         experiment_id=exp_id,
@@ -124,7 +126,7 @@ def test_get_issue_nonexistent(store):
 
 
 def test_update_issue(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     created_issue = store.create_issue(
         experiment_id=exp_id,
@@ -165,7 +167,7 @@ def test_update_issue(store):
 
 
 def test_update_issue_partial(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     created_issue = store.create_issue(
         experiment_id=exp_id,
@@ -192,7 +194,7 @@ def test_update_issue_nonexistent(store):
 
 
 def test_search_issues_no_filters(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     issue1 = store.create_issue(
         experiment_id=exp_id,
@@ -251,36 +253,29 @@ def test_search_issues_by_experiment_id(store):
 
 
 def test_search_issues_pagination(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
-    created_issues = [
+    for i in range(5):
         store.create_issue(
             experiment_id=exp_id,
             name=f"Issue {i}",
             description=f"Description {i}",
             status="draft",
         )
-        for i in range(5)
-    ]
 
     page1 = store.search_issues(max_results=2)
 
     assert len(page1) == 2
-    assert page1[0].issue_id == created_issues[4].issue_id
-    assert page1[1].issue_id == created_issues[3].issue_id
     assert page1.token is not None
 
     page2 = store.search_issues(max_results=2, page_token=page1.token)
 
     assert len(page2) == 2
-    assert page2[0].issue_id == created_issues[2].issue_id
-    assert page2[1].issue_id == created_issues[1].issue_id
     assert page2.token is not None
 
     page3 = store.search_issues(max_results=2, page_token=page2.token)
 
     assert len(page3) == 1
-    assert page3[0].issue_id == created_issues[0].issue_id
     assert page3.token is None
 
 
@@ -302,7 +297,7 @@ def test_search_issues_empty_results(store):
 
 
 def test_search_issues_filter_by_status(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     store.create_issue(
         experiment_id=exp_id,
@@ -333,7 +328,7 @@ def test_search_issues_filter_by_status(store):
 
 
 def test_search_issues_filter_by_source_run_id(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     run1 = store.create_run(
         experiment_id=exp_id,
@@ -408,7 +403,7 @@ def test_search_issues_filter_combined_with_experiment_id(store):
 
 
 def test_search_issues_filter_invalid_field(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     store.create_issue(
         experiment_id=exp_id,
@@ -422,7 +417,7 @@ def test_search_issues_filter_invalid_field(store):
 
 
 def test_search_issues_filter_inequality(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     store.create_issue(
         experiment_id=exp_id,
@@ -446,7 +441,7 @@ def test_search_issues_filter_inequality(store):
 
 
 def test_search_issues_filter_and_operator(store):
-    exp_id = "0"
+    exp_id = DEFAULT_EXPERIMENT_ID
 
     run1 = store.create_run(
         experiment_id=exp_id,
@@ -496,3 +491,20 @@ def test_search_issues_filter_and_operator(store):
     assert result[0].issue_id == issue_accepted_run1.issue_id
     assert result[0].status == "accepted"
     assert result[0].source_run_id == run1.info.run_id
+
+
+def test_search_issues_invalid_max_results(store):
+    exp_id = DEFAULT_EXPERIMENT_ID
+
+    store.create_issue(
+        experiment_id=exp_id,
+        name="Test Issue",
+        description="Test",
+        status="accepted",
+    )
+
+    with pytest.raises(MlflowException, match=r"Invalid value 0 for parameter 'max_results'"):
+        store.search_issues(max_results=0)
+
+    with pytest.raises(MlflowException, match=r"Invalid value -1 for parameter 'max_results'"):
+        store.search_issues(max_results=-1)

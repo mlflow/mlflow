@@ -5930,6 +5930,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Returns:
             A PagedList of Issue entities.
         """
+        self._validate_max_results_param(max_results, allow_null=True)
         if max_results is None:
             max_results = SEARCH_ISSUES_DEFAULT_MAX_RESULTS
 
