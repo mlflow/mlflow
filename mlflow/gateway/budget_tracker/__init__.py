@@ -132,6 +132,14 @@ class BudgetTracker(ABC):
         """
 
     @abstractmethod
+    def evict(self, policy_id: str) -> None:
+        """Remove the window for a policy so the next refresh recreates it from scratch.
+
+        Used before an update so the revised policy gets a fresh window backfilled
+        from historical trace data rather than inheriting stale window state.
+        """
+
+    @abstractmethod
     def get_all_windows(self) -> list[BudgetWindow]:
         """Get the current window info for all tracked policies."""
 
