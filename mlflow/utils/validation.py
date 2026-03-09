@@ -521,6 +521,8 @@ def _validate_model_name(model_name):
 
 
 def _validate_model_renaming(model_new_name):
+    if model_new_name is None or str(model_new_name).strip() == "":
+        raise MlflowException(missing_value("model_new_name"), error_code=INVALID_PARAMETER_VALUE)
     _validate_model_name(model_new_name)
 
 
