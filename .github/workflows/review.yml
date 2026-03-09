@@ -109,6 +109,7 @@ jobs:
           fi
 
           EXIT_CODE=0
+          # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
           timeout 20m claude --model claude-opus-4-6 --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
