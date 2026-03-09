@@ -645,6 +645,12 @@ MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
     "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 60
 )
 
+#: Redis URL for the gateway budget tracker. When set, budget tracking uses Redis
+#: instead of in-memory storage, enabling shared state across multiple gateway instances.
+#: Example: ``redis://localhost:6379/0``
+#: (default: ``None`` — uses in-memory tracker)
+MLFLOW_GATEWAY_BUDGET_REDIS_URL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_REDIS_URL", str, None)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
