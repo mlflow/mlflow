@@ -183,9 +183,11 @@ def test_full_chat_span():
         SpanAttributeKey.SPAN_TYPE: json.dumps("CHAT_MODEL"),
         SpanAttributeKey.MODEL: json.dumps("gpt-4o"),
         SpanAttributeKey.MODEL_PROVIDER: json.dumps("openai"),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {"input_tokens": 100, "output_tokens": 50, "total_tokens": 150}
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
     span = _make_span(name="ChatCompletion.create", attributes=attrs)
     result = translate_span_to_genai(span)
