@@ -154,6 +154,15 @@ class UnityCatalog(TraceLocationBase):
     _otel_logs_table_name: str | None = None
     _annotations_table_name: str | None = None
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, UnityCatalog):
+            return NotImplemented
+        return (
+            self.catalog_name == other.catalog_name
+            and self.schema_name == other.schema_name
+            and self.table_prefix == other.table_prefix
+        )
+
     def __repr__(self) -> str:
         return (
             f"UnityCatalog(catalog_name={self.catalog_name!r}, "

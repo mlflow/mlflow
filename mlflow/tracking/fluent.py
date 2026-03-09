@@ -162,7 +162,7 @@ def set_experiment(
             does not exist, an exception is thrown.
         trace_location: Optional UC trace location used to configure the experiment-derived
             tracing destination. Must be an instance of
-            ``mlflow.entities.UnityCatalog(...)``.
+            ``mlflow.entities.trace_location.UnityCatalog(...)``.
 
     Returns:
         An instance of :py:class:`mlflow.entities.Experiment` representing the new active
@@ -267,7 +267,7 @@ def _sync_trace_destination_and_provider(
         is_tracing_enabled,
     )
 
-    was_uc_destination = isinstance(_MLFLOW_TRACE_USER_DESTINATION.get(), (UnityCatalog))
+    was_uc_destination = isinstance(_MLFLOW_TRACE_USER_DESTINATION.get(), UnityCatalog)
 
     # Only clear the global slot when transitioning away from a UC destination
     # to prevent stale UC routing. Non-UC destinations (e.g. from set_destination)
@@ -294,14 +294,6 @@ def _extract_telemetry_profile_id(experiment: Experiment) -> str | None:
     return tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID)
 
 
-def _locations_match(a: UnityCatalog, b: UnityCatalog) -> bool:
-    return (
-        a.catalog_name == b.catalog_name
-        and a.schema_name == b.schema_name
-        and a.table_prefix == b.table_prefix
-    )
-
-
 def _register_experiment_trace_location(
     experiment: Experiment,
     trace_location: UnityCatalog | None,
@@ -318,7 +310,7 @@ def _register_experiment_trace_location(
         return None
     if not isinstance(trace_location, UnityCatalog):
         raise MlflowException.invalid_parameter_value(
-            "`trace_location` must be an instance of `mlflow.entities.UnityCatalog`."
+            "`trace_location` must be an instance of `mlflow.entities.trace_location.UnityCatalog`."
         )
 
     if not is_databricks_uri(_resolve_tracking_uri()):
@@ -343,7 +335,7 @@ def _register_experiment_trace_location(
     # User explicitly requested a location. If the experiment already has one,
     # verify it matches — we don't allow re-linking to a different location.
     if existing_location is not None:
-        if _locations_match(trace_location, existing_location):
+        if trace_location == existing_location:
             return existing_location
         raise MlflowException.invalid_parameter_value(
             f"Experiment '{experiment.name}' is already linked to a different "
