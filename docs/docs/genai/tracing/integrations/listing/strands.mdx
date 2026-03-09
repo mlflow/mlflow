@@ -70,6 +70,26 @@ Since this integration is built on OpenTelemetry, you can combine the automatica
 
 To enable this, set the `MLFLOW_USE_DEFAULT_TRACER_PROVIDER` environment variable to `false` and call <APILink fn="mlflow.tracing.set_destination" /> to merge spans from both SDKs into a single trace.
 
+```python
+import os
+os.environ["MLFLOW_USE_DEFAULT_TRACER_PROVIDER"] = "false"
+
+import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
+
+mlflow.set_tracking_uri("http://localhost:5000")
+exp_id = mlflow.set_experiment("Strands Agents").experiment_id
+mlflow.tracing.set_destination(MlflowExperimentLocation(exp_id))
+
+mlflow.strands.autolog()
+
+# Add custom MLflow spans alongside the auto-generated Strands traces
+with mlflow.start_span("custom_step") as span:
+    span.set_inputs({"query": "test"})
+    # your application logic here
+    span.set_outputs({"result": "success"})
+```
+
 For detailed instructions and examples, see [Combining the OpenTelemetry SDK and the MLflow Tracing SDK](/genai/tracing/app-instrumentation/opentelemetry#combining-the-opentelemetry-sdk-and-the-mlflow-tracing-sdk).
 
 ### Disable auto-tracing
