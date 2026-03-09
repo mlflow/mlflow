@@ -117,22 +117,24 @@ After chatting with your agent, open the MLflow UI at `http://localhost:5000` an
 
 Since this integration is built on OpenTelemetry, you can combine the automatically generated traces with the [MLflow Tracing SDK](/genai/tracing) to add custom spans, set tags, and log assessments within the same trace. If your application includes a Python backend, you can use both the OpenTelemetry SDK and the MLflow Tracing SDK together to enrich traces with additional context.
 
-```python
-import os
-os.environ["MLFLOW_USE_DEFAULT_TRACER_PROVIDER"] = "false"
+```typescript
+import { BatchSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+import { VoltAgentObservability } from "@voltagent/core";
 
-import mlflow
-from mlflow.entities.trace_location import MlflowExperimentLocation
+const mlflowExporter = new OTLPTraceExporter({
+  url: "http://localhost:5000/v1/traces",
+  headers: { "x-mlflow-experiment-id": "<your-experiment-id>" },
+});
 
-mlflow.set_tracking_uri("http://localhost:5000")
-exp_id = mlflow.set_experiment("VoltAgent").experiment_id
-mlflow.tracing.set_destination(MlflowExperimentLocation(exp_id))
+const observability = new VoltAgentObservability({
+  spanProcessors: [new BatchSpanProcessor(mlflowExporter)],
+});
 
-# Add custom MLflow spans alongside the auto-generated traces
-with mlflow.start_span("custom_step") as span:
-    span.set_inputs({"query": "test"})
-    # your application logic here
-    span.set_outputs({"result": "success"})
+new VoltAgent({
+  agents: { agent },
+  observability,
+});
 ```
 
 For detailed instructions and examples, see [Combining the OpenTelemetry SDK and the MLflow Tracing SDK](/genai/tracing/app-instrumentation/opentelemetry#combining-the-opentelemetry-sdk-and-the-mlflow-tracing-sdk).
