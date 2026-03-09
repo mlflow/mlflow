@@ -14,6 +14,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.budget_tracker import (
     BudgetTracker,
     BudgetWindow,
@@ -137,8 +138,6 @@ class RedisBudgetTracker(BudgetTracker):
             try:
                 import redis
             except ImportError:
-                from mlflow.exceptions import MlflowException
-
                 raise MlflowException(
                     "The `redis` package is required for RedisBudgetTracker. "
                     "Install it with: pip install redis"
