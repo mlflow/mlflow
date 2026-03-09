@@ -1,6 +1,7 @@
 import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import ImageBox from "@site/src/components/ImageBox";
 
 # MLflow Langchain Autologging
 
@@ -31,8 +32,6 @@ mlflow.langchain.autolog()
 ```
 
 Once you have invoked the chain, you can view the logged traces and artifacts in the MLflow UI.
-
-import ImageBox from "@site/src/components/ImageBox";
 
 <ImageBox src="/images/llms/tracing/langgraph-agent-trace.png" alt="LangChain Tracing with MLflow" />
 
