@@ -48,12 +48,20 @@ class DatabricksUCTableSpanProcessor(BaseMlflowSpanProcessor):
                 destination._otel_spans_table_name
             )
             trace_id = generate_trace_id_v4(root_span, destination.full_table_prefix)
+            _logger.debug(
+                "Starting trace with Unity Catalog destination %s",
+                destination.full_table_prefix,
+            )
         elif isinstance(destination, UCSchemaLocation):
             trace_location = TraceLocation.from_databricks_uc_schema(
                 destination.catalog_name, destination.schema_name
             )
             trace_location.uc_schema._otel_spans_table_name = destination._otel_spans_table_name
             trace_id = generate_trace_id_v4(root_span, destination.schema_location)
+            _logger.debug(
+                "Starting trace with Unity Catalog destination %s",
+                destination.schema_location,
+            )
         else:
             raise MlflowException(
                 "Unity Catalog spans table name is not set for trace. It can not be exported to "

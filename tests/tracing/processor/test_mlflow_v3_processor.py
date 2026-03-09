@@ -45,6 +45,26 @@ def test_on_start(monkeypatch):
     assert child_span.attributes.get(SpanAttributeKey.REQUEST_ID) == json.dumps(request_id)
 
 
+def test_on_start_logs_resolved_experiment_destination():
+    span = create_mock_otel_span(trace_id=12345, span_id=1, parent_id=None, start_time=5_000_000)
+
+    processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock(), export_metrics=False)
+    with (
+        mock.patch(
+            "mlflow.tracing.processor.mlflow_v3._resolve_experiment_id_for_trace",
+            return_value=("exp-123", "active run"),
+        ),
+        mock.patch("mlflow.tracing.processor.mlflow_v3._logger.debug") as mock_debug,
+    ):
+        processor.on_start(span)
+
+    mock_debug.assert_any_call(
+        "Starting trace with MLflow experiment destination experiment_id=%s (source=%s)",
+        "exp-123",
+        "active run",
+    )
+
+
 @skip_when_testing_trace_sdk
 def test_on_start_during_model_evaluation():
     from mlflow.pyfunc.context import Context, set_prediction_context

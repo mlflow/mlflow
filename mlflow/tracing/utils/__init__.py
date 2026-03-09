@@ -692,6 +692,30 @@ def update_trace_state_from_span_conditionally(trace, root_span):
         trace.info.state = state
 
 
+def _resolve_experiment_id_for_trace(span: OTelReadableSpan) -> tuple[str | None, str]:
+    """
+    Determine the experiment ID and source used to associate with the trace.
+
+    Returns:
+        A tuple of ``(experiment_id, source)`` where ``source`` identifies which
+        precedence branch supplied the experiment ID.
+    """
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+    from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run
+
+    if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
+        return experiment_id, "span attribute"
+
+    if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+        if exp_id := getattr(destination, "experiment_id", None):
+            return exp_id, "explicit trace destination"
+
+    if run := _get_latest_active_run():
+        return run.info.experiment_id, "active run"
+
+    return _get_experiment_id(), "active/default experiment"
+
+
 def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
     """
     Determine the experiment ID to associate with the trace.
@@ -708,20 +732,8 @@ def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
     Returns:
         The experiment ID string to use for the trace.
     """
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-    from mlflow.tracking.fluent import _get_experiment_id, _get_latest_active_run
-
-    if experiment_id := get_otel_attribute(span, SpanAttributeKey.EXPERIMENT_ID):
-        return experiment_id
-
-    if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        if exp_id := getattr(destination, "experiment_id", None):
-            return exp_id
-
-    if run := _get_latest_active_run():
-        return run.info.experiment_id
-
-    return _get_experiment_id()
+    experiment_id, _ = _resolve_experiment_id_for_trace(span)
+    return experiment_id
 
 
 def get_active_spans_table_name() -> str | None:
