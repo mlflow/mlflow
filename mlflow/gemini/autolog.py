@@ -95,7 +95,7 @@ class TracingSession:
         if not config.log_traces:
             return self
 
-        clean_inputs = _strip_traceparent_from_inputs(self.inputs)
+        clean_inputs = _strip_http_headers_from_inputs(self.inputs)
         self.span = mlflow.start_span_no_context(
             name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
             span_type=_get_span_type(self.original.__name__),
@@ -284,65 +284,42 @@ def _inject_tracing_headers_genai(kwargs: dict[str, Any], span: LiveSpan):
         _logger.debug("Failed to inject tracing headers for Gemini", exc_info=True)
 
 
-def _strip_traceparent_from_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
-    """Return a copy of inputs with traceparent stripped from config headers.
+def _strip_http_headers_from_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
+    """Return inputs with http_options.headers removed from config.
 
-    The inner _generate_content span receives the SDK-transformed config which
-    includes the injected traceparent header. Strip it so span inputs stay clean
-    without mutating the original config object.
+    Headers are transport-level details (including injected traceparent) that
+    shouldn't appear in span inputs. If the config was created solely for
+    header injection, replaces it with None entirely.
     """
     config = inputs.get("config")
     if config is None:
         return inputs
 
-    def _has_traceparent(cfg) -> bool:
+    def _get_headers(cfg):
         if isinstance(cfg, dict):
-            return "traceparent" in (cfg.get("http_options", {}) or {}).get("headers", {})
-        if http_options := getattr(cfg, "http_options", None):
-            return "traceparent" in (getattr(http_options, "headers", None) or {})
-        return False
+            return (cfg.get("http_options") or {}).get("headers")
+        if http_opts := getattr(cfg, "http_options", None):
+            return getattr(http_opts, "headers", None)
+        return None
 
-    if not _has_traceparent(config):
+    if not _get_headers(config):
         return inputs
 
+    # Deep-copy to avoid mutating the original config passed to the SDK
     inputs = copy.deepcopy(inputs)
     config = inputs["config"]
     if isinstance(config, dict):
-        headers = config.get("http_options", {}).get("headers", {})
-        headers.pop("traceparent", None)
+        config.pop("http_options", None)
+        # If config has no remaining user-set fields, replace with None
+        if not any(v is not None for v in config.values()):
+            inputs["config"] = None
     else:
-        headers = getattr(getattr(config, "http_options", None), "headers", None)
-        if isinstance(headers, dict):
-            headers.pop("traceparent", None)
-
-    # If the config was created solely for header injection (all other fields are
-    # None/empty), replace it with None to keep span inputs clean.
-    if _is_tracing_only_config(inputs["config"]):
-        inputs["config"] = None
+        config.http_options = None
+        # Check if the Pydantic config has any user-set fields
+        cfg_dict = config.model_dump() if hasattr(config, "model_dump") else vars(config)
+        if not any(v is not None for v in cfg_dict.values()):
+            inputs["config"] = None
     return inputs
-
-
-def _is_tracing_only_config(config) -> bool:
-    """Check if a config object was created solely for tracing header injection."""
-    if isinstance(config, dict):
-        http_options = config.get("http_options", {})
-        non_http = {k: v for k, v in config.items() if k != "http_options"}
-        if any(v is not None for v in non_http.values()):
-            return False
-        if isinstance(http_options, dict):
-            return not http_options.get("headers")
-        return False
-    # Pydantic-style config: check if all fields except http_options are None
-    for key, value in (config.to_dict() if hasattr(config, "to_dict") else vars(config)).items():
-        if key == "http_options":
-            continue
-        if value is not None:
-            return False
-    http_options = getattr(config, "http_options", None)
-    if http_options is None:
-        return True
-    headers = getattr(http_options, "headers", None)
-    return not headers
 
 
 def _get_span_type(task_name: str) -> str:
