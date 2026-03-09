@@ -11,8 +11,13 @@ export const useBudgetWindowsQuery = () => {
     },
   );
 
+  const windowsByPolicyId: Record<string, BudgetPolicyWindow> = {};
+  for (const w of queryResult.data?.windows ?? []) {
+    windowsByPolicyId[w.budget_policy_id] = w;
+  }
+
   return {
-    data: queryResult.data?.windows ?? ({} as Record<string, BudgetPolicyWindow>),
+    data: windowsByPolicyId,
     error: queryResult.error ?? undefined,
     isLoading: queryResult.isLoading,
   };

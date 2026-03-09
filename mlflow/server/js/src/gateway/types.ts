@@ -338,11 +338,12 @@ export interface ListBudgetPoliciesResponse {
 }
 
 export interface BudgetPolicyWindow {
+  budget_policy_id: string;
   window_start_ms: number;
   window_end_ms: number;
   current_spend: number;
 }
 
 export interface ListBudgetWindowsResponse {
-  windows: Record<string, BudgetPolicyWindow>;
+  windows: BudgetPolicyWindow[];
 }

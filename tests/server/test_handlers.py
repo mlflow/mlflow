@@ -1,6 +1,7 @@
 import json
 import uuid
 from dataclasses import asdict
+from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
@@ -8,6 +9,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
 from mlflow.entities import (
+    GatewayBudgetPolicy,
     RunStatus,
     ScorerVersion,
     Span,
@@ -19,6 +21,12 @@ from mlflow.entities import (
 )
 from mlflow.entities._job import Job as JobEntity
 from mlflow.entities._job_status import JobStatus
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+)
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -37,6 +45,7 @@ from mlflow.entities.trace_metrics import (
 )
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 from mlflow.genai.scorers.online.entities import OnlineScoringConfig
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -4152,3 +4161,122 @@ def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(
         mock_artifact_repo.list_artifacts.assert_called_once()
         listed_path = mock_artifact_repo.list_artifacts.call_args[0][0]
         assert listed_path.startswith("workspaces/team-orange/")
+
+
+# ==================== Budget Window Tests ====================
+
+
+def _make_budget_policy(
+    budget_policy_id="bp-test",
+    budget_amount=100.0,
+    duration_unit=None,
+    duration_value=1,
+):
+    return GatewayBudgetPolicy(
+        budget_policy_id=budget_policy_id,
+        budget_unit=BudgetUnit.USD,
+        budget_amount=budget_amount,
+        duration_unit=duration_unit or BudgetDurationUnit.DAYS,
+        duration_value=duration_value,
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.ALERT,
+        created_at=0,
+        last_updated_at=0,
+    )
+
+
+def test_list_budget_windows_empty():
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker") as mock_tracker,
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        mock_tracker.return_value.get_all_windows.return_value = []
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    assert response.json.get("windows", []) == []
+
+
+def test_list_budget_windows_returns_window_data():
+    tracker = InMemoryBudgetTracker()
+    policy = _make_budget_policy(budget_policy_id="bp-1", budget_amount=50.0)
+    tracker.refresh_policies([policy])
+    tracker.record_cost(12.5)
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    data = response.json
+    assert len(data["windows"]) == 1
+    window = data["windows"][0]
+    assert window["budget_policy_id"] == "bp-1"
+    assert window["current_spend"] == 12.5
+    assert "window_start_ms" in window
+    assert "window_end_ms" in window
+    assert window["window_end_ms"] > window["window_start_ms"]
+
+
+def test_list_budget_windows_multiple_policies():
+    tracker = InMemoryBudgetTracker()
+    policy1 = _make_budget_policy(budget_policy_id="bp-1", budget_amount=100.0)
+    policy2 = _make_budget_policy(budget_policy_id="bp-2", budget_amount=200.0)
+    tracker.refresh_policies([policy1, policy2])
+    tracker.record_cost(30.0)
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    data = response.json
+    policy_ids = {w["budget_policy_id"] for w in data["windows"]}
+    assert policy_ids == {"bp-1", "bp-2"}
+    windows_by_id = {w["budget_policy_id"]: w for w in data["windows"]}
+    assert windows_by_id["bp-1"]["current_spend"] == 30.0
+    assert windows_by_id["bp-2"]["current_spend"] == 30.0
+
+
+def test_list_budget_windows_timestamps_are_milliseconds():
+    tracker = InMemoryBudgetTracker()
+    policy = _make_budget_policy()
+    tracker.refresh_policies([policy])
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    window = response.json["windows"][0]
+    min_ms = int(datetime(2000, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
+    assert window["window_start_ms"] >= min_ms
+    assert window["window_end_ms"] >= min_ms
+
+
+def test_list_budget_windows_zero_spend():
+    tracker = InMemoryBudgetTracker()
+    policy = _make_budget_policy(budget_amount=100.0)
+    tracker.refresh_policies([policy])
+
+    with (
+        app.test_client() as c,
+        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
+        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
+    ):
+        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
+
+    assert response.status_code == 200
+    window = response.json["windows"][0]
+    assert window["budget_policy_id"] == "bp-test"
+    assert window["current_spend"] == 0.0

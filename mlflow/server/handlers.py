@@ -197,6 +197,7 @@ from mlflow.protos.service_pb2 import (
     LinkTracesToRun,
     ListArtifacts,
     ListGatewayBudgetPolicies,
+    ListGatewayBudgetWindows,
     ListGatewayEndpointBindings,
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
@@ -5253,6 +5254,25 @@ def _list_budget_policies():
 
 
 @catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_budget_windows():
+    _get_request_message(ListGatewayBudgetWindows())
+    store = _get_tracking_store()
+    maybe_refresh_budget_policies(store)
+    windows = get_budget_tracker().get_all_windows()
+    response_message = ListGatewayBudgetWindows.Response()
+    for w in windows:
+        window_msg = ListGatewayBudgetWindows.BudgetWindow(
+            budget_policy_id=w.policy.budget_policy_id,
+            window_start_ms=int(w.window_start.timestamp() * 1000),
+            window_end_ms=int(w.window_end.timestamp() * 1000),
+            current_spend=w.cumulative_spend,
+        )
+        response_message.windows.append(window_msg)
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
 def _get_server_info():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -6447,6 +6467,7 @@ HANDLERS = {
     UpdateGatewayBudgetPolicy: _update_budget_policy,
     DeleteGatewayBudgetPolicy: _delete_budget_policy,
     ListGatewayBudgetPolicies: _list_budget_policies,
+    ListGatewayBudgetWindows: _list_budget_windows,
     # Prompt Optimization APIs
     CreatePromptOptimizationJob: _create_prompt_optimization_job,
     GetPromptOptimizationJob: _get_prompt_optimization_job,
