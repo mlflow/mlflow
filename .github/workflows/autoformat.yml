@@ -104,8 +104,9 @@ jobs:
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
         run: |
-          git config user.name 'mlflow-app[bot]'
-          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          # This identity is only used for the temporary merge commit and is not pushed.
+          git config user.name 'name'
+          git config user.email 'email'
           git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
           git fetch base ${{ needs.check-comment.outputs.base_ref }}
           git merge base/${{ needs.check-comment.outputs.base_ref }}
@@ -235,10 +236,17 @@ jobs:
           PR_NUMBER: ${{ needs.check-comment.outputs.pull_number }}
           REPO: ${{ github.repository }}
         run: |
-          AUTHOR_LOGIN=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json author --jq '.author.login')
-          AUTHOR_ID=$(gh api "users/$AUTHOR_LOGIN" --jq '.id')
-          git config user.name "$AUTHOR_LOGIN"
-          git config user.email "${AUTHOR_ID}+${AUTHOR_LOGIN}@users.noreply.github.com"
+          AUTHOR=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json author --jq '.author')
+          AUTHOR_LOGIN=$(echo "$AUTHOR" | jq -r '.login')
+          IS_BOT=$(echo "$AUTHOR" | jq -r '.is_bot')
+          if [ "$IS_BOT" = "false" ]; then
+            AUTHOR_ID=$(gh api "users/$AUTHOR_LOGIN" --jq '.id')
+            git config user.name "$AUTHOR_LOGIN"
+            git config user.email "${AUTHOR_ID}+${AUTHOR_LOGIN}@users.noreply.github.com"
+          else
+            git config user.name 'mlflow-app[bot]'
+            git config user.email '191841109+mlflow-app[bot]@users.noreply.github.com'
+          fi
 
       - name: Merge base branch
         env:
