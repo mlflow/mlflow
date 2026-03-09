@@ -3222,6 +3222,10 @@
     "defaultMessage": "Artifacts",
     "description": "Label for the artifacts tab on the logged model details page"
   },
+  "KxeI8I": {
+    "defaultMessage": "Current Spend",
+    "description": "Budget current spend column header"
+  },
   "Kya8N3": {
     "defaultMessage": "Pass",
     "description": "Passing evaluation status in the evaluations table."
@@ -3613,6 +3617,10 @@
   "NW59bs": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for edit workspace modal"
+  },
+  "NW7qsV": {
+    "defaultMessage": "Window End",
+    "description": "Budget window end date column header"
   },
   "NWbmIK": {
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
@@ -7426,6 +7434,10 @@
   "mz/gog": {
     "defaultMessage": "Traffic Split",
     "description": "Summary traffic split label"
+  },
+  "n/MCHF": {
+    "defaultMessage": "Window Start",
+    "description": "Budget window start date column header"
   },
   "n/l2ft": {
     "defaultMessage": "Reset filters",
