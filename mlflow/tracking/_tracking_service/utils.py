@@ -286,8 +286,16 @@ def _get_tracking_scheme_with_resolved_uri(resolved_store_uri: str) -> str:
     if builder is None:
         return "None"
     if builder.__module__.split(".", 1)[0] != "mlflow":
-        return "custom_scheme"
+        return _resolve_custom_scheme(scheme, resolved_store_uri)
     return scheme
+
+
+def _resolve_custom_scheme(scheme: str, resolved_store_uri: str) -> str:
+    if scheme == "arn" or resolved_store_uri.startswith("arn:aws:"):
+        return "aws"
+    if scheme == "azureml":
+        return "azure"
+    return "custom_scheme"
 
 
 _artifact_repos_cache = OrderedDict()
