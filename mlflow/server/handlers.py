@@ -264,7 +264,7 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
-from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
@@ -5231,7 +5231,7 @@ def _list_budget_policies():
         },
     )
     budget_policies = _get_tracking_store().list_budget_policies(
-        max_results=request_message.max_results,
+        max_results=request_message.max_results or SEARCH_MAX_RESULTS_DEFAULT,
         page_token=request_message.page_token or None,
     )
     response_message = ListGatewayBudgetPolicies.Response()
