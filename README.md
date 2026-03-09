@@ -3,9 +3,19 @@
         <img alt="MLflow logo" src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/logo.svg" width="200" />
     </a>
 </h1>
-<h2 align="center" style="border-bottom: none">Open-Source Platform for Productionizing AI</h2>
+<h2 align="center" style="border-bottom: none">The Largest Open Source AI Engineering Platform</h2>
 
-MLflow is an open-source developer platform to build AI/LLM applications and models with confidence. Enhance your AI applications with end-to-end **experiment tracking**, **observability**, and **evaluations**, all in one integrated platform.
+MLflow is the largest open source **AI engineering platform**. MLflow enables teams of all sizes to debug,
+evaluate, monitor, and optimize production-quality AI agents, LLM applications, and ML models while
+controlling costs and managing access to models and data. With over 30 million monthly downloads,
+thousands of organizations rely on MLflow each day to ship AI to production with confidence.
+
+MLflow's comprehensive feature set for agents
+and LLM applications includes production-grade [observability](https://mlflow.org/docs/latest/genai/tracing), [evaluation](https://mlflow.org/docs/latest/genai/eval-monitor),
+[prompt management](https://mlflow.org/docs/latest/genai/prompt-registry), an [AI Gateway](https://mlflow.org/docs/latest/genai/governance/ai-gateway) for managing costs and model access, and more.
+Learn more at [MLflow for LLMs and Agents](https://mlflow.org/docs/latest/genai).
+
+For machine learning (ML) model development, MLflow provides [experiment tracking](https://mlflow.org/docs/latest/ml/tracking/quickstart), [model evaluation capabilities](https://mlflow.org/docs/latest/ml/evaluation), a [production model registry](https://mlflow.org/docs/latest/ml/model-registry), and [model deployment tools](https://mlflow.org/docs/latest/ml/deployment).
 
 <div align="center">
 
@@ -92,7 +102,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
         <br>
         <a href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/"><strong>🌐 AI Gateway</strong></a>
         <br><br>
-        <div>Route requests to any LLM provider through a secure proxy, with built-in credential management, cost tracking, traffic splitting for A/B testing, automatic failover, and beyond.</div><br>
+        <div>Route requests to any LLM provider through a secure proxy, with built-in credential management, cost tracking, guardrails, traffic splitting for A/B testing, automatic failover, and beyond.</div><br>
         <a href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/quickstart/">Getting Started →</a>
         <br><br>
     </div>
