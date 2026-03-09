@@ -506,19 +506,20 @@ def _validate_list_param(param_name: str, param_value: Any, allow_none: bool = F
 def _validate_model_name(model_name):
     model_name_str = str(model_name)
     if model_name is None or model_name_str.strip() == "":
-        raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)  
+        raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
     invalid_chars = ("/", ":")
     if any(char in model_name_str for char in invalid_chars):
         raise MlflowException(
             f"Invalid model name '{model_name}'. Names cannot contain '/' or ':'.",
-            error_code=INVALID_PARAMETER_VALUE
+            error_code=INVALID_PARAMETER_VALUE,
         )
     if path_not_unique(model_name_str):
         raise MlflowException(
             invalid_value("name", model_name, bad_path_message(model_name)),
             INVALID_PARAMETER_VALUE,
         )
-    
+
+
 def _validate_model_renaming(model_new_name):
     _validate_model_name(model_new_name)
 
