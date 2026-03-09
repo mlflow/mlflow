@@ -2524,6 +2524,44 @@ def test_delete_prompt_version_invalidates_latest_cache(tracking_uri):
     assert latest_prompt_after_delete.template == prompt_v1.template
 
 
+def test_set_prompt_model_config_invalidates_latest_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    cache_ttl_seconds = 1
+    prompt = client.register_prompt(name="test_prompt", template="test")
+    prompt_before_update = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_before_update.model_config is None
+
+    model_config = {"model_name": "gpt-4", "temperature": 0.7}
+    mlflow.genai.set_prompt_model_config(
+        name=prompt.name,
+        version=prompt.version,
+        model_config=model_config,
+    )
+
+    prompt_after_update = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_after_update.model_config == model_config
+
+
+def test_delete_prompt_model_config_invalidates_latest_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    cache_ttl_seconds = 1
+    model_config = {"model_name": "gpt-4", "temperature": 0.7}
+    prompt = client.register_prompt(
+        name="test_prompt",
+        template="test",
+        model_config=model_config,
+    )
+    prompt_before_delete = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_before_delete.model_config == model_config
+
+    mlflow.genai.delete_prompt_model_config(name=prompt.name, version=prompt.version)
+
+    prompt_after_delete = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_after_delete.model_config is None
+
+
 def test_delete_prompt_version_invalidates_alias_cache(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
