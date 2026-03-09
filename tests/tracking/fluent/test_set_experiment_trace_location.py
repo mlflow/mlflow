@@ -41,11 +41,13 @@ def test_uc_schema_location_is_rejected():
 
 
 def test_no_trace_location_returns_none():
-    result = _register_experiment_trace_location(
-        experiment=_experiment(),
-        trace_location=None,
-    )
-    assert result is None
+    with mock.patch("mlflow.tracking.fluent.TracingClient") as mock_tc_cls:
+        result = _register_experiment_trace_location(
+            experiment=_experiment(),
+            trace_location=None,
+        )
+        assert result is None
+        mock_tc_cls.assert_not_called()
 
 
 def test_non_databricks_backend_raises():
