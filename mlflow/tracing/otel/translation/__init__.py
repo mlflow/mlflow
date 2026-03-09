@@ -441,9 +441,9 @@ def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
                 try:
                     # If the value was double-encoded (e.g., via OTLP where from_otel_proto
                     # calls dump_span_attribute_value on an already-serialized string), strip
-                    # one layer of encoding. The inner json.loads verifies the result is valid
-                    # JSON so we don't accidentally mangle non-JSON strings.
-                    if json.loads(result) is not None:
+                    # one layer of encoding for str/dict/list types. We intentionally exclude
+                    # primitives like int/bool to avoid misinterpreting e.g. "1" as an integer.
+                    if isinstance(json.loads(result), (str, dict, list)):
                         updated_attributes[key] = result
                         continue
                 except json.JSONDecodeError:
