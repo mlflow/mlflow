@@ -4217,9 +4217,11 @@ def test_list_budget_windows_returns_window_data():
     window = data["windows"][0]
     assert window["budget_policy_id"] == "bp-1"
     assert window["current_spend"] == 12.5
-    assert "window_start_ms" in window
-    assert "window_end_ms" in window
+    min_ms = int(datetime(2000, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
+    assert window["window_start_ms"] >= min_ms
     assert window["window_end_ms"] > window["window_start_ms"]
+    # Policy uses duration_unit=DAYS, duration_value=1 → exactly 1 day
+    assert window["window_end_ms"] - window["window_start_ms"] == 86_400_000
 
 
 def test_list_budget_windows_multiple_policies():
@@ -4243,25 +4245,6 @@ def test_list_budget_windows_multiple_policies():
     windows_by_id = {w["budget_policy_id"]: w for w in data["windows"]}
     assert windows_by_id["bp-1"]["current_spend"] == 30.0
     assert windows_by_id["bp-2"]["current_spend"] == 30.0
-
-
-def test_list_budget_windows_timestamps_are_milliseconds():
-    tracker = InMemoryBudgetTracker()
-    policy = _make_budget_policy()
-    tracker.refresh_policies([policy])
-
-    with (
-        app.test_client() as c,
-        mock.patch("mlflow.server.handlers.get_budget_tracker", return_value=tracker),
-        mock.patch("mlflow.server.handlers.maybe_refresh_budget_policies"),
-    ):
-        response = c.get("/ajax-api/3.0/mlflow/gateway/budgets/windows")
-
-    assert response.status_code == 200
-    window = response.json["windows"][0]
-    min_ms = int(datetime(2000, 1, 1, tzinfo=timezone.utc).timestamp() * 1000)
-    assert window["window_start_ms"] >= min_ms
-    assert window["window_end_ms"] >= min_ms
 
 
 def test_list_budget_windows_zero_spend():
