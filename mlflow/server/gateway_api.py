@@ -936,7 +936,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
 
 
 @budget_router.get("/budgets/windows")
-async def list_budget_windows() -> dict:
+async def list_budget_windows() -> dict[str, dict[str, dict[str, float | int]]]:
     tracker = get_budget_tracker()
     windows = tracker.get_all_windows()
     return {

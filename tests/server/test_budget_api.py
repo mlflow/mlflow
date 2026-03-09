@@ -1,5 +1,3 @@
-"""Tests for the budget windows FastAPI endpoint."""
-
 from datetime import datetime, timezone
 from unittest.mock import patch
 
