@@ -217,6 +217,24 @@ def test_model_skops_format_trusted_type(sklearn_knn_model, model_path):
     )
 
 
+def test_load_pyfunc_detects_skops_format_from_file_extension(sklearn_logreg_model, model_path):
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_logreg_model.model,
+        path=model_path,
+        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
+    )
+    skops_file_path = os.path.join(model_path, mlflow.sklearn._SKOPS_MODEL_DATA_SUBPATH)
+    assert os.path.isfile(skops_file_path)
+
+    # Calling _load_pyfunc with a direct file path simulates how _capture_modules.py
+    # invokes it during pip requirements inference.
+    wrapper = mlflow.sklearn._load_pyfunc(skops_file_path)
+    np.testing.assert_array_equal(
+        sklearn_logreg_model.model.predict(sklearn_logreg_model.inference_data),
+        wrapper.predict(sklearn_logreg_model.inference_data),
+    )
+
+
 def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_path):
     sklearn_model_path = tmp_path / "sklearn_model_empty_exists"
     sklearn_model_path.mkdir()

@@ -560,9 +560,12 @@ def _load_pyfunc(path):
         # Scikit-learn models saved in older versions of MLflow (<= 1.9.1) specify the ``data``
         # field within the pyfunc flavor configuration. For these older models, the ``path``
         # parameter of ``_load_pyfunc()`` refers directly to a serialized scikit-learn model
-        # object. In this case, we assume that the serialization format is ``pickle``, since
-        # the model loading procedure in older versions of MLflow used ``pickle.load()``.
-        serialization_format = SERIALIZATION_FORMAT_PICKLE
+        # object. Infer the serialization format from the file extension: ``.skops`` files use
+        # the skops format, while all other files (e.g., ``.pkl``) use pickle.
+        if path.endswith(".skops"):
+            serialization_format = SERIALIZATION_FORMAT_SKOPS
+        else:
+            serialization_format = SERIALIZATION_FORMAT_PICKLE
         skops_trusted_types = None
     else:
         # In contrast, scikit-learn models saved in versions of MLflow > 1.9.1 do not
