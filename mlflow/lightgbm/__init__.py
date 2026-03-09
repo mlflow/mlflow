@@ -87,6 +87,14 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "lightgbm"
 
+# Builtin trusted types for LightGBM sklearn-compatible models serialized with skops.
+# These cover the common LightGBM model classes and their internal dependencies.
+_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES = {
+    "collections.OrderedDict",
+    "lightgbm.basic.Booster",
+    "lightgbm.sklearn.LGBMClassifier",
+    "lightgbm.sklearn.LGBMRegressor",
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -232,6 +240,10 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
+    if serialization_format == "skops":
+        skops_trusted_types = list(
+            _LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES.union(skops_trusted_types or set())
+        )
     # Save a LightGBM model
     _save_model(lgb_model, model_data_path, serialization_format, skops_trusted_types)
 
@@ -417,9 +429,7 @@ def log_model(
         # Log the model
         artifact_path = "model"
         with mlflow.start_run():
-            model_info = mlflow.lightgbm.log_model(
-                model, name=artifact_path, signature=signature
-            )
+            model_info = mlflow.lightgbm.log_model(model, name=artifact_path, signature=signature)
 
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")

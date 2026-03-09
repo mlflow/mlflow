@@ -342,9 +342,7 @@ can simply log a predict method via the keyword argument ``python_model``.
 
     # Save the function as a model
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
-            name="model", python_model=predict, pip_requirements=["pandas"]
-        )
+        mlflow.pyfunc.log_model(name="model", python_model=predict, pip_requirements=["pandas"])
         run_id = mlflow.active_run().info.run_id
 
     # Load the model from the tracking server and perform inference
@@ -377,9 +375,7 @@ we would recommend using the functional-based Model instead for this simple case
 
     # Save the function as a model
     with mlflow.start_run():
-        mlflow.pyfunc.log_model(
-            name="model", python_model=MyModel(), pip_requirements=["pandas"]
-        )
+        mlflow.pyfunc.log_model(name="model", python_model=MyModel(), pip_requirements=["pandas"])
         run_id = mlflow.active_run().info.run_id
 
     # Load the model from the tracking server and perform inference
@@ -1528,18 +1524,16 @@ def _convert_spec_type_to_spark_type(spec_type):
         return ArrayType(_convert_spec_type_to_spark_type(spec_type.dtype))
 
     if isinstance(spec_type, Object):
-        return StructType(
-            [
-                StructField(
-                    property.name,
-                    _convert_spec_type_to_spark_type(property.dtype),
-                    # we set nullable to True for all properties
-                    # to avoid some errors like java.lang.NullPointerException
-                    # when the signature is not inferred based on correct data.
-                )
-                for property in spec_type.properties
-            ]
-        )
+        return StructType([
+            StructField(
+                property.name,
+                _convert_spec_type_to_spark_type(property.dtype),
+                # we set nullable to True for all properties
+                # to avoid some errors like java.lang.NullPointerException
+                # when the signature is not inferred based on correct data.
+            )
+            for property in spec_type.properties
+        ])
 
     # Map only supports string as key
     if isinstance(spec_type, Map):
@@ -1588,12 +1582,10 @@ def _infer_spark_udf_return_type(model_output_schema):
     if len(model_output_schema.inputs) == 1:
         return _cast_output_spec_to_spark_type(model_output_schema.inputs[0])
 
-    return StructType(
-        [
-            StructField(name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec))
-            for i, spec in enumerate(model_output_schema.inputs)
-        ]
-    )
+    return StructType([
+        StructField(name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec))
+        for i, spec in enumerate(model_output_schema.inputs)
+    ])
 
 
 def _parse_spark_datatype(datatype: str):
@@ -1608,7 +1600,8 @@ def _parse_spark_datatype(datatype: str):
         # returns UnparsedDataType, which is not compatible with signature inference.
         # Note: SparkSession.active only exists for spark >= 3.5.0
         schema = (
-            SparkSession.active()
+            SparkSession
+            .active()
             .range(0)
             .select(udf(lambda x: x, returnType=return_type)("id"))
             .schema
@@ -1764,27 +1757,22 @@ def _convert_struct_values(
                 field_values = _convert_array_values(field_values, field_type)
         elif isinstance(field_type, StructType):
             if is_pandas_df:
-                field_values = pandas.Series(
-                    [
-                        _convert_struct_values(field_value, field_type)
-                        for field_value in field_values
-                    ]
-                )
+                field_values = pandas.Series([
+                    _convert_struct_values(field_value, field_type) for field_value in field_values
+                ])
             else:
                 if isinstance(field_values, pydantic.BaseModel):
                     field_values = field_values.model_dump()
                 field_values = _convert_struct_values(field_values, field_type)
         elif isinstance(field_type, MapType):
             if is_pandas_df:
-                field_values = pandas.Series(
-                    [
-                        {
-                            key: _convert_value_based_on_spark_type(value, field_type.valueType)
-                            for key, value in field_value.items()
-                        }
-                        for field_value in field_values
-                    ]
-                ).astype(object)
+                field_values = pandas.Series([
+                    {
+                        key: _convert_value_based_on_spark_type(value, field_type.valueType)
+                        for key, value in field_value.items()
+                    }
+                    for field_value in field_values
+                ]).astype(object)
             else:
                 field_values = {
                     key: _convert_value_based_on_spark_type(value, field_type.valueType)
@@ -2541,9 +2529,13 @@ e.g., struct<a:int, b:array<int>>.
 
         elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
         if type(elem_type) == IntegerType:
-            result = result.select_dtypes(
-                [np.byte, np.ubyte, np.short, np.ushort, np.int32]
-            ).astype(np.int32)
+            result = result.select_dtypes([
+                np.byte,
+                np.ubyte,
+                np.short,
+                np.ushort,
+                np.int32,
+            ]).astype(np.int32)
 
         elif type(elem_type) == LongType:
             result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int]).astype(

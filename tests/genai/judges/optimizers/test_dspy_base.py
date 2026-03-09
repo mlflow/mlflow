@@ -9,10 +9,8 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.optimizers.dspy import DSPyAlignmentOptimizer
-from mlflow.genai.judges.optimizers.dspy_utils import (
-    AgentEvalLM,
-    convert_mlflow_uri_to_litellm,
-)
+from mlflow.genai.judges.optimizers.dspy_utils import AgentEvalLM
+from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 
 from tests.genai.judges.optimizers.conftest import MockDSPyLM, MockJudge
 

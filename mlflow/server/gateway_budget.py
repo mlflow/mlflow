@@ -13,7 +13,6 @@ from mlflow.entities.gateway_budget_policy import BudgetAction, BudgetTargetScop
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.budget_tracker import BudgetWindow, get_budget_tracker
 from mlflow.gateway.tracing_utils import _get_model_span_info
-from mlflow.server.handlers import _get_model_registry_store
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import CostKey, SpanAttributeKey
 from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
@@ -151,6 +150,8 @@ def make_budget_on_complete(
     workspace: str | None,
 ):
     """Create an on_complete callback that records budget cost from child span attributes."""
+    from mlflow.server.handlers import _get_model_registry_store
+
     try:
         registry_store = _get_model_registry_store()
     except Exception:

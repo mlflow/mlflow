@@ -764,13 +764,11 @@ class MlflowClient:
             tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT})
             tags.update({PROMPT_TEXT_TAG_KEY: template})
         if response_format:
-            tags.update(
-                {
-                    RESPONSE_FORMAT_TAG_KEY: json.dumps(
-                        PromptVersion.convert_response_format_to_dict(response_format)
-                    ),
-                }
-            )
+            tags.update({
+                RESPONSE_FORMAT_TAG_KEY: json.dumps(
+                    PromptVersion.convert_response_format_to_dict(response_format)
+                ),
+            })
         if model_config:
             # Convert ModelConfig to dict if needed
             if isinstance(model_config, PromptModelConfig):

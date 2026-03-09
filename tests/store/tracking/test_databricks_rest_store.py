@@ -499,26 +499,24 @@ def test_search_traces_uc_schema(monkeypatch):
     response = mock.MagicMock()
     response.status_code = 200
 
-    response.text = json.dumps(
-        {
-            "trace_infos": [
-                {
-                    # REST API uses raw otel id as trace_id
-                    "trace_id": "1234",
-                    "trace_location": {
-                        "type": "UC_SCHEMA",
-                        "uc_schema": {"catalog_name": "catalog", "schema_name": "schema"},
-                    },
-                    "request_time": "1970-01-01T00:00:00.123Z",
-                    "execution_duration_ms": 456,
-                    "state": "OK",
-                    "trace_metadata": {"key": "value"},
-                    "tags": {"k": "v"},
-                }
-            ],
-            "next_page_token": "token",
-        }
-    )
+    response.text = json.dumps({
+        "trace_infos": [
+            {
+                # REST API uses raw otel id as trace_id
+                "trace_id": "1234",
+                "trace_location": {
+                    "type": "UC_SCHEMA",
+                    "uc_schema": {"catalog_name": "catalog", "schema_name": "schema"},
+                },
+                "request_time": "1970-01-01T00:00:00.123Z",
+                "execution_duration_ms": 456,
+                "state": "OK",
+                "trace_metadata": {"key": "value"},
+                "tags": {"k": "v"},
+            }
+        ],
+        "next_page_token": "token",
+    })
 
     filter_string = "state = 'OK'"
     max_results = 50
@@ -588,25 +586,23 @@ def test_search_traces_experiment_id(exception):
     response = mock.MagicMock()
     response.status_code = 200
 
-    response.text = json.dumps(
-        {
-            "traces": [
-                {
-                    "trace_id": "tr-1234",
-                    "trace_location": {
-                        "type": "MLFLOW_EXPERIMENT",
-                        "mlflow_experiment": {"experiment_id": "1"},
-                    },
-                    "request_time": "1970-01-01T00:00:00.123Z",
-                    "execution_duration_ms": 456,
-                    "state": "OK",
-                    "trace_metadata": {"key": "value"},
-                    "tags": {"k": "v"},
-                }
-            ],
-            "next_page_token": "token",
-        }
-    )
+    response.text = json.dumps({
+        "traces": [
+            {
+                "trace_id": "tr-1234",
+                "trace_location": {
+                    "type": "MLFLOW_EXPERIMENT",
+                    "mlflow_experiment": {"experiment_id": "1"},
+                },
+                "request_time": "1970-01-01T00:00:00.123Z",
+                "execution_duration_ms": 456,
+                "state": "OK",
+                "trace_metadata": {"key": "value"},
+                "tags": {"k": "v"},
+            }
+        ],
+        "next_page_token": "token",
+    })
     filter_string = "state = 'OK'"
     page_token = "12345abcde"
     locations = ["1"]
@@ -838,26 +834,24 @@ def test_search_unified_traces(monkeypatch):
     response.status_code = 200
 
     # Format the response (using TraceInfo format for online path)
-    response.text = json.dumps(
-        {
-            "traces": [
-                {
-                    "request_id": "tr-1234",
-                    "experiment_id": "1234",
-                    "timestamp_ms": 123,
-                    "execution_time_ms": 456,
-                    "status": "OK",
-                    "tags": [
-                        {"key": "k", "value": "v"},
-                    ],
-                    "request_metadata": [
-                        {"key": "key", "value": "value"},
-                    ],
-                }
-            ],
-            "next_page_token": "token",
-        }
-    )
+    response.text = json.dumps({
+        "traces": [
+            {
+                "request_id": "tr-1234",
+                "experiment_id": "1234",
+                "timestamp_ms": 123,
+                "execution_time_ms": 456,
+                "status": "OK",
+                "tags": [
+                    {"key": "k", "value": "v"},
+                ],
+                "request_metadata": [
+                    {"key": "key", "value": "value"},
+                ],
+            }
+        ],
+        "next_page_token": "token",
+    })
 
     # Parameters for search_traces
     experiment_ids = ["1234"]
@@ -1107,30 +1101,28 @@ def test_create_assessment(sql_warehouse_id):
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
-    response.text = json.dumps(
-        {
-            "assessment_id": "1234",
-            "assessment_name": "assessment_name",
-            "trace_identifier": {
-                "uc_schema": {
-                    "catalog_name": "catalog",
-                    "schema_name": "schema",
-                },
-                "trace_id": "1234",
+    response.text = json.dumps({
+        "assessment_id": "1234",
+        "assessment_name": "assessment_name",
+        "trace_identifier": {
+            "uc_schema": {
+                "catalog_name": "catalog",
+                "schema_name": "schema",
             },
-            "source": {
-                "source_type": "LLM_JUDGE",
-                "source_id": "gpt-4o-mini",
-            },
-            "create_time": "2025-02-20T05:47:23Z",
-            "last_update_time": "2025-02-20T05:47:23Z",
-            "feedback": {"value": True},
-            "rationale": "rationale",
-            "metadata": {"model": "gpt-4o-mini"},
-            "error": None,
-            "span_id": None,
-        }
-    )
+            "trace_id": "1234",
+        },
+        "source": {
+            "source_type": "LLM_JUDGE",
+            "source_id": "gpt-4o-mini",
+        },
+        "create_time": "2025-02-20T05:47:23Z",
+        "last_update_time": "2025-02-20T05:47:23Z",
+        "feedback": {"value": True},
+        "rationale": "rationale",
+        "metadata": {"model": "gpt-4o-mini"},
+        "error": None,
+        "span_id": None,
+    })
 
     feedback = Feedback(
         trace_id="trace:/catalog.schema/1234",
@@ -1168,24 +1160,22 @@ def test_get_assessment(sql_warehouse_id):
     response = mock.MagicMock()
     response.status_code = 200
     trace_id = "trace:/catalog.schema/1234"
-    response.text = json.dumps(
-        {
-            "assessment_id": "1234",
-            "assessment_name": "assessment_name",
-            "trace_id": trace_id,
-            "source": {
-                "source_type": "LLM_JUDGE",
-                "source_id": "gpt-4o-mini",
-            },
-            "create_time": "2025-02-20T05:47:23Z",
-            "last_update_time": "2025-02-20T05:47:23Z",
-            "feedback": {"value": True},
-            "rationale": "rationale",
-            "metadata": {"model": "gpt-4o-mini"},
-            "error": None,
-            "span_id": None,
-        }
-    )
+    response.text = json.dumps({
+        "assessment_id": "1234",
+        "assessment_name": "assessment_name",
+        "trace_id": trace_id,
+        "source": {
+            "source_type": "LLM_JUDGE",
+            "source_id": "gpt-4o-mini",
+        },
+        "create_time": "2025-02-20T05:47:23Z",
+        "last_update_time": "2025-02-20T05:47:23Z",
+        "feedback": {"value": True},
+        "rationale": "rationale",
+        "metadata": {"model": "gpt-4o-mini"},
+        "error": None,
+        "span_id": None,
+    })
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         res = store.get_assessment(
             trace_id=trace_id,
@@ -1211,31 +1201,29 @@ def test_update_assessment(sql_warehouse_id):
     response = mock.MagicMock()
     response.status_code = 200
     trace_id = "trace:/catalog.schema/1234"
-    response.text = json.dumps(
-        {
-            "assessment_id": "1234",
-            "assessment_name": "updated_assessment_name",
-            "trace_location": {
-                "type": "UC_SCHEMA",
-                "uc_schema": {
-                    "catalog_name": "catalog",
-                    "schema_name": "schema",
-                },
+    response.text = json.dumps({
+        "assessment_id": "1234",
+        "assessment_name": "updated_assessment_name",
+        "trace_location": {
+            "type": "UC_SCHEMA",
+            "uc_schema": {
+                "catalog_name": "catalog",
+                "schema_name": "schema",
             },
-            "trace_id": "1234",
-            "source": {
-                "source_type": "LLM_JUDGE",
-                "source_id": "gpt-4o-mini",
-            },
-            "create_time": "2025-02-20T05:47:23Z",
-            "last_update_time": "2025-02-20T05:47:23Z",
-            "feedback": {"value": False},
-            "rationale": "updated_rationale",
-            "metadata": {"model": "gpt-4o-mini"},
-            "error": None,
-            "span_id": None,
-        }
-    )
+        },
+        "trace_id": "1234",
+        "source": {
+            "source_type": "LLM_JUDGE",
+            "source_id": "gpt-4o-mini",
+        },
+        "create_time": "2025-02-20T05:47:23Z",
+        "last_update_time": "2025-02-20T05:47:23Z",
+        "feedback": {"value": False},
+        "rationale": "updated_rationale",
+        "metadata": {"model": "gpt-4o-mini"},
+        "error": None,
+        "span_id": None,
+    })
 
     request = {
         "assessment_id": "1234",
@@ -1282,32 +1270,30 @@ def test_update_assessment_uc_table_prefix(sql_warehouse_id):
     response = mock.MagicMock()
     response.status_code = 200
     trace_id = "trace:/catalog.schema.prefix/1234"
-    response.text = json.dumps(
-        {
-            "assessment_id": "1234",
-            "assessment_name": "updated_assessment_name",
-            "trace_location": {
-                "type": "UC_TABLE_PREFIX",
-                "uc_table_prefix": {
-                    "catalog_name": "catalog",
-                    "schema_name": "schema",
-                    "table_prefix": "prefix",
-                },
+    response.text = json.dumps({
+        "assessment_id": "1234",
+        "assessment_name": "updated_assessment_name",
+        "trace_location": {
+            "type": "UC_TABLE_PREFIX",
+            "uc_table_prefix": {
+                "catalog_name": "catalog",
+                "schema_name": "schema",
+                "table_prefix": "prefix",
             },
-            "trace_id": "1234",
-            "source": {
-                "source_type": "LLM_JUDGE",
-                "source_id": "gpt-4o-mini",
-            },
-            "create_time": "2025-02-20T05:47:23Z",
-            "last_update_time": "2025-02-20T05:47:23Z",
-            "feedback": {"value": False},
-            "rationale": "updated_rationale",
-            "metadata": {"model": "gpt-4o-mini"},
-            "error": None,
-            "span_id": None,
-        }
-    )
+        },
+        "trace_id": "1234",
+        "source": {
+            "source_type": "LLM_JUDGE",
+            "source_id": "gpt-4o-mini",
+        },
+        "create_time": "2025-02-20T05:47:23Z",
+        "last_update_time": "2025-02-20T05:47:23Z",
+        "feedback": {"value": False},
+        "rationale": "updated_rationale",
+        "metadata": {"model": "gpt-4o-mini"},
+        "error": None,
+        "span_id": None,
+    })
 
     request = {
         "assessment_id": "1234",
@@ -1355,29 +1341,27 @@ def test_search_traces_uc_table_prefix(monkeypatch):
     response = mock.MagicMock()
     response.status_code = 200
 
-    response.text = json.dumps(
-        {
-            "trace_infos": [
-                {
-                    "trace_id": "1234",
-                    "trace_location": {
-                        "type": "UC_TABLE_PREFIX",
-                        "uc_table_prefix": {
-                            "catalog_name": "catalog",
-                            "schema_name": "schema",
-                            "table_prefix": "prefix",
-                        },
+    response.text = json.dumps({
+        "trace_infos": [
+            {
+                "trace_id": "1234",
+                "trace_location": {
+                    "type": "UC_TABLE_PREFIX",
+                    "uc_table_prefix": {
+                        "catalog_name": "catalog",
+                        "schema_name": "schema",
+                        "table_prefix": "prefix",
                     },
-                    "request_time": "1970-01-01T00:00:00.123Z",
-                    "execution_duration_ms": 456,
-                    "state": "OK",
-                    "trace_metadata": {"key": "value"},
-                    "tags": {"k": "v"},
-                }
-            ],
-            "next_page_token": "token",
-        }
-    )
+                },
+                "request_time": "1970-01-01T00:00:00.123Z",
+                "execution_duration_ms": 456,
+                "state": "OK",
+                "trace_metadata": {"key": "value"},
+                "tags": {"k": "v"},
+            }
+        ],
+        "next_page_token": "token",
+    })
 
     locations = ["catalog.schema.prefix"]
 

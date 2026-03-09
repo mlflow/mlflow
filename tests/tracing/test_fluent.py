@@ -987,13 +987,11 @@ def test_search_traces_with_pagination(mock_client):
         "model_id": None,
         "locations": ["1"],
     }
-    mock_client.search_traces.assert_has_calls(
-        [
-            mock.call(**common_args, page_token=None),
-            mock.call(**common_args, page_token="token-1"),
-            mock.call(**common_args, page_token="token-2"),
-        ]
-    )
+    mock_client.search_traces.assert_has_calls([
+        mock.call(**common_args, page_token=None),
+        mock.call(**common_args, page_token="token-1"),
+        mock.call(**common_args, page_token="token-2"),
+    ])
 
 
 def test_search_traces_with_default_experiment_id(mock_client):

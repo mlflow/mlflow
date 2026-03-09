@@ -336,12 +336,10 @@ class InstructionsJudge(Judge):
         if is_trace_based:
             # include the value type in the description too so that models that don't support
             # structured outputs with tool calls can still understand the type.
-            evaluation_rating_fields = "\n".join(
-                [
-                    f"- {field.name} ({self._format_type(field.value_type)}): {field.description}"
-                    for field in output_fields
-                ]
-            )
+            evaluation_rating_fields = "\n".join([
+                f"- {field.name} ({self._format_type(field.value_type)}): {field.description}"
+                for field in output_fields
+            ])
             return INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
                 evaluation_rating_fields=evaluation_rating_fields,
                 instructions=self._instructions,

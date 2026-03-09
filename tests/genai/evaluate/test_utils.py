@@ -295,28 +295,24 @@ def test_convert_to_eval_set_with_missing_root_span():
 
 def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
     # Data with invalid `inputs` column
-    df = spark.createDataFrame(
-        [
-            {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
-            {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
-        ]
-    )
+    df = spark.createDataFrame([
+        {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
+        {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
+    ])
     with pytest.raises(MlflowException, match="Failed to parse `inputs` column."):
         _convert_to_eval_set(df)
 
     # Data with invalid `expectations` column
-    df = spark.createDataFrame(
-        [
-            {
-                "inputs": '{"question": "What is the capital of France?"}',
-                "expectations": "invalid expectations",
-            },
-            {
-                "inputs": '{"question": "What is the capital of Germany?"}',
-                "expectations": "invalid expectations",
-            },
-        ]
-    )
+    df = spark.createDataFrame([
+        {
+            "inputs": '{"question": "What is the capital of France?"}',
+            "expectations": "invalid expectations",
+        },
+        {
+            "inputs": '{"question": "What is the capital of Germany?"}',
+            "expectations": "invalid expectations",
+        },
+    ])
     with pytest.raises(MlflowException, match="Failed to parse `expectations` column."):
         _convert_to_eval_set(df)
 
@@ -369,14 +365,12 @@ def test_scorer_receives_correct_data(data_fixture, request):
 
     @scorer
     def dummy_scorer(inputs, outputs, expectations):
-        received_args.append(
-            (
-                inputs["question"],
-                outputs,
-                expectations.get("expected_response"),
-                expectations.get("my_custom_expectation"),
-            )
-        )
+        received_args.append((
+            inputs["question"],
+            outputs,
+            expectations.get("expected_response"),
+            expectations.get("my_custom_expectation"),
+        ))
         return 0
 
     mlflow.genai.evaluate(
@@ -426,9 +420,10 @@ def test_input_is_required_if_trace_is_not_provided():
         mock_evaluate.assert_not_called()
 
         mlflow.genai.evaluate(
-            data=pd.DataFrame(
-                {"inputs": [{"question": "What is the capital of France?"}], "outputs": ["Paris"]}
-            ),
+            data=pd.DataFrame({
+                "inputs": [{"question": "What is the capital of France?"}],
+                "outputs": ["Paris"],
+            }),
             scorers=[RelevanceToQuery()],
         )
         mock_evaluate.assert_called_once()

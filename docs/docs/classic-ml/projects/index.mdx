@@ -1,3 +1,8 @@
+---
+title: ML Projects | MLflow AI Platform
+description: Package and reproduce ML code with MLflow Projects for portable, shareable experiment workflows.
+---
+
 # MLflow Projects
 
 MLflow Projects provide a standard format for packaging and sharing reproducible data science code. Based on simple conventions, Projects enable seamless collaboration and automated execution across different environments and platforms.
@@ -31,9 +36,7 @@ result = mlflow.run(
 )
 
 # Execute local project
-result = mlflow.run(
-    ".", entry_point="train", parameters={"epochs": 100}, synchronous=True
-)
+result = mlflow.run(".", entry_point="train", parameters={"epochs": 100}, synchronous=True)
 ```
 
 :::tip Project Structure
@@ -407,9 +410,7 @@ def ml_pipeline():
     client = MlflowClient()
 
     # Step 1: Data preprocessing
-    prep_run = mlflow.run(
-        "./preprocessing", parameters={"input_path": "s3://bucket/raw-data"}
-    )
+    prep_run = mlflow.run("./preprocessing", parameters={"input_path": "s3://bucket/raw-data"})
 
     # Wait for completion and get output
     if prep_run.wait():
@@ -480,8 +481,7 @@ def hyperparameter_search():
 
     # Generate all combinations
     param_combinations = [
-        dict(zip(param_grid.keys(), values))
-        for values in itertools.product(*param_grid.values())
+        dict(zip(param_grid.keys(), values)) for values in itertools.product(*param_grid.values())
     ]
 
     def train_model(params):
@@ -496,13 +496,11 @@ def hyperparameter_search():
     for run in submitted_runs:
         if run.wait():
             run_data = mlflow.get_run(run.run_id)
-            results.append(
-                {
-                    "run_id": run.run_id,
-                    "params": run_data.data.params,
-                    "metrics": run_data.data.metrics,
-                }
-            )
+            results.append({
+                "run_id": run.run_id,
+                "params": run_data.data.params,
+                "metrics": run_data.data.metrics,
+            })
 
     # Find best model
     best_run = max(results, key=lambda x: x["metrics"].get("f1_score", 0))
@@ -603,9 +601,7 @@ Register as plugin:
 # setup.py
 setup(
     entry_points={
-        "mlflow.project_backend": [
-            "my-backend=my_package.custom_backend:MyCustomBackend"
-        ]
+        "mlflow.project_backend": ["my-backend=my_package.custom_backend:MyCustomBackend"]
     }
 )
 ```
