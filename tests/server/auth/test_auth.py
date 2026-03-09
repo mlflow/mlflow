@@ -32,6 +32,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
+from mlflow.server.auth import _authenticate_fastapi_request
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     CREATE_REGISTERED_MODEL_PERMISSION,
@@ -2926,8 +2927,6 @@ def test_basic_auth_with_internal_token_returns_user(
     credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
     request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
 
-    from mlflow.server.auth import _authenticate_fastapi_request
-
     user = _authenticate_fastapi_request(request)
 
     assert user.username == "alice"
@@ -2943,8 +2942,6 @@ def test_basic_auth_with_internal_token_deleted_user_returns_none(
     credentials = base64.b64encode(b"deleted_user:internal-secret").decode("ascii")
     request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
 
-    from mlflow.server.auth import _authenticate_fastapi_request
-
     user = _authenticate_fastapi_request(request)
 
     assert user is None
@@ -2956,8 +2953,6 @@ def test_basic_auth_with_wrong_password_falls_through_to_authenticate(
     monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
     credentials = base64.b64encode(b"alice:wrong-password").decode("ascii")
     request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
-
-    from mlflow.server.auth import _authenticate_fastapi_request
 
     user = _authenticate_fastapi_request(request)
 
@@ -2971,8 +2966,6 @@ def test_basic_auth_internal_token_rejected_on_non_gateway_route(
     monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
     credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
     request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
-
-    from mlflow.server.auth import _authenticate_fastapi_request
 
     _authenticate_fastapi_request(request)
 
@@ -2988,8 +2981,6 @@ def test_basic_auth_no_internal_token_uses_normal_auth(
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
     request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
 
-    from mlflow.server.auth import _authenticate_fastapi_request
-
     user = _authenticate_fastapi_request(request)
 
     assert user.username == "alice"
@@ -3004,8 +2995,6 @@ def test_fastapi_valid_basic_auth(mock_auth_store, mock_auth_config, monkeypatch
     credentials = base64.b64encode(b"alice:password123").decode("ascii")
     request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
 
-    from mlflow.server.auth import _authenticate_fastapi_request
-
     user = _authenticate_fastapi_request(request)
 
     assert user.username == "alice"
@@ -3017,8 +3006,6 @@ def test_fastapi_invalid_basic_auth(mock_auth_store, mock_auth_config, monkeypat
     mock_auth_store.authenticate_user.return_value = False
     credentials = base64.b64encode(b"alice:wrong").decode("ascii")
     request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
-
-    from mlflow.server.auth import _authenticate_fastapi_request
 
     user = _authenticate_fastapi_request(request)
 
@@ -3032,8 +3019,6 @@ def test_bearer_returns_none(mock_auth_store, mock_auth_config, monkeypatch):
     monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "abc123")
     request = _make_request("/gateway/mlflow/v1/chat", "Bearer abc123")
 
-    from mlflow.server.auth import _authenticate_fastapi_request
-
     user = _authenticate_fastapi_request(request)
 
     assert user is None
@@ -3046,8 +3031,6 @@ def test_bearer_returns_none(mock_auth_store, mock_auth_config, monkeypatch):
 def test_fastapi_no_authorization_header(mock_auth_store, mock_auth_config):
     request = _make_request("/api/3.0/mlflow/experiments/list")
 
-    from mlflow.server.auth import _authenticate_fastapi_request
-
     user = _authenticate_fastapi_request(request)
 
     assert user is None
@@ -3055,8 +3038,6 @@ def test_fastapi_no_authorization_header(mock_auth_store, mock_auth_config):
 
 def test_fastapi_malformed_authorization_header(mock_auth_store, mock_auth_config):
     request = _make_request("/api/3.0/mlflow/experiments/list", "garbage")
-
-    from mlflow.server.auth import _authenticate_fastapi_request
 
     user = _authenticate_fastapi_request(request)
 
