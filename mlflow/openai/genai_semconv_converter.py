@@ -187,7 +187,10 @@ def _convert_content(content: Any) -> list[dict]:
                     parts.append(_convert_image_url(url))
                 case {"type": "input_image", "image_url": str(url)}:
                     parts.append(_convert_image_url(url))
-                case {"type": "input_audio", "input_audio": {"data": str(data), "format": str(fmt)}}:
+                case {
+                    "type": "input_audio",
+                    "input_audio": {"data": str(data), "format": str(fmt)},
+                }:
                     parts.append({
                         "type": "blob",
                         "modality": "audio",

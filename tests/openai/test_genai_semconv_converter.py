@@ -230,7 +230,12 @@ def test_autolog_streaming(client, genai_semconv_capture, api):
         # Chat API: image_url with HTTP URL → UriPart
         (
             {"type": "image_url", "image_url": {"url": "https://example.com/img.png"}},
-            {"type": "uri", "modality": "image", "mime_type": "image/png", "uri": "https://example.com/img.png"},
+            {
+                "type": "uri",
+                "modality": "image",
+                "mime_type": "image/png",
+                "uri": "https://example.com/img.png",
+            },
         ),
         # Chat API: image_url with data URI → BlobPart
         (
@@ -240,7 +245,12 @@ def test_autolog_streaming(client, genai_semconv_capture, api):
         # Responses API: input_image with HTTP URL → UriPart
         (
             {"type": "input_image", "image_url": "https://example.com/img.png"},
-            {"type": "uri", "modality": "image", "mime_type": "image/png", "uri": "https://example.com/img.png"},
+            {
+                "type": "uri",
+                "modality": "image",
+                "mime_type": "image/png",
+                "uri": "https://example.com/img.png",
+            },
         ),
         # Responses API: input_image with data URI → BlobPart
         (
