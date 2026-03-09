@@ -10,7 +10,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage, useIntl } from '@databricks/i18n';
+import { defineMessages, FormattedMessage, useIntl } from '@databricks/i18n';
 import { deleteJson, getJson, patchJson, postJson } from '../common/utils/FetchUtils';
 
 interface ApiWebhookEvent {
@@ -38,22 +38,40 @@ interface WebhookFormState {
   events: Set<string>;
 }
 
-const VALID_EVENTS: { entity: string; action: string; label: string }[] = [
-  { entity: 'REGISTERED_MODEL', action: 'CREATED', label: 'Registered model created' },
-  { entity: 'MODEL_VERSION', action: 'CREATED', label: 'Model version created' },
-  { entity: 'MODEL_VERSION_TAG', action: 'SET', label: 'Model version tag set' },
-  { entity: 'MODEL_VERSION_TAG', action: 'DELETED', label: 'Model version tag deleted' },
-  { entity: 'MODEL_VERSION_ALIAS', action: 'CREATED', label: 'Model version alias created' },
-  { entity: 'MODEL_VERSION_ALIAS', action: 'DELETED', label: 'Model version alias deleted' },
-  { entity: 'PROMPT', action: 'CREATED', label: 'Prompt created' },
-  { entity: 'PROMPT_VERSION', action: 'CREATED', label: 'Prompt version created' },
-  { entity: 'PROMPT_TAG', action: 'SET', label: 'Prompt tag set' },
-  { entity: 'PROMPT_TAG', action: 'DELETED', label: 'Prompt tag deleted' },
-  { entity: 'PROMPT_VERSION_TAG', action: 'SET', label: 'Prompt version tag set' },
-  { entity: 'PROMPT_VERSION_TAG', action: 'DELETED', label: 'Prompt version tag deleted' },
-  { entity: 'PROMPT_ALIAS', action: 'CREATED', label: 'Prompt alias created' },
-  { entity: 'PROMPT_ALIAS', action: 'DELETED', label: 'Prompt alias deleted' },
-  { entity: 'BUDGET_POLICY', action: 'EXCEEDED', label: 'Budget policy exceeded' },
+const eventLabels = defineMessages({
+  'REGISTERED_MODEL.CREATED': { defaultMessage: 'Registered model created', description: 'Webhook event label' },
+  'MODEL_VERSION.CREATED': { defaultMessage: 'Model version created', description: 'Webhook event label' },
+  'MODEL_VERSION_TAG.SET': { defaultMessage: 'Model version tag set', description: 'Webhook event label' },
+  'MODEL_VERSION_TAG.DELETED': { defaultMessage: 'Model version tag deleted', description: 'Webhook event label' },
+  'MODEL_VERSION_ALIAS.CREATED': { defaultMessage: 'Model version alias created', description: 'Webhook event label' },
+  'MODEL_VERSION_ALIAS.DELETED': { defaultMessage: 'Model version alias deleted', description: 'Webhook event label' },
+  'PROMPT.CREATED': { defaultMessage: 'Prompt created', description: 'Webhook event label' },
+  'PROMPT_VERSION.CREATED': { defaultMessage: 'Prompt version created', description: 'Webhook event label' },
+  'PROMPT_TAG.SET': { defaultMessage: 'Prompt tag set', description: 'Webhook event label' },
+  'PROMPT_TAG.DELETED': { defaultMessage: 'Prompt tag deleted', description: 'Webhook event label' },
+  'PROMPT_VERSION_TAG.SET': { defaultMessage: 'Prompt version tag set', description: 'Webhook event label' },
+  'PROMPT_VERSION_TAG.DELETED': { defaultMessage: 'Prompt version tag deleted', description: 'Webhook event label' },
+  'PROMPT_ALIAS.CREATED': { defaultMessage: 'Prompt alias created', description: 'Webhook event label' },
+  'PROMPT_ALIAS.DELETED': { defaultMessage: 'Prompt alias deleted', description: 'Webhook event label' },
+  'BUDGET_POLICY.EXCEEDED': { defaultMessage: 'Budget policy exceeded', description: 'Webhook event label' },
+});
+
+const VALID_EVENTS: { entity: string; action: string }[] = [
+  { entity: 'REGISTERED_MODEL', action: 'CREATED' },
+  { entity: 'MODEL_VERSION', action: 'CREATED' },
+  { entity: 'MODEL_VERSION_TAG', action: 'SET' },
+  { entity: 'MODEL_VERSION_TAG', action: 'DELETED' },
+  { entity: 'MODEL_VERSION_ALIAS', action: 'CREATED' },
+  { entity: 'MODEL_VERSION_ALIAS', action: 'DELETED' },
+  { entity: 'PROMPT', action: 'CREATED' },
+  { entity: 'PROMPT_VERSION', action: 'CREATED' },
+  { entity: 'PROMPT_TAG', action: 'SET' },
+  { entity: 'PROMPT_TAG', action: 'DELETED' },
+  { entity: 'PROMPT_VERSION_TAG', action: 'SET' },
+  { entity: 'PROMPT_VERSION_TAG', action: 'DELETED' },
+  { entity: 'PROMPT_ALIAS', action: 'CREATED' },
+  { entity: 'PROMPT_ALIAS', action: 'DELETED' },
+  { entity: 'BUDGET_POLICY', action: 'EXCEEDED' },
 ];
 
 const eventKey = (entity: string, action: string) => `${entity}.${action}`;
@@ -151,10 +169,10 @@ const WebhooksSettings = () => {
       return;
     }
 
-    const events = VALID_EVENTS.filter((e) => form.events.has(eventKey(e.entity, e.action))).map((e) => ({
-      entity: e.entity,
-      action: e.action,
-    }));
+    const events: ApiWebhookEvent[] = Array.from(form.events).map((key) => {
+      const [entity, action] = key.split('.', 2);
+      return { entity, action };
+    });
 
     setIsSaving(true);
     setFormError(null);
@@ -249,13 +267,14 @@ const WebhooksSettings = () => {
     [intl],
   );
 
+  const formatEventLabel = (entity: string, action: string) => {
+    const key = eventKey(entity, action);
+    const descriptor = eventLabels[key as keyof typeof eventLabels];
+    return descriptor ? intl.formatMessage(descriptor) : key;
+  };
+
   const formatEvents = (events: ApiWebhookEvent[]) =>
-    events
-      .map((e) => {
-        const found = VALID_EVENTS.find((v) => v.entity === e.entity && v.action === e.action);
-        return found?.label ?? `${e.entity}.${e.action}`;
-      })
-      .join(', ');
+    events.map((e) => formatEventLabel(e.entity, e.action)).join(', ');
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -473,7 +492,10 @@ const WebhooksSettings = () => {
               componentId="mlflow.settings.webhooks.url-input"
               value={form.url}
               onChange={(e) => setForm((prev) => ({ ...prev, url: e.target.value }))}
-              placeholder="https://example.com/webhook"
+              placeholder={intl.formatMessage({
+                defaultMessage: 'https://example.com/webhook',
+                description: 'Webhook URL placeholder',
+              })}
               css={{ marginTop: theme.spacing.xs }}
             />
           </div>
@@ -586,7 +608,7 @@ const WebhooksSettings = () => {
                       });
                     }}
                   >
-                    {event.label}
+                    {formatEventLabel(event.entity, event.action)}
                   </Checkbox>
                 );
               })}

@@ -9,6 +9,10 @@ import { DarkThemeProvider } from '../common/contexts/DarkThemeContext';
 jest.mock('../common/utils/FetchUtils', () => ({
   fetchEndpointRaw: jest.fn(() => Promise.resolve()),
   HTTPMethods: { POST: 'POST', GET: 'GET' },
+  getJson: jest.fn(() => Promise.resolve({ webhooks: [] })),
+  postJson: jest.fn(() => Promise.resolve()),
+  patchJson: jest.fn(() => Promise.resolve()),
+  deleteJson: jest.fn(() => Promise.resolve()),
 }));
 
 import { fetchEndpointRaw } from '../common/utils/FetchUtils';
