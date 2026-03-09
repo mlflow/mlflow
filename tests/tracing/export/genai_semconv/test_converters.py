@@ -47,7 +47,10 @@ def test_get_converter_returns_none_for_unsupported(fmt):
 
 def test_convert_message_basic():
     msg = {"role": "user", "content": "Hello"}
-    assert _convert_message(msg) == {"role": "user", "content": "Hello"}
+    assert _convert_message(msg) == {
+        "role": "user",
+        "parts": [{"type": "text", "content": "Hello"}],
+    }
 
 
 def test_convert_message_with_tool_calls():
@@ -64,20 +67,27 @@ def test_convert_message_with_tool_calls():
     }
     result = _convert_message(msg)
     assert result["role"] == "assistant"
-    assert result["content"] is None
-    assert len(result["tool_calls"]) == 1
-    assert result["tool_calls"][0]["id"] == "call_123"
-    assert result["tool_calls"][0]["function"]["name"] == "get_weather"
+    assert "tool_calls" not in result
+    assert len(result["parts"]) == 1
+    assert result["parts"][0] == {
+        "type": "tool_call",
+        "id": "call_123",
+        "name": "get_weather",
+        "arguments": {"city": "SF"},
+    }
 
 
 def test_convert_message_tool_response():
     msg = {"role": "tool", "content": "72°F", "tool_call_id": "call_123"}
     result = _convert_message(msg)
-    assert result == {"role": "tool", "content": "72°F", "tool_call_id": "call_123"}
+    assert result == {
+        "role": "tool",
+        "parts": [{"type": "tool_call_response", "id": "call_123", "result": "72°F"}],
+    }
 
 
 def test_convert_message_empty_dict():
-    assert _convert_message({}) == {}
+    assert _convert_message({}) == {"role": "user", "parts": []}
 
 
 # --- OpenAiSemconvConverter.convert_inputs ---
@@ -92,9 +102,9 @@ def test_convert_inputs_basic():
         ]
     }
     result = converter.convert_inputs(inputs)
-    assert len(result) == 2
-    assert result[0] == {"role": "system", "content": "You are helpful."}
-    assert result[1] == {"role": "user", "content": "Hi"}
+    # System messages are excluded from input messages
+    assert len(result) == 1
+    assert result[0] == {"role": "user", "parts": [{"type": "text", "content": "Hi"}]}
 
 
 def test_convert_inputs_no_messages():
@@ -105,6 +115,43 @@ def test_convert_inputs_no_messages():
 def test_convert_inputs_messages_not_list():
     converter = OpenAiSemconvConverter()
     assert converter.convert_inputs({"messages": "not a list"}) is None
+
+
+# --- OpenAiSemconvConverter.convert_system_instructions ---
+
+
+def test_convert_system_instructions():
+    converter = OpenAiSemconvConverter()
+    inputs = {
+        "messages": [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "user", "content": "Hi"},
+        ]
+    }
+    result = converter.convert_system_instructions(inputs)
+    assert result == [{"type": "text", "content": "You are helpful."}]
+
+
+def test_convert_system_instructions_multiple():
+    converter = OpenAiSemconvConverter()
+    inputs = {
+        "messages": [
+            {"role": "system", "content": "You are helpful."},
+            {"role": "system", "content": "Be concise."},
+            {"role": "user", "content": "Hi"},
+        ]
+    }
+    result = converter.convert_system_instructions(inputs)
+    assert result == [
+        {"type": "text", "content": "You are helpful."},
+        {"type": "text", "content": "Be concise."},
+    ]
+
+
+def test_convert_system_instructions_none_when_absent():
+    converter = OpenAiSemconvConverter()
+    inputs = {"messages": [{"role": "user", "content": "Hi"}]}
+    assert converter.convert_system_instructions(inputs) is None
 
 
 # --- OpenAiSemconvConverter.convert_outputs ---
@@ -124,7 +171,7 @@ def test_convert_outputs_basic():
     result = converter.convert_outputs(outputs)
     assert len(result) == 1
     assert result[0]["role"] == "assistant"
-    assert result[0]["content"] == "Hello!"
+    assert result[0]["parts"] == [{"type": "text", "content": "Hello!"}]
     assert result[0]["finish_reason"] == "stop"
 
 
@@ -149,8 +196,14 @@ def test_convert_outputs_with_tool_calls():
         ]
     }
     result = converter.convert_outputs(outputs)
-    assert result[0]["content"] is None
-    assert len(result[0]["tool_calls"]) == 1
+    assert "tool_calls" not in result[0]
+    assert len(result[0]["parts"]) == 1
+    assert result[0]["parts"][0] == {
+        "type": "tool_call",
+        "id": "call_1",
+        "name": "search",
+        "arguments": {"q": "test"},
+    }
     assert result[0]["finish_reason"] == "tool_calls"
 
 
@@ -171,7 +224,7 @@ def test_convert_outputs_streaming_delta():
     }
     result = converter.convert_outputs(outputs)
     assert result[0]["role"] == "assistant"
-    assert result[0]["content"] == "Hi"
+    assert result[0]["parts"] == [{"type": "text", "content": "Hi"}]
 
 
 # --- extract_request_params ---
@@ -205,9 +258,12 @@ def test_extract_request_params_with_stop_list():
 
 def test_extract_request_params_with_tools():
     converter = OpenAiSemconvConverter()
-    tools = [{"type": "function", "function": {"name": "get_weather"}}]
+    tools = [{"type": "function", "function": {"name": "get_weather", "description": "Get weather", "parameters": {"type": "object"}}}]
     params = converter.extract_request_params({"tools": tools})
-    assert json.loads(params[GenAiSemconvKey.TOOL_DEFINITIONS]) == tools
+    # OpenAI's nested format should be flattened to spec format
+    assert json.loads(params[GenAiSemconvKey.TOOL_DEFINITIONS]) == [
+        {"type": "function", "name": "get_weather", "description": "Get weather", "parameters": {"type": "object"}}
+    ]
 
 
 def test_extract_request_params_empty():
@@ -248,7 +304,10 @@ def test_extract_response_attrs_empty():
 def test_translate_full():
     converter = OpenAiSemconvConverter()
     inputs = {
-        "messages": [{"role": "user", "content": "Hello"}],
+        "messages": [
+            {"role": "system", "content": "Be helpful"},
+            {"role": "user", "content": "Hello"},
+        ],
         "temperature": 0.5,
     }
     outputs = {
@@ -267,6 +326,9 @@ def test_translate_full():
     assert len(input_messages) == 1
     assert input_messages[0]["role"] == "user"
 
+    system_instructions = json.loads(result[GenAiSemconvKey.SYSTEM_INSTRUCTIONS])
+    assert system_instructions == [{"type": "text", "content": "Be helpful"}]
+
     output_messages = json.loads(result[GenAiSemconvKey.OUTPUT_MESSAGES])
     assert len(output_messages) == 1
     assert output_messages[0]["role"] == "assistant"
@@ -276,6 +338,13 @@ def test_translate_full():
     assert result[GenAiSemconvKey.RESPONSE_ID] == "chatcmpl-abc"
     assert result[GenAiSemconvKey.RESPONSE_MODEL] == "gpt-4o"
     assert result[GenAiSemconvKey.RESPONSE_FINISH_REASONS] == ["stop"]
+
+
+def test_translate_no_system_instructions():
+    converter = OpenAiSemconvConverter()
+    result = converter.translate({"messages": [{"role": "user", "content": "Hi"}]}, None)
+    assert GenAiSemconvKey.INPUT_MESSAGES in result
+    assert GenAiSemconvKey.SYSTEM_INSTRUCTIONS not in result
 
 
 def test_translate_inputs_only():
@@ -333,17 +402,20 @@ def test_e2e_openai_chat_span():
     assert result.attributes[GenAiSemconvKey.OPERATION_NAME] == "chat"
     assert result.attributes[GenAiSemconvKey.REQUEST_MODEL] == "gpt-4o"
 
-    # Phase 2: messages
+    # System instructions extracted separately
+    system_instructions = json.loads(result.attributes[GenAiSemconvKey.SYSTEM_INSTRUCTIONS])
+    assert system_instructions == [{"type": "text", "content": "You are helpful."}]
+
+    # Input messages exclude system messages
     input_msgs = json.loads(result.attributes[GenAiSemconvKey.INPUT_MESSAGES])
-    assert len(input_msgs) == 2
-    assert input_msgs[0]["role"] == "system"
-    assert input_msgs[1]["role"] == "user"
+    assert len(input_msgs) == 1
+    assert input_msgs[0]["role"] == "user"
 
     output_msgs = json.loads(result.attributes[GenAiSemconvKey.OUTPUT_MESSAGES])
     assert len(output_msgs) == 1
-    assert output_msgs[0]["content"] == "MLflow is a platform..."
+    assert output_msgs[0]["parts"] == [{"type": "text", "content": "MLflow is a platform..."}]
 
-    # Phase 2: request params and response attrs
+    # Request params and response attrs
     assert result.attributes[GenAiSemconvKey.REQUEST_TEMPERATURE] == 0.7
     assert result.attributes[GenAiSemconvKey.RESPONSE_ID] == "chatcmpl-xyz"
     assert result.attributes[GenAiSemconvKey.RESPONSE_FINISH_REASONS] == ["stop"]

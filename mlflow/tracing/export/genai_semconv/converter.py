@@ -34,6 +34,10 @@ class GenAiSemconvConverter(ABC):
     def convert_outputs(self, outputs: dict[str, Any]) -> list[dict] | None:
         """Convert provider-native outputs to GenAI semconv output messages."""
 
+    def convert_system_instructions(self, inputs: dict[str, Any]) -> list[dict] | None:
+        """Extract system instructions as a parts array. Returns None by default."""
+        return None
+
     def extract_request_params(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Extract request parameters (temperature, max_tokens, etc.) from inputs."""
         params: dict[str, Any] = {}
@@ -66,6 +70,9 @@ class GenAiSemconvConverter(ABC):
             messages = self.convert_inputs(inputs)
             if messages is not None:
                 result[GenAiSemconvKey.INPUT_MESSAGES] = json.dumps(messages)
+            system_instructions = self.convert_system_instructions(inputs)
+            if system_instructions is not None:
+                result[GenAiSemconvKey.SYSTEM_INSTRUCTIONS] = json.dumps(system_instructions)
             result.update(self.extract_request_params(inputs))
 
         if outputs is not None:
