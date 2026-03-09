@@ -8,7 +8,12 @@ body:
     attributes:
       value: |
         > [!WARNING]
-        > Please submit a PR only if the issue has the `ready` label, has no assignee, and no duplicate PR exists. PRs not meeting these requirements may be automatically closed.
+        > Before submitting a PR, please make sure that:
+        > - A maintainer has triaged this issue and applied the `ready` label
+        > - This issue has no assignee
+        > - No duplicate PR exists
+        >
+        > PRs not meeting these requirements may be automatically closed.
   - type: markdown
     attributes:
       value: |
