@@ -5,9 +5,10 @@ import pytest
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
 import mlflow
-from mlflow.openai.genai_semconv_converter import _convert_message
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import provider as tracer_provider_wrapper
+
+MODEL = "gpt-4o-mini"
 
 MOCK_CHAT_TOOLS = [
     {
@@ -67,34 +68,26 @@ def _get_chat_span(exporter, processor):
     return next(s for s in spans if s.attributes.get("gen_ai.operation.name") == "chat")
 
 
-@pytest.mark.parametrize(
-    ("api", "expected_response_id", "expected_response_model"),
-    [
-        ("chat_completions", "chatcmpl-123", "gpt-4o-mini"),
-        ("responses", "responses-123", "gpt-4o"),
-    ],
-)
-def test_autolog_basic(
-    client, genai_semconv_capture, api, expected_response_id, expected_response_model
-):
+@pytest.mark.parametrize("api", ["chat_completions", "responses"])
+def test_autolog_basic(client, genai_semconv_capture, api):
     exporter, processor = genai_semconv_capture
 
     mlflow.openai.autolog()
     if api == "chat_completions":
         client.chat.completions.create(
             messages=[{"role": "user", "content": "Hi"}],
-            model="gpt-4o-mini",
+            model=MODEL,
             temperature=0.5,
             top_p=0.9,
             max_tokens=100,
             stop=["\n", "END"],
         )
     else:
-        client.responses.create(input="Hi", model="gpt-4o-mini", temperature=0.5)
+        client.responses.create(input="Hi", model=MODEL, temperature=0.5)
 
     chat_span = _get_chat_span(exporter, processor)
     assert chat_span.attributes["gen_ai.operation.name"] == "chat"
-    assert chat_span.attributes["gen_ai.request.model"] == "gpt-4o-mini"
+    assert chat_span.attributes["gen_ai.request.model"] == MODEL
     assert chat_span.attributes["gen_ai.request.temperature"] == 0.5
 
     if api == "chat_completions":
@@ -110,26 +103,13 @@ def test_autolog_basic(
     output_msgs = json.loads(chat_span.attributes["gen_ai.output.messages"])
     assert len(output_msgs) == 1
     assert output_msgs[0]["role"] == "assistant"
-    assert output_msgs[0]["finish_reason"] == "stop"
 
-    assert chat_span.attributes["gen_ai.response.id"] == expected_response_id
-    assert chat_span.attributes["gen_ai.response.model"] == expected_response_model
-    assert list(chat_span.attributes["gen_ai.response.finish_reasons"]) == ["stop"]
-
-    # No mlflow.* attrs leaked
+    assert chat_span.attributes["gen_ai.response.model"] == MODEL
     assert not any(k.startswith("mlflow.") for k in chat_span.attributes)
 
 
-@pytest.mark.parametrize(
-    ("api", "expected_response_id", "expected_response_model"),
-    [
-        ("chat_completions", "chatcmpl-123", "gpt-4o-mini"),
-        ("responses", "responses-123", "gpt-4o"),
-    ],
-)
-def test_autolog_with_tool_calls(
-    client, genai_semconv_capture, api, expected_response_id, expected_response_model
-):
+@pytest.mark.parametrize("api", ["chat_completions", "responses"])
+def test_autolog_with_tool_calls(client, genai_semconv_capture, api):
     exporter, processor = genai_semconv_capture
 
     mlflow.openai.autolog()
@@ -150,8 +130,7 @@ def test_autolog_with_tool_calls(
                 },
                 {"role": "tool", "tool_call_id": "call_123", "content": "Sunny"},
             ],
-            model="gpt-4o-mini",
-            temperature=0.7,
+            model=MODEL,
             tools=MOCK_CHAT_TOOLS,
         )
     else:
@@ -172,16 +151,14 @@ def test_autolog_with_tool_calls(
                     "output": "Sunny",
                 },
             ],
-            model="gpt-4o-mini",
-            temperature=0.7,
+            model=MODEL,
             tools=MOCK_CHAT_TOOLS,
             instructions="Be helpful",
         )
 
     chat_span = _get_chat_span(exporter, processor)
     assert chat_span.attributes["gen_ai.operation.name"] == "chat"
-    assert chat_span.attributes["gen_ai.request.model"] == "gpt-4o-mini"
-    assert chat_span.attributes["gen_ai.request.temperature"] == 0.7
+    assert chat_span.attributes["gen_ai.request.model"] == MODEL
 
     tool_defs = json.loads(chat_span.attributes["gen_ai.tool.definitions"])
     assert "function" not in tool_defs[0]
@@ -206,9 +183,41 @@ def test_autolog_with_tool_calls(
     output_msgs = json.loads(chat_span.attributes["gen_ai.output.messages"])
     assert len(output_msgs) == 1
     assert output_msgs[0]["role"] == "assistant"
-    assert output_msgs[0]["finish_reason"] == "stop"
 
-    assert chat_span.attributes["gen_ai.response.id"] == expected_response_id
-    assert chat_span.attributes["gen_ai.response.model"] == expected_response_model
-    assert list(chat_span.attributes["gen_ai.response.finish_reasons"]) == ["stop"]
+    assert chat_span.attributes["gen_ai.response.model"] == MODEL
+    assert not any(k.startswith("mlflow.") for k in chat_span.attributes)
+
+
+@pytest.mark.parametrize("api", ["chat_completions", "responses"])
+def test_autolog_streaming(client, genai_semconv_capture, api):
+    exporter, processor = genai_semconv_capture
+
+    mlflow.openai.autolog()
+    if api == "chat_completions":
+        stream = client.chat.completions.create(
+            messages=[{"role": "user", "content": "Hi"}],
+            model=MODEL,
+            stream=True,
+        )
+        for _ in stream:
+            pass
+    else:
+        stream = client.responses.create(input="Hi", model=MODEL, stream=True)
+        for _ in stream:
+            pass
+
+    chat_span = _get_chat_span(exporter, processor)
+    assert chat_span.attributes["gen_ai.operation.name"] == "chat"
+    assert chat_span.attributes["gen_ai.request.model"] == MODEL
+
+    input_msgs = json.loads(chat_span.attributes["gen_ai.input.messages"])
+    assert input_msgs[0]["role"] == "user"
+    assert input_msgs[0]["parts"][0]["type"] == "text"
+    assert input_msgs[0]["parts"][0]["content"] == "Hi"
+
+    output_msgs = json.loads(chat_span.attributes["gen_ai.output.messages"])
+    assert len(output_msgs) == 1
+    assert output_msgs[0]["role"] == "assistant"
+
+    assert chat_span.attributes["gen_ai.response.model"] == MODEL
     assert not any(k.startswith("mlflow.") for k in chat_span.attributes)

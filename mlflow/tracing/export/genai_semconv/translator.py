@@ -67,7 +67,7 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
     outputs = get_otel_attribute(span, SpanAttributeKey.OUTPUTS)
 
     if inputs is not None or outputs is not None:
-        if converter := _get_converter(message_format):
+        if converter := _get_converter(message_format, inputs):
             try:
                 genai_attrs.update(converter.translate(inputs, outputs))
             except Exception:
@@ -117,12 +117,19 @@ def _translate_universal_attributes(span: ReadableSpan) -> dict[str, Any]:
     return genai_attrs
 
 
-def _get_converter(message_format: str | None) -> GenAiSemconvConverter | None:
+def _get_converter(
+    message_format: str | None, inputs: dict[str, Any] | None = None
+) -> GenAiSemconvConverter | None:
     match message_format:
         case "openai" | "groq" | "bedrock":
-            from mlflow.openai.genai_semconv_converter import OpenAiSemconvConverter
+            if inputs is not None and "input" in inputs:
+                from mlflow.openai.genai_semconv_converter import OpenAIResponsesConverter
 
-            return OpenAiSemconvConverter()
+                return OpenAIResponsesConverter()
+
+            from mlflow.openai.genai_semconv_converter import OpenAIChatCompletionConverter
+
+            return OpenAIChatCompletionConverter()
         case _:
             return None
 
