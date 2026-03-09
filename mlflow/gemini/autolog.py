@@ -1,5 +1,6 @@
 import inspect
 import logging
+from typing import Any
 
 import mlflow
 import mlflow.gemini
@@ -246,7 +247,7 @@ def _should_inject_headers(original) -> bool:
     return getattr(original, "__name__", "") in _HEADER_INJECTION_METHODS
 
 
-def _inject_tracing_headers_genai(kwargs: dict, span: LiveSpan):
+def _inject_tracing_headers_genai(kwargs: dict[str, Any], span: LiveSpan):
     if not has_genai:
         return
     try:
@@ -254,30 +255,27 @@ def _inject_tracing_headers_genai(kwargs: dict, span: LiveSpan):
         if not tracing_headers:
             return
 
-        # Only inject if config is already present in kwargs to avoid adding
-        # unexpected kwargs to methods with incompatible mock signatures.
-        if "config" not in kwargs:
-            return
-
-        config = kwargs["config"]
+        config = kwargs.get("config")
         if config is None:
-            kwargs["config"] = {"http_options": {"headers": tracing_headers}}
+            # Don't create a config from scratch — it would leak into inner span inputs
+            # (e.g. _generate_content) and pollute the trace.
+            return
         elif isinstance(config, dict):
             http_options = config.get("http_options") or {}
             if isinstance(http_options, dict):
                 existing_headers = http_options.get("headers") or {}
-                http_options["headers"] = {**tracing_headers, **existing_headers}
+                http_options["headers"] = tracing_headers | existing_headers
                 config["http_options"] = http_options
             else:
                 existing_headers = getattr(http_options, "headers", None) or {}
-                http_options.headers = {**tracing_headers, **existing_headers}
+                http_options.headers = tracing_headers | existing_headers
         else:
             http_options = getattr(config, "http_options", None)
             if http_options is None:
                 config.http_options = genai.types.HttpOptions(headers=tracing_headers)
             else:
                 existing_headers = getattr(http_options, "headers", None) or {}
-                http_options.headers = {**tracing_headers, **existing_headers}
+                http_options.headers = tracing_headers | existing_headers
     except Exception:
         _logger.debug("Failed to inject tracing headers for Gemini", exc_info=True)
 
