@@ -12,13 +12,23 @@ Fetches a pull request diff, filters out auto-generated files, and adds line num
 ## Usage
 
 ```bash
-uv run skills fetch-diff <pr_url>
+uv run skills fetch-diff <pr_url> [--files <pattern> ...]
 ```
 
-Example:
+Examples:
 
 ```bash
+# Fetch the full diff
 uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123
+
+# Fetch only Python files
+uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files '*.py'
+
+# Fetch only frontend files
+uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files 'mlflow/server/js/*'
+
+# Multiple patterns
+uv run skills fetch-diff https://github.com/mlflow/mlflow/pull/123 --files '*.py' '*.ts'
 ```
 
 Token is auto-detected from `GH_TOKEN` env var or `gh auth token`.
@@ -39,3 +49,9 @@ index abc123..def456 100644
 14    15 |
 15    16 |  def process_data(input_file: str) -> dict:
 ```
+
+Each line is annotated as `old_line new_line | <marker> content`:
+
+- `-` marker (left number only) -> deleted line, `side=LEFT`, `line=old_line`
+- `+` marker (right number only) -> added line, `side=RIGHT`, `line=new_line`
+- No marker (both numbers) -> unchanged line, `side=RIGHT`, `line=new_line`

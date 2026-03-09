@@ -46,6 +46,9 @@ MESSAGE_FIELD_MESSAGE = "message"
 MESSAGE_FIELD_TIMESTAMP = "timestamp"
 MESSAGE_FIELD_TOOL_USE_RESULT = "toolUseResult"
 MESSAGE_FIELD_COMMAND_NAME = "commandName"
+MESSAGE_TYPE_QUEUE_OPERATION = "queue-operation"
+QUEUE_OPERATION_ENQUEUE = "enqueue"
+METADATA_KEY_CLAUDE_CODE_VERSION = "mlflow.claude_code_version"
 
 # Custom logging level for Claude tracing
 CLAUDE_TRACING_LEVEL = logging.WARNING - 5
@@ -361,6 +364,15 @@ def _get_input_messages(transcript: list[dict[str, Any]], current_idx: int) -> l
             if has_text:
                 break
 
+        # Include steer messages (queue-operation enqueue) as user messages
+        if (
+            entry.get(MESSAGE_FIELD_TYPE) == MESSAGE_TYPE_QUEUE_OPERATION
+            and entry.get("operation") == QUEUE_OPERATION_ENQUEUE
+            and (steer_content := entry.get(MESSAGE_FIELD_CONTENT))
+        ):
+            messages.append({"role": "user", "content": steer_content})
+            continue
+
         if msg.get("role") and msg.get(MESSAGE_FIELD_CONTENT):
             messages.append(msg)
     messages.reverse()
@@ -481,6 +493,7 @@ def _finalize_trace(
     session_id: str | None,
     end_time_ns: int | None = None,
     usage: dict[str, Any] | None = None,
+    claude_code_version: str | None = None,
 ) -> mlflow.entities.Trace:
     try:
         # Set trace previews and metadata for UI display
@@ -496,6 +509,8 @@ def _finalize_trace(
             }
             if session_id:
                 metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+            if claude_code_version:
+                metadata[METADATA_KEY_CLAUDE_CODE_VERSION] = claude_code_version
 
             # Set token usage directly on trace metadata so it survives
             # even if span-level aggregation doesn't pick it up
@@ -627,12 +642,18 @@ def process_transcript(
         if not conv_end_ns or conv_end_ns <= conv_start_ns:
             conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
 
+        # Extract Claude Code version from transcript entries (CLI-only)
+        claude_code_version = next(
+            (ver for entry in transcript if (ver := entry.get("version"))), None
+        )
+
         return _finalize_trace(
             parent_span,
             user_prompt_text,
             final_response,
             session_id,
             conv_end_ns,
+            claude_code_version=claude_code_version,
         )
 
     except Exception as e:

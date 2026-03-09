@@ -36,6 +36,7 @@ from mlflow.entities import (
     Expectation,
     Experiment,
     Feedback,
+    Issue,
     Run,
     RunInputs,
     RunOutputs,
@@ -49,7 +50,10 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
-from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.assessment import (
+    ExpectationValue,
+    FeedbackValue,
+)
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.gateway_endpoint import GatewayResourceType
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -104,6 +108,7 @@ from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_QUERY_TRACE_METRICS,
+    SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
@@ -123,6 +128,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpointBinding,
     SqlInput,
     SqlInputTag,
+    SqlIssue,
     SqlLatestMetric,
     SqlLoggedModel,
     SqlLoggedModelMetric,
@@ -181,6 +187,7 @@ from mlflow.utils.name_utils import _generate_random_name
 from mlflow.utils.search_utils import (
     SearchEvaluationDatasetsUtils,
     SearchExperimentsUtils,
+    SearchIssuesUtils,
     SearchLoggedModelsPaginationToken,
     SearchTraceUtils,
     SearchUtils,
@@ -3142,9 +3149,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 for k, v in trace_info.trace_metadata.items()
             ]
             sql_trace_info.request_metadata = request_metadata
-            sql_trace_info.assessments = [
-                SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
-            ]
+            # The caller may not always specify a trace_id on each assessment when
+            # exporting traces with assessments, so backfill it on the SQL entity.
+            sql_assessments = []
+            for a in trace_info.assessments:
+                sql_assessment = SqlAssessments.from_mlflow_entity(a)
+                if a.trace_id is None:
+                    sql_assessment.trace_id = trace_id
+                sql_assessments.append(sql_assessment)
+            sql_trace_info.assessments = sql_assessments
 
             # Parse and store token usage as trace metrics if present in metadata
             if token_usage_metadata := trace_info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):
@@ -5758,6 +5771,203 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             return dataset.to_mlflow_entity()
 
     # ===================================================================================
+    # Issue Methods
+    # ===================================================================================
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: str,
+        confidence: str | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue in the database.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status.
+            confidence: Optional confidence level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional run ID that discovered this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Verify experiment exists
+            self._get_experiment(session, experiment_id, ViewType.ACTIVE_ONLY)
+
+            # Generate issue ID
+            issue_id = f"iss-{uuid.uuid4().hex}"
+
+            # Get current timestamp
+            current_time = get_current_time_millis()
+
+            # Serialize root_causes to JSON
+            root_causes_json = json.dumps(root_causes) if root_causes else None
+
+            # Create SqlIssue record
+            sql_issue = SqlIssue(
+                issue_id=issue_id,
+                experiment_id=experiment_id,
+                name=name,
+                description=description,
+                status=status,
+                confidence=confidence,
+                root_causes=root_causes_json,
+                source_run_id=source_run_id,
+                created_timestamp=current_time,
+                last_updated_timestamp=current_time,
+                created_by=created_by,
+            )
+
+            session.add(sql_issue)
+
+            # Return Issue entity
+            return sql_issue.to_mlflow_entity()
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The issue ID to fetch.
+
+        Returns:
+            The Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_issue = (
+                self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
+            )
+            if not sql_issue:
+                raise MlflowException(
+                    f"Issue with ID '{issue_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            return sql_issue.to_mlflow_entity()
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        confidence: str | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            confidence: Optional new confidence level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            # Fetch the existing issue
+            sql_issue = (
+                self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
+            )
+            if not sql_issue:
+                raise MlflowException(
+                    f"Issue with ID '{issue_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Update fields if provided
+            if status is not None:
+                sql_issue.status = status
+            if name is not None:
+                sql_issue.name = name
+            if description is not None:
+                sql_issue.description = description
+            if confidence is not None:
+                sql_issue.confidence = confidence
+
+            # Update last_updated_timestamp
+            sql_issue.last_updated_timestamp = get_current_time_millis()
+
+            session.flush()
+
+            return sql_issue.to_mlflow_entity()
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+                Supported filters: status, source_run_id
+                Supported comparators: =, !=
+                Examples:
+                    - "status = 'accepted'"
+                    - "source_run_id = 'run123'"
+                    - "status = 'draft' AND source_run_id != 'run456'"
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        self._validate_max_results_param(max_results, allow_null=True)
+        if max_results is None:
+            max_results = SEARCH_ISSUES_DEFAULT_MAX_RESULTS
+
+        with self.ManagedSessionMaker() as session:
+            offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
+
+            query = self._get_query(session, SqlIssue)
+
+            if experiment_id:
+                query = query.filter(SqlIssue.experiment_id == experiment_id)
+
+            if filter_string:
+                parsed_filters = SearchIssuesUtils.parse_search_filter(filter_string)
+                filter_clauses = _get_search_issues_filter_clauses(
+                    parsed_filters, self._get_dialect()
+                )
+                query = query.filter(*filter_clauses)
+
+            query = query.order_by(
+                SqlIssue.created_timestamp.desc(),
+                SqlIssue.issue_id.desc(),
+            )
+
+            query = query.offset(offset).limit(max_results + 1)
+
+            sql_issues = query.all()
+
+            has_next_page = len(sql_issues) > max_results
+            next_token = (
+                SearchTraceUtils.create_page_token(offset + max_results) if has_next_page else None
+            )
+
+            issues = [sql_issue.to_mlflow_entity() for sql_issue in sql_issues[:max_results]]
+
+            return PagedList(issues, token=next_token)
+
+    # ===================================================================================
     # Helper Methods for Secrets & Endpoints
     # ===================================================================================
 
@@ -5945,7 +6155,16 @@ def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            if entity == SqlDataset:
+            if comparator in ("IS NULL", "IS NOT NULL"):
+                exists_subquery = select(entity.run_uuid).where(
+                    entity.run_uuid == SqlRun.run_uuid,
+                    entity.key == key_name,
+                )
+                if comparator == "IS NULL":
+                    attribute_filters.append(~exists_subquery.exists())
+                else:
+                    attribute_filters.append(exists_subquery.exists())
+            elif entity == SqlDataset:
                 if key_name == "context":
                     dataset_filters.append(
                         session.query(entity, SqlInput, SqlInputTag)
@@ -6275,6 +6494,16 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     )
                     span_filters.append(association_subquery)
                     continue
+                if comparator in ("IS NULL", "IS NOT NULL"):
+                    tag_exists_subquery = session.query(SqlTraceTag.request_id).filter(
+                        SqlTraceTag.request_id == SqlTraceInfo.request_id,
+                        SqlTraceTag.key == key_name,
+                    )
+                    if comparator == "IS NULL":
+                        attribute_filters.append(~tag_exists_subquery.exists())
+                    else:
+                        attribute_filters.append(tag_exists_subquery.exists())
+                    continue
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 # Handle IS NULL / IS NOT NULL for metadata
@@ -6444,6 +6673,34 @@ def _get_search_datasets_filter_clauses(parsed_filters, dialect):
             raise MlflowException.invalid_parameter_value(f"Invalid token type: {type_}")
 
     return attribute_filters, non_attribute_filters
+
+
+def _get_search_issues_filter_clauses(parsed_filters, dialect):
+    """
+    Creates filter clauses for searching issues.
+
+    Args:
+        parsed_filters: List of parsed filter dictionaries from SearchIssuesUtils
+        dialect: Database dialect for SQL comparison functions
+
+    Returns:
+        List of SQLAlchemy filter clauses
+    """
+    filter_clauses = []
+
+    for f in parsed_filters:
+        key = f["key"]
+        comparator = f["comparator"]
+        value = f["value"]
+
+        # Get the appropriate SqlIssue attribute
+        attr = getattr(SqlIssue, key)
+
+        # Use SearchUtils to get the comparison function and apply it
+        filter_clause = SearchUtils.get_sql_comparison_func(comparator, dialect)(attr, value)
+        filter_clauses.append(filter_clause)
+
+    return filter_clauses
 
 
 def _get_search_datasets_order_by_clauses(order_by):

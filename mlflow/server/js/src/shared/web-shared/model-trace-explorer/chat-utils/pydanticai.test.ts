@@ -452,6 +452,51 @@ describe('PydanticAI message normalization', () => {
       });
     });
 
+    it('should handle InstrumentedModel inputs with messages key', () => {
+      const instrumentedModelInput = {
+        messages: [MOCK_PYDANTIC_AI_REQUEST],
+        model_request_parameters: {
+          function_tools: [],
+          allow_text_output: true,
+        },
+      };
+
+      const result = normalizeConversation(instrumentedModelInput, 'pydantic_ai');
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(2); // system + user
+
+      expect(result![0]).toMatchObject({
+        role: 'system',
+        content: 'You are a helpful assistant.',
+      });
+
+      expect(result![1]).toMatchObject({
+        role: 'user',
+        content: 'Hello, how are you?',
+      });
+    });
+
+    it('should handle InstrumentedModel inputs with multiple request messages', () => {
+      const instrumentedModelInput = {
+        messages: [MOCK_PYDANTIC_AI_REQUEST, MOCK_PYDANTIC_AI_RESPONSE, MOCK_PYDANTIC_AI_REQUEST_WITH_TOOL_RETURN],
+        model_request_parameters: {
+          function_tools: [],
+          allow_text_output: true,
+        },
+      };
+
+      const result = normalizeConversation(instrumentedModelInput, 'pydantic_ai');
+
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(4); // system + user + assistant + user
+
+      expect(result![0].role).toBe('system');
+      expect(result![1].role).toBe('user');
+      expect(result![2].role).toBe('assistant');
+      expect(result![3].role).toBe('user');
+    });
+
     it('should handle outputs with _new_messages_serialized field', () => {
       const outputWithSerializedMessages = {
         data: 'Paris',

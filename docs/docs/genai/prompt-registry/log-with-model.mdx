@@ -1,6 +1,6 @@
 # Log Prompts with Models
 
-Prompts are often used as a part of GenAI applications. Managing the association between prompts and models is crucial for tracking the evolution of models and ensuring consistency across different environments. MLflow Prompt Registry is integrated with MLflow's model tracking capability, allowing you to track which prompts (and versions) are used by your models and applications.
+Prompts are often used as a part of LLM applications and AI agents. Managing the association between prompts and models is crucial for tracking the evolution of models and ensuring consistency across different environments. MLflow Prompt Registry is integrated with MLflow's model tracking capability, allowing you to track which prompts (and versions) are used by your models and applications.
 
 ## Basic Usage
 
@@ -20,7 +20,7 @@ with mlflow.start_run():
 
 :::warning
 
-    The `prompts` parameter for associating prompts with models is only supported for GenAI flavors such as OpenAI, LangChain, LlamaIndex, DSPy, etc. Please refer to the [GenAI flavors](/genai/flavors) for the full list of supported flavors.
+    The `prompts` parameter for associating prompts with models is only supported for LLM and AI agent flavors such as OpenAI, LangChain, LlamaIndex, DSPy, etc. Please refer to the [supported flavors](/genai/flavors) for the full list.
 
 :::
 

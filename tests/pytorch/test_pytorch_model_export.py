@@ -1237,7 +1237,7 @@ def test_log_model_with_datetime_input():
 
 
 @pytest.mark.skipif(
-    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2"
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
 )
 @pytest.mark.parametrize("scripted_model", [False])
 def test_save_and_load_exported_model(sequential_model, model_path, data, sequential_predicted):
@@ -1246,7 +1246,7 @@ def test_save_and_load_exported_model(sequential_model, model_path, data, sequen
     mlflow.pytorch.save_model(
         sequential_model,
         model_path,
-        export_model=True,
+        serialization_format="pt2",
         input_example=input_example,
     )
 
@@ -1262,7 +1262,7 @@ def test_save_and_load_exported_model(sequential_model, model_path, data, sequen
 
 
 @pytest.mark.skipif(
-    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2"
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
 )
 def test_exported_model_infer_dynamic_dim(tmp_path):
     class MyModule(torch.nn.Module):
@@ -1280,7 +1280,7 @@ def test_exported_model_infer_dynamic_dim(tmp_path):
     mlflow.pytorch.save_model(
         origin_model,
         save_path1,
-        export_model=True,
+        serialization_format="pt2",
         input_example=input_example,
     )
 
@@ -1300,7 +1300,7 @@ def test_exported_model_infer_dynamic_dim(tmp_path):
     mlflow.pytorch.save_model(
         origin_model,
         save_path2,
-        export_model=True,
+        serialization_format="pt2",
         input_example=input_example,
         signature=ModelSignature(
             inputs=Schema([TensorSpec(np.dtype("float32"), (3, -1, 5))]),
@@ -1319,14 +1319,14 @@ def test_exported_model_infer_dynamic_dim(tmp_path):
 
 
 @pytest.mark.skipif(
-    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2"
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
 )
 @pytest.mark.parametrize("scripted_model", [False])
 def test_load_exported_model_check_device_mismatch(sequential_model, model_path):
     mlflow.pytorch.save_model(
         sequential_model,
         model_path,
-        export_model=True,
+        serialization_format="pt2",
         input_example=torch.randn(3, 4).numpy(),
     )
 
@@ -1338,3 +1338,44 @@ def test_load_exported_model_check_device_mismatch(sequential_model, model_path)
         match="it can't be loaded on 'cuda' device.",
     ):
         mlflow.pytorch.load_model(model_path, device="cuda")
+
+
+@pytest.mark.skipif(
+    Version(torch.__version__) < Version("2.4"), reason="This test requires torch>=2.4"
+)
+def test_save_and_load_exported_model_with_multi_inputs(model_path):
+
+    class CustomModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.linear = torch.nn.Linear(4, 1)
+
+        def forward(self, x, y):
+            with torch.no_grad():
+                return self.linear(x + y)
+
+    model = CustomModel()
+    input_example = (torch.randn(10, 4), torch.randn(10, 4))
+
+    mlflow.pytorch.save_model(
+        model,
+        model_path,
+        serialization_format="pt2",
+        input_example=input_example,
+        signature=ModelSignature(
+            inputs=Schema(
+                [
+                    TensorSpec(np.dtype("float32"), (-1, 4), "v1"),
+                    TensorSpec(np.dtype("float32"), (-1, 4), "v2"),
+                ]
+            ),
+        ),
+    )
+
+    model_loaded = mlflow.pytorch.load_model(model_path)
+
+    np.testing.assert_array_almost_equal(
+        model(*input_example),
+        model_loaded(*input_example),
+        decimal=4,
+    )

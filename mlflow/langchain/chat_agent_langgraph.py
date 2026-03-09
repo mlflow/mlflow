@@ -128,9 +128,7 @@ class ChatAgentState(TypedDict):
 
             if agent_prompt:
                 system_message = {"role": "system", "content": agent_prompt}
-                preprocessor = RunnableLambda(
-                    lambda state: [system_message] + state["messages"]
-                )
+                preprocessor = RunnableLambda(lambda state: [system_message] + state["messages"])
             else:
                 preprocessor = RunnableLambda(lambda state: state["messages"])
             model_runnable = preprocessor | model

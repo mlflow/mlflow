@@ -21,7 +21,7 @@ For example, the above picture illustrates a set of spans that are organized in 
 
 ## Span Object Schema
 
-MLflow's Span object is designed to be compatible with the [OpenTelemetry Span spec](https://opentelemetry.io/docs/concepts/signals/traces#spans). It is a dataclass object that is mostly same as the OpenTelemetry span object, but with some additional convenience accessors and methods to support GenAI use cases. When exported to OpenTelemetry-compatible backend, the Span object is serialized into the strict OpenTelemetry export format (OTLP).
+MLflow's Span object is designed to be compatible with the [OpenTelemetry Span spec](https://opentelemetry.io/docs/concepts/signals/traces#spans). It is a dataclass object that is mostly same as the OpenTelemetry span object, but with some additional convenience accessors and methods to support LLM and AI agent use cases. When exported to OpenTelemetry-compatible backend, the Span object is serialized into the strict OpenTelemetry export format (OTLP).
 
 | Field           | Type              | Description                                                                                                                                                                                                                                                   |
 | --------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -155,7 +155,7 @@ def search_store(query: str) -> list[tuple[str, str]]:
     # Simulate retrieving documents (e.g., from a vector database)
     return [
         (
-            "MLflow Tracing helps debug GenAI applications...",
+            "MLflow Tracing helps debug LLM applications and AI agents...",
             "docs/mlflow/tracing_intro.md",
         ),
         (

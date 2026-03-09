@@ -111,6 +111,7 @@ def test_translate_loaded_span_sets_span_type(attr_key, attr_value, expected_typ
 @pytest.mark.parametrize(
     ("span_dict", "should_have_span_type", "expected_type"),
     [
+        # Existing non-UNKNOWN span type should NOT be overridden
         (
             {
                 "attributes": {
@@ -120,6 +121,27 @@ def test_translate_loaded_span_sets_span_type(attr_key, attr_value, expected_typ
             },
             True,
             SpanType.TOOL,
+        ),
+        # UNKNOWN span type SHOULD be overridden by OTel attributes
+        (
+            {
+                "attributes": {
+                    SpanAttributeKey.SPAN_TYPE: json.dumps(SpanType.UNKNOWN),
+                    "openinference.span.kind": "LLM",
+                }
+            },
+            True,
+            SpanType.LLM,
+        ),
+        # None/missing span type SHOULD be set from OTel attributes
+        (
+            {
+                "attributes": {
+                    "openinference.span.kind": "AGENT",
+                }
+            },
+            True,
+            SpanType.AGENT,
         ),
         ({"attributes": {"some.other.attribute": "value"}}, False, None),
         ({}, False, None),
