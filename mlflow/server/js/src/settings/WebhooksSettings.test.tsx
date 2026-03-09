@@ -1,23 +1,26 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { screen, waitFor, within } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithIntl } from '../common/utils/TestUtils.react18';
 import WebhooksSettings from './WebhooksSettings';
 import { DesignSystemProvider } from '@databricks/design-system';
 
-jest.mock('../common/utils/FetchUtils', () => ({
-  getJson: jest.fn(() => Promise.resolve({ webhooks: [] })),
-  postJson: jest.fn(() => Promise.resolve()),
-  patchJson: jest.fn(() => Promise.resolve()),
-  deleteJson: jest.fn(() => Promise.resolve()),
+jest.mock('./webhooksApi', () => ({
+  WebhooksApi: {
+    listWebhooks: jest.fn(() => Promise.resolve({ webhooks: [] })),
+    createWebhook: jest.fn(() => Promise.resolve({})),
+    updateWebhook: jest.fn(() => Promise.resolve({})),
+    deleteWebhook: jest.fn(() => Promise.resolve()),
+    testWebhook: jest.fn(() => Promise.resolve({ result: { success: true, response_status: 200 } })),
+  },
 }));
 
-import { getJson, postJson, patchJson, deleteJson } from '../common/utils/FetchUtils';
+import { WebhooksApi } from './webhooksApi';
 
-const mockGetJson = getJson as jest.MockedFunction<typeof getJson>;
-const mockPostJson = postJson as jest.MockedFunction<typeof postJson>;
-const mockPatchJson = patchJson as jest.MockedFunction<typeof patchJson>;
-const mockDeleteJson = deleteJson as jest.MockedFunction<typeof deleteJson>;
+const mockListWebhooks = WebhooksApi.listWebhooks as jest.MockedFunction<typeof WebhooksApi.listWebhooks>;
+const mockCreateWebhook = WebhooksApi.createWebhook as jest.MockedFunction<typeof WebhooksApi.createWebhook>;
+const mockDeleteWebhook = WebhooksApi.deleteWebhook as jest.MockedFunction<typeof WebhooksApi.deleteWebhook>;
+const mockTestWebhook = WebhooksApi.testWebhook as jest.MockedFunction<typeof WebhooksApi.testWebhook>;
 
 const SAMPLE_WEBHOOK = {
   webhook_id: 'wh-1',
@@ -40,7 +43,7 @@ describe('WebhooksSettings', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockGetJson.mockImplementation(() => Promise.resolve({ webhooks: [] }) as any);
+    mockListWebhooks.mockResolvedValue({ webhooks: [] });
   });
 
   it('renders empty state when no webhooks exist', async () => {
@@ -52,7 +55,7 @@ describe('WebhooksSettings', () => {
   });
 
   it('renders webhook list', async () => {
-    mockGetJson.mockImplementation(() => Promise.resolve({ webhooks: [SAMPLE_WEBHOOK] }) as any);
+    mockListWebhooks.mockResolvedValue({ webhooks: [SAMPLE_WEBHOOK] });
 
     renderComponent();
 
@@ -82,7 +85,7 @@ describe('WebhooksSettings', () => {
   });
 
   it('creates a webhook successfully', async () => {
-    mockPostJson.mockImplementation(() => Promise.resolve({}) as any);
+    mockCreateWebhook.mockResolvedValue({} as any);
 
     renderComponent();
 
@@ -108,21 +111,20 @@ describe('WebhooksSettings', () => {
     await userEvent.click(modalCreateButton ?? createButtons[createButtons.length - 1]);
 
     await waitFor(() => {
-      expect(mockPostJson).toHaveBeenCalledWith({
-        relativeUrl: 'ajax-api/2.0/mlflow/webhooks',
-        data: expect.objectContaining({
+      expect(mockCreateWebhook).toHaveBeenCalledWith(
+        expect.objectContaining({
           name: 'New Webhook',
           url: 'https://test.com/hook',
           events: [{ entity: 'PROMPT', action: 'CREATED' }],
           status: 'ACTIVE',
         }),
-      });
+      );
     });
   });
 
   it('deletes a webhook with confirmation', async () => {
-    mockGetJson.mockImplementation(() => Promise.resolve({ webhooks: [SAMPLE_WEBHOOK] }) as any);
-    mockDeleteJson.mockImplementation(() => Promise.resolve({}) as any);
+    mockListWebhooks.mockResolvedValue({ webhooks: [SAMPLE_WEBHOOK] });
+    mockDeleteWebhook.mockResolvedValue(undefined);
 
     renderComponent();
 
@@ -134,9 +136,7 @@ describe('WebhooksSettings', () => {
 
     // Confirmation modal should appear
     await waitFor(() => {
-      expect(
-        screen.getByText(/Are you sure you want to delete the webhook "Test Webhook"\?/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Are you sure you want to delete the webhook "Test Webhook"\?/)).toBeInTheDocument();
     });
 
     // Confirm deletion
@@ -145,17 +145,13 @@ describe('WebhooksSettings', () => {
     await userEvent.click(confirmButton);
 
     await waitFor(() => {
-      expect(mockDeleteJson).toHaveBeenCalledWith({
-        relativeUrl: 'ajax-api/2.0/mlflow/webhooks/wh-1',
-      });
+      expect(mockDeleteWebhook).toHaveBeenCalledWith('wh-1');
     });
   });
 
   it('tests a webhook and shows result', async () => {
-    mockGetJson.mockImplementation(() => Promise.resolve({ webhooks: [SAMPLE_WEBHOOK] }) as any);
-    mockPostJson.mockImplementation(
-      () => Promise.resolve({ result: { success: true, response_status: 200 } }) as any,
-    );
+    mockListWebhooks.mockResolvedValue({ webhooks: [SAMPLE_WEBHOOK] });
+    mockTestWebhook.mockResolvedValue({ result: { success: true, response_status: 200 } });
 
     renderComponent();
 
@@ -166,10 +162,7 @@ describe('WebhooksSettings', () => {
     await userEvent.click(screen.getByText('Test'));
 
     await waitFor(() => {
-      expect(mockPostJson).toHaveBeenCalledWith({
-        relativeUrl: 'ajax-api/2.0/mlflow/webhooks/wh-1/test',
-        data: {},
-      });
+      expect(mockTestWebhook).toHaveBeenCalledWith('wh-1');
     });
 
     await waitFor(() => {
@@ -178,7 +171,7 @@ describe('WebhooksSettings', () => {
   });
 
   it('shows error when loading webhooks fails', async () => {
-    mockGetJson.mockImplementation(() => Promise.reject(new Error('Network error')) as any);
+    mockListWebhooks.mockRejectedValue(new Error('Network error'));
 
     renderComponent();
 

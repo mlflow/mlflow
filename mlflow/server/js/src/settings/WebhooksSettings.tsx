@@ -11,23 +11,8 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { defineMessages, FormattedMessage, useIntl } from '@databricks/i18n';
-import { deleteJson, getJson, patchJson, postJson } from '../common/utils/FetchUtils';
-
-interface ApiWebhookEvent {
-  entity: string;
-  action: string;
-}
-
-interface ApiWebhook {
-  webhook_id: string;
-  name: string;
-  url: string;
-  events: ApiWebhookEvent[];
-  status: string;
-  creation_timestamp: string;
-  last_updated_timestamp: string;
-  description?: string;
-}
+import { WebhooksApi } from './webhooksApi';
+import type { Webhook, WebhookEvent } from './webhooksApi';
 
 interface WebhookFormState {
   name: string;
@@ -89,19 +74,19 @@ const WebhooksSettings = () => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
-  const [webhooks, setWebhooks] = useState<ApiWebhook[]>([]);
+  const [webhooks, setWebhooks] = useState<Webhook[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingWebhook, setEditingWebhook] = useState<ApiWebhook | null>(null);
+  const [editingWebhook, setEditingWebhook] = useState<Webhook | null>(null);
   const [form, setForm] = useState<WebhookFormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [webhookToDelete, setWebhookToDelete] = useState<ApiWebhook | null>(null);
+  const [webhookToDelete, setWebhookToDelete] = useState<Webhook | null>(null);
 
   const [testingId, setTestingId] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{
@@ -114,7 +99,7 @@ const WebhooksSettings = () => {
     setLoading(true);
     setError(null);
     try {
-      const response: any = await getJson({ relativeUrl: 'ajax-api/2.0/mlflow/webhooks' });
+      const response = await WebhooksApi.listWebhooks();
       setWebhooks(response?.webhooks ?? []);
     } catch (e: any) {
       setError(e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to load webhooks' }));
@@ -134,7 +119,7 @@ const WebhooksSettings = () => {
     setIsModalOpen(true);
   }, []);
 
-  const openEditModal = useCallback((webhook: ApiWebhook) => {
+  const openEditModal = useCallback((webhook: Webhook) => {
     setEditingWebhook(webhook);
     setForm({
       name: webhook.name,
@@ -169,7 +154,7 @@ const WebhooksSettings = () => {
       return;
     }
 
-    const events: ApiWebhookEvent[] = Array.from(form.events).map((key) => {
+    const events: WebhookEvent[] = Array.from(form.events).map((key) => {
       const [entity, action] = key.split('.', 2);
       return { entity, action };
     });
@@ -177,31 +162,20 @@ const WebhooksSettings = () => {
     setIsSaving(true);
     setFormError(null);
 
+    const payload = {
+      name: form.name.trim(),
+      url: form.url.trim(),
+      events,
+      description: form.description.trim() || undefined,
+      secret: form.secret.trim() || undefined,
+      status: form.status ? ('ACTIVE' as const) : ('DISABLED' as const),
+    };
+
     try {
       if (editingWebhook) {
-        await patchJson({
-          relativeUrl: `ajax-api/2.0/mlflow/webhooks/${editingWebhook.webhook_id}`,
-          data: {
-            name: form.name.trim(),
-            url: form.url.trim(),
-            events,
-            description: form.description.trim() || undefined,
-            secret: form.secret.trim() || undefined,
-            status: form.status ? 'ACTIVE' : 'DISABLED',
-          },
-        });
+        await WebhooksApi.updateWebhook(editingWebhook.webhook_id, payload);
       } else {
-        await postJson({
-          relativeUrl: 'ajax-api/2.0/mlflow/webhooks',
-          data: {
-            name: form.name.trim(),
-            url: form.url.trim(),
-            events,
-            description: form.description.trim() || undefined,
-            secret: form.secret.trim() || undefined,
-            status: form.status ? 'ACTIVE' : 'DISABLED',
-          },
-        });
+        await WebhooksApi.createWebhook(payload);
       }
       closeModal();
       await fetchWebhooks();
@@ -212,7 +186,7 @@ const WebhooksSettings = () => {
     }
   }, [form, editingWebhook, closeModal, fetchWebhooks, intl]);
 
-  const openDeleteModal = useCallback((webhook: ApiWebhook) => {
+  const openDeleteModal = useCallback((webhook: Webhook) => {
     setWebhookToDelete(webhook);
     setIsDeleteModalOpen(true);
   }, []);
@@ -222,9 +196,7 @@ const WebhooksSettings = () => {
     setDeletingId(webhookToDelete.webhook_id);
     setIsDeleteModalOpen(false);
     try {
-      await deleteJson({
-        relativeUrl: `ajax-api/2.0/mlflow/webhooks/${webhookToDelete.webhook_id}`,
-      });
+      await WebhooksApi.deleteWebhook(webhookToDelete.webhook_id);
       await fetchWebhooks();
     } catch (e: any) {
       setError(e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to delete webhook' }));
@@ -235,14 +207,11 @@ const WebhooksSettings = () => {
   }, [webhookToDelete, fetchWebhooks, intl]);
 
   const handleTest = useCallback(
-    async (webhook: ApiWebhook) => {
+    async (webhook: Webhook) => {
       setTestingId(webhook.webhook_id);
       setTestResult(null);
       try {
-        const response: any = await postJson({
-          relativeUrl: `ajax-api/2.0/mlflow/webhooks/${webhook.webhook_id}/test`,
-          data: {},
-        });
+        const response = await WebhooksApi.testWebhook(webhook.webhook_id);
         const result = response?.result;
         setTestResult({
           webhookId: webhook.webhook_id,
@@ -273,7 +242,7 @@ const WebhooksSettings = () => {
     return descriptor ? intl.formatMessage(descriptor) : key;
   };
 
-  const formatEvents = (events: ApiWebhookEvent[]) =>
+  const formatEvents = (events: WebhookEvent[]) =>
     events.map((e) => formatEventLabel(e.entity, e.action)).join(', ');
 
   return (
