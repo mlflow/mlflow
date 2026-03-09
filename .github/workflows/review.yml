@@ -78,7 +78,7 @@ jobs:
           resolution-strategy: "lowest"
       - name: Install Claude CLI
         run: |
-          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.29
+          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.71
 
       - name: Extract optional prompt from comment
         if: github.event_name == 'issue_comment'
@@ -113,7 +113,8 @@ jobs:
           fi
 
           EXIT_CODE=0
-          timeout 20m claude --model claude-opus-4-5-20251101 --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
+          # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
+          timeout 20m claude --model claude-opus-4-6 --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
