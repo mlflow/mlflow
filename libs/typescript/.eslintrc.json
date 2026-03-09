@@ -73,6 +73,17 @@
         // AI SDK does not expose the type of createOpenAI return value
         "@typescript-eslint/no-unsafe-call": "off"
       }
+    },
+    {
+      "files": ["integrations/langchain/src/*.ts"],
+      "rules": {
+        // LangChain's dynamic API surface (BaseChatModel, RunnableBinding, AIMessageChunk)
+        // requires extensive unsafe access patterns that cannot be avoided
+        "@typescript-eslint/no-unsafe-member-access": "off",
+        "@typescript-eslint/no-unsafe-return": "off",
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/no-unsafe-argument": "off"
+      }
     }
   ]
 }
