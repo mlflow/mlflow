@@ -15,7 +15,7 @@ Budget policies let you control AI Gateway spending by setting cost thresholds w
 | **Budget Amount**  | The spending threshold in USD for the time window                            |
 | **Reset Duration** | The fixed time window: daily, weekly, or monthly                             |
 | **Target Scope**   | `GLOBAL` (all requests) or `WORKSPACE` (scoped to a specific workspace)      |
-| **Budget Action**  | `ALERT` sends a webhook notification; `REJECT` blocks requests with HTTP 429 |
+| **Budget Action**  | `ALERT` sends a webhook notification; `REJECT` blocks subsequent requests with HTTP 429 after the budget is exceeded |
 
 ## Managing Budget Policies
 
@@ -57,13 +57,13 @@ To configure the webhook endpoint that receives these alerts, see the [Webhook C
 
 ## Reject Behavior
 
-When a `REJECT` policy's threshold is crossed, the gateway blocks all subsequent requests to AI Gateway endpoints with an HTTP 429 response:
+When a `REJECT` policy's threshold is crossed, the gateway blocks all subsequent requests to AI Gateway endpoints with an HTTP 429 response. The request that causes the cumulative spend to exceed the budget is allowed to complete — rejection applies to requests that arrive _after_ the threshold has been crossed.
 
 ```
 HTTP/1.1 429 Too Many Requests
 
 {
-  "detail": "Budget limit exceeded for policy 'bp-abc123'. Limit: $500.00 USD per 1 months. Request rejected."
+  "detail": "Budget limit exceeded for policy 'bp-abc123'. Limit: $500.00 USD per 1 month. Request rejected."
 }
 ```
 
@@ -74,7 +74,7 @@ Requests resume automatically when the current time window expires and a new win
 Budget windows are fixed intervals:
 
 - **Daily** — resets every day at midnight UTC
-- **Weekly** — resets every 7 days, aligned to the epoch (January 1, 1970 UTC)
+- **Weekly** — resets every 7 days on Sundays
 - **Monthly** — resets on the 1st of each month
 
 Accumulated spend resets to zero at the start of each new window. Budget tracking is in-memory and resets on server restart.
