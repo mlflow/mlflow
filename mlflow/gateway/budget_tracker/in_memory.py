@@ -158,7 +158,6 @@ class InMemoryBudgetTracker(BudgetTracker):
                 window.exceeded = spend >= window.policy.budget_amount
 
     def get_all_windows(self) -> list[BudgetWindow]:
-        """Get the current window info for all tracked policies."""
         with self._lock:
             return list(self._windows.values())
 
