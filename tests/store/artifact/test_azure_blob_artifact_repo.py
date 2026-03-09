@@ -121,6 +121,36 @@ def test_parse_cn_wasbs_uri():
         parse("wasb://cont@acct.blob.core.chinacloudapi.cn/path")
 
 
+def test_parse_govcloud_wasbs_uri():
+    parse = AzureBlobArtifactRepository.parse_wasbs_uri
+    gov_api_suffix = "blob.core.usgovcloudapi.net"
+
+    gov_wasb_with_short_path = "wasbs://cont@acct.blob.core.usgovcloudapi.net/path"
+    assert parse(gov_wasb_with_short_path) == ("cont", "acct", "path", gov_api_suffix)
+
+    gov_wasb_without_path = "wasbs://cont@acct.blob.core.usgovcloudapi.net"
+    assert parse(gov_wasb_without_path) == ("cont", "acct", "", gov_api_suffix)
+
+    gov_wasb_without_path2 = "wasbs://cont@acct.blob.core.usgovcloudapi.net/"
+    assert parse(gov_wasb_without_path2) == ("cont", "acct", "", gov_api_suffix)
+
+    gov_wasb_with_multi_path = "wasbs://cont@acct.blob.core.usgovcloudapi.net/a/b"
+    assert parse(gov_wasb_with_multi_path) == ("cont", "acct", "a/b", gov_api_suffix)
+
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct.blob.core.evil.net/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://acct.blob.core.usgovcloudapi.net/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://@acct.blob.core.usgovcloudapi.net/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acctxblob.core.usgovcloudapi.net/path")
+    with pytest.raises(Exception, match="Not a WASBS URI"):
+        parse("wasb://cont@acct.blob.core.usgovcloudapi.net/path")
+
+
 def test_list_artifacts_empty(mock_client):
     repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
     mock_client.get_container_client().walk_blobs.return_value = MockBlobList([])
