@@ -3,9 +3,11 @@ import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { BudgetsList } from './BudgetsList';
 import { useBudgetPoliciesQuery } from '../../hooks/useBudgetPoliciesQuery';
+import { useBudgetWindowsQuery } from '../../hooks/useBudgetWindowsQuery';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 
 jest.mock('../../hooks/useBudgetPoliciesQuery');
+jest.mock('../../hooks/useBudgetWindowsQuery');
 
 const now = Date.now() / 1000;
 
@@ -37,6 +39,11 @@ const mockPolicies = [
 describe('BudgetsList', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.mocked(useBudgetWindowsQuery).mockReturnValue({
+      data: {},
+      isLoading: false,
+      error: undefined,
+    });
   });
 
   test('renders loading state', () => {
