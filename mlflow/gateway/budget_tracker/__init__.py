@@ -72,6 +72,10 @@ class BudgetTracker(ABC):
         """Mark the tracker as just refreshed."""
         self._last_refresh_time = time.monotonic()
 
+    def invalidate(self) -> None:
+        """Reset the refresh timer so the next needs_refresh() call returns True."""
+        self._last_refresh_time = 0.0
+
     @abstractmethod
     def refresh_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
         """Load or refresh policies from the database.
