@@ -9,6 +9,7 @@ import lightgbm as lgb
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 from packaging.version import Version
 from sklearn import datasets
@@ -808,3 +809,21 @@ def test_lgb_log_datasets_with_valid_set_with_name(bst_params, train_set, valid_
     assert dataset_inputs[0].tags[0].value == "train"
     assert dataset_inputs[1].tags[0].value == "eval"
     assert dataset_inputs[1].dataset.name == "my_valid_set"
+
+
+def test_lgb_log_datasets_with_polars(bst_params):
+    iris = datasets.load_iris()
+    X = pl.DataFrame(iris.data[:, :2], schema=["f1", "f2"])
+    y = iris.target
+    train_set = lgb.Dataset(X, y, free_raw_data=False)
+
+    with mlflow.start_run() as run:
+        mlflow.lightgbm.autolog(log_datasets=True)
+        lgb.train(bst_params, train_set, num_boost_round=1)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[0].dataset.source_type == "code"

@@ -11,6 +11,7 @@ import joblib
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 import sklearn
 import sklearn.base
@@ -1224,6 +1225,23 @@ def test_sklearn_autolog_log_datasets_without_explicit_run():
             "targets": None,
         }
     })
+
+
+def test_sklearn_autolog_log_datasets_with_polars():
+    X, y = get_iris()
+    X_pl = pl.DataFrame(X, schema=["f1", "f2"])
+
+    with mlflow.start_run() as run:
+        mlflow.sklearn.autolog(log_datasets=True)
+        model = sklearn.linear_model.LinearRegression()
+        model.fit(X_pl, y)
+
+    run_id = run.info.run_id
+    client = MlflowClient()
+    dataset_inputs = client.get_run(run_id).inputs.dataset_inputs
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].tags[0].value == "train"
+    assert dataset_inputs[0].dataset.source_type == "code"
 
 
 def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation_estimators():

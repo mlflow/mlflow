@@ -59,6 +59,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     safe_patch,
 )
+from mlflow.utils.data_utils import is_polars_dataframe
 from mlflow.utils.databricks_utils import is_in_databricks_runtime as is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -1050,6 +1051,10 @@ def _log_lightgbm_dataset(lgb_dataset, source, context, autologging_client, name
         dataset = from_numpy(features=arr_data, targets=label, source=source, name=name)
     elif isinstance(data, np.ndarray):
         dataset = from_numpy(features=data, targets=label, source=source, name=name)
+    elif is_polars_dataframe(data):
+        from mlflow.data.polars_dataset import from_polars
+
+        dataset = from_polars(df=data, source=source, name=name)
     else:
         _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(data))
         return
