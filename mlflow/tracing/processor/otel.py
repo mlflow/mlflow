@@ -70,7 +70,6 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
 
         if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get():
             span = self._translate_span(span)
-            print(span.attributes)
 
         super().on_end(span)
 

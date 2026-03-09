@@ -41,17 +41,25 @@ def _convert_message(msg: dict[str, Any]) -> dict[str, Any]:
                 arguments = json.loads(args_raw) if isinstance(args_raw, str) else args_raw
             except (json.JSONDecodeError, TypeError):
                 arguments = args_raw
-            parts.append({
-                "type": "tool_call",
-                "id": tc.get("id"),
-                "name": func.get("name"),
-                "arguments": arguments,
-            })
+            parts.append(
+                {
+                    "type": "tool_call",
+                    "id": tc.get("id"),
+                    "name": func.get("name"),
+                    "arguments": arguments,
+                }
+            )
 
     # Tool response → tool_call_response part
     if tool_call_id := msg.get("tool_call_id"):
         # Collect all text content into a single result string
-        result = parts[0]["content"] if len(parts) == 1 else json.dumps([p["content"] for p in parts]) if parts else ""
+        result = (
+            parts[0]["content"]
+            if len(parts) == 1
+            else json.dumps([p["content"] for p in parts])
+            if parts
+            else ""
+        )
         return {
             "role": role,
             "parts": [{"type": "tool_call_response", "id": tool_call_id, "result": result}],

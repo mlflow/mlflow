@@ -71,9 +71,7 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
             try:
                 genai_attrs.update(converter.translate(inputs, outputs))
             except Exception:
-                _logger.debug(
-                    "Failed to convert messages for format %r, skipping", message_format
-                )
+                _logger.debug("Failed to convert messages for format %r, skipping", message_format)
 
     # Merge: Keep non-mlflow.* attrs, add GenAI attrs
     merged_attrs = {k: v for k, v in original_attrs.items() if not k.startswith("mlflow.")}
