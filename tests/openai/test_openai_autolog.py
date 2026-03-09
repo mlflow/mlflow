@@ -1003,16 +1003,22 @@ async def test_tracing_headers_injected(client):
 
     if client._is_async:
         patch_target = "httpx.AsyncClient.send"
+        original_send = httpx.AsyncClient.send
 
         async def send_patch(self, request, *args, **kwargs):
-            captured_request["headers"] = dict(request.headers)
-            return httpx.Response(status_code=200, request=request, json=mock_response)
+            if "chat/completions" in str(request.url):
+                captured_request["headers"] = dict(request.headers)
+                return httpx.Response(status_code=200, request=request, json=mock_response)
+            return await original_send(self, request, *args, **kwargs)
     else:
         patch_target = "httpx.Client.send"
+        original_send = httpx.Client.send
 
         def send_patch(self, request, *args, **kwargs):
-            captured_request["headers"] = dict(request.headers)
-            return httpx.Response(status_code=200, request=request, json=mock_response)
+            if "chat/completions" in str(request.url):
+                captured_request["headers"] = dict(request.headers)
+                return httpx.Response(status_code=200, request=request, json=mock_response)
+            return original_send(self, request, *args, **kwargs)
 
     with mock.patch(patch_target, send_patch):
         response = client.chat.completions.create(
@@ -1059,16 +1065,22 @@ async def test_tracing_headers_preserve_user_headers(client):
 
     if client._is_async:
         patch_target = "httpx.AsyncClient.send"
+        original_send = httpx.AsyncClient.send
 
         async def send_patch(self, request, *args, **kwargs):
-            captured_request["headers"] = dict(request.headers)
-            return httpx.Response(status_code=200, request=request, json=mock_response)
+            if "chat/completions" in str(request.url):
+                captured_request["headers"] = dict(request.headers)
+                return httpx.Response(status_code=200, request=request, json=mock_response)
+            return await original_send(self, request, *args, **kwargs)
     else:
         patch_target = "httpx.Client.send"
+        original_send = httpx.Client.send
 
         def send_patch(self, request, *args, **kwargs):
-            captured_request["headers"] = dict(request.headers)
-            return httpx.Response(status_code=200, request=request, json=mock_response)
+            if "chat/completions" in str(request.url):
+                captured_request["headers"] = dict(request.headers)
+                return httpx.Response(status_code=200, request=request, json=mock_response)
+            return original_send(self, request, *args, **kwargs)
 
     with mock.patch(patch_target, send_patch):
         response = client.chat.completions.create(
