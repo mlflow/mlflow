@@ -66,8 +66,9 @@ class UserTraceDestinationRegistry:
                         f"Failed to parse trace location {location} from "
                         "MLFLOW_TRACING_DESTINATION environment variable. "
                         "Unity Catalog table-prefix destinations "
-                        "(<catalog_name>.<schema_name>.<table_prefix>) are not supported. "
-                        "Expected format: <catalog_name>.<schema_name> or <experiment_id>."
+                        "(<catalog_name>.<schema_name>.<table_prefix>) are not supported in "
+                        "MLFLOW_TRACING_DESTINATION. Use `mlflow.set_experiment(..., "
+                        "trace_location=mlflow.entities.UnityCatalog(...))` instead. "
                     )
                 case [experiment_id]:
                     return MlflowExperimentLocation(experiment_id)

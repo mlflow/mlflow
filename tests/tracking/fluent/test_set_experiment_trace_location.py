@@ -2,15 +2,12 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
-from mlflow.tracking.fluent import (
-    _register_experiment_trace_location,
-    _sync_trace_destination_and_provider,
-)
+from mlflow.tracking.fluent import _register_experiment_trace_location
 from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
 
 
@@ -61,6 +58,18 @@ def test_non_databricks_backend_raises():
                 experiment=_experiment(),
                 trace_location=UnityCatalog("catalog", "schema", "prefix"),
             )
+
+
+def test_set_experiment_with_table_prefix_env_var_points_to_trace_location_param(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.prefix")
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Unity Catalog table-prefix destinations "
+        r"\(<catalog_name>\.<schema_name>\.<table_prefix>\) are not supported in "
+        r"MLFLOW_TRACING_DESTINATION.*Use `mlflow\.set_experiment",
+    ):
+        mlflow.set_experiment("test-experiment")
 
 
 def test_creates_and_links_when_no_existing_location():
@@ -138,101 +147,69 @@ def test_errors_when_existing_location_differs():
             )
 
 
-def test_apply_state_sets_destination_when_resolved():
-    experiment = _experiment()
-    resolved = UnityCatalog("catalog", "schema", table_prefix="prefix")
-
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-    with (
-        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
-        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
-    ):
-        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=resolved)
-
-    assert _MLFLOW_TRACE_USER_DESTINATION.get() is resolved
-    init_provider.assert_called_once()
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-
-
-def test_apply_state_reinits_for_uc_linked_experiment():
-    experiment = _experiment(tags={MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID: "uuid"})
-
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-    with (
-        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
-        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
-    ):
-        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=None)
-
-    assert _MLFLOW_TRACE_USER_DESTINATION._global_value is None
-    init_provider.assert_called_once()
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-
-
-def test_apply_state_clears_global_slot_on_experiment_switch():
-    experiment = _experiment()
-    old_dest = UnityCatalog("catalog", "schema", table_prefix="old")
-
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-    _MLFLOW_TRACE_USER_DESTINATION.set(old_dest)
-    assert _MLFLOW_TRACE_USER_DESTINATION.get() is old_dest
+def test_set_experiment_wires_trace_location_to_returned_experiment():
+    resolved = UnityCatalog("catalog", "schema", table_prefix="pfx")
 
     with (
-        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
-        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
+        mock.patch(
+            "mlflow.tracking.fluent._register_experiment_trace_location",
+            return_value=resolved,
+        ) as mock_register,
+        mock.patch(
+            "mlflow.tracking.fluent._sync_trace_destination_and_provider",
+        ) as mock_sync,
     ):
-        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=None)
+        experiment = mlflow.set_experiment("test-trace-loc-integration")
 
-    assert _MLFLOW_TRACE_USER_DESTINATION._global_value is None
-    init_provider.assert_called_once()
+    mock_register.assert_called_once()
+    _, kwargs = mock_register.call_args
+    assert kwargs["experiment"].name == "test-trace-loc-integration"
+    mock_sync.assert_called_once_with(resolved, experiment)
+    assert experiment.trace_location is resolved
+
+
+def test_set_experiment_with_trace_location_installs_uc_processor():
+    from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+    from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, _get_tracer
+
+    resolved = UnityCatalog("catalog", "schema", table_prefix="pfx")
+    mlflow.tracing.reset()
     _MLFLOW_TRACE_USER_DESTINATION.reset()
-
-
-def test_apply_state_skips_reinit_when_no_previous_destination():
-    experiment = _experiment()
-
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-    with (
-        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
-        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
-    ):
-        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=None)
-
-    init_provider.assert_not_called()
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-
-
-def test_apply_state_skips_reinit_for_uc_to_uc_switch():
-    experiment = _experiment()
-    old_dest = UnityCatalog("catalog", "schema", table_prefix="old")
-    new_dest = UnityCatalog("catalog", "schema", table_prefix="new")
-
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
-    _MLFLOW_TRACE_USER_DESTINATION.set(old_dest)
 
     with (
-        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
-        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=True),
+        mock.patch(
+            "mlflow.tracking.fluent._register_experiment_trace_location",
+            return_value=resolved,
+        ) as mock_register,
     ):
-        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=new_dest)
+        experiment = mlflow.set_experiment("test-uc-processor")
 
-    assert _MLFLOW_TRACE_USER_DESTINATION.get() is new_dest
-    init_provider.assert_not_called()
+    mock_register.assert_called_once()
+    assert experiment.trace_location is resolved
+
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], DatabricksUCTableSpanProcessor)
+    assert isinstance(processors[0].span_exporter, DatabricksUCTableSpanExporter)
+
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    mlflow.tracing.reset()
+
+
+def test_set_experiment_without_trace_location_does_not_install_uc_processor():
+    from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, _get_tracer
+
+    mlflow.tracing.reset()
     _MLFLOW_TRACE_USER_DESTINATION.reset()
 
+    mlflow.set_experiment("test-no-uc-processor")
 
-def test_apply_state_skips_reinit_when_tracing_disabled():
-    experiment = _experiment()
-    old_dest = UnityCatalog("catalog", "schema", table_prefix="old")
+    tracer = _get_tracer("test")
+    processors = tracer.span_processor._span_processors
+    assert all(not isinstance(p, DatabricksUCTableSpanProcessor) for p in processors)
 
     _MLFLOW_TRACE_USER_DESTINATION.reset()
-    _MLFLOW_TRACE_USER_DESTINATION.set(old_dest)
-
-    with (
-        mock.patch("mlflow.tracing.provider._initialize_tracer_provider") as init_provider,
-        mock.patch("mlflow.tracing.provider.is_tracing_enabled", return_value=False),
-    ):
-        _sync_trace_destination_and_provider(experiment=experiment, resolved_location=None)
-
-    init_provider.assert_not_called()
-    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    mlflow.tracing.reset()
