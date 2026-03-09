@@ -4312,6 +4312,10 @@
     "defaultMessage": "Dataset",
     "description": "Experiment page > group by runs control > group by dataset"
   },
+  "RtRy6v": {
+    "defaultMessage": "Name must start and end with a letter or digit, be less than 63 characters long, and contain only letters, digits, dots (.), underscores (_), and hyphens (-).",
+    "description": "Webhook name validation error"
+  },
   "Rwi+VC": {
     "defaultMessage": "avg score",
     "description": "Subtitle for average assessment score"

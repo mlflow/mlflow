@@ -84,6 +84,28 @@ describe('WebhooksSettings', () => {
     });
   });
 
+  it('shows validation error for invalid webhook name', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Create webhook')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByText('Create webhook'));
+
+    const nameInput = screen.getByPlaceholderText('My webhook');
+    await userEvent.type(nameInput, 'webhook 1');
+
+    const createButtons = screen.getAllByText('Create');
+    await userEvent.click(createButtons[createButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Name must start and end with a letter or digit/),
+      ).toBeInTheDocument();
+    });
+  });
+
   it('creates a webhook successfully', async () => {
     mockCreateWebhook.mockResolvedValue({} as any);
 
@@ -99,7 +121,7 @@ describe('WebhooksSettings', () => {
     const nameInput = screen.getByPlaceholderText('My webhook');
     const urlInput = screen.getByPlaceholderText('https://example.com/webhook');
 
-    await userEvent.type(nameInput, 'New Webhook');
+    await userEvent.type(nameInput, 'new-webhook');
     await userEvent.type(urlInput, 'https://test.com/hook');
 
     // Select an event
@@ -113,7 +135,7 @@ describe('WebhooksSettings', () => {
     await waitFor(() => {
       expect(mockCreateWebhook).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: 'New Webhook',
+          name: 'new-webhook',
           url: 'https://test.com/hook',
           events: [{ entity: 'PROMPT', action: 'CREATED' }],
           status: 'ACTIVE',

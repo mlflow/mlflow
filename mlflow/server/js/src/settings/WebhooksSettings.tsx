@@ -59,6 +59,8 @@ const VALID_EVENTS: { entity: string; action: string }[] = [
   { entity: 'BUDGET_POLICY', action: 'EXCEEDED' },
 ];
 
+const WEBHOOK_NAME_REGEX = /^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/i;
+
 const eventKey = (entity: string, action: string) => `${entity}.${action}`;
 
 const EMPTY_FORM: WebhookFormState = {
@@ -143,6 +145,17 @@ const WebhooksSettings = () => {
   const handleSave = useCallback(async () => {
     if (!form.name.trim()) {
       setFormError(intl.formatMessage({ defaultMessage: 'Name is required' }));
+      return;
+    }
+    const trimmedName = form.name.trim();
+    if (trimmedName.length > 63 || !WEBHOOK_NAME_REGEX.test(trimmedName)) {
+      setFormError(
+        intl.formatMessage({
+          defaultMessage:
+            'Name must start and end with a letter or digit, be less than 63 characters long, and contain only letters, digits, dots (.), underscores (_), and hyphens (-).',
+          description: 'Webhook name validation error',
+        }),
+      );
       return;
     }
     if (!form.url.trim()) {
