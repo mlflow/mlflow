@@ -11,6 +11,7 @@ import {
   TableCell,
   TableHeader,
   TableRow,
+  Tooltip,
   TrashIcon,
   Typography,
   useDesignSystemTheme,
@@ -31,7 +32,7 @@ interface BudgetsListProps {
 
 export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) => {
   const { theme } = useDesignSystemTheme();
-  const { formatMessage } = useIntl();
+  const { formatMessage, formatDate } = useIntl();
   const [pageToken, setPageToken] = useState<string | undefined>(undefined);
   const [pageTokenHistory, setPageTokenHistory] = useState<string[]>([]);
 
@@ -158,7 +159,21 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
                 {window ? (
-                  <TimeAgo date={new Date(window.window_end_ms)} />
+                  <Tooltip
+                    componentId="mlflow.gateway.budgets-list.window-end-tooltip"
+                    content={formatDate(window.window_end_ms, {
+                      dateStyle: 'full',
+                      timeStyle: 'short',
+                    })}
+                  >
+                    <Typography.Text>
+                      {formatDate(window.window_end_ms, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </Typography.Text>
+                  </Tooltip>
                 ) : (
                   <Typography.Text color="secondary">—</Typography.Text>
                 )}
