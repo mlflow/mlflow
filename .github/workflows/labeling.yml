@@ -16,7 +16,7 @@ defaults:
 
 jobs:
   labeling:
-    if: github.event.pull_request.draft == false
+    if: (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-slim
     permissions:
       pull-requests: write
