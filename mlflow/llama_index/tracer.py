@@ -422,12 +422,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
             **template.kwargs,
             **(event.template_args or {}),
         }
-        span.set_attributes(
-            {
-                "prmopt_template": template.get_template(),
-                "template_arguments": {var: template_args.get(var) for var in template_args},
-            }
-        )
+        span.set_attributes({
+            "prmopt_template": template.get_template(),
+            "template_arguments": {var: template_args.get(var) for var in template_args},
+        })
 
     @_handle_event.register
     def _(self, event: LLMCompletionStartEvent, span: LiveSpan):
@@ -458,12 +456,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: ReRankStartEvent, span: LiveSpan):
         span.set_attribute(SpanAttributeKey.SPAN_TYPE, SpanType.RERANKER)
-        span.set_attributes(
-            {
-                "model_name": event.model_name,
-                "top_n": event.top_n,
-            }
-        )
+        span.set_attributes({
+            "model_name": event.model_name,
+            "top_n": event.top_n,
+        })
 
     @_handle_event.register
     def _(self, event: ExceptionEvent, span: LiveSpan):

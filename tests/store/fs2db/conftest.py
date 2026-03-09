@@ -18,17 +18,15 @@ def clients(
     source = tmp / "source"
     target_uri = f"sqlite:///{tmp / 'migrated.db'}"
 
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-I",
-            "fs2db/src/generate_synthetic_data.py",
-            "--output",
-            source,
-            "--size",
-            "small",
-        ]
-    )
+    subprocess.check_call([
+        sys.executable,
+        "-I",
+        "fs2db/src/generate_synthetic_data.py",
+        "--output",
+        source,
+        "--size",
+        "small",
+    ])
 
     migrate(Path(source), target_uri, progress=False)
 

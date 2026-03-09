@@ -359,6 +359,8 @@ def test_process_conda_env(tmp_path):
 )
 def test_infer_requirements_error_handling(env_var, fallbacks, should_raise, monkeypatch):
     monkeypatch.setenv("MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS", str(env_var))
+    # Disable UV auto-detect to ensure model-based inference is used
+    monkeypatch.setenv("MLFLOW_UV_AUTO_DETECT", "false")
 
     call_args = ("path/to/model", "sklearn", fallbacks)
     with mock.patch(

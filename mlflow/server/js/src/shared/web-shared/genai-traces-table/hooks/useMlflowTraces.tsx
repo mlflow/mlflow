@@ -664,7 +664,14 @@ export const createMlflowSearchFilter = (
               networkFilter.key.includes('.') || networkFilter.key.includes(' ')
                 ? `${tagField}.\`${networkFilter.key}\``
                 : `${tagField}.${networkFilter.key}`;
-            filter.push(`${fieldName} ${networkFilter.operator} '${networkFilter.value}'`);
+            if (
+              networkFilter.operator === FilterOperator.IS_NULL ||
+              networkFilter.operator === FilterOperator.IS_NOT_NULL
+            ) {
+              filter.push(`${fieldName} ${networkFilter.operator}`);
+            } else {
+              filter.push(`${fieldName} ${networkFilter.operator} '${networkFilter.value}'`);
+            }
           }
           break;
         case EXECUTION_DURATION_COLUMN_ID:

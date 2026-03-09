@@ -215,9 +215,7 @@ dataset = [
     },
     {
         "inputs": {"question": "Can MLflow create a taco for my lunch?"},
-        "expectations": {
-            "expected_response": "No, unfortunately, MLflow is not a taco maker."
-        },
+        "expectations": {"expected_response": "No, unfortunately, MLflow is not a taco maker."},
     },
 ]
 
