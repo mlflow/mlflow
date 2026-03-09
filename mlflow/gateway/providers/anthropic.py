@@ -22,8 +22,6 @@ from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
 
-_ANTHROPIC_STRUCTURED_OUTPUTS_HEADER = "structured-outputs-2025-11-13"
-
 
 class AnthropicAdapter(ProviderAdapter):
     @classmethod
@@ -139,12 +137,15 @@ class AnthropicAdapter(ProviderAdapter):
                     payload["tool_choice"] = {"type": "tool", "name": name}
 
         # Transform response_format for Anthropic structured outputs
-        # Anthropic uses output_format with {"type": "json_schema", "schema": {...}}
+        # Anthropic uses output_config.format with {"type": "json_schema", "schema": {...}}
         if response_format := payload.pop("response_format", None):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
-                payload["output_format"] = {
-                    "type": "json_schema",
-                    "schema": response_format["json_schema"],
+                json_schema = response_format["json_schema"]
+                payload["output_config"] = {
+                    "format": {
+                        "type": "json_schema",
+                        "schema": json_schema.get("schema", {}),
+                    }
                 }
 
         return payload
@@ -427,17 +428,6 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             Merged headers with provider headers taking precedence
         """
         result_headers = self.headers.copy()
-
-        # Add conditional beta header based on payload
-        if payload and payload.get("output_format"):
-            if payload["output_format"].get("type") == "json_schema":
-                if "anthropic-beta" not in result_headers:
-                    result_headers["anthropic-beta"] = _ANTHROPIC_STRUCTURED_OUTPUTS_HEADER
-                else:
-                    if _ANTHROPIC_STRUCTURED_OUTPUTS_HEADER not in result_headers["anthropic-beta"]:
-                        result_headers["anthropic-beta"] = (
-                            f"{result_headers['anthropic-beta']},{_ANTHROPIC_STRUCTURED_OUTPUTS_HEADER}"
-                        )
 
         if headers:
             client_headers = headers.copy()
