@@ -4,7 +4,6 @@ on:
   issue_comment:
     types: [created]
   pull_request:
-    types: [opened, ready_for_review]
     paths:
       - ".github/workflows/review.yml"
       - ".claude/commands/pr-review.md"
