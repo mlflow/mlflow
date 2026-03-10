@@ -2139,7 +2139,11 @@ class SearchTraceUtils(SearchUtils):
                     f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-        elif identifier_type in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
+        elif identifier_type in (
+            cls._FEEDBACK_IDENTIFIER,
+            cls._EXPECTATION_IDENTIFIER,
+            cls._ISSUE_IDENTIFIER,
+        ):
             # Feedback and expectation values are stored as JSON, so we expect string values
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
@@ -2147,17 +2151,6 @@ class SearchTraceUtils(SearchUtils):
                 raise MlflowException(
                     "Expected a quoted string value for "
                     f"{identifier_type} (e.g. 'my-value'). Got value "
-                    f"{token.value}",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-        elif identifier_type == cls._ISSUE_IDENTIFIER:
-            # Issue values are simple strings (issue IDs)
-            if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
-                return cls._strip_quotes(token.value, expect_quoted_value=True)
-            else:
-                raise MlflowException(
-                    "Expected a quoted string value for "
-                    f"{identifier_type} (e.g. 'iss-123'). Got value "
                     f"{token.value}",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
