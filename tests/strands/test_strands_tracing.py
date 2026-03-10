@@ -209,7 +209,7 @@ def test_function_calling_creates_single_trace():
     assert tool_span.span_type == SpanType.TOOL
     assert agent_span.inputs == [{"role": "user", "content": [{"text": "add numbers 1 2 1 2"}]}]
     assert agent_span.outputs == 3
-    assert tool_span.inputs == [{"role": "tool", "content": {"a": 1, "b": 2}}]
+    assert tool_span.inputs == {"a": 1, "b": 2}
     assert tool_span.outputs == [{"json": 3}]
 
 
@@ -259,7 +259,7 @@ def test_multiple_agents_single_trace():
     assert agent2_span.name == "invoke_agent agent2"
     assert agent1_span.inputs == [{"role": "user", "content": [{"text": "add numbers 1 2"}]}]
     assert agent1_span.outputs == 3
-    assert tool_span.inputs == [{"role": "tool", "content": {"a": 1, "b": 2}}]
+    assert tool_span.inputs == {"a": 1, "b": 2}
     assert tool_span.outputs == [{"json": 3}]
     assert agent2_span.inputs == [{"role": "user", "content": [{"text": "hello"}]}]
     assert agent2_span.outputs.strip() == "hi"
