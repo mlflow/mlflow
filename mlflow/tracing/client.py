@@ -786,3 +786,15 @@ class TracingClient:
             source_run_id=source_run_id,
             created_by=created_by,
         )
+
+    def _get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        return self.store.get_issue(issue_id)
