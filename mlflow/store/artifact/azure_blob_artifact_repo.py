@@ -96,7 +96,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         """Parse a wasbs:// URI, returning (container, storage_account, path, api_uri_suffix)."""
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "wasbs":
-            raise MlflowException invalid_parameter_value(f"Not a WASBS URI: {uri}")
+            raise MlflowException.invalid_parameter_value(f"Not a WASBS URI: {uri}")
 
         match = re.fullmatch(
             r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn|usgovcloudapi\.net))",
@@ -104,7 +104,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         )
 
         if match is None:
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 "WASBS URI must be of the form "
                 "<container>@<account>.blob.core.windows.net"
                 " or <container>@<account>.blob.core.chinacloudapi.cn"
