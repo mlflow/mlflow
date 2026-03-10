@@ -97,7 +97,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
     </div>
     </td>
     <td>
-      <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-gateway.png" alt="AI Gateway">
+      <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-gateway.png" alt="AI Gateway" width=100%>
     <div align="center">
         <br>
         <a href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/"><strong>🌐 AI Gateway</strong></a>
