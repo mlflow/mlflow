@@ -22,7 +22,7 @@ class DictParamType(click.ParamType):
         except json.JSONDecodeError:
             example = '{"key": "value"}'
             self.fail(
-                f"'{value}' is not valid JSON. Expected a JSON object, e.g. '{example}'.",
+                f"Invalid JSON. Expected a JSON object, e.g. '{example}'.",
                 param,
                 ctx,
             )
