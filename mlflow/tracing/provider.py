@@ -534,7 +534,11 @@ def _initialize_tracer_provider(disabled=False):
             f"{k}={v}" for k, v in attributes.items()
         ])
 
-    id_generator = _IsolatedRandomIdGenerator() if MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR.get() else None
+    id_generator = (
+        _IsolatedRandomIdGenerator()
+        if MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR.get()
+        else None
+    )
     tracer_provider = TracerProvider(
         resource=resource,
         sampler=_get_trace_sampler(),

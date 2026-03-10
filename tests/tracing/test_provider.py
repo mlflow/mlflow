@@ -38,6 +38,9 @@ from mlflow.tracing.provider import (
     start_span_in_context,
     trace_disabled,
 )
+from mlflow.tracing.provider import (
+    provider as _provider_wrapper,
+)
 from mlflow.tracing.utils import get_active_spans_table_name
 
 from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_trace_sdk
@@ -633,8 +636,6 @@ def test_isolated_random_id_generator_not_affected_by_random_seed():
 
 
 def test_tracer_provider_uses_isolated_random_id_generator_when_env_var_set(monkeypatch):
-    from mlflow.tracing.provider import provider as _provider_wrapper
-
     # Default: OTel's RandomIdGenerator is used
     _initialize_tracer_provider()
     tracer_provider = _provider_wrapper.get()
