@@ -4,13 +4,15 @@ import type { BudgetPolicyWindow, ListBudgetWindowsResponse } from '../types';
 import { GatewayQueryKeys } from './queryKeys';
 
 export const useBudgetWindowsQuery = () => {
-  const queryResult = useQuery<ListBudgetWindowsResponse, Error, ListBudgetWindowsResponse, ['gateway_budget_windows']>(
-    GatewayQueryKeys.budgetWindows,
-    {
-      queryFn: () => GatewayApi.getBudgetWindows(),
-      retry: false,
-    },
-  );
+  const queryResult = useQuery<
+    ListBudgetWindowsResponse,
+    Error,
+    ListBudgetWindowsResponse,
+    typeof GatewayQueryKeys.budgetWindows
+  >(GatewayQueryKeys.budgetWindows, {
+    queryFn: () => GatewayApi.getBudgetWindows(),
+    retry: false,
+  });
 
   const windowsByPolicyId: Record<string, BudgetPolicyWindow> = {};
   for (const w of queryResult.data?.windows ?? []) {
