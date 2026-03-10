@@ -958,6 +958,42 @@ describe('API', () => {
       expect(trace.info.clientRequestId).toBe('req-12345');
     });
 
+    it('should update sessionId and user', async () => {
+      void mlflow.withSpan(
+        (_span) => {
+          mlflow.updateCurrentTrace({
+            sessionId: 'sess-123',
+            user: 'user-456',
+          });
+        },
+        { name: 'test-span' },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['mlflow.trace.session']).toBe('sess-123');
+      expect(trace.info.traceMetadata['mlflow.trace.user']).toBe('user-456');
+    });
+
+    it('should merge sessionId and user with explicit metadata', async () => {
+      void mlflow.withSpan(
+        (_span) => {
+          mlflow.updateCurrentTrace({
+            sessionId: 'sess-abc',
+            user: 'user-xyz',
+            metadata: {
+              'custom.key': 'custom-value',
+            },
+          });
+        },
+        { name: 'test-span' },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['mlflow.trace.session']).toBe('sess-abc');
+      expect(trace.info.traceMetadata['mlflow.trace.user']).toBe('user-xyz');
+      expect(trace.info.traceMetadata['custom.key']).toBe('custom-value');
+    });
+
     it('should update request and response previews', async () => {
       void mlflow.withSpan(
         (_span) => {
