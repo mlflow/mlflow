@@ -348,10 +348,11 @@ def log_issue(
         trace_id: The ID of the trace.
         issue_id: The ID of the issue to reference.
         issue_name: The name of the issue.
-        source: The source of the issue reference. Must be an instance of
+        source: The source represents how this issue was detected on the trace, for example,
+                human review or automatic AI scan. Must be an instance of
                 :py:class:`~mlflow.entities.AssessmentSource`. If not provided, defaults to
                 LLM_JUDGE source type.
-        run_id: The ID of the run that discovered the issue.
+        run_id: The ID of the run that detect the issue on the given trace.
         rationale: The rationale / justification for the issue reference.
         metadata: Additional metadata for the issue reference.
         span_id: The ID of the span associated with the issue, if it needs to be
@@ -376,7 +377,6 @@ def log_issue(
                 ),
                 run_id="run-123",
                 rationale="Response time exceeded 2 seconds threshold",
-                metadata={"severity": "high", "category": "performance"},
             )
     """
     assessment = IssueReference(
