@@ -5,16 +5,21 @@ import pytest
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.discovery.clustering import recluster_singletons
-from mlflow.genai.discovery.constants import severity_gte, severity_max
+from mlflow.genai.discovery.constants import (
+    DEFAULT_MODEL,
+    DEFAULT_SCORER_NAME,
+    build_satisfaction_instructions,
+    severity_gte,
+    severity_max,
+)
 from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
     _is_non_issue,
+    build_issue_discovery_scorer,
     discover_issues,
 )
-from mlflow.genai.discovery.utils import (
-    verify_scorer,
-)
+from mlflow.genai.discovery.utils import verify_scorer
 from mlflow.genai.evaluation.entities import EvaluationResult
 
 from tests.genai.discovery.conftest import _TestScorer
@@ -304,62 +309,18 @@ def test_is_non_issue(name, severity, expected):
     assert _is_non_issue(issue) == expected
 
 
-def test_discover_issues_filters_no_issue_results(make_trace):
+@pytest.mark.parametrize(
+    "issue_name",
+    ["No issues detected [general]", "NO_ISSUE_DETECTED"],
+)
+def test_discover_issues_filters_non_issues(make_trace, issue_name):
     traces = [make_trace() for _ in range(10)]
     failing = traces[:3]
     rationale_map = {t.info.trace_id: "bad" for t in failing}
 
     no_issue_result = _IdentifiedIssue(
-        name="No issues detected [general]",
-        description="This trace analysis found no identifiable issues.",
-        root_cause="N/A",
-        example_indices=[0, 1, 2],
-        severity="not_an_issue",
-    )
-
-    with (
-        patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
-        patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
-        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
-        patch(
-            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=_triage_eval("run-triage"),
-        ),
-        patch(
-            "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
-        ),
-        patch(
-            "mlflow.genai.discovery.pipeline.extract_failure_labels",
-            return_value=(["label1", "label2", "label3"], [0, 1, 2]),
-        ),
-        patch(
-            "mlflow.genai.discovery.pipeline.cluster_by_llm",
-            return_value=[[0, 1, 2]],
-        ),
-        patch(
-            "mlflow.genai.discovery.pipeline.summarize_cluster",
-            return_value=no_issue_result,
-        ),
-        patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
-        patch(
-            "mlflow.genai.discovery.pipeline.mlflow.start_run",
-            side_effect=_mock_start_run,
-        ),
-    ):
-        result = discover_issues()
-
-    assert len(result.issues) == 0
-
-
-def test_discover_issues_filters_canonical_no_issue_keyword(make_trace):
-    traces = [make_trace() for _ in range(10)]
-    failing = traces[:3]
-    rationale_map = {t.info.trace_id: "bad" for t in failing}
-
-    no_issue_result = _IdentifiedIssue(
-        name="NO_ISSUE_DETECTED",
-        description="The analyses do not represent a real failure.",
+        name=issue_name,
+        description="Not a real failure.",
         root_cause="N/A",
         example_indices=[0, 1, 2],
         severity="not_an_issue",
@@ -835,24 +796,17 @@ def test_verify_scorer_null_value_raises(make_trace):
 
 
 def test_build_issue_discovery_scorer_returns_scorer_with_defaults():
-    from mlflow.genai.discovery.constants import DEFAULT_MODEL, DEFAULT_SCORER_NAME
-    from mlflow.genai.discovery.pipeline import build_issue_discovery_scorer
-
     scorer = build_issue_discovery_scorer()
     assert scorer.name == DEFAULT_SCORER_NAME
     assert scorer.model == DEFAULT_MODEL
 
 
 def test_build_issue_discovery_scorer_custom_model():
-    from mlflow.genai.discovery.pipeline import build_issue_discovery_scorer
-
     scorer = build_issue_discovery_scorer(model="openai:/gpt-5")
     assert scorer.model == "openai:/gpt-5"
 
 
 def test_build_satisfaction_instructions_categories_conversation():
-    from mlflow.genai.discovery.constants import build_satisfaction_instructions
-
     instructions = build_satisfaction_instructions(
         use_conversation=True, categories=["hallucination", "tool errors"]
     )
@@ -862,8 +816,6 @@ def test_build_satisfaction_instructions_categories_conversation():
 
 
 def test_build_satisfaction_instructions_categories_trace():
-    from mlflow.genai.discovery.constants import build_satisfaction_instructions
-
     instructions = build_satisfaction_instructions(use_conversation=False, categories=["latency"])
     assert "latency" in instructions
     assert "issue categories" in instructions
@@ -871,7 +823,5 @@ def test_build_satisfaction_instructions_categories_trace():
 
 @pytest.mark.parametrize("categories", [None, []])
 def test_build_satisfaction_instructions_no_categories(categories):
-    from mlflow.genai.discovery.constants import build_satisfaction_instructions
-
     instructions = build_satisfaction_instructions(use_conversation=True, categories=categories)
     assert "issue categories" not in instructions
