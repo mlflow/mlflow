@@ -307,21 +307,6 @@ def detach_span_from_context(token: contextvars.Token):
         context_api.detach(token)
 
 
-def attach_otel_span_to_context(otel_span: trace.Span) -> contextvars.Token:
-    """
-    Attach a raw OTel span to the current context.
-
-    Unlike ``set_span_in_context`` which expects an MLflow span wrapper,
-    this function works directly with OTel span objects. This is used to
-    propagate non-recording (dropped) spans in the context so that child
-    spans inherit the same trace ID and sampling decision.
-    """
-    context = trace.set_span_in_context(otel_span, context=get_current_context())
-    if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
-        return mlflow_runtime_context.attach(context)
-    return context_api.attach(context)
-
-
 def set_destination(destination: TraceLocationBase, *, context_local: bool = False):
     """
     Set a custom span location to which MLflow will export the traces.

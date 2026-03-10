@@ -572,11 +572,8 @@ def start_span(
         # trace ID and are also consistently dropped.
         if not otel_span.is_recording():
             mlflow_span = NoOpSpan(otel_span=otel_span)
-            token = provider.attach_otel_span_to_context(otel_span)
-            try:
+            with safe_set_span_in_context(mlflow_span):
                 yield mlflow_span
-            finally:
-                provider.detach_span_from_context(token)
             return
 
         # Create a new MLflow span and register it to the in-memory trace manager
