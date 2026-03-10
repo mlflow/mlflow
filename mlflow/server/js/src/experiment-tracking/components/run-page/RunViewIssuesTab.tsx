@@ -1,5 +1,6 @@
 import { TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { IssuesTabEmptyState } from './IssuesTabEmptyState';
+import { IssueCard } from './IssueCard';
 import { useSearchIssuesQuery } from './hooks/useSearchIssuesQuery';
 
 export interface RunViewIssuesTabProps {
@@ -41,18 +42,19 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
   }
 
   return (
-    // TODO: implement real issues table
     <div
       css={{
         width: '100%',
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        gap: theme.spacing.sm,
         padding: theme.spacing.md,
+        overflow: 'auto',
       }}
     >
       {issues.map((issue) => (
-        <div key={issue.issue_id}>{issue.name}</div>
+        <IssueCard key={issue.issue_id} issue={issue} />
       ))}
     </div>
   );
