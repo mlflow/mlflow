@@ -41,14 +41,13 @@ class GenAiSemconvConverter(ABC):
     def extract_request_params(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Extract request parameters (temperature, max_tokens, etc.) from inputs."""
         params: dict[str, Any] = {}
-        for src_key, semconv_key in _REQUEST_PARAM_KEYS.items():
+        for src_key, semc_key in _REQUEST_PARAM_KEYS.items():
             if (value := inputs.get(src_key)) is not None:
-                if semconv_key == GenAiSemconvKey.TOOL_DEFINITIONS:
+                if semc_key == GenAiSemconvKey.TOOL_DEFINITIONS:
                     value = json.dumps(value)
-                elif semconv_key == GenAiSemconvKey.REQUEST_STOP_SEQUENCES:
-                    if isinstance(value, str):
-                        value = [value]
-                params[semconv_key] = value
+                elif semc_key == GenAiSemconvKey.REQUEST_STOP_SEQUENCES and isinstance(value, str):
+                    value = [value]
+                params[semc_key] = value
         return params
 
     def extract_response_attrs(self, outputs: dict[str, Any]) -> dict[str, Any]:
