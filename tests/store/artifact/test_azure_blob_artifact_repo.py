@@ -159,9 +159,15 @@ def test_parse_govcloud_wasbs_uri_valid(uri, expected):
         ("wasbs://cont@acctxblob.core.usgovcloudapi.net/path", "WASBS URI must be of the form"),
         ("wasb://cont@acct.blob.core.usgovcloudapi.net/path", "Not a WASBS URI"),
         # Ensure hosts with a valid suffix plus trailing components are rejected
-        ("wasbs://cont@acct.blob.core.usgovcloudapi.net.evil.net/path", "WASBS URI must be of the form"),
+        (
+            "wasbs://cont@acct.blob.core.usgovcloudapi.net.evil.net/path",
+            "WASBS URI must be of the form",
+        ),
         ("wasbs://cont@acct.blob.core.windows.net.evil.net/path", "WASBS URI must be of the form"),
-        ("wasbs://cont@acct.blob.core.chinacloudapi.cn.evil.net/path", "WASBS URI must be of the form"),
+        (
+            "wasbs://cont@acct.blob.core.chinacloudapi.cn.evil.net/path",
+            "WASBS URI must be of the form",
+        ),
     ],
 )
 def test_parse_govcloud_wasbs_uri_invalid(uri, error_match):
