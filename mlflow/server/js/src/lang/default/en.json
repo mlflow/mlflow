@@ -8967,6 +8967,10 @@
     "defaultMessage": "The run containing the dataset could not be found.",
     "description": "Error message displayed when the run for the dataset is not found"
   },
+  "vwXBHk": {
+    "defaultMessage": "Rationale",
+    "description": "Label for the rationale of an issue assessment"
+  },
   "vxY1CI": {
     "defaultMessage": "Status",
     "description": "Run page > Overview > Run status section label"
@@ -9525,6 +9529,10 @@
   "zZCBR9": {
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
+  },
+  "zcnCPF": {
+    "defaultMessage": "Issues",
+    "description": "Label for the issues section in the assessments pane"
   },
   "zcuHsG": {
     "defaultMessage": "Go to Endpoints",
