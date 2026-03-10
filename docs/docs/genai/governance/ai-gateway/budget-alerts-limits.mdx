@@ -6,12 +6,12 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 
 # Budget Alerts & Limits
 
-Budget policies let you control AI Gateway spending by setting a USD threshold over a recurring time window (daily, weekly, or monthly). When the threshold is crossed, the policy takes one of two actions:
+Budget policies let you control AI Gateway spending by setting a threshold (USD) over a recurring time window (daily, weekly, or monthly). When the threshold is exceeded, the policy takes one of two actions:
 
 - **Alert** — fires a webhook notification. Requests continue normally.
-- **Reject** — blocks subsequent requests with HTTP 429. The request that causes the spend to exceed the budget is allowed to complete; rejection applies to requests that arrive after the threshold has been crossed.
+- **Reject** — blocks subsequent requests with HTTP 429. The request that causes the spend to exceed the budget is allowed to complete; rejection applies to requests that arrive after the threshold has been exceeded.
 
-Spend resets automatically at the start of each new time window.
+Spend resets automatically at the start of each new time window. When workspaces are enabled, budget policies can be scoped to a specific workspace so that spend is tracked per workspace.
 
 ## Managing Budget Policies
 
@@ -21,15 +21,13 @@ Navigate to **AI Gateway > Budgets** in the MLflow UI to view and manage your bu
 
 ### Creating a Budget Policy
 
-Click **Create budget policy** to open the creation dialog. Specify the budget amount (USD), reset period, and the action to take when the threshold is crossed.
+Click **Create budget policy** to open the creation dialog. Specify the budget amount (USD), reset period, and the action to take when the threshold is exceeded.
 
 <img src={useBaseUrl("/images/budget-policies-create.png")} alt="Create budget policy dialog" style={{ maxWidth: "100%" }} />
 
-Budget policies can also be managed via the REST API.
-
 ## Alert Webhooks
 
-When an `ALERT` policy's threshold is crossed, the gateway fires a webhook with details about the breach. The alert fires once per window — subsequent requests within the same window do not trigger additional webhooks.
+When an `ALERT` policy's threshold is exceeded, the gateway fires a webhook with details about the breach. The alert fires once per window, subsequent requests within the same window do not trigger additional webhooks.
 
 Webhook endpoints can be configured directly from the **Budgets** page under the **Budget alert webhooks** section.
 
@@ -51,7 +49,7 @@ The webhook payload includes:
 
 ## Reject Behavior
 
-When a `REJECT` policy's threshold is crossed, the gateway blocks all subsequent requests to AI Gateway endpoints with an HTTP 429 response:
+When a `REJECT` policy's threshold is exceeded, the gateway blocks all subsequent requests to AI Gateway endpoints with an HTTP 429 response:
 
 ```
 HTTP/1.1 429 Too Many Requests
