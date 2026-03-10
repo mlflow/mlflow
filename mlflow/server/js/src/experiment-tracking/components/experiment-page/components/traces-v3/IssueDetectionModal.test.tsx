@@ -3,8 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen, waitFor } from '../../../../../common/utils/TestUtils.react18';
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
+import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 
 jest.mock('../../../../../gateway/hooks/useCreateSecret');
+jest.mock('./hooks/useInvokeIssueDetection');
 jest.mock('../../../../../gateway/components/create-endpoint/ProviderSelect', () => ({
   ProviderSelect: ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
     <select data-testid="provider-select" value={value} onChange={(e) => onChange(e.target.value)}>
@@ -77,6 +79,8 @@ describe('IssueDetectionModal', () => {
 
   let mockCreateSecret: jest.Mock;
   let mockResetCreateSecret: jest.Mock;
+  let mockInvokeIssueDetection: jest.Mock;
+  let mockResetIssueDetection: jest.Mock;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -84,6 +88,13 @@ describe('IssueDetectionModal', () => {
       (options as { onSuccess?: () => void })?.onSuccess?.();
     });
     mockResetCreateSecret = jest.fn();
+    mockInvokeIssueDetection = jest.fn((_request, options) => {
+      (options as { onSuccess?: (response: { job_id: string; run_id: string }) => void })?.onSuccess?.({
+        job_id: 'job-123',
+        run_id: 'run-456',
+      });
+    });
+    mockResetIssueDetection = jest.fn();
     mockUseApiKeyConfiguration.mockReturnValue({
       existingSecrets: [],
       authModes: [],
@@ -95,6 +106,12 @@ describe('IssueDetectionModal', () => {
       isLoading: false,
       error: null,
       reset: mockResetCreateSecret,
+    } as any);
+    jest.mocked(useInvokeIssueDetection).mockReturnValue({
+      mutate: mockInvokeIssueDetection,
+      isLoading: false,
+      error: null,
+      reset: mockResetIssueDetection,
     } as any);
   });
 
@@ -452,7 +469,7 @@ describe('IssueDetectionModal', () => {
     await userEvent.click(submitButton);
 
     await waitFor(() => {
-      expect(onSubmitSuccess).toHaveBeenCalled();
+      expect(onSubmitSuccess).toHaveBeenCalledWith('run-456');
       expect(onClose).toHaveBeenCalled();
     });
   });
