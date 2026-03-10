@@ -221,6 +221,12 @@ jobs:
           databricks workspace import-dir /tmp/app-deploy "$WORKSPACE_PATH" --overwrite
           databricks apps deploy "$APP_NAME" --source-code-path "/Workspace$WORKSPACE_PATH"
 
+      - name: Print app URL
+        if: github.event_name == 'push'
+        env:
+          APP_URL: ${{ steps.app.outputs.url }}
+        run: echo "Deployed to $APP_URL" >> $GITHUB_STEP_SUMMARY
+
       - name: Comment on PR
         if: github.event_name != 'push'
         env:
