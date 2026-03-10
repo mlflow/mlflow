@@ -593,7 +593,7 @@ def test_log_issue_with_invalid_issue_name(trace_id, tracking_uri):
     )
 
     with pytest.raises(
-        MlflowException, match=r"Provided issue name `wrong_name` does not match the issue name"
+        MlflowException, match=r"Provided issue name 'wrong_name' does not match the issue name"
     ):
         mlflow.log_issue(
             trace_id=trace_id,
