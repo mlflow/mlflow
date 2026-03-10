@@ -63,6 +63,8 @@ import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluat
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
 import { useRunScorerInTracesViewConfiguration } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
+import { IssueDetectionModal } from './IssueDetectionModal';
+import { useIssueDetectionNotification } from './hooks/useIssueDetectionNotification';
 
 const JudgeContextProvider = ({ children }: { children: React.ReactNode }) => {
   const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
@@ -137,6 +139,9 @@ const TracesV3LogsImpl = React.memo(
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
     const [isGroupedBySession, setIsGroupedBySession] = useState(false);
+    const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
+    const { showIssueDetectionNotification, notificationContextHolder } =
+      useIssueDetectionNotification(singleExperimentId);
 
     // Check if we're already inside a provider (e.g., from SelectTracesModal)
     // If so, we won't create our own provider to avoid shadowing the parent's selection state
@@ -330,7 +335,6 @@ const TracesV3LogsImpl = React.memo(
 
     // Helper function to render the main content based on current state
     const renderMainContent = () => {
-      // If isEmpty and not enableTraceInsights, show empty state without navigation
       if (!enableTraceInsights && isTableEmpty) {
         return (
           <>
@@ -341,6 +345,26 @@ const TracesV3LogsImpl = React.memo(
               traceSearchLocations={traceSearchLocations}
               isCallDisabled={isQueryDisabled}
             />
+            {/* still render the table body container so the trace drawer can open even when
+             table is empty (e.g., when navigating directly to a trace via URL parameter) */}
+            <div css={{ display: 'none' }}>
+              <GenAITracesTableBodyContainer
+                experimentId={singleExperimentId}
+                allColumns={allColumns}
+                currentTraceInfoV3={traceInfos || []}
+                currentRunDisplayName={endpointName}
+                getTrace={getTrace}
+                assessmentInfos={assessmentInfos}
+                setFilters={setFilters}
+                filters={filters}
+                selectedColumns={selectedColumns}
+                tableSort={tableSort}
+                onTraceTagsEdit={showEditTagsModalForTrace}
+                isTableLoading={isTableLoading}
+                isGroupedBySession={forceGroupBySession || isGroupedBySession}
+                searchQuery={searchQuery}
+              />
+            </div>
           </>
         );
       }
@@ -412,7 +436,10 @@ const TracesV3LogsImpl = React.memo(
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
       >
-        <GenAITracesTableProvider experimentId={singleExperimentId} isGroupedBySession={isGroupedBySession}>
+        <GenAITracesTableProvider
+          experimentId={singleExperimentId}
+          isGroupedBySession={forceGroupBySession || isGroupedBySession}
+        >
           <div
             css={{
               overflowY: 'hidden',
@@ -445,9 +472,22 @@ const TracesV3LogsImpl = React.memo(
               isGroupedBySession={forceGroupBySession || isGroupedBySession}
               forceGroupBySession={forceGroupBySession}
               onToggleSessionGrouping={onToggleSessionGrouping}
+              onDetectIssues={disableActions ? undefined : () => setIsIssueDetectionModalOpen(true)}
             />
             {renderMainContent()}
           </div>
+          {!disableActions && isIssueDetectionModalOpen && (
+            <IssueDetectionModal
+              onClose={() => setIsIssueDetectionModalOpen(false)}
+              experimentId={singleExperimentId}
+              initialSelectedTraceIds={Object.entries(rowSelection)
+                .filter(([, isSelected]) => isSelected)
+                .map(([traceId]) => traceId)}
+              availableTraceIds={traceInfos?.map((trace) => trace.trace_id) ?? []}
+              onSubmitSuccess={showIssueDetectionNotification}
+            />
+          )}
+          {notificationContextHolder}
         </GenAITracesTableProvider>
       </ModelTraceExplorerContextProvider>
     );

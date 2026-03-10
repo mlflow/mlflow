@@ -42,12 +42,10 @@ class SampleDataset(Dataset):
             (optional).
         """
         config = super().to_dict()
-        config.update(
-            {
-                "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
-                "profile": json.dumps(self.profile),
-            }
-        )
+        config.update({
+            "schema": json.dumps({"mlflow_colspec": self.schema.to_dict()}),
+            "profile": json.dumps(self.profile),
+        })
         return config
 
     @property

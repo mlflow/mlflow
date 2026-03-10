@@ -115,8 +115,11 @@ def should_block_cors_request(origin: str, method: str, allowed_origins: list[st
         # If wildcard "*" is in the list, allow all origins
         if "*" in allowed_origins:
             return False
-        if origin in allowed_origins:
-            return False
+
+        return not any(
+            fnmatch.fnmatch(origin, allowed) if "*" in allowed else origin == allowed
+            for allowed in allowed_origins
+        )
 
     return True
 

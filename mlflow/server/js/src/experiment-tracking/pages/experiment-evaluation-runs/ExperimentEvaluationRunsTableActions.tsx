@@ -13,6 +13,7 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid,
   compareToRunUuid,
   enableImprovedComparison,
+  setIsComparisonMode,
 }: {
   rowSelection: RowSelectionState;
   setRowSelection: (selection: RowSelectionState) => void;
@@ -21,6 +22,7 @@ export const ExperimentEvaluationRunsTableActions = ({
   selectedRunUuid?: string;
   compareToRunUuid?: string;
   enableImprovedComparison?: boolean;
+  setIsComparisonMode?: (isComparisonMode: boolean) => void;
 }) => {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
@@ -48,8 +50,9 @@ export const ExperimentEvaluationRunsTableActions = ({
   const handleCompare = useCallback(() => {
     if (selectedRunUuids.length === 2 && onCompare) {
       onCompare(selectedRunUuids[0], selectedRunUuids[1]);
+      setIsComparisonMode?.(true);
     }
-  }, [onCompare, selectedRunUuids]);
+  }, [onCompare, selectedRunUuids, setIsComparisonMode]);
 
   const isCompareEnabled = selectedRunUuids.length === 2;
 

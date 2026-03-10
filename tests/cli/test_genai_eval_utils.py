@@ -301,21 +301,19 @@ def test_resolve_empty_scorers_raises_error():
 
 
 def test_extract_with_matching_run_id():
-    results_df = pd.DataFrame(
-        [
-            {
-                "trace_id": "tr-abc123",
-                "assessments": [
-                    {
-                        "assessment_name": "RelevanceToQuery",
-                        "feedback": {"value": "yes"},
-                        "rationale": "The answer is relevant",
-                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
-                    }
-                ],
-            }
-        ]
-    )
+    results_df = pd.DataFrame([
+        {
+            "trace_id": "tr-abc123",
+            "assessments": [
+                {
+                    "assessment_name": "RelevanceToQuery",
+                    "feedback": {"value": "yes"},
+                    "rationale": "The answer is relevant",
+                    "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
+                }
+            ],
+        }
+    ])
 
     result = extract_assessments_from_results(results_df, "run-123")
 
@@ -335,21 +333,19 @@ def test_extract_with_matching_run_id():
 
 
 def test_extract_with_different_assessment_name():
-    results_df = pd.DataFrame(
-        [
-            {
-                "trace_id": "tr-abc123",
-                "assessments": [
-                    {
-                        "assessment_name": "relevance_to_query",
-                        "feedback": {"value": "yes"},
-                        "rationale": "Relevant answer",
-                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
-                    }
-                ],
-            }
-        ]
-    )
+    results_df = pd.DataFrame([
+        {
+            "trace_id": "tr-abc123",
+            "assessments": [
+                {
+                    "assessment_name": "relevance_to_query",
+                    "feedback": {"value": "yes"},
+                    "rationale": "Relevant answer",
+                    "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
+                }
+            ],
+        }
+    ])
 
     result = extract_assessments_from_results(results_df, "run-123")
 
@@ -369,27 +365,25 @@ def test_extract_with_different_assessment_name():
 
 
 def test_extract_filter_out_assessments_with_different_run_id():
-    results_df = pd.DataFrame(
-        [
-            {
-                "trace_id": "tr-abc123",
-                "assessments": [
-                    {
-                        "assessment_name": "RelevanceToQuery",
-                        "feedback": {"value": "yes"},
-                        "rationale": "Current evaluation",
-                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
-                    },
-                    {
-                        "assessment_name": "Safety",
-                        "feedback": {"value": "yes"},
-                        "rationale": "Old evaluation",
-                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-456"},
-                    },
-                ],
-            }
-        ]
-    )
+    results_df = pd.DataFrame([
+        {
+            "trace_id": "tr-abc123",
+            "assessments": [
+                {
+                    "assessment_name": "RelevanceToQuery",
+                    "feedback": {"value": "yes"},
+                    "rationale": "Current evaluation",
+                    "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
+                },
+                {
+                    "assessment_name": "Safety",
+                    "feedback": {"value": "yes"},
+                    "rationale": "Old evaluation",
+                    "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-456"},
+                },
+            ],
+        }
+    ])
 
     result = extract_assessments_from_results(results_df, "run-123")
 
@@ -409,19 +403,17 @@ def test_extract_filter_out_assessments_with_different_run_id():
 
 
 def test_extract_no_assessments_for_run_id():
-    results_df = pd.DataFrame(
-        [
-            {
-                "trace_id": "tr-abc123",
-                "assessments": [
-                    {
-                        "assessment_name": "RelevanceToQuery",
-                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-456"},
-                    }
-                ],
-            }
-        ]
-    )
+    results_df = pd.DataFrame([
+        {
+            "trace_id": "tr-abc123",
+            "assessments": [
+                {
+                    "assessment_name": "RelevanceToQuery",
+                    "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-456"},
+                }
+            ],
+        }
+    ])
 
     result = extract_assessments_from_results(results_df, "run-123")
 
@@ -433,27 +425,25 @@ def test_extract_no_assessments_for_run_id():
 
 
 def test_extract_multiple_assessments_from_same_run():
-    results_df = pd.DataFrame(
-        [
-            {
-                "trace_id": "tr-abc123",
-                "assessments": [
-                    {
-                        "assessment_name": "RelevanceToQuery",
-                        "feedback": {"value": "yes"},
-                        "rationale": "Relevant",
-                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
-                    },
-                    {
-                        "assessment_name": "Safety",
-                        "feedback": {"value": "yes"},
-                        "rationale": "Safe",
-                        "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
-                    },
-                ],
-            }
-        ]
-    )
+    results_df = pd.DataFrame([
+        {
+            "trace_id": "tr-abc123",
+            "assessments": [
+                {
+                    "assessment_name": "RelevanceToQuery",
+                    "feedback": {"value": "yes"},
+                    "rationale": "Relevant",
+                    "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
+                },
+                {
+                    "assessment_name": "Safety",
+                    "feedback": {"value": "yes"},
+                    "rationale": "Safe",
+                    "metadata": {AssessmentMetadataKey.SOURCE_RUN_ID: "run-123"},
+                },
+            ],
+        }
+    ])
 
     result = extract_assessments_from_results(results_df, "run-123")
 

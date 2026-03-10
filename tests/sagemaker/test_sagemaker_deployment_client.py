@@ -1380,13 +1380,13 @@ def test_deploy_cli_updates_sagemaker_and_s3_resources_in_replace_mode(
         "MLFLOW_DEPLOYMENT_FLAVOR_NAME": "python_function",
         "SERVING_ENVIRONMENT": "SageMaker",
     }
-    if os.getenv("http_proxy") is not None:
+    if os.environ.get("http_proxy") is not None:
         expected_model_environment.update({"http_proxy": os.environ["http_proxy"]})
 
-    if os.getenv("https_proxy") is not None:
+    if os.environ.get("https_proxy") is not None:
         expected_model_environment.update({"https_proxy": os.environ["https_proxy"]})
 
-    if os.getenv("no_proxy") is not None:
+    if os.environ.get("no_proxy") is not None:
         expected_model_environment.update({"no_proxy": os.environ["no_proxy"]})
 
     assert model_environment == expected_model_environment
@@ -1640,9 +1640,9 @@ def test_predict_with_dataframe_input_output(sagemaker_deployment_client):
 
     def mock_invoke_endpoint(self, operation_name, operation_kwargs):
         if operation_name == "InvokeEndpoint":
-            assert operation_kwargs["Body"] == json.dumps(
-                {"dataframe_split": input_df.to_dict(orient="split")}
-            )
+            assert operation_kwargs["Body"] == json.dumps({
+                "dataframe_split": input_df.to_dict(orient="split")
+            })
             output_json = json.dumps({"predictions": output_df.to_dict(orient="records")})
             result = {"Body": BytesIO(bytes(output_json, encoding="utf-8"))}
         else:

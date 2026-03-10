@@ -79,8 +79,8 @@ const OutputTypeSection: React.FC<OutputTypeSectionProps> = ({ mode, control }) 
         </FormUI.Label>
         <FormUI.Hint>
           <FormattedMessage
-            defaultMessage="The type of value the judge will return."
-            description="Hint text for output type selection"
+            defaultMessage="The type of value the judge will return. Ensure this matches the output format specified in your instructions."
+            description="Hint text for output type selection with alignment warning"
           />
         </FormUI.Hint>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>

@@ -12,12 +12,10 @@ def test_completions_request():
     completions.RequestPayload(**{"prompt": "", "extra": "extra", "temperature": 2.0})
 
     with pytest.raises(pydantic.ValidationError, match="less than or equal to 2"):
-        completions.RequestPayload(
-            **{
-                "messages": [{"role": "user", "content": "content"}],
-                "temperature": 3.0,
-            }
-        )
+        completions.RequestPayload(**{
+            "messages": [{"role": "user", "content": "content"}],
+            "temperature": 3.0,
+        })
 
     with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
         completions.RequestPayload(**{"extra": "extra"})

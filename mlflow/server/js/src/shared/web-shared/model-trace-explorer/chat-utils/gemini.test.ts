@@ -82,6 +82,56 @@ const MOCK_GEMINI_OUTPUT = {
   parsed: null,
 };
 
+// ADK input with function_call and function_response parts
+const MOCK_ADK_INPUT = {
+  model: 'gemini-3-flash-preview',
+  config: { system_instruction: 'You are a helpful assistant.' },
+  contents: [
+    { role: 'user', parts: [{ text: 'Hi, I want to learn about Google ADK' }] },
+    {
+      role: 'model',
+      parts: [{ function_call: { name: 'doc_search', args: { query: 'Google ADK overview' } } }],
+    },
+    {
+      role: 'user',
+      parts: [
+        {
+          function_response: {
+            name: 'doc_search',
+            response: { result: 'Google ADK is a framework for building AI agents.' },
+          },
+        },
+      ],
+    },
+    { role: 'model', parts: [{ text: 'The Google ADK is a framework for building AI agents.' }] },
+  ],
+};
+
+// ADK output with direct content (no candidates wrapper)
+const MOCK_ADK_OUTPUT = {
+  model_version: 'gemini-3-flash-preview',
+  content: {
+    role: 'model',
+    parts: [{ text: 'The Google ADK is a framework for building AI agents.' }],
+  },
+  finish_reason: 'STOP',
+  usage_metadata: {
+    prompt_token_count: 100,
+    candidates_token_count: 20,
+    total_token_count: 120,
+  },
+};
+
+// ADK output with function_call in direct content
+const MOCK_ADK_OUTPUT_WITH_FUNCTION_CALL = {
+  model_version: 'gemini-3-flash-preview',
+  content: {
+    role: 'model',
+    parts: [{ function_call: { name: 'doc_search', args: { query: 'Google ADK overview' } } }],
+  },
+  finish_reason: 'STOP',
+};
+
 const MOCK_GEMINI_OUTPUT_WITH_THINKING = {
   candidates: [
     {
@@ -132,5 +182,94 @@ describe('normalizeConversation', () => {
         reasoning: expect.stringMatching(/let me think about how many r's/i),
       }),
     ]);
+  });
+
+  it('should handle ADK input with function_call and function_response parts', () => {
+    const result = normalizeConversation(MOCK_ADK_INPUT, 'gemini');
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(4);
+
+    // First message: user text
+    expect(result![0]).toMatchObject({
+      role: 'user',
+      content: expect.stringMatching(/I want to learn about Google ADK/i),
+    });
+
+    // Second message: model function_call → assistant with tool_calls
+    expect(result![1]).toMatchObject({
+      role: 'assistant',
+      tool_calls: [
+        {
+          id: 'doc_search',
+          function: {
+            name: 'doc_search',
+            arguments: JSON.stringify({ query: 'Google ADK overview' }, null, 2),
+          },
+        },
+      ],
+    });
+
+    // Third message: user function_response → tool message
+    expect(result![2]).toMatchObject({
+      role: 'tool',
+      name: 'doc_search',
+      content: expect.stringMatching(/Google ADK is a framework/i),
+    });
+
+    // Fourth message: model text response
+    expect(result![3]).toMatchObject({
+      role: 'assistant',
+      content: expect.stringMatching(/Google ADK is a framework/i),
+    });
+  });
+
+  it('should handle ADK output with direct content (no candidates wrapper)', () => {
+    const result = normalizeConversation(MOCK_ADK_OUTPUT, 'gemini');
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({
+      role: 'assistant',
+      content: expect.stringMatching(/Google ADK is a framework/i),
+    });
+  });
+
+  it('should handle ADK output with function_call in direct content', () => {
+    const result = normalizeConversation(MOCK_ADK_OUTPUT_WITH_FUNCTION_CALL, 'gemini');
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({
+      role: 'assistant',
+      tool_calls: [
+        {
+          id: 'doc_search',
+          function: {
+            name: 'doc_search',
+            arguments: JSON.stringify({ query: 'Google ADK overview' }, null, 2),
+          },
+        },
+      ],
+    });
+  });
+
+  it('should handle ADK data without messageFormat via default fallback', () => {
+    // When no messageFormat is set (as in ADK traces), the default case should
+    // fall back to Gemini normalizers after OpenAI fails
+    const result = normalizeConversation(MOCK_ADK_INPUT, undefined);
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(4);
+    expect(result![0]).toMatchObject({ role: 'user' });
+    expect(result![1]).toMatchObject({ role: 'assistant', tool_calls: expect.any(Array) });
+    expect(result![2]).toMatchObject({ role: 'tool' });
+    expect(result![3]).toMatchObject({ role: 'assistant' });
+  });
+
+  it('should handle ADK output without messageFormat via default fallback', () => {
+    const result = normalizeConversation(MOCK_ADK_OUTPUT, undefined);
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(1);
+    expect(result![0]).toMatchObject({
+      role: 'assistant',
+      content: expect.stringMatching(/Google ADK is a framework/i),
+    });
   });
 });
