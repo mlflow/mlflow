@@ -1,14 +1,5 @@
 import { defineMessages } from '@databricks/i18n';
 
-export interface WebhookFormState {
-  name: string;
-  url: string;
-  description: string;
-  secret: string;
-  status: boolean; // true = ACTIVE
-  events: Set<string>;
-}
-
 export const eventLabels = defineMessages({
   'REGISTERED_MODEL.CREATED': { defaultMessage: 'Registered model created', description: 'Webhook event label' },
   'MODEL_VERSION.CREATED': { defaultMessage: 'Model version created', description: 'Webhook event label' },
@@ -57,12 +48,3 @@ export const VALID_EVENTS: { entity: string; action: string }[] = [
 export const WEBHOOK_NAME_REGEX = /^[a-z0-9]([a-z0-9._-]*[a-z0-9])?$/i;
 
 export const eventKey = (entity: string, action: string) => `${entity}.${action}`;
-
-export const EMPTY_FORM: WebhookFormState = {
-  name: '',
-  url: '',
-  description: '',
-  secret: '',
-  status: true,
-  events: new Set(),
-};

@@ -2778,10 +2778,6 @@
     "defaultMessage": "null",
     "description": "Null value in the evaluations table."
   },
-  "H63bA/": {
-    "defaultMessage": "Active",
-    "description": "Webhook active status label"
-  },
   "H7JwOl": {
     "defaultMessage": "Delete version",
     "description": "A label for a button to delete prompt version on the prompt details page"
@@ -6995,10 +6991,6 @@
   "j4vtTO": {
     "defaultMessage": "Save aliases",
     "description": "Alias editor > Confirm change of aliases"
-  },
-  "j4zcOQ": {
-    "defaultMessage": "Disabled",
-    "description": "Webhook disabled status label"
   },
   "j77+aP": {
     "defaultMessage": "Fail",
