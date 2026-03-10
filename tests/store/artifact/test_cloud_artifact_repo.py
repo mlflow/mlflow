@@ -531,7 +531,6 @@ def test_serial_upload_with_delays_single_file(monkeypatch):
 
 
 def test_upload_batch_aws_mixed_small_and_large():
-    multipart_threshold = 500 * 1024**2
     small = FileUploadPlan(
         staged_upload=StagedArtifactUpload("small.txt", "dest/small.txt"),
         file_size=1024,
@@ -547,7 +546,7 @@ def test_upload_batch_aws_mixed_small_and_large():
         instance._upload_files_parallel.return_value = {}
 
         with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
-            failures = instance._upload_batch_aws([small, large], multipart_threshold)
+            failures = instance._upload_batch_aws([small, large])
 
     assert failures == {}
     instance._fetch_credentials_for_plans.assert_called_once_with([small])
@@ -558,7 +557,6 @@ def test_upload_batch_aws_mixed_small_and_large():
 
 
 def test_upload_batch_aws_only_small_files():
-    multipart_threshold = 500 * 1024**2
     plans = [
         FileUploadPlan(
             staged_upload=StagedArtifactUpload("a.txt", "dest/a.txt"),
@@ -576,7 +574,7 @@ def test_upload_batch_aws_only_small_files():
         instance._upload_files_parallel.return_value = {}
 
         with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
-            failures = instance._upload_batch_aws(plans, multipart_threshold)
+            failures = instance._upload_batch_aws(plans)
 
     assert failures == {}
     instance._upload_files_parallel.assert_called_once_with(plans)
@@ -584,7 +582,6 @@ def test_upload_batch_aws_only_small_files():
 
 
 def test_upload_batch_aws_only_large_files():
-    multipart_threshold = 500 * 1024**2
     plans = [
         FileUploadPlan(
             staged_upload=StagedArtifactUpload("big.bin", "dest/big.bin"),
@@ -598,7 +595,7 @@ def test_upload_batch_aws_only_large_files():
         instance._upload_files_parallel.return_value = {}
 
         with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
-            failures = instance._upload_batch_aws(plans, multipart_threshold)
+            failures = instance._upload_batch_aws(plans)
 
     assert failures == {}
     instance._fetch_credentials_for_plans.assert_called_once_with([])
@@ -607,7 +604,6 @@ def test_upload_batch_aws_only_large_files():
 
 
 def test_upload_batch_aws_aggregates_failures():
-    multipart_threshold = 500 * 1024**2
     small = FileUploadPlan(
         staged_upload=StagedArtifactUpload("small.txt", "dest/small.txt"),
         file_size=1024,
@@ -626,7 +622,7 @@ def test_upload_batch_aws_aggregates_failures():
         ]
 
         with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep"):
-            failures = instance._upload_batch_aws([small, large], multipart_threshold)
+            failures = instance._upload_batch_aws([small, large])
 
     assert failures == {"small.txt": "small error", "large.bin": "large error"}
 

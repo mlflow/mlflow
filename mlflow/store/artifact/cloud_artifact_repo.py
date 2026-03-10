@@ -156,12 +156,11 @@ class CloudArtifactRepository(ArtifactRepository):
 
         # Route to cloud-specific upload logic
         failed_uploads = {}
-        multipart_threshold = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
 
         for batch in chunk_list(upload_plans, _ARTIFACT_UPLOAD_BATCH_SIZE):
             try:
                 if cloud_type == ArtifactCredentialType.AWS_PRESIGNED_URL:
-                    batch_failures = self._upload_batch_aws(batch, multipart_threshold)
+                    batch_failures = self._upload_batch_aws(batch)
                 elif cloud_type in (
                     ArtifactCredentialType.AZURE_SAS_URI,
                     ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
@@ -242,14 +241,13 @@ class CloudArtifactRepository(ArtifactRepository):
 
         return None
 
-    def _upload_batch_aws(
-        self, batch: list[FileUploadPlan], multipart_threshold: int
-    ) -> dict[str, str]:
+    def _upload_batch_aws(self, batch: list[FileUploadPlan]) -> dict[str, str]:
         """Upload files to AWS S3 with small files (PUT) before large files (multipart).
 
         To avoid proxy conflicts, small and large files are separated: small files upload
         in parallel first, then large files upload after a delay.
         """
+        multipart_threshold = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
         small_files = [p for p in batch if p.file_size < multipart_threshold]
         large_files = [p for p in batch if p.file_size >= multipart_threshold]
 
@@ -296,7 +294,6 @@ class CloudArtifactRepository(ArtifactRepository):
         self._fetch_credentials_for_plans(batch)
 
         # Determine upload strategy based on cloud type and proxy requirements
-        is_gcp = cloud_type == ArtifactCredentialType.GCP_SIGNED_URL
         is_azure = cloud_type in (
             ArtifactCredentialType.AZURE_SAS_URI,
             ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
@@ -312,11 +309,7 @@ class CloudArtifactRepository(ArtifactRepository):
             failures.update(self._upload_files_serially_with_delays(batch))
         else:
             # GCP (always) or Azure (direct access): parallel upload for best performance
-            if is_gcp and self._requires_proxy_safe_uploads and len(batch) > 1:
-                _logger.debug(
-                    f"Using parallel upload for {len(batch)} GCP file(s). "
-                    "GCP simple PUT uploads are safe even through storage proxy."
-                )
+            _logger.debug(f"Using parallel upload for {len(batch)} file(s).")
             failures.update(self._upload_files_parallel(batch))
 
         return failures
