@@ -97,7 +97,11 @@ export const EditEndpointFormRenderer = ({
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
-  const activeTab = searchParams.get('tab') || 'configuration';
+  const VALID_TABS = ['configuration', 'usage', 'traces'] as const;
+  const tabParam = searchParams.get('tab');
+  const activeTab = VALID_TABS.includes(tabParam as (typeof VALID_TABS)[number])
+    ? (tabParam as string)
+    : 'configuration';
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
