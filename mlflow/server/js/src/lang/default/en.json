@@ -59,6 +59,10 @@
     "defaultMessage": "Assessment Type",
     "description": "Field label for assessment type in a creation form"
   },
+  "+VGmLL": {
+    "defaultMessage": "Optional description",
+    "description": "Webhook description placeholder"
+  },
   "+WPAn1": {
     "defaultMessage": "Enter model name...",
     "description": "Placeholder for custom model input"
@@ -174,6 +178,10 @@
   "/G/eHs": {
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
+  },
+  "/HeTx7": {
+    "defaultMessage": "Create",
+    "description": "Create webhook confirm button"
   },
   "/IyEFR": {
     "defaultMessage": "Trace",
@@ -294,6 +302,10 @@
   "/vhBCt": {
     "defaultMessage": "Show exceptions",
     "description": "Checkbox label for a setting that enables showing spans with exceptions in the trace explorer regardless of filter conditions."
+  },
+  "/w5HDz": {
+    "defaultMessage": "Create webhook",
+    "description": "Create webhook modal title"
   },
   "/y0ZU4": {
     "defaultMessage": "Updated",
@@ -583,6 +595,9 @@
     "defaultMessage": "LLM judge",
     "description": "Section header for LLM judge selection"
   },
+  "26Cn0o": {
+    "defaultMessage": "URL is required"
+  },
   "27XMby": {
     "defaultMessage": "Missing",
     "description": "Missing assessment label"
@@ -639,6 +654,10 @@
     "defaultMessage": "Load the model",
     "description": "Heading text for stating how to load the model from the experiment run"
   },
+  "2OiwW4": {
+    "defaultMessage": "Secret",
+    "description": "Webhook secret field label"
+  },
   "2OrFCG": {
     "defaultMessage": "Created at",
     "description": "Column header for created timestamp in the evaluation runs table"
@@ -654,6 +673,10 @@
   "2Us2jl": {
     "defaultMessage": "X axis",
     "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
+  },
+  "2WOIGG": {
+    "defaultMessage": "Prompt created",
+    "description": "Webhook event label"
   },
   "2YEXRM": {
     "defaultMessage": "Edit",
@@ -742,6 +765,10 @@
   "3FZ8dZ": {
     "defaultMessage": "Rename",
     "description": "Text for rename button on the experiment view page header"
+  },
+  "3N1zOb": {
+    "defaultMessage": "Disabled",
+    "description": "Webhook disabled label"
   },
   "3QGkg9": {
     "defaultMessage": "Run evaluation"
@@ -933,6 +960,10 @@
   "4idqpX": {
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
+  },
+  "4ntR9o": {
+    "defaultMessage": "Prompt tag set",
+    "description": "Webhook event label"
   },
   "4pXg9j": {
     "defaultMessage": "No results found. Try using a different search term.",
@@ -1206,6 +1237,10 @@
     "defaultMessage": "Comparing {numVersions} Versions",
     "description": "Text for main title for the model comparison page"
   },
+  "6nzd2s": {
+    "defaultMessage": "Test",
+    "description": "Test webhook button"
+  },
   "6sFPJF": {
     "defaultMessage": "Learn more",
     "description": "Link text for production monitoring documentation"
@@ -1341,6 +1376,10 @@
   "7Y0hIS": {
     "defaultMessage": "Run the following code to validate model inference works on the example input data and logged model dependencies, prior to deploying it to a serving endpoint",
     "description": "Section heading to display the code block on how we can validate a model locally prior to serving"
+  },
+  "7YeDTP": {
+    "defaultMessage": "Edit webhook",
+    "description": "Edit webhook modal title"
   },
   "7ZzboF": {
     "defaultMessage": "Link prompts to your traces by loading your registered prompts inside the traced function.",
@@ -1497,6 +1536,10 @@
   "8cK5xK": {
     "defaultMessage": "{count} selected",
     "description": "Label for selector showing count of selected items"
+  },
+  "8eVxXM": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel delete webhook button"
   },
   "8f4/Zi": {
     "defaultMessage": "Search logged models using a simplified version of the SQL {whereBold} clause.",
@@ -1998,6 +2041,9 @@
     "defaultMessage": "Track experiments, parameters, and metrics throughout training.",
     "description": "Home page quick action description for training models"
   },
+  "BZTmgF": {
+    "defaultMessage": "Failed to save webhook"
+  },
   "Bbm59f": {
     "defaultMessage": "100",
     "description": "Label for 100 first runs visible in run count selector within runs compare configuration modal"
@@ -2174,6 +2220,10 @@
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in Trace V3 page"
   },
+  "Cc+RmC": {
+    "defaultMessage": "Edit",
+    "description": "Edit webhook button"
+  },
   "Ccc4/4": {
     "defaultMessage": "Artifacts",
     "description": "Row group title for artifacts of runs on the experiment compare runs page"
@@ -2298,6 +2348,10 @@
     "defaultMessage": "Run Name:",
     "description": "Row title for the run name on the experiment compare runs page"
   },
+  "DXxTNn": {
+    "defaultMessage": "Used for HMAC signature verification of incoming webhook requests.",
+    "description": "Webhook secret field description"
+  },
   "DaF+KK": {
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in scatter chart configurator in compare runs chart config modal"
@@ -2321,6 +2375,10 @@
   "Dm4Ez0": {
     "defaultMessage": "Filter",
     "description": "Label for the filter button in the trace explorer."
+  },
+  "DmMds0": {
+    "defaultMessage": "Model version tag deleted",
+    "description": "Webhook event label"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -2369,6 +2427,10 @@
   "ED1+Xu": {
     "defaultMessage": "Prompts & versions",
     "description": "Label for the versions section in the MLflow experiment navbar"
+  },
+  "EDI7Qs": {
+    "defaultMessage": "Delete",
+    "description": "Confirm delete webhook button"
   },
   "EDWwN/": {
     "defaultMessage": "Compare",
@@ -2433,6 +2495,10 @@
   "EkUD0b": {
     "defaultMessage": "No results",
     "description": "Experiment page > sort selector > no results after filtering by search query"
+  },
+  "EkeprU": {
+    "defaultMessage": "Prompt version tag deleted",
+    "description": "Webhook event label"
   },
   "EpFST9": {
     "defaultMessage": "No trace data recorded",
@@ -2650,6 +2716,9 @@
     "defaultMessage": "Context sufficiency",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency assessment. Used to indicate if the retrieved context is sufficient to generate the expected response. Label displayed if user provided custom value, e.g. \"Context Sufficiency: mostly sufficient\""
   },
+  "GTg/ub": {
+    "defaultMessage": "Test succeeded (HTTP {status})"
+  },
   "GXayIF": {
     "defaultMessage": "Predict on a Pandas DataFrame:",
     "description": "Section heading to display the code block on how we can use registered model to predict using pandas DataFrame"
@@ -2657,6 +2726,10 @@
   "GbEHyg": {
     "defaultMessage": "Name",
     "description": "Section title for endpoint name"
+  },
+  "Gcpe+r": {
+    "defaultMessage": "Are you sure you want to delete the webhook \"{name}\"? This action cannot be undone.",
+    "description": "Delete webhook confirmation message"
   },
   "GdtTc/": {
     "defaultMessage": "Run evaluation",
@@ -2669,6 +2742,10 @@
   "GgPNAZ": {
     "defaultMessage": "Metadata:",
     "description": "A key-value pair for the metadata in the prompt details page"
+  },
+  "Gh/jP8": {
+    "defaultMessage": "URL",
+    "description": "Webhook URL field label"
   },
   "GifD0J": {
     "defaultMessage": "Explore GenAI features with pre-populated sample data including traces, evaluations, and prompts.",
@@ -2685,6 +2762,9 @@
   "Gs+blV": {
     "defaultMessage": "Last modified",
     "description": "Column title for last modified timestamp for a model in the registered model page"
+  },
+  "Gvxoji": {
+    "defaultMessage": "Name is required"
   },
   "GyGCX5": {
     "defaultMessage": "Create experiment",
@@ -2725,6 +2805,10 @@
   "HGG+BI": {
     "defaultMessage": "Y-axis Log Scale:",
     "description": "Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
+  },
+  "HGKpgQ": {
+    "defaultMessage": "Model version tag set",
+    "description": "Webhook event label"
   },
   "HHRU4d": {
     "defaultMessage": "Detection progress",
@@ -2858,6 +2942,10 @@
     "defaultMessage": "Aliases",
     "description": "Aliases section in the metadata on model version page"
   },
+  "I1mNex": {
+    "defaultMessage": "Select the events that will trigger this webhook.",
+    "description": "Webhook events field description"
+  },
   "I2UqCo": {
     "defaultMessage": "Search registered models",
     "description": "Placeholder text inside model search bar"
@@ -2885,6 +2973,10 @@
   "IHyeUr": {
     "defaultMessage": "Stage",
     "description": "Label name for stage metadata in model version page"
+  },
+  "IJ+hiP": {
+    "defaultMessage": "Prompt tag deleted",
+    "description": "Webhook event label"
   },
   "IJbauF": {
     "defaultMessage": "Add tag \"{tagKey}\"",
@@ -3430,6 +3522,10 @@
     "defaultMessage": "Calls",
     "description": "Column header for call count"
   },
+  "MP+H1B": {
+    "defaultMessage": "No webhooks configured. Create one to get started. <link>Learn more about webhooks.</link>",
+    "description": "Empty state for webhooks list"
+  },
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
@@ -3501,6 +3597,10 @@
   "Mtj9Ay": {
     "defaultMessage": "Edit description",
     "description": "Run page > Overview > Description section > Edit button label"
+  },
+  "MuDG+v": {
+    "defaultMessage": "Webhooks",
+    "description": "Webhooks settings section title"
   },
   "MxiIan": {
     "defaultMessage": "Add message",
@@ -3682,6 +3782,10 @@
     "defaultMessage": "No evaluation tables logged",
     "description": "Run page > Evaluations tab > No evaluation tables logged"
   },
+  "NsY2mp": {
+    "defaultMessage": "Optional secret key",
+    "description": "Webhook secret placeholder when creating"
+  },
   "NtaCJN": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > display points > off setting label"
@@ -3721,6 +3825,10 @@
   "O9r1RR": {
     "defaultMessage": "Start Time:",
     "description": "Row title for the start time of runs on the experiment compare runs page"
+  },
+  "O9tgB/": {
+    "defaultMessage": "Name",
+    "description": "Webhook name field label"
   },
   "OC5Osf": {
     "defaultMessage": "Share and manage machine learning models. <link>Learn more</link>",
@@ -3786,6 +3894,9 @@
     "defaultMessage": "No budget policies created",
     "description": "Empty state title for budgets list"
   },
+  "OiauSC": {
+    "defaultMessage": "Failed to load webhooks"
+  },
   "OilzZP": {
     "defaultMessage": "Conversation",
     "description": "Label for conversation variable option"
@@ -3841,6 +3952,10 @@
   "PBeZnP": {
     "defaultMessage": "You can start logging traces to this logged model by calling {code} first:",
     "description": "Introductory text for the code example for logging traces to an existing logged model. The code contains reference to \"mlflow.set_active_model\" function call"
+  },
+  "PDAMaL": {
+    "defaultMessage": "Model version alias deleted",
+    "description": "Webhook event label"
   },
   "PEYesH": {
     "defaultMessage": "New run",
@@ -4121,6 +4236,10 @@
     "defaultMessage": "Provider is required",
     "description": "Error message when provider is not selected"
   },
+  "R8QlJ3": {
+    "defaultMessage": "Prompt version tag set",
+    "description": "Webhook event label"
+  },
   "RCjxf0": {
     "defaultMessage": "Compare runs",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > title"
@@ -4204,6 +4323,10 @@
   "RtKhwd": {
     "defaultMessage": "Dataset",
     "description": "Experiment page > group by runs control > group by dataset"
+  },
+  "RtRy6v": {
+    "defaultMessage": "Name must start and end with a letter or digit, be less than 63 characters long, and contain only letters, digits, dots (.), underscores (_), and hyphens (-).",
+    "description": "Webhook name validation error"
   },
   "Rwi+VC": {
     "defaultMessage": "avg score",
@@ -4412,6 +4535,10 @@
   "TC9IhO": {
     "defaultMessage": "No runs",
     "description": "Placeholder text for the runs table on the logged model details page when there are no runs"
+  },
+  "TCAbKZ": {
+    "defaultMessage": "Save",
+    "description": "Save webhook button"
   },
   "TKtJIK": {
     "defaultMessage": "Page not found",
@@ -4696,6 +4823,10 @@
     "defaultMessage": "Unable to list artifacts stored under {artifactUri} for the current run. Please contact your tracking server administrator to notify them of this error, which can happen when the tracking server lacks permission to list artifacts under the current run's root artifact directory.",
     "description": "Error message when the artifact is unable to load. This message is displayed in the open source ML flow only"
   },
+  "V4VIPM": {
+    "defaultMessage": "Budget policy exceeded",
+    "description": "Webhook event label"
+  },
   "V5cjvM": {
     "defaultMessage": "Copy your MLflow models to another registered model for simple model promotion across environments. For more mature production-grade setups, we recommend setting up automated model training workflows to produce models in controlled environments. <link>Learn more</link>",
     "description": "Model registry > OSS Promote model modal > description paragraph body"
@@ -4731,6 +4862,10 @@
   "VHuRTt": {
     "defaultMessage": "Doc",
     "description": "Label for the document preview in a chunk relevance assessment"
+  },
+  "VLLYVu": {
+    "defaultMessage": "Delete",
+    "description": "Delete webhook button"
   },
   "VMTV4I": {
     "defaultMessage": "Getting Started",
@@ -4831,6 +4966,10 @@
   "VwxvII": {
     "defaultMessage": "forecasting",
     "description": "A short label for experiments focused on time series forecasting"
+  },
+  "W+aLXo": {
+    "defaultMessage": "Manage webhooks to receive HTTP notifications when events occur in MLflow.",
+    "description": "Webhooks settings section description"
   },
   "W0PKNU": {
     "defaultMessage": "Model registry",
@@ -5000,6 +5139,10 @@
     "defaultMessage": "Failed to override assessment. Error: {error}",
     "description": "Error message when overriding an assessment fails"
   },
+  "X1Ybf6": {
+    "defaultMessage": "Leave blank to keep existing secret",
+    "description": "Webhook secret placeholder when editing"
+  },
   "X1nbeT": {
     "defaultMessage": "Last Updated:",
     "description": "Label for last updated"
@@ -5080,6 +5223,10 @@
     "defaultMessage": "Retrieval Sufficiency",
     "description": "LLM template option"
   },
+  "Xe+MXn": {
+    "defaultMessage": "Prompt alias deleted",
+    "description": "Webhook event label"
+  },
   "XkpMf+": {
     "defaultMessage": "baseline run"
   },
@@ -5114,6 +5261,10 @@
   "XwkX9B": {
     "defaultMessage": "No metrics recorded",
     "description": "Placeholder text when no metrics are recorded for a logged model"
+  },
+  "XxZMU7": {
+    "defaultMessage": "Prompt version created",
+    "description": "Webhook event label"
   },
   "Y++w0Q": {
     "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
@@ -5370,6 +5521,9 @@
   "Zc48NC": {
     "defaultMessage": "(unknown)",
     "description": "Filler text when run's time information is unavailable"
+  },
+  "Zdw8ck": {
+    "defaultMessage": "At least one event must be selected"
   },
   "ZfsnMj": {
     "defaultMessage": "Not grounded",
@@ -5979,6 +6133,10 @@
     "defaultMessage": "Search experiments",
     "description": "Placeholder text inside experiments search bar"
   },
+  "dMyfwO": {
+    "defaultMessage": "Registered model created",
+    "description": "Webhook event label"
+  },
   "dNaKCA": {
     "defaultMessage": "Created",
     "description": "Created column header"
@@ -6195,6 +6353,10 @@
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
   },
+  "ekqDlR": {
+    "defaultMessage": "Model version alias created",
+    "description": "Webhook event label"
+  },
   "ep1s0U": {
     "defaultMessage": "Evaluations",
     "description": "Label for the evaluations tab in the MLflow experiment navbar"
@@ -6391,6 +6553,9 @@
     "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, {identifiedIssues} issues identified so far",
     "description": "Issue detection progress > Progress summary"
   },
+  "g7b7x/": {
+    "defaultMessage": "Test failed with no error message"
+  },
   "g7xNvF": {
     "defaultMessage": "Display points",
     "description": "Runs charts > line chart > display points > label"
@@ -6566,6 +6731,10 @@
   "hKQs4I": {
     "defaultMessage": "{count, plural, one {1 session selected} other {# sessions selected}}",
     "description": "Label for the number of sessions selected"
+  },
+  "hM97ET": {
+    "defaultMessage": "Events",
+    "description": "Webhook events field label"
   },
   "hN4qL/": {
     "defaultMessage": "Create workspace",
@@ -6754,6 +6923,10 @@
   "iT8ODo": {
     "defaultMessage": "Minimum",
     "description": "Experiment page > group by runs control > minimum aggregate function"
+  },
+  "iVeCOa": {
+    "defaultMessage": "My webhook",
+    "description": "Webhook name placeholder"
   },
   "iVrgfC": {
     "defaultMessage": "Datasets",
@@ -6986,6 +7159,10 @@
   "k3SQ4s": {
     "defaultMessage": "Detect unsatisfactory user experiences and unmet user needs",
     "description": "Issue category description for negative user experiences"
+  },
+  "k7itje": {
+    "defaultMessage": "Create webhook",
+    "description": "Create webhook button"
   },
   "k8oXRo": {
     "defaultMessage": "Enter description",
@@ -7222,6 +7399,10 @@
   "lf2ttL": {
     "defaultMessage": "Sample rate",
     "description": "Section header for sample rate"
+  },
+  "lfHI6z": {
+    "defaultMessage": "Delete webhook",
+    "description": "Delete webhook modal title"
   },
   "lfe8zE": {
     "defaultMessage": "Evaluate if the response in '{{ outputs }}' correctly answers the question in '{{ inputs }}'. The response should be accurate, complete, and professional.",
@@ -7511,9 +7692,17 @@
     "defaultMessage": "Error when fetching related runs data: {error}",
     "description": "Error message displayed when logged model details page couldn't fetch related runs data"
   },
+  "nPHUYN": {
+    "defaultMessage": "https://example.com/webhook",
+    "description": "Webhook URL placeholder"
+  },
   "nPWZsh": {
     "defaultMessage": "Make sure that at least one experiment run is visible and available to compare",
     "description": "Experiment page > artifact compare view > empty state for no runs selected > subtitle with the hint"
+  },
+  "nPeR7e": {
+    "defaultMessage": "Disabled",
+    "description": "Webhook disabled status"
   },
   "nQoUED": {
     "defaultMessage": "Step",
@@ -7607,6 +7796,10 @@
     "defaultMessage": "Invalid log value",
     "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
   },
+  "o2q4XV": {
+    "defaultMessage": "Active",
+    "description": "Webhook active label"
+  },
   "o2qOGQ": {
     "defaultMessage": "Total",
     "description": "Label for total cost"
@@ -7630,6 +7823,9 @@
   "oBKd1E": {
     "defaultMessage": "Value",
     "description": "Column title for value column in editable tags table view in MLflow"
+  },
+  "oBWEtT": {
+    "defaultMessage": "Failed to invoke webhook"
   },
   "oDwj2g": {
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
@@ -7782,6 +7978,10 @@
   "pDK3Ha": {
     "defaultMessage": "Run example code:",
     "description": "Instruction for running example GenAI code in order to log MLflow 3 models"
+  },
+  "pEIxYQ": {
+    "defaultMessage": "Model version created",
+    "description": "Webhook event label"
   },
   "pEpexK": {
     "defaultMessage": "Clear filters",
@@ -7966,6 +8166,10 @@
   "qVQYZH": {
     "defaultMessage": "Show less",
     "description": "Button to close alert description"
+  },
+  "qZKsz+": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel webhook form button"
   },
   "qa80t1": {
     "defaultMessage": "Enable Usage Tracking in the Configuration tab to view usage metrics",
@@ -8391,6 +8595,10 @@
     "defaultMessage": "Expectation",
     "description": "Expectation select menu option for assessment type"
   },
+  "tEwQWS": {
+    "defaultMessage": "Active",
+    "description": "Webhook active status"
+  },
   "tGqJL4": {
     "defaultMessage": "Output",
     "description": "Label for the output tokens in the tooltip for the tokens cell."
@@ -8430,6 +8638,10 @@
   "tUDgmf": {
     "defaultMessage": "Select one or more sessions to perform actions.",
     "description": "Tooltip shown when actions button is disabled due to no session selection"
+  },
+  "ta42Qe": {
+    "defaultMessage": "Active",
+    "description": "Webhook status field label"
   },
   "taI4Bv": {
     "defaultMessage": "to",
@@ -8590,6 +8802,10 @@
   "urvfNd": {
     "defaultMessage": "Cancel",
     "description": "Add new key-value tag modal > Cancel button text"
+  },
+  "usKsDd": {
+    "defaultMessage": "Prompt alias created",
+    "description": "Webhook event label"
   },
   "utyagz": {
     "defaultMessage": "Feedback",
@@ -9183,6 +9399,9 @@
     "defaultMessage": "MLflow Model",
     "description": "Heading text for mlflow model artifact"
   },
+  "z3jAVQ": {
+    "defaultMessage": "Failed to delete webhook"
+  },
   "z42Rsj": {
     "defaultMessage": "Source run",
     "description": "Label for the column indicating a run being the source of the logged model's metric (i.e. source run). Displayed in the logged model details metrics table."
@@ -9330,5 +9549,9 @@
   "zxfWCx": {
     "defaultMessage": "Add/Edit Prompt Version Metadata",
     "description": "Title for a modal that allows the user to add or edit metadata tags on prompt versions."
+  },
+  "zzuzri": {
+    "defaultMessage": "Description",
+    "description": "Webhook description field label"
   }
 }
