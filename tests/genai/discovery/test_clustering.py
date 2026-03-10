@@ -1,6 +1,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
+from mlflow.entities.issue import IssueStatus
 from mlflow.genai.discovery.clustering import (
     cluster_by_llm,
     summarize_cluster,
@@ -124,7 +125,7 @@ def test_build_summary_with_issues():
             experiment_id="0",
             name="tool_failure",
             description="Tool calls fail intermittently",
-            status="open",
+            status=IssueStatus.PENDING,
             created_timestamp=0,
             last_updated_timestamp=0,
             severity="high",
