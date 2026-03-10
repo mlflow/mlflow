@@ -127,7 +127,7 @@ def test_build_summary_with_issues():
             status="open",
             created_timestamp=0,
             last_updated_timestamp=0,
-            confidence="high",
+            severity="high",
             root_causes=["API timeout"],
         ),
     ]
