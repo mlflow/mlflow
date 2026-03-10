@@ -446,12 +446,86 @@ def test_log_expectation_default_source(trace_id):
     assert assessment.expectation.value == "MLflow"
 
 
+def test_log_issue(trace_id):
+    mlflow.log_issue(
+        trace_id=trace_id,
+        issue_id="iss-12345",
+        issue_name="timeout_error",
+        source=_CODE_ASSESSMENT_SOURCE,
+        rationale="Request exceeded 30 second timeout",
+        metadata={"severity": "high", "affected_count": "150"},
+    )
+
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) == 1
+    assessment = trace.info.assessments[0]
+    assert isinstance(assessment, IssueReference)
+    assert assessment.trace_id == trace_id
+    assert assessment.name == "iss-12345"
+    assert assessment.issue_id == "iss-12345"
+    assert assessment.issue_name == "timeout_error"
+    assert assessment.span_id is None
+    assert assessment.source == _CODE_ASSESSMENT_SOURCE
+    assert assessment.create_time_ms is not None
+    assert assessment.last_update_time_ms is not None
+    assert assessment.issue.issue_name == "timeout_error"
+    assert assessment.rationale == "Request exceeded 30 second timeout"
+    assert assessment.metadata == {"severity": "high", "affected_count": "150"}
+
+
+def test_log_issue_default_source(trace_id):
+    # Test that the default LLM_JUDGE source is used when no source is provided
+    mlflow.log_issue(
+        trace_id=trace_id,
+        issue_id="iss-67890",
+        issue_name="connection_issue",
+    )
+
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) == 1
+    assessment = trace.info.assessments[0]
+    assert assessment.name == "iss-67890"
+    assert assessment.issue_id == "iss-67890"
+    assert assessment.issue_name == "connection_issue"
+    assert assessment.trace_id == trace_id
+    assert assessment.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert assessment.source.source_id == "default"
+
+
+def test_log_issue_with_run_id_and_span_id():
+    with mlflow.start_span(name="test_span") as span:
+        mlflow.log_issue(
+            trace_id=span.trace_id,
+            issue_id="iss-99999",
+            issue_name="data_quality_issue",
+            source=_LLM_ASSESSMENT_SOURCE,
+            run_id="run-12345",
+            rationale="Input data contains missing values in critical fields",
+            metadata={"category": "data", "priority": "high"},
+            span_id=span.span_id,
+        )
+
+    trace = mlflow.get_trace(span.trace_id)
+    assert len(trace.info.assessments) == 1
+    assessment = trace.info.assessments[0]
+    assert assessment.issue_id == "iss-99999"
+    assert assessment.issue_name == "data_quality_issue"
+    assert assessment.trace_id == span.trace_id
+    assert assessment.span_id == span.span_id
+    assert assessment.source == _LLM_ASSESSMENT_SOURCE
+    assert assessment.rationale == "Input data contains missing values in critical fields"
+    assert assessment.metadata == {"category": "data", "priority": "high"}
+
+
 def test_log_feedback_and_exception_blocks_positional_args():
     with pytest.raises(TypeError, match=r"log_feedback\(\) takes 0 positional"):
         mlflow.log_feedback("tr-1234", "faithfulness", 1.0)
 
     with pytest.raises(TypeError, match=r"log_expectation\(\) takes 0 positional"):
         mlflow.log_expectation("tr-1234", "expected_answer", "MLflow")
+
+    with pytest.raises(TypeError, match=r"log_issue\(\) takes 0 positional"):
+        mlflow.log_issue("tr-1234", "iss-12345", "timeout_error")
 
 
 @pytest.mark.parametrize("legacy_api", [True, False])
