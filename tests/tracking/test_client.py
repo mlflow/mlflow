@@ -3625,11 +3625,10 @@ def test_create_issue_basic(tmp_path: Path):
         exp_id = client.create_experiment("test_create_issue")
         tracing_client = client._tracing_client
 
-        issue = tracing_client.create_issue(
+        issue = tracing_client._create_issue(
             experiment_id=exp_id,
             name="Test issue",
             description="This is a test issue",
-            status=IssueStatus.PENDING,
         )
 
         assert issue.issue_id.startswith("iss-")
@@ -3653,7 +3652,7 @@ def test_create_issue_with_all_fields(tmp_path: Path):
         exp_id = client.create_experiment("test_create_issue_all_fields")
         tracing_client = client._tracing_client
         with mlflow.start_run(experiment_id=exp_id) as run:
-            issue = tracing_client.create_issue(
+            issue = tracing_client._create_issue(
                 experiment_id=exp_id,
                 name="High latency",
                 description="API response times exceed threshold",

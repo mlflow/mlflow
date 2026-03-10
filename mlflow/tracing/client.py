@@ -749,12 +749,12 @@ class TracingClient:
                 "Clearing storage location is not supported on non-Databricks backends."
             )
 
-    def create_issue(
+    def _create_issue(
         self,
         experiment_id: str,
         name: str,
         description: str,
-        status: IssueStatus,
+        status: IssueStatus = IssueStatus.PENDING,
         severity: str | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
