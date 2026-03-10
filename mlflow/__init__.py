@@ -174,6 +174,7 @@ from mlflow.tracing.assessment import (
     override_feedback,
     update_assessment,
 )
+from mlflow.tracing.context import context
 from mlflow.tracing.fluent import (
     add_trace,
     delete_trace_tag,
@@ -211,6 +212,7 @@ __all__ = [
     "active_run",
     # Tracing APIs
     "add_trace",
+    "context",
     "delete_trace_tag",
     "flush_trace_async_logging",
     "get_active_trace_id",

@@ -335,7 +335,6 @@ const TracesV3LogsImpl = React.memo(
 
     // Helper function to render the main content based on current state
     const renderMainContent = () => {
-      // If isEmpty and not enableTraceInsights, show empty state without navigation
       if (!enableTraceInsights && isTableEmpty) {
         return (
           <>
@@ -346,6 +345,26 @@ const TracesV3LogsImpl = React.memo(
               traceSearchLocations={traceSearchLocations}
               isCallDisabled={isQueryDisabled}
             />
+            {/* still render the table body container so the trace drawer can open even when
+             table is empty (e.g., when navigating directly to a trace via URL parameter) */}
+            <div css={{ display: 'none' }}>
+              <GenAITracesTableBodyContainer
+                experimentId={singleExperimentId}
+                allColumns={allColumns}
+                currentTraceInfoV3={traceInfos || []}
+                currentRunDisplayName={endpointName}
+                getTrace={getTrace}
+                assessmentInfos={assessmentInfos}
+                setFilters={setFilters}
+                filters={filters}
+                selectedColumns={selectedColumns}
+                tableSort={tableSort}
+                onTraceTagsEdit={showEditTagsModalForTrace}
+                isTableLoading={isTableLoading}
+                isGroupedBySession={forceGroupBySession || isGroupedBySession}
+                searchQuery={searchQuery}
+              />
+            </div>
           </>
         );
       }

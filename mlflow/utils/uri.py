@@ -447,26 +447,22 @@ def resolve_uri_if_local(local_uri):
         if not pathlib.Path(local_path).is_absolute():
             if scheme == "":
                 if is_windows():
-                    return urllib.parse.urlunsplit(
-                        (
-                            "file",
-                            None,
-                            cwd.joinpath(local_path).as_posix(),
-                            None,
-                            None,
-                        )
-                    )
+                    return urllib.parse.urlunsplit((
+                        "file",
+                        None,
+                        cwd.joinpath(local_path).as_posix(),
+                        None,
+                        None,
+                    ))
                 return cwd.joinpath(local_path).as_posix()
             local_uri_split = urllib.parse.urlsplit(local_uri)
-            return urllib.parse.urlunsplit(
-                (
-                    local_uri_split.scheme,
-                    None,
-                    cwd.joinpath(local_path).as_posix(),
-                    local_uri_split.query,
-                    local_uri_split.fragment,
-                )
-            )
+            return urllib.parse.urlunsplit((
+                local_uri_split.scheme,
+                None,
+                cwd.joinpath(local_path).as_posix(),
+                local_uri_split.query,
+                local_uri_split.fragment,
+            ))
     return local_uri
 
 

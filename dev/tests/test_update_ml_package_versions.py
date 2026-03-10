@@ -25,35 +25,31 @@ class MockResponse:
 
     @classmethod
     def from_versions(cls, versions):
-        return cls(
-            {
-                "releases": {
-                    v: [
-                        {
-                            "filename": v + ".whl",
-                            "upload_time": "2023-10-04T16:38:57",
-                        }
-                    ]
-                    for v in versions
-                }
+        return cls({
+            "releases": {
+                v: [
+                    {
+                        "filename": v + ".whl",
+                        "upload_time": "2023-10-04T16:38:57",
+                    }
+                ]
+                for v in versions
             }
-        )
+        })
 
     @classmethod
     def from_version_infos(cls, version_infos: list[VersionInfo]) -> "MockResponse":
-        return cls(
-            {
-                "releases": {
-                    v.version: [
-                        {
-                            "filename": v.version + ".whl",
-                            "upload_time": v.upload_time.isoformat(),
-                        }
-                    ]
-                    for v in version_infos
-                }
+        return cls({
+            "releases": {
+                v.version: [
+                    {
+                        "filename": v.version + ".whl",
+                        "upload_time": v.upload_time.isoformat(),
+                    }
+                ]
+                for v in version_infos
             }
-        )
+        })
 
 
 @pytest.fixture(autouse=True)
@@ -146,15 +142,13 @@ sklearn:
     maximum: "0.0.1"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_versions(
-            [
-                # pre-release and dev-release should be filtered out
-                "0.0.3.rc1",  # pre-release
-                "0.0.3.dev1",  # dev-release
-                "0.0.2.post",  # post-release
-                "0.0.2",  # final release
-            ]
-        ),
+        "sklearn": MockResponse.from_versions([
+            # pre-release and dev-release should be filtered out
+            "0.0.3.rc1",  # pre-release
+            "0.0.3.dev1",  # dev-release
+            "0.0.2.post",  # post-release
+            "0.0.2",  # final release
+        ]),
     }
     src_expected = """
 sklearn:
@@ -218,13 +212,11 @@ sklearn:
     maximum: "0.0.8"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_version_infos(
-            [
-                VersionInfo("0.0.2", datetime.now() - timedelta(days=1000)),
-                VersionInfo("0.0.3", datetime.now() - timedelta(days=365)),
-                VersionInfo("0.0.8", datetime.now() - timedelta(days=180)),
-            ]
-        )
+        "sklearn": MockResponse.from_version_infos([
+            VersionInfo("0.0.2", datetime.now() - timedelta(days=1000)),
+            VersionInfo("0.0.3", datetime.now() - timedelta(days=365)),
+            VersionInfo("0.0.8", datetime.now() - timedelta(days=180)),
+        ])
     }
     src_expected = """
 sklearn:
@@ -247,12 +239,10 @@ sklearn:
     maximum: "0.0.8"
 """
     mock_responses = {
-        "sklearn": MockResponse.from_version_infos(
-            [
-                VersionInfo("0.0.7", datetime.now() - timedelta(days=1000)),
-                VersionInfo("0.0.8", datetime.now() - timedelta(days=800)),
-            ]
-        )
+        "sklearn": MockResponse.from_version_infos([
+            VersionInfo("0.0.7", datetime.now() - timedelta(days=1000)),
+            VersionInfo("0.0.8", datetime.now() - timedelta(days=800)),
+        ])
     }
     src_expected = """
 sklearn:

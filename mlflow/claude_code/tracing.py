@@ -451,13 +451,11 @@ def _create_llm_and_tool_spans(
             _set_token_usage_attribute(llm_span, usage)
 
             # Output in Anthropic response format for Chat UI rendering
-            llm_span.set_outputs(
-                {
-                    "type": "message",
-                    "role": "assistant",
-                    "content": content,
-                }
-            )
+            llm_span.set_outputs({
+                "type": "message",
+                "role": "assistant",
+                "content": content,
+            })
             llm_span.end(end_time_ns=timestamp_ns + duration_ns)
 
         # Create tool spans with proportional timing and actual results
@@ -519,13 +517,11 @@ def _finalize_trace(
                     "cache_creation_input_tokens", 0
                 )
                 output_tokens = usage.get("output_tokens", 0)
-                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(
-                    {
-                        TokenUsageKey.INPUT_TOKENS: input_tokens,
-                        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-                        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
-                    }
-                )
+                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps({
+                    TokenUsageKey.INPUT_TOKENS: input_tokens,
+                    TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+                    TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+                })
 
             in_memory_trace.info.trace_metadata = {
                 **in_memory_trace.info.trace_metadata,
@@ -773,13 +769,11 @@ def _create_sdk_child_spans(
                         SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
                     },
                 )
-                llm_span.set_outputs(
-                    {
-                        "type": "message",
-                        "role": "assistant",
-                        "content": [{"type": "text", "text": block.text} for block in text_blocks],
-                    }
-                )
+                llm_span.set_outputs({
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": block.text} for block in text_blocks],
+                })
                 llm_span.end()
                 pending_messages = []
                 continue

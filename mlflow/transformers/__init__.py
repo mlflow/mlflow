@@ -2371,9 +2371,11 @@ class _TransformersWrapper:
         flattened_data = []
         for entry in data:
             for label, score in zip(entry["labels"], entry["scores"]):
-                flattened_data.append(
-                    {"sequence": entry["sequence"], "labels": label, "scores": score}
-                )
+                flattened_data.append({
+                    "sequence": entry["sequence"],
+                    "labels": label,
+                    "scores": score,
+                })
         return pd.DataFrame(flattened_data)
 
     def _strip_input_from_response_in_instruction_pipelines(

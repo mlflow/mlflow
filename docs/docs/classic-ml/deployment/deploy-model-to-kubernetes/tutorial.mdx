@@ -173,13 +173,11 @@ with mlflow.start_run(run_name="hyperparameter-tuning"):
     # Evaluate the best model on test dataset
     y_pred = clf.best_estimator_.predict(X_test)
     rmse, mae, r2 = eval_metrics(y_pred, y_test)
-    mlflow.log_metrics(
-        {
-            "mean_squared_error_X_test": rmse,
-            "mean_absolute_error_X_test": mae,
-            "r2_score_X_test": r2,
-        }
-    )
+    mlflow.log_metrics({
+        "mean_squared_error_X_test": rmse,
+        "mean_absolute_error_X_test": mae,
+        "r2_score_X_test": r2,
+    })
 ```
 
 When you reopen the MLflow UI, you should notice that the run "hyperparameter-tuning" contains 5 child runs. MLflow utilizes parent-child relationship, which is particularly

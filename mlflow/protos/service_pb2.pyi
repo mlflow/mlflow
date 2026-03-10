@@ -2413,6 +2413,26 @@ class ListGatewayBudgetPolicies(_message.Message):
     page_token: str
     def __init__(self, max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
 
+class ListGatewayBudgetWindows(_message.Message):
+    __slots__ = ()
+    class BudgetWindow(_message.Message):
+        __slots__ = ("budget_policy_id", "window_start_ms", "window_end_ms", "current_spend")
+        BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+        WINDOW_START_MS_FIELD_NUMBER: _ClassVar[int]
+        WINDOW_END_MS_FIELD_NUMBER: _ClassVar[int]
+        CURRENT_SPEND_FIELD_NUMBER: _ClassVar[int]
+        budget_policy_id: str
+        window_start_ms: int
+        window_end_ms: int
+        current_spend: float
+        def __init__(self, budget_policy_id: _Optional[str] = ..., window_start_ms: _Optional[int] = ..., window_end_ms: _Optional[int] = ..., current_spend: _Optional[float] = ...) -> None: ...
+    class Response(_message.Message):
+        __slots__ = ("windows",)
+        WINDOWS_FIELD_NUMBER: _ClassVar[int]
+        windows: _containers.RepeatedCompositeFieldContainer[ListGatewayBudgetWindows.BudgetWindow]
+        def __init__(self, windows: _Optional[_Iterable[_Union[ListGatewayBudgetWindows.BudgetWindow, _Mapping]]] = ...) -> None: ...
+    def __init__(self) -> None: ...
+
 class GetSecretsConfig(_message.Message):
     __slots__ = ()
     class Response(_message.Message):
