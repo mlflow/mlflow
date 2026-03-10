@@ -10,7 +10,6 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.constants import (
     FAILURE_LABEL_SYSTEM_PROMPT,
-    RATIONALE_TRUNCATION_LIMIT,
 )
 from mlflow.genai.discovery.entities import _ConversationAnalysis
 from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
@@ -151,15 +150,15 @@ def extract_failure_labels(
     analyses: list[_ConversationAnalysis],
     model: str,
     token_counter: _TokenCounter | None = None,
-) -> list[str]:
+) -> tuple[list[str], list[int]]:
     """
     Extract short failure labels that combine execution path with symptom.
 
     Each label has the format ``[execution_path] symptom description``.
     The execution path comes from the trace spans (which sub-agents/tools
     were called). The symptom is extracted by an LLM from the triage
-    rationale. Together they enable clustering by "what the agent did"
-    and "how it failed."
+    rationale. A single conversation may produce multiple labels if it
+    exhibits multiple distinct failures.
 
     Args:
         analyses: Conversation analyses to generate labels for.
@@ -167,13 +166,14 @@ def extract_failure_labels(
         token_counter: Optional token counter for tracking LLM usage.
 
     Returns:
-        List of failure label strings, one per analysis.
+        A tuple of (labels, label_to_analysis) where label_to_analysis[i]
+        is the index into ``analyses`` that produced labels[i].
     """
     if not analyses:
-        return []
+        return [], []
 
-    def _generate_label(analysis: _ConversationAnalysis) -> str:
-        rationale = analysis.rationale_summary[:RATIONALE_TRUNCATION_LIMIT]
+    def _generate_labels(analysis: _ConversationAnalysis) -> list[str]:
+        rationale = analysis.rationale_summary
         response = _call_llm(
             model,
             [
@@ -182,22 +182,31 @@ def extract_failure_labels(
             ],
             token_counter=token_counter,
         )
-        symptom = response.choices[0].message.content.strip()
-        return f"[{analysis.execution_path}] {symptom}"
+        content = response.choices[0].message.content.strip()
+        symptoms = [line.lstrip("- ").strip() for line in content.splitlines() if line.strip()]
+        return [f"[{analysis.execution_path}] {symptom}" for symptom in (symptoms or [content])]
 
-    # Generate labels in parallel — each label is an independent LLM call
+    # Generate labels in parallel — each analysis is an independent LLM call
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(analyses))
-    labels: list[str | None] = [None] * len(analyses)
+    raw_labels: list[list[str] | None] = [None] * len(analyses)
     with ThreadPoolExecutor(
         max_workers=max_workers, thread_name_prefix="MlflowIssueDiscoveryLabel"
     ) as executor:
         future_to_idx = {
-            executor.submit(_generate_label, analysis): i for i, analysis in enumerate(analyses)
+            executor.submit(_generate_labels, analysis): i for i, analysis in enumerate(analyses)
         }
         for future in as_completed(future_to_idx):
-            labels[future_to_idx[future]] = future.result()
+            raw_labels[future_to_idx[future]] = future.result()
 
-    return [label for label in labels if label is not None]
+    # Flatten into (labels, label_to_analysis) preserving analysis order
+    labels: list[str] = []
+    label_to_analysis: list[int] = []
+    for analysis_idx, analysis_labels in enumerate(raw_labels):
+        for label in analysis_labels or []:
+            labels.append(label)
+            label_to_analysis.append(analysis_idx)
+
+    return labels, label_to_analysis
 
 
 def extract_failing_traces(
