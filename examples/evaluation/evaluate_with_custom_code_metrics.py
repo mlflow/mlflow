@@ -33,15 +33,13 @@ valid_code_metric = make_metric(
     eval_fn=eval_fn, greater_is_better=False, name="valid_python_code", version="v1"
 )
 
-eval_df = pd.DataFrame(
-    {
-        "input": [
-            "SELECT * FROM ",
-            "import pandas",
-            "def hello_world",
-        ],
-    }
-)
+eval_df = pd.DataFrame({
+    "input": [
+        "SELECT * FROM ",
+        "import pandas",
+        "def hello_world",
+    ],
+})
 
 with mlflow.start_run() as run:
     system_prompt = (

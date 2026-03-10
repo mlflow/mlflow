@@ -8,7 +8,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
       - labeled
       - unlabeled
   # post-merge job requires write access to add a label and post a comment.
@@ -26,13 +25,13 @@ defaults:
 
 jobs:
   validate-labeled:
-    if: github.event.pull_request.draft == false && github.event.action != 'closed'
+    if: (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot') && github.event.action != 'closed'
     runs-on: ubuntu-slim
     permissions:
       pull-requests: read # validateLabeled looks at PR's labels
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           sparse-checkout: |
             .github
@@ -52,7 +51,7 @@ jobs:
     permissions:
       pull-requests: write # postMerge labels PRs
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           sparse-checkout: |
             .github

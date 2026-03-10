@@ -29,7 +29,7 @@ jobs:
     if: >-
       github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
-      && github.event.pull_request.draft == false
+      && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
       && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-slim
     permissions:
@@ -66,14 +66,14 @@ jobs:
     if: >-
       github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
-      && github.event.pull_request.draft == false
+      && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
       && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
     permissions:
       contents: read
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           # Check out the PR head, not the base branch.
           # Safe because the build job only runs for maintainers/collaborators (author_association check).
