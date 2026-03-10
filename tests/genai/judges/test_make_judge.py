@@ -144,7 +144,7 @@ def mock_invoke_judge_model(monkeypatch):
             "base_url": base_url,
             "extra_headers": extra_headers,
         })
-      
+
         # Return appropriate Feedback based on whether trace is provided
         if trace is not None:
             return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")

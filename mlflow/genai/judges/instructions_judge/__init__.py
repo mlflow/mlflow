@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import asdict
-from typing import Any, Literal, get_origin
+from typing import Any, Literal
 from urllib.parse import urlparse, urlunparse
 
 import pydantic
