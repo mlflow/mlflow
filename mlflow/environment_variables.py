@@ -837,10 +837,9 @@ MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
 #: ``random.seed()`` causes duplicate trace/span ID errors.
 #:
 #: .. note::
-#:     This only takes effect when MLflow manages the tracer provider
-#:     (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=true``, the default).  In global-provider mode
-#:     (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false``), MLflow reuses an externally-created
-#:     ``TracerProvider`` and cannot override its ID generator.
+#:     In global-provider mode (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false``), if an existing
+#:     ``TracerProvider`` is detected, setting ``MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR``
+#:     does not take effect.
 #:
 #: (default: ``False``)
 MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR = _BooleanEnvironmentVariable(
