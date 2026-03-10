@@ -145,11 +145,15 @@ def make_judge(
                         requests to the LLM provider will be routed through this URL.
                         This is useful when LLM access must go through an internal gateway,
                         security proxy, or custom API endpoint.
-                        Not supported for Databricks endpoints.
+                        Not supported for Databricks-backed models (including Databricks
+                        endpoints, the default managed judge model, or "databricks:/..."
+                        model URIs).
         extra_headers: Optional dictionary of additional HTTP headers to include in
                         requests to the LLM provider. Can be used for authentication,
                         tracking, or other custom requirements.
-                        Not supported for Databricks endpoints.
+                        Not supported for Databricks-backed models (including Databricks
+                        endpoints, the default managed judge model, or "databricks:/..."
+                        model URIs).
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
