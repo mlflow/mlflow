@@ -21,7 +21,7 @@ def test_create_issue_required_fields_only(store):
     assert issue.name == "High latency"
     assert issue.description == "API calls are taking too long"
     assert issue.status == IssueStatus.PENDING
-    assert issue.confidence is None
+    assert issue.severity is None
     assert issue.root_causes is None
     assert issue.source_run_id is None
     assert issue.created_by is None
@@ -44,7 +44,7 @@ def test_create_issue_with_all_fields(store):
         name="Token limit exceeded",
         description="Model is hitting token limits frequently",
         status=IssueStatus.ACCEPTED,
-        confidence="high",
+        severity="high",
         root_causes=["Input prompts are too long", "Context window exceeded"],
         source_run_id=run.info.run_id,
         created_by="user@example.com",
@@ -55,8 +55,11 @@ def test_create_issue_with_all_fields(store):
     assert issue.name == "Token limit exceeded"
     assert issue.description == "Model is hitting token limits frequently"
     assert issue.status == IssueStatus.ACCEPTED
-    assert issue.confidence == "high"
-    assert issue.root_causes == ["Input prompts are too long", "Context window exceeded"]
+    assert issue.severity == "high"
+    assert issue.root_causes == [
+        "Input prompts are too long",
+        "Context window exceeded",
+    ]
     assert issue.source_run_id == run.info.run_id
     assert issue.created_by == "user@example.com"
 
@@ -100,7 +103,7 @@ def test_get_issue(store):
         name="Low accuracy",
         description="Model accuracy below threshold",
         status=IssueStatus.PENDING,
-        confidence="medium",
+        severity="medium",
         root_causes=["Insufficient training data", "Model drift"],
         source_run_id=run.info.run_id,
         created_by="alice@example.com",
@@ -113,7 +116,7 @@ def test_get_issue(store):
     assert retrieved_issue.name == "Low accuracy"
     assert retrieved_issue.description == "Model accuracy below threshold"
     assert retrieved_issue.status == IssueStatus.PENDING
-    assert retrieved_issue.confidence == "medium"
+    assert retrieved_issue.severity == "medium"
     assert retrieved_issue.root_causes == ["Insufficient training data", "Model drift"]
     assert retrieved_issue.source_run_id == run.info.run_id
     assert retrieved_issue.created_by == "alice@example.com"
@@ -135,7 +138,7 @@ def test_update_issue(store):
         description="Original description",
         status=IssueStatus.PENDING,
         root_causes=["Initial root cause"],
-        confidence="low",
+        severity="low",
     )
 
     updated_issue = store.update_issue(
@@ -143,7 +146,7 @@ def test_update_issue(store):
         status=IssueStatus.ACCEPTED,
         name="Updated name",
         description="Updated description",
-        confidence="high",
+        severity="high",
     )
 
     assert updated_issue.issue_id == created_issue.issue_id
@@ -151,7 +154,7 @@ def test_update_issue(store):
     assert updated_issue.status == "accepted"
     assert updated_issue.name == "Updated name"
     assert updated_issue.description == "Updated description"
-    assert updated_issue.confidence == "high"
+    assert updated_issue.severity == "high"
     assert updated_issue.root_causes == ["Initial root cause"]
     assert updated_issue.source_run_id is None
     assert updated_issue.created_by == created_issue.created_by
@@ -162,7 +165,7 @@ def test_update_issue(store):
     assert retrieved_issue.status == "accepted"
     assert retrieved_issue.name == "Updated name"
     assert retrieved_issue.description == "Updated description"
-    assert retrieved_issue.confidence == "high"
+    assert retrieved_issue.severity == "high"
     assert retrieved_issue.root_causes == ["Initial root cause"]
     assert retrieved_issue.last_updated_timestamp == updated_issue.last_updated_timestamp
 

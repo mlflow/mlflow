@@ -46,8 +46,8 @@ class Issue(_MlflowObject):
     last_updated_timestamp: int
     """Last update timestamp in milliseconds."""
 
-    confidence: str | None = None
-    """Confidence level indicator."""
+    severity: str | None = None
+    """Severity level indicator."""
 
     root_causes: list[str] | None = None
     """Analysis of the root causes of the issue."""
@@ -66,7 +66,7 @@ class Issue(_MlflowObject):
             "name": self.name,
             "description": self.description,
             "status": self.status.value,
-            "confidence": self.confidence,
+            "severity": self.severity,
             "root_causes": self.root_causes,
             "source_run_id": self.source_run_id,
             "created_timestamp": self.created_timestamp,
@@ -85,7 +85,7 @@ class Issue(_MlflowObject):
             status=IssueStatus(issue_dict["status"]),
             created_timestamp=issue_dict["created_timestamp"],
             last_updated_timestamp=issue_dict["last_updated_timestamp"],
-            confidence=issue_dict.get("confidence"),
+            severity=issue_dict.get("severity"),
             root_causes=issue_dict.get("root_causes"),
             source_run_id=issue_dict.get("source_run_id"),
             created_by=issue_dict.get("created_by"),
@@ -102,8 +102,8 @@ class Issue(_MlflowObject):
         proto_issue.created_timestamp = self.created_timestamp
         proto_issue.last_updated_timestamp = self.last_updated_timestamp
 
-        if self.confidence:
-            proto_issue.confidence = self.confidence
+        if self.severity:
+            proto_issue.severity = self.severity
         if self.root_causes:
             proto_issue.root_causes.extend(self.root_causes)
         if self.source_run_id:
@@ -124,7 +124,7 @@ class Issue(_MlflowObject):
             status=IssueStatus(proto.status),
             created_timestamp=proto.created_timestamp,
             last_updated_timestamp=proto.last_updated_timestamp,
-            confidence=proto.confidence or None,
+            severity=proto.severity or None,
             root_causes=list(proto.root_causes) or None,
             source_run_id=proto.source_run_id or None,
             created_by=proto.created_by or None,
