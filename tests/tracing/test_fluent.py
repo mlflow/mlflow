@@ -39,7 +39,12 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.destination import MlflowExperiment
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, _get_tracer, set_destination
+from mlflow.tracing.provider import (
+    _MLFLOW_TRACE_USER_DESTINATION,
+    _get_tracer,
+    safe_set_span_in_context,
+    set_destination,
+)
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -2660,6 +2665,27 @@ def test_global_sampling_ratio_nested(monkeypatch):
         assert outer() == "result"
 
     assert len(inner_trace_ids) == 0
+
+
+def test_start_span_no_context_preserves_dropped_parent_context(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.0")
+    mlflow.tracing.reset()
+
+    trace_ids: list[str] = []
+
+    @mlflow.trace(sampling_ratio_override=1.0)
+    def child():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        return "result"
+
+    root = start_span_no_context("root")
+    nested_noop = start_span_no_context("nested_noop", parent_span=root)
+
+    with safe_set_span_in_context(nested_noop):
+        assert child() == "result"
+
+    assert len(trace_ids) == 0
 
 
 @pytest.mark.parametrize(

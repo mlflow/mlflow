@@ -666,9 +666,11 @@ def start_span_no_context(
     if config is not None and config.enabled is False:
         return NoOpSpan()
 
-    # If parent span is no-op span, the child should also be no-op too
+    # If parent span is no-op span, the child should also be no-op. Preserve the
+    # parent OTel span when present so descendants keep inheriting the dropped
+    # trace context instead of starting a fresh root trace.
     if parent_span and parent_span.trace_id == NO_OP_SPAN_TRACE_ID:
-        return NoOpSpan()
+        return NoOpSpan(otel_span=parent_span._span)
 
     try:
         # Create new trace and a root span
