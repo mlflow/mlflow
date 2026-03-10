@@ -1233,9 +1233,7 @@ class MlflowClient:
         """
         self._get_registry_client().set_prompt_version_tag(name, version, key, value)
 
-        cache = PromptCache.get_instance()
-        cache.delete(name, version=int(version))
-        cache.delete(name, alias="latest")
+        PromptCache.get_instance().delete_all(name)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1250,9 +1248,7 @@ class MlflowClient:
         """
         self._get_registry_client().delete_prompt_version_tag(name, version, key)
 
-        cache = PromptCache.get_instance()
-        cache.delete(name, version=int(version))
-        cache.delete(name, alias="latest")
+        PromptCache.get_instance().delete_all(name)
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
@@ -6159,9 +6155,7 @@ class MlflowClient:
         registry_client = self._get_registry_client()
         registry_client.delete_prompt_version(name, version)
 
-        cache = PromptCache.get_instance()
-        cache.delete(name, version=int(version))
-        cache.delete(name, alias="latest")
+        PromptCache.get_instance().delete_all(name)
 
     @require_prompt_registry
     @translate_prompt_exception
