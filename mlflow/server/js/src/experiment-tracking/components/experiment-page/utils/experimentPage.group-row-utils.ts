@@ -16,7 +16,7 @@ import {
  */
 const escapeFilterKey = (key: string): string => {
   // If the key contains special characters, wrap it in backticks
-  if (/[.\s`'"]/.test(key)) {
+  if (/[.\s`'/"]/.test(key)) {
     return `\`${key.replace(/`/g, '``')}\``;
   }
   return key;
