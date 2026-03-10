@@ -1138,7 +1138,7 @@ def test_invoke_judge_model_non_databricks_no_telemetry(model_uri: str, mock_res
 def test_invoke_judge_model_base_url_and_extra_headers_not_supported_for_endpoints(extra_kwargs):
     with (
         pytest.raises(
-            MlflowException, match="not supported for Databricks model serving endpoints"
+            MlflowException, match="not supported for deployment endpoints"
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
