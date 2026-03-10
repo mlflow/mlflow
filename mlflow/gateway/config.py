@@ -11,7 +11,10 @@ import yaml
 from pydantic import ConfigDict, ValidationError, field_validator, model_validator
 from pydantic.json import pydantic_encoder
 
-from mlflow.environment_variables import MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE
+from mlflow.environment_variables import (
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.base_models import ConfigModel, LimitModel, ResponseModel
 from mlflow.gateway.constants import (
@@ -301,6 +304,7 @@ def _resolve_api_key_from_input(api_key_input):
     Input formats accepted:
 
     - environment variable name that stores the api key (prefixed with ``$``)
+      (only when ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV`` is ``true``)
     - Path to a file as a string which will have the key loaded from it
       (only when ``MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE`` is ``true``)
     - the api key itself
@@ -311,8 +315,8 @@ def _resolve_api_key_from_input(api_key_input):
             "variable key, a path to a file containing the api key, or the api key itself"
         )
 
-    # try reading as an environment variable
-    if api_key_input.startswith("$"):
+    # try reading as an environment variable (only for legacy YAML-config gateway)
+    if api_key_input.startswith("$") and MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV.get():
         env_var_name = api_key_input[1:]
         if env_var := os.environ.get(env_var_name):
             return env_var
