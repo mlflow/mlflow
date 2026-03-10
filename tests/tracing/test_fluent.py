@@ -2655,7 +2655,9 @@ def test_global_sampling_ratio_nested(monkeypatch):
     def outer():
         return inner()
 
-    @mlflow.trace
+    # Inner uses sampling_ratio_override=1.0 so it would create a sampled
+    # root trace if the dropped parent context were not propagated.
+    @mlflow.trace(sampling_ratio_override=1.0)
     def inner():
         if trace_id := mlflow.get_active_trace_id():
             inner_trace_ids.append(trace_id)
