@@ -266,14 +266,12 @@ class TraceLocation(_MlflowObject):
 
     def __post_init__(self) -> None:
         if (
-            sum(
-                [
-                    self.mlflow_experiment is not None,
-                    self.inference_table is not None,
-                    self.uc_schema is not None,
-                    self.uc_table_prefix is not None,
-                ]
-            )
+            sum([
+                self.mlflow_experiment is not None,
+                self.inference_table is not None,
+                self.uc_schema is not None,
+                self.uc_table_prefix is not None,
+            ])
             > 1
         ):
             raise MlflowException.invalid_parameter_value(

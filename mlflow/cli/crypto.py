@@ -148,7 +148,8 @@ def rotate_kek(new_passphrase, backend_store_uri, yes):
 
         with store.ManagedSessionMaker() as session:
             secrets = (
-                session.query(SqlGatewaySecret)
+                session
+                .query(SqlGatewaySecret)
                 .filter(SqlGatewaySecret.kek_version == old_version)
                 .all()
             )

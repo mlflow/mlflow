@@ -127,15 +127,13 @@ def test_gepa_e2e_run(mock_judge, sample_traces_with_assessments):
 
     # Configure DummyLM with deterministic instruction proposals
     # GEPA will request new instructions during reflection phase
-    dummy_lm = DummyLM(
-        [
-            "Carefully evaluate whether the {{outputs}} effectively addresses {{inputs}}",
-            "Assess if the {{outputs}} properly responds to the {{inputs}} query",
-            "Determine whether {{outputs}} satisfactorily answers {{inputs}}",
-            "Judge if {{outputs}} adequately resolves {{inputs}}",
-            "Evaluate the quality of {{outputs}} in addressing {{inputs}}",
-        ]
-    )
+    dummy_lm = DummyLM([
+        "Carefully evaluate whether the {{outputs}} effectively addresses {{inputs}}",
+        "Assess if the {{outputs}} properly responds to the {{inputs}} query",
+        "Determine whether {{outputs}} satisfactorily answers {{inputs}}",
+        "Judge if {{outputs}} adequately resolves {{inputs}}",
+        "Evaluate the quality of {{outputs}} in addressing {{inputs}}",
+    ])
 
     # Create optimizer with minimal budget for fast test
     # Note: Using max_metric_calls=10 to give GEPA enough budget to actually

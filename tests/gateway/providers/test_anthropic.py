@@ -1053,14 +1053,16 @@ async def test_chat_with_structured_output():
         assert response.choices[0].finish_reason == "stop"
 
         call_kwargs = mock_session_client.post.call_args[1]
-        assert call_kwargs["json"]["output_format"] == {
-            "type": "json_schema",
-            "schema": json_schema,
+        assert call_kwargs["json"]["output_config"] == {
+            "format": {
+                "type": "json_schema",
+                "schema": json_schema["schema"],
+            }
         }
 
         assert captured_session_headers["x-api-key"] == "key"
         assert captured_session_headers["anthropic-version"] == "2023-06-01"
-        assert captured_session_headers["anthropic-beta"] == "structured-outputs-2025-11-13"
+        assert "anthropic-beta" not in captured_session_headers
 
 
 def test_anthropic_extract_passthrough_token_usage():

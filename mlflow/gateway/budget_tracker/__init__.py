@@ -72,6 +72,10 @@ class BudgetTracker(ABC):
         """Mark the tracker as just refreshed."""
         self._last_refresh_time = time.monotonic()
 
+    def invalidate(self) -> None:
+        """Reset the refresh timer so the next needs_refresh() call returns True."""
+        self._last_refresh_time = 0.0
+
     @abstractmethod
     def refresh_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
         """Load or refresh policies from the database.
@@ -126,6 +130,10 @@ class BudgetTracker(ABC):
         Args:
             spend_by_policy: Dict mapping budget_policy_id to historical spend amount.
         """
+
+    @abstractmethod
+    def get_all_windows(self) -> list[BudgetWindow]:
+        """Get the current window info for all tracked policies."""
 
     @abstractmethod
     def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:

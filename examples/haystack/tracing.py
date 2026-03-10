@@ -120,9 +120,11 @@ agentic_rag_pipe.connect("prompt_builder_for_websearch", "llm_for_websearch")
 
 query = "How many people live in Munich?"
 
-result = agentic_rag_pipe.run(
-    {"retriever": {"query": query}, "prompt_builder": {"query": query}, "router": {"query": query}}
-)
+result = agentic_rag_pipe.run({
+    "retriever": {"query": query},
+    "prompt_builder": {"query": query},
+    "router": {"query": query},
+})
 
 # Print the `replies` generated using the web searched Documents
 print(result["llm_for_websearch"]["replies"][0].text)

@@ -1,4 +1,5 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { CreateBudgetPolicyModal } from './CreateBudgetPolicyModal';
 import { useCreateBudgetPolicy } from '../../hooks/useCreateBudgetPolicy';
@@ -26,7 +27,7 @@ describe('CreateBudgetPolicyModal', () => {
 
     expect(screen.getByText('Create Budget Policy')).toBeInTheDocument();
     expect(screen.getByText('Budget amount (USD)')).toBeInTheDocument();
-    expect(screen.getByText('Duration')).toBeInTheDocument();
+    expect(screen.getByText('Reset period')).toBeInTheDocument();
     expect(screen.getByText('On exceeded')).toBeInTheDocument();
   });
 
@@ -38,8 +39,6 @@ describe('CreateBudgetPolicyModal', () => {
   });
 
   test('enables Create button when amount is entered', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
-
     renderWithDesignSystem(<CreateBudgetPolicyModal open onClose={jest.fn()} />);
 
     const amountInput = screen.getByPlaceholderText('e.g., 100.00');
@@ -50,7 +49,6 @@ describe('CreateBudgetPolicyModal', () => {
   });
 
   test('submits correct payload with duration preset mapping', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onClose = jest.fn();
     const onSuccess = jest.fn();
 

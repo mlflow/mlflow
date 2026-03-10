@@ -77,13 +77,11 @@ def test_reset_tracer_setup(mock_setup_tracer_provider):
 
     start_span_in_context("test2")
     assert mock_setup_tracer_provider.call_count == 3
-    assert mock_setup_tracer_provider.mock_calls == (
-        [
-            mock.call(),
-            mock.call(disabled=True),
-            mock.call(),
-        ]
-    )
+    assert mock_setup_tracer_provider.mock_calls == ([
+        mock.call(),
+        mock.call(disabled=True),
+        mock.call(),
+    ])
 
 
 def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_tracing_env):

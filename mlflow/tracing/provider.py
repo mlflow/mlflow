@@ -490,9 +490,9 @@ def _initialize_tracer_provider(disabled=False):
     else:
         # Update the env var to let otel initialize the resource with MLflow's SDK attributes
         attributes = {**_parse_otel_resource_attributes(otel_resource_attributes), **sdk_attributes}
-        os.environ["OTEL_RESOURCE_ATTRIBUTES"] = ",".join(
-            [f"{k}={v}" for k, v in attributes.items()]
-        )
+        os.environ["OTEL_RESOURCE_ATTRIBUTES"] = ",".join([
+            f"{k}={v}" for k, v in attributes.items()
+        ])
 
     tracer_provider = TracerProvider(resource=resource, sampler=_get_trace_sampler())
     for processor in processors:
