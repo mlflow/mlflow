@@ -5,8 +5,8 @@
 </h1>
 <h2 align="center" style="border-bottom: none">The Open Source AI Engineering Platform</h2>
 
-MLflow is the largest open source **AI engineering platform**. MLflow enables teams of all sizes to debug,
-evaluate, [monitor](https://mlflow.org/ai-monitoring), and optimize production-quality AI agents, LLM applications, and ML models while
+MLflow is the largest open source **AI engineering platform**. MLflow enables teams of all sizes to [debug](https://mlflow.org/llm-tracing),
+[evaluate](https://mlflow.org/llm-evaluation), [monitor](https://mlflow.org/ai-monitoring), and [optimize](https://mlflow.org/prompt-optimization) production-quality AI agents, LLM applications, and ML models while
 controlling costs and managing access to models and data. With over 30 million monthly downloads,
 thousands of organizations rely on MLflow each day to ship AI to production with confidence.
 
