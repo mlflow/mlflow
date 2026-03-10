@@ -421,6 +421,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/integrations/listing/instructor',
                   label: 'Instructor',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/opencode',
+                  label: 'OpenCode',
+                },
               ],
             },
             {
@@ -967,6 +972,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/usage-tracking',
           label: 'Usage Tracking',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/budget-alerts-limits',
+          label: 'Budget Alerts & Limits',
         },
         {
           type: 'category',

@@ -20,7 +20,7 @@ To systematically test and improve an LLM application or AI agent, you use an ev
 - Prevent regressions. Create a "golden set" of examples that must always work correctly.
 - Compare app versions. Test different prompts, models, or app logic against the same data.
 - Target specific features or isolate certain problems in your agent. Build specialized datasets for safety, domain knowledge, or edge cases.
-- Validate the app across different environments (e.g., development vs. production) as part of LLMOps.
+- Validate the app across different environments (e.g., development vs. production) as part of [LLMOps](https://mlflow.org/llmops).
 
 You can think of them as test suites or benchmarks for your LLM functionality.
 
@@ -151,9 +151,7 @@ traces_df = mlflow.search_traces(
 
 # Analyze patterns
 # For example, check if quality issues correlate with token usage
-correlation = traces_df["span.attributes.usage.total_tokens"].corr(
-    traces_df["tag.quality_score"]
-)
+correlation = traces_df["span.attributes.usage.total_tokens"].corr(traces_df["tag.quality_score"])
 print(f"Correlation between token usage and quality: {correlation}")
 ```
 
@@ -239,40 +237,38 @@ dataset = create_dataset(
 )
 
 # Create DataFrame with inputs and expectations (ground truth)
-df = pd.DataFrame(
-    [
-        {
-            "inputs": {
-                "question": "What is MLflow?",
-                "domain": "general",
-            },
-            "expectations": {
-                "expected_answer": "MLflow is an open-source AI engineering platform",
-                "must_mention": ["tracking", "experiments", "models"],
-            },
+df = pd.DataFrame([
+    {
+        "inputs": {
+            "question": "What is MLflow?",
+            "domain": "general",
         },
-        {
-            "inputs": {
-                "question": "How do I track experiments?",
-                "domain": "technical",
-            },
-            "expectations": {
-                "expected_answer": "Use mlflow.start_run() and mlflow.log_params()",
-                "must_mention": ["log_params", "log_metrics"],
-            },
+        "expectations": {
+            "expected_answer": "MLflow is an open-source AI engineering platform",
+            "must_mention": ["tracking", "experiments", "models"],
         },
-        {
-            "inputs": {
-                "question": "Explain model versioning",
-                "domain": "technical",
-            },
-            "expectations": {
-                "expected_answer": "Model Registry provides versioning",
-                "must_mention": ["Model Registry", "versions"],
-            },
+    },
+    {
+        "inputs": {
+            "question": "How do I track experiments?",
+            "domain": "technical",
         },
-    ]
-)
+        "expectations": {
+            "expected_answer": "Use mlflow.start_run() and mlflow.log_params()",
+            "must_mention": ["log_params", "log_metrics"],
+        },
+    },
+    {
+        "inputs": {
+            "question": "Explain model versioning",
+            "domain": "technical",
+        },
+        "expectations": {
+            "expected_answer": "Model Registry provides versioning",
+            "must_mention": ["Model Registry", "versions"],
+        },
+    },
+])
 
 # Add records from DataFrame
 dataset.merge_records(df)

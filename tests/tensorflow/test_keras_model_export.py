@@ -224,7 +224,8 @@ def test_pyfunc_serve_and_score(data):
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     actual_scoring_response = (
-        PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
+        PredictionsResponse
+        .from_json(scoring_response.content.decode("utf-8"))
         .get_predictions()
         .values.astype(np.float32)
     )

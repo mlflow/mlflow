@@ -116,9 +116,7 @@ import mlflow
 context = mlflow.genai.enable_git_model_versioning()
 
 # Check which version is active
-print(
-    f"Active version - Branch: {context.info.branch}, Commit: {context.info.commit[:8]}"
-)
+print(f"Active version - Branch: {context.info.branch}, Commit: {context.info.commit[:8]}")
 print(f"Repository dirty: {context.info.dirty}")
 ```
 

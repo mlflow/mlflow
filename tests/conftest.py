@@ -389,17 +389,15 @@ def generate_duration_stats() -> str:
     # Prepare data for markdown table (headers + data rows)
     table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
     for idx, (path, dur, count, min_, max_, avg_) in enumerate(rows, 1):
-        table_rows.append(
-            [
-                str(idx),
-                f"`{path}`",
-                f"{dur:.2f}s",
-                str(count),
-                f"{min_:.3f}s",
-                f"{max_:.3f}s",
-                f"{avg_:.3f}s",
-            ]
-        )
+        table_rows.append([
+            str(idx),
+            f"`{path}`",
+            f"{dur:.2f}s",
+            str(count),
+            f"{min_:.3f}s",
+            f"{max_:.3f}s",
+            f"{avg_:.3f}s",
+        ])
 
     return to_md_table(table_rows)
 

@@ -143,13 +143,11 @@ def save_model(
         import keras
         import mlflow
 
-        model = keras.Sequential(
-            [
-                keras.Input([28, 28, 3]),
-                keras.layers.Flatten(),
-                keras.layers.Dense(2),
-            ]
-        )
+        model = keras.Sequential([
+            keras.Input([28, 28, 3]),
+            keras.layers.Flatten(),
+            keras.layers.Dense(2),
+        ])
         with mlflow.start_run() as run:
             mlflow.keras.save_model(model, "./model")
     """
@@ -336,13 +334,11 @@ def log_model(
         import keras
         import mlflow
 
-        model = keras.Sequential(
-            [
-                keras.Input([28, 28, 3]),
-                keras.layers.Flatten(),
-                keras.layers.Dense(2),
-            ]
-        )
+        model = keras.Sequential([
+            keras.Input([28, 28, 3]),
+            keras.layers.Flatten(),
+            keras.layers.Dense(2),
+        ])
         with mlflow.start_run() as run:
             mlflow.keras.log_model(model, name="model")
     """

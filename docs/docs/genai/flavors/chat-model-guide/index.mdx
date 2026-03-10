@@ -490,9 +490,7 @@ class BasicAgent(ChatModel):
         return response["choices"][0]["message"]
 
     @mlflow.trace(name="Agent Call")
-    def _call_agent(
-        self, message: ChatMessage, role: str, params: Optional[dict] = None
-    ) -> Dict:
+    def _call_agent(self, message: ChatMessage, role: str, params: Optional[dict] = None) -> Dict:
         """
         Prepares and sends the request to a specific agent based on the role.
 
@@ -509,18 +507,14 @@ class BasicAgent(ChatModel):
 
         # Fetch agent response
         agent_config = self.models[role]
-        response = self._get_agent_response(
-            message_list, agent_config["endpoint"], params
-        )
+        response = self._get_agent_response(message_list, agent_config["endpoint"], params)
 
         # Update conversation history
         self.conversation_history.extend([message.to_dict(), response])
         return response
 
     @mlflow.trace(name="Assemble Conversation")
-    def _prepare_message_list(
-        self, system_message: Dict, user_message: ChatMessage
-    ) -> List[Dict]:
+    def _prepare_message_list(self, system_message: Dict, user_message: ChatMessage) -> List[Dict]:
         """
         Prepare the list of messages to send to the agent.
 
@@ -571,9 +565,7 @@ class BasicAgent(ChatModel):
 
             # Process the response with the judge
             judge_params = self._get_model_params("judge")
-            judge_response = self._call_agent(
-                ChatMessage(**oracle_response), "judge", judge_params
-            )
+            judge_response = self._call_agent(ChatMessage(**oracle_response), "judge", judge_params)
 
             # Reset the conversation history and return the final response
             self.conversation_history = []
@@ -764,16 +756,14 @@ with mlflow.start_run():
 
 loaded = mlflow.pyfunc.load_model(model_info.model_uri)
 
-response = loaded.predict(
-    {
-        "messages": [
-            {
-                "role": "user",
-                "content": "What is the best material to make a baseball bat out of?",
-            }
-        ]
-    }
-)
+response = loaded.predict({
+    "messages": [
+        {
+            "role": "user",
+            "content": "What is the best material to make a baseball bat out of?",
+        }
+    ]
+})
 ```
 
 ## Conclusion

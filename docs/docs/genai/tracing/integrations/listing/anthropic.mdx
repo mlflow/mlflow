@@ -228,18 +228,16 @@ async def run_tool_agent(question: str):
         else:
             raise RuntimeError("An invalid tool is returned from the assistant!")
 
-        messages.append(
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tool_call.id,
-                        "content": tool_result,
-                    }
-                ],
-            }
-        )
+        messages.append({
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_call.id,
+                    "content": tool_result,
+                }
+            ],
+        })
 
     # Send the tool results to the model and get a new response
     response = await client.messages.create(

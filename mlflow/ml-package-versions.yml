@@ -15,7 +15,7 @@ sklearn:
     minimum: "1.4.2"
     maximum: "1.8.0"
     requirements:
-      ">= 0.0.0": ["matplotlib"]
+      ">= 0.0.0": ["matplotlib", "polars"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py
 
@@ -184,7 +184,7 @@ lightgbm:
     minimum: "4.4.0"
     maximum: "4.6.0"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "matplotlib"]
+      ">= 0.0.0": ["scikit-learn", "matplotlib", "polars"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py
 

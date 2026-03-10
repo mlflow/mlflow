@@ -185,6 +185,7 @@ async def test_chat_completions_autolog_with_cached_tokens(client, mock_litellm_
 
         async def send_patch(self, request, *args, **kwargs):
             return httpx.Response(status_code=200, request=request, json=mock_response)
+
     else:
         patch_target = "httpx.Client.send"
 
@@ -739,6 +740,7 @@ async def test_response_format(client):
                 request=request,
                 json=mock_response,
             )
+
     else:
         patch_target = "httpx.Client.send"
 
@@ -771,14 +773,12 @@ async def test_response_format(client):
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.model_name == "gpt-4o"
 
-    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
-        {
-            TokenUsageKey.INPUT_TOKENS: 68,
-            TokenUsageKey.OUTPUT_TOKENS: 11,
-            TokenUsageKey.TOTAL_TOKENS: 79,
-            TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
-        }
-    )
+    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps({
+        TokenUsageKey.INPUT_TOKENS: 68,
+        TokenUsageKey.OUTPUT_TOKENS: 11,
+        TokenUsageKey.TOTAL_TOKENS: 79,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
+    })
 
 
 @skip_when_testing_trace_sdk

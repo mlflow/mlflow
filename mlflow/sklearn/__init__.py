@@ -56,6 +56,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     update_wrapper_extended,
 )
+from mlflow.utils.data_utils import is_polars_dataframe
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
@@ -2088,6 +2089,10 @@ def _autolog(
                 dataset = from_numpy(features=X, targets=y, source=source, name=dataset_name)
             else:
                 dataset = from_numpy(features=X, source=source, name=dataset_name)
+        elif is_polars_dataframe(X):
+            from mlflow.data.polars_dataset import from_polars
+
+            dataset = from_polars(df=X, source=source, name=dataset_name)
         else:
             _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(X))
             return None

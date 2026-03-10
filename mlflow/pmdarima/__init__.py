@@ -624,9 +624,11 @@ class _PmdarimaModelWrapper:
 
         if return_conf_int:
             ci_low, ci_high = list(zip(*raw_predictions[1]))
-            predictions = pd.DataFrame.from_dict(
-                {"yhat": raw_predictions[0], "yhat_lower": ci_low, "yhat_upper": ci_high}
-            )
+            predictions = pd.DataFrame.from_dict({
+                "yhat": raw_predictions[0],
+                "yhat_lower": ci_low,
+                "yhat_upper": ci_high,
+            })
         else:
             predictions = pd.DataFrame.from_dict({"yhat": raw_predictions})
 

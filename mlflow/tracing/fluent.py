@@ -33,6 +33,7 @@ from mlflow.tracing.constant import (
     SpanAttributeKey,
     TraceMetadataKey,
 )
+from mlflow.tracing.context import _USER_TRACE_CONTEXT
 from mlflow.tracing.provider import (
     get_current_otel_span,
     is_tracing_enabled,
@@ -327,6 +328,7 @@ def _wrap_function(
                 _WrappingContext(fn, args, kwargs) as wrapping_coro,
             ):
                 return wrapping_coro.send(await fn(*args, **kwargs))
+
     else:
 
         def wrapper(*args, **kwargs):
@@ -446,6 +448,7 @@ def _wrap_generator(
                     yield value
                     i += 1
             _end_stream_span(span, inputs, outputs, output_reducer)
+
     else:
 
         async def wrapper(*args, **kwargs):
@@ -553,6 +556,12 @@ def start_span(
     Returns:
         Yields an :py:class:`mlflow.entities.Span` that represents the created span.
     """
+    # If tracing is disabled via context(enabled=False), return NoOpSpan
+    config = _USER_TRACE_CONTEXT.get()
+    if config is not None and config.enabled is False:
+        yield NoOpSpan()
+        return
+
     try:
         otel_span = provider.start_span_in_context(
             name, experiment_id=trace_destination.experiment_id if trace_destination else None
@@ -643,6 +652,11 @@ def start_span_no_context(
             root_span.end()
 
     """
+    # If tracing is disabled via context(enabled=False), return NoOpSpan
+    config = _USER_TRACE_CONTEXT.get()
+    if config is not None and config.enabled is False:
+        return NoOpSpan()
+
     # If parent span is no-op span, the child should also be no-op too
     if parent_span and parent_span.trace_id == NO_OP_SPAN_TRACE_ID:
         return NoOpSpan()
