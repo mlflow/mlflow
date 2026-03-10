@@ -876,6 +876,7 @@ class TrackingServiceClient:
         # do not affect the logged model.
         flavor: str | None = None,
         serialization_format: str | None = None,
+        uses_uv: bool = False,
     ) -> LoggedModel:
         return self.store.create_logged_model(
             experiment_id=experiment_id,

@@ -104,7 +104,11 @@ from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
     set_tracing_context_from_http_request_headers,
 )
-from mlflow.tracking.fluent import _create_dataset_input, _initialize_logged_model
+from mlflow.tracking.fluent import (
+    _create_dataset_input,
+    _create_logged_model,
+    _initialize_logged_model,
+)
 from mlflow.utils.os import is_windows
 
 from tests.telemetry.helper_functions import validate_telemetry_record
@@ -207,6 +211,22 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
         mock_requests,
         event_name,
         {"flavor": "pyfunc.ResponsesAgent"},
+    )
+
+    _create_logged_model(name="model", flavor="pyfunc", uses_uv=True)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        event_name,
+        {"flavor": "pyfunc", "uses_uv": True},
+    )
+
+    _create_logged_model(name="model", flavor="pyfunc", uses_uv=False)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        event_name,
+        {"flavor": "pyfunc"},
     )
 
 
