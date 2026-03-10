@@ -4,7 +4,15 @@ import React, { useContext } from 'react';
 import type { FormatDateOptions } from 'react-intl';
 
 import type { ThemeType } from '@databricks/design-system';
-import { ArrowRightIcon, Tag, Tooltip, Typography, useDesignSystemTheme, UserIcon } from '@databricks/design-system';
+import {
+  ArrowRightIcon,
+  Overflow,
+  Tag,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+  UserIcon,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import { ExpectationValuePreview } from '../../model-trace-explorer/assessments-pane/ExpectationValuePreview';
@@ -863,57 +871,25 @@ export const traceInfoCellRenderer = (
   } else if (colId === ISSUES_COLUMN_ID) {
     const issues = comparisonEntry.currentRunValue?.issues;
     const otherIssues = comparisonEntry.otherRunValue?.issues;
-    const MAX_VISIBLE_ISSUES = 1;
 
     const renderIssues = (issueList: string[] | undefined) => {
       if (!issueList || issueList.length === 0) {
         return <NullCell isComparing={isComparing} />;
       }
 
-      const visibleIssues = issueList.slice(0, MAX_VISIBLE_ISSUES);
-      const remainingIssues = issueList.slice(MAX_VISIBLE_ISSUES);
-
       return (
-        <div
-          css={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: theme.spacing.xs,
-            overflow: 'hidden',
-          }}
-        >
-          {visibleIssues.map((issueName, index) => (
-            <Tag key={index} componentId="mlflow.genai-traces-table.issue-tag" color="coral" css={{ maxWidth: '100%' }}>
-              <span
-                css={{
-                  display: 'block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-                title={issueName}
-              >
-                {issueName}
-              </span>
+        <Overflow>
+          {issueList.map((issueName, index) => (
+            <Tag
+              key={index}
+              componentId="mlflow.genai-traces-table.issue-tag"
+              color="coral"
+              css={{ width: 'min-content', maxWidth: '100%' }}
+            >
+              {issueName}
             </Tag>
           ))}
-          {remainingIssues.length > 0 && (
-            <Tooltip
-              componentId="mlflow.genai-traces-table.issues-overflow-tooltip"
-              content={
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                  {remainingIssues.map((issueName, index) => (
-                    <span key={index}>{issueName}</span>
-                  ))}
-                </div>
-              }
-            >
-              <Tag componentId="mlflow.genai-traces-table.issues-overflow" css={{ whiteSpace: 'nowrap' }}>
-                +{remainingIssues.length}
-              </Tag>
-            </Tooltip>
-          )}
-        </div>
+        </Overflow>
       );
     };
 
