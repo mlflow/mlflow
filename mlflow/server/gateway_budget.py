@@ -134,16 +134,9 @@ def check_budget_limit(store: SqlAlchemyStore, workspace: str | None = None) -> 
     tracker = get_budget_tracker()
     exceeded, policy = tracker.should_reject_request(workspace=workspace)
     if exceeded:
-        _SINGULAR_UNITS = {
-            "minutes": "minute",
-            "hours": "hour",
-            "days": "day",
-            "weeks": "week",
-            "months": "month",
-        }
         unit = policy.duration_unit.value.lower()
         if policy.duration_value == 1:
-            unit = _SINGULAR_UNITS.get(unit, unit)
+            unit = unit.rstrip("s")
         raise HTTPException(
             status_code=429,
             detail=(
