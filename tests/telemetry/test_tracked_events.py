@@ -150,7 +150,22 @@ def test_create_logged_model(mock_requests, mock_telemetry_client: TelemetryClie
         name="model",
     )
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, event_name, {"flavor": "sklearn"}
+        mock_telemetry_client,
+        mock_requests,
+        event_name,
+        {"flavor": "sklearn", "serialization_format": "cloudpickle"},
+    )
+
+    mlflow.sklearn.log_model(
+        knn.KNeighborsClassifier(),
+        name="model",
+        serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        event_name,
+        {"flavor": "sklearn", "serialization_format": "pickle"},
     )
 
     class SimpleResponsesAgent(ResponsesAgent):
