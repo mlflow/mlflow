@@ -98,7 +98,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if parsed.scheme != "wasbs":
             raise Exception(f"Not a WASBS URI: {uri}")
 
-        match = re.match(
+        match = re.fullmatch(
             r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn|usgovcloudapi\.net))",
             parsed.netloc,
         )

@@ -149,6 +149,13 @@ def test_parse_govcloud_wasbs_uri():
         parse("wasbs://cont@acctxblob.core.usgovcloudapi.net/path")
     with pytest.raises(Exception, match="Not a WASBS URI"):
         parse("wasb://cont@acct.blob.core.usgovcloudapi.net/path")
+    # Ensure hosts with a valid suffix plus trailing components are rejected
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct.blob.core.usgovcloudapi.net.evil.net/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct.blob.core.windows.net.evil.net/path")
+    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+        parse("wasbs://cont@acct.blob.core.chinacloudapi.cn.evil.net/path")
 
 
 def test_list_artifacts_empty(mock_client):
