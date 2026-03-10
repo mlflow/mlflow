@@ -1,16 +1,51 @@
 from __future__ import annotations
 
+import logging
 import threading
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import LLM_MAX_TOKENS, NUM_RETRIES
+from mlflow.genai.discovery.entities import Issue
 from mlflow.genai.scorers.base import Scorer
+from mlflow.tracing.constant import TraceMetadataKey
 
 if TYPE_CHECKING:
     import litellm
+
+_logger = logging.getLogger(__name__)
+
+
+def get_session_id(trace: Trace) -> str | None:
+    return (trace.info.trace_metadata or {}).get(TraceMetadataKey.TRACE_SESSION)
+
+
+def group_traces_by_session(
+    traces: list[Trace],
+) -> dict[str, list[Trace]]:
+    """
+    Group traces by session ID.
+
+    Traces without a session become standalone single-trace "sessions"
+    keyed by their trace_id. Each group is sorted by timestamp_ms.
+
+    Note: mlflow.genai.evaluation.session_utils has a similar function, but it
+    operates on EvalItem objects and drops traces without sessions. This version
+    works on raw Trace objects and keeps sessionless traces as standalone groups,
+    which is required for the discovery pipeline's frequency calculations.
+    """
+    groups: dict[str, list[Trace]] = defaultdict(list)
+    for trace in traces:
+        session_id = get_session_id(trace) or trace.info.trace_id
+        groups[session_id].append(trace)
+
+    for traces_in_group in groups.values():
+        traces_in_group.sort(key=lambda trace: trace.info.timestamp_ms)
+
+    return dict(groups)
 
 
 class _TokenCounter:
@@ -67,6 +102,35 @@ def _call_llm(
     return response
 
 
+def build_summary(issues: list[Issue], total_traces: int) -> str:
+    if not issues:
+        return f"## Issue Discovery Summary\n\nAnalyzed {total_traces} traces. No issues found."
+
+    lines = [
+        "## Issue Discovery Summary\n",
+        f"Analyzed **{total_traces}** traces. Found **{len(issues)}** issues:\n",
+    ]
+    for i, issue in enumerate(issues, 1):
+        root_causes = "; ".join(issue.root_causes) if issue.root_causes else "Unknown"
+        lines.append(
+            f"### {i}. {issue.name} (severity: {issue.severity})\n\n"
+            f"{issue.description}\n\n"
+            f"**Root causes:** {root_causes}\n"
+        )
+    return "\n".join(lines)
+
+
+def log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:
+    if not run_id:
+        return
+    client = mlflow.MlflowClient()
+    for filename, content in artifacts.items():
+        try:
+            client.log_text(run_id, content, filename)
+        except Exception:
+            _logger.warning("Failed to log %s to run %s", filename, run_id, exc_info=True)
+
+
 def verify_scorer(
     scorer: Scorer,
     trace: Trace,
@@ -88,18 +152,17 @@ def verify_scorer(
     """
     try:
         feedback = scorer(session=session) if session is not None else scorer(trace=trace)
-        if not isinstance(feedback, Feedback):
-            raise mlflow.exceptions.MlflowException(
-                f"Scorer '{scorer.name}' returned {type(feedback).__name__} instead of Feedback"
-            )
-        if feedback.value is None:
-            error = feedback.error_message or "unknown error (check model API logs)"
-            raise mlflow.exceptions.MlflowException(
-                f"Scorer '{scorer.name}' returned null value: {error}"
-            )
-    except mlflow.exceptions.MlflowException:
-        raise
     except Exception as exc:
         raise mlflow.exceptions.MlflowException(
             f"Scorer '{scorer.name}' failed verification on trace {trace.info.trace_id}: {exc}"
         ) from exc
+
+    if not isinstance(feedback, Feedback):
+        raise mlflow.exceptions.MlflowException(
+            f"Scorer '{scorer.name}' returned {type(feedback).__name__} instead of Feedback"
+        )
+    if feedback.value is None:
+        error = feedback.error_message or "unknown error (check model API logs)"
+        raise mlflow.exceptions.MlflowException(
+            f"Scorer '{scorer.name}' returned null value: {error}"
+        )

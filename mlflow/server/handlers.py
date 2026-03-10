@@ -4034,7 +4034,7 @@ def _create_issue():
         "description": request_message.description,
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
-        "confidence": request_message.confidence or None,
+        "severity": request_message.severity or None,
         "created_by": request_message.created_by or None,
     }
 
@@ -4067,7 +4067,7 @@ def _update_issue(issue_id):
         status=status,
         name=request_message.name or None,
         description=request_message.description or None,
-        confidence=request_message.confidence or None,
+        severity=request_message.severity or None,
     )
 
     response_message = UpdateIssue.Response(issue=updated_issue.to_proto())

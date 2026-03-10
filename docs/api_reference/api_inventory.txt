@@ -1340,6 +1340,7 @@ mlflow.log_figure
 mlflow.log_image
 mlflow.log_input
 mlflow.log_inputs
+mlflow.log_issue
 mlflow.log_metric
 mlflow.log_metrics
 mlflow.log_model_params
