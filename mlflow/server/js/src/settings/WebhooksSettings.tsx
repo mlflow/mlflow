@@ -7,7 +7,23 @@ import WebhookListItem from './WebhookListItem';
 import WebhookFormModal from './WebhookFormModal';
 import WebhookDeleteModal from './WebhookDeleteModal';
 
-const WebhooksSettings = () => {
+interface WebhooksSettingsProps {
+  /** Filter displayed webhooks to only those containing at least one event matching this entity prefix */
+  eventFilter?: string;
+  /** Title override */
+  title?: React.ReactNode;
+  /** Description override */
+  description?: React.ReactNode;
+  /** componentId prefix for namespacing */
+  componentIdPrefix?: string;
+}
+
+const WebhooksSettings = ({
+  eventFilter,
+  title,
+  description,
+  componentIdPrefix = 'mlflow.settings.webhooks',
+}: WebhooksSettingsProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
@@ -34,13 +50,18 @@ const WebhooksSettings = () => {
     setError(null);
     try {
       const response = await WebhooksApi.listWebhooks();
-      setWebhooks(response?.webhooks ?? []);
+      const all = response?.webhooks ?? [];
+      if (eventFilter) {
+        setWebhooks(all.filter((w) => w.events.some((e) => e.entity === eventFilter)));
+      } else {
+        setWebhooks(all);
+      }
     } catch (e: any) {
       setError(e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to load webhooks' }));
     } finally {
       setLoading(false);
     }
-  }, [intl]);
+  }, [intl, eventFilter]);
 
   useEffect(() => {
     fetchWebhooks();
@@ -121,16 +142,18 @@ const WebhooksSettings = () => {
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <Typography.Title level={4} withoutMargins>
-            <FormattedMessage defaultMessage="Webhooks" description="Webhooks settings section title" />
+            {title ?? <FormattedMessage defaultMessage="Webhooks" description="Webhooks settings section title" />}
           </Typography.Title>
           <Typography.Text color="secondary">
-            <FormattedMessage
-              defaultMessage="Manage webhooks to receive HTTP notifications when events occur in MLflow."
-              description="Webhooks settings section description"
-            />
+            {description ?? (
+              <FormattedMessage
+                defaultMessage="Manage webhooks to receive HTTP notifications when events occur in MLflow."
+                description="Webhooks settings section description"
+              />
+            )}
           </Typography.Text>
         </div>
-        <Button componentId="mlflow.settings.webhooks.create-button" type="primary" onClick={openCreateModal}>
+        <Button componentId={`${componentIdPrefix}.create-button`} type="primary" onClick={openCreateModal}>
           <FormattedMessage defaultMessage="Create webhook" description="Create webhook button" />
         </Button>
       </div>
@@ -174,11 +197,7 @@ const WebhooksSettings = () => {
               description="Empty state for webhooks list"
               values={{
                 link: (chunks: any) => (
-                  <a
-                    href="https://mlflow.org/docs/latest/python_api/mlflow.webhooks.html"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
+                  <a href="https://mlflow.org/docs/latest/ml/webhooks/" target="_blank" rel="noopener noreferrer">
                     {chunks}
                   </a>
                 ),
@@ -215,6 +234,7 @@ const WebhooksSettings = () => {
           editingWebhook={editingWebhook}
           onClose={closeModal}
           onSaved={handleSaved}
+          eventFilter={eventFilter}
         />
       )}
 

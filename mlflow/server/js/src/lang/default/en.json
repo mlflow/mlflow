@@ -2276,6 +2276,10 @@
     "defaultMessage": "Provider",
     "description": "Provider column header"
   },
+  "CwJcIQ": {
+    "defaultMessage": "Receive HTTP notifications when a budget policy is exceeded.",
+    "description": "Budget webhooks section description on budgets page"
+  },
   "CyTYL6": {
     "defaultMessage": "Line chart",
     "description": "Experiment tracking > runs charts > add chart menu > line chart"
@@ -5700,6 +5704,10 @@
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
+  },
+  "aZ9uZO": {
+    "defaultMessage": "Budget alert webhooks",
+    "description": "Budget webhooks section title on budgets page"
   },
   "aZV8M7": {
     "defaultMessage": "Delete",
