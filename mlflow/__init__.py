@@ -171,6 +171,7 @@ from mlflow.tracing.assessment import (
     log_assessment,
     log_expectation,
     log_feedback,
+    log_issue,
     override_feedback,
     update_assessment,
 )
@@ -234,6 +235,7 @@ __all__ = [
     "update_assessment",
     "log_expectation",
     "log_feedback",
+    "log_issue",
     "override_feedback",
 ]
 
