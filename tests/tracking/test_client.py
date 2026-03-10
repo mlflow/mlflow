@@ -18,6 +18,7 @@ from mlflow.config import enable_async_logging
 from mlflow.entities import (
     EvaluationDataset,
     ExperimentTag,
+    IssueStatus,
     LoggedModel,
     Run,
     RunInfo,
@@ -3614,3 +3615,61 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
 
         mock_get_trace.assert_called_once_with(trace_id)
         mock_batch_get_traces.assert_called_once_with([trace_id])
+
+
+def test_create_issue_basic(tmp_path: Path):
+    tracking_uri = f"sqlite:///{tmp_path}/test.db"
+
+    with _use_tracking_uri(tracking_uri):
+        client = MlflowClient()
+        exp_id = client.create_experiment("test_create_issue")
+        tracing_client = client._tracing_client
+
+        issue = tracing_client._create_issue(
+            experiment_id=exp_id,
+            name="Test issue",
+            description="This is a test issue",
+        )
+
+        assert issue.issue_id.startswith("iss-")
+        assert issue.experiment_id == exp_id
+        assert issue.name == "Test issue"
+        assert issue.description == "This is a test issue"
+        assert issue.status == IssueStatus.PENDING
+        assert issue.severity is None
+        assert issue.root_causes is None
+        assert issue.source_run_id is None
+        assert issue.created_by is None
+        assert issue.created_timestamp > 0
+        assert issue.last_updated_timestamp == issue.created_timestamp
+
+
+def test_create_issue_with_all_fields(tmp_path: Path):
+    tracking_uri = f"sqlite:///{tmp_path}/test.db"
+
+    with _use_tracking_uri(tracking_uri):
+        client = MlflowClient()
+        exp_id = client.create_experiment("test_create_issue_all_fields")
+        tracing_client = client._tracing_client
+        with mlflow.start_run(experiment_id=exp_id) as run:
+            issue = tracing_client._create_issue(
+                experiment_id=exp_id,
+                name="High latency",
+                description="API response times exceed threshold",
+                status=IssueStatus.ACCEPTED,
+                severity="high",
+                root_causes=["Database query slow", "Network congestion"],
+                source_run_id=run.info.run_id,
+                created_by="monitoring_system",
+            )
+
+    assert issue.issue_id.startswith("iss-")
+    assert issue.experiment_id == exp_id
+    assert issue.name == "High latency"
+    assert issue.description == "API response times exceed threshold"
+    assert issue.status == IssueStatus.ACCEPTED
+    assert issue.severity == "high"
+    assert issue.root_causes == ["Database query slow", "Network congestion"]
+    assert issue.source_run_id == run.info.run_id
+    assert issue.created_by == "monitoring_system"
+    assert issue.created_timestamp > 0

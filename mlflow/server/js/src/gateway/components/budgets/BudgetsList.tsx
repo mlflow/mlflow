@@ -104,10 +104,15 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <Table
         scrollable
+        noMinHeight
         empty={getEmptyState()}
         css={{
-          border: `1px solid ${theme.colors.borderDecorative}`,
+          borderLeft: `1px solid ${theme.colors.border}`,
+          borderRight: `1px solid ${theme.colors.border}`,
+          borderTop: `1px solid ${theme.colors.border}`,
+          borderBottom: budgetPolicies.length === 0 ? `1px solid ${theme.colors.border}` : 'none',
           borderRadius: theme.general.borderRadiusBase,
+          overflow: 'hidden',
         }}
       >
         <TableRow isHeader>

@@ -2284,6 +2284,10 @@
     "defaultMessage": "Provider",
     "description": "Provider column header"
   },
+  "CwJcIQ": {
+    "defaultMessage": "Receive HTTP notifications when a budget policy is exceeded.",
+    "description": "Budget webhooks section description on budgets page"
+  },
   "CyTYL6": {
     "defaultMessage": "Line chart",
     "description": "Experiment tracking > runs charts > add chart menu > line chart"
@@ -3674,6 +3678,10 @@
     "defaultMessage": "Detect issues in traces",
     "description": "Aria label for the detect issues button in the traces table toolbar"
   },
+  "NHlNLj": {
+    "defaultMessage": "Description",
+    "description": "Label for issue description section"
+  },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
     "description": "Default text in data table where items are identical in the model comparison page"
@@ -4783,6 +4791,10 @@
     "defaultMessage": "using Prompt Engineering",
     "description": "String for creating a new run with prompt engineering modal"
   },
+  "UnQIPJ": {
+    "defaultMessage": "Created: {date}",
+    "description": "Issue creation date label"
+  },
   "Uq6/bl": {
     "defaultMessage": "Create prompt",
     "description": "A header for the empty state in the prompts table"
@@ -5712,6 +5724,10 @@
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
+  },
+  "aZ9uZO": {
+    "defaultMessage": "Budget alert webhooks",
+    "description": "Budget webhooks section title on budgets page"
   },
   "aZV8M7": {
     "defaultMessage": "Delete",
@@ -7168,6 +7184,10 @@
     "defaultMessage": "Detect unsatisfactory user experiences and unmet user needs",
     "description": "Issue category description for negative user experiences"
   },
+  "k4F8aJ": {
+    "defaultMessage": "Copy issue ID",
+    "description": "Tooltip to copy issue ID"
+  },
   "k7itje": {
     "defaultMessage": "Create webhook",
     "description": "Create webhook button"
@@ -7691,6 +7711,10 @@
   "nIk08y": {
     "defaultMessage": "Trace view",
     "description": "Tooltip for traces preview mode toggle in evaluation runs table controls"
+  },
+  "nIkC92": {
+    "defaultMessage": "Issue ID copied",
+    "description": "Tooltip after issue ID was copied"
   },
   "nJxDSh": {
     "defaultMessage": "Inputs",
@@ -8610,6 +8634,10 @@
   "tEwQWS": {
     "defaultMessage": "Active",
     "description": "Webhook active status"
+  },
+  "tFVXU7": {
+    "defaultMessage": "Issue ID",
+    "description": "Label for issue ID in popover"
   },
   "tGqJL4": {
     "defaultMessage": "Output",
