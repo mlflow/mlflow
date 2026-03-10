@@ -403,10 +403,14 @@ def test_client_delete_prompt_permission(client, monkeypatch):
     with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
         client.create_prompt_permission(name, username, PERMISSION)
         client.delete_prompt_permission(name, username)
+        expected_message = (
+            "Registered model permission with "
+            f"workspace={DEFAULT_WORKSPACE_NAME}, name={name} "
+            f"and username={username} not found"
+        )
         with pytest.raises(
             MlflowException,
-            match=rf"Registered model permission with name={name} "
-            rf"and username={username} not found",
+            match=expected_message,
         ) as exception_context:
             client.get_prompt_permission(name, username)
         assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
