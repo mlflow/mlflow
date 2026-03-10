@@ -834,19 +834,19 @@ def test_verify_scorer_null_value_raises(make_trace):
         verify_scorer(scorer, trace)
 
 
-def test_build_discovery_scorer_returns_scorer_with_defaults():
+def test_build_issue_discovery_scorer_returns_scorer_with_defaults():
     from mlflow.genai.discovery.constants import DEFAULT_MODEL, DEFAULT_SCORER_NAME
-    from mlflow.genai.discovery.pipeline import build_discovery_scorer
+    from mlflow.genai.discovery.pipeline import build_issue_discovery_scorer
 
-    scorer = build_discovery_scorer()
+    scorer = build_issue_discovery_scorer()
     assert scorer.name == DEFAULT_SCORER_NAME
     assert scorer.model == DEFAULT_MODEL
 
 
-def test_build_discovery_scorer_custom_model():
-    from mlflow.genai.discovery.pipeline import build_discovery_scorer
+def test_build_issue_discovery_scorer_custom_model():
+    from mlflow.genai.discovery.pipeline import build_issue_discovery_scorer
 
-    scorer = build_discovery_scorer(model="openai:/gpt-5")
+    scorer = build_issue_discovery_scorer(model="openai:/gpt-5")
     assert scorer.model == "openai:/gpt-5"
 
 

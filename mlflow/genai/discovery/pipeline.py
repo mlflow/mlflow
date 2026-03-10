@@ -412,7 +412,7 @@ def _build_issues(
     return issues, issue_trace_ids
 
 
-def build_discovery_scorer(
+def build_issue_discovery_scorer(
     categories: list[str] | None = None,
     model: str | None = None,
     use_conversation: bool = True,
