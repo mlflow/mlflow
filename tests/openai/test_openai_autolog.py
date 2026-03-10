@@ -1010,6 +1010,7 @@ async def test_tracing_headers_injected(client):
                 captured_request["headers"] = dict(request.headers)
                 return httpx.Response(status_code=200, request=request, json=mock_response)
             return await original_send(self, request, *args, **kwargs)
+
     else:
         patch_target = "httpx.Client.send"
         original_send = httpx.Client.send
@@ -1072,6 +1073,7 @@ async def test_tracing_headers_preserve_user_headers(client):
                 captured_request["headers"] = dict(request.headers)
                 return httpx.Response(status_code=200, request=request, json=mock_response)
             return await original_send(self, request, *args, **kwargs)
+
     else:
         patch_target = "httpx.Client.send"
         original_send = httpx.Client.send
