@@ -141,9 +141,7 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved }: Webhook
               }}
               validationState={form.formState.errors.name ? 'error' : undefined}
             />
-            {form.formState.errors.name && (
-              <FormUI.Message type="error" message={form.formState.errors.name.message} />
-            )}
+            {form.formState.errors.name && <FormUI.Message type="error" message={form.formState.errors.name.message} />}
           </div>
 
           <div>
@@ -164,9 +162,7 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved }: Webhook
               }}
               validationState={form.formState.errors.url ? 'error' : undefined}
             />
-            {form.formState.errors.url && (
-              <FormUI.Message type="error" message={form.formState.errors.url.message} />
-            )}
+            {form.formState.errors.url && <FormUI.Message type="error" message={form.formState.errors.url.message} />}
           </div>
 
           <div>
@@ -243,8 +239,7 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved }: Webhook
               control={form.control}
               rules={{
                 validate: (value: string[]) =>
-                  value.length > 0 ||
-                  intl.formatMessage({ defaultMessage: 'At least one event must be selected' }),
+                  value.length > 0 || intl.formatMessage({ defaultMessage: 'At least one event must be selected' }),
               }}
               render={({ field }) => (
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
@@ -256,9 +251,7 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved }: Webhook
                         componentId={`mlflow.settings.webhooks.event-${key}`}
                         isChecked={field.value.includes(key)}
                         onChange={(checked) => {
-                          const next = checked
-                            ? [...field.value, key]
-                            : field.value.filter((k: string) => k !== key);
+                          const next = checked ? [...field.value, key] : field.value.filter((k: string) => k !== key);
                           field.onChange(next);
                         }}
                       >
