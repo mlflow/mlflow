@@ -104,8 +104,8 @@ export const defaultError = ({ reject, response, err }: any) => {
 
 /**
  * Makes a fetch request.
- * Note this is not intended to be used outside of this file,
- * use `fetchEndpoint` instead.
+ * Note: this function is intended for internal use within this module.
+ * External callers should use `fetchAPI` or `fetchOrFail` instead.
  * @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support.
  */
 export const fetchEndpointRaw = ({
