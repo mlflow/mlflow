@@ -25,7 +25,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -2612,7 +2612,7 @@ def test_trace_decorator_sampling_ratio(
     ("outer_ratio", "inner_ratio", "expected_outer", "expected_inner"),
     [
         (1.0, 0.0, 5, 5),  # Parent sampled -> child also sampled (inner ratio ignored)
-        (0.0, 1.0, 0, 5),  # Parent not sampled -> child creates its own root traces
+        (0.0, 1.0, 0, 0),  # Parent not sampled -> child also dropped (follows parent)
     ],
 )
 def test_trace_decorator_sampling_ratio_nested(
@@ -2640,6 +2640,28 @@ def test_trace_decorator_sampling_ratio_nested(
     assert len(inner_trace_ids) == expected_inner
 
 
+def test_global_sampling_ratio_nested(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.0")
+    mlflow.tracing.reset()
+
+    inner_trace_ids: list[str] = []
+
+    @mlflow.trace
+    def outer():
+        return inner()
+
+    @mlflow.trace
+    def inner():
+        if trace_id := mlflow.get_active_trace_id():
+            inner_trace_ids.append(trace_id)
+        return "result"
+
+    for _ in range(5):
+        assert outer() == "result"
+
+    assert len(inner_trace_ids) == 0
+
+
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_count"),
     [
@@ -2665,7 +2687,7 @@ def test_trace_decorator_sampling_ratio_generator(sampling_ratio: float, expecte
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_child_count"),
     [
-        (0.0, 6),
+        (0.0, 0),
         (1.0, 6),
     ],
 )
@@ -2745,7 +2767,7 @@ async def test_trace_decorator_sampling_ratio_async_generator(
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_child_count"),
     [
-        (0.0, 6),
+        (0.0, 0),
         (1.0, 6),
     ],
 )

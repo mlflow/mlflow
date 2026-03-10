@@ -567,6 +567,18 @@ def start_span(
             name, experiment_id=trace_destination.experiment_id if trace_destination else None
         )
 
+        # If the span was dropped by the sampler (e.g., due to sampling ratio),
+        # still propagate the OTel context so that child spans inherit the same
+        # trace ID and are also consistently dropped.
+        if not otel_span.is_recording():
+            mlflow_span = NoOpSpan(otel_span=otel_span)
+            token = provider.attach_otel_span_to_context(otel_span)
+            try:
+                yield mlflow_span
+            finally:
+                provider.detach_span_from_context(token)
+            return
+
         # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
 
@@ -671,6 +683,12 @@ def start_span_no_context(
             start_time_ns=start_time_ns,
             experiment_id=experiment_id,
         )
+
+        # If the span was dropped by the sampler, return a NoOpSpan that
+        # preserves the OTel span's context so that safe_set_span_in_context
+        # propagates the correct trace ID to child spans.
+        if not otel_span.is_recording():
+            return NoOpSpan(otel_span=otel_span)
 
         if parent_span:
             trace_id = parent_span.trace_id

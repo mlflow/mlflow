@@ -20,6 +20,7 @@ from opentelemetry import trace
 from opentelemetry.context.contextvars_context import ContextVarsRuntimeContext
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
+from opentelemetry.sdk.trace.sampling import ParentBased
 
 import mlflow
 from mlflow.entities.trace_location import (
@@ -306,6 +307,21 @@ def detach_span_from_context(token: contextvars.Token):
         context_api.detach(token)
 
 
+def attach_otel_span_to_context(otel_span: trace.Span) -> contextvars.Token:
+    """
+    Attach a raw OTel span to the current context.
+
+    Unlike ``set_span_in_context`` which expects an MLflow span wrapper,
+    this function works directly with OTel span objects. This is used to
+    propagate non-recording (dropped) spans in the context so that child
+    spans inherit the same trace ID and sampling decision.
+    """
+    context = trace.set_span_in_context(otel_span, context=get_current_context())
+    if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+        return mlflow_runtime_context.attach(context)
+    return context_api.attach(context)
+
+
 def set_destination(destination: TraceLocationBase, *, context_local: bool = False):
     """
     Set a custom span location to which MLflow will export the traces.
@@ -517,12 +533,17 @@ def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dic
     return attributes
 
 
-def _get_trace_sampler() -> _MlflowSampler | None:
+def _get_trace_sampler() -> ParentBased | None:
     """
     Get the sampler configuration based on environment variable.
 
+    Returns a ``ParentBased`` sampler that wraps ``_MlflowSampler`` so that:
+    - Root spans are sampled using the configured ratio (global or per-function override).
+    - Child spans with a sampled parent are always sampled.
+    - Child spans with a non-sampled parent are always dropped.
+
     Returns:
-        _MlflowSampler or None for default sampling.
+        ParentBased sampler wrapping _MlflowSampler, or None for default sampling.
     """
     sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
     if sampling_ratio is not None:
@@ -532,7 +553,7 @@ def _get_trace_sampler() -> _MlflowSampler | None:
                 "Ignoring the invalid value and using default sampling (1.0)."
             )
             return None
-        return _MlflowSampler(sampling_ratio)
+        return ParentBased(root=_MlflowSampler(sampling_ratio))
     return None
 
 

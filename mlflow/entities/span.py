@@ -806,8 +806,8 @@ class NoOpSpan(Span):
 
     """
 
-    def __init__(self):
-        self._span = NonRecordingSpan(context=None)
+    def __init__(self, otel_span=None):
+        self._span = otel_span or NonRecordingSpan(context=None)
         self._attributes = {}
 
     @property
