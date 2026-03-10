@@ -3522,6 +3522,10 @@
     "defaultMessage": "Calls",
     "description": "Column header for call count"
   },
+  "MP+H1B": {
+    "defaultMessage": "No webhooks configured. Create one to get started. <link>Learn more about webhooks.</link>",
+    "description": "Empty state for webhooks list"
+  },
   "MQ4Voz": {
     "defaultMessage": "{count, plural, one {Input} other {Inputs}}",
     "description": "Evaluation review > input section > title"
@@ -6441,10 +6445,6 @@
     "defaultMessage": "Running the judge from the UI is only supported with gateway endpoints",
     "description": "Tooltip message when model is not a gateway endpoint"
   },
-  "fbEmZ9": {
-    "defaultMessage": "No webhooks configured. Create one to get started.",
-    "description": "Empty state for webhooks list"
-  },
   "fcIHyN": {
     "defaultMessage": "Medium",
     "description": "Medium row size"
@@ -7824,6 +7824,9 @@
     "defaultMessage": "Value",
     "description": "Column title for value column in editable tags table view in MLflow"
   },
+  "oBWEtT": {
+    "defaultMessage": "Failed to invoke webhook"
+  },
   "oDwj2g": {
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
     "description": "Evaluation results > known type of evaluation result assessment > description of relevance judge."
@@ -7959,9 +7962,6 @@
   "pBUaAK": {
     "defaultMessage": "Are you sure you want to delete this tag？",
     "description": "Title text for confirmation pop-up to delete a tag from table\n                     in MLflow"
-  },
-  "pBYEum": {
-    "defaultMessage": "Failed to test webhook"
   },
   "pCaE4I": {
     "defaultMessage": "Sessions",

@@ -107,7 +107,7 @@ const WebhooksSettings = () => {
         setTestResult({
           webhookId: webhook.webhook_id,
           success: false,
-          message: e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to test webhook' }),
+          message: e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to invoke webhook' }),
         });
       } finally {
         setTestingId(null);
@@ -170,8 +170,19 @@ const WebhooksSettings = () => {
         >
           <Typography.Text color="secondary">
             <FormattedMessage
-              defaultMessage="No webhooks configured. Create one to get started."
+              defaultMessage="No webhooks configured. Create one to get started. <link>Learn more about webhooks.</link>"
               description="Empty state for webhooks list"
+              values={{
+                link: (chunks: any) => (
+                  <a
+                    href="https://mlflow.org/docs/latest/python_api/mlflow.webhooks.html"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {chunks}
+                  </a>
+                ),
+              }}
             />
           </Typography.Text>
         </div>
