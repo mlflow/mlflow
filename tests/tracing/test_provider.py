@@ -618,31 +618,42 @@ def test_otel_resource_attributes(monkeypatch):
     }
 
 
-def test_isolated_random_id_generator_not_affected_by_random_seed():
-    gen = _IsolatedRandomIdGenerator()
+def test_isolated_random_id_generator_not_affected_by_random_seed(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", "true")
+    mlflow.tracing.reset()
+    _initialize_tracer_provider()
 
     random.seed(42)
-    trace_id_1 = gen.generate_trace_id()
-    span_id_1 = gen.generate_span_id()
+    span1 = start_span_in_context("test1")
+    trace_id_1 = span1.get_span_context().trace_id
+    span_id_1 = span1.get_span_context().span_id
+    span1.end()
 
     # Re-seeding with the same value would make RandomIdGenerator replay the exact same
     # ID sequence. _IsolatedRandomIdGenerator must be immune to this.
     random.seed(42)
-    trace_id_2 = gen.generate_trace_id()
-    span_id_2 = gen.generate_span_id()
+    span2 = start_span_in_context("test2")
+    trace_id_2 = span2.get_span_context().trace_id
+    span_id_2 = span2.get_span_context().span_id
+    span2.end()
 
     assert trace_id_1 != trace_id_2
     assert span_id_1 != span_id_2
 
 
 def test_tracer_provider_uses_isolated_random_id_generator_when_env_var_set(monkeypatch):
+    # Ensure env var is unset so default behavior is deterministic
+    monkeypatch.delenv("MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", raising=False)
+
     # Default: OTel's RandomIdGenerator is used
+    mlflow.tracing.reset()
     _initialize_tracer_provider()
     tracer_provider = _provider_wrapper.get()
     assert isinstance(tracer_provider.id_generator, RandomIdGenerator)
 
     # Opt-in: _IsolatedRandomIdGenerator is used when the env var is set
     monkeypatch.setenv("MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", "true")
+    mlflow.tracing.reset()
     _initialize_tracer_provider()
     tracer_provider = _provider_wrapper.get()
     assert isinstance(tracer_provider.id_generator, _IsolatedRandomIdGenerator)

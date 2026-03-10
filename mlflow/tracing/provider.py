@@ -73,25 +73,17 @@ class _IsolatedRandomIdGenerator(IdGenerator):
     An OTel IdGenerator that uses a private ``random.Random`` instance, isolated from
     Python's global ``random`` module state.
 
-    The default OTel ``RandomIdGenerator`` calls ``random.getrandbits()``, which is
-    affected by ``random.seed()`` calls in user code.  This leads to deterministic
-    trace/span IDs across script re-runs, causing "trace already exists" errors when
-    the same IDs are re-submitted to a tracking backend.  This is a known issue in the
-    OpenTelemetry Python SDK: https://github.com/open-telemetry/opentelemetry-python/issues/4376
+    Unlike the default OTel ``RandomIdGenerator``, this is immune to ``random.seed()``
+    calls in user code, preventing duplicate trace/span IDs across re-runs.
 
-    This generator uses the same approach as Logfire
-    (https://github.com/pydantic/logfire/pull/457): a dedicated ``random.Random``
-    instance seeded from OS entropy (``random.Random(None)``), which is completely
-    unaffected by ``random.seed()`` calls in user code.
-
-    This generator is *not* used by default.  Enable it by setting the environment
-    variable ``MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR=true`` when you encounter
-    duplicate trace-ID errors caused by ``random.seed()`` calls in your code.
+    Enable via ``MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR=true``.
     """
 
     def __init__(self) -> None:
         self._random = random.Random()
         if hasattr(os, "register_at_fork"):
+            # Re-seed the private random instance in forked child processes to prevent them
+            # from generating the same ID sequence as the parent process.
             os.register_at_fork(after_in_child=self._random.seed)
 
     def generate_span_id(self) -> int:
@@ -534,16 +526,17 @@ def _initialize_tracer_provider(disabled=False):
             f"{k}={v}" for k, v in attributes.items()
         ])
 
-    id_generator = (
-        _IsolatedRandomIdGenerator()
-        if MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR.get()
-        else None
-    )
-    tracer_provider = TracerProvider(
-        resource=resource,
-        sampler=_get_trace_sampler(),
-        id_generator=id_generator,
-    )
+    if MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR.get():
+        tracer_provider = TracerProvider(
+            resource=resource,
+            sampler=_get_trace_sampler(),
+            id_generator=_IsolatedRandomIdGenerator(),
+        )
+    else:
+        tracer_provider = TracerProvider(
+            resource=resource,
+            sampler=_get_trace_sampler(),
+        )
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 

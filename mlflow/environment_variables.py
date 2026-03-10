@@ -832,19 +832,9 @@ MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
 )
 
-#: When set to ``True``, MLflow uses an isolated ``random.Random`` instance for generating
-#: trace/span IDs instead of the default OpenTelemetry ``RandomIdGenerator`` (which uses
-#: Python's global ``random`` module).
-#:
-#: **When to enable this:** If your code calls ``random.seed()`` with a fixed value before
-#: running an MLflow-traced workload, the default generator may produce identical trace/span
-#: IDs across re-runs, causing ``"trace already exists"`` errors when the same IDs are
-#: re-submitted to the tracking backend.  Setting this variable to ``True`` makes ID
-#: generation immune to ``random.seed()`` calls.
-#:
-#: .. note::
-#:     This diverges from standard OpenTelemetry behavior.  Enable it only when you encounter
-#:     the duplicate-trace-ID issue described above.
+#: When set to ``True``, MLflow uses a private ``random.Random`` instance for trace/span ID
+#: generation, making it immune to ``random.seed()`` calls in user code.  Enable this when
+#: ``random.seed()`` causes duplicate trace/span ID errors.
 #:
 #: (default: ``False``)
 MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR = _BooleanEnvironmentVariable(
