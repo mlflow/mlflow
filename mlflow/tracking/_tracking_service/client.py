@@ -14,8 +14,6 @@ from urllib import parse as urllib_parse
 from mlflow.entities import (
     ExperimentTag,
     FileInfo,
-    Issue,
-    IssueStatus,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -1131,41 +1129,3 @@ class TrackingServiceClient:
             raise MlflowException.invalid_parameter_value("run_id cannot be empty")
 
         return self.store.unlink_traces_from_run(trace_ids, run_id)
-
-    def create_issue(
-        self,
-        experiment_id: str,
-        name: str,
-        description: str,
-        status: IssueStatus,
-        confidence: str | None = None,
-        root_causes: list[str] | None = None,
-        source_run_id: str | None = None,
-        created_by: str | None = None,
-    ) -> Issue:
-        """
-        Create a new issue in the tracking store.
-
-        Args:
-            experiment_id: The experiment ID.
-            name: Short descriptive name for the issue.
-            description: Detailed description of the issue.
-            status: Issue status. Defaults to IssueStatus.PENDING if not provided.
-            confidence: Optional confidence level indicator.
-            root_causes: Optional list of root cause analyses.
-            source_run_id: Optional MLflow run ID that discovered this issue.
-            created_by: Optional identifier for who created this issue.
-
-        Returns:
-            The created Issue entity.
-        """
-        return self.store.create_issue(
-            experiment_id=experiment_id,
-            name=name,
-            description=description,
-            status=status,
-            confidence=confidence,
-            root_causes=root_causes,
-            source_run_id=source_run_id,
-            created_by=created_by,
-        )
