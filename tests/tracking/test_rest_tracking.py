@@ -38,6 +38,7 @@ from mlflow.entities import (
     GatewayModelLinkageType,
     GatewayResourceType,
     InputTag,
+    IssueStatus,
     Metric,
     Param,
     RoutingStrategy,
@@ -5129,3 +5130,341 @@ def test_update_model_definition_provider(mlflow_client_with_secrets):
 
     store.delete_gateway_model_definition(model_def.model_definition_id)
     store.delete_gateway_secret(secret.secret_id)
+
+
+def test_create_issue_with_all_fields(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("Issue Test")
+    run = mlflow_client.create_run(experiment_id)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "High latency issue",
+            "description": "API calls are taking too long",
+            "status": IssueStatus.PENDING.value,
+            "source_run_id": run.info.run_id,
+            "root_causes": ["Database query inefficiency", "Network latency"],
+            "confidence": "high",
+            "created_by": "test-user",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "issue" in data
+    issue = data["issue"]
+    assert issue["experiment_id"] == experiment_id
+    assert issue["name"] == "High latency issue"
+    assert issue["description"] == "API calls are taking too long"
+    assert issue["status"] == IssueStatus.PENDING.value
+    assert issue["source_run_id"] == run.info.run_id
+    assert issue["root_causes"] == ["Database query inefficiency", "Network latency"]
+    assert issue["confidence"] == "high"
+    assert issue["created_by"] == "test-user"
+    assert "issue_id" in issue
+    assert "created_timestamp" in issue
+    assert "last_updated_timestamp" in issue
+
+
+def test_create_issue_minimal_fields(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Minimal")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Test issue",
+            "description": "Test description",
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    issue = data["issue"]
+    assert issue["experiment_id"] == experiment_id
+    assert issue["name"] == "Test issue"
+    assert issue["description"] == "Test description"
+    assert issue["status"] == IssueStatus.PENDING.value
+    assert "issue_id" in issue
+
+
+def test_create_issue_with_required_fields(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Required Fields")
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Issue with required fields only",
+            "description": "Testing issue creation with required fields",
+            "status": IssueStatus.ACCEPTED.value,
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()
+    issue = data["issue"]
+    assert issue["status"] == IssueStatus.ACCEPTED.value
+    assert "issue_id" in issue
+    assert "created_timestamp" in issue
+    assert "last_updated_timestamp" in issue
+
+
+def test_create_issue_invalid_experiment(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": "999999",
+            "name": "Test issue",
+            "description": "Test description",
+        },
+    )
+    assert response.status_code == 404
+    data = response.json()
+    assert data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_get_issue(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Get")
+
+    create_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Test issue",
+            "description": "Test description",
+            "confidence": "medium",
+        },
+    )
+    issue_id = create_response.json()["issue"]["issue_id"]
+
+    get_response = requests.get(f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/{issue_id}")
+    assert get_response.status_code == 200
+    data = get_response.json()
+    issue = data["issue"]
+    assert issue["issue_id"] == issue_id
+    assert issue["name"] == "Test issue"
+    assert issue["confidence"] == "medium"
+
+
+def test_get_issue_not_found(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    response = requests.get(f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/nonexistent-issue")
+    assert response.status_code == 404
+    data = response.json()
+    assert data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+
+
+def test_update_issue(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Update")
+
+    create_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Original name",
+            "description": "Original description",
+            "status": IssueStatus.PENDING.value,
+        },
+    )
+    issue_id = create_response.json()["issue"]["issue_id"]
+
+    update_response = requests.patch(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/{issue_id}",
+        json={
+            "issue_id": issue_id,
+            "name": "Updated name",
+            "description": "Updated description",
+            "status": IssueStatus.ACCEPTED.value,
+            "confidence": "high",
+        },
+    )
+    assert update_response.status_code == 200
+    data = update_response.json()
+    issue = data["issue"]
+    assert issue["issue_id"] == issue_id
+    assert issue["name"] == "Updated name"
+    assert issue["description"] == "Updated description"
+    assert issue["status"] == IssueStatus.ACCEPTED.value
+    assert issue["confidence"] == "high"
+
+
+def test_search_issues_no_filters(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Search")
+
+    for i in range(3):
+        requests.post(
+            f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+            json={
+                "experiment_id": experiment_id,
+                "name": f"Issue {i}",
+                "description": f"Description {i}",
+            },
+        )
+
+    search_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search", json={}
+    )
+    assert search_response.status_code == 200
+    data = search_response.json()
+    assert "issues" in data
+    assert len(data["issues"]) == 3
+    assert {issue["name"] for issue in data["issues"]} == {"Issue 0", "Issue 1", "Issue 2"}
+    assert {issue["status"] for issue in data["issues"]} == {IssueStatus.PENDING.value}
+
+
+def test_search_issues_by_experiment(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    exp1 = mlflow_client.create_experiment("Issue Test Search Exp1")
+    exp2 = mlflow_client.create_experiment("Issue Test Search Exp2")
+
+    requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": exp1,
+            "name": "Issue in exp1",
+            "description": "Description",
+        },
+    )
+
+    requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": exp2,
+            "name": "Issue in exp2",
+            "description": "Description",
+        },
+    )
+
+    search_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
+        json={"experiment_id": exp1},
+    )
+    assert search_response.status_code == 200
+    data = search_response.json()
+    issues = data["issues"]
+    assert len(issues) == 1
+    assert issues[0]["experiment_id"] == exp1
+    assert issues[0]["name"] == "Issue in exp1"
+
+
+def test_search_issues_by_status(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Search Status")
+
+    requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Draft issue",
+            "description": "Description",
+            "status": IssueStatus.PENDING.value,
+        },
+    )
+
+    requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+        json={
+            "experiment_id": experiment_id,
+            "name": "Confirmed issue",
+            "description": "Description",
+            "status": IssueStatus.ACCEPTED.value,
+        },
+    )
+
+    search_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
+        json={"experiment_id": experiment_id, "filter_string": "status = 'accepted'"},
+    )
+    assert search_response.status_code == 200
+    data = search_response.json()
+    issues = data["issues"]
+    assert all(issue["status"] == IssueStatus.ACCEPTED.value for issue in issues)
+    assert any(issue["name"] == "Confirmed issue" for issue in issues)
+
+
+def test_search_issues_with_pagination(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Pagination")
+
+    for i in range(15):
+        requests.post(
+            f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+            json={
+                "experiment_id": experiment_id,
+                "name": f"Issue {i}",
+                "description": f"Description {i}",
+            },
+        )
+
+    first_page = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
+        json={"experiment_id": experiment_id, "max_results": 10},
+    )
+    assert first_page.status_code == 200
+    first_data = first_page.json()
+    assert len(first_data["issues"]) == 10
+    assert "next_page_token" in first_data
+    assert first_data["next_page_token"] != ""
+
+    second_page = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
+        json={
+            "experiment_id": experiment_id,
+            "max_results": 10,
+            "page_token": first_data["next_page_token"],
+        },
+    )
+    assert second_page.status_code == 200
+    second_data = second_page.json()
+    assert len(second_data["issues"]) == 5
+    assert second_data["next_page_token"] == ""
+
+
+def test_search_issues_sorted_by_timestamp(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("Issues are only supported in SqlAlchemyStore")
+    experiment_id = mlflow_client.create_experiment("Issue Test Sort")
+
+    # Create issues with slight delays to ensure different timestamps
+    issue_ids = []
+    for i in range(3):
+        response = requests.post(
+            f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues",
+            json={
+                "experiment_id": experiment_id,
+                "name": f"Issue {i}",
+                "description": f"Description {i}",
+            },
+        )
+        issue_ids.append(response.json()["issue"]["issue_id"])
+        time.sleep(0.01)  # Small delay to ensure different timestamps
+
+    search_response = requests.post(
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
+        json={"experiment_id": experiment_id},
+    )
+    assert search_response.status_code == 200
+    data = search_response.json()
+    issues = data["issues"]
+    assert len(issues) == 3
+    # Issues should be returned (default order is by created_timestamp descending)
+    assert {issue["issue_id"] for issue in issues} == set(issue_ids)

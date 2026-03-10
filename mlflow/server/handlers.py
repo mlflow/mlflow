@@ -32,6 +32,7 @@ from mlflow.entities import (
     GatewayEndpointTag,
     GatewayResourceType,
     InputTag,
+    IssueStatus,
     Metric,
     Param,
     RunStatus,
@@ -87,6 +88,12 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
+)
+from mlflow.protos.issues_pb2 import (
+    CreateIssue,
+    GetIssue,
+    SearchIssues,
+    UpdateIssue,
 )
 from mlflow.protos.jobs_pb2 import JobStatus
 from mlflow.protos.mlflow_artifacts_pb2 import (
@@ -4005,6 +4012,107 @@ def _delete_assessment(trace_id, assessment_id):
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_issue():
+    """
+    A request handler for `POST /mlflow/issues` to create a new issue.
+    """
+    request_message = _get_request_message(
+        CreateIssue(),
+        schema={
+            "name": [_assert_required, _assert_string],
+            "description": [_assert_required, _assert_string],
+            "experiment_id": [_assert_required, _assert_string],
+        },
+    )
+
+    # Build kwargs for create_issue
+    create_kwargs = {
+        "experiment_id": request_message.experiment_id,
+        "name": request_message.name,
+        "description": request_message.description,
+        "source_run_id": request_message.source_run_id or None,
+        "root_causes": list(request_message.root_causes) or None,
+        "confidence": request_message.confidence or None,
+        "created_by": request_message.created_by or None,
+    }
+
+    if request_message.HasField("status"):
+        create_kwargs["status"] = IssueStatus(request_message.status)
+
+    created_issue = _get_tracking_store().create_issue(**create_kwargs)
+
+    response_message = CreateIssue.Response(issue=created_issue.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_issue(issue_id):
+    """
+    A request handler for `PATCH /mlflow/issues/{issue_id}` to update an issue.
+    """
+    request_message = _get_request_message(
+        UpdateIssue(),
+        schema={
+            "issue_id": [_assert_required],
+        },
+    )
+
+    status = IssueStatus(request_message.status) if request_message.HasField("status") else None
+
+    updated_issue = _get_tracking_store().update_issue(
+        issue_id=issue_id,
+        status=status,
+        name=request_message.name or None,
+        description=request_message.description or None,
+        confidence=request_message.confidence or None,
+    )
+
+    response_message = UpdateIssue.Response(issue=updated_issue.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_issue(issue_id):
+    """
+    A request handler for `GET /mlflow/issues/{issue_id}` to get an issue.
+    """
+    issue = _get_tracking_store().get_issue(issue_id)
+
+    response_message = GetIssue.Response(issue=issue.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_issues():
+    """
+    A request handler for `POST /mlflow/issues/search` to search for issues.
+    """
+    request_message = _get_request_message(SearchIssues())
+
+    # Build kwargs for search_issues
+    search_kwargs = {
+        "experiment_id": request_message.experiment_id or None,
+        "filter_string": request_message.filter_string or None,
+        "page_token": request_message.page_token or None,
+    }
+
+    if request_message.HasField("max_results"):
+        search_kwargs["max_results"] = request_message.max_results
+
+    issues = _get_tracking_store().search_issues(**search_kwargs)
+
+    issue_protos = [issue.to_proto() for issue in issues]
+    response_message = SearchIssues.Response(
+        issues=issue_protos, next_page_token=issues.token or ""
+    )
+    return _wrap_response(response_message)
+
+
 # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
 
 
@@ -6395,6 +6503,11 @@ HANDLERS = {
     GetAssessmentRequest: _get_assessment,
     UpdateAssessment: _update_assessment,
     DeleteAssessment: _delete_assessment,
+    # Issue APIs
+    CreateIssue: _create_issue,
+    UpdateIssue: _update_issue,
+    GetIssue: _get_issue,
+    SearchIssues: _search_issues,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
     StartTrace: _deprecated_start_trace_v2,
     EndTrace: _deprecated_end_trace_v2,
