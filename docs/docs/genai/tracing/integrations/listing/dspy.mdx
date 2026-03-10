@@ -65,7 +65,7 @@ class Summarize(dspy.Module):
 summarizer = Summarize()
 summarizer(
     passage=(
-        "MLflow Tracing is a feature that enhances LLM observability in your Generative AI (GenAI) applications "
+        "MLflow Tracing is a feature that enhances LLM observability in your LLM applications and AI agents "
         "by capturing detailed information about the execution of your application's services. Tracing provides "
         "a way to record the inputs, outputs, and metadata associated with each intermediate step of a request, "
         "enabling you to easily pinpoint the source of bugs and unexpected behaviors."
@@ -90,24 +90,22 @@ mlflow.dspy.autolog(log_traces_from_eval=True)
 
 # Define a simple evaluation set
 eval_set = [
-    dspy.Example(
-        question="How many 'r's are in the word 'strawberry'?", answer="3"
-    ).with_inputs("question"),
-    dspy.Example(
-        question="How many 'a's are in the word 'banana'?", answer="3"
-    ).with_inputs("question"),
-    dspy.Example(
-        question="How many 'e's are in the word 'elephant'?", answer="2"
-    ).with_inputs("question"),
+    dspy.Example(question="How many 'r's are in the word 'strawberry'?", answer="3").with_inputs(
+        "question"
+    ),
+    dspy.Example(question="How many 'a's are in the word 'banana'?", answer="3").with_inputs(
+        "question"
+    ),
+    dspy.Example(question="How many 'e's are in the word 'elephant'?", answer="2").with_inputs(
+        "question"
+    ),
 ]
 
 
 # Define a program
 class Counter(dspy.Signature):
     question: str = dspy.InputField()
-    answer: str = dspy.OutputField(
-        desc="Should only contain a single number as an answer"
-    )
+    answer: str = dspy.OutputField(desc="Should only contain a single number as an answer")
 
 
 cot = dspy.ChainOfThought(Counter)

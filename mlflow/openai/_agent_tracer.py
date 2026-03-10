@@ -5,8 +5,8 @@ import logging
 from typing import Any
 
 import agents.tracing as oai
-from agents import add_trace_processor
-from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
+from agents import add_trace_processor, set_trace_processors
+from agents.tracing.setup import get_trace_provider
 
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_event import SpanEvent
@@ -55,8 +55,17 @@ _SPAN_TYPE_MAP = {
 }
 
 
+def clear_trace_processors():
+    """
+    Clear all trace processors (including the default OpenAI agents tracer)
+    to avoid warnings when the OpenAI API key is not set.
+    https://github.com/openai/openai-agents-python/issues/1387#issuecomment-3165660183
+    """
+    set_trace_processors([])
+
+
 def add_mlflow_trace_processor():
-    processors = GLOBAL_TRACE_PROVIDER._multi_processor._processors
+    processors = get_trace_provider()._multi_processor._processors
 
     if any(isinstance(p, MlflowOpenAgentTracingProcessor) for p in processors):
         return
@@ -65,11 +74,11 @@ def add_mlflow_trace_processor():
 
 
 def remove_mlflow_trace_processor():
-    processors = GLOBAL_TRACE_PROVIDER._multi_processor._processors
+    processors = get_trace_provider()._multi_processor._processors
     non_mlflow_processors = [
         p for p in processors if not isinstance(p, MlflowOpenAgentTracingProcessor)
     ]
-    GLOBAL_TRACE_PROVIDER._multi_processor._processors = non_mlflow_processors
+    get_trace_provider()._multi_processor._processors = non_mlflow_processors
 
 
 class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):

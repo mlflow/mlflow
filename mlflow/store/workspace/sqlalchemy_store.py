@@ -23,6 +23,7 @@ from mlflow.store.model_registry.dbmodels.models import SqlRegisteredModel, SqlW
 from mlflow.store.tracking.dbmodels.models import (
     SqlEvaluationDataset,
     SqlExperiment,
+    SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
@@ -49,6 +50,7 @@ _WORKSPACE_ROOT_MODELS = [
     SqlGatewaySecret,
     SqlGatewayEndpoint,
     SqlGatewayModelDefinition,
+    SqlGatewayBudgetPolicy,
     SqlJob,
 ]
 
@@ -230,7 +232,8 @@ class SqlAlchemyStore(AbstractStore):
             if not hasattr(model, "name"):
                 continue
             overlapping = (
-                session.query(model.name)
+                session
+                .query(model.name)
                 .filter(model.workspace == workspace_name)
                 .filter(
                     model.name.in_(

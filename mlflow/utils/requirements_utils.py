@@ -254,14 +254,12 @@ def _run_command(cmd, timeout_seconds, env=None):
         stdout = stdout.decode("utf-8")
         stderr = stderr.decode("utf-8")
         if proc.returncode != 0:
-            msg = "\n".join(
-                [
-                    f"Encountered an unexpected error while running {cmd}",
-                    f"exit status: {proc.returncode}",
-                    f"stdout: {stdout}",
-                    f"stderr: {stderr}",
-                ]
-            )
+            msg = "\n".join([
+                f"Encountered an unexpected error while running {cmd}",
+                f"exit status: {proc.returncode}",
+                f"stdout: {stdout}",
+                f"stderr: {stderr}",
+            ])
             raise MlflowException(msg)
     finally:
         if timer.is_alive():
@@ -609,21 +607,24 @@ class _MismatchedPackageInfo(NamedTuple):
         return f"{self.package_name} (current: {current_status}, required: {self.requirement})"
 
 
-def _check_requirement_satisfied(requirement_str):
+def _check_requirement_satisfied(requirement_str: str) -> _MismatchedPackageInfo | None:
     """
     Checks whether the current python environment satisfies the given requirement if it is parsable
     as a package name and a set of version specifiers, and returns a `_MismatchedPackageInfo`
     object containing the mismatched package name, installed version, and requirement if the
     requirement is not satisfied. Otherwise, returns None.
     """
-    _init_packages_to_modules_map()
     try:
         req = Requirement(requirement_str)
     except Exception:
         # We reach here if the requirement string is a file path or a URL.
         # Extracting the package name from the requirement string is not trivial,
         # so we skip the check.
-        return
+        return None
+    if req.marker and not req.marker.evaluate():
+        return None
+
+    _init_packages_to_modules_map()
     pkg_name = req.name
 
     try:

@@ -218,6 +218,7 @@ const prefixRouteWithWorkspaceForTo = (to: To): To => {
 };
 
 const useParams = useParamsDirect;
+
 const useLocation = useLocationDirect;
 
 const Link = React.forwardRef<

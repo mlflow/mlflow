@@ -1,13 +1,9 @@
 import { isNil } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import {
-  type ModelTraceInfoV3,
-  isV3ModelTraceInfo,
-  isV4TraceId,
-  type ModelTrace,
-} from '@databricks/web-shared/model-trace-explorer';
-import { useQuery } from '@databricks/web-shared/query-client';
+import type { ModelTraceInfoV3, ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
+import { isV3ModelTraceInfo, isV4TraceId } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import { useQuery } from '../../query-client/queryClient';
 
 import { createTraceLocationForExperiment, createTraceLocationForUCSchema } from '../utils/TraceLocationUtils';
 import { formatTraceId } from '../utils/TraceUtils';
@@ -80,7 +76,11 @@ export function useGetTrace(
 
     const expected = JSON.parse(traceStats).num_spans;
     const actual = data?.data?.spans?.length ?? 0;
-    if (expected === actual) {
+
+    // Poll until the actual span count reaches at least the expected count.
+    // NB: In distributed tracing case, the actual span count exceeds the expected count because
+    // sizeStats only counts spans from the originating process.
+    if (actual >= expected) {
       okStatePollCountRef.current = 0;
       return false;
     }
@@ -93,6 +93,7 @@ export function useGetTrace(
       return false;
     }
 
+    // Poll again after 1 second
     return 1000;
   };
 

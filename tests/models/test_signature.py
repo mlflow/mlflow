@@ -28,22 +28,25 @@ from mlflow.types.utils import InvalidDataForSignatureInferenceError
 def test_model_signature_with_colspec():
     signature1 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
-        outputs=Schema(
-            [ColSpec(name=None, type=DataType.double), ColSpec(name=None, type=DataType.double)]
-        ),
+        outputs=Schema([
+            ColSpec(name=None, type=DataType.double),
+            ColSpec(name=None, type=DataType.double),
+        ]),
     )
     signature2 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
-        outputs=Schema(
-            [ColSpec(name=None, type=DataType.double), ColSpec(name=None, type=DataType.double)]
-        ),
+        outputs=Schema([
+            ColSpec(name=None, type=DataType.double),
+            ColSpec(name=None, type=DataType.double),
+        ]),
     )
     assert signature1 == signature2
     signature3 = ModelSignature(
         inputs=Schema([ColSpec(DataType.boolean), ColSpec(DataType.binary)]),
-        outputs=Schema(
-            [ColSpec(name=None, type=DataType.float), ColSpec(name=None, type=DataType.double)]
-        ),
+        outputs=Schema([
+            ColSpec(name=None, type=DataType.float),
+            ColSpec(name=None, type=DataType.double),
+        ]),
     )
     assert signature3 != signature1
     as_json = json.dumps(signature1.to_dict())
@@ -85,21 +88,17 @@ def test_model_signature_with_tensorspec():
 
     # Test with name
     signature6 = ModelSignature(
-        inputs=Schema(
-            [
-                TensorSpec(np.dtype("float"), (-1, 28, 28), name="image"),
-                TensorSpec(np.dtype("int"), (-1, 10), name="metadata"),
-            ]
-        ),
+        inputs=Schema([
+            TensorSpec(np.dtype("float"), (-1, 28, 28), name="image"),
+            TensorSpec(np.dtype("int"), (-1, 10), name="metadata"),
+        ]),
         outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), name="outputs")]),
     )
     signature7 = ModelSignature(
-        inputs=Schema(
-            [
-                TensorSpec(np.dtype("float"), (-1, 28, 28), name="image"),
-                TensorSpec(np.dtype("int"), (-1, 10), name="metadata"),
-            ]
-        ),
+        inputs=Schema([
+            TensorSpec(np.dtype("float"), (-1, 28, 28), name="image"),
+            TensorSpec(np.dtype("int"), (-1, 10), name="metadata"),
+        ]),
         outputs=Schema([TensorSpec(np.dtype("float"), (-1, 10), name="outputs")]),
     )
     assert signature6 == signature7
@@ -160,9 +159,9 @@ def test_infer_signature_on_nested_array():
         ],
         model_output=[{"outputs": [np.int32(5), np.int32(6)]}],
     )
-    assert signature.inputs == Schema(
-        [ColSpec(Array(Array(Array(DataType.string))), name="inputs")]
-    )
+    assert signature.inputs == Schema([
+        ColSpec(Array(Array(Array(DataType.string))), name="inputs")
+    ])
     assert signature.outputs == Schema([ColSpec(Array(DataType.integer), name="outputs")])
 
 
@@ -178,13 +177,11 @@ def test_infer_signature_on_list_of_dictionaries():
         ],
     )
     assert signature.inputs == Schema([ColSpec(DataType.string, name="query")])
-    assert signature.outputs == Schema(
-        [
-            ColSpec(DataType.string, name="output"),
-            ColSpec(Array(DataType.string), name="candidate_ids"),
-            ColSpec(Array(DataType.string), name="candidate_sources"),
-        ]
-    )
+    assert signature.outputs == Schema([
+        ColSpec(DataType.string, name="output"),
+        ColSpec(Array(DataType.string), name="candidate_ids"),
+        ColSpec(Array(DataType.string), name="candidate_sources"),
+    ])
 
 
 def test_signature_inference_infers_datime_types_as_expected():
@@ -204,9 +201,10 @@ def test_signature_inference_infers_datime_types_as_expected():
             "current_timestamp() as timestamp", "current_date() as date"
         )
         signature = infer_signature(spark_df)
-        assert signature.inputs == Schema(
-            [ColSpec(DataType.datetime, name="timestamp"), ColSpec(DataType.datetime, name="date")]
-        )
+        assert signature.inputs == Schema([
+            ColSpec(DataType.datetime, name="timestamp"),
+            ColSpec(DataType.datetime, name="date"),
+        ])
 
 
 def test_set_signature_to_logged_model():

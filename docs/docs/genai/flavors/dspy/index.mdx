@@ -29,8 +29,8 @@ nuanced metrics.
 The native integration of the DSPy library with MLflow helps users manage the development lifecycle with DSPy. The following are some of the key benefits of using DSPy with MLflow:
 
 - [MLflow Tracking](/ml/tracking) allows you to track your DSPy program's training and execution. With the MLflow APIs, you can log a variety of artifacts and organize training runs, thereby increasing visibility into your model performance.
-- [MLflow Model](/ml/model) packages your compiled DSPy program along with its dependency versions, input and output interfaces and other essential metadata. This allows you to deploy your compiled DSPy program with ease, knowing that the environment is consistent across different stages of the ML lifecycle.
-- [MLflow Evaluate](/genai/eval-monitor) provides native capabilities within MLflow to evaluate GenAI applications. This capability facilitates the efficient assessment of inference results from your DSPy compiled program, ensuring robust performance analytics and facilitating quick iterations.
+- [MLflow Model](/ml/model) packages your compiled DSPy program along with its dependency versions, input and output interfaces and other essential metadata. This allows you to deploy your compiled DSPy program with ease, knowing that the environment is consistent across different stages of the AI development workflow.
+- [MLflow Evaluate](/genai/eval-monitor) provides native capabilities within MLflow to evaluate LLM applications and AI agents. This capability facilitates the efficient assessment of inference results from your DSPy compiled program, ensuring robust performance analytics and facilitating quick iterations.
 - [MLflow Tracing](/genai/tracing) is a powerful observability tool for monitoring and debugging what happens inside the DSPy models, helping you identify potential bottlenecks or issues quickly. With its powerful automatic logging capability, you can instrument your DSPy application without needing to add any code apart from running a single command.
 
 ## Getting Started
@@ -248,7 +248,7 @@ the user's responsibility to securely pass the required secrets to the deploymen
 ### How is the DSPy `settings` object saved?
 
 To ensure program reproducibility, the service context is converted to a Python dictionary and
-pickled with the model artifact. Service context is a concept that has been popularized in GenAI
+pickled with the model artifact. Service context is a concept that has been popularized in LLM and AI agent
 frameworks. Put simply, it stores a configuration that is global to your project. For DSPy
 specifically, we can set information such as the language model, reranker, adapter, etc.
 

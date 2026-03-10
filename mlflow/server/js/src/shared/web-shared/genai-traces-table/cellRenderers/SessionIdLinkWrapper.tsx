@@ -1,4 +1,4 @@
-import { SELECTED_TRACE_ID_QUERY_PARAM } from '@databricks/web-shared/model-trace-explorer';
+import { SELECTED_TRACE_ID_QUERY_PARAM } from '../../model-trace-explorer/constants';
 
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
@@ -10,10 +10,14 @@ export const SessionIdLinkWrapper = ({
   children,
 }: {
   sessionId: string;
-  experimentId: string;
+  experimentId?: string;
   traceId?: string;
   children: React.ReactElement;
 }) => {
+  if (!experimentId) {
+    return children;
+  }
+
   const baseUrl = MlflowUtils.getExperimentChatSessionPageRoute(experimentId, sessionId);
   const url = traceId
     ? `${baseUrl}?${new URLSearchParams({ [SELECTED_TRACE_ID_QUERY_PARAM]: traceId }).toString()}`

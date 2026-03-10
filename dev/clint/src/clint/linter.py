@@ -20,7 +20,7 @@ from clint.utils import get_ignored_rules_for_file
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
-DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable=([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)")
+DISABLE_COMMENT_REGEX = re.compile(r"clint:\s*disable(-next)?=([a-z0-9-]+(?:\s*,\s*[a-z0-9-]+)*)")
 MARKDOWN_LINK_RE = re.compile(r"\[.+\]\(.+\)")
 
 
@@ -29,21 +29,26 @@ class DisableComment:
     rule: str
     line: int
     column: int
+    comment_line: int
 
 
 def parse_disable_comments(code: str) -> list[DisableComment]:
-    """Parses all `# clint: disable=` comments from source code."""
+    """Parses all `# clint: disable=` and `# clint: disable-next=` comments from source code."""
     result: list[DisableComment] = []
     readline = iter(code.splitlines(True)).__next__
     for tok in tokenize.generate_tokens(readline):
         if tok.type != tokenize.COMMENT:
             continue
         if m := DISABLE_COMMENT_REGEX.search(tok.string):
-            line = tok.start[0] - 1
+            is_next = m.group(1) is not None
+            comment_line = tok.start[0] - 1
+            target_line = comment_line + 1 if is_next else comment_line
             col = tok.start[1] + m.start()
             result.extend(
-                DisableComment(rule=rule.strip(), line=line, column=col)
-                for rule in m.group(1).split(",")
+                DisableComment(
+                    rule=rule.strip(), line=target_line, column=col, comment_line=comment_line
+                )
+                for rule in m.group(2).split(",")
             )
     return result
 
@@ -685,7 +690,7 @@ class Linter(ast.NodeVisitor):
         for alias in node.names:
             root_module = alias.name.split(".", 1)[0]
             if self._is_in_function() and root_module in BUILTIN_MODULES:
-                self._check(Range.from_node(node), rules.LazyBuiltinImport())
+                self._check(Range.from_node(node), rules.LazyImport())
 
             if (
                 alias.name.split(".", 1)[0] == "typing_extensions"
@@ -709,7 +714,7 @@ class Linter(ast.NodeVisitor):
 
         root_module = node.module and node.module.split(".", 1)[0]
         if self._is_in_function() and root_module in BUILTIN_MODULES:
-            self._check(Range.from_node(node), rules.LazyBuiltinImport())
+            self._check(Range.from_node(node), rules.LazyImport())
 
         if self.in_TYPE_CHECKING and self.is_mlflow_init_py:
             for alias in node.names:
@@ -826,6 +831,9 @@ class Linter(ast.NodeVisitor):
         if rules.UseGhToken.check(node, self.resolver):
             self._check(Range.from_node(node), rules.UseGhToken())
 
+        if rule := rules.PreferOsEnviron.check(node, self.resolver):
+            self._check(Range.from_node(node), rule)
+
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
@@ -854,6 +862,11 @@ class Linter(ast.NodeVisitor):
     def visit_Dict(self, node: ast.Dict) -> None:
         if rules.PreferDictUnion.check(node):
             self._check(Range.from_node(node), rules.PreferDictUnion())
+        self.generic_visit(node)
+
+    def visit_Subscript(self, node: ast.Subscript) -> None:
+        if rules.PreferNext.check(node):
+            self._check(Range.from_node(node), rules.PreferNext())
         self.generic_visit(node)
 
     def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
@@ -907,7 +920,7 @@ class Linter(ast.NodeVisitor):
         for dc in self.disable_comments:
             if (dc.rule, dc.line) not in self.used_disables:
                 self._check(
-                    Range(Position(dc.line, dc.column)),
+                    Range(Position(dc.comment_line, dc.column)),
                     rules.UnusedDisableComment(dc.rule),
                 )
 

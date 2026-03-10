@@ -55,7 +55,7 @@ export const ModelDefinitionSelector = ({
       </FormUI.Label>
       <SimpleSelect
         id={selectId}
-        componentId={selectId}
+        componentId="codegen_mlflow_app_src_oss_gateway_components_model-definitions_ModelDefinitionSelector.tsx_58"
         value={value}
         onChange={({ target }) => onChange(target.value)}
         disabled={disabled || !hasOptions}

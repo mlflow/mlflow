@@ -130,7 +130,7 @@ describe('TracesV3Logs - integration test', () => {
 
   const renderTestComponent = (additionalProps: Partial<ComponentProps<typeof TracesV3Logs>> = {}) => {
     const defaultProps: ComponentProps<typeof TracesV3Logs> = {
-      experimentId: testExperimentId,
+      experimentIds: [testExperimentId],
       endpointName: testEndpointName,
       timeRange: {
         startTime: '2024-01-01T00:00:00Z',
@@ -215,7 +215,7 @@ describe('TracesV3Logs - integration test', () => {
     // Wrap in ApolloProvider for this test
     const mockApolloClient = new ApolloClient({ uri: '/graphql', cache: new InMemoryCache() });
     const defaultProps = {
-      experimentId: testExperimentId,
+      experimentIds: [testExperimentId],
       endpointName: testEndpointName,
       timeRange: {
         startTime: '2024-01-01T00:00:00Z',

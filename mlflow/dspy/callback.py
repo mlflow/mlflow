@@ -167,6 +167,9 @@ class MlflowCallback(BaseCallback):
             SpanAttributeKey.MESSAGE_FORMAT: "dspy",
             SpanAttributeKey.MODEL: instance.model,
         }
+        match instance.model.split("/", 1):
+            case [provider, _]:
+                attributes[SpanAttributeKey.MODEL_PROVIDER] = provider
 
         inputs = self._unpack_kwargs(inputs)
 

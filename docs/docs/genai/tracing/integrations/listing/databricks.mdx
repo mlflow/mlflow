@@ -20,7 +20,7 @@ import { Users, BookOpen, Scale } from "lucide-react";
 
 ## Managed MLflow on Databricks
 
-Databricks offers a fully managed MLflow service as a part of their platform. This is the easiest way to get started with MLflow tracing, without having to set up any infrastructure. If you are using Databricks Foundation Model APIs, it is no brainer to use the managed MLflow for end-to-end LLMOps including tracing.
+Databricks offers a fully managed MLflow service as a part of their platform. This is the easiest way to get started with MLflow tracing, without having to set up any infrastructure. If you are using Databricks Foundation Model APIs, it is no brainer to use the managed MLflow for end-to-end [LLMOps](https://mlflow.org/llmops) including tracing.
 
 :::warning Visit Databricks documentation
 
@@ -44,7 +44,7 @@ pip install 'mlflow[genai]' openai
   <TabItem value="typescript" label="JS / TS">
 
 ```bash
-npm install mlflow-openai openai
+npm install @mlflow/openai openai
 ```
 
   </TabItem>
@@ -84,7 +84,7 @@ npm install mlflow-openai openai
 
     ```typescript
     import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+    import { tracedOpenAI } from "@mlflow/openai";
 
     // Wrap the OpenAI client and point to Databricks endpoint
     const client = tracedOpenAI(

@@ -447,7 +447,7 @@ describe('getGroupedRowRenderMetadata', () => {
       expect(resultingGroups.map(getRunGroupDisplayName)).toEqual([
         'param2: param_2_value_1, tag2: tag_2_value_1',
         'param2: param_2_value_2, tag2: tag_2_value_2',
-        '',
+        'Unassigned',
       ]);
       expect(get(last(resultingGroups), 'isRemainingRunsGroup')).toEqual(true);
 
@@ -482,7 +482,7 @@ describe('getGroupedRowRenderMetadata', () => {
         'tag2: tag_2_value_2, dataset: dataset_alpha.1234',
         'tag2: (none), dataset: dataset_alpha.1234',
         'tag2: (none), dataset: dataset_beta.321',
-        '',
+        'Unassigned',
       ]);
       expect(get(last(resultingGroups), 'isRemainingRunsGroup')).toEqual(true);
 

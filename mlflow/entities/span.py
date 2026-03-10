@@ -759,9 +759,9 @@ class LiveSpan(Span):
 
         # Copy all the attributes, inputs, outputs, and events from the original span
         clone_span.set_status(span.status)
-        clone_span.set_attributes(
-            {k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID}
-        )
+        clone_span.set_attributes({
+            k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID
+        })
         if span.inputs:
             clone_span.set_inputs(span.inputs)
         if span.outputs:

@@ -15,7 +15,7 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 
 INSTALLED_VERSIONS_FILE = ".installed_versions.json"
 
@@ -175,6 +175,13 @@ def urlopen_with_retry(
             if e.code in (502, 503, 504) and attempt < max_retries - 1:
                 delay = base_delay * (2**attempt)
                 print(f"  HTTP {e.code}, retrying in {delay}s... ({attempt + 1}/{max_retries})")
+                time.sleep(delay)
+            else:
+                raise
+        except (http.client.RemoteDisconnected, ConnectionResetError, URLError) as e:
+            if attempt < max_retries - 1:
+                delay = base_delay * (2**attempt)
+                print(f"  {e}, retrying in {delay}s... ({attempt + 1}/{max_retries})")
                 time.sleep(delay)
             else:
                 raise

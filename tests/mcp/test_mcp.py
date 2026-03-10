@@ -141,12 +141,25 @@ async def test_get_prompt(client: Client):
     assert "MLflow" in content
 
 
-@pytest.mark.asyncio
-async def test_call_tool_with_optional_params_omitted(client: Client):
-    experiment = mlflow.search_experiments(max_results=1)[0]
-    result = await client.call_tool(
-        "search_traces",
-        {"experiment_id": experiment.experiment_id},
-        timeout=5,
-    )
-    assert result.is_error is not True
+def test_fn_wrapper_handles_unset_defaults(monkeypatch):
+    import click
+
+    from mlflow.mcp.server import fn_wrapper
+
+    fake_unset = object()
+    monkeypatch.setattr(click.core, "UNSET", fake_unset, raising=False)
+
+    @click.command()
+    @click.option("--foo", type=str)
+    @click.option("--bar", type=str)
+    def cmd(foo, bar):
+        click.echo(f"{foo},{bar}")
+
+    for p in cmd.params:
+        if p.name == "bar":
+            p.default = fake_unset
+
+    wrapper = fn_wrapper(cmd)
+    result = wrapper(foo="hello")
+    assert "hello" in result
+    assert "None" in result

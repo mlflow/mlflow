@@ -406,6 +406,30 @@ describe('normalizeConversation', () => {
     ]);
   });
 
+  it('handles an OpenAI-compatible chat output with array content (e.g. non-OpenAI model via gateway)', () => {
+    const outputWithArrayContent = {
+      id: 'chatcmpl-abc123',
+      choices: [
+        {
+          finish_reason: 'stop',
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Hello from Anthropic model!' }],
+          },
+        },
+      ],
+      model: 'anthropic-claude-sonnet-4',
+      object: 'chat.completion',
+    };
+    expect(normalizeConversation(outputWithArrayContent, 'openai')).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'Hello from Anthropic model!',
+      }),
+    ]);
+  });
+
   it('handles an OpenAI responses formats', () => {
     expect(normalizeConversation(MOCK_OPENAI_RESPONSES_INPUT, 'openai')).toEqual([
       expect.objectContaining({

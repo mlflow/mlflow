@@ -53,7 +53,7 @@ class DummyTokenizer:
     def convert_tokens_to_ids(self, tokens: list[str]):
         return [int(x) for x in tokens]
 
-    def _tokenize(self, text: str):
+    def tokenize(self, text: str):
         return [x for x in text.split(" ") if x]
 
     def apply_chat_template(self, messages: list[dict[str, str]], **kwargs):
@@ -89,14 +89,12 @@ class _TestCase(NamedTuple):
         ),
         # Case 1: Data includes prompt and params
         _TestCase(
-            data=pd.DataFrame(
-                {
-                    "prompt": ["Hello world!"],
-                    "temperature": [0.7],
-                    "max_tokens": [100],
-                    "stop": [None],
-                }
-            ),
+            data=pd.DataFrame({
+                "prompt": ["Hello world!"],
+                "temperature": [0.7],
+                "max_tokens": [100],
+                "stop": [None],
+            }),
             params={},
             expected_data=["Hello world!"],
             expected_params={
@@ -108,11 +106,9 @@ class _TestCase(NamedTuple):
         ),
         # Case 2: Params are passed if not specified in data
         _TestCase(
-            data=pd.DataFrame(
-                {
-                    "prompt": ["Hello world!"],
-                }
-            ),
+            data=pd.DataFrame({
+                "prompt": ["Hello world!"],
+            }),
             params={
                 "temperature": 0.7,
                 "max_tokens": 100,
@@ -128,19 +124,17 @@ class _TestCase(NamedTuple):
         ),
         # Case 3: Data overrides params
         _TestCase(
-            data=pd.DataFrame(
-                {
-                    "messages": [
-                        [
-                            {"role": "user", "content": "Hello!"},
-                            {"role": "assistant", "content": "Hi!"},
-                        ]
-                    ],
-                    "temperature": [0.1],
-                    "max_tokens": [100],
-                    "stop": [["foo", "bar"]],
-                }
-            ),
+            data=pd.DataFrame({
+                "messages": [
+                    [
+                        {"role": "user", "content": "Hello!"},
+                        {"role": "assistant", "content": "Hi!"},
+                    ]
+                ],
+                "temperature": [0.1],
+                "max_tokens": [100],
+                "stop": [["foo", "bar"]],
+            }),
             params={
                 "temperature": [0.2],
                 "max_tokens": [200],
@@ -159,13 +153,11 @@ class _TestCase(NamedTuple):
         ),
         # Case 4: Batch input
         _TestCase(
-            data=pd.DataFrame(
-                {
-                    "prompt": ["Hello!", "Hi", "Hola"],
-                    "temperature": [0.1, 0.2, 0.3],
-                    "max_tokens": [None, 200, 300],
-                }
-            ),
+            data=pd.DataFrame({
+                "prompt": ["Hello!", "Hi", "Hola"],
+                "temperature": [0.1, 0.2, 0.3],
+                "max_tokens": [None, 200, 300],
+            }),
             params={
                 "temperature": 0.4,
                 "max_tokens": 400,

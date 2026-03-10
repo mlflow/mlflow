@@ -494,7 +494,7 @@ class Utils {
     revisionId: any,
     runUuid: any,
     sourceName: any,
-    workspaceUrl = null,
+    workspaceUrl: string | null = null,
     nameOverride: string | null = null,
   ) {
     // sourceName may not be present when rendering feature table notebook consumers from remote
@@ -507,20 +507,28 @@ class Utils {
 
     if (notebookId) {
       const url = Utils.getNotebookSourceUrl(queryParams, notebookId, revisionId, runUuid, workspaceUrl);
+      if (!url) {
+        return name;
+      }
       return (
         <a title={sourceName || Utils.getDefaultNotebookRevisionName(notebookId, revisionId)} href={url} target="_top">
           {name}
         </a>
       );
-    } else {
-      return name;
     }
+    return name;
   }
 
   /**
    * Returns the URL for the notebook source.
    */
-  static getNotebookSourceUrl(queryParams: any, notebookId: any, revisionId: any, runUuid: any, workspaceUrl = null) {
+  static getNotebookSourceUrl(
+    queryParams: any,
+    notebookId: any,
+    revisionId: any,
+    runUuid: any,
+    workspaceUrl: string | null = null,
+  ) {
     let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
     url += `#notebook/${notebookId}`;
     if (revisionId) {
@@ -529,7 +537,7 @@ class Utils {
         url += `/mlflow/run/${runUuid}`;
       }
     }
-    return url;
+    return Utils.isValidHttpUrl(url) ? url : '';
   }
 
   /**
@@ -540,7 +548,7 @@ class Utils {
     jobId: any,
     jobRunId: any,
     jobName: any,
-    workspaceUrl = null,
+    workspaceUrl: string | null = null,
     nameOverride: string | null = null,
   ) {
     // jobName may not be present when rendering feature table job consumers from remote
@@ -551,26 +559,28 @@ class Utils {
 
     if (jobId) {
       const url = Utils.getJobSourceUrl(queryParams, jobId, jobRunId, workspaceUrl);
+      if (!url) {
+        return name;
+      }
       return (
         <a title={reformatJobName} href={url} target="_top">
           {name}
         </a>
       );
-    } else {
-      return name;
     }
+    return name;
   }
 
   /**
    * Returns the URL for the job source.
    */
-  static getJobSourceUrl(queryParams: any, jobId: any, jobRunId: any, workspaceUrl = null) {
+  static getJobSourceUrl(queryParams: any, jobId: any, jobRunId: any, workspaceUrl: string | null = null) {
     let url = Utils.setQueryParams(workspaceUrl || window.location.origin, queryParams);
     url += `#job/${jobId}`;
     if (jobRunId) {
       url += `/run/${jobRunId}`;
     }
-    return url;
+    return Utils.isValidHttpUrl(url) ? url : '';
   }
 
   /**

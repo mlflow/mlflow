@@ -526,34 +526,32 @@ def test_trace_agent():
     class MockLLMForAgent(OpenAI, extra="allow"):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self._mock_response = iter(
-                [
-                    ChatResponse(
-                        message=ChatMessage(
-                            role="assistant",
-                            content=None,
-                            additional_kwargs={
-                                "tool_calls": [
-                                    ChatCompletionMessageToolCall(
-                                        id="test",
-                                        function={
-                                            "name": "add",
-                                            "arguments": '{"a": 1, "b": 2}',
-                                        },
-                                        type="function",
-                                    )
-                                ]
-                            },
-                        )
-                    ),
-                    ChatResponse(
-                        message=ChatMessage(
-                            role="assistant",
-                            content="The result is 3",
-                        )
-                    ),
-                ]
-            )
+            self._mock_response = iter([
+                ChatResponse(
+                    message=ChatMessage(
+                        role="assistant",
+                        content=None,
+                        additional_kwargs={
+                            "tool_calls": [
+                                ChatCompletionMessageToolCall(
+                                    id="test",
+                                    function={
+                                        "name": "add",
+                                        "arguments": '{"a": 1, "b": 2}',
+                                    },
+                                    type="function",
+                                )
+                            ]
+                        },
+                    )
+                ),
+                ChatResponse(
+                    message=ChatMessage(
+                        role="assistant",
+                        content="The result is 3",
+                    )
+                ),
+            ])
 
         @llm_chat_callback()
         def chat(self, *args, **kwargs):
@@ -763,8 +761,15 @@ async def test_tracer_parallel_workflow():
         assert s.status.status_code == SpanStatusCode.OK
 
     root_span = traces[0].data.spans[0]
-    assert root_span.inputs == {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
-    assert root_span.outputs == "apple, banana, grape, orange"
+    expected_inputs = {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
+    # assert that the inputs are a superset of the expected inputs.
+    # this is to make the test resilient to framework changes which may add additional inputs.
+    assert all(root_span.inputs.get(k) == v for k, v in expected_inputs.items())
+    # in llama-index < 0.14, outputs are a string
+    if isinstance(root_span.outputs, str):
+        assert root_span.outputs == "apple, banana, grape, orange"
+    else:
+        assert root_span.outputs["result"] == "apple, banana, grape, orange"
 
 
 @pytest.mark.skipif(
@@ -831,8 +836,11 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     assert all(s.status.status_code == SpanStatusCode.OK for s in spans)
 
     workflow_span = spans[0]
-    assert workflow_span.inputs == {"kwargs": {"inputs": inputs}}
-    assert workflow_span.outputs == result
+    assert all(workflow_span.inputs.get(k) == v for k, v in {"kwargs": {"inputs": inputs}}.items())
+    if isinstance(workflow_span.outputs, str):
+        assert workflow_span.outputs == result
+    else:
+        assert workflow_span.outputs["result"] == result
 
     inner_worker_spans = [s for s in spans if s.name.startswith("custom_inner_span_worker")]
     assert len(inner_worker_spans) == len(inputs)

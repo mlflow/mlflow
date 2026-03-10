@@ -33,7 +33,8 @@ def spark_session(tmp_path_factory: pytest.TempPathFactory):
 
     tmp_dir = tmp_path_factory.mktemp("spark_tmp")
     with (
-        SparkSession.builder.master("local[*]")
+        SparkSession.builder
+        .master("local[*]")
         .config("spark.jars.packages", delta_package)
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(
