@@ -7,7 +7,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo, ArtifactCredentialType
 from mlflow.store.artifact.cloud_artifact_repo import (
     _ARTIFACT_UPLOAD_BATCH_SIZE,
-    _LARGE_FILE_SIZE_THRESHOLD,
     CloudArtifactRepository,
     FileUploadPlan,
     StagedArtifactUpload,
@@ -278,26 +277,6 @@ def test_detect_cloud_type_no_creds_returned():
     assert plan.credential_info is None
 
 
-# -- _compute_upload_delay --
-
-
-@pytest.mark.parametrize(
-    ("file_size", "expected_delay"),
-    [
-        (1024, 3.0),
-        (200 * 1024**2, 5.0),
-        # Boundary: exactly at threshold uses standard delay (> not >=)
-        (_LARGE_FILE_SIZE_THRESHOLD, 3.0),
-    ],
-)
-def test_compute_upload_delay(file_size, expected_delay):
-    with mock.patch(CLOUD_REPO) as mock_cls:
-        instance = mock_cls.return_value
-        _unmock(instance, "_compute_upload_delay")
-
-        assert instance._compute_upload_delay(file_size) == expected_delay
-
-
 # -- _fetch_credentials_for_plans --
 
 
@@ -449,23 +428,16 @@ def test_serial_upload_with_delays_success(monkeypatch):
             credential_info=ArtifactCredentialInfo(signed_uri="https://3"),
         ),
     ]
-    futures = []
-    for _ in plans:
-        f = Future()
-        f.set_result(None)
-        futures.append(f)
 
     with mock.patch(CLOUD_REPO) as mock_cls:
         instance = mock_cls.return_value
         _unmock(instance, "_upload_files_serially_with_delays")
-        instance._compute_upload_delay.return_value = 3.0
-        instance.thread_pool.submit.side_effect = futures
 
         with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
             failures = instance._upload_files_serially_with_delays(plans)
 
     assert failures == {}
-    assert instance.thread_pool.submit.call_count == 3
+    assert instance._upload_to_cloud.call_count == 3
     # Sleep called between uploads (after file 0 and file 1), not after last file
     assert mock_sleep.call_count == 2
     mock_sleep.assert_called_with(3.0)
@@ -485,16 +457,11 @@ def test_serial_upload_with_delays_failure(monkeypatch):
             credential_info=ArtifactCredentialInfo(signed_uri="https://2"),
         ),
     ]
-    ok_future = Future()
-    ok_future.set_result(None)
-    fail_future = Future()
-    fail_future.set_exception(RuntimeError("upload error"))
 
     with mock.patch(CLOUD_REPO) as mock_cls:
         instance = mock_cls.return_value
         _unmock(instance, "_upload_files_serially_with_delays")
-        instance._compute_upload_delay.return_value = 3.0
-        instance.thread_pool.submit.side_effect = [ok_future, fail_future]
+        instance._upload_to_cloud.side_effect = [None, RuntimeError("upload error")]
 
         with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
             failures = instance._upload_files_serially_with_delays(plans)
@@ -512,13 +479,10 @@ def test_serial_upload_with_delays_single_file(monkeypatch):
         file_size=1024,
         credential_info=ArtifactCredentialInfo(signed_uri="https://1"),
     )
-    future = Future()
-    future.set_result(None)
 
     with mock.patch(CLOUD_REPO) as mock_cls:
         instance = mock_cls.return_value
         _unmock(instance, "_upload_files_serially_with_delays")
-        instance.thread_pool.submit.return_value = future
 
         with mock.patch("mlflow.store.artifact.cloud_artifact_repo.time.sleep") as mock_sleep:
             failures = instance._upload_files_serially_with_delays([plan])

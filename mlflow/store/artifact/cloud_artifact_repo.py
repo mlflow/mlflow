@@ -11,7 +11,6 @@ from typing import NamedTuple
 from mlflow.environment_variables import (
     _MLFLOW_MPD_NUM_RETRIES,
     _MLFLOW_MPD_RETRY_INTERVAL_SECONDS,
-    MLFLOW_DATABRICKS_LARGE_FILE_UPLOAD_DELAY_SECONDS,
     MLFLOW_DATABRICKS_UPLOAD_DELAY_SECONDS,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
@@ -36,7 +35,6 @@ _logger = logging.getLogger(__name__)
 _ARTIFACT_UPLOAD_BATCH_SIZE = 50
 _AWS_MIN_CHUNK_SIZE = 5 * 1024**2  # 5 MB
 _AWS_MAX_CHUNK_SIZE = 5 * 1024**3  # 5 GB
-_LARGE_FILE_SIZE_THRESHOLD = 100 * 1024**2  # 100 MB - threshold for extended proxy cleanup delays
 
 
 def _readable_size(size: int) -> str:
@@ -321,19 +319,6 @@ class CloudArtifactRepository(ArtifactRepository):
         self._fetch_credentials_for_plans(batch)
         return self._upload_files_parallel(batch)
 
-    def _compute_upload_delay(self, file_size: int) -> float:
-        """Compute adaptive delay based on file size for Databricks proxy cleanup.
-
-        Args:
-            file_size: Size of the file in bytes
-
-        Returns:
-            Delay in seconds before next upload can begin
-        """
-        if file_size > _LARGE_FILE_SIZE_THRESHOLD:
-            return MLFLOW_DATABRICKS_LARGE_FILE_UPLOAD_DELAY_SECONDS.get()
-        return MLFLOW_DATABRICKS_UPLOAD_DELAY_SECONDS.get()
-
     def _upload_files_serially_with_delays(self, plans: list[FileUploadPlan]) -> dict[str, str]:
         """Upload files one at a time with adaptive delays for Azure block uploads.
 
@@ -354,18 +339,16 @@ class CloudArtifactRepository(ArtifactRepository):
         ) as pbar:
             for idx, plan in enumerate(plans):
                 try:
-                    future = self.thread_pool.submit(
-                        self._upload_to_cloud,
+                    self._upload_to_cloud(
                         cloud_credential_info=plan.credential_info,
                         src_file_path=plan.src_path,
                         artifact_file_path=plan.dest_path,
                     )
-                    future.result()  # Wait for completion (includes put_block_list)
                     pbar.update()
 
                     # Add delay before next upload to allow proxy cleanup
                     if idx < len(plans) - 1:
-                        delay = self._compute_upload_delay(plan.file_size)
+                        delay = MLFLOW_DATABRICKS_UPLOAD_DELAY_SECONDS.get()
                         _logger.debug(
                             f"Uploaded {plan.src_path} ({plan.file_size / 1024**2:.1f}MB). "
                             f"Waiting {delay}s before next upload for proxy cleanup."
