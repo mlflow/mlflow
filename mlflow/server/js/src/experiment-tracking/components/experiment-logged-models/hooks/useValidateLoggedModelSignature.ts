@@ -14,7 +14,7 @@ export const useValidateLoggedModelSignature = (loggedModel?: LoggedModelProto |
     const artifactLocation = getLoggedModelArtifactLocationUrl(MLMODEL_FILE_NAME, loggedModel.info.model_id);
     const blob = await getArtifactBlob(artifactLocation);
 
-    const yamlContent = (await lazyJsYaml()).load(await blob.text());
+    const yamlContent = (await lazyJsYaml()).safeLoad(await blob.text());
 
     const isValid = yamlContent?.signature?.inputs !== undefined && yamlContent?.signature?.outputs !== undefined;
 

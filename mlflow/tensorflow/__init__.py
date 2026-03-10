@@ -183,12 +183,10 @@ def log_model(
             from mlflow.models import ModelSignature
             import numpy as np
 
-            input_schema = Schema(
-                [
-                    TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
-                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
-                ]
-            )
+            input_schema = Schema([
+                TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
+                TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
+            ])
             # Create the signature for a model that requires 2 inputs:
             #  - Input with name "field1", shape (-1, 5), type "np.uint64"
             #  - Input with name "field2", shape (-1, 3, 2), type "np.float32"
@@ -323,12 +321,10 @@ def save_model(
             from mlflow.models import ModelSignature
             import numpy as np
 
-            input_schema = Schema(
-                [
-                    TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
-                    TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
-                ]
-            )
+            input_schema = Schema([
+                TensorSpec(np.dtype(np.uint64), (-1, 5), "field1"),
+                TensorSpec(np.dtype(np.float32), (-1, 3, 2), "field2"),
+            ])
             # Create the signature for a model that requires 2 inputs:
             #  - Input with name "field1", shape (-1, 5), type "np.uint64"
             #  - Input with name "field2", shape (-1, 3, 2), type "np.float32"

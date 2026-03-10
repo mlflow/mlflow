@@ -178,7 +178,7 @@ def test_complex_logic_round_trip():
 def test_imports_and_feedback_round_trip():
     @scorer
     def feedback_scorer(outputs):
-        import re  # clint: disable=lazy-builtin-import
+        import re  # clint: disable=lazy-import
 
         pattern = r"\b\w+\b"
         words = re.findall(pattern, outputs)

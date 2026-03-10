@@ -16,7 +16,9 @@ export interface SessionHeaderRowData {
   persona?: string;
 }
 
-export type GroupedTraceTableRowData = { type: 'trace'; data: EvalTraceComparisonEntry } | SessionHeaderRowData;
+export type GroupedTraceTableRowData =
+  | { type: 'trace'; data: EvalTraceComparisonEntry; sessionId?: string }
+  | SessionHeaderRowData;
 
 export const SIMULATION_GOAL_KEY = 'mlflow.simulation.goal';
 export const SIMULATION_PERSONA_KEY = 'mlflow.simulation.persona';
@@ -257,6 +259,7 @@ export const groupTracesBySessionForTable = (
         result.push({
           type: 'trace',
           data: entry,
+          sessionId,
         });
 
         const traceId = entry.currentRunValue?.traceInfo?.trace_id;

@@ -48,12 +48,15 @@ def test_uc_type_to_json_schema_type():
         "type": "array",
         "items": {"type": "integer"},
     }
-    assert uc_type_to_json_schema_type(
-        {"type": "map", "keyType": "string", "valueType": "integer"}
-    ) == {"type": "object", "additionalProperties": {"type": "integer"}}
-    assert uc_type_to_json_schema_type(
-        {"type": "struct", "fields": [{"name": "field1", "type": "integer"}]}
-    ) == {"type": "object", "properties": {"field1": {"type": "integer"}}}
+    assert uc_type_to_json_schema_type({
+        "type": "map",
+        "keyType": "string",
+        "valueType": "integer",
+    }) == {"type": "object", "additionalProperties": {"type": "integer"}}
+    assert uc_type_to_json_schema_type({
+        "type": "struct",
+        "fields": [{"name": "field1", "type": "integer"}],
+    }) == {"type": "object", "properties": {"field1": {"type": "integer"}}}
 
     # Test with unsupported types
     with pytest.raises(TypeError, match=r"Type interval is not supported\."):

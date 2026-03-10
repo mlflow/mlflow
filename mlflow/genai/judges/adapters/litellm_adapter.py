@@ -244,6 +244,7 @@ def _invoke_litellm_and_handle_tools(
         config = get_gateway_litellm_config(model_name)
         api_base = config.api_base
         api_key = config.api_key
+        extra_headers = config.extra_headers
         model = config.model
     else:
         model = f"{provider}/{model_name}"
