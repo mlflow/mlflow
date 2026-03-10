@@ -642,7 +642,7 @@ def test_isolated_random_id_generator_not_affected_by_random_seed(monkeypatch):
 
 
 def test_tracer_provider_uses_isolated_random_id_generator_when_env_var_set(monkeypatch):
-    # Ensure env var is unset so default behavior is deterministic
+    # Ensure env var is unset so the default id generator is used
     monkeypatch.delenv("MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", raising=False)
 
     # Default: OTel's RandomIdGenerator is used
