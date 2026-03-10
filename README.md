@@ -3,7 +3,7 @@
         <img alt="MLflow logo" src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/logo.svg" width="200" />
     </a>
 </h1>
-<h2 align="center" style="border-bottom: none">The Largest Open Source AI Engineering Platform</h2>
+<h2 align="center" style="border-bottom: none">The Open Source AI Engineering Platform</h2>
 
 MLflow is the largest open source **AI engineering platform**. MLflow enables teams of all sizes to debug,
 evaluate, [monitor](https://mlflow.org/ai-monitoring), and optimize production-quality AI agents, LLM applications, and ML models while
