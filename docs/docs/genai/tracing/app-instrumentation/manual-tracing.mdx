@@ -389,8 +389,29 @@ class MyClass {
 
 By setting `request_preview` and `response_preview` on the trace (typically the root span), you control how the overall interaction is summarized in the main trace list view, making it easier to identify and understand traces at a glance.
 
-:::tip Multimodal Content
-You can attach images and audio to spans using content parts lists in `set_inputs()` and `set_outputs()`. See [Multimodal Content in Traces](/genai/tracing/observe-with-traces/multimodal#manual-tracing) for examples.
+:::tip Images and Audio Content in MLflow Traces
+You can attach images and audio to spans using content parts lists in `set_inputs()` and `set_outputs()`:
+
+```python
+with mlflow.start_span(name="multimodal-call") as span:
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What's in this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/photo.png"},
+                },
+            ],
+        }
+    ]
+    span.set_inputs({"messages": messages})
+    result = "A photo of a cat."
+    span.set_outputs({"content": result})
+```
+
+See [Image and Audio (Multimodal) Content in Traces](/genai/tracing/observe-with-traces/multimodal#manual-tracing) for more examples.
 :::
 
 ## Code Block

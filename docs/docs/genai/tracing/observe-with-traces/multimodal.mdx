@@ -1,6 +1,6 @@
 import { APILink } from "@site/src/components/APILink";
 
-# Multimodal Content in Traces
+# Image and Audio (Multimodal) Content in Traces
 
 MLflow Tracing captures and renders images and audio from multimodal AI models. When you send images or audio to models like GPT-4o or Claude, the multimodal content is preserved in trace data and displayed inline in the MLflow UI.
 
@@ -24,6 +24,10 @@ Images are represented as <APILink fn="mlflow.types.chat.ImageContentPart" /> ob
 An optional `detail` field controls the resolution at which the model processes the image (`auto`, `low`, or `high`).
 
 Both formats are rendered inline in the **Chat** tab of the trace viewer.
+
+:::note
+Large base64 payloads increase trace storage size. Consider using URLs for large images when possible.
+:::
 
 ### Audio
 
@@ -232,20 +236,7 @@ The MLflow trace viewer renders multimodal content in the **Chat** tab:
 
 The **Content** tab shows the raw JSON representation of the trace data, including the full base64-encoded payloads.
 
-## Python Types Reference
-
-MLflow provides Pydantic models for constructing multimodal chat messages programmatically:
-
-- <APILink fn="mlflow.types.chat.ChatMessage" /> — a chat message with text or multimodal content
-- <APILink fn="mlflow.types.chat.TextContentPart" /> — a text content part (`type: "text"`)
-- <APILink fn="mlflow.types.chat.ImageContentPart" /> — an image content part (`type: "image_url"`)
-- <APILink fn="mlflow.types.chat.AudioContentPart" /> — an audio content part (`type: "input_audio"`)
-- <APILink fn="mlflow.types.chat.ImageUrl" /> — image URL with optional `detail` parameter
-- <APILink fn="mlflow.types.chat.InputAudio" /> — base64-encoded audio data with format
-
 ## Limitations
 
 - **Video** is not supported — video content is not captured or rendered
 - **Documents/files** are not supported — PDF and other file attachments are not rendered
-- **Gemini multimodal** is not yet captured — only text content is traced for Google Gemini models
-- **Large base64 payloads** increase trace storage size — consider using URLs for large images when possible
