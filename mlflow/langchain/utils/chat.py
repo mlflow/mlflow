@@ -22,6 +22,7 @@ from mlflow.environment_variables import MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCH
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import (
+    AudioContentPart,
     ChatChoice,
     ChatChoiceDelta,
     ChatChunkChoice,
@@ -30,6 +31,7 @@ from mlflow.types.chat import (
     ChatCompletionResponse,
     ChatMessage,
     ChatUsage,
+    InputAudio,
 )
 
 _logger = logging.getLogger(__name__)
@@ -49,6 +51,44 @@ _TOKEN_USAGE_KEY_MAPPING = {
     # Gemini
     "cached_content_token_count": TokenUsageKey.CACHE_READ_INPUT_TOKENS,
 }
+
+
+def _normalize_content(
+    content: str | list[dict[str, Any]],
+) -> str | list[dict[str, Any]]:
+    """
+    Normalize multimodal content blocks from LangChain's format to MLflow's expected format.
+
+    LangChain uses ``{"type": "audio", "source_type": "base64", "data": "...", "mime_type":
+    "audio/wav"}`` while MLflow expects ``{"type": "input_audio", "input_audio": {"data": "...",
+    "format": "wav"}}``.  This function converts audio blocks in-place so that the content can
+    be validated by :class:`~mlflow.types.chat.ChatMessage`.
+    """
+    if isinstance(content, str):
+        return content
+
+    normalized = []
+    for block in content:
+        if not isinstance(block, dict):
+            normalized.append(block)
+            continue
+
+        if block.get("type") == "audio":
+            mime_type = block.get("mime_type", "")
+            # Extract format from mime_type (e.g. "audio/wav" -> "wav")
+            audio_format = mime_type.split("/")[-1] if "/" in mime_type else mime_type
+            audio_part = AudioContentPart(
+                type="input_audio",
+                input_audio=InputAudio(
+                    data=block.get("data", ""),
+                    format=audio_format,
+                ),
+            )
+            normalized.append(audio_part.model_dump())
+        else:
+            normalized.append(block)
+
+    return normalized
 
 
 def _extract_nested_token_details(d: dict[str, Any]) -> Iterator[tuple[str, int]]:
@@ -74,6 +114,7 @@ def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
             # For Anthropic model tool calls are returned twice so we need to filter them out
             if isinstance(content, list):
                 content = [c for c in content if c["type"] != "tool_use"]
+            content = _normalize_content(content)
             return ChatMessage(
                 role="assistant",
                 # If tool calls present, content null value should be None not empty string
@@ -83,21 +124,31 @@ def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
                 tool_calls=tool_calls,
             )
         else:
-            return ChatMessage(role="assistant", content=lc_message.content)
+            return ChatMessage(
+                role="assistant", content=_normalize_content(lc_message.content)
+            )
     elif isinstance(lc_message, ChatMessage):
-        return ChatMessage(role=lc_message.role, content=lc_message.content)
+        return ChatMessage(
+            role=lc_message.role, content=_normalize_content(lc_message.content)
+        )
     elif isinstance(lc_message, FunctionMessage):
-        return ChatMessage(role="function", content=lc_message.content)
+        return ChatMessage(
+            role="function", content=_normalize_content(lc_message.content)
+        )
     elif isinstance(lc_message, ToolMessage):
         return ChatMessage(
             role="tool",
-            content=lc_message.content,
+            content=_normalize_content(lc_message.content),
             tool_call_id=lc_message.tool_call_id,
         )
     elif isinstance(lc_message, HumanMessage):
-        return ChatMessage(role="user", content=lc_message.content)
+        return ChatMessage(
+            role="user", content=_normalize_content(lc_message.content)
+        )
     elif isinstance(lc_message, SystemMessage):
-        return ChatMessage(role="system", content=lc_message.content)
+        return ChatMessage(
+            role="system", content=_normalize_content(lc_message.content)
+        )
     else:
         raise MlflowException.invalid_parameter_value(
             f"Unexpected message type. Expected a BaseMessage subclass, but got: {type(lc_message)}"

@@ -95,6 +95,54 @@ def test_convert_lc_message_to_chat_message_tool_calls(message, expected):
     assert convert_lc_message_to_chat_message(message) == expected
 
 
+def test_convert_lc_message_to_chat_message_audio_content():
+    """LangChain's audio content blocks should be normalized to MLflow's input_audio format."""
+    message = HumanMessage(
+        content=[
+            {"type": "text", "text": "What is this audio?"},
+            {
+                "type": "audio",
+                "source_type": "base64",
+                "data": "SGVsbG8=",
+                "mime_type": "audio/wav",
+            },
+        ]
+    )
+    result = convert_lc_message_to_chat_message(message)
+    assert result.role == "user"
+    assert len(result.content) == 2
+    assert result.content[0].type == "text"
+    assert result.content[0].text == "What is this audio?"
+    assert result.content[1].type == "input_audio"
+    assert result.content[1].input_audio.data == "SGVsbG8="
+    assert result.content[1].input_audio.format == "wav"
+
+
+def test_convert_lc_message_to_chat_message_audio_mp3():
+    """Audio normalization should handle mp3 mime type."""
+    message = HumanMessage(
+        content=[
+            {
+                "type": "audio",
+                "source_type": "base64",
+                "data": "AAAA",
+                "mime_type": "audio/mp3",
+            },
+        ]
+    )
+    result = convert_lc_message_to_chat_message(message)
+    assert result.content[0].type == "input_audio"
+    assert result.content[0].input_audio.data == "AAAA"
+    assert result.content[0].input_audio.format == "mp3"
+
+
+def test_convert_lc_message_to_chat_message_string_content_unchanged():
+    """String content should pass through normalization unchanged."""
+    message = HumanMessage(content="just text")
+    result = convert_lc_message_to_chat_message(message)
+    assert result.content == "just text"
+
+
 def test_transform_response_to_chat_format_no_conversion():
     response = ["list_response"]
     assert try_transform_response_to_chat_format(response) == response
