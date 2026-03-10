@@ -45,8 +45,10 @@ export interface SpanOptions {
 /**
  * Options for tracing a function
  */
-export interface TraceOptions
-  extends Omit<SpanOptions, 'parent' | 'startTimeNs' | 'inputs' | 'name'> {
+export interface TraceOptions extends Omit<
+  SpanOptions,
+  'parent' | 'startTimeNs' | 'inputs' | 'name'
+> {
   /**
    * The name of the span.
    */
