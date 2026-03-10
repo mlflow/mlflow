@@ -6,16 +6,12 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 
 # Budget Alerts & Limits
 
-Budget policies let you control AI Gateway spending by setting cost thresholds with automatic alerts and request rejection. Each policy defines a dollar amount, a time window, and an action to take when the threshold is crossed.
+Budget policies let you control AI Gateway spending by setting a USD threshold over a recurring time window (daily, weekly, or monthly). When the threshold is crossed, the policy takes one of two actions:
 
-## Key Concepts
+- **Alert** — fires a webhook notification. Requests continue normally.
+- **Reject** — blocks subsequent requests with HTTP 429. The request that causes the spend to exceed the budget is allowed to complete; rejection applies to requests that arrive after the threshold has been crossed.
 
-| Concept            | Description                                                                  |
-| ------------------ | ---------------------------------------------------------------------------- |
-| **Budget Amount**  | The spending threshold in USD for the time window                            |
-| **Reset Period** | The fixed time window: daily, weekly, or monthly                             |
-| **Target Scope**   | `GLOBAL` (all requests) or `WORKSPACE` (scoped to a specific workspace)      |
-| **Budget Action**  | `ALERT` sends a webhook notification; `REJECT` blocks subsequent requests with HTTP 429 after the budget is exceeded |
+Spend resets automatically at the start of each new time window.
 
 ## Managing Budget Policies
 
@@ -25,15 +21,17 @@ Navigate to **AI Gateway > Budgets** in the MLflow UI to view and manage your bu
 
 ### Creating a Budget Policy
 
-Click **Create budget policy** to open the creation dialog. Specify the budget amount (USD), duration window, and the action to take when the threshold is crossed.
+Click **Create budget policy** to open the creation dialog. Specify the budget amount (USD), reset period, and the action to take when the threshold is crossed.
 
 <img src={useBaseUrl("/images/budget-policies-create.png")} alt="Create budget policy dialog" style={{ maxWidth: "100%" }} />
 
-Budget policies can also be managed via the REST API. See the [API reference](/api_reference/gateway/budget-policies) for details.
+Budget policies can also be managed via the REST API.
 
-## Alert Behavior
+## Alert Webhooks
 
-When an `ALERT` policy's threshold is crossed, the gateway fires a webhook with details about the breach. Requests continue to be processed normally.
+When an `ALERT` policy's threshold is crossed, the gateway fires a webhook with details about the breach. The alert fires once per window — subsequent requests within the same window do not trigger additional webhooks.
+
+Webhook endpoints can be configured directly from the **Budgets** page under the **Budget alert webhooks** section.
 
 The webhook payload includes:
 
@@ -51,13 +49,9 @@ The webhook payload includes:
 }
 ```
 
-The alert fires once per window — subsequent requests within the same window do not trigger additional webhooks.
-
-To configure the webhook endpoint that receives these alerts, see the [Webhook Configuration](/genai/governance/ai-gateway/webhooks) guide.
-
 ## Reject Behavior
 
-When a `REJECT` policy's threshold is crossed, the gateway blocks all subsequent requests to AI Gateway endpoints with an HTTP 429 response. The request that causes the cumulative spend to exceed the budget is allowed to complete — rejection applies to requests that arrive _after_ the threshold has been crossed.
+When a `REJECT` policy's threshold is crossed, the gateway blocks all subsequent requests to AI Gateway endpoints with an HTTP 429 response:
 
 ```
 HTTP/1.1 429 Too Many Requests
@@ -81,4 +75,4 @@ Accumulated spend resets to zero at the start of each new window. Budget trackin
 
 ## Authorization
 
-When [authentication](/auth/index) is enabled for the tracking server, only admin users can create, update, or delete budget policies.
+When [authentication](/self-hosting/security/basic-http-auth) is enabled for the tracking server, only admin users can create, update, or delete budget policies.
