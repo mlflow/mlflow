@@ -5943,7 +5943,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         name: str,
         description: str,
         status: IssueStatus = IssueStatus.PENDING,
-        confidence: str | None = None,
+        severity: str | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
         created_by: str | None = None,
@@ -5956,7 +5956,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             name: Short descriptive name for the issue.
             description: Detailed description of the issue.
             status: Issue status. Defaults to IssueStatus.PENDING.
-            confidence: Optional confidence level indicator.
+            severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional run ID that discovered this issue.
             created_by: Optional identifier for who created this issue.
@@ -5984,7 +5984,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 name=name,
                 description=description,
                 status=status.value,
-                confidence=confidence,
+                severity=severity,
                 root_causes=root_causes_json,
                 source_run_id=source_run_id,
                 created_timestamp=current_time,
@@ -6025,7 +6025,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         status: IssueStatus | None = None,
         name: str | None = None,
         description: str | None = None,
-        confidence: str | None = None,
+        severity: str | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -6035,7 +6035,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             status: Optional new status.
             name: Optional new name for the issue.
             description: Optional new description.
-            confidence: Optional new confidence level.
+            severity: Optional new severity level.
 
         Returns:
             The updated Issue entity.
@@ -6060,8 +6060,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 sql_issue.name = name
             if description is not None:
                 sql_issue.description = description
-            if confidence is not None:
-                sql_issue.confidence = confidence
+            if severity is not None:
+                sql_issue.severity = severity
 
             # Update last_updated_timestamp
             sql_issue.last_updated_timestamp = get_current_time_millis()
@@ -6602,6 +6602,26 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
         key_name = sql_statement.get("key")
         value = sql_statement.get("value")
         comparator = sql_statement.get("comparator").upper()
+
+        # Check if this is an issue filter (stored in assessments table)
+        # Note: Issue filters use the format 'issue.id = "issue-123"', which differs
+        # from assessment filters that use 'feedback/expectation.<key_name> <operator> <value>'.
+        # Issue filters match on issue ID, which is the assessment name instead of value.
+        if SearchTraceUtils.is_issue(key_type, key_name, comparator):
+            # Query assessments table for issue references
+            # IssueReference assessments have assessment_type='issue' and name=issue_id
+            issue_subquery = (
+                session
+                .query(SqlAssessments.trace_id.label("request_id"))
+                .filter(
+                    SqlAssessments.assessment_type == "issue",
+                    SqlAssessments.name == value,
+                )
+                .distinct()
+                .subquery()
+            )
+            span_filters.append(issue_subquery)
+            continue
 
         if SearchTraceUtils.is_attribute(key_type, key_name, comparator):
             if key_name in ("end_time_ms", "end_time"):
