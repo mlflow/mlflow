@@ -20,8 +20,6 @@ from mlflow.entities import (
     DatasetInput,
     Experiment,
     InputTag,
-    Issue,
-    IssueStatus,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -2266,79 +2264,6 @@ def delete_experiment(experiment_id: str) -> None:
 
     """
     MlflowClient().delete_experiment(experiment_id)
-
-
-def create_issue(
-    name: str,
-    description: str,
-    experiment_id: str | None = None,
-    status: IssueStatus | str | None = None,
-    confidence: str | None = None,
-    root_causes: list[str] | None = None,
-    source_run_id: str | None = None,
-    created_by: str | None = None,
-) -> Issue:
-    """
-    Create a new issue associated with an experiment.
-
-    Issues are used to track problems, anomalies, or observations discovered during
-    experiment runs. They can optionally be linked to specific runs and include
-    metadata like confidence levels and root cause analyses.
-
-    Args:
-        name: Short descriptive name for the issue.
-        description: Detailed description of the issue.
-        experiment_id: The experiment ID. If not provided, the current active experiment is used.
-        status: Issue status. Defaults to IssueStatus.PENDING if not provided.
-        confidence: Optional confidence level indicator.
-        root_causes: Optional list of root cause analyses.
-        source_run_id: Optional MLflow run ID that discovered this issue.
-        created_by: Optional identifier for who created this issue.
-
-    Returns:
-        The created Issue entity.
-
-    .. code-block:: python
-        :caption: Example
-
-        import mlflow
-
-        # Create an experiment
-        experiment_id = mlflow.create_experiment("Quality Monitoring")
-
-        # Create an issue with detailed metadata
-        with mlflow.start_run() as run:
-            issue = mlflow.create_issue(
-                experiment_id=experiment_id,
-                name="Model accuracy degradation",
-                description="Model accuracy dropped from 0.95 to 0.85",
-                status="accepted",
-                confidence="high",
-                root_causes=[
-                    "Training data distribution shift",
-                    "Feature engineering changes",
-                ],
-                source_run_id=run.info.run_id,
-                created_by="monitoring_system",
-            )
-    """
-    if status is None:
-        status = IssueStatus.PENDING
-    elif isinstance(status, str):
-        status = IssueStatus(status)
-
-    if experiment_id is None:
-        experiment_id = _get_experiment_id()
-    return MlflowClient().create_issue(
-        experiment_id=experiment_id,
-        name=name,
-        description=description,
-        status=status,
-        confidence=confidence,
-        root_causes=root_causes,
-        source_run_id=source_run_id,
-        created_by=created_by,
-    )
 
 
 def initialize_logged_model(

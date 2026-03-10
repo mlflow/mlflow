@@ -33,7 +33,6 @@ mlflow.client.MlflowClient.add_dataset_to_experiments
 mlflow.client.MlflowClient.copy_model_version
 mlflow.client.MlflowClient.create_dataset
 mlflow.client.MlflowClient.create_experiment
-mlflow.client.MlflowClient.create_issue
 mlflow.client.MlflowClient.create_logged_model
 mlflow.client.MlflowClient.create_model_version
 mlflow.client.MlflowClient.create_prompt
@@ -168,7 +167,6 @@ mlflow.config.set_tracking_uri
 mlflow.context
 mlflow.create_experiment
 mlflow.create_external_model
-mlflow.create_issue
 mlflow.create_workspace
 mlflow.crewai.autolog
 mlflow.data.dataset.Dataset
