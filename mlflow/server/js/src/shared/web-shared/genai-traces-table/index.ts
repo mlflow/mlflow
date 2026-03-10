@@ -97,6 +97,7 @@ export {
   SPAN_NAME_COLUMN_ID,
   SPAN_STATUS_COLUMN_ID,
   ISSUE_ID_COLUMN_ID,
+  ISSUES_COLUMN_ID,
 } from './hooks/useTableColumns';
 
 export { getSimulationColumnsToAdd } from './GenAiTracesTable.utils';
