@@ -260,6 +260,7 @@ export const GatewayUsagePage = () => {
       {/* Tabs */}
       <Tabs.Root
         componentId="mlflow.gateway.usage.tabs"
+        valueHasNoPii
         value={activeTab}
         onValueChange={(value) => {
           setSearchParams(

@@ -189,6 +189,7 @@ export const EditEndpointFormRenderer = ({
 
       <Tabs.Root
         componentId="mlflow.gateway.endpoint.tabs"
+        valueHasNoPii
         value={activeTab}
         onValueChange={(value) => {
           setSearchParams(
