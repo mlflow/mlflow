@@ -106,6 +106,7 @@ export const defaultError = ({ reject, response, err }: any) => {
  * Makes a fetch request.
  * Note this is not intended to be used outside of this file,
  * use `fetchEndpoint` instead.
+ * @deprecated Use `fetchAPI` or `fetchOrFail` instead.
  */
 export const fetchEndpointRaw = ({
   relativeUrl,
@@ -212,6 +213,7 @@ const defaultFetchErrorConditionFn = (res: any) => !res || (!res.ok && !HTTPRetr
 
 /**
  * Makes a fetch request.
+ * @deprecated Use `fetchAPI` or `fetchOrFail` instead.
  * @param relativeUrl: relative URL to the shard URL
  * @param method: HTTP method for the request
  * @param body: request body
@@ -291,6 +293,7 @@ const generateJsonBody = (data: any) => {
 
 /* All functions below are essentially syntactic sugars for fetchEndpoint */
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const getJson = (props: any) => {
   const { relativeUrl, data } = props;
   const queryParams = new URLSearchParams(filterUndefinedFields(data)).toString();
@@ -303,6 +306,7 @@ export const getJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const postJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -313,6 +317,7 @@ export const postJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const putJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -323,6 +328,7 @@ export const putJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const patchJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -333,6 +339,7 @@ export const patchJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const deleteJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -343,6 +350,7 @@ export const deleteJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const getBigIntJson = (props: any) => {
   const { relativeUrl, data } = props;
   const queryParams = new URLSearchParams(filterUndefinedFields(data));
@@ -356,6 +364,7 @@ export const getBigIntJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const postBigIntJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -366,6 +375,7 @@ export const postBigIntJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const putBigIntJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -376,6 +386,7 @@ export const putBigIntJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const patchBigIntJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -386,6 +397,7 @@ export const patchBigIntJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const deleteBigIntJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -396,6 +408,7 @@ export const deleteBigIntJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const getYaml = (props: any) => {
   const { relativeUrl, data } = props;
   const queryParams = new URLSearchParams(filterUndefinedFields(data));
@@ -407,6 +420,7 @@ export const getYaml = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const postYaml = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -417,6 +431,7 @@ export const postYaml = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const putYaml = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -427,6 +442,7 @@ export const putYaml = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const patchYaml = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -437,6 +453,7 @@ export const patchYaml = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` or `fetchOrFail` instead. */
 export const deleteYaml = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
