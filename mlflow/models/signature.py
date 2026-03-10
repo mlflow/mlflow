@@ -230,6 +230,8 @@ def infer_signature(
                         "remove_invalid_values": True,
                     }
 
+                    import mlflow
+
                     # For transformers models, pass input_example directly to
                     # log_model/save_model to automatically infer the signature:
                     mlflow.transformers.save_model(

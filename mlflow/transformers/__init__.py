@@ -1768,7 +1768,9 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return signature.generate_signature_output(pipeline, data, model_config, params)
+    return signature.generate_signature_output(
+        pipeline, data, model_config=model_config, params=params, flavor_config=flavor_config
+    )
 
 
 class _TransformersWrapper:
