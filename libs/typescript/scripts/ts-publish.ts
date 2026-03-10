@@ -21,7 +21,13 @@ interface PackageEntry {
 
 type Matrix = Record<string, PackageEntry>;
 
-const NETWORK_ERROR_PATTERNS = ['ETIMEDOUT', 'ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'EAI_AGAIN'];
+const NETWORK_ERROR_PATTERNS = [
+  'ETIMEDOUT',
+  'ECONNREFUSED',
+  'ECONNRESET',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+];
 
 function parseArgs(): { matrix: Matrix; dryRun: boolean } {
   const args = process.argv.slice(2);
@@ -54,7 +60,8 @@ function parseArgs(): { matrix: Matrix; dryRun: boolean } {
   try {
     matrix = JSON.parse(matrixJson);
   } catch (e) {
-    console.error(`Error: Failed to parse --matrix JSON: ${e instanceof Error ? e.message : e}`);
+    const message = e instanceof Error ? e.message : String(e);
+    console.error(`Error: Failed to parse --matrix JSON: ${message}`);
     process.exit(1);
   }
 
@@ -107,9 +114,13 @@ function npmPublishState(name: string, version: string): 'published' | 'missing'
 function publishOrder(matrix: Matrix): string[] {
   const keys = Object.keys(matrix);
   const order: string[] = [];
-  if (keys.includes('core')) order.push('core');
+  if (keys.includes('core')) {
+    order.push('core');
+  }
   for (const k of keys.sort()) {
-    if (k !== 'core') order.push(k);
+    if (k !== 'core') {
+      order.push(k);
+    }
   }
   return order;
 }

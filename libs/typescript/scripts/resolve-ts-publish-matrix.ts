@@ -108,7 +108,9 @@ function git(cmd: string): string {
 }
 
 function readVersion(dir: string): string {
-  const pkgJson = JSON.parse(readFileSync(path.join(REPO_ROOT, dir, 'package.json'), 'utf-8'));
+  const pkgJson: { version: string } = JSON.parse(
+    readFileSync(path.join(REPO_ROOT, dir, 'package.json'), 'utf-8'),
+  );
   return pkgJson.version;
 }
 
@@ -148,7 +150,9 @@ function main(): void {
     const version = readVersion(dir);
     const publish = selected.includes(pkg) && shouldPublish(npm_name, version, dir);
 
-    if (publish) anyPublish = true;
+    if (publish) {
+      anyPublish = true;
+    }
 
     matrix[pkg] = { publish, version, npm_name, dir };
   }

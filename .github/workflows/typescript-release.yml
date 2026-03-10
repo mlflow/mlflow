@@ -14,7 +14,7 @@ on:
       dry_run:
         description: "Dry run (skip npm publish and git tag)"
         required: false
-        default: false
+        default: true
         type: boolean
 
 concurrency:
