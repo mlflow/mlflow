@@ -21,7 +21,7 @@ export const useIssueDetectionNotification = (experimentId?: string) => {
   const [isOpen, setIsOpen] = useState(false);
   const [runId, setRunId] = useState<string | undefined>(undefined);
 
-  const runPageLink = experimentId && runId ? Routes.getRunPageRoute(experimentId, runId) : undefined;
+  const runPageLink = experimentId && runId ? Routes.getIssueDetectionRunDetailsRoute(experimentId, runId) : undefined;
 
   const showIssueDetectionNotification = useCallback((newRunId?: string) => {
     setRunId(newRunId);
