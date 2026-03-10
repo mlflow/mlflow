@@ -1457,7 +1457,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Get distinct steps across all runs using SQL instead of loading all rows
             all_steps = [
                 row[0]
-                for row in session.query(distinct(SqlMetric.step))
+                for row in session
+                .query(distinct(SqlMetric.step))
                 .filter(
                     SqlMetric.key == metric_key,
                     SqlMetric.run_uuid.in_(run_ids),
@@ -1472,7 +1473,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Preserve min/max steps per run for data boundary accuracy
             all_mins_and_maxes = set()
             for min_step, max_step in (
-                session.query(func.min(SqlMetric.step), func.max(SqlMetric.step))
+                session
+                .query(func.min(SqlMetric.step), func.max(SqlMetric.step))
                 .filter(SqlMetric.key == metric_key, SqlMetric.run_uuid.in_(run_ids))
                 .group_by(SqlMetric.run_uuid)
                 .all()
