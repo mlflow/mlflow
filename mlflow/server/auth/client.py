@@ -581,7 +581,7 @@ class AuthServiceClient:
         Args:
             prompt_name: The name of the registered prompt.
             username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
+            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE", "USE" and
                 "NO_PERMISSIONS".
 
         Raises:
