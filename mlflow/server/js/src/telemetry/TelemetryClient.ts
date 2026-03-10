@@ -111,6 +111,11 @@ class TelemetryClient {
       },
     };
 
+    if (process.env.NODE_ENV === 'development') {
+      // eslint-disable-next-line no-console
+      console.log(`[TelemetryClient] Clicked ${record.componentId}, payload:`, payload);
+    }
+
     this.port?.postMessage({
       type: ClientToWorkerMessageType.LOG_EVENT,
       payload,
