@@ -33,11 +33,22 @@ const SAMPLE_WEBHOOK = {
   description: 'A test webhook',
 };
 
+const BUDGET_WEBHOOK = {
+  webhook_id: 'wh-2',
+  name: 'Budget Alert',
+  url: 'https://example.com/budget',
+  events: [{ entity: 'BUDGET_POLICY', action: 'EXCEEDED' }],
+  status: 'ACTIVE',
+  creation_timestamp: '1700000000000',
+  last_updated_timestamp: '1700000000000',
+  description: 'A budget webhook',
+};
+
 describe('WebhooksSettings', () => {
-  const renderComponent = () =>
+  const renderComponent = (props?: Partial<React.ComponentProps<typeof WebhooksSettings>>) =>
     renderWithIntl(
       <DesignSystemProvider>
-        <WebhooksSettings />
+        <WebhooksSettings {...props} />
       </DesignSystemProvider>,
     );
 
@@ -188,6 +199,28 @@ describe('WebhooksSettings', () => {
     await waitFor(() => {
       expect(screen.getByText('Test succeeded (HTTP 200)')).toBeInTheDocument();
     });
+  });
+
+  it('filters webhooks by eventFilter when provided', async () => {
+    mockListWebhooks.mockResolvedValue({ webhooks: [SAMPLE_WEBHOOK, BUDGET_WEBHOOK] });
+
+    renderComponent({ eventFilter: 'BUDGET_POLICY' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Budget Alert')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Test Webhook')).not.toBeInTheDocument();
+  });
+
+  it('shows all webhooks when eventFilter is not provided', async () => {
+    mockListWebhooks.mockResolvedValue({ webhooks: [SAMPLE_WEBHOOK, BUDGET_WEBHOOK] });
+
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Webhook')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Budget Alert')).toBeInTheDocument();
   });
 
   it('shows error when loading webhooks fails', async () => {

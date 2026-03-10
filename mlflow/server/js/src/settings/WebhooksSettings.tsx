@@ -8,7 +8,7 @@ import WebhookFormModal from './WebhookFormModal';
 import WebhookDeleteModal from './WebhookDeleteModal';
 
 interface WebhooksSettingsProps {
-  /** Filter displayed webhooks to only those containing at least one event matching this entity prefix */
+  /** Filter displayed webhooks to only those containing at least one event whose entity matches this value exactly */
   eventFilter?: string;
   /** Title override */
   title?: React.ReactNode;
@@ -160,7 +160,7 @@ const WebhooksSettings = ({
 
       {error && (
         <Alert
-          componentId="mlflow.settings.webhooks.error-alert"
+          componentId={`${componentIdPrefix}.error-alert`}
           type="error"
           message={error}
           closable
@@ -170,7 +170,7 @@ const WebhooksSettings = ({
 
       {testResult && (
         <Alert
-          componentId="mlflow.settings.webhooks.test-result-alert"
+          componentId={`${componentIdPrefix}.test-result-alert`}
           type={testResult.success ? 'info' : 'error'}
           message={testResult.message}
           closable
