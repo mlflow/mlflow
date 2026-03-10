@@ -333,7 +333,7 @@ def log_issue(
     *,
     trace_id: str,
     issue_id: str,
-    issue_name: str,
+    issue_name: str | None = None,
     source: AssessmentSource | None = None,
     run_id: str | None = None,
     rationale: str | None = None,
@@ -347,7 +347,8 @@ def log_issue(
     Args:
         trace_id: The ID of the trace.
         issue_id: The ID of the issue to reference.
-        issue_name: The name of the issue.
+        issue_name: The name of the issue. If not provided, the issue name will be fetched
+                using the issue ID from the backend store.
         source: The source represents how this issue was detected on the trace, for example,
                 human review or automatic AI scan. Must be an instance of
                 :py:class:`~mlflow.entities.AssessmentSource`. If not provided, defaults to
@@ -379,6 +380,8 @@ def log_issue(
                 rationale="Response time exceeded 2 seconds threshold",
             )
     """
+    if issue_name is None:
+        issue_name = TracingClient().get_issue(issue_id).name
     assessment = IssueReference(
         issue_id=issue_id,
         issue_name=issue_name,

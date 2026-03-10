@@ -11,6 +11,7 @@ from mlflow.entities.assessment import (
     IssueReference,
 )
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.issue import IssueStatus
 from mlflow.exceptions import MlflowException
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -515,6 +516,30 @@ def test_log_issue_with_run_id_and_span_id():
     assert assessment.source == _LLM_ASSESSMENT_SOURCE
     assert assessment.rationale == "Input data contains missing values in critical fields"
     assert assessment.metadata == {"category": "data", "priority": "high"}
+
+
+def test_log_issue_without_issue_name(trace_id, tracking_uri):
+    if tracking_uri.startswith("file:"):
+        pytest.skip("Issue APIs are not supported with file-based tracking URI")
+
+    tracing_client = mlflow.MlflowClient()._tracing_client
+    issue = tracing_client.create_issue(
+        experiment_id="0",
+        name="timeout_error",
+        description="Request exceeded 30 second timeout",
+        status=IssueStatus.PENDING,
+    )
+    mlflow.log_issue(
+        trace_id=trace_id,
+        issue_id=issue.issue_id,
+        source=_CODE_ASSESSMENT_SOURCE,
+        rationale="Request exceeded 30 second timeout",
+        metadata={"severity": "high", "affected_count": "150"},
+    )
+    trace = mlflow.get_trace(trace_id)
+    assessment = trace.info.assessments[0]
+    assert assessment.issue_id == issue.issue_id
+    assert assessment.issue_name == "timeout_error"
 
 
 def test_log_feedback_and_exception_blocks_positional_args():
