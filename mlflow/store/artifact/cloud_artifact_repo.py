@@ -87,8 +87,10 @@ def _complete_futures(futures_dict, file):
 
 
 class StagedArtifactUpload(NamedTuple):
-    src_file_path: str  # Local filesystem path
-    artifact_file_path: str  # Remote artifact path
+    # Local filesystem path of the source file to upload
+    src_file_path: str
+    # Base artifact URI-relative path specifying the upload destination
+    artifact_file_path: str
 
 
 @dataclass
@@ -364,11 +366,10 @@ class CloudArtifactRepository(ArtifactRepository):
                     # Add delay before next upload to allow proxy cleanup
                     if idx < len(plans) - 1:
                         delay = self._compute_upload_delay(plan.file_size)
-                        if plan.file_size > _LARGE_FILE_SIZE_THRESHOLD:
-                            _logger.debug(
-                                f"Large file ({plan.file_size / 1024**2:.1f}MB) uploaded. "
-                                f"Waiting {delay}s before next upload to ensure proxy cleanup."
-                            )
+                        _logger.debug(
+                            f"Uploaded {plan.src_path} ({plan.file_size / 1024**2:.1f}MB). "
+                            f"Waiting {delay}s before next upload for proxy cleanup."
+                        )
                         time.sleep(delay)
 
                 except Exception as e:
