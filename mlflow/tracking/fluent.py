@@ -251,7 +251,7 @@ def set_experiment(
     # so that subprocess can inherit it.
     MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
     if resolved_location is not None:
-        experiment._set_trace_location(resolved_location)
+        experiment.trace_location = resolved_location
 
     _sync_trace_destination_and_provider(resolved_location, experiment)
 
