@@ -408,7 +408,6 @@ export const deleteBigIntJson = (props: any) => {
   });
 };
 
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const getYaml = (props: any) => {
   const { relativeUrl, data } = props;
   const queryParams = new URLSearchParams(filterUndefinedFields(data));
@@ -420,7 +419,6 @@ export const getYaml = (props: any) => {
   });
 };
 
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const postYaml = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -431,7 +429,6 @@ export const postYaml = (props: any) => {
   });
 };
 
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const putYaml = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -442,7 +439,6 @@ export const putYaml = (props: any) => {
   });
 };
 
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const patchYaml = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -453,7 +449,6 @@ export const patchYaml = (props: any) => {
   });
 };
 
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const deleteYaml = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
