@@ -3,10 +3,6 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > retrieval relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
   },
-  "++Ydlz": {
-    "defaultMessage": "Assessments",
-    "description": "Label for the assessments pane"
-  },
   "+/Zrmm": {
     "defaultMessage": "Temperature",
     "description": "Label for temperature input"
@@ -22,6 +18,10 @@
   "+4+wQY": {
     "defaultMessage": "Store it securely and restrict access to server administrators only.",
     "description": "AI Gateway setup guide > Passphrase warning security note"
+  },
+  "+6tmRn": {
+    "defaultMessage": "Name",
+    "description": "Field label for assessment name in a creation form"
   },
   "+8+eEg": {
     "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
@@ -54,10 +54,6 @@
   "+Njd07": {
     "defaultMessage": "No sessions found",
     "description": "Title for the empty sessions list in the select sessions modal"
-  },
-  "+SBxBK": {
-    "defaultMessage": "Assessment Type",
-    "description": "Field label for assessment type in a creation form"
   },
   "+WPAn1": {
     "defaultMessage": "Enter model name...",
@@ -326,10 +322,6 @@
   "08WP3h": {
     "defaultMessage": "Staging",
     "description": "Column title for staging phase version in the registered model page"
-  },
-  "0AOcOr": {
-    "defaultMessage": "Feedback",
-    "description": "Feedback select menu option for assessment type"
   },
   "0Bee6A": {
     "defaultMessage": "No retrieval logged",
@@ -1833,10 +1825,6 @@
   "AbCFL2": {
     "defaultMessage": "Response from the endpoint after clicking Send request.",
     "description": "Response body tooltip"
-  },
-  "AdlJNW": {
-    "defaultMessage": "Assessment Name",
-    "description": "Field label for assessment name in a creation form"
   },
   "AeRhuI": {
     "defaultMessage": "Conversational guidelines",
@@ -6411,10 +6399,6 @@
     "defaultMessage": "<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}",
     "description": "Message for displaying how many runs match search criteria on experiment page"
   },
-  "gN67TK": {
-    "defaultMessage": "Enter an assessment name",
-    "description": "Placeholder for the assessment name typeahead"
-  },
   "gOUJ0f": {
     "defaultMessage": "No assessment for this evaluation",
     "description": "Text displayed when there is no assessment for a given evaluation"
@@ -7707,6 +7691,10 @@
     "defaultMessage": "Select at least one session to enable actions",
     "description": "Tooltip for disabled actions button when no sessions are selected"
   },
+  "ojLGIx": {
+    "defaultMessage": "Enter a feedback name",
+    "description": "Placeholder for the feedback name typeahead"
+  },
   "okQ1oB": {
     "defaultMessage": "Please input a new name for the new experiment.",
     "description": "Error message for name requirement in create experiment for MLflow"
@@ -8387,10 +8375,6 @@
     "defaultMessage": "Model {modelName} does not exist",
     "description": "Sub-message text for error message on overall model page"
   },
-  "tEaqGu": {
-    "defaultMessage": "Expectation",
-    "description": "Expectation select menu option for assessment type"
-  },
   "tGqJL4": {
     "defaultMessage": "Output",
     "description": "Label for the output tokens in the tooltip for the tokens cell."
@@ -8714,6 +8698,10 @@
   "vxY1CI": {
     "defaultMessage": "Status",
     "description": "Run page > Overview > Run status section label"
+  },
+  "w+Josc": {
+    "defaultMessage": "Enter an expectation name",
+    "description": "Placeholder for the expectation name typeahead"
   },
   "w/sljb": {
     "defaultMessage": "Sort descending",

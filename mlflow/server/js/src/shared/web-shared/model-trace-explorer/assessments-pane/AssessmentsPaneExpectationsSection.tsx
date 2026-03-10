@@ -101,7 +101,7 @@ export const AssessmentsPaneExpectationsSection = ({
         <AssessmentCreateForm
           spanId={activeSpanId}
           traceId={traceId}
-          initialAssessmentType="expectation"
+          assessmentType="expectation"
           setExpanded={() => setCreateFormVisible(false)}
         />
       )}
