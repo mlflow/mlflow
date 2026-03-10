@@ -755,7 +755,7 @@ class TracingClient:
         name: str,
         description: str,
         status: IssueStatus,
-        confidence: str | None = None,
+        severity: str | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
         created_by: str | None = None,
@@ -768,7 +768,7 @@ class TracingClient:
             name: Short descriptive name for the issue.
             description: Detailed description of the issue.
             status: Issue status. Defaults to IssueStatus.PENDING if not provided.
-            confidence: Optional confidence level indicator.
+            severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional MLflow run ID that discovered this issue.
             created_by: Optional identifier for who created this issue.
@@ -781,7 +781,7 @@ class TracingClient:
             name=name,
             description=description,
             status=status,
-            confidence=confidence,
+            severity=severity,
             root_causes=root_causes,
             source_run_id=source_run_id,
             created_by=created_by,

@@ -3637,7 +3637,7 @@ def test_create_issue_basic(tmp_path: Path):
         assert issue.name == "Test issue"
         assert issue.description == "This is a test issue"
         assert issue.status == IssueStatus.PENDING
-        assert issue.confidence is None
+        assert issue.severity is None
         assert issue.root_causes is None
         assert issue.source_run_id is None
         assert issue.created_by is None
@@ -3658,7 +3658,7 @@ def test_create_issue_with_all_fields(tmp_path: Path):
                 name="High latency",
                 description="API response times exceed threshold",
                 status=IssueStatus.ACCEPTED,
-                confidence="high",
+                severity="high",
                 root_causes=["Database query slow", "Network congestion"],
                 source_run_id=run.info.run_id,
                 created_by="monitoring_system",
@@ -3669,7 +3669,7 @@ def test_create_issue_with_all_fields(tmp_path: Path):
     assert issue.name == "High latency"
     assert issue.description == "API response times exceed threshold"
     assert issue.status == IssueStatus.ACCEPTED
-    assert issue.confidence == "high"
+    assert issue.severity == "high"
     assert issue.root_causes == ["Database query slow", "Network congestion"]
     assert issue.source_run_id == run.info.run_id
     assert issue.created_by == "monitoring_system"
