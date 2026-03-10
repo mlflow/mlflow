@@ -6,7 +6,12 @@
  */
 import { v4 as uuidv4 } from 'uuid';
 import type { TelemetryRecord } from './worker/types';
-import { isDesignSystemEvent, TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from './utils';
+import {
+  isDesignSystemEvent,
+  isTelemetryDevLoggingEnabled,
+  TELEMETRY_ENABLED_STORAGE_KEY,
+  TELEMETRY_ENABLED_STORAGE_VERSION,
+} from './utils';
 import { WorkerToClientMessageType, ClientToWorkerMessageType } from './worker/types';
 import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
 
@@ -111,7 +116,7 @@ class TelemetryClient {
       },
     };
 
-    if (process.env['NODE_ENV'] === 'development') {
+    if (process.env['NODE_ENV'] === 'development' && isTelemetryDevLoggingEnabled()) {
       // eslint-disable-next-line no-console
       console.log(`[TelemetryClient] Clicked ${record.componentId}, payload:`, payload);
     }
