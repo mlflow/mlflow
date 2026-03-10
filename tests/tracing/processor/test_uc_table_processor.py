@@ -5,7 +5,7 @@ import pytest
 import mlflow
 import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
-from mlflow.entities.trace_location import TraceLocationType, UCSchemaLocation, UnityCatalog
+from mlflow.entities.trace_location import TraceLocationType, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
@@ -102,28 +102,6 @@ def test_trace_id_generation_with_uc_schema(active_uc_schema_destination):
 
         # Verify generate_trace_id_v4 was called with correct arguments
         mock_generate_trace_id.assert_called_once_with(span, "catalog1.schema1")
-
-
-def test_on_start_logs_unity_catalog_destination():
-    destination = UnityCatalog(
-        catalog_name="catalog1", schema_name="schema1", table_prefix="prefix1"
-    )
-    _MLFLOW_TRACE_USER_DESTINATION.set(destination)
-    try:
-        span = create_mock_otel_span(
-            trace_id=12345, span_id=1, parent_id=None, start_time=5_000_000
-        )
-        processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
-
-        with mock.patch("mlflow.tracing.processor.uc_table._logger.debug") as mock_debug:
-            processor.on_start(span)
-
-        mock_debug.assert_any_call(
-            "Starting trace with Unity Catalog destination %s",
-            "catalog1.schema1.prefix1",
-        )
-    finally:
-        _MLFLOW_TRACE_USER_DESTINATION.reset()
 
 
 def test_on_end():

@@ -43,6 +43,7 @@ from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_RUN_ID,
+    MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -238,7 +239,7 @@ def set_experiment(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    resolved_location = _register_experiment_trace_location(
+    resolved_location = _resolve_experiment_to_trace_location(
         experiment=experiment,
         trace_location=trace_location,
     )
@@ -279,7 +280,7 @@ def _sync_trace_destination_and_provider(
         _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
 
     is_uc_destination = resolved_location is not None or bool(
-        _extract_telemetry_profile_id(experiment)
+        experiment.tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID)
     )
 
     # Re-initialize provider when switching between UC and non-UC (processor type changes).
@@ -289,12 +290,7 @@ def _sync_trace_destination_and_provider(
         _initialize_tracer_provider()
 
 
-def _extract_telemetry_profile_id(experiment: Experiment) -> str | None:
-    tags = experiment.tags or {}
-    return tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID)
-
-
-def _register_experiment_trace_location(
+def _resolve_experiment_to_trace_location(
     experiment: Experiment,
     trace_location: UnityCatalog | None,
 ) -> UnityCatalog | None:
@@ -322,7 +318,9 @@ def _register_experiment_trace_location(
 
     # Check if the experiment is already linked to a UC location via the backend.
     existing_location = None
-    if telemetry_profile_id := _extract_telemetry_profile_id(experiment):
+    if telemetry_profile_id := experiment.tags.get(
+        MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
+    ):
         try:
             existing_location = tracing_client._get_trace_location(telemetry_profile_id)
         except Exception:
@@ -344,7 +342,10 @@ def _register_experiment_trace_location(
 
     # Experiment has no existing link — register the location in the backend
     # and link it to this experiment.
-    resolved = tracing_client._create_or_get_trace_location(trace_location)
+    resolved = tracing_client._create_or_get_trace_location(
+        trace_location,
+        MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+    )
     tracing_client._link_trace_location(
         experiment_id=experiment.experiment_id,
         location=resolved,

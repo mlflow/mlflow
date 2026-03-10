@@ -48,7 +48,7 @@ from mlflow.utils.validation import (
 class MockExperiment(NamedTuple):
     experiment_id: str
     lifecycle_stage: str
-    tags: dict[str, str] = {}
+    tags: dict = {}
 
 
 def test_create_experiment():

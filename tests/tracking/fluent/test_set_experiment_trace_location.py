@@ -7,7 +7,7 @@ from mlflow.entities import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.fluent import _register_experiment_trace_location
+from mlflow.tracking.fluent import _resolve_experiment_to_trace_location
 from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
 
 
@@ -24,7 +24,7 @@ def _experiment(tags=None):
 
 def test_invalid_type_raises():
     with pytest.raises(MlflowException, match="UnityCatalog"):
-        _register_experiment_trace_location(
+        _resolve_experiment_to_trace_location(
             experiment=_experiment(),
             trace_location="not-a-location",
         )
@@ -34,7 +34,7 @@ def test_uc_schema_location_is_rejected():
     from mlflow.entities.trace_location import UCSchemaLocation
 
     with pytest.raises(MlflowException, match="UnityCatalog"):
-        _register_experiment_trace_location(
+        _resolve_experiment_to_trace_location(
             experiment=_experiment(),
             trace_location=UCSchemaLocation("catalog", "schema"),
         )
@@ -42,7 +42,7 @@ def test_uc_schema_location_is_rejected():
 
 def test_no_trace_location_returns_none():
     with mock.patch("mlflow.tracking.fluent.TracingClient") as mock_tc_cls:
-        result = _register_experiment_trace_location(
+        result = _resolve_experiment_to_trace_location(
             experiment=_experiment(),
             trace_location=None,
         )
@@ -56,7 +56,7 @@ def test_non_databricks_backend_raises():
         mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=False),
     ):
         with pytest.raises(MlflowException, match="only supported with a Databricks tracking URI"):
-            _register_experiment_trace_location(
+            _resolve_experiment_to_trace_location(
                 experiment=_experiment(),
                 trace_location=UnityCatalog("catalog", "schema", "prefix"),
             )
@@ -74,7 +74,8 @@ def test_set_experiment_with_table_prefix_env_var_points_to_trace_location_param
         mlflow.set_experiment("test-experiment")
 
 
-def test_creates_and_links_when_no_existing_location():
+def test_creates_and_links_when_no_existing_location(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "warehouse-1")
     requested = UnityCatalog("catalog", "schema", table_prefix="prefix")
     resolved = UnityCatalog("catalog", "schema", table_prefix="prefix")
 
@@ -87,14 +88,14 @@ def test_creates_and_links_when_no_existing_location():
         tc._get_trace_location.return_value = None
         tc._create_or_get_trace_location.return_value = resolved
 
-        result = _register_experiment_trace_location(
+        result = _resolve_experiment_to_trace_location(
             experiment=_experiment(),
             trace_location=requested,
         )
 
         assert result is resolved
         tc._get_trace_location.assert_not_called()
-        tc._create_or_get_trace_location.assert_called_once_with(requested)
+        tc._create_or_get_trace_location.assert_called_once_with(requested, "warehouse-1")
         tc._link_trace_location.assert_called_once_with(
             experiment_id="123",
             location=resolved,
@@ -116,7 +117,7 @@ def test_noop_when_existing_location_matches():
         tc = tc_cls.return_value
         tc._get_trace_location.return_value = existing
 
-        result = _register_experiment_trace_location(
+        result = _resolve_experiment_to_trace_location(
             experiment=experiment,
             trace_location=requested,
         )
@@ -143,7 +144,7 @@ def test_errors_when_existing_location_differs():
         tc._get_trace_location.return_value = existing
 
         with pytest.raises(MlflowException, match="already linked to a different"):
-            _register_experiment_trace_location(
+            _resolve_experiment_to_trace_location(
                 experiment=experiment,
                 trace_location=requested,
             )
@@ -154,7 +155,7 @@ def test_set_experiment_wires_trace_location_to_returned_experiment():
 
     with (
         mock.patch(
-            "mlflow.tracking.fluent._register_experiment_trace_location",
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
             return_value=resolved,
         ) as mock_register,
         mock.patch(
@@ -181,7 +182,7 @@ def test_set_experiment_with_trace_location_installs_uc_processor():
 
     with (
         mock.patch(
-            "mlflow.tracking.fluent._register_experiment_trace_location",
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
             return_value=resolved,
         ) as mock_register,
     ):

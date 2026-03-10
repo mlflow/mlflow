@@ -51,6 +51,7 @@ from mlflow.utils.databricks_utils import (
     is_mlflow_tracing_enabled_in_model_serving,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
+from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
@@ -539,8 +540,8 @@ def _get_trace_sampler() -> _MlflowSampler | None:
 
 def _resolve_experiment_uc_location() -> UnityCatalog | None:
     # Lazy imports to avoid circular dependency (tracking.fluent -> tracing.provider).
+    from mlflow.tracing.client import TracingClient
     from mlflow.tracking.fluent import _get_experiment_id
-    from mlflow.utils.uri import is_databricks_uri
 
     tracking_uri = mlflow.get_tracking_uri()
     if not tracking_uri or not is_databricks_uri(tracking_uri):
@@ -551,10 +552,7 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
         if not experiment_id:
             return None
 
-        from mlflow.tracking._tracking_service.utils import _get_store
-
-        store = _get_store(tracking_uri)
-        experiment = store.get_experiment(experiment_id)
+        experiment = mlflow.get_experiment(experiment_id)
         if not experiment:
             return None
 
@@ -562,8 +560,6 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
         telemetry_profile_id = tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID)
         if not telemetry_profile_id:
             return None
-
-        from mlflow.tracing.client import TracingClient
 
         return TracingClient(tracking_uri)._get_trace_location(telemetry_profile_id)
     except Exception:
