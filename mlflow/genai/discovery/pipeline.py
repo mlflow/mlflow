@@ -21,12 +21,10 @@ from mlflow.genai.discovery.clustering import (
 from mlflow.genai.discovery.constants import (
     DEFAULT_MODEL,
     DEFAULT_SCORER_NAME,
-    MAX_EXAMPLE_TRACE_IDS,
     MIN_SEVERITY,
     NO_ISSUE_KEYWORD,
     SEVERITY_ORDER,
     TRACE_ANNOTATION_SYSTEM_PROMPT,
-    TRACE_CONTENT_TRUNCATION,
     build_satisfaction_instructions,
     severity_gte,
     severity_max,
@@ -39,7 +37,6 @@ from mlflow.genai.discovery.entities import (
 )
 from mlflow.genai.discovery.extraction import (
     extract_assessment_rationale,
-    extract_execution_path,
     extract_execution_paths_for_session,
     extract_failing_traces,
     extract_failure_labels,
@@ -50,6 +47,8 @@ from mlflow.genai.discovery.utils import (
     _call_llm,
     _TokenCounter,
     build_summary,
+    collect_example_trace_ids,
+    format_trace_content,
     get_session_id,
     group_traces_by_session,
     log_discovery_artifacts,
@@ -66,32 +65,6 @@ _logger = logging.getLogger(__name__)
 
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
     return issue.severity == "not_an_issue" or NO_ISSUE_KEYWORD.lower() in issue.name.lower()
-
-
-def _collect_example_trace_ids(
-    issue: _IdentifiedIssue,
-    analyses: list[_ConversationAnalysis],
-) -> list[str]:
-    """Gather trace IDs from analyses referenced by the issue's example indices."""
-    trace_ids = []
-    for idx in issue.example_indices:
-        if 0 <= idx < len(analyses):
-            trace_ids.extend(analyses[idx].affected_trace_ids)
-    return trace_ids[:MAX_EXAMPLE_TRACE_IDS]
-
-
-def _format_trace_content(trace: Trace) -> str:
-    """Build a compact text representation of a trace for annotation prompts."""
-    parts = []
-    if request := trace.data.request:
-        parts.append(f"Input: {str(request)[:TRACE_CONTENT_TRUNCATION]}")
-    if response := trace.data.response:
-        parts.append(f"Output: {str(response)[:TRACE_CONTENT_TRUNCATION]}")
-    if (exec_path := extract_execution_path(trace)) and exec_path != "(no routing)":
-        parts.append(f"Execution path: {exec_path}")
-    if errors := extract_span_errors(trace):
-        parts.append(f"Errors: {errors}")
-    return "\n".join(parts) if parts else "(trace content not available)"
 
 
 def _annotate_issue_traces(
@@ -153,7 +126,7 @@ def _annotate_issue_traces(
         issue: Issue, trace_id: str, triage_rationale: str, session_id: str | None
     ) -> str | None:
         trace = trace_lookup.get(trace_id)
-        trace_content = _format_trace_content(trace) if trace else "(trace not available)"
+        trace_content = format_trace_content(trace) if trace else "(trace not available)"
 
         user_content = (
             f"=== ISSUE ===\n"
@@ -412,7 +385,7 @@ def _build_issues(
     issues: list[Issue] = []
     issue_trace_ids: dict[str, list[str]] = {}
     for ident in identified:
-        example_ids = _collect_example_trace_ids(ident, analyses)
+        example_ids = collect_example_trace_ids(ident, analyses)
         name = ident.name.removeprefix("Issue: ").removeprefix("issue: ")
         issue_id = str(uuid.uuid4())
         now_ms = int(time.time() * 1000)
@@ -437,6 +410,23 @@ def _build_issues(
         reverse=True,
     )
     return issues, issue_trace_ids
+
+
+def build_discovery_scorer(
+    categories: list[str] | None = None,
+    model: str | None = None,
+    use_conversation: bool = True,
+) -> Scorer:
+    model = model or DEFAULT_MODEL
+    instructions = build_satisfaction_instructions(
+        use_conversation=use_conversation, categories=categories
+    )
+    return make_judge(
+        name=DEFAULT_SCORER_NAME,
+        instructions=instructions,
+        model=model,
+        feedback_value_type=bool,
+    )
 
 
 # TODO: Add telemetry for this API

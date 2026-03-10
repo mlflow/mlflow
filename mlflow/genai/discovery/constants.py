@@ -152,9 +152,28 @@ Then cite specific evidence from the APPLICATION OUTPUT above.\
 """
 
 
-def build_satisfaction_instructions(*, use_conversation: bool) -> str:
+CATEGORIES_INSTRUCTIONS = """\
+
+
+The following issue categories are relevant to this evaluation. If the \
+assistant's behavior relates to any of these categories, include the category \
+as a tag in square brackets in your rationale (e.g. [hallucination]):
+{categories}\
+"""
+
+
+def _format_categories(categories: list[str] | None) -> str:
+    if not categories:
+        return ""
+    items = "\n".join(f"- {cat}" for cat in categories)
+    return CATEGORIES_INSTRUCTIONS.format(categories=items)
+
+
+def build_satisfaction_instructions(
+    *, use_conversation: bool, categories: list[str] | None = None
+) -> str:
     if not use_conversation:
-        return TRACE_QUALITY_INSTRUCTIONS
+        return TRACE_QUALITY_INSTRUCTIONS + _format_categories(categories)
 
     preamble = SATISFACTION_INSTRUCTIONS_PREAMBLE.format(context_noun="conversation")
     body = SATISFACTION_INSTRUCTIONS_BODY.format(
@@ -180,7 +199,7 @@ def build_satisfaction_instructions(*, use_conversation: bool) -> str:
             "       then you should conclude that goals were achieved efficiently.\n"
         ),
     )
-    return preamble + body
+    return preamble + body + _format_categories(categories)
 
 
 # ---- Failure label extraction prompt ----

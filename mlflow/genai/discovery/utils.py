@@ -10,8 +10,13 @@ import pydantic
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
-from mlflow.genai.discovery.constants import LLM_MAX_TOKENS, NUM_RETRIES
-from mlflow.genai.discovery.entities import Issue
+from mlflow.genai.discovery.constants import (
+    LLM_MAX_TOKENS,
+    MAX_EXAMPLE_TRACE_IDS,
+    NUM_RETRIES,
+    TRACE_CONTENT_TRUNCATION,
+)
+from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
 
@@ -170,3 +175,29 @@ def verify_scorer(
         raise mlflow.exceptions.MlflowException(
             f"Scorer '{scorer.name}' returned null value: {error}"
         )
+
+
+def collect_example_trace_ids(
+    issue: _IdentifiedIssue,
+    analyses: list[_ConversationAnalysis],
+) -> list[str]:
+    trace_ids = []
+    for idx in issue.example_indices:
+        if 0 <= idx < len(analyses):
+            trace_ids.extend(analyses[idx].affected_trace_ids)
+    return trace_ids[:MAX_EXAMPLE_TRACE_IDS]
+
+
+def format_trace_content(trace: Trace) -> str:
+    from mlflow.genai.discovery.extraction import extract_execution_path, extract_span_errors
+
+    parts = []
+    if request := trace.data.request:
+        parts.append(f"Input: {str(request)[:TRACE_CONTENT_TRUNCATION]}")
+    if response := trace.data.response:
+        parts.append(f"Output: {str(response)[:TRACE_CONTENT_TRUNCATION]}")
+    if (exec_path := extract_execution_path(trace)) and exec_path != "(no routing)":
+        parts.append(f"Execution path: {exec_path}")
+    if errors := extract_span_errors(trace):
+        parts.append(f"Errors: {errors}")
+    return "\n".join(parts) if parts else "(trace content not available)"

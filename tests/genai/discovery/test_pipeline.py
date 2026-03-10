@@ -9,11 +9,13 @@ from mlflow.genai.discovery.constants import severity_gte, severity_max
 from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
-    _format_trace_content,
     _is_non_issue,
     discover_issues,
 )
-from mlflow.genai.discovery.utils import verify_scorer
+from mlflow.genai.discovery.utils import (
+    format_trace_content,
+    verify_scorer,
+)
 from mlflow.genai.evaluation.entities import EvaluationResult
 
 from tests.genai.discovery.conftest import _TestScorer
@@ -604,16 +606,16 @@ def test_annotate_traces_session_level_logs_on_first_trace():
     assert session_ids == {"session-A", "session-B"}
 
 
-def test_format_trace_content_includes_errors(make_trace):
+def testformat_trace_content_includes_errors(make_trace):
     trace = make_trace(error_span=True)
-    content = _format_trace_content(trace)
+    content = format_trace_content(trace)
     assert "Errors:" in content
     assert "Connection failed" in content
 
 
-def test_format_trace_content_no_errors(make_trace):
+def testformat_trace_content_no_errors(make_trace):
     trace = make_trace()
-    content = _format_trace_content(trace)
+    content = format_trace_content(trace)
     assert "Errors:" not in content
 
 
@@ -844,3 +846,92 @@ def test_verify_scorer_null_value_raises(make_trace):
 
     with pytest.raises(Exception, match="returned null value"):
         verify_scorer(scorer, trace)
+
+
+def test_build_discovery_scorer_returns_scorer_with_defaults():
+    from mlflow.genai.discovery.constants import DEFAULT_MODEL, DEFAULT_SCORER_NAME
+    from mlflow.genai.discovery.pipeline import build_discovery_scorer
+
+    scorer = build_discovery_scorer()
+    assert scorer.name == DEFAULT_SCORER_NAME
+    assert scorer.model == DEFAULT_MODEL
+
+
+def test_build_discovery_scorer_custom_model():
+    from mlflow.genai.discovery.pipeline import build_discovery_scorer
+
+    scorer = build_discovery_scorer(model="openai:/gpt-5")
+    assert scorer.model == "openai:/gpt-5"
+
+
+def test_build_satisfaction_instructions_categories_conversation():
+    from mlflow.genai.discovery.constants import build_satisfaction_instructions
+
+    instructions = build_satisfaction_instructions(
+        use_conversation=True, categories=["hallucination", "tool errors"]
+    )
+    assert "hallucination" in instructions
+    assert "tool errors" in instructions
+    assert "issue categories" in instructions
+
+
+def test_build_satisfaction_instructions_categories_trace():
+    from mlflow.genai.discovery.constants import build_satisfaction_instructions
+
+    instructions = build_satisfaction_instructions(use_conversation=False, categories=["latency"])
+    assert "latency" in instructions
+    assert "issue categories" in instructions
+
+
+@pytest.mark.parametrize("categories", [None, []])
+def test_build_satisfaction_instructions_no_categories(categories):
+    from mlflow.genai.discovery.constants import build_satisfaction_instructions
+
+    instructions = build_satisfaction_instructions(use_conversation=True, categories=categories)
+    assert "issue categories" not in instructions
+
+
+def test_collect_example_trace_ids_gathers_from_analyses():
+    from mlflow.genai.discovery.utils import collect_example_trace_ids
+
+    analyses = [
+        _ConversationAnalysis(
+            full_rationale="r1", affected_trace_ids=["t1", "t2"], execution_path="p1"
+        ),
+        _ConversationAnalysis(full_rationale="r2", affected_trace_ids=["t3"], execution_path="p2"),
+    ]
+    issue = _IdentifiedIssue(
+        name="test", description="d", root_cause="rc", severity="high", example_indices=[0, 1]
+    )
+    result = collect_example_trace_ids(issue, analyses)
+    assert result == ["t1", "t2", "t3"]
+
+
+def test_collect_example_trace_ids_skips_out_of_bounds():
+    from mlflow.genai.discovery.utils import collect_example_trace_ids
+
+    analyses = [
+        _ConversationAnalysis(full_rationale="r1", affected_trace_ids=["t1"], execution_path="p1"),
+    ]
+    issue = _IdentifiedIssue(
+        name="test", description="d", root_cause="rc", severity="high", example_indices=[0, 5]
+    )
+    result = collect_example_trace_ids(issue, analyses)
+    assert result == ["t1"]
+
+
+def test_collect_example_trace_ids_caps_at_max(monkeypatch):
+    from mlflow.genai.discovery import utils
+    from mlflow.genai.discovery.utils import collect_example_trace_ids
+
+    monkeypatch.setattr(utils, "MAX_EXAMPLE_TRACE_IDS", 2)
+    analyses = [
+        _ConversationAnalysis(
+            full_rationale="r1", affected_trace_ids=["t1", "t2", "t3"], execution_path="p1"
+        ),
+    ]
+    issue = _IdentifiedIssue(
+        name="test", description="d", root_cause="rc", severity="high", example_indices=[0]
+    )
+    result = collect_example_trace_ids(issue, analyses)
+    assert len(result) == 2
