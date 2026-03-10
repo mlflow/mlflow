@@ -118,7 +118,10 @@ class TelemetryClient {
 
     if (process.env['NODE_ENV'] === 'development' && isTelemetryDevLoggingEnabled()) {
       // eslint-disable-next-line no-console
-      console.log(`[TelemetryClient] Clicked ${record.componentId}, payload:`, payload);
+      console.log(
+        `[TelemetryClient] Event "${record.eventType}" on component "${record.componentId}", payload:`,
+        payload,
+      );
     }
 
     this.port?.postMessage({
