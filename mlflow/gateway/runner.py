@@ -8,6 +8,7 @@ from watchfiles import watch
 
 from mlflow.environment_variables import (
     MLFLOW_GATEWAY_CONFIG,
+    MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV,
     MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE,
 )
 from mlflow.gateway import app
@@ -76,6 +77,7 @@ class Runner:
             env={
                 **os.environ,
                 MLFLOW_GATEWAY_CONFIG.name: self.config_path,
+                MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV.name: "true",
                 MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE.name: "true",
             },
         )
