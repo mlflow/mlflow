@@ -20,7 +20,7 @@ from mlflow.genai.judges.utils.parsing_utils import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
-# "endpoints" is a special case for Databricks model serving endpoints.
+# "endpoints" is a special case for MLflow deployment endpoints (e.g. Databricks model serving).
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
 
@@ -98,13 +98,14 @@ class GatewayAdapter(BaseJudgeAdapter):
                 "Please install LiteLLM with `pip install litellm` to use structured output.",
             )
 
-        # base_url and extra_headers are not supported for Databricks endpoints
+        # base_url and extra_headers are not supported for deployment endpoints
         if input_params.model_provider == "endpoints" and (
             input_params.base_url is not None or input_params.extra_headers is not None
         ):
             raise MlflowException(
-                "base_url and extra_headers are not supported for Databricks model serving "
-                "endpoints (endpoints:/...). The endpoint URL is determined by the model URI.",
+                "base_url and extra_headers are not supported for deployment "
+                "endpoints (endpoints:/...). The endpoint URL is determined by the "
+                "deployment target configuration.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
