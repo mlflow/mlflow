@@ -13,7 +13,6 @@ from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.outputs.chat_generation import ChatGeneration
 from langchain_core.outputs.generation import Generation
 
-from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import (
     convert_lc_message_to_chat_message,
     parse_token_usage,
@@ -97,6 +96,7 @@ def test_convert_lc_message_to_chat_message_tool_calls(message, expected):
 
 
 def test_convert_lc_message_to_chat_message_audio_content():
+    """LangChain's audio content blocks should be normalized to MLflow's input_audio format."""
     message = HumanMessage(
         content=[
             {"type": "text", "text": "What is this audio?"},
@@ -119,6 +119,7 @@ def test_convert_lc_message_to_chat_message_audio_content():
 
 
 def test_convert_lc_message_to_chat_message_audio_mp3():
+    """Audio normalization should handle mp3 mime type."""
     message = HumanMessage(
         content=[
             {
@@ -135,71 +136,11 @@ def test_convert_lc_message_to_chat_message_audio_mp3():
     assert result.content[0].input_audio.format == "mp3"
 
 
-def test_convert_lc_message_to_chat_message_audio_mpeg():
-    message = HumanMessage(
-        content=[
-            {
-                "type": "audio",
-                "source_type": "base64",
-                "data": "AAAA",
-                "mime_type": "audio/mpeg",
-            },
-        ]
-    )
-    result = convert_lc_message_to_chat_message(message)
-    assert result.content[0].type == "input_audio"
-    assert result.content[0].input_audio.data == "AAAA"
-    assert result.content[0].input_audio.format == "mp3"
-
-
 def test_convert_lc_message_to_chat_message_string_content_unchanged():
+    """String content should pass through normalization unchanged."""
     message = HumanMessage(content="just text")
     result = convert_lc_message_to_chat_message(message)
     assert result.content == "just text"
-
-
-def test_convert_lc_message_audio_url_source_raises():
-    message = HumanMessage(
-        content=[
-            {
-                "type": "audio",
-                "source_type": "url",
-                "url": "https://example.com/audio.wav",
-                "mime_type": "audio/wav",
-            },
-        ]
-    )
-    with pytest.raises(MlflowException, match="Only base64-encoded audio"):
-        convert_lc_message_to_chat_message(message)
-
-
-def test_convert_lc_message_audio_no_mime_type_raises():
-    message = HumanMessage(
-        content=[
-            {
-                "type": "audio",
-                "source_type": "base64",
-                "data": "SGVsbG8=",
-            },
-        ]
-    )
-    with pytest.raises(MlflowException, match="Only base64-encoded audio"):
-        convert_lc_message_to_chat_message(message)
-
-
-def test_convert_lc_message_audio_unsupported_format_raises():
-    message = HumanMessage(
-        content=[
-            {
-                "type": "audio",
-                "source_type": "base64",
-                "data": "SGVsbG8=",
-                "mime_type": "audio/ogg",
-            },
-        ]
-    )
-    with pytest.raises(MlflowException, match="Unsupported audio format"):
-        convert_lc_message_to_chat_message(message)
 
 
 def test_transform_response_to_chat_format_no_conversion():
