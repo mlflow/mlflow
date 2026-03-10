@@ -86,6 +86,9 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          # For PRs, check out the PR head (safe because the build job only runs for
+          # maintainers/collaborators via the author_association check). For push
+          # events, falls back to github.sha.
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: ./.github/actions/setup-python
