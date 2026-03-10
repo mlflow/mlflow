@@ -385,7 +385,7 @@ def log_issue(
     elif issue_name != fetched_issue_name:
         raise MlflowException.invalid_parameter_value(
             f"Provided issue name `{issue_name}` does not match the issue name "
-            f"`{fetched_issue_name}` of the issue ID {issue_id}."
+            f"`{fetched_issue_name}` with issue ID {issue_id}."
         )
     assessment = IssueReference(
         issue_id=issue_id,
