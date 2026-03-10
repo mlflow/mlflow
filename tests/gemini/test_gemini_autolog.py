@@ -636,6 +636,7 @@ def test_tracing_headers_injected_in_config(is_async):
         async def _generate_content(self, model, contents, config):
             captured_config["config"] = config
             return _DUMMY_GENERATE_CONTENT_RESPONSE
+
     else:
 
         def _generate_content(self, model, contents, config):
@@ -669,6 +670,7 @@ def test_tracing_headers_preserve_existing_config_headers(is_async):
         async def _generate_content(self, model, contents, config):
             captured_config["config"] = config
             return _DUMMY_GENERATE_CONTENT_RESPONSE
+
     else:
 
         def _generate_content(self, model, contents, config):
@@ -707,6 +709,7 @@ def test_tracing_headers_injected_when_config_is_none(is_async):
         async def _generate_content(self, model, contents, config):
             captured_config["config"] = config
             return _DUMMY_GENERATE_CONTENT_RESPONSE
+
     else:
 
         def _generate_content(self, model, contents, config):
