@@ -4,6 +4,7 @@ import type {
   Assessment,
   ExpectationAssessment,
   FeedbackAssessment,
+  IssueReferenceAssessment,
   ModelTrace,
   ModelTraceLocation,
   ModelTraceSpan,
@@ -171,6 +172,10 @@ const isExpectationAssessment = (assessment: Assessment): assessment is Expectat
   return Boolean('expectation' in assessment && assessment.expectation);
 };
 
+const isFeedbackAssessment = (assessment: Assessment): assessment is FeedbackAssessment => {
+  return Boolean('feedback' in assessment && assessment.feedback);
+};
+
 const LIST_TRACES_IGNORE_ASSESSMENTS = ['agent/latency_seconds'];
 
 function processExpectationAssessment(assessment: ExpectationAssessment, targets: Record<string, any>): void {
@@ -274,7 +279,7 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
 
     if (isExpectationAssessment(assessment)) {
       processExpectationAssessment(assessment, targets);
-    } else {
+    } else if (isFeedbackAssessment(assessment)) {
       processFeedbackAssessment(assessment, overallAssessments, responseAssessmentsByName);
     }
   });
