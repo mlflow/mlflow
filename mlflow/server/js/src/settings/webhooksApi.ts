@@ -1,4 +1,4 @@
-import { deleteJson, getJson, patchJson, postJson } from '../common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl, HTTPMethods } from '../common/utils/FetchUtils';
 
 export interface WebhookEvent {
   entity: string;
@@ -50,33 +50,33 @@ export interface TestWebhookResponse {
 
 export const WebhooksApi = {
   listWebhooks: (): Promise<ListWebhooksResponse> => {
-    return getJson({ relativeUrl: 'ajax-api/2.0/mlflow/webhooks' }) as Promise<ListWebhooksResponse>;
+    return fetchAPI(getAjaxUrl('ajax-api/2.0/mlflow/webhooks')) as Promise<ListWebhooksResponse>;
   },
 
   createWebhook: (request: CreateWebhookRequest): Promise<Webhook> => {
-    return postJson({
-      relativeUrl: 'ajax-api/2.0/mlflow/webhooks',
-      data: request,
+    return fetchAPI(getAjaxUrl('ajax-api/2.0/mlflow/webhooks'), {
+      method: HTTPMethods.POST,
+      body: request,
     }) as Promise<Webhook>;
   },
 
   updateWebhook: (webhookId: string, request: UpdateWebhookRequest): Promise<Webhook> => {
-    return patchJson({
-      relativeUrl: `ajax-api/2.0/mlflow/webhooks/${webhookId}`,
-      data: request,
+    return fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/webhooks/${webhookId}`), {
+      method: HTTPMethods.PATCH,
+      body: request,
     }) as Promise<Webhook>;
   },
 
   deleteWebhook: (webhookId: string): Promise<void> => {
-    return deleteJson({
-      relativeUrl: `ajax-api/2.0/mlflow/webhooks/${webhookId}`,
+    return fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/webhooks/${webhookId}`), {
+      method: HTTPMethods.DELETE,
     }) as Promise<void>;
   },
 
   testWebhook: (webhookId: string): Promise<TestWebhookResponse> => {
-    return postJson({
-      relativeUrl: `ajax-api/2.0/mlflow/webhooks/${webhookId}/test`,
-      data: {},
+    return fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/webhooks/${webhookId}/test`), {
+      method: HTTPMethods.POST,
+      body: {},
     }) as Promise<TestWebhookResponse>;
   },
 };

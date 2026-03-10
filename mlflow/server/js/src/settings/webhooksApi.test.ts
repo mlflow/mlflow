@@ -1,19 +1,15 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 
 jest.mock('../common/utils/FetchUtils', () => ({
-  getJson: jest.fn(() => Promise.resolve()),
-  postJson: jest.fn(() => Promise.resolve()),
-  patchJson: jest.fn(() => Promise.resolve()),
-  deleteJson: jest.fn(() => Promise.resolve()),
+  fetchAPI: jest.fn(() => Promise.resolve()),
+  getAjaxUrl: jest.fn((url: string) => url),
+  HTTPMethods: { GET: 'GET', POST: 'POST', PATCH: 'PATCH', DELETE: 'DELETE' },
 }));
 
-import { getJson, postJson, patchJson, deleteJson } from '../common/utils/FetchUtils';
+import { fetchAPI } from '../common/utils/FetchUtils';
 import { WebhooksApi } from './webhooksApi';
 
-const mockGetJson = getJson as jest.MockedFunction<typeof getJson>;
-const mockPostJson = postJson as jest.MockedFunction<typeof postJson>;
-const mockPatchJson = patchJson as jest.MockedFunction<typeof patchJson>;
-const mockDeleteJson = deleteJson as jest.MockedFunction<typeof deleteJson>;
+const mockFetchAPI = fetchAPI as jest.MockedFunction<typeof fetchAPI>;
 
 describe('WebhooksApi', () => {
   beforeEach(() => {
@@ -21,85 +17,83 @@ describe('WebhooksApi', () => {
   });
 
   describe('listWebhooks', () => {
-    it('calls getJson with the correct URL', async () => {
+    it('calls fetchAPI with the correct URL', async () => {
       const mockResponse = { webhooks: [{ webhook_id: 'wh-1', name: 'Test' }] };
-      mockGetJson.mockResolvedValue(mockResponse as any);
+      mockFetchAPI.mockResolvedValue(mockResponse as any);
 
       const result = await WebhooksApi.listWebhooks();
 
-      expect(mockGetJson).toHaveBeenCalledWith({
-        relativeUrl: 'ajax-api/2.0/mlflow/webhooks',
-      });
+      expect(mockFetchAPI).toHaveBeenCalledWith('ajax-api/2.0/mlflow/webhooks');
       expect(result).toEqual(mockResponse);
     });
   });
 
   describe('createWebhook', () => {
-    it('calls postJson with the correct URL and data', async () => {
+    it('calls fetchAPI with POST method and data', async () => {
       const request = {
         name: 'New Webhook',
         url: 'https://example.com/hook',
         events: [{ entity: 'PROMPT', action: 'CREATED' }],
         status: 'ACTIVE' as const,
       };
-      mockPostJson.mockResolvedValue({} as any);
+      mockFetchAPI.mockResolvedValue({} as any);
 
       await WebhooksApi.createWebhook(request);
 
-      expect(mockPostJson).toHaveBeenCalledWith({
-        relativeUrl: 'ajax-api/2.0/mlflow/webhooks',
-        data: request,
+      expect(mockFetchAPI).toHaveBeenCalledWith('ajax-api/2.0/mlflow/webhooks', {
+        method: 'POST',
+        body: request,
       });
     });
   });
 
   describe('updateWebhook', () => {
-    it('calls patchJson with the correct URL and data', async () => {
+    it('calls fetchAPI with PATCH method and data', async () => {
       const request = {
         name: 'Updated Webhook',
         url: 'https://example.com/hook',
         events: [{ entity: 'PROMPT', action: 'CREATED' }],
         status: 'ACTIVE' as const,
       };
-      mockPatchJson.mockResolvedValue({} as any);
+      mockFetchAPI.mockResolvedValue({} as any);
 
       await WebhooksApi.updateWebhook('wh-1', request);
 
-      expect(mockPatchJson).toHaveBeenCalledWith({
-        relativeUrl: 'ajax-api/2.0/mlflow/webhooks/wh-1',
-        data: request,
+      expect(mockFetchAPI).toHaveBeenCalledWith('ajax-api/2.0/mlflow/webhooks/wh-1', {
+        method: 'PATCH',
+        body: request,
       });
     });
   });
 
   describe('deleteWebhook', () => {
-    it('calls deleteJson with the correct URL', async () => {
-      mockDeleteJson.mockResolvedValue(undefined as any);
+    it('calls fetchAPI with DELETE method', async () => {
+      mockFetchAPI.mockResolvedValue(undefined as any);
 
       await WebhooksApi.deleteWebhook('wh-1');
 
-      expect(mockDeleteJson).toHaveBeenCalledWith({
-        relativeUrl: 'ajax-api/2.0/mlflow/webhooks/wh-1',
+      expect(mockFetchAPI).toHaveBeenCalledWith('ajax-api/2.0/mlflow/webhooks/wh-1', {
+        method: 'DELETE',
       });
     });
   });
 
   describe('testWebhook', () => {
-    it('calls postJson with the correct URL and empty data', async () => {
+    it('calls fetchAPI with POST method and empty body', async () => {
       const mockResponse = { result: { success: true, response_status: 200 } };
-      mockPostJson.mockResolvedValue(mockResponse as any);
+      mockFetchAPI.mockResolvedValue(mockResponse as any);
 
       const result = await WebhooksApi.testWebhook('wh-1');
 
-      expect(mockPostJson).toHaveBeenCalledWith({
-        relativeUrl: 'ajax-api/2.0/mlflow/webhooks/wh-1/test',
-        data: {},
+      expect(mockFetchAPI).toHaveBeenCalledWith('ajax-api/2.0/mlflow/webhooks/wh-1/test', {
+        method: 'POST',
+        body: {},
       });
       expect(result).toEqual(mockResponse);
     });
 
-    it('propagates errors from postJson', async () => {
-      mockPostJson.mockRejectedValue(new Error('Network error'));
+    it('propagates errors from fetchAPI', async () => {
+      mockFetchAPI.mockRejectedValue(new Error('Network error'));
 
       await expect(WebhooksApi.testWebhook('wh-1')).rejects.toThrow('Network error');
     });

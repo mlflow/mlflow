@@ -9,10 +9,16 @@ import { DarkThemeProvider } from '../common/contexts/DarkThemeContext';
 jest.mock('../common/utils/FetchUtils', () => ({
   fetchEndpointRaw: jest.fn(() => Promise.resolve()),
   HTTPMethods: { POST: 'POST', GET: 'GET' },
-  getJson: jest.fn(() => Promise.resolve({ webhooks: [] })),
-  postJson: jest.fn(() => Promise.resolve()),
-  patchJson: jest.fn(() => Promise.resolve()),
-  deleteJson: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('./webhooksApi', () => ({
+  WebhooksApi: {
+    listWebhooks: jest.fn(() => Promise.resolve({ webhooks: [] })),
+    createWebhook: jest.fn(() => Promise.resolve({})),
+    updateWebhook: jest.fn(() => Promise.resolve({})),
+    deleteWebhook: jest.fn(() => Promise.resolve()),
+    testWebhook: jest.fn(() => Promise.resolve({ result: { success: true } })),
+  },
 }));
 
 import { fetchEndpointRaw } from '../common/utils/FetchUtils';
