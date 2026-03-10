@@ -2,6 +2,7 @@ import json
 import logging
 from dataclasses import asdict
 from typing import Any, Literal, get_origin
+from urllib.parse import urlparse, urlunparse
 
 import pydantic
 from pydantic import PrivateAttr
@@ -630,7 +631,14 @@ class InstructionsJudge(Judge):
         inference_params_str = (
             f", inference_params={self._inference_params}" if self._inference_params else ""
         )
-        base_url_str = f", base_url='{self._base_url}'" if self._base_url else ""
+        if self._base_url:
+            parsed = urlparse(self._base_url)
+            port_str = f":{parsed.port}" if parsed.port else ""
+            safe_netloc = f"{parsed.hostname}{port_str}"
+            safe_url = urlunparse((parsed.scheme, safe_netloc, parsed.path, "", "", ""))
+            base_url_str = f", base_url='{safe_url}'"
+        else:
+            base_url_str = ""
         extra_headers_str = (
             f", extra_headers={list(self._extra_headers.keys())}" if self._extra_headers else ""
         )
