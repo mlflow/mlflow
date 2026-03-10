@@ -82,7 +82,11 @@ const BudgetsPage = () => {
               description="Budget webhooks section description on budgets page"
             />
           }
-          componentIdPrefix="mlflow.gateway.budgets.webhooks"
+          componentIds={{
+            createButton: 'mlflow.gateway.budgets.webhooks.create-button',
+            errorAlert: 'mlflow.gateway.budgets.webhooks.error-alert',
+            testResultAlert: 'mlflow.gateway.budgets.webhooks.test-result-alert',
+          }}
         />
       </div>
 

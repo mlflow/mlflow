@@ -7,6 +7,18 @@ import WebhookListItem from './WebhookListItem';
 import WebhookFormModal from './WebhookFormModal';
 import WebhookDeleteModal from './WebhookDeleteModal';
 
+interface WebhooksComponentIds {
+  createButton: string;
+  errorAlert: string;
+  testResultAlert: string;
+}
+
+const DEFAULT_COMPONENT_IDS: WebhooksComponentIds = {
+  createButton: 'mlflow.settings.webhooks.create-button',
+  errorAlert: 'mlflow.settings.webhooks.error-alert',
+  testResultAlert: 'mlflow.settings.webhooks.test-result-alert',
+};
+
 interface WebhooksSettingsProps {
   /** Filter displayed webhooks to only those containing at least one event whose entity matches this value exactly */
   eventFilter?: string;
@@ -14,15 +26,15 @@ interface WebhooksSettingsProps {
   title?: React.ReactNode;
   /** Description override */
   description?: React.ReactNode;
-  /** componentId prefix for namespacing */
-  componentIdPrefix?: string;
+  /** Static componentIds for namespacing */
+  componentIds?: WebhooksComponentIds;
 }
 
 const WebhooksSettings = ({
   eventFilter,
   title,
   description,
-  componentIdPrefix = 'mlflow.settings.webhooks',
+  componentIds = DEFAULT_COMPONENT_IDS,
 }: WebhooksSettingsProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -153,14 +165,14 @@ const WebhooksSettings = ({
             )}
           </Typography.Text>
         </div>
-        <Button componentId={`${componentIdPrefix}.create-button`} type="primary" onClick={openCreateModal}>
+        <Button componentId={componentIds.createButton} type="primary" onClick={openCreateModal}>
           <FormattedMessage defaultMessage="Create webhook" description="Create webhook button" />
         </Button>
       </div>
 
       {error && (
         <Alert
-          componentId={`${componentIdPrefix}.error-alert`}
+          componentId={componentIds.errorAlert}
           type="error"
           message={error}
           closable
@@ -170,7 +182,7 @@ const WebhooksSettings = ({
 
       {testResult && (
         <Alert
-          componentId={`${componentIdPrefix}.test-result-alert`}
+          componentId={componentIds.testResultAlert}
           type={testResult.success ? 'info' : 'error'}
           message={testResult.message}
           closable
