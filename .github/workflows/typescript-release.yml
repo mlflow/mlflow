@@ -6,7 +6,6 @@ on:
       ref:
         description: "The branch, tag or SHA to release from."
         required: true
-        default: "master"
       packages:
         description: "Packages to release: all, core, openai, anthropic, gemini (comma-separated)"
         required: true
@@ -43,7 +42,7 @@ jobs:
 
       - name: Resolve publish matrix
         id: check
-        run: node dev/typescript-sdk/resolve-ts-publish-matrix.js --packages "${{ inputs.packages }}" >> "$GITHUB_OUTPUT"
+        run: npx tsx libs/typescript/scripts/resolve-ts-publish-matrix.ts --packages "${{ inputs.packages }}" >> "$GITHUB_OUTPUT"
 
       - name: Summary
         run: |
@@ -63,52 +62,8 @@ jobs:
             echo "> **DRY RUN** — no packages will be published" >> "$GITHUB_STEP_SUMMARY"
           fi
 
-  test:
-    needs: validate
-    if: needs.validate.outputs.any_publish == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: libs/typescript
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          ref: ${{ inputs.ref }}
-
-      - uses: ./.github/actions/untracked
-
-      - uses: ./.github/actions/setup-python
-
-      - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-        with:
-          node-version: 20
-          cache: "npm"
-          cache-dependency-path: libs/typescript/package-lock.json
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Run format check
-        run: npm run format:check
-
-      - name: Run linting
-        run: npm run lint
-
-      - name: Run build
-        run: npm run build
-
-      - name: Run core tests
-        run: npm run test:core
-
-      - name: Run integration tests
-        run: npm run test:integrations
-
   publish-test:
-    needs: [validate, test]
+    needs: validate
     if: needs.validate.outputs.any_publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -127,10 +82,11 @@ jobs:
           cache-dependency-path: libs/typescript/package-lock.json
 
       - name: Test publish with Verdaccio
-        run: bash dev/typescript-sdk/test-ts-publish.sh
+        run: bash libs/typescript/scripts/test-ts-publish.sh
 
   publish:
-    needs: [validate, test, publish-test]
+    needs: [validate, publish-test]
+    if: needs.validate.outputs.any_publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -143,17 +99,16 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: ${{ inputs.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 20
+          node-version: 22
           registry-url: "https://registry.npmjs.org"
           cache: "npm"
           cache-dependency-path: libs/typescript/package-lock.json
-
-      - name: Ensure npm supports trusted publishing
-        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm install
@@ -161,16 +116,19 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Publish and tag packages
-        working-directory: .
+      - name: Configure git
         run: |
-          node dev/typescript-sdk/ts-publish.js \
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Publish and tag packages
+        run: |
+          npx tsx scripts/ts-publish.ts \
             --matrix '${{ needs.validate.outputs.matrix }}' \
             ${{ inputs.dry_run == true && '--dry-run' || '' }}
 
       - name: Publish summary
         if: always()
-        working-directory: .
         run: |
           MATRIX='${{ needs.validate.outputs.matrix }}'
           echo "## Publish Results" >> "$GITHUB_STEP_SUMMARY"

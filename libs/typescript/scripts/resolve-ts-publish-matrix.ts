@@ -1,10 +1,9 @@
-#!/usr/bin/env node
 /**
  * Resolves the TypeScript SDK publish matrix by checking which packages have
  * new commits since their last release tag.
  *
  * Usage:
- *   node dev/resolve-ts-publish-matrix.js --packages <comma-separated|all>
+ *   npx tsx libs/typescript/scripts/resolve-ts-publish-matrix.ts --packages <comma-separated|all>
  *
  * Outputs GitHub Actions key=value pairs to stdout:
  *   matrix={"core":{"publish":true,"version":"0.2.0","npm_name":"@mlflow/core","dir":"libs/typescript/core"}, ...}
@@ -13,41 +12,57 @@
  * Requirements: node, git (with full history and tags)
  */
 
-const { execSync } = require("child_process");
-const path = require("path");
-const fs = require("fs");
+import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
+import path from 'path';
 
-const PACKAGE_REGISTRY = {
-  core: { npm_name: "@mlflow/core", dir: "libs/typescript/core" },
+interface PackageInfo {
+  npm_name: string;
+  dir: string;
+}
+
+interface MatrixEntry {
+  publish: boolean;
+  version: string;
+  npm_name: string;
+  dir: string;
+}
+
+const PACKAGE_REGISTRY: Record<string, PackageInfo> = {
+  core: { npm_name: '@mlflow/core', dir: 'libs/typescript/core' },
   openai: {
-    npm_name: "@mlflow/openai",
-    dir: "libs/typescript/integrations/openai",
+    npm_name: '@mlflow/openai',
+    dir: 'libs/typescript/integrations/openai',
   },
   anthropic: {
-    npm_name: "@mlflow/anthropic",
-    dir: "libs/typescript/integrations/anthropic",
+    npm_name: '@mlflow/anthropic',
+    dir: 'libs/typescript/integrations/anthropic',
   },
   gemini: {
-    npm_name: "@mlflow/gemini",
-    dir: "libs/typescript/integrations/gemini",
+    npm_name: '@mlflow/gemini',
+    dir: 'libs/typescript/integrations/gemini',
   },
 };
 
 const ALL_PACKAGES = Object.keys(PACKAGE_REGISTRY);
 
-function parseArgs() {
+const REPO_ROOT =
+  process.env.GITHUB_WORKSPACE ||
+  execSync('git rev-parse --show-toplevel', { encoding: 'utf-8' }).trim();
+
+function parseArgs(): string {
   const args = process.argv.slice(2);
-  let packages = null;
+  let packages: string | null = null;
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--packages" && i + 1 < args.length) {
+    if (args[i] === '--packages' && i + 1 < args.length) {
       packages = args[i + 1];
       i++;
-    } else if (args[i] === "--help" || args[i] === "-h") {
+    } else if (args[i] === '--help' || args[i] === '-h') {
       console.error(
-        `Usage: node dev/resolve-ts-publish-matrix.js --packages <comma-separated|all>`
+        `Usage: npx tsx libs/typescript/scripts/resolve-ts-publish-matrix.ts --packages <comma-separated|all>`,
       );
-      console.error(`\nValid package names: all, ${ALL_PACKAGES.join(", ")}`);
+      console.error(`\nValid package names: all, ${ALL_PACKAGES.join(', ')}`);
       process.exit(0);
     } else {
       console.error(`Error: Unknown argument: ${args[i]}`);
@@ -56,24 +71,24 @@ function parseArgs() {
   }
 
   if (!packages) {
-    console.error("Error: --packages is required");
+    console.error('Error: --packages is required');
     process.exit(1);
   }
 
   return packages;
 }
 
-function resolveSelected(packagesArg) {
-  if (packagesArg === "all") {
+function resolveSelected(packagesArg: string): string[] {
+  if (packagesArg === 'all') {
     return [...ALL_PACKAGES];
   }
 
-  const selected = [];
-  for (const raw of packagesArg.split(",")) {
+  const selected: string[] = [];
+  for (const raw of packagesArg.split(',')) {
     const pkg = raw.trim();
     if (!PACKAGE_REGISTRY[pkg]) {
       console.error(
-        `Error: Unknown package: '${pkg}'. Valid values: all, ${ALL_PACKAGES.join(", ")}`
+        `Error: Unknown package: '${pkg}'. Valid values: all, ${ALL_PACKAGES.join(', ')}`,
       );
       process.exit(1);
     }
@@ -81,23 +96,23 @@ function resolveSelected(packagesArg) {
   }
 
   if (selected.length === 0) {
-    console.error("Error: No packages selected.");
+    console.error('Error: No packages selected.');
     process.exit(1);
   }
 
   return selected;
 }
 
-function git(cmd) {
-  return execSync(`git ${cmd}`, { encoding: "utf-8" }).trim();
+function git(cmd: string): string {
+  return execSync(`git ${cmd}`, { encoding: 'utf-8' }).trim();
 }
 
-function readVersion(dir) {
-  const pkgJson = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf-8"));
+function readVersion(dir: string): string {
+  const pkgJson = JSON.parse(readFileSync(path.join(REPO_ROOT, dir, 'package.json'), 'utf-8'));
   return pkgJson.version;
 }
 
-function shouldPublish(npmName, version, dir) {
+function shouldPublish(npmName: string, version: string, dir: string): boolean {
   const tag = `${npmName}@${version}`;
 
   try {
@@ -108,7 +123,7 @@ function shouldPublish(npmName, version, dir) {
   }
 
   const log = git(`log "${tag}..HEAD" --oneline -- "${dir}"`);
-  const commitCount = log === "" ? 0 : log.split("\n").length;
+  const commitCount = log === '' ? 0 : log.split('\n').length;
 
   if (commitCount === 0) {
     console.error(`Skipping ${npmName}@${version}: no commits since tag ${tag}`);
@@ -119,13 +134,13 @@ function shouldPublish(npmName, version, dir) {
   return true;
 }
 
-function main() {
+function main(): void {
   const packagesArg = parseArgs();
   const selected = resolveSelected(packagesArg);
 
-  console.error(`Selected packages: ${selected.join(" ")}`);
+  console.error(`Selected packages: ${selected.join(' ')}`);
 
-  const matrix = {};
+  const matrix: Record<string, MatrixEntry> = {};
   let anyPublish = false;
 
   for (const pkg of ALL_PACKAGES) {
@@ -138,7 +153,6 @@ function main() {
     matrix[pkg] = { publish, version, npm_name, dir };
   }
 
-  // Output GitHub Actions key=value pairs
   console.log(`matrix=${JSON.stringify(matrix)}`);
   console.log(`any_publish=${anyPublish}`);
 }

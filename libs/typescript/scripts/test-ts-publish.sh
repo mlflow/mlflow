@@ -11,13 +11,13 @@
 #   6. Cleans up on exit
 #
 # Usage:
-#   bash dev/test-ts-publish.sh
+#   bash libs/typescript/scripts/test-ts-publish.sh
 #
 # Requirements: node >= 18, npm, curl
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 TS_ROOT="${REPO_ROOT}/libs/typescript"
 
 VERDACCIO_PID=""
@@ -80,7 +80,7 @@ YAML
 # --- 2. Start Verdaccio ---
 echo "Starting Verdaccio..."
 cd "$WORK_DIR"
-npx verdaccio@latest --config "$VERDACCIO_CONFIG" &
+npx verdaccio@6.1.2 --config "$VERDACCIO_CONFIG" &
 VERDACCIO_PID=$!
 
 echo "Waiting for Verdaccio (pid ${VERDACCIO_PID})..."
