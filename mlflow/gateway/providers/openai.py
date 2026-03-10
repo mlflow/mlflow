@@ -538,38 +538,32 @@ class OpenAIProvider(BaseProvider):
                             function=function,
                             parameters=parameters,
                         )
-                        tool_messages.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": tool_call["id"],
-                                "content": result.to_json(),
-                            }
-                        )
+                        tool_messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "content": result.to_json(),
+                        })
 
-                        uc_func_calls.append(
-                            (
-                                {
-                                    "id": tool_call["id"],
-                                    "name": func_info.full_name,
-                                    "arguments": func["arguments"],
-                                },
-                                {
-                                    "tool_call_id": tool_call["id"],
-                                    "content": result.to_json(),
-                                },
-                            )
-                        )
-                    else:
-                        user_tool_calls.append(
+                        uc_func_calls.append((
                             {
                                 "id": tool_call["id"],
-                                "type": "function",
-                                "function": {
-                                    "name": func["name"],
-                                    "arguments": func["arguments"],
-                                },
-                            }
-                        )
+                                "name": func_info.full_name,
+                                "arguments": func["arguments"],
+                            },
+                            {
+                                "tool_call_id": tool_call["id"],
+                                "content": result.to_json(),
+                            },
+                        ))
+                    else:
+                        user_tool_calls.append({
+                            "id": tool_call["id"],
+                            "type": "function",
+                            "function": {
+                                "name": func["name"],
+                                "arguments": func["arguments"],
+                            },
+                        })
 
                 if message_content := assistant_msg.pop("content", None):
                     messages.append({"role": "assistant", "content": message_content})

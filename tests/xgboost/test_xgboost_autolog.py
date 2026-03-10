@@ -244,15 +244,13 @@ def test_xgb_autolog_with_sklearn_outputs_do_not_reflect_training_dataset_mutati
 
         mlflow.xgboost.autolog(log_models=True, log_model_signatures=True, log_input_examples=True)
 
-        X = pd.DataFrame(
-            {
-                "Total Volume": [64236.62, 54876.98, 118220.22],
-                "Total Bags": [8696.87, 9505.56, 8145.35],
-                "Small Bags": [8603.62, 9408.07, 8042.21],
-                "Large Bags": [93.25, 97.49, 103.14],
-                "XLarge Bags": [0.0, 0.0, 0.0],
-            }
-        )
+        X = pd.DataFrame({
+            "Total Volume": [64236.62, 54876.98, 118220.22],
+            "Total Bags": [8696.87, 9505.56, 8145.35],
+            "Small Bags": [8603.62, 9408.07, 8042.21],
+            "Large Bags": [93.25, 97.49, 103.14],
+            "XLarge Bags": [0.0, 0.0, 0.0],
+        })
         y = pd.Series([1.33, 1.35, 0.93])
 
         params = {"n_estimators": 10, "reg_lambda": 1}
@@ -743,14 +741,12 @@ def test_xgb_log_datasets(bst_params, dtrain, log_datasets):
     if log_datasets:
         assert len(dataset_inputs) == 1
         feature_schema = _infer_schema(dtrain.get_data().toarray())
-        assert dataset_inputs[0].dataset.schema == json.dumps(
-            {
-                "mlflow_tensorspec": {
-                    "features": feature_schema.to_json(),
-                    "targets": None,
-                }
+        assert dataset_inputs[0].dataset.schema == json.dumps({
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": None,
             }
-        )
+        })
     else:
         assert len(dataset_inputs) == 0
 
@@ -774,21 +770,17 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
     assert len(dataset_inputs) == 2
     assert dataset_inputs[0].tags[0].value == "train"
     dtrain_feature_schema = _infer_schema(dtrain.get_data().toarray())
-    assert dataset_inputs[0].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": dtrain_feature_schema.to_json(),
-                "targets": None,
-            }
+    assert dataset_inputs[0].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": dtrain_feature_schema.to_json(),
+            "targets": None,
         }
-    )
+    })
     assert dataset_inputs[1].tags[0].value == "eval"
     deval_feature_schema = _infer_schema(deval.get_data().toarray())
-    assert dataset_inputs[0].dataset.schema == json.dumps(
-        {
-            "mlflow_tensorspec": {
-                "features": deval_feature_schema.to_json(),
-                "targets": None,
-            }
+    assert dataset_inputs[0].dataset.schema == json.dumps({
+        "mlflow_tensorspec": {
+            "features": deval_feature_schema.to_json(),
+            "targets": None,
         }
-    )
+    })

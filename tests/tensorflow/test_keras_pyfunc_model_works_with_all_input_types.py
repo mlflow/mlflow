@@ -63,11 +63,9 @@ def single_tensor_input_model(data):
     model.fit(x.values, y.values)
 
     signature = ModelSignature(
-        inputs=Schema(
-            [
-                TensorSpec(np.dtype(np.float64), (-1, 4)),
-            ]
-        )
+        inputs=Schema([
+            TensorSpec(np.dtype(np.float64), (-1, 4)),
+        ])
     )
     return model, signature
 
@@ -83,12 +81,10 @@ def multi_tensor_input_model(data):
     model.fit([x.values[:, :2], x.values[:, -2:]], y)
 
     signature = ModelSignature(
-        inputs=Schema(
-            [
-                TensorSpec(np.dtype(np.float64), (-1, 2), "a"),
-                TensorSpec(np.dtype(np.float64), (-1, 2), "b"),
-            ]
-        )
+        inputs=Schema([
+            TensorSpec(np.dtype(np.float64), (-1, 2), "a"),
+            TensorSpec(np.dtype(np.float64), (-1, 2), "b"),
+        ])
     )
     return model, signature
 
@@ -116,11 +112,9 @@ def single_multidim_tensor_input_model(data):
     model.compile(loss="mean_squared_error", optimizer=SGD())
     model.fit(np.repeat(x.values[:, :, np.newaxis], 3, axis=2), y.values)
     signature = ModelSignature(
-        inputs=Schema(
-            [
-                TensorSpec(np.dtype(np.float64), (-1, 4, 3)),
-            ]
-        )
+        inputs=Schema([
+            TensorSpec(np.dtype(np.float64), (-1, 4, 3)),
+        ])
     )
     return model, signature
 
@@ -156,12 +150,10 @@ def multi_multidim_tensor_input_model(data):
         y,
     )
     signature = ModelSignature(
-        inputs=Schema(
-            [
-                TensorSpec(np.dtype(np.float64), (-1, 2, 3), "a"),
-                TensorSpec(np.dtype(np.float64), (-1, 2, 5), "b"),
-            ]
-        )
+        inputs=Schema([
+            TensorSpec(np.dtype(np.float64), (-1, 2, 3), "a"),
+            TensorSpec(np.dtype(np.float64), (-1, 2, 5), "b"),
+        ])
     )
     return model, signature
 
@@ -215,12 +207,10 @@ def test_model_multi_tensor_input(use_signature, multi_tensor_input_model, model
     np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
     if signature is not None:
-        test_input = pd.DataFrame(
-            {
-                "a": x.values[:, :2].tolist(),
-                "b": x.values[:, -2:].tolist(),
-            }
-        )
+        test_input = pd.DataFrame({
+            "a": x.values[:, :2].tolist(),
+            "b": x.values[:, -2:].tolist(),
+        })
         actual = model_loaded.predict(test_input)
         assert type(actual) == np.ndarray
         np.testing.assert_allclose(actual, expected, rtol=1e-5)
@@ -278,12 +268,10 @@ def test_model_multi_multidim_tensor_input(
     np.testing.assert_allclose(actual, expected, rtol=1e-5)
 
     if signature is not None:
-        test_input = pd.DataFrame(
-            {
-                "a": input_a.reshape((-1, 2 * 3)).tolist(),
-                "b": input_b.reshape((-1, 2 * 5)).tolist(),
-            }
-        )
+        test_input = pd.DataFrame({
+            "a": input_a.reshape((-1, 2 * 3)).tolist(),
+            "b": input_b.reshape((-1, 2 * 5)).tolist(),
+        })
         actual = model_loaded.predict(test_input)
         assert type(actual) == np.ndarray
         np.testing.assert_allclose(actual, expected, rtol=1e-5)
@@ -313,7 +301,8 @@ def test_single_multidim_input_model_spark_udf(
 
     infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
     actual = (
-        test_input_spark_df.select(infer_udf("x").alias("prediction"))
+        test_input_spark_df
+        .select(infer_udf("x").alias("prediction"))
         .toPandas()
         .prediction.to_numpy()
     )
@@ -344,26 +333,26 @@ def test_multi_multidim_input_model_spark_udf(
     expected = model.predict(test_input)
 
     test_input_spark_df = spark_session.createDataFrame(
-        pd.DataFrame(
-            {
-                "a": input_a.reshape((-1, 2 * 3)).tolist(),
-                "b": input_b.reshape((-1, 2 * 5)).tolist(),
-            }
-        )
+        pd.DataFrame({
+            "a": input_a.reshape((-1, 2 * 3)).tolist(),
+            "b": input_b.reshape((-1, 2 * 5)).tolist(),
+        })
     )
     with mlflow.start_run():
         model_uri = mlflow.tensorflow.log_model(model, name="model", signature=signature).model_uri
 
     infer_udf = spark_udf(spark_session, model_uri, env_manager=env_manager)
     actual = (
-        test_input_spark_df.select(infer_udf("a", "b").alias("prediction"))
+        test_input_spark_df
+        .select(infer_udf("a", "b").alias("prediction"))
         .toPandas()
         .prediction.to_numpy()
     )
     np.testing.assert_allclose(actual, np.squeeze(expected), rtol=1e-5)
 
     actual = (
-        test_input_spark_df.select(infer_udf(struct("a", "b")).alias("prediction"))
+        test_input_spark_df
+        .select(infer_udf(struct("a", "b")).alias("prediction"))
         .toPandas()
         .prediction.to_numpy()
     )
@@ -408,12 +397,10 @@ def test_scoring_server_successfully_on_multi_multidim_input_model(
 
     inp_dict = json.dumps({"instances": instances})
     input_example = {"a": input_a, "b": input_b}
-    test_input_df = pd.DataFrame(
-        {
-            "a": input_a.reshape((-1, 2 * 3)).tolist(),
-            "b": input_b.reshape((-1, 2 * 5)).tolist(),
-        }
-    )
+    test_input_df = pd.DataFrame({
+        "a": input_a.reshape((-1, 2 * 3)).tolist(),
+        "b": input_b.reshape((-1, 2 * 5)).tolist(),
+    })
     with mlflow.start_run():
         model_info = mlflow.tensorflow.log_model(model, name="model", input_example=input_example)
     assert model_info.signature.inputs == signature.inputs

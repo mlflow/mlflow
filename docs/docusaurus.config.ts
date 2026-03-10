@@ -109,21 +109,21 @@ const config: Config = {
           type: 'custom-docsDropdown',
           label: 'Documentation',
           items: [
-            // Classic ML docs
-            {
-              type: 'docSidebar',
-              sidebarId: 'classicMLSidebar',
-              label: 'ML Docs',
-              docsPluginId: 'classic-ml',
-              className: 'ml-docs-link',
-            },
             // GenAI docs
             {
               type: 'docSidebar',
               sidebarId: 'genAISidebar',
-              label: 'GenAI Docs',
+              label: 'LLMs & Agents',
               docsPluginId: 'genai',
               className: 'genai-docs-link',
+            },
+            // Classic ML docs
+            {
+              type: 'docSidebar',
+              sidebarId: 'classicMLSidebar',
+              label: 'Machine Learning',
+              docsPluginId: 'classic-ml',
+              className: 'ml-docs-link',
             },
           ],
         },

@@ -66,9 +66,9 @@ def _format_args_string(grading_context_columns: list[str] | None, eval_values, 
         if args_dict is None or len(args_dict) == 0
         else (
             "Additional information used by the model:\n"
-            + "\n".join(
-                [f"key: {arg}\nvalue:\n{arg_value}" for arg, arg_value in args_dict.items()]
-            )
+            + "\n".join([
+                f"key: {arg}\nvalue:\n{arg_value}" for arg, arg_value in args_dict.items()
+            ])
         )
     )
 
@@ -270,13 +270,11 @@ def make_genai_metric_from_prompt(
             greater_is_better=True,
         )
 
-        data = pd.DataFrame(
-            {
-                "input": ["Where is the capital of France."],
-                "ground_truth": ["Paris"],
-                "output": ["The capital of France is Paris."],
-            }
-        )
+        data = pd.DataFrame({
+            "input": ["Where is the capital of France."],
+            "ground_truth": ["Paris"],
+            "output": ["The capital of France is Paris."],
+        })
 
         mlflow.evaluate(
             data=data,
@@ -743,12 +741,10 @@ def retrieve_custom_metrics(
             retrieve_custom_metrics,
         )
 
-        eval_df = pd.DataFrame(
-            {
-                "inputs": ["foo"],
-                "ground_truth": ["bar"],
-            }
-        )
+        eval_df = pd.DataFrame({
+            "inputs": ["foo"],
+            "ground_truth": ["bar"],
+        })
         with mlflow.start_run() as run:
             system_prompt = "Answer the following question in two sentences"
             basic_qa_model = mlflow.openai.log_model(

@@ -78,17 +78,15 @@ async def maybe_traced_call(provider_func, endpoint_config, on_complete):
 async def _provider_with_cost(payload):
     """Simulates a provider that sets LLM_COST on its child span."""
     with mlflow.start_span("provider/openai/gpt-4o", span_type=SpanType.LLM) as span:
-        span.set_attributes(
-            {
-                SpanAttributeKey.MODEL: "gpt-4o",
-                SpanAttributeKey.MODEL_PROVIDER: "openai",
-                SpanAttributeKey.LLM_COST: {
-                    CostKey.INPUT_COST: 0.025,
-                    CostKey.OUTPUT_COST: 0.050,
-                    CostKey.TOTAL_COST: 0.075,
-                },
-            }
-        )
+        span.set_attributes({
+            SpanAttributeKey.MODEL: "gpt-4o",
+            SpanAttributeKey.MODEL_PROVIDER: "openai",
+            SpanAttributeKey.LLM_COST: {
+                CostKey.INPUT_COST: 0.025,
+                CostKey.OUTPUT_COST: 0.050,
+                CostKey.TOTAL_COST: 0.075,
+            },
+        })
     return {"choices": [{"message": {"content": "Hello"}}]}
 
 

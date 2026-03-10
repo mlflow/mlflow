@@ -12,7 +12,7 @@ import { Brain, Code, Users, Shield, Target, Activity, ChartBar, GitBranch } fro
 
 ## What are Scorers?
 
-**Scorers** in MLflow are evaluation functions that assess the quality of your GenAI application outputs. They provide a systematic way to measure performance across different dimensions like correctness, relevance, safety, and adherence to guidelines.
+**Scorers** in MLflow are evaluation functions that assess the quality of your LLM application or AI agent outputs. They provide a systematic way to measure performance across different dimensions like correctness, relevance, safety, and adherence to guidelines.
 
 Scorers transform subjective quality assessments into measurable metrics, enabling you to track performance, compare models, and ensure your applications meet quality standards. They range from simple rule-based checks to sophisticated LLM judges that can evaluate nuanced aspects of language generation.
 
@@ -120,7 +120,7 @@ def retrieve_context(query: str):
     time.sleep(0.5)  # Retrieval latency
     return [
         {"doc": "MLflow is an open-source platform", "score": 0.95},
-        {"doc": "It manages the ML lifecycle", "score": 0.89},
+        {"doc": "It helps build production-quality AI agents", "score": 0.89},
         {"doc": "Includes tracking and deployment", "score": 0.87},
     ]
 
@@ -135,7 +135,7 @@ def retrieve_user_history(user_id: str):
 @mlflow.trace(span_type=SpanType.LLM)
 def generate_response(query: str, context: list, history: dict):
     # Simulate LLM generation
-    return f"Based on context about '{query}': MLflow is a platform for ML lifecycle management."
+    return f"Based on context about '{query}': MLflow is an open-source AI engineering platform."
 
 
 @mlflow.trace(span_type=SpanType.AGENT)
@@ -167,8 +167,7 @@ from mlflow.genai.judges import make_judge
 correctness_judge = make_judge(
     name="correctness",
     instructions=(
-        "Evaluate if the response in {{ outputs }} "
-        "correctly answers the question in {{ inputs }}."
+        "Evaluate if the response in {{ outputs }} correctly answers the question in {{ inputs }}."
     ),
     feedback_value_type=bool,
     model="anthropic:/claude-opus-4-1-20250805",
@@ -177,9 +176,7 @@ correctness_judge = make_judge(
 # Example usage
 feedback = correctness_judge(
     inputs={"question": "What is MLflow?"},
-    outputs={
-        "response": "MLflow is an open-source platform for ML lifecycle management."
-    },
+    outputs={"response": "MLflow is an open-source AI engineering platform."},
 )
 print(f"Correctness: {feedback.value}")
 ```
@@ -288,7 +285,8 @@ quality_judge = make_judge(
 
 # Collect traces with both judge assessments and human feedback
 traces_with_feedback = mlflow.search_traces(
-    experiment_ids=[experiment_id], max_results=20  # Minimum 10 required for alignment
+    experiment_ids=[experiment_id],
+    max_results=20,  # Minimum 10 required for alignment
 )
 
 # Align the judge with human preferences (uses default DSPy-SIMBA optimizer)
@@ -332,28 +330,18 @@ import mlflow
 import pandas as pd
 
 # Your test data
-test_data = pd.DataFrame(
-    [
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "outputs": {
-                "response": "MLflow is an open-source platform for ML lifecycle management."
-            },
-            "expectations": {
-                "ground_truth": "MLflow is an open-source platform for managing the ML lifecycle"
-            },
-        },
-        {
-            "inputs": {"question": "How do I track experiments?"},
-            "outputs": {
-                "response": "Use mlflow.start_run() to track experiments in MLflow."
-            },
-            "expectations": {
-                "ground_truth": "Use mlflow.start_run() to track experiments"
-            },
-        },
-    ]
-)
+test_data = pd.DataFrame([
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "outputs": {"response": "MLflow is an open-source AI engineering platform."},
+        "expectations": {"ground_truth": "MLflow is an open-source AI engineering platform"},
+    },
+    {
+        "inputs": {"question": "How do I track experiments?"},
+        "outputs": {"response": "Use mlflow.start_run() to track experiments in MLflow."},
+        "expectations": {"ground_truth": "Use mlflow.start_run() to track experiments"},
+    },
+])
 
 
 # Your application (optional if data already has outputs)

@@ -64,12 +64,8 @@ from torchvision import datasets, transforms
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Load and prepare data
-transform = transforms.Compose(
-    [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-)
-train_dataset = datasets.FashionMNIST(
-    "data", train=True, download=True, transform=transform
-)
+transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))])
+train_dataset = datasets.FashionMNIST("data", train=True, download=True, transform=transform)
 test_dataset = datasets.FashionMNIST("data", train=False, transform=transform)
 train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=1000)
@@ -203,7 +199,7 @@ with mlflow.start_run() as run:
         mlflow.pytorch.log_model(model, name=f"checkpoint_{epoch}")
 
         print(
-            f"Epoch {epoch+1}/{params['epochs']}, "
+            f"Epoch {epoch + 1}/{params['epochs']}, "
             f"Train Loss: {epoch_loss:.4f}, Train Acc: {epoch_acc:.2f}%, "
             f"Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.2f}%"
         )

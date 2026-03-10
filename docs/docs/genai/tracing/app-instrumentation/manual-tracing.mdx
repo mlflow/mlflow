@@ -9,7 +9,7 @@ import { Zap, BookOpen, Search } from "lucide-react";
 
 # Manual Tracing
 
-In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your GenAI application by using MLflow's manual tracing APIs.
+In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your LLM application or AI agent by using MLflow's manual tracing APIs.
 
 ## Decorator
 
@@ -185,13 +185,9 @@ The `mlflow.trace` decorator accepts following arguments to customize the span t
 from mlflow.entities import SpanType
 
 
-@mlflow.trace(
-    name="call-local-llm", span_type=SpanType.LLM, attributes={"model": "gpt-4o-mini"}
-)
+@mlflow.trace(name="call-local-llm", span_type=SpanType.LLM, attributes={"model": "gpt-4o-mini"})
 def invoke(prompt: str):
-    return client.invoke(
-        messages=[{"role": "user", "content": prompt}], model="gpt-4o-mini"
-    )
+    return client.invoke(messages=[{"role": "user", "content": prompt}], model="gpt-4o-mini")
 ```
 
 </TabItem>
@@ -342,8 +338,7 @@ def summarize_document(document_content: str, user_instructions: str):
 
 # Example Call
 long_document = (
-    "This is a very long document that contains many details about various topics..."
-    * 10
+    "This is a very long document that contains many details about various topics..." * 10
 )
 instructions = "Focus on the key takeaways regarding topic X."
 summary_result = summarize_document(long_document, instructions)

@@ -33,7 +33,7 @@ const sidebarsGenAI: SidebarsConfig = {
     {
       type: 'doc',
       id: 'getting-started/try-assistant',
-      label: 'Try MLflow Assistant',
+      label: "Try MLflow's AI Assistant",
       className: 'sidebar-top-level-category',
     },
     {
@@ -527,7 +527,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Evaluate & Monitor',
+      label: 'Evaluation & Monitoring',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -1162,7 +1162,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Model Serving',
+      label: 'Agent Serving',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -1183,7 +1183,7 @@ const sidebarsGenAI: SidebarsConfig = {
       ],
       link: {
         type: 'doc',
-        id: 'serving/index',
+        id: 'serving/agent-server',
       },
     },
     {

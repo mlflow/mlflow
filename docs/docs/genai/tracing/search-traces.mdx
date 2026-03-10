@@ -180,9 +180,7 @@ mlflow.search_traces(filter_string="tag.model_name IS NOT NULL")
 mlflow.search_traces(filter_string="tag.environment IS NULL")
 
 # Combine null checks with other filters
-mlflow.search_traces(
-    filter_string="tag.environment IS NOT NULL AND tag.model_name = 'gpt-4'"
-)
+mlflow.search_traces(filter_string="tag.environment IS NOT NULL AND tag.model_name = 'gpt-4'")
 ```
 
 #### Filter by Metadata
@@ -198,9 +196,7 @@ mlflow.search_traces(filter_string="metadata.session_id IS NOT NULL")
 mlflow.search_traces(filter_string="metadata.region IS NULL")
 
 # Combine null checks with other filters
-mlflow.search_traces(
-    filter_string="metadata.region IS NOT NULL AND metadata.env = 'production'"
-)
+mlflow.search_traces(filter_string="metadata.region IS NOT NULL AND metadata.env = 'production'")
 ```
 
 #### Filter by Run Association
@@ -314,9 +310,7 @@ import mlflow
 traces_df = mlflow.search_traces(filter_string="trace.status = 'OK'")
 
 # Return as list of Trace objects
-traces_list = mlflow.search_traces(
-    filter_string="trace.status = 'OK'", return_type="list"
-)
+traces_list = mlflow.search_traces(filter_string="trace.status = 'OK'", return_type="list")
 ```
 
 :::note

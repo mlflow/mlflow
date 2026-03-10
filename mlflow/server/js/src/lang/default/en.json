@@ -167,6 +167,10 @@
     "defaultMessage": "Error",
     "description": "Error assessment label for filter dropdown"
   },
+  "/FWWkj": {
+    "defaultMessage": "Issue detection run",
+    "description": "Tooltip for the AI icon indicating this is an issue detection run"
+  },
   "/G/eHs": {
     "defaultMessage": "Run judge",
     "description": "Button text for running judge"
@@ -251,6 +255,10 @@
     "defaultMessage": "Models loading",
     "description": "Label for a loading spinner when table containing models is being loaded"
   },
+  "/j4ziU": {
+    "defaultMessage": "Please select a model in `Advanced settings` below",
+    "description": "Message when provider has no default model"
+  },
   "/k6j6v": {
     "defaultMessage": "Confirm",
     "description": "Evaluation review > assessments > confirm assessment button label"
@@ -270,6 +278,10 @@
   "/qIHh7": {
     "defaultMessage": "Traces",
     "description": "Label for the scorer evaluation scope selection"
+  },
+  "/qVACl": {
+    "defaultMessage": "Negative User Experiences",
+    "description": "Issue category title for detecting negative user experiences"
   },
   "/sk75d": {
     "defaultMessage": "Experiment not found",
@@ -558,10 +570,6 @@
   "2/B9Zg": {
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
-  },
-  "23xuy1": {
-    "defaultMessage": "Analysis Model *",
-    "description": "Label for analysis model selection (required)"
   },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
@@ -962,13 +970,13 @@
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
   },
+  "5FUaKj": {
+    "defaultMessage": "Configure the LLM provider and model to power issue detection",
+    "description": "Description for the model selection step"
+  },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
     "description": "Title on a page used to manage MLflow experiments runs"
-  },
-  "5GOMqh": {
-    "defaultMessage": "Connect an LLM to run an AI-powered issue analysis on your traces",
-    "description": "Description text for issue detection modal"
   },
   "5Mzn2b": {
     "defaultMessage": "Creator",
@@ -1137,6 +1145,10 @@
   "6WQ9yl": {
     "defaultMessage": "Unable to load experiment judges",
     "description": "Error message when experiment judges page fails to load"
+  },
+  "6WitMT": {
+    "defaultMessage": "Alert sends a webhook notification. <link>Learn how to set up webhooks.</link>",
+    "description": "Tooltip explaining budget exceeded actions and webhook setup"
   },
   "6XfILf": {
     "defaultMessage": "Contour chart",
@@ -1454,10 +1466,6 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
-  "8S2wnj": {
-    "defaultMessage": "Judge Model *",
-    "description": "Label for judge model selection (required)"
-  },
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
@@ -1545,6 +1553,10 @@
   "90097b": {
     "defaultMessage": "Masked Key",
     "description": "Masked API key label"
+  },
+  "90mZic": {
+    "defaultMessage": "Budget",
+    "description": "Budget amount column header"
   },
   "93BFzC": {
     "defaultMessage": "Outputs",
@@ -1666,6 +1678,10 @@
     "defaultMessage": "Show change from baseline",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show change from baseline toggle"
   },
+  "9icYIV": {
+    "defaultMessage": "Select Categories",
+    "description": "Header for the category selection step in issue detection modal"
+  },
   "9kTEoo": {
     "defaultMessage": "Is the app's response grounded in retrieved information?",
     "description": "Hint for RetrievalGroundedness template"
@@ -1713,6 +1729,10 @@
   "9y+yUQ": {
     "defaultMessage": "File is too large to preview",
     "description": "Label to indicate that the file is too large to preview"
+  },
+  "9ygCGK": {
+    "defaultMessage": "Reset period",
+    "description": "Budget reset period label"
   },
   "A+5KMV": {
     "defaultMessage": "Model ID",
@@ -1902,10 +1922,6 @@
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
   },
-  "B5WVpt": {
-    "defaultMessage": "Analysis model: {analysisModel} · Judge model: {judgeModel}",
-    "description": "Display of default models for selected provider"
-  },
   "B80MC6": {
     "defaultMessage": "Contour Plot",
     "description": "Tab pane title for contour plots on the compare runs page"
@@ -2002,6 +2018,10 @@
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
   },
+  "BfaeNE": {
+    "defaultMessage": "Low Quality Responses",
+    "description": "Issue category title for detecting low quality responses"
+  },
   "BkDhmT": {
     "defaultMessage": "Chat",
     "description": "Label for the chat tab of the model trace explorer."
@@ -2021,6 +2041,10 @@
   "Bq2DKp": {
     "defaultMessage": "Create new endpoint",
     "description": "Button text to create a new endpoint"
+  },
+  "Bqn/5s": {
+    "defaultMessage": "Traces",
+    "description": "Section header for trace selection"
   },
   "BrQez2": {
     "defaultMessage": "Provider",
@@ -2057,6 +2081,10 @@
   "C5WOXw": {
     "defaultMessage": "Click to select a model",
     "description": "Placeholder for model selection"
+  },
+  "C6/J2o": {
+    "defaultMessage": "Create Budget Policy",
+    "description": "Title for create budget policy modal"
   },
   "C6ReUY": {
     "defaultMessage": "Save",
@@ -2097,6 +2125,10 @@
   "CO81il": {
     "defaultMessage": "No usage data available",
     "description": "Empty state title"
+  },
+  "COIi12": {
+    "defaultMessage": "Run judges",
+    "description": "Button text for running multiple judges"
   },
   "CPO2ro": {
     "defaultMessage": "GenAI apps & agents",
@@ -2173,6 +2205,10 @@
   "CpLnGS": {
     "defaultMessage": "Metrics",
     "description": "Table title text for metrics table in the model comparison page"
+  },
+  "CpUD2P": {
+    "defaultMessage": "Select traces",
+    "description": "Button to open trace selection modal"
   },
   "CruI7o": {
     "defaultMessage": "Latest version",
@@ -2302,6 +2338,10 @@
     "defaultMessage": "More options",
     "description": "Experiment page > control bar > more options button accessible label"
   },
+  "E6PAQr": {
+    "defaultMessage": "Safety & Compliance Violations",
+    "description": "Issue category title for detecting safety violations"
+  },
   "E7mv3b": {
     "defaultMessage": "Save",
     "description": "Text for saving changes on rows in editable form table in MLflow"
@@ -2333,6 +2373,10 @@
   "EDWwN/": {
     "defaultMessage": "Compare",
     "description": "Compare button on run detail page"
+  },
+  "EE7SQ0": {
+    "defaultMessage": "Edit budget policy",
+    "description": "Gateway > Budgets list > Edit budget policy button aria label"
   },
   "EI7moF": {
     "defaultMessage": "Last year",
@@ -2397,6 +2441,10 @@
   "Epo8/i": {
     "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
     "description": "Experiments page list, delete bulk experiments modal title"
+  },
+  "EsCAXB": {
+    "defaultMessage": "Detect unsafe responses or actions and compliance violations",
+    "description": "Issue category description for safety violations"
   },
   "Eu0gxa": {
     "defaultMessage": "Capture and debug LLM interactions and agent workflows.",
@@ -2578,6 +2626,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
   },
+  "GGbdya": {
+    "defaultMessage": "View status",
+    "description": "Link to view issue detection job status"
+  },
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
@@ -2674,6 +2726,10 @@
     "defaultMessage": "Y-axis Log Scale:",
     "description": "Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
   },
+  "HHRU4d": {
+    "defaultMessage": "Detection progress",
+    "description": "Issue detection progress > Title"
+  },
   "HLbyGb": {
     "defaultMessage": "Show more",
     "description": "Button text to show more description text for the entity"
@@ -2758,6 +2814,10 @@
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
   },
+  "Hk9B5H": {
+    "defaultMessage": "Delete sessions",
+    "description": "Delete sessions and all their traces action"
+  },
   "HlqAH9": {
     "defaultMessage": "Output type",
     "description": "Section header for judge output type selection"
@@ -2837,6 +2897,10 @@
   "IMkDgM": {
     "defaultMessage": "Experiments",
     "description": "Link label for the experiments page"
+  },
+  "INrdWe": {
+    "defaultMessage": "{count, plural, one {1 trace selected} other {# traces selected}}",
+    "description": "Label showing number of traces selected"
   },
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
@@ -2965,6 +3029,10 @@
   "JW0GbU": {
     "defaultMessage": "You can set a maximum of {maxLength} values",
     "description": "Error message when trying to submit a key-value pair form with more than the maximum allowed values"
+  },
+  "JW4EB/": {
+    "defaultMessage": "On exceeded",
+    "description": "Budget on exceeded label"
   },
   "JYVQuV": {
     "defaultMessage": "Run ID",
@@ -3154,6 +3222,10 @@
     "defaultMessage": "Artifacts",
     "description": "Label for the artifacts tab on the logged model details page"
   },
+  "KxeI8I": {
+    "defaultMessage": "Current Spend",
+    "description": "Budget current spend column header"
+  },
   "Kya8N3": {
     "defaultMessage": "Pass",
     "description": "Passing evaluation status in the evaluations table."
@@ -3237,6 +3309,10 @@
   "LXz6c5": {
     "defaultMessage": "This setting enables UI telemetry data collection. Learn more about what types of data are collected in our {documentation}.",
     "description": "Enable telemetry settings description"
+  },
+  "La+f9S": {
+    "defaultMessage": "Budgets",
+    "description": "Budget policies page title"
   },
   "LajLDb": {
     "defaultMessage": "Move to top",
@@ -3398,6 +3474,10 @@
     "defaultMessage": "Inputs",
     "description": "Label for inputs variable option"
   },
+  "MgfSs1": {
+    "defaultMessage": "Budget amount (USD)",
+    "description": "Budget amount label"
+  },
   "MhOmZG": {
     "defaultMessage": "Yes",
     "description": "Label for an assessment with a 'yes' value"
@@ -3537,6 +3617,10 @@
   "NW59bs": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for edit workspace modal"
+  },
+  "NW7qsV": {
+    "defaultMessage": "Window End",
+    "description": "Budget window end date column header"
   },
   "NWbmIK": {
     "defaultMessage": "Is the text grammatically correct and naturally flowing?",
@@ -3682,6 +3766,10 @@
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
   },
+  "Ob5d+s": {
+    "defaultMessage": "System metrics",
+    "description": "Run details page > tab selector > System metrics tab"
+  },
   "OcYzCN": {
     "defaultMessage": "Unresolved",
     "description": "Label for a user_frustration assessment with 'unresolved' value"
@@ -3694,6 +3782,10 @@
     "defaultMessage": "Close",
     "description": "Error modal close button text"
   },
+  "OiNC9u": {
+    "defaultMessage": "No budget policies created",
+    "description": "Empty state title for budgets list"
+  },
   "OilzZP": {
     "defaultMessage": "Conversation",
     "description": "Label for conversation variable option"
@@ -3705,6 +3797,10 @@
   "OjWQ39": {
     "defaultMessage": "Human feedback",
     "description": "Tooltip content for human feedback"
+  },
+  "OlI8fe": {
+    "defaultMessage": "On Exceeded",
+    "description": "Budget on exceeded column header"
   },
   "OlytgO": {
     "defaultMessage": "Field",
@@ -3753,6 +3849,10 @@
   "PGbCZD": {
     "defaultMessage": "Production",
     "description": "Column title for production phase version in the registered model page"
+  },
+  "PIsgM0": {
+    "defaultMessage": "Experiments",
+    "description": "Issue detection run details > Breadcrumb > Experiments"
   },
   "PKYh23": {
     "defaultMessage": "Additional runs",
@@ -4149,6 +4249,10 @@
     "defaultMessage": "Only run on traces matching this filter; leave blank to run on all. Uses MLflow {link}.",
     "description": "Hint text for filter string input"
   },
+  "SAxj6I": {
+    "defaultMessage": "Create budget policy",
+    "description": "Gateway > Budgets page > Create budget policy button"
+  },
   "SCYMXw": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text for creating model in the model registry"
@@ -4216,6 +4320,10 @@
   "SbMdmm": {
     "defaultMessage": "{spanName} was called",
     "description": "Label for an intermediate node in the trace explorer summary view, indicating that a span/function was called in the course of execution."
+  },
+  "ScrXYc": {
+    "defaultMessage": "Previous",
+    "description": "Previous button to go back to category selection"
   },
   "Sd7sQi": {
     "defaultMessage": "Traces are only available for experiment-scoped prompts.",
@@ -4408,6 +4516,10 @@
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Row entry for version columns in the registered model page"
   },
+  "U+nNo1": {
+    "defaultMessage": "An error occurred while updating the budget policy. Please try again.",
+    "description": "Generic error message for budget policy update"
+  },
   "U0joaT": {
     "defaultMessage": "Select traces",
     "description": "Title for the select traces modal"
@@ -4567,6 +4679,10 @@
   "V+4GZQ": {
     "defaultMessage": "View logs for this period",
     "description": "Link text to navigate to gateway endpoint logs tab"
+  },
+  "V0/5Oy": {
+    "defaultMessage": "Model: {model}",
+    "description": "Display of default model for selected provider"
   },
   "V0/LoE": {
     "defaultMessage": "This trace is not exportable because it either contains an error or the response is not a ChatCompletionResponse.",
@@ -4752,6 +4868,10 @@
     "defaultMessage": "+{count} more",
     "description": "Message for the popover trigger to show more items in the categorical aggregate chart."
   },
+  "WEQoNb": {
+    "defaultMessage": "Page {page}",
+    "description": "Current page indicator"
+  },
   "WFEeyZ": {
     "defaultMessage": "Cost: {input} in / {output} out",
     "description": "Model cost per token"
@@ -4928,6 +5048,10 @@
     "defaultMessage": "Session ID",
     "description": "Label for the session id section"
   },
+  "XK+0na": {
+    "defaultMessage": "Reset period",
+    "description": "Budget reset period column header"
+  },
   "XLSmZx": {
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
@@ -4935,10 +5059,6 @@
   "XOUsyq": {
     "defaultMessage": "Loading model definitions...",
     "description": "Loading message for model definitions"
-  },
-  "XQSxtK": {
-    "defaultMessage": "Please select models in `Advanced settings` below",
-    "description": "Message when provider has no default models"
   },
   "XX8+x1": {
     "defaultMessage": "View prompt template",
@@ -5042,6 +5162,10 @@
   "YGo9ni": {
     "defaultMessage": "Select a provider to configure API key",
     "description": "Message when no provider selected for API key form"
+  },
+  "YIKNtj": {
+    "defaultMessage": "An error occurred while creating the budget policy. Please try again.",
+    "description": "Generic error message for budget policy creation"
   },
   "YINJEO": {
     "defaultMessage": "Metric",
@@ -5151,6 +5275,10 @@
     "defaultMessage": "Add a custom expectation to this session.",
     "description": "Hint message prompting user to add a new expectation to a session"
   },
+  "YzemxC": {
+    "defaultMessage": "Create",
+    "description": "Create budget policy button text"
+  },
   "Z+tEhr": {
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
@@ -5186,6 +5314,10 @@
   "ZKtBkW": {
     "defaultMessage": "Edit the request body below and click Send request to call the provider API.",
     "description": "Try it description for passthrough"
+  },
+  "ZLMmGe": {
+    "defaultMessage": "Identify slow requests or operations",
+    "description": "Issue category description for performance issues"
   },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",
@@ -5306,6 +5438,10 @@
   "ZwAzmu": {
     "defaultMessage": "Create Model",
     "description": "Create button to register a new model"
+  },
+  "a+uNeX": {
+    "defaultMessage": "Next",
+    "description": "Next button to proceed to provider configuration"
   },
   "a02Pn6": {
     "defaultMessage": "Step",
@@ -5430,6 +5566,10 @@
   "abIH3b": {
     "defaultMessage": "All providers",
     "description": "Label for selector when all providers are selected"
+  },
+  "acbe7K": {
+    "defaultMessage": "Select the traces to analyze for issues",
+    "description": "Description for trace selection section"
   },
   "adVHxN": {
     "defaultMessage": "Outputs",
@@ -5591,6 +5731,10 @@
     "defaultMessage": "Latest version",
     "description": "Header for the latest version column in the registered prompts table"
   },
+  "bnKdtY": {
+    "defaultMessage": "Budgets",
+    "description": "Sidebar link for gateway budgets"
+  },
   "bqn2bk": {
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
@@ -5731,6 +5875,10 @@
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
   },
+  "cXhWaG": {
+    "defaultMessage": "Select Model",
+    "description": "Header for the model selection step in issue detection modal"
+  },
   "cYlLx9": {
     "defaultMessage": "Usage",
     "description": "Sidebar link for gateway usage"
@@ -5819,10 +5967,6 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
-  "dFvZdM": {
-    "defaultMessage": "Connections",
-    "description": "Section header for API key configuration"
-  },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
     "description": "Experiment page > new run modal > invalid state - no prompt template provided"
@@ -5882,6 +6026,10 @@
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
     "description": "Generic 500 user-friendly error for the MLflow UI"
+  },
+  "ddUxQJ": {
+    "defaultMessage": "Use \"Create budget policy\" button to set up cost limits for the AI Gateway",
+    "description": "Empty state message for budgets list"
   },
   "dl0TeT": {
     "defaultMessage": "Save",
@@ -6002,6 +6150,10 @@
   "eSxQmg": {
     "defaultMessage": "Correct",
     "description": "Evaluation results > correctness assessment > positive value label. Displayed if evaluation result is considered as correct."
+  },
+  "eSy6pz": {
+    "defaultMessage": "Model *",
+    "description": "Label for model selection (required)"
   },
   "eUUNCv": {
     "defaultMessage": "Error during metric page load: invalid URL",
@@ -6167,6 +6319,10 @@
     "defaultMessage": "You need to provide values for all defined inputs",
     "description": "Experiment page > new run modal > invalid state - no prompt inputs provided"
   },
+  "fnKCv5": {
+    "defaultMessage": "Cancel",
+    "description": "Issue detection progress > Cancel button"
+  },
   "fq8v6G": {
     "defaultMessage": "Trace name",
     "description": "Column label for trace name"
@@ -6230,6 +6386,10 @@
   "g56Cuk": {
     "defaultMessage": "Delete {count, plural, one { # trace } other { # traces }}",
     "description": "Experiment page > traces view controls > Delete traces modal > Delete button"
+  },
+  "g734JR": {
+    "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, {identifiedIssues} issues identified so far",
+    "description": "Issue detection progress > Progress summary"
   },
   "g7xNvF": {
     "defaultMessage": "Display points",
@@ -6391,10 +6551,6 @@
     "defaultMessage": "Fallback Model {order}",
     "description": "Label for fallback model"
   },
-  "hFlaPP": {
-    "defaultMessage": "System metrics",
-    "description": "Run details page > tab selector > Model metrics tab"
-  },
   "hHNj31": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text"
@@ -6498,6 +6654,10 @@
   "hvKJ+r": {
     "defaultMessage": "Close",
     "description": "Button to close the assistant panel on remote servers"
+  },
+  "hwSDOP": {
+    "defaultMessage": "Previous",
+    "description": "Previous page button"
   },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
@@ -6823,6 +6983,10 @@
     "defaultMessage": "Last used",
     "description": "Badge for last used workspace"
   },
+  "k3SQ4s": {
+    "defaultMessage": "Detect unsatisfactory user experiences and unmet user needs",
+    "description": "Issue category description for negative user experiences"
+  },
   "k8oXRo": {
     "defaultMessage": "Enter description",
     "description": "Placeholder for description input in edit modal"
@@ -6842,10 +7006,6 @@
   "kBXHTA": {
     "defaultMessage": "Edit chart",
     "description": "Title of the modal when editing a runs comparison chart"
-  },
-  "kBl4Ov": {
-    "defaultMessage": "Detect issues in traces",
-    "description": "Tooltip for the detect issues button in the traces table toolbar"
   },
   "kCsAho": {
     "defaultMessage": "Correctness",
@@ -6882,6 +7042,10 @@
   "kV2Dw/": {
     "defaultMessage": "Load model as a PyFuncModel.",
     "description": "Code comment which states how to load model using PyFuncModel"
+  },
+  "kVgfHt": {
+    "defaultMessage": "Actions{count}",
+    "description": "Session actions dropdown button"
   },
   "kW6/lu": {
     "defaultMessage": "Edit",
@@ -7091,6 +7255,10 @@
     "defaultMessage": "We couldn't load your workspaces.",
     "description": "Home page workspaces error message"
   },
+  "lrhKxR": {
+    "defaultMessage": "Choose which types of issues to detect in your traces",
+    "description": "Description for the category selection step"
+  },
   "ls3868": {
     "defaultMessage": "Guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > guidelines assessment. Used to indicate if the result adheres to the guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Guidelines: moderate\""
@@ -7102,6 +7270,10 @@
   "luV/3W": {
     "defaultMessage": "Adheres to guidelines",
     "description": "Evaluation results > guidelines assessment > positive value label. Displayed if evaluation result adheres to the guidelines."
+  },
+  "lvcGaz": {
+    "defaultMessage": "e.g., 100.00",
+    "description": "Budget amount placeholder"
   },
   "lxGVDu": {
     "defaultMessage": "Percentage of traces evaluated by this judge.",
@@ -7278,6 +7450,10 @@
   "mz/gog": {
     "defaultMessage": "Traffic Split",
     "description": "Summary traffic split label"
+  },
+  "n/MCHF": {
+    "defaultMessage": "Window Start",
+    "description": "Budget window start date column header"
   },
   "n/l2ft": {
     "defaultMessage": "Reset filters",
@@ -7515,6 +7691,10 @@
     "defaultMessage": "Data details for",
     "description": "Text for data details for the experiment run in the dataset drawer"
   },
+  "ocSGk8": {
+    "defaultMessage": "Budgets",
+    "description": "Gateway side nav > Budgets tab"
+  },
   "odkg7W": {
     "defaultMessage": "Compact view",
     "description": "Run page > artifact view > logged table view > compact view toggle button"
@@ -7591,6 +7771,10 @@
     "defaultMessage": "Sessions",
     "description": "Label for the scorer evaluation scope selection"
   },
+  "pClBtS": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button in issue detection modal"
+  },
   "pDCDkJ": {
     "defaultMessage": "Showing {visibleCount} out of {totalCount} {groupName}. Select columns to view more.",
     "description": "Tooltip for the group column header"
@@ -7606,6 +7790,10 @@
   "pOqgMC": {
     "defaultMessage": "Weight",
     "description": "Label for traffic split weight input"
+  },
+  "pT8+E7": {
+    "defaultMessage": "Delete budget policy",
+    "description": "Gateway > Budgets list > Delete budget policy button aria label"
   },
   "pTDM+x": {
     "defaultMessage": "Select LLM model endpoint",
@@ -7727,6 +7915,10 @@
     "defaultMessage": "Experiment id copied",
     "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
   },
+  "qIHqi7": {
+    "defaultMessage": "Evaluation runs",
+    "description": "Issue detection run details > Breadcrumb > Evaluation runs"
+  },
   "qIsNL0": {
     "defaultMessage": "Value",
     "description": "Run page > Overview > Parameters table > Value column header"
@@ -7838,6 +8030,10 @@
   "r0mM8+": {
     "defaultMessage": "An error occurred while creating the API key. Please try again.",
     "description": "Generic error message for API key creation"
+  },
+  "r26KQf": {
+    "defaultMessage": "Edit Budget Policy",
+    "description": "Title for edit budget policy modal"
   },
   "r3/K3V": {
     "defaultMessage": "Make Predictions",
@@ -7962,6 +8158,10 @@
   "rjhiii": {
     "defaultMessage": "Trace failed to render",
     "description": "Title for the error state in the model trace explorer"
+  },
+  "rk4Qif": {
+    "defaultMessage": "Identifying issues from traces...",
+    "description": "Issue detection progress > Step label"
   },
   "rmAWZX": {
     "defaultMessage": "just now",
@@ -8227,6 +8427,10 @@
     "defaultMessage": "Global guideline adherence",
     "description": "Evaluation results > known type of evaluation result assessment > global guideline adherence assessment. Used to indicate if the result adheres to the global guidelines in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Global guideline adherence: moderate\""
   },
+  "tUDgmf": {
+    "defaultMessage": "Select one or more sessions to perform actions.",
+    "description": "Tooltip shown when actions button is disabled due to no session selection"
+  },
   "taI4Bv": {
     "defaultMessage": "to",
     "description": "to"
@@ -8254,6 +8458,10 @@
   "tkc+sv": {
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
+  },
+  "tpUcwl": {
+    "defaultMessage": "Performance Issues",
+    "description": "Issue category title for detecting performance issues"
   },
   "tqw27y": {
     "defaultMessage": "Evaluation criteria",
@@ -8551,6 +8759,10 @@
     "defaultMessage": "Description",
     "description": "Header for displaying notes for the experiment table"
   },
+  "wDyvFZ": {
+    "defaultMessage": "Next",
+    "description": "Next page button"
+  },
   "wFaOf0": {
     "defaultMessage": "Source run ID",
     "description": "Label for the source run ID of a logged model on the logged model details page"
@@ -8835,9 +9047,17 @@
     "defaultMessage": "Prompt Caching",
     "description": "Filter option for prompt caching support"
   },
+  "y2E9ui": {
+    "defaultMessage": "Issue detection job triggered",
+    "description": "Notification message when issue detection job is started"
+  },
   "y2oQyU": {
     "defaultMessage": "Model name",
     "description": "Header title for the model name column in the logged model list table"
+  },
+  "y52/L4": {
+    "defaultMessage": "Use AI to automatically analyze your traces and identify potential issues",
+    "description": "Description text for issue detection modal"
   },
   "y56Vz9": {
     "defaultMessage": "In progress",
@@ -8979,6 +9199,10 @@
     "defaultMessage": "Description",
     "description": "Title text for the description section on the model version view page"
   },
+  "zAQuQT": {
+    "defaultMessage": "Loading budget policies...",
+    "description": "Loading message for budgets list"
+  },
   "zAuZ2j": {
     "defaultMessage": "Provide an unique prompt name",
     "description": "A placeholder for the prompt name in the prompt creation modal"
@@ -9066,6 +9290,10 @@
   "zhzZUu": {
     "defaultMessage": "An error occured while attempting to delete traces. Please refresh the page and try again.",
     "description": "Experiment page > traces view controls > Delete traces modal > Error message"
+  },
+  "zi1ZWc": {
+    "defaultMessage": "Detect incorrect, incomplete, or hallucinated responses",
+    "description": "Issue category description for low quality responses"
   },
   "ziIhFQ": {
     "defaultMessage": "Loaded {allRuns} {allRuns, plural, =1 {run} other {runs}}, including {childRuns} child {childRuns, plural, =1 {run} other {runs}}",
