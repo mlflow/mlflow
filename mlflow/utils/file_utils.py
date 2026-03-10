@@ -995,7 +995,7 @@ class ExclusiveFileLock:
 
     def __enter__(self) -> None:
         # Python on Windows does not have `fcntl` module, so importing it lazily.
-        import fcntl  # clint: disable=lazy-builtin-import
+        import fcntl  # clint: disable=lazy-import
 
         # Open file (create if missing)
         self.fd = open(self.path, "w")
@@ -1009,7 +1009,7 @@ class ExclusiveFileLock:
         exc_tb: TracebackType | None,
     ):
         # Python on Windows does not have `fcntl` module, so importing it lazily.
-        import fcntl  # clint: disable=lazy-builtin-import
+        import fcntl  # clint: disable=lazy-import
 
         # Release lock
         fcntl.flock(self.fd, fcntl.LOCK_UN)

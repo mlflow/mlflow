@@ -190,9 +190,9 @@ class WheeledModel:
         if mlflow_model is None:
             mlflow_model = Model(run_id=run_id)
 
-        original_model_metadata.__dict__.update(
-            {k: v for k, v in mlflow_model.__dict__.items() if v}
-        )
+        original_model_metadata.__dict__.update({
+            k: v for k, v in mlflow_model.__dict__.items() if v
+        })
         mlflow_model.__dict__.update(original_model_metadata.__dict__)
         mlflow_model.artifact_path = WheeledModel.get_wheel_artifact_path(
             mlflow_model.artifact_path

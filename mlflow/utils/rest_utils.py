@@ -208,12 +208,10 @@ def http_request(
             response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
             response.reason = str(e)
             response.encoding = "UTF-8"
-            response._content = json.dumps(
-                {
-                    "error_code": e.error_code,
-                    "message": str(e),
-                }
-            ).encode("UTF-8")
+            response._content = json.dumps({
+                "error_code": e.error_code,
+                "message": str(e),
+            }).encode("UTF-8")
             return response
 
     _validate_max_retries(max_retries)

@@ -252,9 +252,9 @@ def test_tracing_client_get_trace_error_handling():
     store.log_spans(experiment_id, [span])
     trace = client.get_trace(trace_id)
     trace_info = trace.info
-    trace_info.trace_metadata[TraceMetadataKey.SIZE_STATS] = json.dumps(
-        {TraceSizeStatsKey.NUM_SPANS: 2}
-    )
+    trace_info.trace_metadata[TraceMetadataKey.SIZE_STATS] = json.dumps({
+        TraceSizeStatsKey.NUM_SPANS: 2
+    })
     store.start_trace(trace_info)
 
     with pytest.raises(

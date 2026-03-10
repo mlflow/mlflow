@@ -254,9 +254,14 @@ with mlflow.start_run() as run:
     mlflow.sklearn.log_model(sk_model=model, input_example=X_test, name="model")
 
     # Log the metrics
-    mlflow.log_metrics(
-        {"mse": mse, "rmse": rmse, "mae": mae, "r2": r2, "msle": msle, "medae": medae}
-    )
+    mlflow.log_metrics({
+        "mse": mse,
+        "rmse": rmse,
+        "mae": mae,
+        "r2": r2,
+        "msle": msle,
+        "medae": medae,
+    })
 
     # Log the hyperparameter
     mlflow.log_param("alpha", 1.0)

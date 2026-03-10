@@ -20,6 +20,7 @@ import {
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
   LINKED_PROMPTS_COLUMN_ID,
+  ISSUES_COLUMN_ID,
 } from './hooks/useTableColumns';
 import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
@@ -45,6 +46,9 @@ const INFO_COLUMN_PRIORITY = [
   LOGGED_MODEL_COLUMN_ID,
   TOKENS_COLUMN_ID,
 ] as const;
+
+/** Columns that should always appear at the end of the INFO group */
+const INFO_COLUMN_LAST = [ISSUES_COLUMN_ID] as const;
 
 /** Preferred order *within* the ASSESSMENT group by column ID */
 const ASSESSMENT_COLUMN_PRIORITY = [KnownEvaluationResultAssessmentName.OVERALL_ASSESSMENT] as const;
@@ -96,6 +100,12 @@ export function sortGroupedColumns(
 
     // 2) Same group: INFO
     if (groupA === TracesTableColumnGroup.INFO) {
+      // Columns in INFO_COLUMN_LAST should always appear at the end
+      const isLastA = INFO_COLUMN_LAST.includes(colA.id as (typeof INFO_COLUMN_LAST)[number]);
+      const isLastB = INFO_COLUMN_LAST.includes(colB.id as (typeof INFO_COLUMN_LAST)[number]);
+      if (isLastA && !isLastB) return 1;
+      if (!isLastA && isLastB) return -1;
+
       const rankA = infoColumnRank[colA.id] ?? Infinity;
       const rankB = infoColumnRank[colB.id] ?? Infinity;
       if (rankA !== rankB) return rankA - rankB;
