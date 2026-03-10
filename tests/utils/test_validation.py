@@ -508,6 +508,9 @@ def test_validate_webhook_url_allow_private_ips_env_var(monkeypatch):
 
 @pytest.mark.parametrize("invalid_name", ["my/model", "model:v1", "name/with:both"])
 def test_validate_model_name_invalid_chars(invalid_name):
-    with pytest.raises(MlflowException, match="Names cannot contain '/' or ':'") as e:
+    with pytest.raises(
+        MlflowException,
+        match="Names cannot contain '/' or ':'",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
         _validate_model_name(invalid_name)
-    assert e.value.error_code == "INVALID_PARAMETER_VALUE"
