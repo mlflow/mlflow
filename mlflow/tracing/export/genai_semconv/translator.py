@@ -121,7 +121,7 @@ def _get_converter(
     message_format: str | None, inputs: dict[str, Any] | None = None
 ) -> GenAiSemconvConverter | None:
     match message_format:
-        case "openai" | "groq" | "bedrock":
+        case "openai":
             if inputs is not None and "input" in inputs:
                 from mlflow.openai.genai_semconv_converter import OpenAIResponsesConverter
 
@@ -131,7 +131,9 @@ def _get_converter(
 
             return OpenAIChatCompletionConverter()
         case _:
-            return None
+            from mlflow.openai.genai_semconv_converter import OpenAIChatCompletionConverter
+
+            return OpenAIChatCompletionConverter()
 
 
 def _build_genai_span_name(original_name: str, genai_attrs: dict[str, Any]) -> str:

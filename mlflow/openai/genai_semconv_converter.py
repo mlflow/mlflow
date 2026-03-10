@@ -183,8 +183,10 @@ def _convert_content(content: Any) -> list[dict]:
                     parts.append({"type": "text", "content": text})
                 case {"type": "input_text", "text": str(text)}:
                     parts.append({"type": "text", "content": text})
+                # Chat completion format
                 case {"type": "image_url", "image_url": {"url": str(url)}}:
                     parts.append(_convert_image_url(url))
+                # Responses API format
                 case {"type": "input_image", "image_url": str(url)}:
                     parts.append(_convert_image_url(url))
                 case {
@@ -251,13 +253,7 @@ def _convert_tool_call(tc: dict) -> dict:
 
 
 def _convert_tool_response(role: str, tool_call_id: str, parts: list[dict]) -> dict[str, Any]:
-    result = (
-        parts[0]["content"]
-        if len(parts) == 1
-        else json.dumps([p["content"] for p in parts])
-        if parts
-        else ""
-    )
+    result = parts[0].get("content") if parts else None
     return {
         "role": role,
         "parts": [{"type": "tool_call_response", "id": tool_call_id, "result": result}],
