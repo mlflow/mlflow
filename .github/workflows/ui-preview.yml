@@ -30,8 +30,6 @@ defaults:
 
 env:
   COMMENT_MARKER: "<!-- ui-preview -->"
-  IS_PUSH: ${{ github.event_name == 'push' }}
-  IS_PR: ${{ github.event_name == 'pull_request_target' }}
 
 jobs:
   notify:
