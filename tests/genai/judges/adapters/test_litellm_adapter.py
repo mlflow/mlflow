@@ -526,7 +526,7 @@ def test_invoke_litellm_and_handle_tools_with_base_url():
     mock_litellm.assert_called_once()
     call_kwargs = mock_litellm.call_args.kwargs
     assert call_kwargs["api_base"] == "http://my-proxy:8080/v1"
-    assert call_kwargs["api_key"] == "dummy"
+    assert "api_key" not in call_kwargs
     assert output.response == '{"result": "yes", "rationale": "OK"}'
 
 
@@ -578,7 +578,7 @@ def test_invoke_litellm_and_handle_tools_with_base_url_and_extra_headers():
     mock_litellm.assert_called_once()
     call_kwargs = mock_litellm.call_args.kwargs
     assert call_kwargs["api_base"] == "http://proxy:9090"
-    assert call_kwargs["api_key"] == "dummy"
+    assert "api_key" not in call_kwargs
     assert call_kwargs["extra_headers"] == headers
     assert output.response == '{"result": "yes", "rationale": "OK"}'
 

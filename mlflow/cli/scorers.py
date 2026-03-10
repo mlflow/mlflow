@@ -11,6 +11,34 @@ from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.utils.string_utils import _create_table
 
 
+class DictParamType(click.ParamType):
+    name = "dict"
+
+    def convert(self, value, param, ctx):
+        if isinstance(value, dict):
+            return value
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            example = '{"key": "value"}'
+            self.fail(
+                f"'{value}' is not valid JSON. Expected a JSON object, e.g. '{example}'.",
+                param,
+                ctx,
+            )
+        if not isinstance(parsed, dict):
+            self.fail("Expected a JSON object (dict), not an array or scalar.", param, ctx)
+        for k, v in parsed.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                self.fail(
+                    f"Keys and values must all be strings, "
+                    f"got key={k!r} ({type(k).__name__}), value={v!r} ({type(v).__name__}).",
+                    param,
+                    ctx,
+                )
+        return parsed
+
+
 @click.group("scorers")
 def commands():
     """
@@ -157,11 +185,11 @@ def list_scorers(
 )
 @click.option(
     "--extra-headers",
-    type=click.STRING,
+    type=DictParamType(),
     required=False,
     help=(
         "JSON string of additional HTTP headers to include in requests to the LLM provider. "
-        'Example: \'{"X-API-Key": "secret"}\'. '
+        'Example: \'{{"X-API-Key": "secret"}}\'. '
         "Note: This value is not persisted when the judge is registered."
     ),
 )
@@ -172,7 +200,7 @@ def register_llm_judge(
     experiment_id: str,
     description: str | None,
     base_url: str | None,
-    extra_headers: str | None,
+    extra_headers: dict[str, str] | None,
 ) -> None:
     """
     Register an LLM judge scorer in the specified experiment.
@@ -206,29 +234,6 @@ def register_llm_judge(
         mlflow scorers register-llm-judge -n my_judge \\
             -i "Check whether {{ outputs }} contains PII"
     """
-    parsed_extra_headers = None
-    if extra_headers is not None:
-        try:
-            parsed_extra_headers = json.loads(extra_headers)
-            if not isinstance(parsed_extra_headers, dict):
-                raise click.BadParameter(
-                    "--extra-headers must be a JSON object (dictionary).",
-                    param_hint="--extra-headers",
-                )
-        except json.JSONDecodeError as e:
-            raise click.BadParameter(
-                f"--extra-headers must be valid JSON: {e}",
-                param_hint="--extra-headers",
-            ) from e
-        for key, value in parsed_extra_headers.items():
-            if not isinstance(key, str) or not isinstance(value, str):
-                raise click.BadParameter(
-                    f"--extra-headers keys and values must all be strings, "
-                    f"got key={key!r} (type: {type(key).__name__}), "
-                    f"value={value!r} (type: {type(value).__name__}).",
-                    param_hint="--extra-headers",
-                )
-
     judge = make_judge(
         name=name,
         instructions=instructions,
@@ -236,7 +241,7 @@ def register_llm_judge(
         description=description,
         feedback_value_type=str,
         base_url=base_url,
-        extra_headers=parsed_extra_headers,
+        extra_headers=extra_headers,
     )
     registered_judge = judge.register(experiment_id=experiment_id)
     click.echo(

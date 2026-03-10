@@ -18,7 +18,7 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
 )
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
 # "endpoints" is a special case for Databricks model serving endpoints.
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
@@ -102,8 +102,6 @@ class GatewayAdapter(BaseJudgeAdapter):
         if input_params.model_provider == "endpoints" and (
             input_params.base_url is not None or input_params.extra_headers is not None
         ):
-            from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
             raise MlflowException(
                 "base_url and extra_headers are not supported for Databricks model serving "
                 "endpoints (endpoints:/...). The endpoint URL is determined by the model URI.",

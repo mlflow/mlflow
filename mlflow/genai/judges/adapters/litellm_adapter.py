@@ -249,9 +249,10 @@ def _invoke_litellm_and_handle_tools(
         model = f"{provider}/{model_name}"
         if base_url is not None:
             api_base = base_url
-            # When using a proxy, provide a dummy API key if none is set,
-            # because litellm requires an api_key for most providers.
-            api_key = "dummy"
+            # Let litellm resolve the API key from environment variables (e.g., OPENAI_API_KEY).
+            # If extra_headers contains an Authorization header, it takes precedence over
+            # any key resolved from environment variables.
+            api_key = None
         else:
             api_base = None
             api_key = None

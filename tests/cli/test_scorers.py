@@ -729,7 +729,7 @@ def test_create_judge_invalid_extra_headers_json(runner: CliRunner, experiment: 
     )
 
     assert result.exit_code != 0
-    assert "must be valid JSON" in result.output
+    assert "is not valid JSON" in result.output
 
 
 def test_create_judge_extra_headers_not_dict(runner: CliRunner, experiment: str):
@@ -749,7 +749,7 @@ def test_create_judge_extra_headers_not_dict(runner: CliRunner, experiment: str)
     )
 
     assert result.exit_code != 0
-    assert "must be a JSON object" in result.output
+    assert "Expected a JSON object" in result.output
 
 
 def test_create_judge_extra_headers_non_string_values(runner: CliRunner, experiment: str):
