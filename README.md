@@ -178,8 +178,8 @@ For hosting MLflow on your own infrastructure, please refer to [this guidance](h
 
 ## 🔗 Integrations
 
-MLflow is natively integrated with all popular AI agent frameworks, LLM providers, and machine learning libraries. MLflow
-supports all tools and programming languages.
+MLflow is natively integrated with popular AI agent frameworks and machine learning libraries. MLflow
+supports all LLM providers, AI tools and programming languages.
 
 ![Integrations](https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-integrations.png)
 
