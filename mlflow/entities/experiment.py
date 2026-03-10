@@ -85,7 +85,8 @@ class Experiment(_MlflowObject):
         """Trace storage location, if configured."""
         return self._trace_location
 
-    def _set_trace_location(self, trace_location):
+    @trace_location.setter
+    def trace_location(self, trace_location):
         self._trace_location = trace_location
 
     @property
