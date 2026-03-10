@@ -106,56 +106,57 @@ class OpenAIResponsesConverter(GenAiSemconvConverter):
 
     @staticmethod
     def _convert_input_item(item: dict[str, Any]) -> dict[str, Any]:
-        match item:
-            case {"type": "function_call", "call_id": call_id, "name": name, "arguments": args}:
-                return {
-                    "role": "assistant",
-                    "parts": [
-                        {
-                            "type": "tool_call",
-                            "id": call_id,
-                            "name": name,
-                            "arguments": _parse_tool_arguments(args),
-                        }
-                    ],
-                }
-            case {"type": "function_call_output", "call_id": call_id, "output": output}:
-                return {
-                    "role": "tool",
-                    "parts": [{"type": "tool_call_response", "id": call_id, "result": output}],
-                }
-            case _:
-                return _convert_message(item)
+        item_type = item.get("type")
+        if item_type == "function_call":
+            return {
+                "role": "assistant",
+                "parts": [
+                    {
+                        "type": "tool_call",
+                        "id": item["call_id"],
+                        "name": item["name"],
+                        "arguments": _parse_tool_arguments(item["arguments"]),
+                    }
+                ],
+            }
+        elif item_type == "function_call_output":
+            return {
+                "role": "tool",
+                "parts": [
+                    {"type": "tool_call_response", "id": item["call_id"], "result": item["output"]}
+                ],
+            }
+        else:
+            return _convert_message(item)
 
     @staticmethod
     def _convert_output_item(item: dict[str, Any]) -> dict[str, Any]:
-        match item:
-            case {"type": "message", "role": role, "content": list(content_items)}:
-                parts = []
-                for ci in content_items:
-                    match ci:
-                        case {"type": "output_text", "text": str(text)}:
-                            parts.append({"type": "text", "content": text})
-                        case _:
-                            parts.append({"type": "text", "content": json.dumps(ci)})
-                return {"role": role, "parts": parts}
-            case {"type": "function_call", "call_id": call_id, "name": name, "arguments": args}:
-                return {
-                    "role": "assistant",
-                    "parts": [
-                        {
-                            "type": "tool_call",
-                            "id": call_id,
-                            "name": name,
-                            "arguments": _parse_tool_arguments(args),
-                        }
-                    ],
-                }
-            case _:
-                return {
-                    "role": "assistant",
-                    "parts": [{"type": "text", "content": json.dumps(item)}],
-                }
+        item_type = item.get("type")
+        if item_type == "message":
+            parts = []
+            for ci in item.get("content", []):
+                if ci.get("type") == "output_text":
+                    parts.append({"type": "text", "content": ci["text"]})
+                else:
+                    parts.append({"type": "text", "content": json.dumps(ci)})
+            return {"role": item.get("role", "assistant"), "parts": parts}
+        elif item_type == "function_call":
+            return {
+                "role": "assistant",
+                "parts": [
+                    {
+                        "type": "tool_call",
+                        "id": item["call_id"],
+                        "name": item["name"],
+                        "arguments": _parse_tool_arguments(item["arguments"]),
+                    }
+                ],
+            }
+        else:
+            return {
+                "role": "assistant",
+                "parts": [{"type": "text", "content": json.dumps(item)}],
+            }
 
 
 def _convert_message(msg: dict[str, Any]) -> dict[str, Any]:
@@ -178,43 +179,29 @@ def _convert_content(content: Any) -> list[dict]:
     if isinstance(content, list):
         parts = []
         for item in content:
-            match item:
-                case {"type": "text", "text": str(text)}:
-                    parts.append({"type": "text", "content": text})
-                case {"type": "input_text", "text": str(text)}:
-                    parts.append({"type": "text", "content": text})
+            item_type = item.get("type") if isinstance(item, dict) else None
+            if item_type in ("text", "input_text"):
+                parts.append({"type": "text", "content": item["text"]})
+            elif item_type == "image_url":
                 # Chat completion format
-                case {"type": "image_url", "image_url": {"url": str(url)}}:
-                    parts.append(_convert_image_url(url))
+                parts.append(_convert_image_url(item["image_url"]["url"]))
+            elif item_type == "input_image":
                 # Responses API format
-                case {"type": "input_image", "image_url": str(url)}:
-                    parts.append(_convert_image_url(url))
-                case {
-                    "type": "input_audio",
-                    "input_audio": {"data": str(data), "format": str(fmt)},
-                }:
-                    parts.append({
-                        "type": "blob",
-                        "modality": "audio",
-                        "mime_type": f"audio/{fmt}",
-                        "content": data,
-                    })
-                case _:
-                    parts.append({"type": "text", "content": json.dumps(item)})
+                parts.append(_convert_image_url(item["image_url"]))
+            elif item_type == "input_audio":
+                audio = item["input_audio"]
+                parts.append({
+                    "type": "blob",
+                    "modality": "audio",
+                    "mime_type": f"audio/{audio['format']}",
+                    "content": audio["data"],
+                })
+            else:
+                parts.append({"type": "text", "content": json.dumps(item)})
         return parts
     if content is not None:
         return [{"type": "text", "content": str(content)}]
     return []
-
-
-_IMAGE_EXTENSIONS = {
-    ".png": "image/png",
-    ".jpg": "image/jpeg",
-    ".jpeg": "image/jpeg",
-    ".gif": "image/gif",
-    ".webp": "image/webp",
-    ".svg": "image/svg+xml",
-}
 
 
 def _convert_image_url(url: str) -> dict:
@@ -228,18 +215,7 @@ def _convert_image_url(url: str) -> dict:
             "mime_type": mime_type,
             "content": data,
         }
-    # Infer mime_type from file extension
-    dot_idx = url.rfind(".")
-    ext = url[dot_idx:].lower() if dot_idx != -1 else ""
-    # Strip query string / fragment from extension
-    for sep in ("?", "#"):
-        if sep in ext:
-            ext = ext[: ext.index(sep)]
-    mime_type = _IMAGE_EXTENSIONS.get(ext)
-    part = {"type": "uri", "modality": "image", "uri": url}
-    if mime_type:
-        part["mime_type"] = mime_type
-    return part
+    return {"type": "uri", "modality": "image", "uri": url}
 
 
 def _convert_tool_call(tc: dict) -> dict:
