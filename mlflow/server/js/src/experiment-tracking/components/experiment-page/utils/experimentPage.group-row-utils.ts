@@ -831,13 +831,13 @@ const extractSortKey = (
  * with no valid criteria, falls back to filtering by run IDs.
  */
 export const createSearchFilterFromRunGroupInfo = (groupInfo: RunGroupParentInfo): string => {
-  // Helper to create the fallback run ID filter
-  const createRunIdFilter = () => `attributes.run_id IN (${groupInfo.runUuids.map((uuid) => `'${uuid}'`).join(', ')})`;
+  // Fallback filter that matches runs by their IDs
+  const runIdFilter = `attributes.run_id IN (${groupInfo.runUuids.map((uuid) => `'${uuid}'`).join(', ')})`;
 
   // For "Additional runs" group (runs without matching group values),
   // fall back to run ID filter since there's no criteria to filter by
   if (groupInfo.isRemainingRunsGroup || groupInfo.groupingValues.length === 0) {
-    return createRunIdFilter();
+    return runIdFilter;
   }
 
   // Build filter expressions from grouping criteria
@@ -845,9 +845,10 @@ export const createSearchFilterFromRunGroupInfo = (groupInfo: RunGroupParentInfo
     const { mode, groupByData, value } = groupingValue;
 
     // Handle null/undefined values - runs that don't have this param/tag
-    if (value === null || value === undefined) {
+    if (isNil(value)) {
       // For null values, we need to filter runs where the param/tag doesn't exist
-      // or has no value. This is tricky - fall back to run IDs for this edge case.
+      // or has no value. This is tricky as backend does not support `IS NULL`.
+      // Fall back to run IDs for this edge case.
       return null;
     }
 
@@ -885,7 +886,7 @@ export const createSearchFilterFromRunGroupInfo = (groupInfo: RunGroupParentInfo
 
   // If no valid expressions could be built, fall back to run IDs
   if (validExpressions.length === 0) {
-    return createRunIdFilter();
+    return runIdFilter;
   }
 
   return validExpressions.join(' AND ');
