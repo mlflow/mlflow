@@ -6517,6 +6517,9 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
         comparator = sql_statement.get("comparator").upper()
 
         # Check if this is an issue filter (stored in assessments table)
+        # Note: Issue filters use the format 'issue.id = "issue-123"', which differs
+        # from assessment filters that use 'feedback/expectation.<key_name> <operator> <value>'.
+        # Issue filters match on issue ID, which is the assessment name instead of value.
         if SearchTraceUtils.is_issue(key_type, key_name, comparator):
             # Query assessments table for issue references
             # IssueReference assessments have assessment_type='issue' and name=issue_id
