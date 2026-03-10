@@ -463,6 +463,10 @@
     "defaultMessage": "User",
     "description": "Label for the user id section"
   },
+  "12WZU6": {
+    "defaultMessage": "Issues",
+    "description": "Run details page > tab selector > issues tab"
+  },
   "13vJft": {
     "defaultMessage": "View Examples",
     "description": "Experiment page > new run modal > prompt examples button"
@@ -960,6 +964,10 @@
   "4idqpX": {
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
+  },
+  "4kSYNV": {
+    "defaultMessage": "No issues found",
+    "description": "Issue detection run details > Issues tab > Empty state title"
   },
   "4ntR9o": {
     "defaultMessage": "Prompt tag set",
@@ -4851,6 +4859,10 @@
     "defaultMessage": "View model",
     "description": "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
   },
+  "VF2V6v": {
+    "defaultMessage": "Issues identified from traces will appear here.",
+    "description": "Issue detection run details > Issues tab > Empty state description"
+  },
   "VGGGB3": {
     "defaultMessage": "This endpoint is currently in use. Deleting it will break connections to the resources listed below.",
     "description": "Warning about resources using this endpoint"
@@ -6549,10 +6561,6 @@
     "defaultMessage": "Delete {count, plural, one { # trace } other { # traces }}",
     "description": "Experiment page > traces view controls > Delete traces modal > Delete button"
   },
-  "g734JR": {
-    "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, {identifiedIssues} issues identified so far",
-    "description": "Issue detection progress > Progress summary"
-  },
   "g7b7x/": {
     "defaultMessage": "Test failed with no error message"
   },
@@ -8002,6 +8010,10 @@
   "pU6cxH": {
     "defaultMessage": "Add",
     "description": "Model registry > model version table > aliases column > 'add' button label"
+  },
+  "pU7S10": {
+    "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
+    "description": "Issue detection progress > Progress summary"
   },
   "pVF+2s": {
     "defaultMessage": "Show less",
