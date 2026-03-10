@@ -3678,6 +3678,10 @@
     "defaultMessage": "Detect issues in traces",
     "description": "Aria label for the detect issues button in the traces table toolbar"
   },
+  "NHlNLj": {
+    "defaultMessage": "Description",
+    "description": "Label for issue description section"
+  },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
     "description": "Default text in data table where items are identical in the model comparison page"
