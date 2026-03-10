@@ -787,7 +787,7 @@ class TracingClient:
             created_by=created_by,
         )
 
-    def get_issue(self, issue_id: str) -> Issue:
+    def _get_issue(self, issue_id: str) -> Issue:
         """
         Get an issue by ID.
 

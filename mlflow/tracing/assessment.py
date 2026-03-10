@@ -381,7 +381,7 @@ def log_issue(
             )
     """
     if issue_name is None:
-        issue_name = TracingClient().get_issue(issue_id).name
+        issue_name = TracingClient()._get_issue(issue_id).name
     assessment = IssueReference(
         issue_id=issue_id,
         issue_name=issue_name,

@@ -523,7 +523,7 @@ def test_log_issue_without_issue_name(trace_id, tracking_uri):
         pytest.skip("Issue APIs are not supported with file-based tracking URI")
 
     tracing_client = mlflow.MlflowClient()._tracing_client
-    issue = tracing_client.create_issue(
+    issue = tracing_client._create_issue(
         experiment_id="0",
         name="timeout_error",
         description="Request exceeded 30 second timeout",
@@ -540,6 +540,11 @@ def test_log_issue_without_issue_name(trace_id, tracking_uri):
     assessment = trace.info.assessments[0]
     assert assessment.issue_id == issue.issue_id
     assert assessment.issue_name == "timeout_error"
+
+    fetched_issue = tracing_client._get_issue(issue.issue_id)
+    assert fetched_issue.name == issue.name
+    assert fetched_issue.description == issue.description
+    assert fetched_issue.status == issue.status
 
 
 def test_log_feedback_and_exception_blocks_positional_args():
