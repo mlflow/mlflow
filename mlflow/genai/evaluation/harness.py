@@ -218,7 +218,11 @@ def run(
 
     # Search for all traces in the run. We need to fetch the traces from backend here to include
     # all traces in the result.
-    traces = mlflow.search_traces(run_id=run_id, include_spans=False, return_type="list")
+    # Fetch the experiment ID from the run to ensure we search in the correct experiment.
+    experiment_id = mlflow.get_run(run_id).info.experiment_id
+    traces = mlflow.search_traces(
+        locations=[experiment_id], run_id=run_id, include_spans=False, return_type="list"
+    )
 
     # Collect trace IDs from eval results to preserve them during cleanup.
     input_trace_ids = {
@@ -228,7 +232,7 @@ def run(
     }
 
     # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(traces, eval_start_time, input_trace_ids)
+    clean_up_extra_traces(traces, eval_start_time, experiment_id, input_trace_ids)
 
     return EvaluationResult(
         run_id=run_id,
@@ -498,7 +502,10 @@ def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:
 
     # Check if the trace is from the same experiment. If it isn't, we need to clone the trace
     trace_experiment = trace.info.trace_location.mlflow_experiment
-    current_experiment = _get_experiment_id()
+    if run_id is not None:
+        current_experiment = mlflow.get_run(run_id).info.experiment_id
+    else:
+        current_experiment = _get_experiment_id()
     if trace_experiment is not None and trace_experiment.experiment_id != current_experiment:
         return True
 
