@@ -96,7 +96,6 @@ def test_convert_lc_message_to_chat_message_tool_calls(message, expected):
 
 
 def test_convert_lc_message_to_chat_message_audio_content():
-    """LangChain's audio content blocks should be normalized to MLflow's input_audio format."""
     message = HumanMessage(
         content=[
             {"type": "text", "text": "What is this audio?"},
@@ -119,7 +118,6 @@ def test_convert_lc_message_to_chat_message_audio_content():
 
 
 def test_convert_lc_message_to_chat_message_audio_mp3():
-    """Audio normalization should handle mp3 mime type."""
     message = HumanMessage(
         content=[
             {
@@ -137,7 +135,6 @@ def test_convert_lc_message_to_chat_message_audio_mp3():
 
 
 def test_convert_lc_message_to_chat_message_string_content_unchanged():
-    """String content should pass through normalization unchanged."""
     message = HumanMessage(content="just text")
     result = convert_lc_message_to_chat_message(message)
     assert result.content == "just text"

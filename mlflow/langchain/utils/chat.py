@@ -124,17 +124,11 @@ def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
                 tool_calls=tool_calls,
             )
         else:
-            return ChatMessage(
-                role="assistant", content=_normalize_content(lc_message.content)
-            )
+            return ChatMessage(role="assistant", content=_normalize_content(lc_message.content))
     elif isinstance(lc_message, ChatMessage):
-        return ChatMessage(
-            role=lc_message.role, content=_normalize_content(lc_message.content)
-        )
+        return ChatMessage(role=lc_message.role, content=_normalize_content(lc_message.content))
     elif isinstance(lc_message, FunctionMessage):
-        return ChatMessage(
-            role="function", content=_normalize_content(lc_message.content)
-        )
+        return ChatMessage(role="function", content=_normalize_content(lc_message.content))
     elif isinstance(lc_message, ToolMessage):
         return ChatMessage(
             role="tool",
@@ -142,13 +136,9 @@ def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
             tool_call_id=lc_message.tool_call_id,
         )
     elif isinstance(lc_message, HumanMessage):
-        return ChatMessage(
-            role="user", content=_normalize_content(lc_message.content)
-        )
+        return ChatMessage(role="user", content=_normalize_content(lc_message.content))
     elif isinstance(lc_message, SystemMessage):
-        return ChatMessage(
-            role="system", content=_normalize_content(lc_message.content)
-        )
+        return ChatMessage(role="system", content=_normalize_content(lc_message.content))
     else:
         raise MlflowException.invalid_parameter_value(
             f"Unexpected message type. Expected a BaseMessage subclass, but got: {type(lc_message)}"
