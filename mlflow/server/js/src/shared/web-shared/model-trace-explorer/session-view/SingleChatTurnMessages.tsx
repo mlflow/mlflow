@@ -67,14 +67,13 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
   // response (skip tool calls, tool results, and intermediate assistant messages).
   const chatMessages = rootSpan.chatMessages;
   const lastUserIdx = chatMessages?.findLastIndex((message) => message.role === 'user') ?? -1;
-  const displayedMessages = chatMessages
-    ? [
-        ...(lastUserIdx >= 0 ? [chatMessages[lastUserIdx]] : []),
-        ...chatMessages
-          .slice(lastUserIdx + 1)
-          .filter((m) => m.role === 'assistant' && m.content && !m.tool_calls?.length),
-      ].slice(-2)
+  const lastAssistantMessages = chatMessages
+    ? chatMessages.slice(lastUserIdx + 1).filter((m) => m.role === 'assistant' && m.content && !m.tool_calls?.length)
     : [];
+  const displayedMessages = [
+    ...(lastUserIdx >= 0 && chatMessages ? [chatMessages[lastUserIdx]] : []),
+    ...(lastAssistantMessages.length > 0 ? [lastAssistantMessages[lastAssistantMessages.length - 1]] : []),
+  ];
 
   if (displayedMessages.length !== 0) {
     return (
