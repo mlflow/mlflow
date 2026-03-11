@@ -1042,24 +1042,19 @@ def test_search_runs_no_arguments(search_runs_output_format):
 
 def test_search_runs_all_experiments(search_runs_output_format):
     """
-    When no experiment ID is specified but flag is passed, it should search all experiments.
+    When search_all_experiments=True is passed, it should pass ["ALL"] to the backend
+    without resolving experiment IDs.
     """
-    from mlflow.entities import Experiment
-
-    mock_experiment_id = mock.Mock()
-    mock_experiment = mock.Mock(Experiment)
     experiment_id_patch = mock.patch(
-        "mlflow.tracking.fluent._get_experiment_id", return_value=mock_experiment_id
-    )
-    experiment_list_patch = mock.patch(
-        "mlflow.tracking.fluent.search_experiments", return_value=[mock_experiment]
+        "mlflow.tracking.fluent._get_experiment_id", return_value=mock.Mock()
     )
     get_paginated_runs_patch = mock.patch(
         "mlflow.tracking.fluent.get_results_from_paginated_fn", return_value=[]
     )
-    with experiment_id_patch, experiment_list_patch, get_paginated_runs_patch:
+    with experiment_id_patch, get_paginated_runs_patch:
         search_runs(output_format=search_runs_output_format, search_all_experiments=True)
-        mlflow.tracking.fluent.search_experiments.assert_called_once()
+        mlflow.tracking.fluent.get_results_from_paginated_fn.assert_called_once()
+        # Should NOT resolve experiment IDs when search_all_experiments=True
         mlflow.tracking.fluent._get_experiment_id.assert_not_called()
 
 

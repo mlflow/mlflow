@@ -4065,3 +4065,47 @@ def test_malicious_meta_yaml_in_artifact_folder_path_traversal(tmp_path):
     # The fix should prevent the artifact folder from being treated as a run directory
     with pytest.raises(MlflowException, match="Run 'artifacts' not found"):
         fs.get_run("artifacts")
+
+
+def test_search_runs_experiment_ids_all(store):
+    """Test that experiment_ids=["ALL"] searches across all experiments."""
+    experiments, _, _ = _create_root(store)
+    exp1, exp2 = experiments[0], experiments[1]
+
+    run1 = store.create_run(exp1, "user", 0, [], "test_run_exp1")
+    run2 = store.create_run(exp2, "user", 0, [], "test_run_exp2")
+
+    store.set_tag(run1.info.run_id, RunTag("search_all_test", "yes"))
+    store.set_tag(run2.info.run_id, RunTag("search_all_test", "yes"))
+
+    result = store.search_runs(
+        experiment_ids=["ALL"],
+        filter_string="tags.search_all_test = 'yes'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id in run_ids
+
+
+def test_search_runs_experiment_ids_all_with_filter(store):
+    """Test that experiment_ids=["ALL"] works correctly with tag filters."""
+    experiments, _, _ = _create_root(store)
+    exp1, exp2 = experiments[0], experiments[1]
+
+    run1 = store.create_run(exp1, "user", 0, [], "test_run1")
+    run2 = store.create_run(exp2, "user", 0, [], "test_run2")
+    run3 = store.create_run(exp1, "user", 0, [], "test_run3")
+
+    store.set_tag(run1.info.run_id, RunTag("include_in_leaderboard", "true"))
+    store.set_tag(run2.info.run_id, RunTag("include_in_leaderboard", "true"))
+
+    result = store.search_runs(
+        experiment_ids=["ALL"],
+        filter_string="tags.include_in_leaderboard = 'true'",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    run_ids = [r.info.run_id for r in result]
+    assert run1.info.run_id in run_ids
+    assert run2.info.run_id in run_ids
+    assert run3.info.run_id not in run_ids
