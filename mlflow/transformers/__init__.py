@@ -1729,7 +1729,7 @@ def _is_question_answering_pipeline(pipeline):
 
 
 @deprecated(
-    since="3.10.2",
+    since="3.11.0",
     impact="Signatures are now automatically inferred when `input_example` is provided "
     "to `mlflow.transformers.log_model()` or `mlflow.transformers.save_model()`. "
     "This method will be removed in a future release.",
@@ -1740,7 +1740,7 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
     for model saving and logging. This function simulates loading of a saved model or pipeline
     as a ``pyfunc`` model without having to incur a write to disk.
 
-    .. deprecated:: 3.10.2
+    .. deprecated:: 3.11.0
         Use the ``input_example`` parameter in
         :func:`mlflow.transformers.log_model()` or :func:`mlflow.transformers.save_model()`
         instead. Signatures are now automatically inferred when ``input_example`` is provided.
