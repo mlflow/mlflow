@@ -597,7 +597,7 @@ def _get_trace_sampler() -> _MlflowSampler | None:
 
 def _resolve_experiment_uc_location() -> UnityCatalog | None:
     from mlflow.tracking._tracking_service.utils import _get_store
-    from mlflow.tracking.fluent import _get_experiment_id, _uc_location_from_experiment_tags
+    from mlflow.tracking.fluent import _get_experiment_id
 
     tracking_uri = mlflow.get_tracking_uri()
     if not tracking_uri or not is_databricks_uri(tracking_uri):
@@ -612,7 +612,7 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
         if not experiment:
             return None
 
-        return _uc_location_from_experiment_tags(experiment)
+        return experiment.trace_location
     except Exception:
         _logger.debug(
             "Failed to auto-resolve UC location for active experiment",

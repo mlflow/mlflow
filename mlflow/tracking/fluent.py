@@ -79,10 +79,7 @@ from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX,
     MLFLOW_DATASET_CONTEXT,
-    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
-    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
-    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
     MLFLOW_MODEL_IS_EXTERNAL,
@@ -280,11 +277,9 @@ def _sync_trace_destination_and_provider(
     # If the tracer provider has already been initialized, reset it so the
     # next trace re-derives the correct processor chain from the new experiment.
     if provider.once._done:
-        _MLFLOW_TRACE_USER_DESTINATION.set(None)
         provider.reset()
 
-    if resolved_location is not None:
-        _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
+    _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
 
 
 def _resolve_experiment_to_trace_location(
@@ -314,7 +309,7 @@ def _resolve_experiment_to_trace_location(
     # Check if experiment is already linked via the destination path tag (no backend call).
     if destination_path := experiment.tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH):
         if destination_path == trace_location.full_table_prefix:
-            return _uc_location_from_experiment_tags(experiment)
+            return experiment.trace_location
         raise MlflowException.invalid_parameter_value(
             f"Experiment '{experiment.name}' is already linked to a different "
             f"trace location '{destination_path}'."
@@ -333,28 +328,6 @@ def _resolve_experiment_to_trace_location(
         location=resolved,
     )
     return resolved
-
-
-def _uc_location_from_experiment_tags(experiment: Experiment) -> UnityCatalog | None:
-    destination_path = experiment.tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
-    if not destination_path:
-        return None
-
-    match destination_path.split("."):
-        case [catalog, schema, table_prefix]:
-            location = UnityCatalog(catalog, schema, table_prefix)
-            location._otel_spans_table_name = experiment.tags.get(
-                MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE
-            )
-            location._otel_logs_table_name = experiment.tags.get(
-                MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE
-            )
-            location._annotations_table_name = experiment.tags.get(
-                MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE
-            )
-            return location
-        case _:
-            return None
 
 
 def _set_experiment_primary_metric(
@@ -2146,9 +2119,7 @@ def get_experiment(experiment_id: str) -> Experiment:
         Lifecycle_stage: active
         Creation timestamp: 1662004217511
     """
-    experiment = MlflowClient().get_experiment(experiment_id)
-    experiment.trace_location = _uc_location_from_experiment_tags(experiment)
-    return experiment
+    return MlflowClient().get_experiment(experiment_id)
 
 
 def get_experiment_by_name(name: str) -> Experiment | None:
@@ -2185,10 +2156,7 @@ def get_experiment_by_name(name: str) -> Experiment | None:
         Lifecycle_stage: active
         Creation timestamp: 1662004217511
     """
-    experiment = MlflowClient().get_experiment_by_name(name)
-    if experiment is not None:
-        experiment.trace_location = _uc_location_from_experiment_tags(experiment)
-    return experiment
+    return MlflowClient().get_experiment_by_name(name)
 
 
 def search_experiments(

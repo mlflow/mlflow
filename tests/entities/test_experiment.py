@@ -1,4 +1,11 @@
-from mlflow.entities import Experiment, LifecycleStage
+from mlflow.entities import Experiment, ExperimentTag, LifecycleStage
+from mlflow.entities.trace_location import UnityCatalog
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
+)
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -105,3 +112,54 @@ def test_string_repr():
         "lifecycle_stage='active', name='myname', tags={}, "
         "trace_location=None, workspace='default'>"
     )
+
+
+def test_trace_location_lazy_resolves_from_tags():
+    exp = Experiment(
+        experiment_id="1",
+        name="test",
+        artifact_location="/tmp",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+        tags=[
+            ExperimentTag(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH, "cat.sch.pfx"),
+            ExperimentTag(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE, "cat.sch.spans"),
+            ExperimentTag(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE, "cat.sch.logs"),
+            ExperimentTag(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE, "cat.sch.annot"),
+        ],
+    )
+    loc = exp.trace_location
+    assert isinstance(loc, UnityCatalog)
+    assert loc.catalog_name == "cat"
+    assert loc.schema_name == "sch"
+    assert loc.table_prefix == "pfx"
+    assert loc._otel_spans_table_name == "cat.sch.spans"
+    assert loc._otel_logs_table_name == "cat.sch.logs"
+    assert loc._annotations_table_name == "cat.sch.annot"
+
+    # Second access returns the cached instance
+    assert exp.trace_location is loc
+
+
+def test_trace_location_none_without_tags():
+    exp = Experiment(
+        experiment_id="1",
+        name="test",
+        artifact_location="/tmp",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+    )
+    assert exp.trace_location is None
+
+
+def test_trace_location_setter_overrides_lazy():
+    exp = Experiment(
+        experiment_id="1",
+        name="test",
+        artifact_location="/tmp",
+        lifecycle_stage=LifecycleStage.ACTIVE,
+        tags=[
+            ExperimentTag(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH, "cat.sch.pfx"),
+        ],
+    )
+    override = UnityCatalog("other_cat", "other_sch", "other_pfx")
+    exp.trace_location = override
+    assert exp.trace_location is override
