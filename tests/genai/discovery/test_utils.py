@@ -1,3 +1,4 @@
+from mlflow.genai.discovery import utils
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.utils import (
     collect_example_trace_ids,
@@ -44,8 +45,6 @@ def test_collect_example_trace_ids_skips_out_of_bounds():
 
 
 def test_collect_example_trace_ids_caps_at_max(monkeypatch):
-    from mlflow.genai.discovery import utils
-
     monkeypatch.setattr(utils, "MAX_EXAMPLE_TRACE_IDS", 2)
     analyses = [
         _ConversationAnalysis(
