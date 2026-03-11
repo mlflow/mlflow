@@ -35,9 +35,11 @@ from mlflow.tracing.provider import (
     _initialize_tracer_provider,
     _IsolatedRandomIdGenerator,
     is_tracing_enabled,
-    provider as _provider_wrapper,
     start_span_in_context,
     trace_disabled,
+)
+from mlflow.tracing.provider import (
+    provider as _provider_wrapper,
 )
 from mlflow.tracing.utils import get_active_spans_table_name
 
