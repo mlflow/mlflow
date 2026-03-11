@@ -68,6 +68,18 @@ _MLFLOW_TRACE_USER_DESTINATION = UserTraceDestinationRegistry()
 _logger = logging.getLogger(__name__)
 
 
+_private_random_generators = set()
+if hasattr(os, "register_at_fork"):
+    # Re-seed the private random instances in forked child processes to prevent them
+    # from generating the same ID sequence as the parent process.
+
+    def _reseed():
+        for r in _private_random_generators:
+            r.seed()
+
+    os.register_at_fork(after_in_child=_reseed)
+
+
 class _IsolatedRandomIdGenerator(IdGenerator):
     """
     An OTel IdGenerator that uses a private ``random.Random`` instance, isolated from
@@ -81,10 +93,10 @@ class _IsolatedRandomIdGenerator(IdGenerator):
 
     def __init__(self) -> None:
         self._random = random.Random()
-        if hasattr(os, "register_at_fork"):
-            # Re-seed the private random instance in forked child processes to prevent them
-            # from generating the same ID sequence as the parent process.
-            os.register_at_fork(after_in_child=self._random.seed)
+        _private_random_generators.add(self._random)
+
+    def __del__(self):
+        _private_random_generators.remove(self._random)
 
     def generate_span_id(self) -> int:
         span_id = self._random.getrandbits(64)
