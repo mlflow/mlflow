@@ -22,6 +22,7 @@ from opentelemetry.context.contextvars_context import ContextVarsRuntimeContext
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.id_generator import IdGenerator
+from opentelemetry.sdk.trace.sampling import ParentBased
 
 import mlflow
 from mlflow.entities.trace_location import (
@@ -575,12 +576,17 @@ def _parse_otel_resource_attributes(otel_resource_attributes: str | None) -> dic
     return attributes
 
 
-def _get_trace_sampler() -> _MlflowSampler | None:
+def _get_trace_sampler() -> ParentBased | None:
     """
     Get the sampler configuration based on environment variable.
 
+    Returns a ``ParentBased`` sampler that wraps ``_MlflowSampler`` so that:
+    - Root spans are sampled using the configured ratio (global or per-function override).
+    - Child spans with a sampled parent are always sampled.
+    - Child spans with a non-sampled parent are always dropped.
+
     Returns:
-        _MlflowSampler or None for default sampling.
+        ParentBased sampler wrapping _MlflowSampler, or None for default sampling.
     """
     sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
     if sampling_ratio is not None:
@@ -590,7 +596,7 @@ def _get_trace_sampler() -> _MlflowSampler | None:
                 "Ignoring the invalid value and using default sampling (1.0)."
             )
             return None
-        return _MlflowSampler(sampling_ratio)
+        return ParentBased(root=_MlflowSampler(sampling_ratio))
     return None
 
 
