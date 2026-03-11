@@ -9,6 +9,7 @@ import { RunsChartType } from '../runs-charts.types';
 import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
 import type { RunsChartsRunData } from './RunsCharts.common';
 import type { RunsChartsBarCardConfig } from '../runs-charts.types';
+import type { RunsMetricsSingleTraceTooltipData } from './RunsMetricsLinePlot';
 
 jest.mock('../../experiment-page/hooks/useExperimentIds', () => ({
   useExperimentIds: () => ['test-experiment-id'],
@@ -35,6 +36,13 @@ const barChartConfig: RunsChartsBarCardConfig = {
   metricKey: 'test-metric',
 };
 
+const mockHoverData: RunsMetricsSingleTraceTooltipData = {
+  xValue: 1,
+  yValue: 0.9,
+  index: 0,
+  label: 'Step',
+};
+
 const renderTooltip = (run: RunsChartsRunData, isHovering = true) => {
   render(
     <DesignSystemProvider>
@@ -44,7 +52,7 @@ const renderTooltip = (run: RunsChartsRunData, isHovering = true) => {
             runUuid={run.uuid}
             isHovering={isHovering}
             mode={RunsChartsTooltipMode.Simple}
-            hoverData={undefined}
+            hoverData={mockHoverData}
             chartData={barChartConfig}
             contextData={{ runs: [run], onTogglePin: jest.fn(), onHideRun: jest.fn() }}
             closeContextMenu={jest.fn()}
