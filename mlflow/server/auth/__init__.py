@@ -2183,7 +2183,13 @@ def set_can_manage_scorer_permission(resp: Response):
     experiment_id = response_message.experiment_id
     name = response_message.name
     username = authenticate_request().username
-    store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
+    try:
+        store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
+    except MlflowException as e:
+        if e.error_code == "RESOURCE_ALREADY_EXISTS":
+            pass  # Permission already exists from a previous registration
+        else:
+            raise
 
 
 def delete_scorer_permissions_cascade(resp: Response):
