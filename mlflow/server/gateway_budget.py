@@ -132,17 +132,20 @@ def check_budget_limit(store: SqlAlchemyStore, workspace: str | None = None) -> 
     """
     maybe_refresh_budget_policies(store)
     tracker = get_budget_tracker()
-    exceeded, policy = tracker.should_reject_request(workspace=workspace)
+    exceeded, window = tracker.should_reject_request(workspace=workspace)
     if exceeded:
+        policy = window.policy
         unit = policy.duration_unit.value.lower()
         if policy.duration_value == 1:
             unit = unit.rstrip("s")
+        reset_time = window.window_end.strftime("%Y-%m-%dT%H:%M:%SZ")
         raise HTTPException(
             status_code=429,
             detail=(
-                f"Budget limit exceeded for policy '{policy.budget_policy_id}'. "
+                f"Budget limit exceeded. "
                 f"Limit: ${policy.budget_amount:.2f} USD per "
                 f"{policy.duration_value} {unit}. "
+                f"Budget resets at {reset_time}. "
                 "Request rejected."
             ),
         )
