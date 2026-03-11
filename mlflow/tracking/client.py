@@ -734,9 +734,10 @@ class MlflowClient:
         try:
             rm = registry_client.get_registered_model(name)
         except MlflowException:
-            # Create a new prompt (model) entry
+            # Create a new prompt (model) entry. User-supplied `tags` are version-scoped and
+            # should not be persisted as prompt-level metadata.
             registry_client.create_registered_model(
-                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true", **tags}
+                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true"}
             )
             is_new_prompt = True
 
@@ -748,11 +749,6 @@ class MlflowClient:
                 "name for the prompt.",
                 INVALID_PARAMETER_VALUE,
             )
-
-        # Update the prompt tags
-        if not is_new_prompt:
-            for key, value in tags.items():
-                registry_client.set_registered_model_tag(name, key, value)
 
         # Version metadata is represented as ModelVersion tags in the registry
         tags = tags or {}
