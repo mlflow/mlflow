@@ -12,9 +12,11 @@ Benchmark suite for measuring the latency overhead and scalability of the MLflow
 - [Quick Start](#quick-start)
 - [Benchmark Configurations](#benchmark-configurations)
 - [Head-to-Head Comparison (MLflow vs LiteLLM)](#head-to-head-comparison-mlflow-vs-litellm)
+- [Standalone Gateway vs Tracking Server Gateway](#standalone-gateway-vs-tracking-server-gateway)
+- [Tracking Server Benchmark](#tracking-server-benchmark)
 - [Preliminary Results](#preliminary-results)
 - [Deploying to a Server](#deploying-to-a-server)
-- [Usage Tracking Benchmark](#usage-tracking-benchmark-not-yet-covered)
+- [Usage Tracking Benchmark](#usage-tracking-benchmark)
 - [Known Limitations](#known-limitations)
 
 ---
@@ -55,24 +57,27 @@ Both proxies run on the same machine, same number of workers, hitting the same f
 
 ## File Inventory
 
-| File                             | Purpose                                                                                                                                       |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core benchmark**               |                                                                                                                                               |
-| `fake_openai_server.py`          | FastAPI app returning canned OpenAI-compatible responses (chat, completions, embeddings) with configurable delay via `FAKE_RESPONSE_DELAY_MS` |
-| `gateway_config.yaml`            | MLflow Gateway config with 3 endpoints pointing at fake server on `127.0.0.1:9000`                                                            |
-| `overhead_middleware.py`         | Starlette `BaseHTTPMiddleware` that adds `X-MLflow-Gateway-Overhead-Ms` response header                                                       |
-| `run_gateway_with_middleware.py` | App factory (`create_app()`) wrapping `create_app_from_path` with `OverheadMiddleware` — no production code changes                           |
-| `locustfile.py`                  | Locust `HttpUser` with weighted tasks: chat (8), completions (1), embeddings (1); captures overhead header as custom metric                   |
-| `collect_resources.py`           | Polls `psutil` every 1s for CPU%, RSS, VMS, thread count across gateway + child workers; writes CSV                                           |
-| `run_benchmark.sh`               | Orchestration: starts fake server, gateway, resource monitor, runs Locust, analyzes results, cleans up                                        |
-| `analyze_results.py`             | Reads Locust CSV + resource CSV, prints summary table with latency/RPS/overhead/resource stats                                                |
-| **Head-to-head comparison**      |                                                                                                                                               |
-| `litellm_config.yaml`            | LiteLLM proxy config pointing at the same fake server                                                                                         |
-| `benchmark_compare.py`           | aiohttp-based benchmark (matches LiteLLM's `benchmark_mock.py`), runs both proxies sequentially with warmup, prints comparison table          |
-| `run_comparison.sh`              | Starts fake server + both proxies + runs `benchmark_compare.py`                                                                               |
-| **Other**                        |                                                                                                                                               |
-| `requirements.txt`               | `locust>=2.20`, `psutil>=5.9`                                                                                                                 |
-| `.gitignore`                     | Ignores `results/` directory                                                                                                                  |
+| File                               | Purpose                                                                                                                                       |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Core benchmark**                 |                                                                                                                                               |
+| `fake_openai_server.py`            | FastAPI app returning canned OpenAI-compatible responses (chat, completions, embeddings) with configurable delay via `FAKE_RESPONSE_DELAY_MS` |
+| `gateway_config.yaml`              | MLflow Gateway config with 3 endpoints pointing at fake server on `127.0.0.1:9000`                                                            |
+| `overhead_middleware.py`           | Starlette `BaseHTTPMiddleware` that adds `X-MLflow-Gateway-Overhead-Ms` response header                                                       |
+| `run_gateway_with_middleware.py`   | App factory (`create_app()`) wrapping `create_app_from_path` with `OverheadMiddleware` — no production code changes                           |
+| `locustfile.py`                    | Locust `HttpUser` with weighted tasks: chat (8), completions (1), embeddings (1); captures overhead header as custom metric                   |
+| `collect_resources.py`             | Polls `psutil` every 1s for CPU%, RSS, VMS, thread count across gateway + child workers; writes CSV                                           |
+| `run_benchmark.sh`                 | Orchestration: starts fake server, gateway, resource monitor, runs Locust, analyzes results, cleans up                                        |
+| `analyze_results.py`               | Reads Locust CSV + resource CSV, prints summary table with latency/RPS/overhead/resource stats                                                |
+| **Head-to-head comparison**        |                                                                                                                                               |
+| `litellm_config.yaml`              | LiteLLM proxy config pointing at the same fake server                                                                                         |
+| `benchmark_compare.py`             | aiohttp-based benchmark (matches LiteLLM's `benchmark_mock.py`), runs both proxies sequentially with warmup, prints comparison table          |
+| `run_comparison.sh`                | Starts fake server + both proxies + runs `benchmark_compare.py`                                                                               |
+| **Tracking server benchmark**      |                                                                                                                                               |
+| `setup_tracking_server.py`         | Creates secret + model definition + endpoint via REST API in a running tracking server                                                        |
+| `run_tracking_server_benchmark.sh` | Starts fake server + `mlflow server` with SQLite + sets up endpoint + runs benchmark                                                          |
+| **Other**                          |                                                                                                                                               |
+| `requirements.txt`                 | `locust>=2.20`, `psutil>=5.9`                                                                                                                 |
+| `.gitignore`                       | Ignores `results/` directory                                                                                                                  |
 
 ### Modified existing files
 
@@ -226,6 +231,154 @@ The `run_comparison.sh` script runs both proxies under identical conditions:
 
 This mirrors LiteLLM's own `benchmark_mock.py` methodology for a fair comparison.
 
+### Fairness note: both sides are barebone
+
+Both proxies in this comparison run in **YAML-config-only mode** — no database, no usage tracking, no spend logging:
+
+- **MLflow Gateway**: `create_app_from_path(gateway_config.yaml)` — endpoint configs loaded once at startup, kept in memory
+- **LiteLLM Proxy**: `litellm --config litellm_config.yaml` — model list loaded from YAML, no `--database_url`, `callbacks: []`
+
+This is a fair apples-to-apples comparison of the pure proxy layer. Neither side includes the overhead of database-backed config, usage tracking, or budget enforcement. LiteLLM's own `benchmark_mock.py` also tests their YAML-config proxy, not the full DB-backed stack.
+
+For a "full production stack" comparison, both sides would need database-backed config and spend tracking enabled (see [Tracking Server Benchmark](#tracking-server-benchmark)).
+
+---
+
+## Standalone Gateway vs Tracking Server Gateway
+
+The benchmark suite tests two distinct MLflow Gateway code paths with very different performance profiles. Understanding the differences is essential for interpreting results.
+
+### Standalone gateway (YAML-config) — what `run_comparison.sh` tests
+
+**Code path**: `mlflow/gateway/app.py` → `create_app_from_path()`
+
+At **startup** (once):
+
+1. Read YAML config from disk
+2. Parse & validate endpoint configs (including API key resolution from env vars/files)
+3. Store all configs in an in-memory dict (`GatewayAPI.dynamic_endpoints`)
+4. Register FastAPI routes for each endpoint
+
+On **each request**:
+
+1. Look up endpoint config from in-memory dict — ~microseconds
+2. Instantiate provider (e.g., `OpenAIProvider(config)`) — ~1-5ms, but config is pre-resolved
+3. Build HTTP request with pre-resolved API key and base URL
+4. Send async HTTP POST to upstream via `aiohttp`
+5. Transform response through adapter
+
+**No database access, no secret decryption, no budget checks, no tracing.**
+
+### Tracking server gateway (DB-backed) — what `run_tracking_server_benchmark.sh` tests
+
+**Code path**: `mlflow/server/gateway_api.py` → `invocations()`
+
+On **each request**:
+
+1. **Get store** — cached, negligible
+2. **Budget check** (`check_budget_limit`) — in-memory with periodic DB refresh (~5-10min intervals)
+3. **Endpoint config resolution** (`get_endpoint_config` in `config_resolver.py`) — **3-5 DB queries, NOT cached**:
+   - `SELECT FROM gateway_endpoint WHERE name = ?`
+   - `SELECT FROM gateway_endpoint_model_mapping WHERE endpoint_id = ?`
+   - `SELECT FROM gateway_model_definition WHERE model_definition_id = ?` (per model)
+   - `SELECT FROM gateway_secret WHERE secret_id = ?` (per model)
+4. **Secret decryption** — PBKDF2 key derivation (~1-2ms) + AES-256-GCM decrypt; cached for 60s via `SecretCache`
+5. **Provider instantiation** — fresh per request, same as standalone (~1-5ms)
+6. **Tracing** (`maybe_traced_gateway_call`) — if `usage_tracking=true` (the default), wraps the call with `mlflow.trace()`, creates spans, records metadata; if `false`, returns raw function (no overhead)
+7. **Budget callback** (`on_complete`) — runs after LLM response, records cost in-memory
+8. **Upstream HTTP call** — same `aiohttp` path as standalone
+
+### Per-request overhead comparison
+
+| Operation         | Standalone              | Tracking Server                     | Overhead           |
+| ----------------- | ----------------------- | ----------------------------------- | ------------------ |
+| Config lookup     | In-memory dict (~us)    | 3-5 SQL queries (~1-10ms)           | **Largest source** |
+| Secret access     | Pre-resolved at startup | Decrypt per request (60s cache)     | ~0-2ms             |
+| Provider creation | Per request (~1-5ms)    | Per request (~1-5ms)                | Same               |
+| Budget check      | None                    | In-memory + periodic DB refresh     | ~0-1ms             |
+| Tracing           | None                    | `mlflow.trace()` spans (if enabled) | ~5-50ms            |
+| Upstream HTTP     | `aiohttp`               | `aiohttp`                           | Same               |
+
+### What's cached vs fresh in the tracking server
+
+| Component                | Cached? | Strategy                             | TTL                        |
+| ------------------------ | ------- | ------------------------------------ | -------------------------- |
+| Store registry           | Yes     | LRU (maxsize=100)                    | Session lifetime           |
+| Budget policies          | Yes     | Time-based refresh                   | ~5-10 min                  |
+| Endpoint config          | **No**  | Fresh DB queries every request       | N/A                        |
+| Secrets                  | Yes     | `SecretCache` (encrypted, ephemeral) | 60s (configurable 10-300s) |
+| KEK (key encryption key) | **No**  | PBKDF2 derivation per decryption     | N/A                        |
+| Provider instance        | **No**  | Created fresh every request          | N/A                        |
+
+The **uncached endpoint config queries** are the dominant bottleneck. With SQLite (single-writer, no connection pooling), these serialize under concurrency, explaining the dramatic throughput drop.
+
+---
+
+## Tracking Server Benchmark
+
+The `run_tracking_server_benchmark.sh` script benchmarks the tracking server gateway code path by running a real `mlflow server` with a SQLite backend.
+
+### Quick start
+
+```bash
+cd benchmarks/gateway
+
+# With usage tracking (default — traces enabled)
+bash run_tracking_server_benchmark.sh
+
+# Without usage tracking (tracing disabled)
+USAGE_TRACKING=false bash run_tracking_server_benchmark.sh
+```
+
+### Architecture
+
+```
+                                    ┌───────────────────────────────┐
+┌─────────┐     ┌──────────────────┤  MLflow Tracking Server       │     ┌──────────────────┐
+│ aiohttp  │────▶│  FastAPI Router  │  gateway_api.py               │────▶│  Fake OpenAI     │
+│ benchmark│◀────│  /gateway/...    │  ┌─────────────────────────┐  │◀────│  Server          │
+└─────────┘     └──────────────────┤  │ SQLite: secrets, models, │  │     └──────────────────┘
+                                    │  │ endpoints, configs       │  │
+                                    │  └─────────────────────────┘  │
+                                    └───────────────────────────────┘
+```
+
+### Configuration
+
+| Variable                  | Default | Description                                            |
+| ------------------------- | ------- | ------------------------------------------------------ |
+| `TRACKING_SERVER_WORKERS` | 4       | Workers for `mlflow server`                            |
+| `REQUESTS`                | 2000    | Total requests per run                                 |
+| `MAX_CONCURRENT`          | 50      | Max concurrent requests                                |
+| `RUNS`                    | 3       | Number of benchmark runs                               |
+| `FAKE_RESPONSE_DELAY_MS`  | 50      | Simulated provider latency (ms)                        |
+| `USAGE_TRACKING`          | true    | Enable usage tracking/tracing (set `false` to disable) |
+
+### What it does
+
+1. Starts a fake OpenAI server (gunicorn, 8 workers, port 9000)
+2. Starts `mlflow server` with a fresh SQLite DB and `--disable-security-middleware`
+3. Creates a gateway endpoint via REST API (`setup_tracking_server.py`): secret → model definition → endpoint
+4. Runs `benchmark_compare.py --target tracking-server` against `http://127.0.0.1:5000/gateway/benchmark-chat/mlflow/invocations`
+5. Cleans up all processes and temp directory
+
+### URL pattern
+
+The tracking server gateway routes through `/gateway/{endpoint_name}/mlflow/invocations` (note the `/mlflow/` segment added by the tracking server router), unlike the standalone gateway which uses `/gateway/{endpoint_name}/invocations`.
+
+### Comparing with and without usage tracking
+
+Usage tracking is **enabled by default** when creating endpoints via the tracking server API. The `USAGE_TRACKING` env var controls this:
+
+- `USAGE_TRACKING=true` (default): Endpoint is created with `usage_tracking=true`, which auto-creates an experiment and wraps every request with `mlflow.trace()`. This adds span creation, metadata recording, and async trace persistence.
+- `USAGE_TRACKING=false`: Endpoint is created with `usage_tracking=false`, so `maybe_traced_gateway_call()` returns the raw function with no tracing overhead. The per-request DB queries for config resolution still happen.
+
+### Fairness context for LiteLLM comparison
+
+The tracking server benchmark is **not** a fair comparison against LiteLLM's YAML-config benchmark numbers. The tracking server adds substantial per-request overhead (DB queries, secret decryption, tracing) that LiteLLM's YAML-only proxy doesn't have.
+
+For a fair "full stack" comparison, LiteLLM would need to be configured with `--database_url postgres://...` and spend tracking enabled, so both sides include the overhead of database-backed configuration and usage tracking.
+
 ---
 
 ## Preliminary Results
@@ -274,6 +427,36 @@ This mirrors LiteLLM's own `benchmark_mock.py` methodology for a fair comparison
 | Proxy overhead (p50) | 2 ms                             | ~4 ms                             |
 
 > **Note**: LiteLLM's published numbers are from a multi-instance deployment (4 separate processes, 4 CPU / 8GB RAM each). Our local numbers use a single machine with 4 gunicorn workers. Server-grade hardware results will differ.
+
+### Tracking server gateway (DB-backed, SQLite)
+
+**Setup**: MacBook Pro (Apple Silicon), 4 workers, SQLite backend, 50ms fake delay, `--disable-security-middleware`.
+
+#### High concurrency (50 concurrent, 2000 requests/run, 3 runs)
+
+| Metric          | Usage tracking ON | Usage tracking OFF | Standalone (YAML) |
+| --------------- | ----------------- | ------------------ | ----------------- |
+| **P50 latency** | 2,294 ms          | 2,883 ms           | **54 ms**         |
+| **P95 latency** | 5,334 ms          | 5,168 ms           | **68 ms**         |
+| **P99 latency** | 5,441 ms          | 5,301 ms           | **95 ms**         |
+| **Throughput**  | 20 rps            | 20 rps             | **866 rps**       |
+| **Failures**    | 0                 | 0                  | 0                 |
+
+At high concurrency, SQLite's single-writer lock dominates — both modes hit ~20 rps with multi-second latencies. The tracing overhead is invisible because the DB contention is the bottleneck.
+
+#### Low concurrency (10 concurrent, 500 requests/run, 3 runs)
+
+| Metric          | Usage tracking ON | Usage tracking OFF | Standalone (YAML) |
+| --------------- | ----------------- | ------------------ | ----------------- |
+| **P50 latency** | 502 ms            | 300 ms             | **54 ms**         |
+| **P95 latency** | 1,035 ms          | 1,013 ms           | **68 ms**         |
+| **P99 latency** | 1,099 ms          | 1,060 ms           | **95 ms**         |
+| **Throughput**  | 15 rps            | 18 rps             | **866 rps**       |
+| **Failures**    | 0                 | 0                  | 0                 |
+
+With reduced concurrency, the tracing overhead becomes visible: ~200ms higher p50 and ~17% lower throughput with usage tracking on. The remaining ~250-300ms overhead (vs 54ms standalone) comes from per-request DB queries for config resolution and secret decryption.
+
+> **Key takeaway**: The tracking server gateway is ~40-60x slower than the standalone YAML gateway. The dominant bottleneck is the uncached endpoint config resolution (3-5 SQL queries per request), not tracing. SQLite amplifies this under concurrency due to its single-writer lock. A production deployment with PostgreSQL would significantly reduce the DB contention but the per-request query pattern would remain.
 
 ---
 
@@ -419,57 +602,35 @@ services:
 
 ---
 
-## Usage Tracking Benchmark (Not Yet Covered)
+## Usage Tracking Benchmark
 
-The current benchmarks test the **standalone YAML-config gateway** (`mlflow.gateway.app.create_app_from_path`), which does **not** include usage tracking. Usage tracking is only available when the gateway runs through the **MLflow tracking server** with database-backed endpoints (`mlflow/server/gateway_api.py`).
+The `run_tracking_server_benchmark.sh` script supports benchmarking both with and without usage tracking via the `USAGE_TRACKING` env var (default: `true`).
+
+```bash
+# With usage tracking (default)
+bash run_tracking_server_benchmark.sh
+
+# Without usage tracking
+USAGE_TRACKING=false bash run_tracking_server_benchmark.sh
+```
 
 ### What usage tracking adds to the request path
 
-When an endpoint has `experiment_id` set and usage tracking enabled:
+When `usage_tracking=true` (the server default), an experiment is auto-created and every request is wrapped with `mlflow.trace()`:
 
-| Operation            | When                                   | Blocking? | Overhead                              |
-| -------------------- | -------------------------------------- | --------- | ------------------------------------- |
-| Token extraction     | During response parsing                | No        | Negligible (dict access)              |
-| Trace span creation  | During request (via `@mlflow.trace()`) | No        | Low (in-memory trace manager)         |
-| Cost calculation     | Post-request callback                  | Yes       | Low (LiteLLM pricing dict lookup)     |
-| Budget recording     | Post-request callback                  | Yes       | Low (in-memory with `threading.Lock`) |
-| Trace DB persistence | Background thread                      | No        | Async, but adds memory pressure       |
-| Budget webhook       | Post-request (if threshold hit)        | Yes       | Rare, only on threshold crossing      |
+| Operation            | When                                  | Blocking? | Overhead                              |
+| -------------------- | ------------------------------------- | --------- | ------------------------------------- |
+| Trace span creation  | During request (via `mlflow.trace()`) | Yes       | Low (in-memory trace manager)         |
+| Metadata recording   | During request                        | Yes       | Low (dict updates)                    |
+| Token extraction     | During response parsing               | No        | Negligible (dict access)              |
+| Cost calculation     | Post-request callback (`on_complete`) | Yes       | Low (LiteLLM pricing dict lookup)     |
+| Budget recording     | Post-request callback                 | Yes       | Low (in-memory with `threading.Lock`) |
+| Trace DB persistence | Background thread                     | No        | Async, but adds memory pressure       |
+| Budget webhook       | Post-request (if threshold hit)       | Yes       | Rare, only on threshold crossing      |
 
-Key: there are **no synchronous database writes** on the request path. Traces go to an in-memory manager and are persisted asynchronously. Budget tracking is entirely in-memory.
+When `usage_tracking=false`, `maybe_traced_gateway_call()` returns the raw provider function (line 189-190 in `tracing_utils.py`), bypassing all tracing overhead. The per-request DB queries for config resolution still happen.
 
-### How to benchmark with usage tracking (future work)
-
-This requires running the full MLflow tracking server instead of the standalone gateway:
-
-```bash
-# 1. Start MLflow tracking server with gateway
-mlflow server --host 0.0.0.0 --port 5000
-
-# 2. Create an endpoint with usage tracking via REST API
-curl -X POST http://localhost:5000/api/2.0/gateway/endpoints \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "benchmark-chat",
-    "endpoint_type": "llm/v1/chat",
-    "model": {"name": "gpt-4o-mini", "provider": "openai"},
-    "openai_api_key": "fake-key",
-    "openai_api_base": "http://127.0.0.1:9000/v1"
-  }'
-
-# 3. Enable usage tracking on the endpoint
-curl -X PATCH http://localhost:5000/api/2.0/gateway/endpoints/benchmark-chat \
-  -H "Content-Type: application/json" \
-  -d '{"usage_tracking": true}'
-
-# 4. Run benchmark against the tracking server
-python benchmark_compare.py \
-  --target mlflow \
-  --mlflow-url http://localhost:5000/gateway/benchmark-chat/invocations \
-  --requests 2000 --max-concurrent 50 --runs 3
-```
-
-The expected overhead from usage tracking is small (single-digit ms) since all hot-path operations are in-memory, but it should be measured to confirm. This is tracked as a P1 follow-up.
+Key: there are **no synchronous database writes** on the hot path. Traces go to an in-memory manager and are persisted asynchronously. Budget tracking is entirely in-memory.
 
 ---
 
