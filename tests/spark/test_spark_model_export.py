@@ -525,6 +525,37 @@ def test_log_model_no_registered_model_name(tmp_path, spark_model_iris):
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
+def test_log_model_skips_maybe_save_for_acled_artifact_uri(tmp_path):
+    """_maybe_save_model should not be called for Databricks ACL-protected artifact URIs
+    (dbfs:/databricks/mlflow-tracking/...) since Spark cannot write to them directly.
+    Calling it wastes ~6s per model on a guaranteed Py4JError before falling back.
+    """
+    acled_uri = "dbfs:/databricks/mlflow-tracking/abc123/run456/artifacts"
+
+    class FakePipelineModel:
+        def __init__(self, stages=None):
+            pass
+
+    mock_model = FakePipelineModel()
+    with (
+        mock.patch("mlflow.spark._validate_model"),
+        mock.patch("mlflow.spark._is_spark_connect_model", return_value=False),
+        mock.patch("mlflow.spark._maybe_save_model") as mock_maybe_save,
+        mock.patch("mlflow.get_artifact_uri", return_value=acled_uri),
+        mock.patch("mlflow.spark._should_use_mlflowdbfs", return_value=False),
+        mock.patch("mlflow.models.Model._log_v2") as mock_log_v2,
+        mock.patch("pyspark.ml.PipelineModel", FakePipelineModel),
+        mlflow.start_run(),
+    ):
+        mlflow.spark.log_model(
+            mock_model,
+            artifact_path="model",
+            dfs_tmpdir=str(tmp_path),
+        )
+        mock_maybe_save.assert_not_called()
+        mock_log_v2.assert_called_once()
+
+
 def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
     mlflow.spark.save_model(spark_model=spark_model_iris.model, path=model_path)
 

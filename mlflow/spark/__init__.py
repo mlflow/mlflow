@@ -322,6 +322,7 @@ def log_model(
         is_local_uri(run_root_artifact_uri)
         or databricks_utils.is_in_databricks_serverless_runtime()
         or databricks_utils.is_in_databricks_shared_cluster_runtime()
+        or is_databricks_acled_artifacts_uri(run_root_artifact_uri)
         or not _maybe_save_model(
             spark_model,
             append_to_uri_path(run_root_artifact_uri, artifact_path),
