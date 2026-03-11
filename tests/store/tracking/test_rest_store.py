@@ -150,6 +150,7 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
+    _V3_ISSUES_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     get_logged_model_endpoint,
@@ -3731,7 +3732,7 @@ def test_create_issue():
         "source_run_id": "run-789",
         "created_by": "test_user",
     })
-    _verify_requests(mock_http, creds, "issues", "POST", expected_request_json)
+    _verify_requests(mock_http, creds, "issues", "POST", expected_request_json, use_v3=True)
 
     assert isinstance(issue, Issue)
     assert issue.issue_id == "issue-123"
@@ -3771,7 +3772,7 @@ def test_get_issue():
 
     # The proto endpoint uses a template path, so we need to verify with params instead of json
     call_args = mock_http.call_args[1]
-    assert call_args["endpoint"] == "/api/2.0/mlflow/issues/{issue_id}"
+    assert call_args["endpoint"] == f"{_V3_ISSUES_REST_API_PATH_PREFIX}/issue-123"
     assert call_args["method"] == "GET"
     assert call_args["params"] == {"issue_id": "issue-123"}
 
@@ -3815,7 +3816,7 @@ def test_update_issue():
 
     # The proto endpoint uses a template path
     call_args = mock_http.call_args[1]
-    assert call_args["endpoint"] == "/api/2.0/mlflow/issues/{issue_id}"
+    assert call_args["endpoint"] == f"{_V3_ISSUES_REST_API_PATH_PREFIX}/issue-123"
     assert call_args["method"] == "PATCH"
 
     # Verify the JSON body contains the issue_id and update fields
@@ -3885,7 +3886,7 @@ def test_search_issues():
         "max_results": 100,
         "page_token": "page_token_123",
     })
-    _verify_requests(mock_http, creds, "issues/search", "POST", expected_request_json)
+    _verify_requests(mock_http, creds, "issues/search", "POST", expected_request_json, use_v3=True)
 
     assert len(result) == 2
     assert isinstance(result[0], Issue)

@@ -147,6 +147,7 @@ from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    _V3_ISSUES_REST_API_PATH_PREFIX,
     _V3_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
@@ -862,7 +863,9 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 created_by=created_by,
             )
         )
-        response_proto = self._call_endpoint(CreateIssue, req_body)
+        response_proto = self._call_endpoint(
+            CreateIssue, req_body, endpoint=_V3_ISSUES_REST_API_PATH_PREFIX
+        )
         return Issue.from_proto(response_proto.issue)
 
     def get_issue(self, issue_id: str) -> Issue:
@@ -876,7 +879,9 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             The Issue entity.
         """
         req_body = message_to_json(GetIssue(issue_id=issue_id))
-        response_proto = self._call_endpoint(GetIssue, req_body)
+        response_proto = self._call_endpoint(
+            GetIssue, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/{issue_id}"
+        )
         return Issue.from_proto(response_proto.issue)
 
     def update_issue(
@@ -909,7 +914,9 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 severity=str(severity) if severity is not None else None,
             )
         )
-        response_proto = self._call_endpoint(UpdateIssue, req_body)
+        response_proto = self._call_endpoint(
+            UpdateIssue, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/{issue_id}"
+        )
         return Issue.from_proto(response_proto.issue)
 
     def search_issues(
@@ -939,7 +946,9 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 page_token=page_token,
             )
         )
-        response_proto = self._call_endpoint(SearchIssues, req_body)
+        response_proto = self._call_endpoint(
+            SearchIssues, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/search"
+        )
         issues = [Issue.from_proto(issue_proto) for issue_proto in response_proto.issues]
         return PagedList(issues, response_proto.next_page_token or None)
 
