@@ -371,6 +371,10 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "0Mdurr": {
+    "defaultMessage": "Accept",
+    "description": "Button to accept an issue"
+  },
   "0QTEQi": {
     "defaultMessage": "Usage",
     "description": "Tab label for usage charts"
@@ -693,6 +697,10 @@
   "2a/rR8": {
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Manage Tag cancel button"
+  },
+  "2cshW2": {
+    "defaultMessage": "Resolved ({count})",
+    "description": "Issue status filter > Resolved button label"
   },
   "2deqxk": {
     "defaultMessage": "We couldn't find any models matching your search criteria. Try changing your search filters.",
@@ -1788,6 +1796,10 @@
   "9vwPnB": {
     "defaultMessage": "Add chart",
     "description": "Experiment tracking > runs charts > add chart menu"
+  },
+  "9w0l9N": {
+    "defaultMessage": "Reject",
+    "description": "Button to reject an issue"
   },
   "9wWapn": {
     "defaultMessage": "Click 'Add chart' or drag and drop to add charts here.",
@@ -3630,6 +3642,10 @@
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
   },
+  "MjypBt": {
+    "defaultMessage": "Pending ({count})",
+    "description": "Issue status filter > Pending button label"
+  },
   "Mn7Kss": {
     "defaultMessage": "OK",
     "description": "Experiment page > traces table > status label > ok"
@@ -3925,6 +3941,10 @@
   "OZXWas": {
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
+  },
+  "Ob0aR7": {
+    "defaultMessage": "Reopen",
+    "description": "Button to reopen an issue"
   },
   "Ob5d+s": {
     "defaultMessage": "System metrics",
@@ -4539,6 +4559,10 @@
   "SrXYrV": {
     "defaultMessage": "Previewing the first {numRows} rows",
     "description": "Title for showing the number of rows in the parsed data preview"
+  },
+  "SrjuS9": {
+    "defaultMessage": "Resolve",
+    "description": "Button to resolve an issue"
   },
   "SuVsDp": {
     "defaultMessage": "Custom code judge feedback",
@@ -7240,6 +7264,10 @@
     "defaultMessage": "Copy issue ID",
     "description": "Tooltip to copy issue ID"
   },
+  "k5kAB3": {
+    "defaultMessage": "Rejected ({count})",
+    "description": "Issue status filter > Rejected button label"
+  },
   "k7itje": {
     "defaultMessage": "Create webhook",
     "description": "Create webhook button"
@@ -8746,6 +8774,10 @@
   "tdmVWN": {
     "defaultMessage": "While deleting an experiment run, an error occurred.",
     "description": "Experiment tracking > delete run modal > error message"
+  },
+  "tezR82": {
+    "defaultMessage": "Accepted ({count})",
+    "description": "Issue status filter > Accepted button label"
   },
   "tiQptW": {
     "defaultMessage": "Learn more",
