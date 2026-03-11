@@ -12,8 +12,9 @@ Benchmark suite for measuring the latency overhead and scalability of the MLflow
 - [Quick Start](#quick-start)
 - [Benchmark Configurations](#benchmark-configurations)
 - [Head-to-Head Comparison (MLflow vs LiteLLM)](#head-to-head-comparison-mlflow-vs-litellm)
-- [Standalone Gateway vs Tracking Server Gateway](#standalone-gateway-vs-tracking-server-gateway)
+- [AI Gateway Per-Request Code Path](#ai-gateway-per-request-code-path)
 - [Tracking Server Benchmark](#tracking-server-benchmark)
+- [Full-Stack Comparison (Both on PostgreSQL)](#full-stack-comparison-both-on-postgresql)
 - [Preliminary Results](#preliminary-results)
 - [Deploying to a Server](#deploying-to-a-server)
 - [Usage Tracking Benchmark](#usage-tracking-benchmark)
@@ -71,10 +72,13 @@ Both proxies run on the same machine, same number of workers, hitting the same f
 | **Head-to-head comparison**        |                                                                                                                                               |
 | `litellm_config.yaml`              | LiteLLM proxy config pointing at the same fake server                                                                                         |
 | `benchmark_compare.py`             | aiohttp-based benchmark (matches LiteLLM's `benchmark_mock.py`), runs both proxies sequentially with warmup, prints comparison table          |
-| `run_comparison.sh`                | Starts fake server + both proxies + runs `benchmark_compare.py`                                                                               |
+| `run_comparison.sh`                | Starts fake server + MLflow AI Gateway (SQLite) + LiteLLM (YAML) + runs `benchmark_compare.py`                                                |
 | **Tracking server benchmark**      |                                                                                                                                               |
 | `setup_tracking_server.py`         | Creates secret + model definition + endpoint via REST API in a running tracking server                                                        |
 | `run_tracking_server_benchmark.sh` | Starts fake server + `mlflow server` with SQLite + sets up endpoint + runs benchmark                                                          |
+| **Full-stack comparison**          |                                                                                                                                               |
+| `litellm_config_db.yaml`           | LiteLLM proxy config with PostgreSQL `database_url` for spend tracking                                                                        |
+| `run_full_stack_comparison.sh`     | Starts PostgreSQL (Docker) + MLflow AI Gateway (PostgreSQL) + LiteLLM (PostgreSQL) + runs comparison benchmark                                |
 | **Other**                          |                                                                                                                                               |
 | `requirements.txt`                 | `locust>=2.20`, `psutil>=5.9`                                                                                                                 |
 | `.gitignore`                       | Ignores `results/` directory                                                                                                                  |
@@ -231,45 +235,22 @@ The `run_comparison.sh` script runs both proxies under identical conditions:
 
 This mirrors LiteLLM's own `benchmark_mock.py` methodology for a fair comparison.
 
-### Fairness note: both sides are barebone
+### What each side runs
 
-Both proxies in this comparison run in **YAML-config-only mode** — no database, no usage tracking, no spend logging:
+- **MLflow AI Gateway**: `mlflow server` with SQLite backend, endpoint created via REST API (`/api/3.0/mlflow/gateway/endpoints/create`). This is the production AI Gateway code path — every request resolves endpoint config from the database.
+- **LiteLLM Proxy**: `litellm --config litellm_config.yaml` — model list loaded from YAML, no database, `callbacks: []`.
 
-- **MLflow Gateway**: `create_app_from_path(gateway_config.yaml)` — endpoint configs loaded once at startup, kept in memory
-- **LiteLLM Proxy**: `litellm --config litellm_config.yaml` — model list loaded from YAML, no `--database_url`, `callbacks: []`
+Usage tracking is **disabled by default** (`USAGE_TRACKING=false`) to reduce DB overhead, but can be enabled with `USAGE_TRACKING=true`.
 
-This is a fair apples-to-apples comparison of the pure proxy layer. Neither side includes the overhead of database-backed config, usage tracking, or budget enforcement. LiteLLM's own `benchmark_mock.py` also tests their YAML-config proxy, not the full DB-backed stack.
+### Fairness note
 
-For a "full production stack" comparison, both sides would need database-backed config and spend tracking enabled (see [Tracking Server Benchmark](#tracking-server-benchmark)).
+This comparison is **not symmetric** in terms of architecture: MLflow resolves endpoint config from the database on every request (3-5 SQL queries), while LiteLLM loads its config from YAML at startup and keeps it in memory. This reflects the real production code paths for each proxy.
+
+For a "full production stack" comparison where both sides use PostgreSQL, see [Full-Stack Comparison](#full-stack-comparison-both-on-postgresql).
 
 ---
 
-## Standalone Gateway vs Tracking Server Gateway
-
-The benchmark suite tests two distinct MLflow Gateway code paths with very different performance profiles. Understanding the differences is essential for interpreting results.
-
-### Standalone gateway (YAML-config) — what `run_comparison.sh` tests
-
-**Code path**: `mlflow/gateway/app.py` → `create_app_from_path()`
-
-At **startup** (once):
-
-1. Read YAML config from disk
-2. Parse & validate endpoint configs (including API key resolution from env vars/files)
-3. Store all configs in an in-memory dict (`GatewayAPI.dynamic_endpoints`)
-4. Register FastAPI routes for each endpoint
-
-On **each request**:
-
-1. Look up endpoint config from in-memory dict — ~microseconds
-2. Instantiate provider (e.g., `OpenAIProvider(config)`) — ~1-5ms, but config is pre-resolved
-3. Build HTTP request with pre-resolved API key and base URL
-4. Send async HTTP POST to upstream via `aiohttp`
-5. Transform response through adapter
-
-**No database access, no secret decryption, no budget checks, no tracing.**
-
-### Tracking server gateway (DB-backed) — what `run_tracking_server_benchmark.sh` tests
+## AI Gateway Per-Request Code Path
 
 **Code path**: `mlflow/server/gateway_api.py` → `invocations()`
 
@@ -283,23 +264,12 @@ On **each request**:
    - `SELECT FROM gateway_model_definition WHERE model_definition_id = ?` (per model)
    - `SELECT FROM gateway_secret WHERE secret_id = ?` (per model)
 4. **Secret decryption** — PBKDF2 key derivation (~1-2ms) + AES-256-GCM decrypt; cached for 60s via `SecretCache`
-5. **Provider instantiation** — fresh per request, same as standalone (~1-5ms)
-6. **Tracing** (`maybe_traced_gateway_call`) — if `usage_tracking=true` (the default), wraps the call with `mlflow.trace()`, creates spans, records metadata; if `false`, returns raw function (no overhead)
+5. **Provider instantiation** — fresh per request (~1-5ms)
+6. **Tracing** (`maybe_traced_gateway_call`) — if `usage_tracking=true`, wraps the call with `mlflow.trace()`, creates spans, records metadata; if `false`, returns raw function (no overhead)
 7. **Budget callback** (`on_complete`) — runs after LLM response, records cost in-memory
-8. **Upstream HTTP call** — same `aiohttp` path as standalone
+8. **Upstream HTTP call** — `aiohttp`
 
-### Per-request overhead comparison
-
-| Operation         | Standalone              | Tracking Server                     | Overhead           |
-| ----------------- | ----------------------- | ----------------------------------- | ------------------ |
-| Config lookup     | In-memory dict (~us)    | 3-5 SQL queries (~1-10ms)           | **Largest source** |
-| Secret access     | Pre-resolved at startup | Decrypt per request (60s cache)     | ~0-2ms             |
-| Provider creation | Per request (~1-5ms)    | Per request (~1-5ms)                | Same               |
-| Budget check      | None                    | In-memory + periodic DB refresh     | ~0-1ms             |
-| Tracing           | None                    | `mlflow.trace()` spans (if enabled) | ~5-50ms            |
-| Upstream HTTP     | `aiohttp`               | `aiohttp`                           | Same               |
-
-### What's cached vs fresh in the tracking server
+### What's cached vs fresh
 
 | Component                | Cached? | Strategy                             | TTL                        |
 | ------------------------ | ------- | ------------------------------------ | -------------------------- |
@@ -310,7 +280,7 @@ On **each request**:
 | KEK (key encryption key) | **No**  | PBKDF2 derivation per decryption     | N/A                        |
 | Provider instance        | **No**  | Created fresh every request          | N/A                        |
 
-The **uncached endpoint config queries** are the dominant bottleneck. With SQLite (single-writer, no connection pooling), these serialize under concurrency, explaining the dramatic throughput drop.
+The **uncached endpoint config queries** are the dominant bottleneck. With SQLite (single-writer, no connection pooling), these serialize under concurrency. PostgreSQL alleviates the single-writer lock but adds network round-trip latency to each query.
 
 ---
 
@@ -359,12 +329,8 @@ USAGE_TRACKING=false bash run_tracking_server_benchmark.sh
 1. Starts a fake OpenAI server (gunicorn, 8 workers, port 9000)
 2. Starts `mlflow server` with a fresh SQLite DB and `--disable-security-middleware`
 3. Creates a gateway endpoint via REST API (`setup_tracking_server.py`): secret → model definition → endpoint
-4. Runs `benchmark_compare.py --target tracking-server` against `http://127.0.0.1:5000/gateway/benchmark-chat/mlflow/invocations`
+4. Runs `benchmark_compare.py --target mlflow` against `http://127.0.0.1:5000/gateway/benchmark-chat/mlflow/invocations`
 5. Cleans up all processes and temp directory
-
-### URL pattern
-
-The tracking server gateway routes through `/gateway/{endpoint_name}/mlflow/invocations` (note the `/mlflow/` segment added by the tracking server router), unlike the standalone gateway which uses `/gateway/{endpoint_name}/invocations`.
 
 ### Comparing with and without usage tracking
 
@@ -373,90 +339,130 @@ Usage tracking is **enabled by default** when creating endpoints via the trackin
 - `USAGE_TRACKING=true` (default): Endpoint is created with `usage_tracking=true`, which auto-creates an experiment and wraps every request with `mlflow.trace()`. This adds span creation, metadata recording, and async trace persistence.
 - `USAGE_TRACKING=false`: Endpoint is created with `usage_tracking=false`, so `maybe_traced_gateway_call()` returns the raw function with no tracing overhead. The per-request DB queries for config resolution still happen.
 
-### Fairness context for LiteLLM comparison
+---
 
-The tracking server benchmark is **not** a fair comparison against LiteLLM's YAML-config benchmark numbers. The tracking server adds substantial per-request overhead (DB queries, secret decryption, tracing) that LiteLLM's YAML-only proxy doesn't have.
+## Full-Stack Comparison (Both on PostgreSQL)
 
-For a fair "full stack" comparison, LiteLLM would need to be configured with `--database_url postgres://...` and spend tracking enabled, so both sides include the overhead of database-backed configuration and usage tracking.
+The `run_full_stack_comparison.sh` script benchmarks both proxies with PostgreSQL and usage/spend tracking enabled — the production code path for each.
+
+- **MLflow**: Tracking server with PostgreSQL, gateway endpoint created via REST API, usage tracking enabled (traces + budget callbacks)
+- **LiteLLM**: Proxy with PostgreSQL (same Docker container, separate database), spend tracking auto-enabled by `database_url`
+
+### Prerequisites
+
+- **Docker**: Required for the PostgreSQL container. Install from https://docs.docker.com/get-docker/
+- **litellm[proxy]**: `pip install 'litellm[proxy]'` or `uv pip install 'litellm[proxy]'`
+
+### Quick start
+
+```bash
+cd benchmarks/gateway
+
+# Default: 4 workers, 2000 requests, 50 concurrent, 3 runs
+bash run_full_stack_comparison.sh
+
+# Custom configuration
+WORKERS=8 REQUESTS=5000 MAX_CONCURRENT=100 RUNS=5 bash run_full_stack_comparison.sh
+
+# Without MLflow usage tracking (LiteLLM still has spend tracking via DB)
+USAGE_TRACKING=false bash run_full_stack_comparison.sh
+```
+
+### Architecture
+
+```
+                ┌───────────────────────────────┐
+           ┌───▶│  MLflow Tracking Server       │───┐
+           │    │  (PostgreSQL, usage tracking)  │   │
+┌─────────┐│    └──────────┬────────────────────┘   │    ┌──────────────────┐
+│ aiohttp  ││              │                        ├───▶│  Fake OpenAI     │
+│ benchmark││    ┌─────────┼────────────────────┐   │    │  Server          │
+└─────────┘└───▶│  LiteLLM │Proxy               │───┘    └──────────────────┘
+                │  (PostgreSQL, spend tracking)  │
+                └──────────┼────────────────────┘
+                           │
+                   ┌───────▼───────┐
+                   │  PostgreSQL   │
+                   │  (Docker)     │
+                   │  DB: mlflow   │
+                   │  DB: litellm  │
+                   └───────────────┘
+```
+
+### Configuration
+
+| Variable                 | Default | Description                                           |
+| ------------------------ | ------- | ----------------------------------------------------- |
+| `WORKERS`                | 4       | Workers for both proxies                              |
+| `REQUESTS`               | 2000    | Total requests per run                                |
+| `MAX_CONCURRENT`         | 50      | Max concurrent requests                               |
+| `RUNS`                   | 3       | Number of benchmark runs                              |
+| `FAKE_RESPONSE_DELAY_MS` | 50      | Simulated provider latency (ms)                       |
+| `USAGE_TRACKING`         | true    | Enable MLflow usage tracking (set `false` to disable) |
+
+### What each side does per request
+
+| Operation      | MLflow (tracking server)                   | LiteLLM (PostgreSQL)                  |
+| -------------- | ------------------------------------------ | ------------------------------------- |
+| Config lookup  | 3-5 SQL queries (PostgreSQL, uncached)     | In-memory from startup YAML + DB sync |
+| Secret access  | Decrypt per request (60s cache)            | From YAML config (no encryption)      |
+| Usage tracking | `mlflow.trace()` spans + async persistence | Spend tracking callbacks + DB writes  |
+| Budget check   | In-memory with periodic DB refresh         | In-memory with DB persistence         |
+| Upstream HTTP  | `aiohttp`                                  | `httpx` / `aiohttp`                   |
+
+### Fairness notes
+
+Both proxies use the same PostgreSQL instance (separate databases). Key architectural differences remain:
+
+- **MLflow queries the DB on every request** for endpoint config (3-5 SQL queries, uncached). LiteLLM loads config from YAML at startup and uses DB primarily for spend tracking.
+- Both sides have **usage/spend tracking enabled** by default, which is the intended production configuration for each.
 
 ---
 
 ## Preliminary Results
 
-### Head-to-head: MLflow Gateway vs LiteLLM
+All results: MacBook Pro (Apple Silicon), 4 workers, 50 concurrent users, 2000 requests/run, 3 runs, 50ms fake delay.
 
-**Setup**: MacBook Pro (Apple Silicon), 4 workers each, 50 concurrent users, 2000 requests/run, 3 runs, 50ms fake delay.
+### Head-to-head: MLflow AI Gateway vs LiteLLM (barebone)
 
-| Metric          | MLflow Gateway | LiteLLM  | MLflow Advantage |
-| --------------- | -------------- | -------- | ---------------- |
-| **P50 latency** | **54.4 ms**    | 98.4 ms  | 1.8x faster      |
-| **P95 latency** | **68.4 ms**    | 136.2 ms | 2.0x faster      |
-| **P99 latency** | **95.4 ms**    | 199.8 ms | 2.1x faster      |
-| **Throughput**  | **866 rps**    | 505 rps  | 1.7x higher      |
-| **Failures**    | 0              | 0        | —                |
+MLflow AI Gateway with SQLite (usage tracking OFF) vs LiteLLM with YAML config (no DB, `callbacks: []`).
 
-### Pure proxy overhead (latency - 50ms fake delay)
+| Metric          | MLflow AI Gateway | LiteLLM |
+| --------------- | ----------------- | ------- |
+| **P50 latency** | 2,770 ms          | 77 ms   |
+| **P95 latency** | 5,089 ms          | 116 ms  |
+| **P99 latency** | 5,249 ms          | 265 ms  |
+| **Throughput**  | 21 rps            | 602 rps |
+| **Failures**    | 0                 | 0       |
 
-| Metric       | MLflow Gateway | LiteLLM |
-| ------------ | -------------- | ------- |
-| P50 overhead | ~4 ms          | ~48 ms  |
-| P95 overhead | ~18 ms         | ~86 ms  |
-| P99 overhead | ~45 ms         | ~150 ms |
+The MLflow AI Gateway resolves endpoint config from the database on every request (3-5 SQL queries). With SQLite's single-writer lock, this serializes under concurrency, producing ~21 rps with multi-second latencies. LiteLLM keeps config in memory from startup.
 
-### Locust-based gateway benchmark (standalone)
+### Full-stack: MLflow (PostgreSQL) vs LiteLLM (PostgreSQL)
 
-**Setup**: 4 workers, 50 users, 15s, 50ms fake delay.
+Both proxies with PostgreSQL backend and usage/spend tracking enabled.
 
-| Metric             | Value       |
-| ------------------ | ----------- |
-| Total requests     | 13,903      |
-| Error rate         | 0%          |
-| Median latency     | 53 ms       |
-| P95 latency        | 55 ms       |
-| P99 latency        | 60 ms       |
-| RPS                | 1,864       |
-| Memory (4 workers) | ~754 MB RSS |
+| Metric          | MLflow AI Gateway | LiteLLM |
+| --------------- | ----------------- | ------- |
+| **P50 latency** | 4,770 ms          | 113 ms  |
+| **P95 latency** | 7,681 ms          | 152 ms  |
+| **P99 latency** | 8,066 ms          | 315 ms  |
+| **Throughput**  | 14 rps            | 430 rps |
+| **Failures**    | 0                 | 0       |
 
-### vs LiteLLM's published numbers
+PostgreSQL is actually _slower_ for MLflow than SQLite (14 rps vs 21 rps) because the per-request SQL queries now incur network round-trip latency. The bottleneck is the uncached endpoint config resolution pattern, not the DB engine. LiteLLM loads config from YAML at startup and only uses DB for spend tracking.
 
-| Metric               | LiteLLM (published, 4 instances) | MLflow Gateway (local, 4 workers) |
-| -------------------- | -------------------------------- | --------------------------------- |
-| Median latency       | 100 ms                           | 54 ms                             |
-| P99 latency          | 240 ms                           | 60 ms                             |
-| RPS                  | 1,170                            | 1,864                             |
-| Proxy overhead (p50) | 2 ms                             | ~4 ms                             |
+### MLflow AI Gateway: SQLite vs PostgreSQL
 
-> **Note**: LiteLLM's published numbers are from a multi-instance deployment (4 separate processes, 4 CPU / 8GB RAM each). Our local numbers use a single machine with 4 gunicorn workers. Server-grade hardware results will differ.
+Same AI Gateway code path, different DB backends (usage tracking ON).
 
-### Tracking server gateway (DB-backed, SQLite)
+| Metric          | SQLite   | PostgreSQL |
+| --------------- | -------- | ---------- |
+| **P50 latency** | 1,504 ms | 4,770 ms   |
+| **P95 latency** | 6,537 ms | 7,681 ms   |
+| **P99 latency** | 6,850 ms | 8,066 ms   |
+| **Throughput**  | 18 rps   | 14 rps     |
 
-**Setup**: MacBook Pro (Apple Silicon), 4 workers, SQLite backend, 50ms fake delay, `--disable-security-middleware`.
-
-#### High concurrency (50 concurrent, 2000 requests/run, 3 runs)
-
-| Metric          | Usage tracking ON | Usage tracking OFF | Standalone (YAML) |
-| --------------- | ----------------- | ------------------ | ----------------- |
-| **P50 latency** | 2,294 ms          | 2,883 ms           | **54 ms**         |
-| **P95 latency** | 5,334 ms          | 5,168 ms           | **68 ms**         |
-| **P99 latency** | 5,441 ms          | 5,301 ms           | **95 ms**         |
-| **Throughput**  | 20 rps            | 20 rps             | **866 rps**       |
-| **Failures**    | 0                 | 0                  | 0                 |
-
-At high concurrency, SQLite's single-writer lock dominates — both modes hit ~20 rps with multi-second latencies. The tracing overhead is invisible because the DB contention is the bottleneck.
-
-#### Low concurrency (10 concurrent, 500 requests/run, 3 runs)
-
-| Metric          | Usage tracking ON | Usage tracking OFF | Standalone (YAML) |
-| --------------- | ----------------- | ------------------ | ----------------- |
-| **P50 latency** | 502 ms            | 300 ms             | **54 ms**         |
-| **P95 latency** | 1,035 ms          | 1,013 ms           | **68 ms**         |
-| **P99 latency** | 1,099 ms          | 1,060 ms           | **95 ms**         |
-| **Throughput**  | 15 rps            | 18 rps             | **866 rps**       |
-| **Failures**    | 0                 | 0                  | 0                 |
-
-With reduced concurrency, the tracing overhead becomes visible: ~200ms higher p50 and ~17% lower throughput with usage tracking on. The remaining ~250-300ms overhead (vs 54ms standalone) comes from per-request DB queries for config resolution and secret decryption.
-
-> **Key takeaway**: The tracking server gateway is ~40-60x slower than the standalone YAML gateway. The dominant bottleneck is the uncached endpoint config resolution (3-5 SQL queries per request), not tracing. SQLite amplifies this under concurrency due to its single-writer lock. A production deployment with PostgreSQL would significantly reduce the DB contention but the per-request query pattern would remain.
+> **Key takeaway**: The dominant bottleneck in the MLflow AI Gateway is the **uncached per-request endpoint config resolution** (3-5 SQL queries per request). Switching from SQLite to PostgreSQL does not improve performance — it adds network latency to each query. Caching the endpoint config would be the most impactful optimization.
 
 ---
 
@@ -514,18 +520,19 @@ FAKE_RESPONSE_DELAY_MS=50 gunicorn fake_openai_server:app \
 **Machine B — Proxy under test:**
 
 ```bash
-# MLflow Gateway
+# MLflow AI Gateway
 export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES  # macOS only
-BENCHMARK_GATEWAY_CONFIG=gateway_config.yaml \
-PYTHONPATH="$(pwd)" \
-    gunicorn "run_gateway_with_middleware:create_app()" \
-    -k uvicorn.workers.UvicornWorker -w 4 -b 0.0.0.0:5000
+mlflow server \
+    --backend-store-uri "sqlite:///mlflow.db" \
+    --host 0.0.0.0 --port 5000 --workers 4 \
+    --disable-security-middleware
+# Then create endpoint via setup_tracking_server.py
 
 # OR LiteLLM
 litellm --config litellm_config.yaml --port 4000 --num_workers 4
 ```
 
-> Update `gateway_config.yaml` and `litellm_config.yaml` to point `api_base` at Machine C's IP instead of `127.0.0.1`.
+> Update `litellm_config.yaml` to point `api_base` at Machine C's IP instead of `127.0.0.1`.
 
 **Machine A — Load generator:**
 
@@ -536,7 +543,7 @@ python benchmark_compare.py \
     --requests 10000 \
     --max-concurrent 200 \
     --runs 5 \
-    --mlflow-url http://<machine-b>:5000/gateway/benchmark-chat/invocations \
+    --mlflow-url http://<machine-b>:5000/gateway/benchmark-chat/mlflow/invocations \
     --litellm-url http://<machine-b>:4000/chat/completions
 
 # OR Locust benchmark (with overhead header tracking)
@@ -565,11 +572,10 @@ services:
   mlflow-gateway:
     build: .
     command: >
-      gunicorn "run_gateway_with_middleware:create_app()"
-      -k uvicorn.workers.UvicornWorker -w 4 -b 0.0.0.0:5000
-    environment:
-      BENCHMARK_GATEWAY_CONFIG: /app/gateway_config.yaml
-      PYTHONPATH: /app
+      mlflow server
+      --backend-store-uri sqlite:///mlflow.db
+      --host 0.0.0.0 --port 5000 --workers 4
+      --disable-security-middleware
     ports: ["5000:5000"]
     depends_on: [fake-openai]
     deploy:
