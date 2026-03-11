@@ -33,15 +33,16 @@ export const IssueDetectionRunOverview = ({
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
 
-  const {
-    status: jobStatus,
-    model,
-    provider,
-    categories,
-  } = useFetchIssueJobStatus({
+  const { status: jobStatus } = useFetchIssueJobStatus({
     jobId: progressProps.jobId,
     enabled: !!progressProps.jobId,
   });
+
+  const model = tags['model']?.value;
+  const provider = tags['provider']?.value;
+  const categoriesStr = tags['categories']?.value;
+  const categories = categoriesStr ? categoriesStr.split(',').map((c) => c.trim()) : undefined;
+  const totalTraces = tags['total_traces']?.value ? parseInt(tags['total_traces'].value, 10) : undefined;
 
   const modelDisplay = model && provider ? `${provider}:/${model}` : undefined;
 
@@ -157,7 +158,7 @@ export const IssueDetectionRunOverview = ({
       usingSidebarLayout
       secondarySections={[detailsSection]}
     >
-      <IssueDetectionProgress {...progressProps} />
+      <IssueDetectionProgress {...progressProps} totalTraces={totalTraces} />
     </DetailsPageLayout>
   );
 };

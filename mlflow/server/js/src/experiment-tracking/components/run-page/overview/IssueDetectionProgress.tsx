@@ -18,13 +18,13 @@ import { useFetchIssueJobStatus, IssueJobStatus, isJobComplete } from '../hooks/
 import { useCancelJob } from '../hooks/useCancelJob';
 
 export interface IssueDetectionProgressProps {
-  /** Callback when cancel operation completes */
-  onCancel?: () => void;
   /** Job ID for fetching issue detection job status */
   jobId?: string;
+  /** Total number of traces being analyzed */
+  totalTraces?: number;
 }
 
-export const IssueDetectionProgress = ({ onCancel, jobId }: IssueDetectionProgressProps) => {
+export const IssueDetectionProgress = ({ jobId, totalTraces }: IssueDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const navigate = useNavigate();
@@ -48,9 +48,6 @@ export const IssueDetectionProgress = ({ onCancel, jobId }: IssueDetectionProgre
     cancelJob(
       { jobId, runUuid },
       {
-        onSuccess: () => {
-          onCancel?.();
-        },
         onError: (error) => {
           Utils.logErrorAndNotifyUser(
             intl.formatMessage(
@@ -68,7 +65,6 @@ export const IssueDetectionProgress = ({ onCancel, jobId }: IssueDetectionProgre
 
   const {
     status: jobStatus,
-    totalTraces,
     result,
     isLoading,
     error,
