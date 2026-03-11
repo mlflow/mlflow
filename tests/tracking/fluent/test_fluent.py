@@ -1588,6 +1588,14 @@ def test_set_tag_async():
         assert parent_run.data.tags[f"async batch tag {num}"] == str(num)
 
 
+def test_set_tag_with_run_id():
+    with mlflow.start_run() as run:
+        pass
+    mlflow.set_tag("tag", "value", run_id=run.info.run_id)
+    run_data = mlflow.get_run(run.info.run_id)
+    assert run_data.data.tags["tag"] == "value"
+
+
 @pytest.fixture
 def spark_session_with_registry_uri(request):
     with mock.patch(

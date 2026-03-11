@@ -942,10 +942,12 @@ def delete_experiment_tag(key: str) -> None:
     MlflowClient().delete_experiment_tag(experiment_id, key)
 
 
-def set_tag(key: str, value: Any, synchronous: bool | None = None) -> RunOperations | None:
+def set_tag(
+    key: str, value: Any, synchronous: bool | None = None, run_id: str | None = None
+) -> RunOperations | None:
     """
-    Set a tag under the current run. If no run is active, this method will create a new active
-    run.
+    Set a tag under the specified run, or the current run if run_id is not provided.
+    If no run is active, this method will create a new active run.
 
     Args:
         key: Tag name. This string may only contain alphanumerics, underscores (_), dashes (-),
@@ -957,6 +959,7 @@ def set_tag(key: str, value: Any, synchronous: bool | None = None) -> RunOperati
             logs the tag asynchronously and returns a future representing the logging operation.
             If None, read from environment variable `MLFLOW_ENABLE_ASYNC_LOGGING`, which
             defaults to False if not set.
+        run_id: If specified, set the tag to the specified run.
 
     Returns:
         When `synchronous=True`, returns None. When `synchronous=False`, returns an
@@ -977,7 +980,8 @@ def set_tag(key: str, value: Any, synchronous: bool | None = None) -> RunOperati
         with mlflow.start_run():
             mlflow.set_tag("release.version", "2.2.1", synchronous=False)
     """
-    run_id = _get_or_start_run().info.run_id
+    if run_id is None:
+        run_id = _get_or_start_run().info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().set_tag(run_id, key, value, synchronous=synchronous)
 
