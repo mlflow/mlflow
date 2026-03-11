@@ -9,11 +9,13 @@ import pydantic
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
-    ChatMessage,
     FunctionMessage,
     HumanMessage,
     SystemMessage,
     ToolMessage,
+)
+from langchain_core.messages import (
+    ChatMessage as LangChainChatMessage,
 )
 from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.outputs.generation import Generation
@@ -53,6 +55,14 @@ _TOKEN_USAGE_KEY_MAPPING = {
 }
 
 
+_MIME_TO_AUDIO_FORMAT: dict[str, str] = {
+    "wav": "wav",
+    "x-wav": "wav",
+    "mp3": "mp3",
+    "mpeg": "mp3",
+}
+
+
 def _normalize_content(
     content: str | list[dict[str, Any]],
 ) -> str | list[dict[str, Any]]:
@@ -61,8 +71,9 @@ def _normalize_content(
 
     LangChain uses ``{"type": "audio", "source_type": "base64", "data": "...", "mime_type":
     "audio/wav"}`` while MLflow expects ``{"type": "input_audio", "input_audio": {"data": "...",
-    "format": "wav"}}``.  This function converts audio blocks in-place so that the content can
-    be validated by :class:`~mlflow.types.chat.ChatMessage`.
+    "format": "wav"}}``.  This function converts audio blocks to MLflow's format and returns
+    the normalized content so that it can be validated by
+    :class:`~mlflow.types.chat.ChatMessage`.
     """
     if isinstance(content, str):
         return content
@@ -73,20 +84,34 @@ def _normalize_content(
             normalized.append(block)
             continue
 
-        mime_type = block.get("mime_type")
-        if block.get("type") == "audio" and block.get("source_type") == "base64" and mime_type:
-            # Extract format from mime_type (e.g. "audio/wav" -> "wav")
-            audio_format = mime_type.split("/")[-1] if "/" in mime_type else mime_type
-            audio_part = AudioContentPart(
-                type="input_audio",
-                input_audio=InputAudio(
-                    data=block.get("data", ""),
-                    format=audio_format,
-                ),
-            )
-            normalized.append(audio_part.model_dump())
-        else:
+        if block.get("type") != "audio":
             normalized.append(block)
+            continue
+
+        # Only base64-encoded audio with a valid mime_type can be converted
+        source_type = block.get("source_type")
+        mime_type = block.get("mime_type")
+        if source_type != "base64" or not mime_type:
+            raise MlflowException.invalid_parameter_value(
+                "Unsupported LangChain audio content. Only base64-encoded audio with a valid "
+                "mime_type is supported for conversion to MLflow chat messages."
+            )
+
+        # Extract and normalize format from mime_type (e.g. "audio/wav" -> "wav",
+        # "audio/mpeg" -> "mp3"). Strip parameters like "; codecs=..."
+        raw_subtype = (
+            mime_type.split("/")[-1].split(";")[0].strip() if "/" in mime_type else mime_type
+        )
+        audio_format = _MIME_TO_AUDIO_FORMAT.get(raw_subtype, raw_subtype)
+
+        audio_part = AudioContentPart(
+            type="input_audio",
+            input_audio=InputAudio(
+                data=block.get("data", ""),
+                format=audio_format,
+            ),
+        )
+        normalized.append(audio_part.model_dump())
 
     return normalized
 
@@ -125,7 +150,7 @@ def convert_lc_message_to_chat_message(lc_message: BaseMessage) -> ChatMessage:
             )
         else:
             return ChatMessage(role="assistant", content=_normalize_content(lc_message.content))
-    elif isinstance(lc_message, ChatMessage):
+    elif isinstance(lc_message, LangChainChatMessage):
         return ChatMessage(role=lc_message.role, content=_normalize_content(lc_message.content))
     elif isinstance(lc_message, FunctionMessage):
         return ChatMessage(role="function", content=_normalize_content(lc_message.content))
