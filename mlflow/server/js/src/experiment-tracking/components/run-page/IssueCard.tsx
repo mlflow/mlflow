@@ -12,7 +12,7 @@ import {
 import type { TagColors } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../../common/utils/Utils';
-import { type Issue, type IssueStatus } from './hooks/useSearchIssuesQuery';
+import { type Issue, type IssueStatus, type IssueSeverity } from './hooks/useSearchIssuesQuery';
 import { useUpdateIssue } from './hooks/useUpdateIssue';
 
 interface IssueCardProps {
@@ -27,6 +27,13 @@ const STATUS_TAG_CONFIG: Record<IssueStatus, { color: TagColors; label: string }
   resolved: { color: 'purple', label: 'Resolved' },
 };
 
+const SEVERITY_TAG_CONFIG: Record<IssueSeverity, { color: TagColors; label: string }> = {
+  not_an_issue: { color: 'charcoal', label: 'Not an issue' },
+  low: { color: 'charcoal', label: 'Low' },
+  medium: { color: 'lemon', label: 'Medium' },
+  high: { color: 'coral', label: 'High' },
+};
+
 export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -38,6 +45,7 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
   };
 
   const statusConfig = STATUS_TAG_CONFIG[issue.status];
+  const severityConfig = issue.severity ? SEVERITY_TAG_CONFIG[issue.severity] : undefined;
 
   return (
     <Card
@@ -53,41 +61,50 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
       onClick={onSelect}
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
-          <Typography.Title level={4} css={{ margin: 0, marginBottom: '0 !important' }}>
-            {issue.name}
-          </Typography.Title>
+        <div
+          css={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: theme.spacing.sm }}
+        >
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flexWrap: 'wrap', flex: 1 }}>
+            {severityConfig && (
+              <Tag componentId="mlflow.issues.severity-tag" color={severityConfig.color} css={{ flexShrink: 0 }}>
+                {severityConfig.label}
+              </Tag>
+            )}
+            <Typography.Title level={4} css={{ margin: 0, marginBottom: '0 !important' }}>
+              {issue.name}
+            </Typography.Title>
+            <InfoPopover iconTitle="Info" onClick={(e) => e.stopPropagation()}>
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                <div css={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                  <FormattedMessage defaultMessage="Issue ID" description="Label for issue ID in popover" />
+                  {': '}
+                  {issue.issue_id}{' '}
+                  <Typography.Text
+                    size="md"
+                    dangerouslySetAntdProps={{
+                      copyable: {
+                        text: issue.issue_id,
+                        icon: <CopyIcon />,
+                        tooltips: [
+                          intl.formatMessage({
+                            defaultMessage: 'Copy issue ID',
+                            description: 'Tooltip to copy issue ID',
+                          }),
+                          intl.formatMessage({
+                            defaultMessage: 'Issue ID copied',
+                            description: 'Tooltip after issue ID was copied',
+                          }),
+                        ],
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+            </InfoPopover>
+          </div>
           <Tag componentId="mlflow.issues.status-tag" color={statusConfig.color} css={{ flexShrink: 0 }}>
             {statusConfig.label}
           </Tag>
-          <InfoPopover iconTitle="Info" onClick={(e) => e.stopPropagation()}>
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              <div css={{ display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' }}>
-                <FormattedMessage defaultMessage="Issue ID" description="Label for issue ID in popover" />
-                {': '}
-                {issue.issue_id}{' '}
-                <Typography.Text
-                  size="md"
-                  dangerouslySetAntdProps={{
-                    copyable: {
-                      text: issue.issue_id,
-                      icon: <CopyIcon />,
-                      tooltips: [
-                        intl.formatMessage({
-                          defaultMessage: 'Copy issue ID',
-                          description: 'Tooltip to copy issue ID',
-                        }),
-                        intl.formatMessage({
-                          defaultMessage: 'Issue ID copied',
-                          description: 'Tooltip after issue ID was copied',
-                        }),
-                      ],
-                    },
-                  }}
-                />
-              </div>
-            </div>
-          </InfoPopover>
         </div>
         {issue.description && (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
