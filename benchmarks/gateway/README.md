@@ -399,7 +399,7 @@ Caching the endpoint config alone gives a **3.4x throughput improvement**.
 
 **With both optimizations, MLflow is 1.6x faster than LiteLLM** (841 vs 539 rps) — the core proxy path is not the bottleneck.
 
-**Barebone comparison with cache (SQLite, usage tracking OFF, 2000 req/run, 3 runs):**
+**Barebone comparison with cache (SQLite, usage tracking OFF, 50ms delay, 2000 req/run, 3 runs):**
 
 | Metric          | MLflow AI Gateway | LiteLLM |
 | --------------- | ----------------- | ------- |
@@ -408,6 +408,20 @@ Caching the endpoint config alone gives a **3.4x throughput improvement**.
 | **P99 latency** | 105 ms            | 298 ms  |
 | **Throughput**  | 844 rps           | 577 rps |
 | **Failures**    | 0                 | 0       |
+
+**Zero-delay full-stack comparison (PostgreSQL, cache ON, usage tracking OFF, 0ms delay, 2000 req/run, 3 runs):**
+
+With `FAKE_RESPONSE_DELAY_MS=0`, the benchmark measures pure proxy overhead with no simulated provider latency.
+
+| Metric          | MLflow AI Gateway | LiteLLM   |
+| --------------- | ----------------- | --------- |
+| **P50 latency** | 10 ms             | 41 ms     |
+| **P95 latency** | 61 ms             | 98 ms     |
+| **P99 latency** | 72 ms             | 254 ms    |
+| **Throughput**  | 3,483 rps         | 1,062 rps |
+| **Failures**    | 0                 | 0         |
+
+MLflow's core proxy path adds ~10ms of overhead vs LiteLLM's ~41ms. At 3,483 rps, MLflow is **3.3x faster** than LiteLLM when both bottlenecks are removed.
 
 ### Bottleneck breakdown
 
