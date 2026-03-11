@@ -299,7 +299,7 @@ export const RunsChartsTooltipBody = ({
 
   return (
     <div>
-      <div css={styles.contentWrapper}>
+      <div css={[styles.contentWrapper, description && styles.contentWrapperCompact]}>
         <div css={styles.header}>
           <div css={styles.colorPill} style={{ backgroundColor: activeRun.color }} />
           {activeRun.groupParentInfo ? (
@@ -408,15 +408,17 @@ const styles = {
     gap: 8,
     alignItems: 'center',
   },
+  contentWrapperCompact: {
+    marginBottom: 4,
+  },
   description: (theme: Theme) => ({
     fontSize: theme.typography.fontSizeSm,
     color: theme.colors.textSecondary,
-    marginBottom: theme.spacing.sm,
+    marginBottom: 12,
     display: '-webkit-box',
     WebkitLineClamp: 2,
     WebkitBoxOrient: 'vertical' as const,
     overflow: 'hidden',
-    maxWidth: 240,
     wordBreak: 'break-word' as const,
   }),
   value: {
