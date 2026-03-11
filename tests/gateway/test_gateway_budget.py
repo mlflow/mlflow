@@ -398,7 +398,35 @@ def test_check_budget_limit_error_message_format():
     detail = exc_info.value.detail
     assert "bp-monthly" in detail
     assert "$500.00" in detail
-    assert "1 days" in detail
+    assert "1 day" in detail
+    assert "Request rejected" in detail
+
+
+def test_check_budget_limit_error_message_plural():
+    policy = GatewayBudgetPolicy(
+        budget_policy_id="bp-plural",
+        budget_unit=BudgetUnit.USD,
+        budget_amount=200.0,
+        duration_unit=BudgetDurationUnit.MONTHS,
+        duration_value=3,
+        target_scope=BudgetTargetScope.GLOBAL,
+        budget_action=BudgetAction.REJECT,
+        created_at=0,
+        last_updated_at=0,
+    )
+    store = _make_store(policies=[policy])
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(300.0)
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected") as exc_info:
+        check_budget_limit(store)
+
+    detail = exc_info.value.detail
+    assert "bp-plural" in detail
+    assert "$200.00" in detail
+    assert "3 months" in detail
     assert "Request rejected" in detail
 
 
