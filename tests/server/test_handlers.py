@@ -3207,12 +3207,17 @@ def test_post_ui_telemetry_handler_success(
     config = {"disable_ui_telemetry": False, "disable_telemetry": False}
     mock_client = mock.MagicMock()
 
+    server_install_id = "server-install-789"
     with (
         test_app.test_request_context(
             "/ui-telemetry", method="POST", data=request, content_type="application/json"
         ),
         mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config),
         mock.patch("mlflow.server.handlers.get_telemetry_client", return_value=mock_client),
+        mock.patch(
+            "mlflow.server.handlers.get_or_create_installation_id",
+            return_value=server_install_id,
+        ),
     ):
         response = post_ui_telemetry_handler()
 
@@ -3224,8 +3229,18 @@ def test_post_ui_telemetry_handler_success(
         assert response_data["status"] == "success"
         assert mock_client.add_records.call_count == 1
         assert mock_client.add_records.call_args[0][0] == [
-            Record(**event1, duration_ms=0, status=Status.SUCCESS),
-            Record(**event2, duration_ms=0, status=Status.SUCCESS),
+            Record(
+                **event1,
+                duration_ms=0,
+                status=Status.SUCCESS,
+                server_installation_id=server_install_id,
+            ),
+            Record(
+                **event2,
+                duration_ms=0,
+                status=Status.SUCCESS,
+                server_installation_id=server_install_id,
+            ),
         ]
 
 
