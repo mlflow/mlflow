@@ -2159,7 +2159,9 @@ def get_experiment(experiment_id: str) -> Experiment:
         Lifecycle_stage: active
         Creation timestamp: 1662004217511
     """
-    return MlflowClient().get_experiment(experiment_id)
+    experiment = MlflowClient().get_experiment(experiment_id)
+    experiment.trace_location = _uc_location_from_experiment_tags(experiment)
+    return experiment
 
 
 def get_experiment_by_name(name: str) -> Experiment | None:
@@ -2196,7 +2198,10 @@ def get_experiment_by_name(name: str) -> Experiment | None:
         Lifecycle_stage: active
         Creation timestamp: 1662004217511
     """
-    return MlflowClient().get_experiment_by_name(name)
+    experiment = MlflowClient().get_experiment_by_name(name)
+    if experiment is not None:
+        experiment.trace_location = _uc_location_from_experiment_tags(experiment)
+    return experiment
 
 
 def search_experiments(
