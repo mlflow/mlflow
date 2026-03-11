@@ -2,10 +2,7 @@
 // Skips PRs that reference multiple issues (ambiguous intent).
 // Only enforces on issues created on or after 2026-03-10.
 
-const CLOSING_SYNTAX_PATTERNS = [
-  /(?:(?:close|fixe|resolve)[sd]?|fix)\s+(?:mlflow\/mlflow)?#(\d+)/gi,
-  /(?:(?:close|fixe|resolve)[sd]?|fix)\s+(?:https?:\/\/github.com\/mlflow\/mlflow\/issues\/)(\d+)/gi,
-  // Bare references (contributors might omit the closing keyword)
+const ISSUE_REFERENCE_PATTERNS = [
   /(?:mlflow\/mlflow)?#(\d+)/gi,
   /https?:\/\/github.com\/mlflow\/mlflow\/issues\/(\d+)/gi,
 ];
@@ -16,7 +13,7 @@ const CUTOFF_DATE = new Date("2026-03-10T00:00:00Z");
 const getIssuesToClose = (body) => {
   // Strip HTML comments and fenced code blocks to avoid false matches
   const commentsExcluded = body.replace(/<!--(.+?)-->/gs, "").replace(/```[\s\S]*?```/g, "");
-  const matches = CLOSING_SYNTAX_PATTERNS.flatMap((pattern) =>
+  const matches = ISSUE_REFERENCE_PATTERNS.flatMap((pattern) =>
     Array.from(commentsExcluded.matchAll(pattern))
   );
   const issueNumbers = matches.map((match) => match[1]);

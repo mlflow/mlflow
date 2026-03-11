@@ -1,17 +1,21 @@
-name: Unready PR
+name: Auto Close PR
 
 on:
   pull_request_target:
     types:
       - opened
-      - edited
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  unready-pr:
+  auto-close-pr:
+    if: >-
+      github.event.pull_request.author_association != 'MEMBER'
+      && github.event.pull_request.author_association != 'OWNER'
+      && github.event.pull_request.author_association != 'COLLABORATOR'
+      && github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
@@ -27,6 +31,6 @@ jobs:
           retries: 3
           script: |
             const script = require(
-              `${process.env.GITHUB_WORKSPACE}/.github/workflows/unready-pr.js`
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/auto-close-pr.js`
             );
             await script({ context, github });
