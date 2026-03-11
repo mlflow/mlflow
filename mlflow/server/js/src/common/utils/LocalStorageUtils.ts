@@ -79,7 +79,16 @@ class LocalStorageStore {
 
   /** Save the specified key-value pair in local storage. */
   setItem(key: any, value: any) {
-    this.storageObj.setItem(this.withScopePrefix(key), value);
+    try {
+      this.storageObj.setItem(this.withScopePrefix(key), value);
+    } catch (e) {
+      // Safari and some browsers throw QuotaExceededError when storage is full.
+      // Silently skip persistence to avoid crashing the metrics/charts UI.
+      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+        return;
+      }
+      throw e;
+    }
   }
 
   /** Fetch the value corresponding to the passed-in key from local storage. */
