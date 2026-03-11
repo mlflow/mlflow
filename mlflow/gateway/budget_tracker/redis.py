@@ -6,6 +6,10 @@ import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import redis
 
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
@@ -131,7 +135,7 @@ class RedisBudgetTracker(BudgetTracker):
     """
 
     _redis_url: str = "redis://localhost:6379/0"
-    _client: object = field(default=None, repr=False)
+    _client: redis.Redis | None = field(default=None, repr=False)
 
     def __post_init__(self):
         if self._client is None:
@@ -309,6 +313,13 @@ class RedisBudgetTracker(BudgetTracker):
             pipe.hset(wkey, "exceeded", exceeded)
 
         pipe.execute()
+
+    def get_all_windows(self) -> list[BudgetWindow]:
+        return [
+            window
+            for pid in self._client.smembers(_policy_set_key())
+            if (window := self._get_window_info(pid))
+        ]
 
     def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
         wkey = _window_key(budget_policy_id)
