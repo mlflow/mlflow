@@ -5768,6 +5768,7 @@ class MlflowClient:
         model_type: str | None = None,
         flavor: str | None = None,
         serialization_format: str | None = None,
+        uses_uv: bool = False,
     ) -> LoggedModel:
         return self._tracking_client.create_logged_model(
             experiment_id=experiment_id,
@@ -5778,6 +5779,7 @@ class MlflowClient:
             model_type=model_type,
             flavor=flavor,
             serialization_format=serialization_format,
+            uses_uv=uses_uv,
         )
 
     def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
