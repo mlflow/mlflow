@@ -12,9 +12,7 @@ defaults:
 jobs:
   auto-close-pr:
     if: >-
-      github.event.pull_request.author_association != 'MEMBER'
-      && github.event.pull_request.author_association != 'OWNER'
-      && github.event.pull_request.author_association != 'COLLABORATOR'
+      !contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
       && github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-slim
     timeout-minutes: 10
