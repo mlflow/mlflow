@@ -648,9 +648,9 @@ MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE = _BooleanEnvironmentVariable(
 )
 
 #: How often (in seconds) the gateway budget tracker re-fetches policies from the database.
-#: (default: ``60``)
+#: (default: ``600``)
 MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
-    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 60
+    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 600
 )
 
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
