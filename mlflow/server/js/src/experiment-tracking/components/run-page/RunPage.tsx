@@ -69,10 +69,12 @@ export interface RunPageProps {
     tags: Record<string, KeyValueEntity>;
     onRunDataUpdated: () => void;
   }) => React.ReactNode;
+  /** Hide the compare selector in the traces tab */
+  hideTracesCompareSelector?: boolean;
 }
 
 export const RunPage = (props: RunPageProps) => {
-  const { customBreadcrumbs, tabSwitchProps, onDeleteSuccess, renderCustomOverview } = props;
+  const { customBreadcrumbs, tabSwitchProps, onDeleteSuccess, renderCustomOverview, hideTracesCompareSelector } = props;
   const { runUuid, experimentId } = useParams<{
     runUuid: string;
     experimentId: string;
@@ -163,6 +165,7 @@ export const RunPage = (props: RunPageProps) => {
         experiment={experiment}
         experimentId={safeExperimentId}
         runDisplayName={Utils.getRunDisplayName(runInfo, safeRunUuid)}
+        hideCompareSelector={hideTracesCompareSelector}
       />
     );
     switch (activeTab) {

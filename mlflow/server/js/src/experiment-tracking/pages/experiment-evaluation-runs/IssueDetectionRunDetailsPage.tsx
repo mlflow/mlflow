@@ -66,6 +66,7 @@ export const IssueDetectionRunDetailsPage = () => {
         visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES, RunPageTabName.ISSUES],
       }}
       onDeleteSuccess={handleDeleteSuccess}
+      hideTracesCompareSelector
       renderCustomOverview={({ runUuid, runInfo, tags, onRunDataUpdated }) => (
         <IssueDetectionRunOverview
           runUuid={runUuid}
