@@ -204,8 +204,8 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
 
 def _get_sqlalchemy_store_unavailable(store_uri, artifact_uri):
     raise MlflowException(
-        f"The tracking URI '{store_uri}' requires the 'sqlalchemy' and 'alembic' packages, "
-        "which are not installed. If you are using 'mlflow-skinny', install them with: "
+        f"The tracking URI '{store_uri}' requires the 'sqlalchemy' and 'alembic' packages. "
+        "If you are using 'mlflow-skinny', install them with: "
         "pip install sqlalchemy alembic"
     )
 

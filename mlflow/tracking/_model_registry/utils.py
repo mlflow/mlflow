@@ -205,8 +205,8 @@ def _get_sqlalchemy_store(store_uri):
 
 def _get_sqlalchemy_store_unavailable(store_uri, **_):
     raise MlflowException(
-        f"The model registry URI '{store_uri}' requires the 'sqlalchemy' and 'alembic' packages, "
-        "which are not installed. If you are using 'mlflow-skinny', install them with: "
+        f"The model registry URI '{store_uri}' requires the 'sqlalchemy' and 'alembic' packages. "
+        "If you are using 'mlflow-skinny', install them with: "
         "pip install sqlalchemy alembic"
     )
 
