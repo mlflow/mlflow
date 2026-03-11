@@ -69,6 +69,7 @@ const ModelLink = ({
             values={{
               originalModelLink: (
                 <Link
+                  componentId="mlflow.experiment_tracking.runs_table.logged_model_tooltip_link"
                   to={Routes.getExperimentLoggedModelDetailsPage(loggedModelExperimentId, loggedModelId)}
                   css={{ color: 'inherit', textDecoration: 'underline' }}
                 >
@@ -135,6 +136,7 @@ const ModelLink = ({
         {renderModelIcon()}
       </div>
       <Link
+        componentId="mlflow.experiment_tracking.runs_table.model_version_link"
         to={renderModelLink()}
         target="_blank"
         css={{ textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer' }}
@@ -157,6 +159,7 @@ const LoggedModelV3Link = ({ model }: { model: LoggedModelProto }) => {
         <ModelsIcon css={{ color: theme.colors.actionPrimaryBackgroundDefault }} />
       </div>
       <Link
+        componentId="mlflow.experiment_tracking.runs_table.logged_model_v3_link"
         to={Routes.getExperimentLoggedModelDetailsPage(model.info.experiment_id, model.info.model_id)}
         target="_blank"
         css={{ textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer' }}

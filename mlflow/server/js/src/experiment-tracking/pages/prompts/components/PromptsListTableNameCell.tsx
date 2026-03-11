@@ -17,5 +17,5 @@ export const PromptsListTableNameCell: ColumnDef<RegisteredPrompt>['cell'] = ({
   if (!original.name) {
     return name;
   }
-  return <Link to={Routes.getPromptDetailsPageRoute(encodeURIComponent(original.name), experimentId)}>{name}</Link>;
+  return <Link componentId="mlflow.prompts.list.prompt_name_link" to={Routes.getPromptDetailsPageRoute(encodeURIComponent(original.name), experimentId)}>{name}</Link>;
 };

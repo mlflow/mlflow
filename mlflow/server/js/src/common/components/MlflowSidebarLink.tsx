@@ -50,6 +50,7 @@ export const MlflowSidebarLink = ({
         delayDuration={0}
       >
         <Link
+          componentId={componentId}
           disableWorkspacePrefix={disableWorkspacePrefix}
           to={to}
           aria-current={isActive(location) ? 'page' : undefined}
