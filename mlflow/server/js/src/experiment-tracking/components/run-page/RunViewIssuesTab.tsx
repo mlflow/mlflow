@@ -6,8 +6,7 @@ import { IssueCard } from './IssueCard';
 import { IssueTracesPanel } from './IssueTracesPanel';
 import { IssueStatusFilter, type IssueStatusFilterValue } from './IssueStatusFilter';
 import { useSearchIssuesQuery, type Issue } from './hooks/useSearchIssuesQuery';
-
-export const SELECTED_ISSUE_ID_PARAM = 'selectedIssueId';
+import { SELECTED_ISSUE_ID_PARAM } from '../../constants';
 
 export interface RunViewIssuesTabProps {
   runUuid: string;
@@ -32,16 +31,16 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
     return issues.filter((issue) => issue.status === statusFilter);
   }, [issues, statusFilter]);
 
-  // Auto-select issue from URL parameter when issues load
+  // Auto-select issue from URL parameter when issues load or URL changes
   useEffect(() => {
     const issueIdFromUrl = searchParams.get(SELECTED_ISSUE_ID_PARAM);
-    if (issueIdFromUrl && issues.length > 0 && !selectedIssue) {
+    if (issueIdFromUrl && issues.length > 0 && selectedIssue?.issue_id !== issueIdFromUrl) {
       const issue = issues.find((i) => i.issue_id === issueIdFromUrl);
       if (issue) {
         setSelectedIssue(issue);
       }
     }
-  }, [issues, searchParams, selectedIssue]);
+  }, [issues, searchParams, selectedIssue?.issue_id]);
 
   // Scroll to selected issue when it changes
   useEffect(() => {

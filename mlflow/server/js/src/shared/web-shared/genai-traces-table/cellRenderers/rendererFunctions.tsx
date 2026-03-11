@@ -21,7 +21,7 @@ import { useModelTraceExplorerRunJudgesContext } from '../../model-trace-explore
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { RunPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { getIssue } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
-import { SELECTED_ISSUE_ID_PARAM } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/RunViewIssuesTab';
+import { SELECTED_ISSUE_ID_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 
 const IssueTag = ({ issue }: { issue: { id: string; name: string } }) => {
