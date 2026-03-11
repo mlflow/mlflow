@@ -14,13 +14,13 @@ from mlflow.tracing.export.genai_semconv.converter import GenAiSemconvConverter
 
 
 class OpenAIChatCompletionConverter(GenAiSemconvConverter):
-    def convert_inputs(self, inputs: dict[str, Any]) -> list[dict] | None:
+    def convert_inputs(self, inputs: dict[str, Any]) -> list[dict[str, Any]] | None:
         messages = inputs.get("messages")
         if not isinstance(messages, list):
             return None
         return [_convert_message(m) for m in messages if m.get("role") != "system"]
 
-    def convert_system_instructions(self, inputs: dict[str, Any]) -> list[dict] | None:
+    def convert_system_instructions(self, inputs: dict[str, Any]) -> list[dict[str, Any]] | None:
         messages = inputs.get("messages")
         if not isinstance(messages, list):
             return None
@@ -33,7 +33,7 @@ class OpenAIChatCompletionConverter(GenAiSemconvConverter):
                 parts.append({"type": "text", "content": content})
         return parts or None
 
-    def convert_outputs(self, outputs: dict[str, Any]) -> list[dict] | None:
+    def convert_outputs(self, outputs: dict[str, Any]) -> list[dict[str, Any]] | None:
         choices = outputs.get("choices")
         if not isinstance(choices, list):
             return None
@@ -56,14 +56,13 @@ class OpenAIChatCompletionConverter(GenAiSemconvConverter):
         attrs = super().extract_response_attrs(outputs)
         choices = outputs.get("choices")
         if isinstance(choices, list):
-            reasons = [c.get("finish_reason") for c in choices if c.get("finish_reason")]
-            if reasons:
+            if reasons := [c.get("finish_reason") for c in choices if c.get("finish_reason")]:
                 attrs[GenAiSemconvKey.RESPONSE_FINISH_REASONS] = reasons
         return attrs
 
 
 class OpenAIResponsesConverter(GenAiSemconvConverter):
-    def convert_inputs(self, inputs: dict[str, Any]) -> list[dict] | None:
+    def convert_inputs(self, inputs: dict[str, Any]) -> list[dict[str, Any]] | None:
         input_data = inputs.get("input")
         if input_data is None:
             return None
@@ -73,13 +72,13 @@ class OpenAIResponsesConverter(GenAiSemconvConverter):
             return [self._convert_input_item(item) for item in input_data]
         return None
 
-    def convert_system_instructions(self, inputs: dict[str, Any]) -> list[dict] | None:
+    def convert_system_instructions(self, inputs: dict[str, Any]) -> list[dict[str, Any]] | None:
         if instructions := inputs.get("instructions"):
             if isinstance(instructions, str):
                 return [{"type": "text", "content": instructions}]
         return None
 
-    def convert_outputs(self, outputs: dict[str, Any]) -> list[dict] | None:
+    def convert_outputs(self, outputs: dict[str, Any]) -> list[dict[str, Any]] | None:
         output_items = outputs.get("output")
         if not isinstance(output_items, list):
             return None
@@ -173,7 +172,7 @@ def _convert_message(msg: dict[str, Any]) -> dict[str, Any]:
     return {"role": role, "parts": parts}
 
 
-def _convert_content(content: Any) -> list[dict]:
+def _convert_content(content: Any) -> list[dict[str, Any]]:
     if isinstance(content, str):
         return [{"type": "text", "content": content}]
     if isinstance(content, list):
@@ -204,7 +203,7 @@ def _convert_content(content: Any) -> list[dict]:
     return []
 
 
-def _convert_image_url(url: str) -> dict:
+def _convert_image_url(url: str) -> dict[str, Any]:
     if url.startswith("data:"):
         # Parse "data:<mime_type>;base64,<content>"
         header, _, data = url.partition(",")
@@ -218,7 +217,7 @@ def _convert_image_url(url: str) -> dict:
     return {"type": "uri", "modality": "image", "uri": url}
 
 
-def _convert_tool_call(tc: dict) -> dict:
+def _convert_tool_call(tc: dict[str, Any]) -> dict[str, Any]:
     func = tc.get("function", {})
     return {
         "type": "tool_call",
@@ -228,7 +227,7 @@ def _convert_tool_call(tc: dict) -> dict:
     }
 
 
-def _convert_tool_response(role: str, tool_call_id: str, parts: list[dict]) -> dict[str, Any]:
+def _convert_tool_response(role: str, tool_call_id: str, parts: list[dict[str, Any]]) -> dict[str, Any]:
     result = parts[0].get("content") if parts else None
     return {
         "role": role,
@@ -243,7 +242,7 @@ def _parse_tool_arguments(args: Any) -> Any:
         return args
 
 
-def _flatten_tools(tools: list[dict]) -> str:
+def _flatten_tools(tools: list[dict[str, Any]]) -> str:
     """Flatten OpenAI's nested tool format to the semconv flat format."""
     flattened = []
     for tool in tools:

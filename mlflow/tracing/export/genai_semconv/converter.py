@@ -27,14 +27,14 @@ _REQUEST_PARAM_KEYS = {
 
 class GenAiSemconvConverter(ABC):
     @abstractmethod
-    def convert_inputs(self, inputs: dict[str, Any]) -> list[dict] | None:
+    def convert_inputs(self, inputs: dict[str, Any]) -> list[dict[str, Any]] | None:
         """Convert provider-native inputs to GenAI semconv input messages."""
 
     @abstractmethod
-    def convert_outputs(self, outputs: dict[str, Any]) -> list[dict] | None:
+    def convert_outputs(self, outputs: dict[str, Any]) -> list[dict[str, Any]] | None:
         """Convert provider-native outputs to GenAI semconv output messages."""
 
-    def convert_system_instructions(self, inputs: dict[str, Any]) -> list[dict] | None:
+    def convert_system_instructions(self, inputs: dict[str, Any]) -> list[dict[str, Any]] | None:
         """Extract system instructions as a parts array. Returns None by default."""
         return None
 
