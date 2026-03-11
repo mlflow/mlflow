@@ -73,8 +73,8 @@ def _normalize_content(
             normalized.append(block)
             continue
 
-        if block.get("type") == "audio":
-            mime_type = block.get("mime_type", "")
+        mime_type = block.get("mime_type")
+        if block.get("type") == "audio" and block.get("source_type") == "base64" and mime_type:
             # Extract format from mime_type (e.g. "audio/wav" -> "wav")
             audio_format = mime_type.split("/")[-1] if "/" in mime_type else mime_type
             audio_part = AudioContentPart(
