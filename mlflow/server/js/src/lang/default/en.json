@@ -7088,10 +7088,6 @@
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
   },
-  "jLHxac": {
-    "defaultMessage": "Coming Soon",
-    "description": "Coming soon label"
-  },
   "jMUqD1": {
     "defaultMessage": "Safety",
     "description": "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
@@ -7986,10 +7982,6 @@
   "owr9l2": {
     "defaultMessage": "No group by columns selected",
     "description": "Experiment page > artifact compare view > empty state for no group by columns selected > title"
-  },
-  "oxHklW": {
-    "defaultMessage": "Rate Limiting",
-    "description": "Section title for rate limiting"
   },
   "oy2LTl": {
     "defaultMessage": "Filter",
