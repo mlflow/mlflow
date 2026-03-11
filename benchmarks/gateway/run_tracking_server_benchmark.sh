@@ -152,8 +152,8 @@ fi
 echo ""
 echo "=== Running tracking server benchmark ==="
 $RUN_PREFIX python benchmark_compare.py \
-    --target tracking-server \
+    --target mlflow \
     --requests "$REQUESTS" \
     --max-concurrent "$MAX_CONCURRENT" \
     --runs "$RUNS" \
-    --tracking-server-url "$INVOKE_URL"
+    --mlflow-url "$INVOKE_URL"

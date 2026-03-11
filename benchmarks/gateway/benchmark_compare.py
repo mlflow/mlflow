@@ -9,7 +9,6 @@ Usage:
     python benchmark_compare.py --target mlflow --requests 2000 --max-concurrent 50 --runs 3
     python benchmark_compare.py --target litellm --requests 2000 --max-concurrent 50 --runs 3
     python benchmark_compare.py --target both --requests 2000 --max-concurrent 50 --runs 3
-    python benchmark_compare.py --target tracking-server --requests 2000 --runs 3
 """
 
 import argparse
@@ -19,8 +18,7 @@ import time
 
 import aiohttp
 
-MLFLOW_URL = "http://127.0.0.1:5000/gateway/benchmark-chat/invocations"
-TRACKING_SERVER_URL = "http://127.0.0.1:5000/gateway/benchmark-chat/mlflow/invocations"
+MLFLOW_URL = "http://127.0.0.1:5000/gateway/benchmark-chat/mlflow/invocations"
 LITELLM_URL = "http://127.0.0.1:4000/chat/completions"
 
 MLFLOW_BODY = {
@@ -196,7 +194,7 @@ async def main():
     parser = argparse.ArgumentParser(description="MLflow Gateway vs LiteLLM benchmark")
     parser.add_argument(
         "--target",
-        choices=["mlflow", "litellm", "both", "tracking-server"],
+        choices=["mlflow", "litellm", "both"],
         default="both",
     )
     parser.add_argument("--requests", type=int, default=2000)
@@ -204,7 +202,6 @@ async def main():
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--mlflow-url", default=MLFLOW_URL)
     parser.add_argument("--litellm-url", default=LITELLM_URL)
-    parser.add_argument("--tracking-server-url", default=TRACKING_SERVER_URL)
     args = parser.parse_args()
 
     mlflow_results = None
@@ -227,17 +224,6 @@ async def main():
             args.litellm_url,
             LITELLM_BODY,
             LITELLM_HEADERS,
-            args.requests,
-            args.max_concurrent,
-            args.runs,
-        )
-
-    if args.target == "tracking-server":
-        await bench_target(
-            "MLflow Tracking Server Gateway",
-            args.tracking_server_url,
-            MLFLOW_BODY,
-            MLFLOW_HEADERS,
             args.requests,
             args.max_concurrent,
             args.runs,
