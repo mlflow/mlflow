@@ -30,7 +30,6 @@ The deployment architecture has a couple of advantages:
   - Managed Database (Cloud SQL): Automated backups, patching, and failover.
   - Managed Object Storage (Cloud Storage): Highly scalable and durable storage for MLflow artifacts, eliminating the need to manage scalable storage infrastructure.
 
-
 ## Step 1: Create a docker image and upload it to GCP:
 
 Build a docker image using the following `Dockerfile`:
@@ -59,13 +58,11 @@ In Google Cloud "Cloud Storage" console, create a bucket with name like "mlflow-
 
 ![create bucket](/images/self-hosting/gcp-create-bucket.png)
 
-
 ## Step 3: Grant user role to the default compute service account
 
 In Google Cloud "IAM & Admin" console, click "grant access", then assign the "Storage Object User" role to the default compute service account as follows:
 
 ![storage iam role](/images/self-hosting/storage-iam-role.png)
-
 
 ## Step 4: Create cloud SQL instance
 
@@ -78,7 +75,6 @@ The database connection string used by MLflow is like:
 `postgresql://<admin-name>:<admin-password>@/<database-name>?host=/cloudsql/<gcp-project-name>:us-central1:<cloud-sql-instance-id>`
 
 The default values of "admin-name" and "database-name" are both "postgres".
-
 
 ## Step 5: Create Cloud Run instance
 
@@ -98,14 +94,13 @@ After created the cloud run instance, you can view the application URL like `htt
 
 ![cloud run instance](/images/self-hosting/gcp-cloud-run-instance.png)
 
-
 ### Integration with MLflow authentication
 
 MLflow supports [basic authentication](https://mlflow.org/docs/latest/self-hosting/security/basic-http-auth/) and [authentication with OIDC plugin](https://mlflow.org/docs/latest/self-hosting/security/sso/#using-oidc-plugin), the 2 kinds of authentication settings require:
 
 - Additional pip packages: preinstall them in the `mlflow-gcp` image in "Step 1".
 - Additional environment variable settings: Set them as the environment variables in the container's "
-Variables & Secrets" settings.
+  Variables & Secrets" settings.
 - Additional mlflow server CLI options: Append them in the "Container arguments" setting.
 
 ## Step 5: Validate the deployment
