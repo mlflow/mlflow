@@ -34,7 +34,7 @@ class IssueSeverity(str, Enum):
     @cached_property
     def _order(self) -> int:
         """Return the ordinal rank for severity comparison."""
-        return list(type(self)).index(self)
+        return list(IssueSeverity).index(self)
 
     def __lt__(self, other) -> bool:
         if isinstance(other, IssueSeverity):
@@ -123,9 +123,9 @@ class Issue(_MlflowObject):
             status=IssueStatus(issue_dict["status"]),
             created_timestamp=issue_dict["created_timestamp"],
             last_updated_timestamp=issue_dict["last_updated_timestamp"],
-            severity=IssueSeverity(issue_dict.get("severity"))
-            if issue_dict.get("severity")
-            else None,
+            severity=(
+                IssueSeverity(issue_dict.get("severity")) if issue_dict.get("severity") else None
+            ),
             root_causes=issue_dict.get("root_causes"),
             source_run_id=issue_dict.get("source_run_id"),
             created_by=issue_dict.get("created_by"),
