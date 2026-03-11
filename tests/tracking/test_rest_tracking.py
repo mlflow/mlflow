@@ -5149,7 +5149,7 @@ def test_create_issue_with_all_fields(mlflow_client, store_type):
             "status": IssueStatus.PENDING.value,
             "source_run_id": run.info.run_id,
             "root_causes": ["Database query inefficiency", "Network latency"],
-            "confidence": "high",
+            "severity": "high",
             "created_by": "test-user",
         },
     )
@@ -5163,7 +5163,7 @@ def test_create_issue_with_all_fields(mlflow_client, store_type):
     assert issue["status"] == IssueStatus.PENDING.value
     assert issue["source_run_id"] == run.info.run_id
     assert issue["root_causes"] == ["Database query inefficiency", "Network latency"]
-    assert issue["confidence"] == "high"
+    assert issue["severity"] == "high"
     assert issue["created_by"] == "test-user"
     assert "issue_id" in issue
     assert "created_timestamp" in issue
@@ -5243,7 +5243,7 @@ def test_get_issue(mlflow_client, store_type):
             "experiment_id": experiment_id,
             "name": "Test issue",
             "description": "Test description",
-            "confidence": "medium",
+            "severity": "medium",
         },
     )
     issue_id = create_response.json()["issue"]["issue_id"]
@@ -5254,7 +5254,7 @@ def test_get_issue(mlflow_client, store_type):
     issue = data["issue"]
     assert issue["issue_id"] == issue_id
     assert issue["name"] == "Test issue"
-    assert issue["confidence"] == "medium"
+    assert issue["severity"] == "medium"
 
 
 def test_get_issue_not_found(mlflow_client, store_type):
@@ -5289,7 +5289,7 @@ def test_update_issue(mlflow_client, store_type):
             "name": "Updated name",
             "description": "Updated description",
             "status": IssueStatus.ACCEPTED.value,
-            "confidence": "high",
+            "severity": "high",
         },
     )
     assert update_response.status_code == 200
@@ -5299,7 +5299,7 @@ def test_update_issue(mlflow_client, store_type):
     assert issue["name"] == "Updated name"
     assert issue["description"] == "Updated description"
     assert issue["status"] == IssueStatus.ACCEPTED.value
-    assert issue["confidence"] == "high"
+    assert issue["severity"] == "high"
 
 
 def test_search_issues_no_filters(mlflow_client, store_type):
