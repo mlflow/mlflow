@@ -380,6 +380,19 @@ class TracingClient:
 
         return PagedList(traces, next_token)
 
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+        """
+        Retrieve multiple traces by their IDs.
+
+        Args:
+            trace_ids: List of trace IDs to retrieve.
+            location: Optional location (e.g., "catalog.schema" for UC schema) to search for traces.
+
+        Returns:
+            List of Trace objects.
+        """
+        return self.store.batch_get_traces(trace_ids, location)
+
     def _download_spans_from_batch_get_traces(
         self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
     ) -> list[Trace]:

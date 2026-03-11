@@ -45,6 +45,30 @@ def test_get_trace_v4_retry():
     assert mock_store.batch_get_traces.call_count == 2
 
 
+def test_batch_get_traces():
+    mock_store = Mock()
+    mock_store.batch_get_traces.return_value = ["trace1", "trace2"]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        traces = client.batch_get_traces(["id1", "id2"], location="catalog.schema")
+
+    assert traces == ["trace1", "trace2"]
+    mock_store.batch_get_traces.assert_called_once_with(["id1", "id2"], "catalog.schema")
+
+
+def test_batch_get_traces_without_location():
+    mock_store = Mock()
+    mock_store.batch_get_traces.return_value = ["trace1"]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        traces = client.batch_get_traces(["id1"])
+
+    assert traces == ["trace1"]
+    mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
+
+
 @skip_when_testing_trace_sdk
 def test_tracing_client_link_prompt_versions_to_trace():
     with mlflow.start_run():
