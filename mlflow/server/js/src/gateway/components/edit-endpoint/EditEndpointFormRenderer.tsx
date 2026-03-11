@@ -362,27 +362,6 @@ export const EditEndpointFormRenderer = ({
                     />
                   </div>
                 </div>
-
-                {/* Rate Limiting placeholder */}
-                <div
-                  css={{
-                    padding: theme.spacing.md,
-                    border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    backgroundColor: theme.colors.backgroundPrimary,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                  }}
-                >
-                  <Typography.Text bold>
-                    <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
-                  </Typography.Text>
-                  <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                    <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
-                  </Typography.Text>
-                </div>
               </div>
             </Tabs.Content>
 

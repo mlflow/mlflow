@@ -1,7 +1,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
-from mlflow.entities.issue import IssueStatus
+from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.genai.discovery.clustering import (
     cluster_by_llm,
     summarize_cluster,
@@ -126,7 +126,7 @@ def test_build_summary_with_issues():
             status=IssueStatus.PENDING,
             created_timestamp=0,
             last_updated_timestamp=0,
-            severity="high",
+            severity=IssueSeverity.HIGH,
             root_causes=["API timeout"],
         ),
     ]

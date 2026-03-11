@@ -1,8 +1,10 @@
+import random
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
 import pytest
 from opentelemetry import trace
+from opentelemetry.sdk.trace.id_generator import RandomIdGenerator
 
 import mlflow
 from mlflow.entities.trace_location import (
@@ -31,9 +33,13 @@ from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
     _initialize_tracer_provider,
+    _IsolatedRandomIdGenerator,
     is_tracing_enabled,
     start_span_in_context,
     trace_disabled,
+)
+from mlflow.tracing.provider import (
+    provider as _provider_wrapper,
 )
 from mlflow.tracing.utils import get_active_spans_table_name
 
@@ -610,6 +616,51 @@ def test_otel_resource_attributes(monkeypatch):
         "telemetry.sdk.name": "mlflow",
         "telemetry.sdk.version": mlflow.__version__,
     }
+
+
+def test_isolated_random_id_generator_not_affected_by_random_seed(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", "true")
+    mlflow.tracing.reset()
+    _initialize_tracer_provider()
+
+    rng_state = random.getstate()
+    try:
+        random.seed(42)
+        span1 = start_span_in_context("test1")
+        trace_id_1 = span1.get_span_context().trace_id
+        span_id_1 = span1.get_span_context().span_id
+        span1.end()
+
+        # Re-seeding with the same value would make RandomIdGenerator replay the exact same
+        # ID sequence. _IsolatedRandomIdGenerator must be immune to this.
+        random.seed(42)
+        span2 = start_span_in_context("test2")
+        trace_id_2 = span2.get_span_context().trace_id
+        span_id_2 = span2.get_span_context().span_id
+        span2.end()
+    finally:
+        random.setstate(rng_state)
+
+    assert trace_id_1 != trace_id_2
+    assert span_id_1 != span_id_2
+
+
+def test_tracer_provider_uses_isolated_random_id_generator_when_env_var_set(monkeypatch):
+    # Ensure env var is unset so the default id generator is used
+    monkeypatch.delenv("MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", raising=False)
+
+    # Default: OTel's RandomIdGenerator is used
+    mlflow.tracing.reset()
+    _initialize_tracer_provider()
+    tracer_provider = _provider_wrapper.get()
+    assert isinstance(tracer_provider.id_generator, RandomIdGenerator)
+
+    # Opt-in: _IsolatedRandomIdGenerator is used when the env var is set
+    monkeypatch.setenv("MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", "true")
+    mlflow.tracing.reset()
+    _initialize_tracer_provider()
+    tracer_provider = _provider_wrapper.get()
+    assert isinstance(tracer_provider.id_generator, _IsolatedRandomIdGenerator)
 
 
 def test_set_destination_from_env_var_databricks_uc_with_table_prefix_rejected(monkeypatch):

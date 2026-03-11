@@ -77,17 +77,17 @@ def test_parse_global_wasbs_uri():
     global_wasb_with_multi_path = "wasbs://cont@acct.blob.core.windows.net/a/b"
     assert parse(global_wasb_with_multi_path) == ("cont", "acct", "a/b", global_api_suffix)
 
-    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
         parse("wasbs://cont@acct.blob.core.evil.net/path")
-    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
         parse("wasbs://cont@acct/path")
-    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
         parse("wasbs://acct.blob.core.windows.net/path")
-    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
         parse("wasbs://@acct.blob.core.windows.net/path")
-    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
         parse("wasbs://cont@acctxblob.core.windows.net/path")
-    with pytest.raises(Exception, match="Not a WASBS URI"):
+    with pytest.raises(MlflowException, match="Not a WASBS URI"):
         parse("wasb://cont@acct.blob.core.windows.net/path")
 
 
@@ -107,18 +107,72 @@ def test_parse_cn_wasbs_uri():
     cn_wasb_with_multi_path = "wasbs://cont@acct.blob.core.chinacloudapi.cn/a/b"
     assert parse(cn_wasb_with_multi_path) == ("cont", "acct", "a/b", cn_api_suffix)
 
-    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
         parse("wasbs://cont@acct.blob.core.evil.cn/path")
-    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
         parse("wasbs://cont@acct/path")
-    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
         parse("wasbs://acct.blob.core.chinacloudapi.cn/path")
-    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
         parse("wasbs://@acct.blob.core.chinacloudapi.cn/path")
-    with pytest.raises(Exception, match="WASBS URI must be of the form"):
+    with pytest.raises(MlflowException, match="WASBS URI must be of the form"):
         parse("wasbs://cont@acctxblob.core.chinacloudapi.cn/path")
-    with pytest.raises(Exception, match="Not a WASBS URI"):
+    with pytest.raises(MlflowException, match="Not a WASBS URI"):
         parse("wasb://cont@acct.blob.core.chinacloudapi.cn/path")
+
+
+GOV_API_SUFFIX = "blob.core.usgovcloudapi.net"
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        (
+            "wasbs://cont@acct.blob.core.usgovcloudapi.net/path",
+            ("cont", "acct", "path", GOV_API_SUFFIX),
+        ),
+        (
+            "wasbs://cont@acct.blob.core.usgovcloudapi.net",
+            ("cont", "acct", "", GOV_API_SUFFIX),
+        ),
+        (
+            "wasbs://cont@acct.blob.core.usgovcloudapi.net/",
+            ("cont", "acct", "", GOV_API_SUFFIX),
+        ),
+        (
+            "wasbs://cont@acct.blob.core.usgovcloudapi.net/a/b",
+            ("cont", "acct", "a/b", GOV_API_SUFFIX),
+        ),
+    ],
+)
+def test_parse_govcloud_wasbs_uri_valid(uri, expected):
+    assert AzureBlobArtifactRepository.parse_wasbs_uri(uri) == expected
+
+
+@pytest.mark.parametrize(
+    ("uri", "error_match"),
+    [
+        ("wasbs://cont@acct.blob.core.evil.net/path", "WASBS URI must be of the form"),
+        ("wasbs://cont@acct/path", "WASBS URI must be of the form"),
+        ("wasbs://acct.blob.core.usgovcloudapi.net/path", "WASBS URI must be of the form"),
+        ("wasbs://@acct.blob.core.usgovcloudapi.net/path", "WASBS URI must be of the form"),
+        ("wasbs://cont@acctxblob.core.usgovcloudapi.net/path", "WASBS URI must be of the form"),
+        ("wasb://cont@acct.blob.core.usgovcloudapi.net/path", "Not a WASBS URI"),
+        # Ensure hosts with a valid suffix plus trailing components are rejected
+        (
+            "wasbs://cont@acct.blob.core.usgovcloudapi.net.evil.net/path",
+            "WASBS URI must be of the form",
+        ),
+        ("wasbs://cont@acct.blob.core.windows.net.evil.net/path", "WASBS URI must be of the form"),
+        (
+            "wasbs://cont@acct.blob.core.chinacloudapi.cn.evil.net/path",
+            "WASBS URI must be of the form",
+        ),
+    ],
+)
+def test_parse_govcloud_wasbs_uri_invalid(uri, error_match):
+    with pytest.raises(MlflowException, match=error_match):
+        AzureBlobArtifactRepository.parse_wasbs_uri(uri)
 
 
 def test_list_artifacts_empty(mock_client):

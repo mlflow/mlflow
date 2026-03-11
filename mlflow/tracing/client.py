@@ -8,7 +8,7 @@ from typing import Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
-from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
@@ -755,7 +755,7 @@ class TracingClient:
         name: str,
         description: str,
         status: IssueStatus = IssueStatus.PENDING,
-        severity: str | None = None,
+        severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
         created_by: str | None = None,
