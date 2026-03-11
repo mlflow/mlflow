@@ -167,8 +167,7 @@ from mlflow.genai.judges import make_judge
 correctness_judge = make_judge(
     name="correctness",
     instructions=(
-        "Evaluate if the response in {{ outputs }} "
-        "correctly answers the question in {{ inputs }}."
+        "Evaluate if the response in {{ outputs }} correctly answers the question in {{ inputs }}."
     ),
     feedback_value_type=bool,
     model="anthropic:/claude-opus-4-1-20250805",
@@ -286,7 +285,8 @@ quality_judge = make_judge(
 
 # Collect traces with both judge assessments and human feedback
 traces_with_feedback = mlflow.search_traces(
-    experiment_ids=[experiment_id], max_results=20  # Minimum 10 required for alignment
+    experiment_ids=[experiment_id],
+    max_results=20,  # Minimum 10 required for alignment
 )
 
 # Align the judge with human preferences (uses default DSPy-SIMBA optimizer)
@@ -330,28 +330,18 @@ import mlflow
 import pandas as pd
 
 # Your test data
-test_data = pd.DataFrame(
-    [
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "outputs": {
-                "response": "MLflow is an open-source AI engineering platform."
-            },
-            "expectations": {
-                "ground_truth": "MLflow is an open-source AI engineering platform"
-            },
-        },
-        {
-            "inputs": {"question": "How do I track experiments?"},
-            "outputs": {
-                "response": "Use mlflow.start_run() to track experiments in MLflow."
-            },
-            "expectations": {
-                "ground_truth": "Use mlflow.start_run() to track experiments"
-            },
-        },
-    ]
-)
+test_data = pd.DataFrame([
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "outputs": {"response": "MLflow is an open-source AI engineering platform."},
+        "expectations": {"ground_truth": "MLflow is an open-source AI engineering platform"},
+    },
+    {
+        "inputs": {"question": "How do I track experiments?"},
+        "outputs": {"response": "Use mlflow.start_run() to track experiments in MLflow."},
+        "expectations": {"ground_truth": "Use mlflow.start_run() to track experiments"},
+    },
+])
 
 
 # Your application (optional if data already has outputs)

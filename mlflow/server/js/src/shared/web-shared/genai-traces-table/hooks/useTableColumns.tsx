@@ -37,6 +37,8 @@ export const SPAN_CONTENT_COLUMN_ID = 'span.content';
 export const SIMULATION_GOAL_COLUMN_ID = 'simulation_goal';
 export const SIMULATION_PERSONA_COLUMN_ID = 'simulation_persona';
 export const LINKED_PROMPTS_COLUMN_ID = 'prompt';
+export const ISSUE_ID_COLUMN_ID = 'issue.id';
+export const ISSUES_COLUMN_ID = 'issues';
 
 export const SORTABLE_INFO_COLUMNS = [EXECUTION_DURATION_COLUMN_ID, REQUEST_TIME_COLUMN_ID, SESSION_COLUMN_ID];
 // Columns that are sortable by the server. Server-side sorting should be prioritized over client-side sorting.
@@ -372,7 +374,18 @@ export const useTableColumns = (
         : [];
     }
 
-    return [...inputCols, ...infoCols, ...assessmentColumns, ...Object.values(expectationColumns)].filter(
+    // Issues column is placed at the end of INFO group
+    const issuesCol = {
+      id: ISSUES_COLUMN_ID,
+      label: intl.formatMessage({
+        defaultMessage: 'Issues',
+        description: 'Column label for issues',
+      }),
+      type: TracesTableColumnType.TRACE_INFO,
+      group: TracesTableColumnGroup.INFO,
+    };
+
+    return [...inputCols, ...infoCols, issuesCol, ...assessmentColumns, ...Object.values(expectationColumns)].filter(
       (col): col is TracesTableColumn => Boolean(col),
     );
   }, [currentEvaluationResults, intl, assessmentInfos, runUuid, otherEvaluationResults, isTraceInfoV3Override]);

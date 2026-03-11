@@ -9,7 +9,11 @@ interface LoggedModelWithSourceRun extends LoggedModelProto {
 export const ExperimentLoggedModelTableSourceRunCell = ({ data }: { data: LoggedModelWithSourceRun }) => {
   if (data.info?.experiment_id && data.info?.source_run_id) {
     return (
-      <Link to={Routes.getRunPageRoute(data.info?.experiment_id, data.info?.source_run_id)} target="_blank">
+      <Link
+        componentId="mlflow.logged_models.table.source_run_link"
+        to={Routes.getRunPageRoute(data.info?.experiment_id, data.info?.source_run_id)}
+        target="_blank"
+      >
         {data.sourceRun?.info?.runName ?? data.info?.source_run_id}
       </Link>
     );

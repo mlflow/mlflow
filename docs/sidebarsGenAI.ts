@@ -105,6 +105,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   id: 'tracing/observe-with-traces/delete-traces',
                   label: 'Delete Traces',
                 },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/multimodal',
+                  label: 'Multimodal Content',
+                },
               ],
             },
             {
@@ -425,6 +430,11 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/integrations/listing/instructor',
                   label: 'Instructor',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/integrations/listing/opencode',
+                  label: 'OpenCode',
                 },
               ],
             },
@@ -977,6 +987,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/usage-tracking',
           label: 'Usage Tracking',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/budget-alerts-limits',
+          label: 'Budget Alerts & Limits',
         },
         {
           type: 'category',

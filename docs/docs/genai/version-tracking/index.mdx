@@ -166,12 +166,10 @@ Context manager automatically handles version switching—clean, explicit, and e
 import pandas as pd
 
 # Evaluate multiple versions against the same test set
-eval_data = pd.DataFrame(
-    {
-        "inputs": test_questions,
-        "expected_categories": ["account", "business_info", "billing"],
-    }
-)
+eval_data = pd.DataFrame({
+    "inputs": test_questions,
+    "expected_categories": ["account", "business_info", "billing"],
+})
 
 # Version A: Original configuration
 results_v1 = mlflow.evaluate(

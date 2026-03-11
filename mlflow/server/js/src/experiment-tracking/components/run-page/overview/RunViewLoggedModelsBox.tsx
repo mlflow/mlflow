@@ -51,6 +51,7 @@ export const RunViewLoggedModelsBox = ({
       {loggedModels.map((model, index) => {
         return (
           <Link
+            componentId="mlflow.run_page.overview.logged_model_link"
             to={Routes.getRunPageRoute(experimentId ?? '', runUuid ?? '', model.artifactPath)}
             key={model.artifactPath}
             css={{
@@ -72,6 +73,7 @@ export const RunViewLoggedModelsBox = ({
       {loggedModelsV3.map((model, index) => {
         return (
           <Link
+            componentId="mlflow.run_page.overview.logged_model_v3_link"
             to={Routes.getExperimentLoggedModelDetailsPageRoute(experimentId ?? '', model.info?.model_id ?? '')}
             key={model.info?.model_id ?? index}
             css={{

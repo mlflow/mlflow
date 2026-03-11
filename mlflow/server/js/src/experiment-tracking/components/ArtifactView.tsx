@@ -602,7 +602,13 @@ function ModelVersionInfoSection(props: ModelVersionInfoSectionProps) {
   const modelVersionLink = (
     <Tooltip componentId="mlflow.artifacts.model_version.link" content={`${name} version ${version}`}>
       <span>
-        <Link to={mvPageRoute} className="model-version-link" target="_blank" rel="noreferrer">
+        <Link
+          componentId="mlflow.experiment_tracking.artifacts.model_version_link"
+          to={mvPageRoute}
+          className="model-version-link"
+          target="_blank"
+          rel="noreferrer"
+        >
           <span className="model-name">{name}</span>
           <span>,&nbsp;v{version}&nbsp;</span>
           <i className="fa fa-external-link-o" />

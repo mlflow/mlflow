@@ -637,14 +637,12 @@ class MockDSPyLM(dspy.BaseLM):
 
     def basic_request(self, prompt, **kwargs):
         # Track that this LM was called
-        self._context_calls.append(
-            {
-                "model": self.model,
-                "prompt": prompt,
-                "kwargs": kwargs,
-                "context": "lm_basic_request_called",
-            }
-        )
+        self._context_calls.append({
+            "model": self.model,
+            "prompt": prompt,
+            "kwargs": kwargs,
+            "context": "lm_basic_request_called",
+        })
 
         # Return a default answer
         return [{"text": '{"result": "pass", "rationale": "test rationale"}'}]

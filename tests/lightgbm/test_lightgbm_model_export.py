@@ -26,6 +26,7 @@ from mlflow.types.schema import ColSpec, Schema, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
+from mlflow.utils.requirements_utils import _parse_requirements
 
 from tests.helper_functions import (
     _assert_pip_requirements,
@@ -64,12 +65,10 @@ def lgb_model():
 @pytest.fixture(scope="module")
 def lgb_model_signature():
     return ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="sepal length (cm)", type=DataType.double),
-                ColSpec(name="sepal width (cm)", type=DataType.double),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(name="sepal length (cm)", type=DataType.double),
+            ColSpec(name="sepal width (cm)", type=DataType.double),
+        ]),
         outputs=Schema([TensorSpec(np.dtype("float64"), (-1, 3))]),
     )
 
@@ -83,6 +82,16 @@ def lgb_sklearn_model():
     )
     y = iris.target
     model = lgb.LGBMClassifier(n_estimators=10)
+    model.fit(X, y)
+    return ModelWithData(model=model, inference_dataframe=X)
+
+
+@pytest.fixture(scope="module")
+def lgb_sklearn_regressor_model():
+    diabetes = datasets.load_diabetes()
+    X = pd.DataFrame(diabetes.data, columns=diabetes.feature_names)
+    y = diabetes.target
+    model = lgb.LGBMRegressor(n_estimators=10)
     model.fit(X, y)
     return ModelWithData(model=model, inference_dataframe=X)
 
@@ -542,31 +551,31 @@ def test_model_log_with_signature_inference(lgb_model):
 
     mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="sepal length (cm)", type=DataType.double),
-                ColSpec(name="sepal width (cm)", type=DataType.double),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(name="sepal length (cm)", type=DataType.double),
+            ColSpec(name="sepal width (cm)", type=DataType.double),
+        ]),
         outputs=Schema([TensorSpec(np.dtype("float64"), (-1, 3))]),
     )
 
 
 def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
-    from mlflow.utils.requirements_utils import _parse_requirements
-
     model = lgb_sklearn_model.model
     mlflow.lightgbm.save_model(
         lgb_model=model,
         path=model_path,
         serialization_format="skops",
-        skops_trusted_types=[
-            "collections.OrderedDict",
-            "lightgbm.basic.Booster",
-            "lightgbm.sklearn.LGBMClassifier",
-        ],
     )
 
+    flavor_cfg = _get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.lightgbm.FLAVOR_NAME
+    )
+    assert set(flavor_cfg["skops_trusted_types"]) == {
+        "collections.OrderedDict",
+        "lightgbm.basic.Booster",
+        "lightgbm.sklearn.LGBMClassifier",
+        "lightgbm.sklearn.LGBMRegressor",
+    }
     logged_reqs = [
         req.req_str
         for req in _parse_requirements(
@@ -587,4 +596,44 @@ def test_sklearn_model_save_load_by_skops(lgb_sklearn_model, model_path):
     np.testing.assert_array_almost_equal(
         reloaded_model.predict(lgb_sklearn_model.inference_dataframe),
         reloaded_pyfunc.predict(lgb_sklearn_model.inference_dataframe),
+    )
+
+
+def test_sklearn_regressor_model_save_load_by_skops(lgb_sklearn_regressor_model, model_path):
+    model = lgb_sklearn_regressor_model.model
+    mlflow.lightgbm.save_model(
+        lgb_model=model,
+        path=model_path,
+        serialization_format="skops",
+    )
+
+    flavor_cfg = _get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.lightgbm.FLAVOR_NAME
+    )
+    assert set(flavor_cfg["skops_trusted_types"]) == {
+        "collections.OrderedDict",
+        "lightgbm.basic.Booster",
+        "lightgbm.sklearn.LGBMClassifier",
+        "lightgbm.sklearn.LGBMRegressor",
+    }
+    logged_reqs = [
+        req.req_str
+        for req in _parse_requirements(
+            os.path.join(model_path, "requirements.txt"), is_constraint=False
+        )
+    ]
+    assert f"skops=={skops.__version__}" in logged_reqs
+    assert f"cloudpickle=={cloudpickle.__version__}" not in logged_reqs
+
+    reloaded_model = mlflow.lightgbm.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    np.testing.assert_array_almost_equal(
+        model.predict(lgb_sklearn_regressor_model.inference_dataframe),
+        reloaded_model.predict(lgb_sklearn_regressor_model.inference_dataframe),
+    )
+
+    np.testing.assert_array_almost_equal(
+        reloaded_model.predict(lgb_sklearn_regressor_model.inference_dataframe),
+        reloaded_pyfunc.predict(lgb_sklearn_regressor_model.inference_dataframe),
     )

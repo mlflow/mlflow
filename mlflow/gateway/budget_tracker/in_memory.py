@@ -119,15 +119,15 @@ class InMemoryBudgetTracker(BudgetTracker):
     def should_reject_request(
         self,
         workspace: str | None = None,
-    ) -> tuple[bool, GatewayBudgetPolicy | None]:
+    ) -> tuple[bool, BudgetWindow | None]:
         """Check if any REJECT-capable policy is exceeded.
 
         Args:
             workspace: The workspace to check against.
 
         Returns:
-            Tuple of (exceeded, policy). If exceeded is True, policy is the
-            first exceeded policy found.
+            Tuple of (exceeded, window). If exceeded is True, window is the
+            first exceeded window found.
         """
         now = datetime.now(timezone.utc)
 
@@ -143,7 +143,7 @@ class InMemoryBudgetTracker(BudgetTracker):
                     continue
 
                 if window.cumulative_spend >= window.policy.budget_amount:
-                    return True, window.policy
+                    return True, window
 
         return False, None
 
@@ -156,6 +156,10 @@ class InMemoryBudgetTracker(BudgetTracker):
                     continue
                 window.cumulative_spend = spend
                 window.exceeded = spend >= window.policy.budget_amount
+
+    def get_all_windows(self) -> list[BudgetWindow]:
+        with self._lock:
+            return list(self._windows.values())
 
     def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
         """Get the current window info for a policy (for payload construction)."""
