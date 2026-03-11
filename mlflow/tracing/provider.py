@@ -596,6 +596,7 @@ def _get_trace_sampler() -> _MlflowSampler | None:
 
 
 def _resolve_experiment_uc_location() -> UnityCatalog | None:
+    from mlflow.tracking._tracking_service.utils import _get_store
     from mlflow.tracking.fluent import _get_experiment_id, _uc_location_from_experiment_tags
 
     tracking_uri = mlflow.get_tracking_uri()
@@ -607,7 +608,7 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
         if not experiment_id:
             return None
 
-        experiment = mlflow.get_experiment(experiment_id)
+        experiment = _get_store().get_experiment(experiment_id)
         if not experiment:
             return None
 
