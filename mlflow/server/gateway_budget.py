@@ -157,13 +157,12 @@ def _create_budget_error_trace(
 
 def check_budget_limit(
     store: SqlAlchemyStore,
+    endpoint_config: GatewayEndpointConfig,
     workspace: str | None = None,
-    endpoint_config: GatewayEndpointConfig | None = None,
 ) -> None:
     """Check if any REJECT-capable budget policy is exceeded.
 
-    Raises HTTPException(429) if the budget limit is exceeded.
-    If endpoint_config is provided, an error trace is recorded before raising.
+    Raises HTTPException(429) with an error trace if the budget limit is exceeded.
     """
     maybe_refresh_budget_policies(store)
     tracker = get_budget_tracker()
@@ -182,8 +181,7 @@ def check_budget_limit(
             "Request rejected."
         )
         exc = HTTPException(status_code=429, detail=detail)
-        if endpoint_config is not None:
-            _create_budget_error_trace(endpoint_config, exc)
+        _create_budget_error_trace(endpoint_config, exc)
         raise exc
 
 
