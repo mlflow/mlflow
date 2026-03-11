@@ -22,6 +22,8 @@ from mlflow.utils.validation import (
     _validate_metric_name,
     _validate_model_alias_name,
     _validate_model_alias_name_reserved,
+    _validate_model_name,
+    _validate_model_renaming,
     _validate_param_name,
     _validate_run_id,
     _validate_tag_name,
@@ -503,3 +505,23 @@ def test_validate_webhook_url_allow_private_ips_env_var(monkeypatch):
         side_effect=_mock_getaddrinfo("127.0.0.1"),
     ):
         _validate_webhook_url("https://localhost/callback")
+
+
+@pytest.mark.parametrize("invalid_name", ["my/model", "model:v1", "name/with:both"])
+def test_validate_model_name_invalid_chars(invalid_name):
+    with pytest.raises(
+        MlflowException,
+        match="Names cannot contain '/' or ':'",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        _validate_model_name(invalid_name)
+
+
+@pytest.mark.parametrize("invalid_name", ["my/model", "model:v1", "name/with:both"])
+def test_validate_model_renaming_invalid_chars(invalid_name):
+    with pytest.raises(
+        MlflowException,
+        match="Names cannot contain '/' or ':'",
+        check=lambda e: e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE),
+    ):
+        _validate_model_renaming(invalid_name)
