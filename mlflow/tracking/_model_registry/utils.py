@@ -2,6 +2,7 @@ import importlib
 from functools import partial
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_REGISTRY_URI
+from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.model_registry.databricks_workspace_model_registry_rest_store import (
     DatabricksWorkspaceModelRegistryRestStore,
@@ -202,6 +203,14 @@ def _get_sqlalchemy_store(store_uri):
     return store_cls(store_uri)
 
 
+def _get_sqlalchemy_store_unavailable(store_uri, **_):
+    raise MlflowException(
+        f"The model registry URI '{store_uri}' requires the 'sqlalchemy' and 'alembic' packages, "
+        "which are not installed. If you are using 'mlflow-skinny', install them with: "
+        "pip install sqlalchemy alembic"
+    )
+
+
 def _get_rest_store(store_uri, **_):
     return RestStore(partial(get_default_host_creds, store_uri))
 
@@ -241,6 +250,9 @@ def _get_store_registry():
     if importlib.util.find_spec("sqlalchemy") is not None:
         for scheme in DATABASE_ENGINES:
             _model_registry_store_registry.register(scheme, _get_sqlalchemy_store)
+    else:
+        for scheme in DATABASE_ENGINES:
+            _model_registry_store_registry.register(scheme, _get_sqlalchemy_store_unavailable)
 
     for scheme in ["", "file"]:
         _model_registry_store_registry.register(scheme, _get_file_store)

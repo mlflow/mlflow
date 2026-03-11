@@ -52,17 +52,6 @@ importlib_metadata:
   max_major_version: 8
   unsupported: ["4.7.0"]
 
-sqlalchemy:
-  pip_release: sqlalchemy
-  minimum: "1.4.0"
-  max_major_version: 2
-
-alembic:
-  pip_release: alembic
-  max_major_version: 1
-  # alembic 1.10.0 contains a regression: https://github.com/sqlalchemy/alembic/issues/1195
-  unsupported: ["1.10.0"]
-
 sqlparse:
   pip_release: sqlparse
   # Lower bound sqlparse for: https://github.com/andialbrecht/sqlparse/pull/567

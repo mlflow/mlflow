@@ -9,6 +9,7 @@ from typing import Generator
 from urllib.parse import unquote
 
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_TRACKING_URI
+from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_TRACKING_URI
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
@@ -201,6 +202,14 @@ def _get_sqlalchemy_store(store_uri, artifact_uri):
     return store_cls(store_uri, artifact_uri)
 
 
+def _get_sqlalchemy_store_unavailable(store_uri, artifact_uri):
+    raise MlflowException(
+        f"The tracking URI '{store_uri}' requires the 'sqlalchemy' and 'alembic' packages, "
+        "which are not installed. If you are using 'mlflow-skinny', install them with: "
+        "pip install sqlalchemy alembic"
+    )
+
+
 def _get_rest_store(store_uri, **_):
     return RestStore(partial(get_default_host_creds, store_uri))
 
@@ -255,6 +264,9 @@ def _register_tracking_stores():
     if importlib.util.find_spec("sqlalchemy"):
         for scheme in DATABASE_ENGINES:
             _tracking_store_registry.register(scheme, _get_sqlalchemy_store)
+    else:
+        for scheme in DATABASE_ENGINES:
+            _tracking_store_registry.register(scheme, _get_sqlalchemy_store_unavailable)
 
     _tracking_store_registry.register_entrypoints()
 

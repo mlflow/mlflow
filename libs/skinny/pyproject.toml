@@ -25,7 +25,6 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-  "alembic<2,!=1.10.0",
   "cachetools<8,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
@@ -42,7 +41,6 @@ dependencies = [
   "python-dotenv<2,>=0.19.0",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
-  "sqlalchemy<3,>=1.4.0",
   "sqlparse<1,>=0.4.0",
   "typing-extensions<5,>=4.0.0",
   "uvicorn<1",
