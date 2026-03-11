@@ -5,7 +5,7 @@ import pytest
 
 import mlflow
 import mlflow.gateway.budget_tracker as _bt_module
-from mlflow.entities import SpanType
+from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
     BudgetDurationUnit,
@@ -16,6 +16,7 @@ from mlflow.entities.gateway_budget_policy import (
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.server.gateway_budget import (
+    _create_budget_error_trace,
     calculate_existing_cost_for_new_windows,
     check_budget_limit,
     fire_budget_exceeded_webhooks,
@@ -479,3 +480,54 @@ def test_check_budget_limit_multiple_policies():
     tracker.record_cost(30.0)
     with pytest.raises(fastapi.HTTPException, match="Request rejected"):
         check_budget_limit(store)
+
+
+# --- _create_budget_error_trace tests ---
+
+
+def test_check_budget_limit_creates_error_trace_when_exceeded():
+    policy = _make_policy(budget_amount=10.0, budget_action=BudgetAction.REJECT)
+    store = _make_store(policies=[policy])
+    endpoint_config = _make_endpoint_config()
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(20.0)
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store, endpoint_config=endpoint_config)
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace is not None
+    root_span = trace.data.spans[0]
+    assert root_span.name == "gateway/test-endpoint"
+    assert root_span.status.status_code == SpanStatusCode.ERROR
+    assert len(root_span.events) == 1
+    assert root_span.events[0].name == "exception"
+
+
+def test_check_budget_limit_no_trace_without_endpoint_config():
+    policy = _make_policy(budget_amount=10.0, budget_action=BudgetAction.REJECT)
+    store = _make_store(policies=[policy])
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(20.0)
+
+    with pytest.raises(fastapi.HTTPException, match="Request rejected"):
+        check_budget_limit(store)
+
+    assert mlflow.get_last_active_trace_id() is None
+
+
+def test_create_budget_error_trace_skips_without_experiment_id():
+    endpoint_config = GatewayEndpointConfig(
+        endpoint_id="ep-test",
+        endpoint_name="test-endpoint",
+        experiment_id=None,
+        models=[],
+    )
+    exc = fastapi.HTTPException(status_code=429, detail="Budget exceeded")
+    _create_budget_error_trace(endpoint_config, exc)
+
+    assert mlflow.get_last_active_trace_id() is None
