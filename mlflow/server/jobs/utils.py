@@ -135,9 +135,10 @@ def _start_huey_consumer_proc(
         str(max_job_parallelism),
     ]
 
-    # Add quiet flag if logging level is WARNING or higher
+    # Add quiet flag unless DEBUG logging is explicitly requested,
+    # to suppress noisy huey consumer logs (e.g., Scheduler, Executing messages)
     log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
-    if log_level in ("WARNING", "WARN", "ERROR", "CRITICAL"):
+    if log_level != "DEBUG":
         cmd.append("-q")
 
     return _exec_cmd(
@@ -514,9 +515,10 @@ def _start_periodic_tasks_consumer_proc():
         str(PERIODIC_TASKS_WORKER_COUNT),
     ]
 
-    # Add quiet flag if logging level is WARNING or higher
+    # Add quiet flag unless DEBUG logging is explicitly requested,
+    # to suppress noisy huey consumer logs (e.g., Scheduler, Executing messages)
     log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
-    if log_level in ("WARNING", "WARN", "ERROR", "CRITICAL"):
+    if log_level != "DEBUG":
         cmd.append("-q")
 
     return _exec_cmd(
