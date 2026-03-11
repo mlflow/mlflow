@@ -113,14 +113,12 @@ def test_export_spans_batch_max_size(monkeypatch):
         "mlflow.tracing.export.uc_table.get_active_spans_table_name",
         return_value="catalog.schema.spans",
     ):
-        exporter._export_spans_incrementally(
-            [
-                create_mock_otel_span(trace_id=12345, span_id=1),
-                create_mock_otel_span(trace_id=12345, span_id=2),
-                create_mock_otel_span(trace_id=12345, span_id=3),
-                create_mock_otel_span(trace_id=12345, span_id=4),
-            ]
-        )
+        exporter._export_spans_incrementally([
+            create_mock_otel_span(trace_id=12345, span_id=1),
+            create_mock_otel_span(trace_id=12345, span_id=2),
+            create_mock_otel_span(trace_id=12345, span_id=3),
+            create_mock_otel_span(trace_id=12345, span_id=4),
+        ])
         exporter._client.log_spans.assert_not_called()
 
         exporter._export_spans_incrementally([create_mock_otel_span(trace_id=12345, span_id=5)])
@@ -171,13 +169,11 @@ def test_export_spans_batch_shutdown(monkeypatch):
         "mlflow.tracing.export.uc_table.get_active_spans_table_name",
         return_value="catalog.schema.spans",
     ):
-        exporter._export_spans_incrementally(
-            [
-                create_mock_otel_span(trace_id=12345, span_id=1),
-                create_mock_otel_span(trace_id=12345, span_id=2),
-                create_mock_otel_span(trace_id=12345, span_id=3),
-            ]
-        )
+        exporter._export_spans_incrementally([
+            create_mock_otel_span(trace_id=12345, span_id=1),
+            create_mock_otel_span(trace_id=12345, span_id=2),
+            create_mock_otel_span(trace_id=12345, span_id=3),
+        ])
 
     exporter.flush()
     exporter._client.log_spans.assert_called_once()
@@ -194,9 +190,9 @@ def test_export_spans_batch_thread_safety(monkeypatch):
     exporter._client = mock.MagicMock()
 
     def _generate_spans():
-        exporter._export_spans_incrementally(
-            [create_mock_otel_span(trace_id=12345, span_id=i) for i in range(5)]
-        )
+        exporter._export_spans_incrementally([
+            create_mock_otel_span(trace_id=12345, span_id=i) for i in range(5)
+        ])
 
     with mock.patch(
         "mlflow.tracing.export.uc_table.get_active_spans_table_name",
@@ -227,24 +223,20 @@ def test_export_spans_batch_split_spans_by_location(monkeypatch):
         "mlflow.tracing.export.uc_table.get_active_spans_table_name",
         return_value="catalog.schema.table_1",
     ):
-        exporter._export_spans_incrementally(
-            [
-                create_mock_otel_span(trace_id=12345, span_id=1),
-                create_mock_otel_span(trace_id=12345, span_id=2),
-            ]
-        )
+        exporter._export_spans_incrementally([
+            create_mock_otel_span(trace_id=12345, span_id=1),
+            create_mock_otel_span(trace_id=12345, span_id=2),
+        ])
 
     with mock.patch(
         "mlflow.tracing.export.uc_table.get_active_spans_table_name",
         return_value="catalog.schema.table_2",
     ):
-        exporter._export_spans_incrementally(
-            [
-                create_mock_otel_span(trace_id=12345, span_id=3),
-                create_mock_otel_span(trace_id=12345, span_id=4),
-                create_mock_otel_span(trace_id=12345, span_id=5),
-            ]
-        )
+        exporter._export_spans_incrementally([
+            create_mock_otel_span(trace_id=12345, span_id=3),
+            create_mock_otel_span(trace_id=12345, span_id=4),
+            create_mock_otel_span(trace_id=12345, span_id=5),
+        ])
 
     exporter.flush()
 

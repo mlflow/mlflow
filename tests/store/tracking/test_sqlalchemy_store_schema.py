@@ -200,13 +200,11 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
             indexes = []
             for _, name, unique, *_ in cursor.fetchall():
                 cursor.execute(f"PRAGMA index_info('{name}')")
-                indexes.append(
-                    {
-                        "name": name,
-                        "unique": bool(unique),
-                        "columns": [row[2] for row in cursor.fetchall()],
-                    }
-                )
+                indexes.append({
+                    "name": name,
+                    "unique": bool(unique),
+                    "columns": [row[2] for row in cursor.fetchall()],
+                })
             return indexes
 
         def _has_unique_index(table_name, columns):

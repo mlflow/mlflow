@@ -4,6 +4,7 @@ import datasets_pb2 as _datasets_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
+import issues_pb2 as _issues_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
 import prompt_optimization_pb2 as _prompt_optimization_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
@@ -2411,6 +2412,26 @@ class ListGatewayBudgetPolicies(_message.Message):
     max_results: int
     page_token: str
     def __init__(self, max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class ListGatewayBudgetWindows(_message.Message):
+    __slots__ = ()
+    class BudgetWindow(_message.Message):
+        __slots__ = ("budget_policy_id", "window_start_ms", "window_end_ms", "current_spend")
+        BUDGET_POLICY_ID_FIELD_NUMBER: _ClassVar[int]
+        WINDOW_START_MS_FIELD_NUMBER: _ClassVar[int]
+        WINDOW_END_MS_FIELD_NUMBER: _ClassVar[int]
+        CURRENT_SPEND_FIELD_NUMBER: _ClassVar[int]
+        budget_policy_id: str
+        window_start_ms: int
+        window_end_ms: int
+        current_spend: float
+        def __init__(self, budget_policy_id: _Optional[str] = ..., window_start_ms: _Optional[int] = ..., window_end_ms: _Optional[int] = ..., current_spend: _Optional[float] = ...) -> None: ...
+    class Response(_message.Message):
+        __slots__ = ("windows",)
+        WINDOWS_FIELD_NUMBER: _ClassVar[int]
+        windows: _containers.RepeatedCompositeFieldContainer[ListGatewayBudgetWindows.BudgetWindow]
+        def __init__(self, windows: _Optional[_Iterable[_Union[ListGatewayBudgetWindows.BudgetWindow, _Mapping]]] = ...) -> None: ...
+    def __init__(self) -> None: ...
 
 class GetSecretsConfig(_message.Message):
     __slots__ = ()

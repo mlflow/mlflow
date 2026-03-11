@@ -56,6 +56,8 @@ const PromptFilteredTracesViewImpl = ({
         flexDirection: 'column',
         gap: theme.spacing.sm,
         height: '100%',
+        flex: 1,
+        minWidth: 0,
         overflowY: 'hidden',
       }}
     >

@@ -265,9 +265,7 @@ import mlflow
 class FlowerMapping(mlflow.pyfunc.PythonModel):
     """Custom model with an external dependency"""
 
-    def predict(
-        self, context, model_input, params: Optional[Dict[str, Any]] = None
-    ) -> List[str]:
+    def predict(self, context, model_input, params: Optional[Dict[str, Any]] = None) -> List[str]:
         predictions = [pred % 3 for pred in model_input]
 
         # Call the external function
