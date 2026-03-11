@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -389,28 +388,24 @@ def _build_issues(
         A tuple of (issues, issue_trace_ids) where issue_trace_ids maps
         issue_id to the list of example trace IDs for annotation.
     """
+    from mlflow.tracing.client import TracingClient
+
     issues: list[Issue] = []
     issue_trace_ids: dict[str, list[str]] = {}
     for ident in identified:
+        # TODO: this doesn't include all affected traces, but at max 10 examples
         example_ids = collect_example_trace_ids(ident, analyses)
         name = ident.name.removeprefix("Issue: ").removeprefix("issue: ")
-        issue_id = str(uuid.uuid4())
-        now_ms = int(time.time() * 1000)
-        issues.append(
-            Issue(
-                issue_id=issue_id,
-                experiment_id=exp_id or "",
-                name=name,
-                description=ident.description,
-                status="open",
-                created_timestamp=now_ms,
-                last_updated_timestamp=now_ms,
-                severity=ident.severity,
-                root_causes=[ident.root_cause],
-                source_run_id=source_run_id,
-            )
+        issue = TracingClient()._create_issue(
+            experiment_id=exp_id,
+            name=name,
+            description=ident.description,
+            severity=ident.severity,
+            root_causes=[ident.root_cause],
+            source_run_id=source_run_id,
         )
-        issue_trace_ids[issue_id] = example_ids
+        issues.append(issue)
+        issue_trace_ids[issue.issue_id] = example_ids
 
     issues.sort(
         key=lambda i: i.severity,
@@ -445,6 +440,8 @@ def discover_issues(
     model: str | None = None,
     max_issues: int = 20,
     filter_string: str | None = None,
+    run_id: str | None = None,
+    categories: list[str] | None = None,
 ) -> DiscoverIssuesResult:
     """
     Discover quality and operational issues in traces.
@@ -471,6 +468,7 @@ def discover_issues(
         max_issues: Maximum distinct issues to identify.
         filter_string: Filter string passed to ``search_traces``.
             Ignored when ``traces`` is provided.
+        run_id: Run ID to attach issues to. If not provided, a new run will be created.
 
     Returns:
         A :class:`DiscoverIssuesResult` with discovered issues, run IDs,
@@ -526,6 +524,7 @@ def discover_issues(
             triage_run_id="",
             summary="No traces to analyze.",
             total_traces_analyzed=0,
+            total_cost_usd=0.0,
         )
 
     use_conversation = False
@@ -555,7 +554,7 @@ def discover_issues(
         scorers[0], test_session[0] if test_session else triage_traces[0], session=test_session
     )
 
-    with mlflow.start_run(run_name="discover_issues"):
+    with mlflow.start_run(run_id=run_id, run_name="issue-detection"):
         triage_eval = mlflow.genai.evaluate(
             data=triage_traces,
             scorers=scorers,
@@ -596,6 +595,7 @@ def discover_issues(
             triage_run_id=triage_eval.run_id,
             summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
+            total_cost_usd=token_counter.cost_usd or None,
         )
 
     # ---- Phase 2: Build analyses ----
@@ -610,6 +610,7 @@ def discover_issues(
             triage_run_id=triage_eval.run_id,
             summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
+            total_cost_usd=token_counter.cost_usd or None,
         )
 
     # ---- Phase 4: Build issues & annotate ----
@@ -646,6 +647,7 @@ def discover_issues(
         triage_run_id=triage_eval.run_id,
         summary=summary,
         total_traces_analyzed=len(triage_traces),
+        total_cost_usd=token_counter.cost_usd or None,
     )
 
     # Log artifacts to the triage run
