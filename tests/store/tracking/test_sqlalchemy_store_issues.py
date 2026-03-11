@@ -236,6 +236,60 @@ def test_search_issues_no_filters(store):
     assert result.token is None
 
 
+def test_search_issues_sorted_by_severity(store):
+    exp_id = DEFAULT_EXPERIMENT_ID
+
+    issue_low = store.create_issue(
+        experiment_id=exp_id,
+        name="Low severity issue",
+        description="Low severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.LOW,
+    )
+
+    issue_high = store.create_issue(
+        experiment_id=exp_id,
+        name="High severity issue",
+        description="High severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.HIGH,
+    )
+
+    issue_medium = store.create_issue(
+        experiment_id=exp_id,
+        name="Medium severity issue",
+        description="Medium severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.MEDIUM,
+    )
+
+    issue_none = store.create_issue(
+        experiment_id=exp_id,
+        name="No severity issue",
+        description="No severity",
+        status=IssueStatus.PENDING,
+    )
+
+    issue_not_an_issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Not an issue",
+        description="Not an issue severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.NOT_AN_ISSUE,
+    )
+
+    result = store.search_issues()
+
+    assert len(result) == 5
+    assert [issue.issue_id for issue in result] == [
+        issue_high.issue_id,
+        issue_medium.issue_id,
+        issue_low.issue_id,
+        issue_not_an_issue.issue_id,
+        issue_none.issue_id,
+    ]
+
+
 def test_search_issues_by_experiment_id(store):
     exp_id1 = store.create_experiment("test1")
     exp_id2 = store.create_experiment("test2")
