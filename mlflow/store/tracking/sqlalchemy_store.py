@@ -6349,7 +6349,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         SqlAssessments.trace_id == SqlTraceInfo.request_id,
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
-                        SqlAssessments.valid.is_(True),
+                        SqlAssessments.valid == sqlalchemy.true(),
                     )
                     exists_clause = assessment_exists_subquery.exists()
                     attribute_filters.append(
@@ -6366,7 +6366,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     .filter(
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
-                        SqlAssessments.valid.is_(True),
+                        SqlAssessments.valid == sqlalchemy.true(),
                         value_filter,
                     )
                     .distinct()
