@@ -539,3 +539,17 @@ def test_create_budget_error_trace_skips_without_experiment_id():
     _create_budget_error_trace(endpoint_config, exc)
 
     assert mlflow.get_last_active_trace_id() is None
+
+
+def test_check_budget_limit_no_trace_when_under_budget():
+    policy = _make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)
+    store = _make_store(policies=[policy])
+    endpoint_config = _make_endpoint_config()
+
+    tracker = get_budget_tracker()
+    tracker.refresh_policies([policy])
+    tracker.record_cost(50.0)
+
+    check_budget_limit(store, endpoint_config)
+
+    assert mlflow.get_last_active_trace_id() is None
