@@ -67,6 +67,10 @@
     "defaultMessage": "Enter model name...",
     "description": "Placeholder for custom model input"
   },
+  "+WaZ18": {
+    "defaultMessage": "Scanned <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> found",
+    "description": "Issue detection progress > Progress summary when completed"
+  },
   "+Wd9fs": {
     "defaultMessage": "The groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of groundedness judge."
@@ -2072,6 +2076,10 @@
     "defaultMessage": "100",
     "description": "Label for 100 first runs visible in run count selector within runs compare configuration modal"
   },
+  "Bceyd0": {
+    "defaultMessage": "Issue detection summary",
+    "description": "Issue detection summary > Title"
+  },
   "Bcr4hl": {
     "defaultMessage": "Fetching traces failed",
     "description": "Evaluation review > evaluations list > error state title"
@@ -2283,6 +2291,10 @@
   "CpUD2P": {
     "defaultMessage": "Select traces",
     "description": "Button to open trace selection modal"
+  },
+  "Cq6NMs": {
+    "defaultMessage": "Issue detection failed",
+    "description": "Issue detection progress > Step label when failed"
   },
   "CruI7o": {
     "defaultMessage": "Latest version",
@@ -5326,6 +5338,10 @@
     "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
     "description": "Add new key-value tag modal > Invalid characters or path error"
   },
+  "Y+bHa1": {
+    "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
+    "description": "Issue detection progress > Progress summary while running"
+  },
   "Y1eg9D": {
     "defaultMessage": "In progress",
     "description": "Model trace header > status label > in progress"
@@ -6736,6 +6752,10 @@
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
   },
+  "gt4t2m": {
+    "defaultMessage": "Issue detection completed",
+    "description": "Issue detection progress > Step label when completed"
+  },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
@@ -6831,6 +6851,10 @@
   "hYrjzD": {
     "defaultMessage": "Create",
     "description": "Confirm button text for create workspace modal"
+  },
+  "hZFbZl": {
+    "defaultMessage": "Issue detection canceled",
+    "description": "Issue detection progress > Step label when canceled"
   },
   "hcDB9U": {
     "defaultMessage": "+∞",
@@ -8062,10 +8086,6 @@
   "pU6cxH": {
     "defaultMessage": "Add",
     "description": "Model registry > model version table > aliases column > 'add' button label"
-  },
-  "pU7S10": {
-    "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
-    "description": "Issue detection progress > Progress summary"
   },
   "pVF+2s": {
     "defaultMessage": "Show less",
