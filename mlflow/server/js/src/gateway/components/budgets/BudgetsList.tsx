@@ -147,7 +147,12 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
           return (
             <TableRow key={policy.budget_policy_id}>
               <TableCell css={{ flex: 1 }}>
-                <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
+                <Tooltip
+                  componentId="mlflow.gateway.budgets-list.budget-amount-tooltip"
+                  content={formatBudgetAmount(policy.budget_amount, policy.budget_unit)}
+                >
+                  <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
+                </Tooltip>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
                 <Typography.Text>{formatDuration(policy.duration_value, policy.duration_unit)}</Typography.Text>
@@ -185,7 +190,12 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
                 {window ? (
-                  <Typography.Text>{formatBudgetAmount(window.current_spend, policy.budget_unit)}</Typography.Text>
+                  <Tooltip
+                    componentId="mlflow.gateway.budgets-list.current-spend-tooltip"
+                    content={formatBudgetAmount(window.current_spend, policy.budget_unit)}
+                  >
+                    <Typography.Text>{formatBudgetAmount(window.current_spend, policy.budget_unit)}</Typography.Text>
+                  </Tooltip>
                 ) : (
                   <Typography.Text color="secondary">—</Typography.Text>
                 )}
