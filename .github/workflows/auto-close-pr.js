@@ -1,4 +1,6 @@
 // Auto-close PRs that attempt to close an issue without the "ready" label.
+// Only targets PRs with closing keywords (Closes/Fixes/Resolves) because
+// "Relates to #123" PRs don't claim to solve the issue and shouldn't be blocked.
 // Skips PRs that reference multiple issues (ambiguous intent).
 // Only enforces on issues created on or after 2026-03-10.
 
