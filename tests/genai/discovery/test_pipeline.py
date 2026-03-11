@@ -9,8 +9,6 @@ from mlflow.genai.discovery.constants import (
     DEFAULT_MODEL,
     DEFAULT_SCORER_NAME,
     build_satisfaction_instructions,
-    severity_gte,
-    severity_max,
 )
 from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.pipeline import (
@@ -727,17 +725,6 @@ def test_recluster_low_severity_merge_keeps_originals():
     assert len(result) == 2
     assert result[0].name == "A"
     assert result[1].name == "B"
-
-
-def test_severity_helpers():
-    assert severity_gte("high", "low")
-    assert severity_gte("low", "low")
-    assert severity_gte("medium", "low")
-    assert not severity_gte("not_an_issue", "low")
-
-    assert severity_max("high", "low") == "high"
-    assert severity_max("not_an_issue", "low") == "low"
-    assert severity_max("not_an_issue", "medium") == "medium"
 
 
 # ---- verify_scorer ----

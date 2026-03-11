@@ -37,6 +37,7 @@ from mlflow.entities import (
     Experiment,
     Feedback,
     Issue,
+    IssueSeverity,
     IssueStatus,
     Run,
     RunInputs,
@@ -5856,7 +5857,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         name: str,
         description: str,
         status: IssueStatus = IssueStatus.PENDING,
-        severity: str | None = None,
+        severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
         created_by: str | None = None,
@@ -5897,7 +5898,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 name=name,
                 description=description,
                 status=status.value,
-                severity=severity,
+                severity=severity.value if severity else None,
                 root_causes=root_causes_json,
                 source_run_id=source_run_id,
                 created_timestamp=current_time,
@@ -5938,7 +5939,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         status: IssueStatus | None = None,
         name: str | None = None,
         description: str | None = None,
-        severity: str | None = None,
+        severity: IssueSeverity | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -5954,8 +5955,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             The updated Issue entity.
         """
         with self.ManagedSessionMaker() as session:
-            status_str = status.value if status else None
-
             # Fetch the existing issue
             sql_issue = (
                 self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
@@ -5967,14 +5966,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             # Update fields if provided
-            if status_str is not None:
-                sql_issue.status = status_str
+            if status is not None:
+                sql_issue.status = status.value
             if name is not None:
                 sql_issue.name = name
             if description is not None:
                 sql_issue.description = description
             if severity is not None:
-                sql_issue.severity = severity
+                sql_issue.severity = severity.value
 
             # Update last_updated_timestamp
             sql_issue.last_updated_timestamp = get_current_time_millis()
