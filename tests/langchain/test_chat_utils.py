@@ -140,6 +140,39 @@ def test_convert_lc_message_to_chat_message_string_content_unchanged():
     assert result.content == "just text"
 
 
+def test_convert_lc_message_audio_url_source_not_normalized():
+    message = HumanMessage(
+        content=[
+            {
+                "type": "audio",
+                "source_type": "url",
+                "url": "https://example.com/audio.wav",
+                "mime_type": "audio/wav",
+            },
+        ]
+    )
+    result = convert_lc_message_to_chat_message(message)
+    # URL-sourced audio should pass through as-is, not be converted
+    assert result.content[0]["type"] == "audio"
+    assert result.content[0]["source_type"] == "url"
+
+
+def test_convert_lc_message_audio_no_mime_type_not_normalized():
+    message = HumanMessage(
+        content=[
+            {
+                "type": "audio",
+                "source_type": "base64",
+                "data": "SGVsbG8=",
+            },
+        ]
+    )
+    result = convert_lc_message_to_chat_message(message)
+    # Missing mime_type should skip normalization
+    assert result.content[0]["type"] == "audio"
+    assert result.content[0]["source_type"] == "base64"
+
+
 def test_transform_response_to_chat_format_no_conversion():
     response = ["list_response"]
     assert try_transform_response_to_chat_format(response) == response
