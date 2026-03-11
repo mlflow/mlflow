@@ -2404,6 +2404,10 @@
     "defaultMessage": "Model version tag deleted",
     "description": "Webhook event label"
   },
+  "Dw+Z8L": {
+    "defaultMessage": "Budget exceeded",
+    "description": "Warning icon label for exceeded budget"
+  },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
     "description": "Error message displayed on logged models page when experiment data fails to load"
@@ -9062,6 +9066,10 @@
   "wNHR0W": {
     "defaultMessage": "Aliases",
     "description": "Column title text for model version aliases in model version table"
+  },
+  "wOmMb1": {
+    "defaultMessage": "Budget exceeded: {spend} of {limit} spent",
+    "description": "Tooltip shown when current spend exceeds the budget limit"
   },
   "wRV8PN": {
     "defaultMessage": "Settings",
