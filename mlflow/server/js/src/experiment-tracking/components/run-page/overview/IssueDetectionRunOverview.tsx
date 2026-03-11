@@ -19,8 +19,6 @@ export interface IssueDetectionRunOverviewProps {
   tags: Record<string, KeyValueEntity>;
   /** Job ID for fetching issue detection job status */
   jobId?: string;
-  /** Callback when cancel button is clicked */
-  onCancel?: () => void;
   /** Callback when run data is updated (e.g., job completes) */
   onRunDataUpdated?: () => void;
 }
@@ -29,7 +27,6 @@ export const IssueDetectionRunOverview = ({
   runInfo,
   tags,
   jobId,
-  onCancel,
   onRunDataUpdated,
 }: IssueDetectionRunOverviewProps) => {
   const intl = useIntl();
@@ -132,7 +129,6 @@ export const IssueDetectionRunOverview = ({
       secondarySections={[detailsSection]}
     >
       <IssueDetectionProgress
-        onCancel={onCancel}
         jobId={jobId}
         jobStatus={jobStatus}
         totalTraces={totalTraces}

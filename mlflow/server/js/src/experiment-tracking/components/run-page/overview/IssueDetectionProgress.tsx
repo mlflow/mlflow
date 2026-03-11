@@ -18,8 +18,6 @@ import { IssueJobStatus, isJobComplete, type IssueJobResult } from '../hooks/use
 import { useCancelJob } from '../hooks/useCancelJob';
 
 export interface IssueDetectionProgressProps {
-  /** Callback when cancel operation completes */
-  onCancel?: () => void;
   /** Job ID for cancel functionality */
   jobId?: string;
   /** Job status from parent */
@@ -35,7 +33,6 @@ export interface IssueDetectionProgressProps {
 }
 
 export const IssueDetectionProgress = ({
-  onCancel,
   jobId,
   jobStatus,
   totalTraces,
@@ -66,9 +63,6 @@ export const IssueDetectionProgress = ({
     cancelJob(
       { jobId, runUuid },
       {
-        onSuccess: () => {
-          onCancel?.();
-        },
         onError: (error) => {
           Utils.logErrorAndNotifyUser(
             intl.formatMessage(
