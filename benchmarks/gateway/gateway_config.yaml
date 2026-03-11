@@ -1,0 +1,27 @@
+endpoints:
+  - name: benchmark-chat
+    endpoint_type: llm/v1/chat
+    model:
+      name: gpt-4o-mini
+      provider: openai
+      config:
+        openai_api_key: fake-key
+        openai_api_base: http://127.0.0.1:9000/v1
+
+  - name: benchmark-completions
+    endpoint_type: llm/v1/completions
+    model:
+      name: gpt-4o-mini
+      provider: openai
+      config:
+        openai_api_key: fake-key
+        openai_api_base: http://127.0.0.1:9000/v1
+
+  - name: benchmark-embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      name: text-embedding-ada-002
+      provider: openai
+      config:
+        openai_api_key: fake-key
+        openai_api_base: http://127.0.0.1:9000/v1
