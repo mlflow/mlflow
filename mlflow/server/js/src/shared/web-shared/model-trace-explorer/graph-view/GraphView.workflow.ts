@@ -3,14 +3,19 @@ import type { WorkflowNode, WorkflowEdge, WorkflowLayout, GraphLayoutConfig } fr
 import { DEFAULT_WORKFLOW_LAYOUT_CONFIG } from './GraphView.types';
 
 /**
- * Flattens the span tree into a list of all spans.
+ * Flattens the span tree into a list of all spans using an iterative DFS.
  */
-function flattenSpans(node: ModelTraceSpanNode): ModelTraceSpanNode[] {
-  const result: ModelTraceSpanNode[] = [node];
+function flattenSpans(root: ModelTraceSpanNode): ModelTraceSpanNode[] {
+  const result: ModelTraceSpanNode[] = [];
+  const stack: ModelTraceSpanNode[] = [root];
 
-  if (node.children) {
-    for (const child of node.children) {
-      result.push(...flattenSpans(child));
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    result.push(node);
+    if (node.children) {
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        stack.push(node.children[i]);
+      }
     }
   }
 
@@ -79,6 +84,23 @@ function detectAndMarkBackEdges(nodes: WorkflowNode[], edges: WorkflowEdge[]): v
       }
     }
   }
+}
+
+/**
+ * Collects all descendant node IDs in a subtree via BFS.
+ */
+function getSubtreeIds(rootId: string, childrenMap: Map<string, string[]>): string[] {
+  const result: string[] = [];
+  const queue = childrenMap.get(rootId) ?? [];
+  let head = 0;
+  while (head < queue.length) {
+    const id = queue[head++];
+    result.push(id);
+    for (const childId of childrenMap.get(id) ?? []) {
+      queue.push(childId);
+    }
+  }
+  return result;
 }
 
 /**
@@ -179,29 +201,112 @@ function applyLayeredLayout(
     layerGroups.get(layer)!.push(node);
   }
 
-  // Position nodes in each layer
+  // Position nodes using parent-centered layout (Reingold-Tilford style)
   const sortedLayers = Array.from(layerGroups.keys()).sort((a, b) => a - b);
-  let totalWidth = 0;
 
-  for (const layerIndex of sortedLayers) {
-    const layerNodes = layerGroups.get(layerIndex)!;
-    const layerWidth =
-      layerNodes.reduce((sum, n) => sum + n.width, 0) + (layerNodes.length - 1) * config.horizontalSpacing;
-    totalWidth = Math.max(totalWidth, layerWidth);
+  // Build parent→children map from forward edges
+  const childrenMap = new Map<string, string[]>();
+  for (const edge of edges) {
+    if (!edge.isBackEdge) {
+      if (!childrenMap.has(edge.sourceId)) {
+        childrenMap.set(edge.sourceId, []);
+      }
+      childrenMap.get(edge.sourceId)!.push(edge.targetId);
+    }
   }
 
-  // Center nodes within each layer
-  for (const layerIndex of sortedLayers) {
-    const layerNodes = layerGroups.get(layerIndex)!;
-    const layerWidth =
-      layerNodes.reduce((sum, n) => sum + n.width, 0) + (layerNodes.length - 1) * config.horizontalSpacing;
-    let x = config.padding + (totalWidth - layerWidth) / 2;
-    const y = config.padding + layerIndex * (config.nodeHeight + config.verticalSpacing);
+  // Node lookup
+  const nodeById = new Map<string, WorkflowNode>();
+  for (const node of nodes) {
+    nodeById.set(node.id, node);
+  }
 
-    for (const node of layerNodes) {
-      node.x = x;
+  // Track which nodes have been positioned
+  const positioned = new Set<string>();
+
+  // Assign Y positions for all layers
+  for (const layerIndex of sortedLayers) {
+    const y = config.padding + layerIndex * (config.nodeHeight + config.verticalSpacing);
+    for (const node of layerGroups.get(layerIndex)!) {
       node.y = y;
-      x += node.width + config.horizontalSpacing;
+    }
+  }
+
+  // Bottom-up pass: deepest layer first
+  const reversedLayers = [...sortedLayers].reverse();
+
+  for (const layerIndex of reversedLayers) {
+    const layerNodes = layerGroups.get(layerIndex)!;
+
+    // Step 1: Position leaf nodes (no children) sequentially
+    let nextLeafX = config.padding;
+    for (const node of layerNodes) {
+      const childIds = (childrenMap.get(node.id) ?? []).filter((id) => positioned.has(id));
+      if (childIds.length === 0) {
+        node.x = nextLeafX;
+        nextLeafX += node.width + config.horizontalSpacing;
+        positioned.add(node.id);
+      }
+    }
+
+    // Step 2: Center parent nodes above their positioned children
+    for (const node of layerNodes) {
+      if (positioned.has(node.id)) {
+        continue;
+      }
+      const childIds = (childrenMap.get(node.id) ?? []).filter((id) => positioned.has(id));
+      if (childIds.length > 0) {
+        const children = childIds.map((id) => nodeById.get(id)!);
+        const childLeft = Math.min(...children.map((c) => c.x));
+        const childRight = Math.max(...children.map((c) => c.x + c.width));
+        node.x = (childLeft + childRight) / 2 - node.width / 2;
+        positioned.add(node.id);
+      }
+    }
+
+    // Step 3: Position any remaining unpositioned nodes in this layer
+    for (const node of layerNodes) {
+      if (!positioned.has(node.id)) {
+        node.x = nextLeafX;
+        nextLeafX += node.width + config.horizontalSpacing;
+        positioned.add(node.id);
+      }
+    }
+
+    // Step 4: Resolve overlaps — sort by x, push right as needed
+    layerNodes.sort((a, b) => a.x - b.x);
+    for (let i = 1; i < layerNodes.length; i++) {
+      const prev = layerNodes[i - 1];
+      const current = layerNodes[i];
+      const minX = prev.x + prev.width + config.horizontalSpacing;
+      if (current.x < minX) {
+        const delta = minX - current.x;
+        current.x = minX;
+
+        // Also shift this node's subtree to maintain centering
+        const subtreeIds = getSubtreeIds(current.id, childrenMap);
+        for (const id of subtreeIds) {
+          const descendant = nodeById.get(id);
+          if (descendant) {
+            descendant.x += delta;
+          }
+        }
+      }
+    }
+  }
+
+  // Compute bounding box and shift everything to start at padding
+  let minX = Infinity;
+  let maxX = -Infinity;
+  for (const node of nodes) {
+    minX = Math.min(minX, node.x);
+    maxX = Math.max(maxX, node.x + node.width);
+  }
+  const totalWidth = maxX - minX;
+  const shift = config.padding - minX;
+  if (shift !== 0) {
+    for (const node of nodes) {
+      node.x += shift;
     }
   }
 

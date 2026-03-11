@@ -1,4 +1,4 @@
-export { GraphView } from './GraphView';
+export { computeWorkflowPathToRoot } from './GraphView.utils';
 export { GraphViewSpanNavigator } from './GraphViewSpanNavigator';
 export { useGraphTreeLinkedState } from './useGraphTreeLinkedState';
 export type {

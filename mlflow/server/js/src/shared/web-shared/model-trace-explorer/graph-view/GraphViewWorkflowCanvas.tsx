@@ -35,7 +35,7 @@ const GraphViewWorkflowCanvasInner = ({
   onViewSpanDetails,
 }: GraphViewWorkflowCanvasProps) => {
   const { theme } = useDesignSystemTheme();
-  const { fitView } = useReactFlow();
+  const { fitView, getZoom, setCenter } = useReactFlow();
 
   // Create a map from node ID to node for callbacks
   const nodeMap = useMemo(() => {
@@ -69,6 +69,8 @@ const GraphViewWorkflowCanvasInner = ({
           isSelected: node.id === selectedNodeId,
           isOnHighlightedPath: highlightedPathNodeIds.has(node.id),
           onViewSpanDetails: stableOnViewSpanDetails,
+          nodeWidth: node.width,
+          nodeHeight: node.height,
         },
       }),
     );
@@ -138,9 +140,42 @@ const GraphViewWorkflowCanvasInner = ({
     }
   }, [nodesInitialized, layout.nodes.length, layout.width, layout.height, fitView]);
 
+  // Track whether selection originated from a graph node click (skip panning)
+  const isLocalClickRef = useRef(false);
+
+  // Pan to selected node when selection changes from outside (e.g. tree click)
+  const prevSelectedRef = useRef(selectedNodeId);
+  useEffect(() => {
+    if (prevSelectedRef.current === selectedNodeId) {
+      return;
+    }
+    prevSelectedRef.current = selectedNodeId;
+
+    if (isLocalClickRef.current) {
+      isLocalClickRef.current = false;
+      return;
+    }
+
+    if (!selectedNodeId) {
+      return;
+    }
+
+    // Find the node's current position and center the view on it
+    const flowNode = nodes.find((n) => n.id === selectedNodeId);
+    if (flowNode) {
+      const nodeWidth = flowNode.data.nodeWidth ?? 160;
+      const nodeHeight = flowNode.data.nodeHeight ?? 56;
+      setCenter(flowNode.position.x + nodeWidth / 2, flowNode.position.y + nodeHeight / 2, {
+        zoom: getZoom(),
+        duration: 300,
+      });
+    }
+  }, [selectedNodeId, nodes, setCenter, getZoom]);
+
   // Handle node click for selection (replaces per-node onSelect closures)
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: WorkflowFlowNode) => {
+      isLocalClickRef.current = true;
       const workflowNode = nodeMap.get(node.id) ?? null;
       onSelectNode(workflowNode);
     },
@@ -149,6 +184,7 @@ const GraphViewWorkflowCanvasInner = ({
 
   // Handle pane click to deselect
   const handlePaneClick = useCallback(() => {
+    isLocalClickRef.current = true;
     onSelectNode(null);
   }, [onSelectNode]);
 

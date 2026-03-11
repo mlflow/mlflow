@@ -2,7 +2,15 @@ import { Global } from '@emotion/react';
 import { clamp, values, isString } from 'lodash';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  FullscreenExitIcon,
+  FullscreenIcon,
+  InfoFillIcon,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { useResizeObserver } from '@databricks/web-shared/hooks';
 import { FormattedMessage } from '@databricks/i18n';
 import { ResizableBox } from 'react-resizable';
@@ -21,21 +29,25 @@ import {
   getTimelineTreeNodesMap,
   SPAN_INDENT_WIDTH,
 } from './timeline-tree/TimelineTree.utils';
-import { DEFAULT_WORKFLOW_LAYOUT_CONFIG } from './graph-view/GraphView.types';
+import { DEFAULT_WORKFLOW_LAYOUT_CONFIG, EXPANDED_WORKFLOW_LAYOUT_CONFIG } from './graph-view/GraphView.types';
+import { computeWorkflowPathToRoot } from './graph-view/GraphView.utils';
 import { computeWorkflowLayout } from './graph-view/GraphView.workflow';
 import { GraphViewWorkflowCanvas } from './graph-view/GraphViewWorkflowCanvas';
 import { GraphViewSpanNavigator } from './graph-view/GraphViewSpanNavigator';
 import { useGraphTreeLinkedState } from './graph-view/useGraphTreeLinkedState';
 
-// Default horizontal ratio when graph is enabled (matches graphPane in PaneSizeRatios)
-const DEFAULT_GRAPH_PANE_RATIO = 0.75;
 const LEFT_PANE_MIN_WIDTH_LARGE_SPACINGS = 7;
 const LEFT_PANE_HEADER_MIN_WIDTH_PX = 275;
-const GRAPH_MIN_HEIGHT = 150;
-// Minimum space reserved for the tree section below the graph
+const GRAPH_MIN_HEIGHT = 120;
+// Minimum space reserved for the tree section above the graph
 const TREE_MIN_HEIGHT = 200;
-// Default ratio of vertical space allocated to the graph canvas
-const DEFAULT_GRAPH_HEIGHT_RATIO = 0.65;
+// Default ratio of vertical space allocated to the graph canvas (below the tree).
+// Kept small so the span tree remains the primary view.
+const DEFAULT_GRAPH_HEIGHT_RATIO = 0.25;
+// Expanded ratio when the user clicks the expand button on the graph.
+const EXPANDED_GRAPH_HEIGHT_RATIO = 0.75;
+// Ratio of the container width the left pane occupies when graph is fully expanded.
+const EXPANDED_PANE_WIDTH_RATIO = 0.65;
 
 export const ModelTraceExplorerDetailView = ({
   modelTraceInfo,
@@ -52,10 +64,14 @@ export const ModelTraceExplorerDetailView = ({
   const paneRef = useRef<ModelTraceExplorerResizablePaneRef>(null);
   // Use window width as a rough estimate to avoid a visible flash before ResizeObserver fires.
   // The useLayoutEffect inside ResizablePane will correct to the exact value on first measurement.
-  const [paneWidth, setPaneWidth] = useState(() => Math.round(window.innerWidth * DEFAULT_GRAPH_PANE_RATIO));
+  const [paneWidth, setPaneWidth] = useState(() =>
+    Math.round(window.innerWidth * (window.innerWidth <= 768 ? 0.33 : 0.25)),
+  );
   const outerContainerRef = useRef<HTMLDivElement>(null);
   const outerSize = useResizeObserver({ ref: outerContainerRef });
   const [isResizing, setIsResizing] = useState(false);
+  const [isGraphExpanded, setIsGraphExpanded] = useState(false);
+  const preExpandPaneRatioRef = useRef<number | null>(null);
 
   // Ratio-based graph height: same pattern as ModelTraceExplorerResizablePane.
   // Store the ratio in a ref so it persists across container resizes without
@@ -82,6 +98,12 @@ export const ModelTraceExplorerDetailView = ({
     topLevelNodes,
   } = useModelTraceExplorerViewState();
 
+  const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
+  const workflowLayout = useMemo(
+    () => computeWorkflowLayout(rootNode, activeLayoutConfig),
+    [rootNode, activeLayoutConfig],
+  );
+
   const {
     selectedWorkflowNode,
     currentSpanIndex,
@@ -93,21 +115,15 @@ export const ModelTraceExplorerDetailView = ({
     handleNavigateSpan,
     selectedNode,
     setSelectedNode,
-  } = useGraphTreeLinkedState();
-
-  const workflowLayout = useMemo(() => computeWorkflowLayout(rootNode, DEFAULT_WORKFLOW_LAYOUT_CONFIG), [rootNode]);
+  } = useGraphTreeLinkedState(workflowLayout.nodes);
   const graphAvailable = !!rootNode && workflowLayout.nodes.length > 0;
   const hasGraph = showGraph && graphAvailable;
 
   const onSizeRatioChange = useCallback(
     (ratio: number) => {
-      if (showGraph) {
-        updatePaneSizeRatios({ graphPane: ratio });
-      } else {
-        updatePaneSizeRatios({ detailsPane: ratio });
-      }
+      updatePaneSizeRatios({ detailsPane: ratio });
     },
-    [updatePaneSizeRatios, showGraph],
+    [updatePaneSizeRatios],
   );
 
   const handleToggleGraph = useCallback(() => {
@@ -120,67 +136,79 @@ export const ModelTraceExplorerDetailView = ({
       graphHeightRatio.current = DEFAULT_GRAPH_HEIGHT_RATIO;
     }
 
-    const containerWidth = paneRef.current?.getContainerWidth();
-    if (containerWidth) {
-      const newRatio = newShowGraph ? getPaneSizeRatios().graphPane : getPaneSizeRatios().detailsPane;
-      const maxWidth = containerWidth - RIGHT_PANE_MIN_WIDTH;
-      const newWidth = clamp(containerWidth * newRatio, LEFT_PANE_HEADER_MIN_WIDTH_PX, maxWidth);
-      paneRef.current?.updateRatio(newWidth);
-      setPaneWidth(newWidth);
+    // If graph was expanded, restore pane width to pre-expand state
+    if (!newShowGraph && isGraphExpanded) {
+      const containerWidth = paneRef.current?.getContainerWidth();
+      if (containerWidth && preExpandPaneRatioRef.current !== null) {
+        const restoredWidth = clamp(
+          containerWidth * preExpandPaneRatioRef.current,
+          LEFT_PANE_HEADER_MIN_WIDTH_PX,
+          containerWidth - RIGHT_PANE_MIN_WIDTH,
+        );
+        setPaneWidth(restoredWidth);
+        paneRef.current?.updateRatio(restoredWidth);
+      }
+      preExpandPaneRatioRef.current = null;
     }
-  }, [showGraph, setShowGraph, getPaneSizeRatios, setPaneWidth]);
+
+    setIsGraphExpanded(false);
+  }, [showGraph, setShowGraph, isGraphExpanded, setPaneWidth]);
+
+  const handleToggleGraphExpand = useCallback(() => {
+    setIsGraphExpanded((prev) => {
+      const next = !prev;
+
+      // Update vertical ratio
+      graphHeightRatio.current = next ? EXPANDED_GRAPH_HEIGHT_RATIO : DEFAULT_GRAPH_HEIGHT_RATIO;
+
+      // Update horizontal pane width
+      const containerWidth = paneRef.current?.getContainerWidth();
+      if (containerWidth) {
+        if (next) {
+          // Save the current ratio before expanding
+          preExpandPaneRatioRef.current = paneWidth / containerWidth;
+          const expandedWidth = clamp(
+            containerWidth * EXPANDED_PANE_WIDTH_RATIO,
+            LEFT_PANE_HEADER_MIN_WIDTH_PX,
+            containerWidth - RIGHT_PANE_MIN_WIDTH,
+          );
+          setPaneWidth(expandedWidth);
+          paneRef.current?.updateRatio(expandedWidth);
+        } else {
+          // Restore the pre-expand ratio
+          const restoreRatio = preExpandPaneRatioRef.current ?? (window.innerWidth <= 768 ? 0.33 : 0.25);
+          const restoredWidth = clamp(
+            containerWidth * restoreRatio,
+            LEFT_PANE_HEADER_MIN_WIDTH_PX,
+            containerWidth - RIGHT_PANE_MIN_WIDTH,
+          );
+          setPaneWidth(restoredWidth);
+          paneRef.current?.updateRatio(restoredWidth);
+          preExpandPaneRatioRef.current = null;
+        }
+      }
+
+      return next;
+    });
+  }, [paneWidth, setPaneWidth]);
 
   const handleGraphResize = useCallback(
     (_e: React.SyntheticEvent, { size }: { size: { height: number } }) => {
       // Update the ratio so it persists across container resizes
       if (containerHeight > 0) {
         graphHeightRatio.current = size.height / containerHeight;
+        // Sync the expanded state with the actual ratio so the button icon
+        // reflects the current size after a manual drag.
+        setIsGraphExpanded(graphHeightRatio.current >= (DEFAULT_GRAPH_HEIGHT_RATIO + EXPANDED_GRAPH_HEIGHT_RATIO) / 2);
       }
     },
     [containerHeight],
   );
 
-  const { nodeIds: highlightedWorkflowNodeIds, edgeIds: highlightedWorkflowEdgeIds } = useMemo(() => {
-    const nodeIds = new Set<string>();
-    const edgeIds = new Set<string>();
-    const nodeId = selectedWorkflowNode?.id ?? null;
-
-    if (!nodeId || !workflowLayout || workflowLayout.nodes.length === 0) {
-      return { nodeIds, edgeIds };
-    }
-
-    nodeIds.add(nodeId);
-
-    const incomingEdgesMap = new Map<string, typeof workflowLayout.edges>();
-    for (const edge of workflowLayout.edges) {
-      if (!incomingEdgesMap.has(edge.targetId)) {
-        incomingEdgesMap.set(edge.targetId, []);
-      }
-      incomingEdgesMap.get(edge.targetId)!.push(edge);
-    }
-
-    const toProcess = [nodeId];
-    const visited = new Set<string>([nodeId]);
-    let head = 0;
-
-    while (head < toProcess.length) {
-      const currentNodeId = toProcess[head++];
-      const incomingEdges = incomingEdgesMap.get(currentNodeId) || [];
-
-      for (const edge of incomingEdges) {
-        const parentId = edge.sourceId;
-        edgeIds.add(`${edge.sourceId}->${edge.targetId}`);
-
-        if (!visited.has(parentId)) {
-          visited.add(parentId);
-          nodeIds.add(parentId);
-          toProcess.push(parentId);
-        }
-      }
-    }
-
-    return { nodeIds, edgeIds };
-  }, [selectedWorkflowNode, workflowLayout]);
+  const { nodeIds: highlightedWorkflowNodeIds, edgeIds: highlightedWorkflowEdgeIds } = useMemo(
+    () => computeWorkflowPathToRoot(selectedWorkflowNode?.id ?? null, workflowLayout),
+    [selectedWorkflowNode, workflowLayout],
+  );
 
   const handleViewSpanDetails = useCallback(
     (node: ModelTraceSpanNode) => {
@@ -265,6 +293,9 @@ export const ModelTraceExplorerDetailView = ({
           borderBottom: `1px solid ${theme.colors.border}`,
           backgroundColor: theme.colors.backgroundSecondary,
           flexShrink: 0,
+          minWidth: 200,
+          flexWrap: 'wrap',
+          gap: theme.spacing.xs,
         }}
       >
         <Typography.Text size="sm" color="secondary">
@@ -274,12 +305,42 @@ export const ModelTraceExplorerDetailView = ({
             values={{ count: workflowLayout.nodes.length }}
           />
         </Typography.Text>
-        <Typography.Text size="sm" color="secondary">
-          <FormattedMessage
-            defaultMessage="Scroll to zoom, drag background to pan, drag nodes to reposition"
-            description="Navigation hint for graph view"
-          />
-        </Typography.Text>
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <Tooltip
+            componentId="shared.model-trace-explorer.graph-navigation-hint"
+            content={
+              <FormattedMessage
+                defaultMessage="Scroll to zoom, drag background to pan, drag nodes to reposition"
+                description="Navigation hint for graph view"
+              />
+            }
+          >
+            <InfoFillIcon css={{ width: 14, height: 14, color: theme.colors.textSecondary, cursor: 'help' }} />
+          </Tooltip>
+          <Tooltip
+            componentId="shared.model-trace-explorer.graph-expand-toggle"
+            content={
+              isGraphExpanded ? (
+                <FormattedMessage
+                  defaultMessage="Collapse graph"
+                  description="Tooltip for the button that collapses the graph view to its default size"
+                />
+              ) : (
+                <FormattedMessage
+                  defaultMessage="Expand graph"
+                  description="Tooltip for the button that expands the graph view to a larger size"
+                />
+              )
+            }
+          >
+            <Button
+              componentId="shared.model-trace-explorer.graph-expand-button"
+              icon={isGraphExpanded ? <FullscreenExitIcon /> : <FullscreenIcon />}
+              size="small"
+              onClick={handleToggleGraphExpand}
+            />
+          </Tooltip>
+        </div>
       </div>
 
       <GraphViewWorkflowCanvas
@@ -319,7 +380,7 @@ export const ModelTraceExplorerDetailView = ({
       </div>
       <ModelTraceExplorerResizablePane
         ref={paneRef}
-        initialRatio={hasGraph ? getPaneSizeRatios().graphPane : getPaneSizeRatios().detailsPane}
+        initialRatio={getPaneSizeRatios().detailsPane}
         paneWidth={paneWidth}
         setPaneWidth={setPaneWidth}
         onRatioChange={onSizeRatioChange}
@@ -345,78 +406,17 @@ export const ModelTraceExplorerDetailView = ({
               />
             )}
 
-            {hasGraph && (
-              <>
-                {hasContainerMeasurement ? (
-                  // Once the container is measured, use ResizableBox for manual drag resizing.
-                  // The height is derived from containerHeight * graphHeightRatio.
-                  <ResizableBox
-                    axis="y"
-                    width={Infinity}
-                    height={graphHeight}
-                    minConstraints={[Infinity, GRAPH_MIN_HEIGHT]}
-                    maxConstraints={[Infinity, maxGraphHeight]}
-                    onResize={handleGraphResize}
-                    onResizeStart={() => setIsResizing(true)}
-                    onResizeStop={() => setIsResizing(false)}
-                    handle={
-                      <div
-                        css={{
-                          height: theme.spacing.sm,
-                          cursor: 'ns-resize',
-                          backgroundColor: 'transparent',
-                          position: 'relative',
-                          flexShrink: 0,
-                          zIndex: 1,
-                          ':hover': {
-                            backgroundColor: 'rgba(0,0,0,0.1)',
-                          },
-                        }}
-                      />
-                    }
-                    css={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {graphCanvasContent}
-                  </ResizableBox>
-                ) : (
-                  // Before the container is measured (first render), use CSS flex so the
-                  // graph takes the same proportional space as the ratio-based height will.
-                  // flex: 2 / flex: 1 gives ~67% which closely matches DEFAULT_GRAPH_HEIGHT_RATIO.
-                  <div
-                    css={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      flex: 2,
-                      minHeight: GRAPH_MIN_HEIGHT,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    {graphCanvasContent}
-                  </div>
-                )}
-
-                <GraphViewSpanNavigator
-                  selectedWorkflowNode={selectedWorkflowNode}
-                  currentSpanIndex={currentSpanIndex}
-                  totalSpans={sortedSpans.length}
-                  currentSpan={sortedSpans[currentSpanIndex] ?? null}
-                  onNavigatePrev={() => handleNavigateSpan(currentSpanIndex - 1)}
-                  onNavigateNext={() => handleNavigateSpan(currentSpanIndex + 1)}
-                />
-              </>
-            )}
-
+            {/* Tree is primary — always on top, fills remaining space above graph */}
             <div
               ref={treeContainerRef}
               css={{
                 display: 'flex',
                 flexDirection: 'column',
-                flex: 1,
-                minHeight: 0,
+                // Pre-measurement: flex: 3 gives tree ~75% vs graph flex: 1 ~25%.
+                // Post-measurement: flex: 1 fills all space above the fixed-height graph.
+                flex: hasGraph && !hasContainerMeasurement ? 3 : 1,
+                minHeight: hasGraph ? TREE_MIN_HEIGHT : 0,
+                overflow: 'auto',
               }}
             >
               <TimelineTree
@@ -434,6 +434,75 @@ export const ModelTraceExplorerDetailView = ({
                 onToggleGraph={graphAvailable ? handleToggleGraph : undefined}
               />
             </div>
+
+            {/* Graph is secondary — below the tree */}
+            {hasGraph && (
+              <>
+                <GraphViewSpanNavigator
+                  selectedWorkflowNode={selectedWorkflowNode}
+                  currentSpanIndex={currentSpanIndex}
+                  totalSpans={sortedSpans.length}
+                  currentSpan={sortedSpans[currentSpanIndex] ?? null}
+                  onNavigatePrev={() => handleNavigateSpan(currentSpanIndex - 1)}
+                  onNavigateNext={() => handleNavigateSpan(currentSpanIndex + 1)}
+                />
+
+                {hasContainerMeasurement ? (
+                  <ResizableBox
+                    axis="y"
+                    width={Infinity}
+                    height={graphHeight}
+                    minConstraints={[Infinity, GRAPH_MIN_HEIGHT]}
+                    maxConstraints={[Infinity, maxGraphHeight]}
+                    resizeHandles={['n']}
+                    onResize={handleGraphResize}
+                    onResizeStart={() => setIsResizing(true)}
+                    onResizeStop={() => setIsResizing(false)}
+                    handle={
+                      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                      (_axis: string, ref: React.Ref<HTMLDivElement>) => (
+                        <div
+                          ref={ref}
+                          css={{
+                            height: theme.spacing.sm,
+                            cursor: 'ns-resize',
+                            backgroundColor: 'transparent',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            zIndex: 1,
+                            ':hover': {
+                              backgroundColor: 'rgba(0,0,0,0.1)',
+                            },
+                          }}
+                        />
+                      )
+                    }
+                    css={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      flexShrink: 0,
+                      position: 'relative',
+                    }}
+                  >
+                    {graphCanvasContent}
+                  </ResizableBox>
+                ) : (
+                  <div
+                    css={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      flex: 1,
+                      minHeight: GRAPH_MIN_HEIGHT,
+                      overflow: 'hidden',
+                    }}
+                  >
+                    {graphCanvasContent}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         }
         leftMinWidth={leftPaneMinWidth}

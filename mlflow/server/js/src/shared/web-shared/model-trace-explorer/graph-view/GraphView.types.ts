@@ -13,6 +13,8 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   isSelected: boolean;
   isOnHighlightedPath: boolean;
   onViewSpanDetails: (span: ModelTraceSpanNode) => void;
+  nodeWidth: number;
+  nodeHeight: number;
 }
 
 /**
@@ -93,4 +95,16 @@ export const DEFAULT_WORKFLOW_LAYOUT_CONFIG: GraphLayoutConfig = {
   horizontalSpacing: 60,
   verticalSpacing: 80,
   padding: 40,
+};
+
+/**
+ * Expanded workflow layout configuration — used when the graph is in full-expand mode.
+ * Larger nodes and generous spacing fill the expanded canvas area.
+ */
+export const EXPANDED_WORKFLOW_LAYOUT_CONFIG: GraphLayoutConfig = {
+  nodeWidth: 220,
+  nodeHeight: 72,
+  horizontalSpacing: 80,
+  verticalSpacing: 100,
+  padding: 50,
 };

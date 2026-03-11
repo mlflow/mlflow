@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
@@ -10,11 +10,14 @@ import {
 } from '../timeline-tree/TimelineTree.utils';
 import type { WorkflowNode } from './GraphView.types';
 
-export const useGraphTreeLinkedState = () => {
+export const useGraphTreeLinkedState = (workflowNodes?: WorkflowNode[]) => {
   const { selectedNode, setSelectedNode, topLevelNodes } = useModelTraceExplorerViewState();
 
   const [selectedWorkflowNode, setSelectedWorkflowNode] = useState<WorkflowNode | null>(null);
   const [currentSpanIndex, setCurrentSpanIndex] = useState(0);
+
+  // Flag to prevent circular updates when graph selection triggers tree selection
+  const isGraphSelectingRef = useRef(false);
 
   const { expandedKeys, setExpandedKeys } = useTimelineTreeExpandedNodes({
     rootNodes: topLevelNodes,
@@ -49,12 +52,17 @@ export const useGraphTreeLinkedState = () => {
 
   const handleSelectWorkflowNode = useCallback(
     (node: WorkflowNode | null) => {
+      isGraphSelectingRef.current = true;
       setSelectedWorkflowNode(node);
       if (node && node.spans.length > 0) {
         setCurrentSpanIndex(0);
         const sorted = [...node.spans].sort((a, b) => a.start - b.start);
         focusSpanInTree(sorted[0]);
       }
+      // Reset flag after the current event loop to allow subsequent tree selections
+      requestAnimationFrame(() => {
+        isGraphSelectingRef.current = false;
+      });
     },
     [focusSpanInTree],
   );
@@ -64,11 +72,37 @@ export const useGraphTreeLinkedState = () => {
       if (index < 0 || index >= sortedSpans.length) {
         return;
       }
+      isGraphSelectingRef.current = true;
       setCurrentSpanIndex(index);
       focusSpanInTree(sortedSpans[index]);
+      requestAnimationFrame(() => {
+        isGraphSelectingRef.current = false;
+      });
     },
     [sortedSpans, focusSpanInTree],
   );
+
+  // Bidirectional linking: when a span is selected in the tree (not from graph click),
+  // find and highlight the corresponding workflow node in the graph
+  useEffect(() => {
+    if (isGraphSelectingRef.current || !workflowNodes || workflowNodes.length === 0) {
+      return;
+    }
+
+    if (!selectedNode) {
+      setSelectedWorkflowNode(null);
+      return;
+    }
+
+    const matchingNode = workflowNodes.find((wn) => wn.spans.some((s) => s.key === selectedNode.key)) ?? null;
+    if (matchingNode && matchingNode.id !== selectedWorkflowNode?.id) {
+      setSelectedWorkflowNode(matchingNode);
+      const spanIndex = [...matchingNode.spans]
+        .sort((a, b) => a.start - b.start)
+        .findIndex((s) => s.key === selectedNode.key);
+      setCurrentSpanIndex(Math.max(0, spanIndex));
+    }
+  }, [selectedNode, workflowNodes, selectedWorkflowNode?.id]);
 
   return {
     selectedWorkflowNode,

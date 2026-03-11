@@ -14,7 +14,7 @@ import { getIconTypeForSpan, getSpanExceptionCount } from '../ModelTraceExplorer
 import { ModelTraceExplorerIcon } from '../ModelTraceExplorerIcon';
 import { spanTimeFormatter } from '../timeline-tree/TimelineTree.utils';
 import type { WorkflowNodeData } from './GraphView.types';
-import { getNodeBackgroundColor, getNodeBorderColor, truncateText } from './GraphView.utils';
+import { getNodeBackgroundColor, truncateText } from './GraphView.utils';
 
 interface WorkflowNodeTooltipContentProps {
   displayName: string;
@@ -212,7 +212,7 @@ interface WorkflowNodeProps {
  */
 export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodeProps) {
   const { theme } = useDesignSystemTheme();
-  const { displayName, nodeType, count, spans, isSelected, isOnHighlightedPath, onViewSpanDetails } = data;
+  const { displayName, nodeType, count, spans, isSelected, isOnHighlightedPath, onViewSpanDetails, nodeWidth, nodeHeight } = data;
 
   const spanType = nodeType as ModelSpanType | undefined;
 
@@ -231,11 +231,14 @@ export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodePro
     ? theme.colors.actionDangerPrimaryBackgroundDefault
     : isHighlighted
       ? theme.colors.actionPrimaryBackgroundDefault
-      : getNodeBorderColor(spanType, theme);
+      : 'transparent';
   const borderWidth = hasException || isHighlighted ? 2 : 1;
 
   const iconType = getIconTypeForSpan(spanType ?? 'UNKNOWN');
-  const title = truncateText(displayName, 16);
+  // Scale truncation with node width: ~1 char per 8px of available text space.
+  // Reserve ~40px for icon (24px) + icon margin (8px) + horizontal padding (2×4px).
+  const maxTitleChars = Math.max(8, Math.floor((nodeWidth - 40) / 8));
+  const title = truncateText(displayName, maxTitleChars);
 
   return (
     <Tooltip
@@ -254,14 +257,14 @@ export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodePro
     >
       <div
         css={{
-          width: 160,
-          height: 56,
+          width: nodeWidth,
+          height: nodeHeight,
           backgroundColor,
           border: `${borderWidth}px solid ${borderColor}`,
           borderRadius: theme.borders.borderRadiusMd,
           display: 'flex',
           alignItems: 'center',
-          padding: `0 ${theme.spacing.sm}px`,
+          padding: `0 ${theme.spacing.xs}px`,
           cursor: 'pointer',
           position: 'relative',
           '&:hover': { filter: 'brightness(0.95)' },
@@ -330,13 +333,15 @@ export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodePro
               width: 24,
               height: 24,
               borderRadius: '50%',
-              backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
+              backgroundColor: isHighlighted
+                ? theme.colors.actionPrimaryBackgroundDefault
+                : theme.colors.tagDefault,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: 11,
               fontWeight: 600,
-              color: theme.colors.white,
+              color: isHighlighted ? theme.colors.white : theme.colors.textSecondary,
             }}
           >
             {count > 99 ? '99+' : count}

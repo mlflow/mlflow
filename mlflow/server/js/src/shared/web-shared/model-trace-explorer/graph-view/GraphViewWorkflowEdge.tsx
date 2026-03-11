@@ -5,6 +5,11 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 
 import type { WorkflowEdgeData } from './GraphView.types';
 
+// Nested call edge colors — no semantic theme token exists for this.
+// Centralized here so dark/light mode values are easy to update.
+const NESTED_CALL_COLOR = { dark: 'rgba(249, 115, 22, 0.6)', light: 'rgba(234, 88, 12, 0.5)' };
+const NESTED_CALL_HIGHLIGHT_COLOR = { dark: 'rgba(249, 115, 22, 1)', light: 'rgba(234, 88, 12, 1)' };
+
 interface WorkflowEdgeProps {
   id: string;
   sourceX: number;
@@ -78,13 +83,8 @@ export const WorkflowEdge = memo(function WorkflowEdge({
       return theme.colors.actionDangerPrimaryBackgroundDefault;
     }
     if (isNestedCall) {
-      return isHighlighted
-        ? theme.isDarkMode
-          ? '#f97316'
-          : '#ea580c'
-        : theme.isDarkMode
-          ? 'rgba(249, 115, 22, 0.6)'
-          : 'rgba(234, 88, 12, 0.5)';
+      const palette = isHighlighted ? NESTED_CALL_HIGHLIGHT_COLOR : NESTED_CALL_COLOR;
+      return theme.isDarkMode ? palette.dark : palette.light;
     }
     return isHighlighted
       ? theme.colors.actionPrimaryBackgroundDefault
@@ -180,54 +180,54 @@ export const WorkflowEdgeMarkerDefs = () => {
   const { theme } = useDesignSystemTheme();
 
   const defaultArrowColor = theme.isDarkMode ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.2)';
-  const nestedCallColor = theme.isDarkMode ? 'rgba(249, 115, 22, 0.6)' : 'rgba(234, 88, 12, 0.5)';
+  const nestedCallColor = theme.isDarkMode ? NESTED_CALL_COLOR.dark : NESTED_CALL_COLOR.light;
 
   return (
     <svg style={{ position: 'absolute', top: 0, left: 0 }}>
       <defs>
         <marker
           id="workflow-arrow-default"
-          markerWidth="10"
-          markerHeight="7"
-          refX="9"
-          refY="3.5"
+          markerWidth="7"
+          markerHeight="5"
+          refX="6"
+          refY="2.5"
           orient="auto"
           markerUnits="strokeWidth"
         >
-          <polygon points="0 0, 10 3.5, 0 7" fill={defaultArrowColor} />
+          <polygon points="0 0, 7 2.5, 0 5" fill={defaultArrowColor} />
         </marker>
         <marker
           id="workflow-arrow-highlighted"
-          markerWidth="10"
-          markerHeight="7"
-          refX="9"
-          refY="3.5"
+          markerWidth="7"
+          markerHeight="5"
+          refX="6"
+          refY="2.5"
           orient="auto"
           markerUnits="strokeWidth"
         >
-          <polygon points="0 0, 10 3.5, 0 7" fill={theme.colors.actionPrimaryBackgroundDefault} />
+          <polygon points="0 0, 7 2.5, 0 5" fill={theme.colors.actionPrimaryBackgroundDefault} />
         </marker>
         <marker
           id="workflow-arrow-back"
-          markerWidth="10"
-          markerHeight="7"
-          refX="9"
-          refY="3.5"
+          markerWidth="7"
+          markerHeight="5"
+          refX="6"
+          refY="2.5"
           orient="auto"
           markerUnits="strokeWidth"
         >
-          <polygon points="0 0, 10 3.5, 0 7" fill={theme.colors.actionDangerPrimaryBackgroundDefault} />
+          <polygon points="0 0, 7 2.5, 0 5" fill={theme.colors.actionDangerPrimaryBackgroundDefault} />
         </marker>
         <marker
           id="workflow-arrow-nested"
-          markerWidth="10"
-          markerHeight="7"
-          refX="9"
-          refY="3.5"
+          markerWidth="7"
+          markerHeight="5"
+          refX="6"
+          refY="2.5"
           orient="auto"
           markerUnits="strokeWidth"
         >
-          <polygon points="0 0, 10 3.5, 0 7" fill={nestedCallColor} />
+          <polygon points="0 0, 7 2.5, 0 5" fill={nestedCallColor} />
         </marker>
       </defs>
     </svg>

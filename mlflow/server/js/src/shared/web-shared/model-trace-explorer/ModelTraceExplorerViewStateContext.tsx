@@ -25,8 +25,8 @@ const getDefaultPaneSizeRatios = (): PaneSizeRatios => ({
   detailsSidebar: 0.7,
   // Details pane (based on the window width)
   detailsPane: window.innerWidth <= 768 ? 0.33 : 0.25,
-  // Graph view pane — graph canvas takes majority of the space
-  graphPane: 0.75,
+  // Graph view pane — balanced with details pane
+  graphPane: 0.5,
 });
 
 export type ModelTraceExplorerViewState = {

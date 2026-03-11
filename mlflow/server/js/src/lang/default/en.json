@@ -950,6 +950,10 @@
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
   },
+  "57rIQy": {
+    "defaultMessage": "Collapse graph",
+    "description": "Tooltip for the button that collapses the graph view to its default size"
+  },
   "58/xE7": {
     "defaultMessage": "Output /1M",
     "description": "Table header for output cost"
@@ -1617,10 +1621,6 @@
   "9J8zoa": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in experiment datasets UI"
-  },
-  "9KK8Z2": {
-    "defaultMessage": "Unable to generate graph layout",
-    "description": "Empty state message when graph layout computation fails"
   },
   "9KLNi5": {
     "defaultMessage": "Delete",
@@ -5455,6 +5455,10 @@
     "defaultMessage": "Track experiments with parameters, metrics, and artifacts.",
     "description": "Feature card summary for experiments"
   },
+  "ahnYpg": {
+    "defaultMessage": "Expand graph",
+    "description": "Tooltip for the button that expands the graph view to a larger size"
+  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -6990,10 +6994,6 @@
   "lCfyQO": {
     "defaultMessage": "Dataset",
     "description": "Label for the dataset column in the logged model details metrics table"
-  },
-  "lD8vTI": {
-    "defaultMessage": "No trace data available",
-    "description": "Empty state message when there is no trace data to display in graph view"
   },
   "lDGQGa": {
     "defaultMessage": "Toggle detailed view",
