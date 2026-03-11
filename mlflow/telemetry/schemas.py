@@ -25,6 +25,7 @@ class Record:
     # but callers can override with these fields (e.g. in UI telemetry records)
     installation_id: str | None = None
     session_id: str | None = None
+    server_installation_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result = {
@@ -39,6 +40,8 @@ class Record:
             result["installation_id"] = self.installation_id
         if self.session_id:
             result["session_id"] = self.session_id
+        if self.server_installation_id:
+            result["server_installation_id"] = self.server_installation_id
         return result
 
 
