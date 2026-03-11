@@ -9602,6 +9602,10 @@
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
   },
+  "zZlPwp": {
+    "defaultMessage": "Categories",
+    "description": "Run page > Overview > Issue categories being detected"
+  },
   "zcnCPF": {
     "defaultMessage": "Issues",
     "description": "Label for the issues section in the assessments pane"

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { Tag, useDesignSystemTheme } from '@databricks/design-system';
 import { KeyValueProperty, NoneCell } from '@databricks/web-shared/utils';
 import { useIntl } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
@@ -37,12 +37,13 @@ export const IssueDetectionRunOverview = ({
     status: jobStatus,
     model,
     provider,
+    categories,
   } = useFetchIssueJobStatus({
     jobId: progressProps.jobId,
     enabled: !!progressProps.jobId,
   });
 
-  const modelDisplay = model && provider ? `${provider}:/${model}` : undefined;
+  const modelDisplay = model && provider ? `${provider}/${model}` : undefined;
 
   const jobComplete = isJobComplete(jobStatus);
   const prevJobCompleteRef = useRef(jobComplete);
@@ -83,6 +84,23 @@ export const IssueDetectionRunOverview = ({
               description: 'Run page > Overview > Model used for issue detection',
             })}
             value={modelDisplay}
+          />
+        )}
+        {categories && categories.length > 0 && (
+          <KeyValueProperty
+            keyValue={intl.formatMessage({
+              defaultMessage: 'Categories',
+              description: 'Run page > Overview > Issue categories being detected',
+            })}
+            value={
+              <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+                {categories.map((category) => (
+                  <Tag key={category} componentId="mlflow.issue-detection.category-tag">
+                    {category}
+                  </Tag>
+                ))}
+              </div>
+            }
           />
         )}
         <KeyValueProperty
