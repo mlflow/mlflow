@@ -455,6 +455,22 @@ wheels = [
 ]
 
 [[package]]
+name = "azure-identity"
+version = "1.25.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "azure-core" },
+    { name = "cryptography" },
+    { name = "msal" },
+    { name = "msal-extensions" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c2/3a/439a32a5e23e45f6a91f0405949dc66cfe6834aba15a430aebfc063a81e7/azure_identity-1.25.2.tar.gz", hash = "sha256:030dbaa720266c796221c6cdbd1999b408c079032c919fef725fcc348a540fe9", size = 284709, upload-time = "2026-02-11T01:55:42.323Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9b/77/f658c76f9e9a52c784bd836aaca6fd5b9aae176f1f53273e758a2bcda695/azure_identity-1.25.2-py3-none-any.whl", hash = "sha256:1b40060553d01a72ba0d708b9a46d0f61f56312e215d8896d836653ffdc6753d", size = 191423, upload-time = "2026-02-11T01:55:44.245Z" },
+]
+
+[[package]]
 name = "azure-mgmt-authorization"
 version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4261,6 +4277,10 @@ aliyun-oss = [
 auth = [
     { name = "flask-wtf" },
 ]
+azure = [
+    { name = "azure-identity" },
+    { name = "azure-storage-blob" },
+]
 databricks = [
     { name = "azure-storage-file-datalake" },
     { name = "boto3" },
@@ -4441,6 +4461,8 @@ requires-dist = [
     { name = "aiohttp", marker = "extra == 'genai'", specifier = "<4" },
     { name = "alembic", specifier = "!=1.10.0,<2" },
     { name = "aliyunstoreplugin", marker = "extra == 'aliyun-oss'" },
+    { name = "azure-identity", marker = "extra == 'azure'", specifier = ">=1.6.1" },
+    { name = "azure-storage-blob", marker = "extra == 'azure'", specifier = ">=12" },
     { name = "azure-storage-file-datalake", marker = "extra == 'databricks'", specifier = ">12" },
     { name = "azureml-core", marker = "extra == 'extras'", specifier = ">=1.2.0" },
     { name = "boto3", marker = "extra == 'databricks'", specifier = ">1" },
@@ -4517,7 +4539,7 @@ requires-dist = [
     { name = "watchfiles", marker = "extra == 'gateway'", specifier = "<2" },
     { name = "watchfiles", marker = "extra == 'genai'", specifier = "<2" },
 ]
-provides-extras = ["extras", "db", "databricks", "mlserver", "gateway", "genai", "mcp", "sqlserver", "aliyun-oss", "jfrog", "kubernetes", "langchain", "auth"]
+provides-extras = ["extras", "db", "databricks", "mlserver", "gateway", "genai", "mcp", "azure", "sqlserver", "aliyun-oss", "jfrog", "kubernetes", "langchain", "auth"]
 
 [package.metadata.requires-dev]
 build = [

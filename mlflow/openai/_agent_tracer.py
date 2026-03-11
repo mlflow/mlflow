@@ -284,7 +284,14 @@ def _parse_response_span_data(span_data: oai.ResponseSpanData) -> tuple[Any, Any
 
 async def _patched_agent_run(original, self, *args, **kwargs):
     inputs = construct_full_inputs(original, self, *args, **kwargs)
-    attributes = {k: v for k, v in inputs.items() if k not in ("starting_agent", "input")}
+    # Exclude "run_config" because it may contain the model_provider which holds
+    # the AsyncOpenAI client. Serializing it triggers copy.deepcopy on the internal
+    # AsyncHttpxClientWrapper, which fails due to unpicklable locks and causes
+    # "AttributeError: 'AsyncHttpxClientWrapper' object has no attribute '_state'"
+    # errors during garbage collection. See https://github.com/mlflow/mlflow/issues/19911
+    attributes = {
+        k: v for k, v in inputs.items() if k not in ("starting_agent", "input", "run_config")
+    }
 
     with start_span(
         name=_AGENT_RUN_SPAN_NAME,

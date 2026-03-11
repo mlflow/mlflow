@@ -65,6 +65,14 @@ from mlflow.utils.uri import (
 
 _logger = logging.getLogger(__name__)
 
+
+def _is_uv_auto_detected() -> bool:
+    from mlflow.environment_variables import MLFLOW_UV_AUTO_DETECT
+    from mlflow.utils.uv_utils import detect_uv_project
+
+    return MLFLOW_UV_AUTO_DETECT.get() and detect_uv_project() is not None
+
+
 # NOTE: The MLMODEL_FILE_NAME constant is considered @developer_stable
 MLMODEL_FILE_NAME = "MLmodel"
 _DATABRICKS_FS_LOADER_MODULE = "databricks.feature_store.mlflow_model"
@@ -1167,6 +1175,7 @@ class Model:
                     else None,
                     flavor=flavor_name,
                     serialization_format=kwargs.get("serialization_format"),
+                    uses_uv=kwargs.get("uv_project_path") is not None or _is_uv_auto_detected(),
                 )
                 _last_logged_model_id.set(model.model_id)
                 if (

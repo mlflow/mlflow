@@ -11,6 +11,16 @@ jest.mock('../common/utils/FetchUtils', () => ({
   HTTPMethods: { POST: 'POST', GET: 'GET' },
 }));
 
+jest.mock('./webhooksApi', () => ({
+  WebhooksApi: {
+    listWebhooks: jest.fn(() => Promise.resolve({ webhooks: [] })),
+    createWebhook: jest.fn(() => Promise.resolve({})),
+    updateWebhook: jest.fn(() => Promise.resolve({})),
+    deleteWebhook: jest.fn(() => Promise.resolve()),
+    testWebhook: jest.fn(() => Promise.resolve({ result: { success: true } })),
+  },
+}));
+
 import { fetchEndpointRaw } from '../common/utils/FetchUtils';
 const mockFetchEndpointRaw = fetchEndpointRaw as jest.MockedFunction<typeof fetchEndpointRaw>;
 

@@ -6,6 +6,7 @@ import { telemetryClient } from '../telemetry';
 import { useCallback, useState } from 'react';
 import { fetchEndpointRaw, HTTPMethods } from '../common/utils/FetchUtils';
 import { useDarkThemeContext } from '../common/contexts/DarkThemeContext';
+import WebhooksSettings from './WebhooksSettings';
 
 const SettingsPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -153,6 +154,10 @@ const SettingsPage = () => {
             <FormattedMessage defaultMessage="Clear all demo data" description="Clear demo data button" />
           )}
         </Button>
+      </div>
+
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, maxWidth: 800 }}>
+        <WebhooksSettings />
       </div>
 
       <Modal
