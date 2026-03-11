@@ -1587,6 +1587,11 @@ def test_should_clone_trace_respects_run_id():
 
     mlflow.set_experiment("should_clone_exp_2")
     with mlflow.start_run() as run:
-        assert _should_clone_trace(trace, run_id=run1.info.run_id) is False
-        assert _should_clone_trace(trace, run_id=run.info.run_id) is True
-        assert _should_clone_trace(trace, run_id=None) is True
+        assert not _should_clone_trace(
+            trace, run_id=run1.info.run_id, experiment_id=run1.info.experiment_id
+        )
+        assert _should_clone_trace(
+            trace, run_id=run.info.run_id, experiment_id=run.info.experiment_id
+        )
+        assert _should_clone_trace(trace, run_id=None, experiment_id=run.info.experiment_id)
+        assert _should_clone_trace(trace, run_id=None)

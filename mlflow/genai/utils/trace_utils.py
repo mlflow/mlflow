@@ -777,7 +777,7 @@ def clean_up_extra_traces(
     eval_start_time: int,
     experiment_id: str,
     input_trace_ids: set[str] | None = None,
-) -> list[Trace]:
+) -> None:
     """
     Clean up noisy traces generated outside predict function.
 
@@ -792,9 +792,6 @@ def clean_up_extra_traces(
         experiment_id: The experiment ID of the evaluation run.
         input_trace_ids: Set of trace IDs that were passed in the input DataFrame.
             These traces should never be deleted.
-
-    Returns:
-        List of traces that are kept after cleaning up extra traces.
     """
     try:
         extra_trace_ids = [

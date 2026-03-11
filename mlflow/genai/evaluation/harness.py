@@ -122,6 +122,7 @@ def run(
     eval_start_time = int(time.time() * 1000)
 
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
+    experiment_id = mlflow.get_run(run_id).info.experiment_id
 
     # Classify scorers into single-turn and multi-turn
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
@@ -142,6 +143,7 @@ def run(
                 scorers=single_turn_scorers,
                 predict_fn=predict_fn,
                 run_id=run_id,
+                experiment_id=experiment_id,
             ): i
             for i, eval_item in enumerate(eval_items)
         }
@@ -246,6 +248,7 @@ def _run_single(
     scorers: list[Scorer],
     run_id: str | None,
     predict_fn: Callable[..., Any] | None = None,
+    experiment_id: str | None = None,
 ) -> EvalResult:
     """Run the logic of the eval harness for a single eval item."""
     # Set the MLflow run ID in the context for this thread
@@ -269,7 +272,7 @@ def _run_single(
 
         eval_item.trace = mlflow.get_trace(eval_request_id, silent=True)
     elif eval_item.trace is not None:
-        if _should_clone_trace(eval_item.trace, run_id):
+        if _should_clone_trace(eval_item.trace, run_id, experiment_id):
             try:
                 trace_id = copy_trace_to_experiment(eval_item.trace.to_dict())
                 eval_item.trace = mlflow.get_trace(trace_id)
@@ -490,7 +493,9 @@ def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:
                 eval_result.eval_item.trace = refreshed_trace
 
 
-def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:
+def _should_clone_trace(
+    trace: Trace | None, run_id: str | None, experiment_id: str | None = None
+) -> bool:
     from mlflow.tracking.fluent import _get_experiment_id
 
     if trace is None:
@@ -502,10 +507,7 @@ def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:
 
     # Check if the trace is from the same experiment. If it isn't, we need to clone the trace
     trace_experiment = trace.info.trace_location.mlflow_experiment
-    if run_id is not None:
-        current_experiment = mlflow.get_run(run_id).info.experiment_id
-    else:
-        current_experiment = _get_experiment_id()
+    current_experiment = experiment_id or _get_experiment_id()
     if trace_experiment is not None and trace_experiment.experiment_id != current_experiment:
         return True
 
