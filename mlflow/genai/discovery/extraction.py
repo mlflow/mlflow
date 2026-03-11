@@ -146,6 +146,29 @@ def extract_assessment_rationale(trace: Trace, scorer_name: str) -> str:
     return next((a.rationale for a in assessments if a.rationale), "")
 
 
+def collect_session_rationales(
+    traces: list[Trace],
+    rationale_map: dict[str, str],
+    scorer_name: str,
+) -> str:
+    """Combine triage rationales, human feedback, and span errors for a session.
+
+    Deduplicates identical text across traces and returns a semicolon-separated string.
+    """
+    seen: set[str] = set()
+    parts: list[str] = []
+    for trace in traces:
+        for text, prefix in [
+            (rationale_map.get(trace.info.trace_id, ""), ""),
+            (extract_assessment_rationale(trace, scorer_name), "[human feedback] "),
+            (extract_span_errors(trace), "[span errors] "),
+        ]:
+            if text and text not in seen:
+                seen.add(text)
+                parts.append(f"{prefix}{text}" if prefix else text)
+    return "; ".join(parts)
+
+
 def extract_failure_labels(
     analyses: list[_ConversationAnalysis],
     model: str,
