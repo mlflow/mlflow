@@ -135,9 +135,10 @@ def _start_huey_consumer_proc(
         str(max_job_parallelism),
     ]
 
-    # Add quiet flag if logging level is WARNING or higher
+    # Add quiet flag unless DEBUG logging is explicitly requested,
+    # to suppress noisy huey consumer logs (e.g., Scheduler, Executing messages)
     log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
-    if log_level in ("WARNING", "WARN", "ERROR", "CRITICAL"):
+    if log_level != "DEBUG":
         cmd.append("-q")
 
     return _exec_cmd(
@@ -454,7 +455,7 @@ def _get_or_init_huey_instance(instance_key: str):
 
 
 def _launch_huey_consumer(job_name: str) -> None:
-    _logger.info(f"Starting huey consumer for job function {job_name}")
+    _logger.debug(f"Starting huey consumer for job function {job_name}")
 
     fn_fullname = get_job_fn_fullname(job_name)
     job_fn = _load_function(fn_fullname)
@@ -490,7 +491,7 @@ def _launch_periodic_tasks_consumer() -> None:
     Launch a dedicated Huey consumer for periodic tasks.
     This consumer runs scheduled tasks like the online scoring scheduler.
     """
-    _logger.info("Starting dedicated Huey consumer for periodic tasks")
+    _logger.debug("Starting dedicated Huey consumer for periodic tasks")
 
     def _huey_consumer_thread() -> None:
         while True:
@@ -514,9 +515,10 @@ def _start_periodic_tasks_consumer_proc():
         str(PERIODIC_TASKS_WORKER_COUNT),
     ]
 
-    # Add quiet flag if logging level is WARNING or higher
+    # Add quiet flag unless DEBUG logging is explicitly requested,
+    # to suppress noisy huey consumer logs (e.g., Scheduler, Executing messages)
     log_level = (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper()
-    if log_level in ("WARNING", "WARN", "ERROR", "CRITICAL"):
+    if log_level != "DEBUG":
         cmd.append("-q")
 
     return _exec_cmd(

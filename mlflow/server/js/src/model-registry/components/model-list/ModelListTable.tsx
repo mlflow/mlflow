@@ -93,7 +93,10 @@ export const ModelListTable = ({
         }),
         accessorKey: 'name',
         cell: ({ getValue }) => (
-          <Link to={ModelRegistryRoutes.getModelPageRoute(String(getValue()))}>
+          <Link
+            componentId="mlflow.model_registry.model_list.model_name_link"
+            to={ModelRegistryRoutes.getModelPageRoute(String(getValue()))}
+          >
             <Tooltip componentId="mlflow.model-registry.model-list.model-name.tooltip" content={getValue()}>
               <span>{getValue()}</span>
             </Tooltip>

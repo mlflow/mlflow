@@ -86,6 +86,14 @@ def test_pmdarima_auto_arima_save_and_load(auto_arima_model, model_path):
     np.testing.assert_array_equal(auto_arima_model.predict(10), loaded_model.predict(10))
 
 
+def test_load_model_disallows_pickle_deserialization(auto_arima_model, model_path, monkeypatch):
+    mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.pmdarima.load_model(model_uri=model_path)
+
+
 def test_pmdarima_arima_object_save_and_load(auto_arima_object_model, model_path):
     mlflow.pmdarima.save_model(pmdarima_model=auto_arima_object_model, path=model_path)
 
@@ -365,7 +373,8 @@ def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     scores = (
-        pd.DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"])
+        pd
+        .DataFrame(data=json.loads(resp.content.decode("utf-8"))["predictions"])
         .to_numpy()
         .flatten()
     )
@@ -461,18 +470,14 @@ def test_model_log_with_signature_inference(auto_arima_model):
 
     model_info_loaded = Model.load(model_info.model_uri)
     assert model_info_loaded.signature == ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="n_periods", type=DataType.long),
-                ColSpec(name="return_conf_int", type=DataType.boolean),
-                ColSpec(name="alpha", type=DataType.double),
-            ]
-        ),
-        outputs=Schema(
-            [
-                ColSpec(name="yhat", type=DataType.double),
-                ColSpec(name="yhat_lower", type=DataType.double),
-                ColSpec(name="yhat_upper", type=DataType.double),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(name="n_periods", type=DataType.long),
+            ColSpec(name="return_conf_int", type=DataType.boolean),
+            ColSpec(name="alpha", type=DataType.double),
+        ]),
+        outputs=Schema([
+            ColSpec(name="yhat", type=DataType.double),
+            ColSpec(name="yhat_lower", type=DataType.double),
+            ColSpec(name="yhat_upper", type=DataType.double),
+        ]),
     )

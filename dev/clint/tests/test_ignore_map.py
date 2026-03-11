@@ -6,7 +6,7 @@ def test_single_rule() -> None:
 x = 1  # clint: disable=rule-a
 y = 2
 """
-    assert parse_disable_comments(code) == [DisableComment("rule-a", 1, 9)]
+    assert parse_disable_comments(code) == [DisableComment("rule-a", 1, 9, 1)]
 
 
 def test_multiple_rules() -> None:
@@ -15,8 +15,8 @@ x = 1  # clint: disable=rule-a,rule-b
 y = 2
 """
     assert parse_disable_comments(code) == [
-        DisableComment("rule-a", 1, 9),
-        DisableComment("rule-b", 1, 9),
+        DisableComment("rule-a", 1, 9, 1),
+        DisableComment("rule-b", 1, 9, 1),
     ]
 
 
@@ -26,9 +26,9 @@ x = 1  # clint: disable=rule-a, rule-b, rule-c
 y = 2
 """
     assert parse_disable_comments(code) == [
-        DisableComment("rule-a", 1, 9),
-        DisableComment("rule-b", 1, 9),
-        DisableComment("rule-c", 1, 9),
+        DisableComment("rule-a", 1, 9, 1),
+        DisableComment("rule-b", 1, 9, 1),
+        DisableComment("rule-c", 1, 9, 1),
     ]
 
 
@@ -39,10 +39,10 @@ y = 2  # clint: disable=rule-b
 z = 3  # clint: disable=rule-a,rule-b
 """
     assert parse_disable_comments(code) == [
-        DisableComment("rule-a", 1, 9),
-        DisableComment("rule-b", 2, 9),
-        DisableComment("rule-a", 3, 9),
-        DisableComment("rule-b", 3, 9),
+        DisableComment("rule-a", 1, 9, 1),
+        DisableComment("rule-b", 2, 9, 2),
+        DisableComment("rule-a", 3, 9, 3),
+        DisableComment("rule-b", 3, 9, 3),
     ]
 
 
@@ -62,12 +62,12 @@ c = 3  # clint: disable=rule-e ,rule-f
 d = 4  # clint: disable=rule-g , rule-h
 """
     assert parse_disable_comments(code) == [
-        DisableComment("rule-a", 1, 9),
-        DisableComment("rule-b", 1, 9),
-        DisableComment("rule-c", 2, 9),
-        DisableComment("rule-d", 2, 9),
-        DisableComment("rule-e", 3, 9),
-        DisableComment("rule-f", 3, 9),
-        DisableComment("rule-g", 4, 9),
-        DisableComment("rule-h", 4, 9),
+        DisableComment("rule-a", 1, 9, 1),
+        DisableComment("rule-b", 1, 9, 1),
+        DisableComment("rule-c", 2, 9, 2),
+        DisableComment("rule-d", 2, 9, 2),
+        DisableComment("rule-e", 3, 9, 3),
+        DisableComment("rule-f", 3, 9, 3),
+        DisableComment("rule-g", 4, 9, 4),
+        DisableComment("rule-h", 4, 9, 4),
     ]

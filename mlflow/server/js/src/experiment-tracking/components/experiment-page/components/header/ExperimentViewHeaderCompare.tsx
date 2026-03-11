@@ -27,6 +27,7 @@ export const ExperimentViewHeaderCompare = React.memo(({ experiments }: { experi
   const breadcrumbs = useMemo(
     () => [
       <Link
+        componentId="mlflow.experiment_tracking.compare_header.experiments_breadcrumb_link"
         key={Routes.experimentsObservatoryRoute}
         to={Routes.experimentsObservatoryRoute}
         data-testid="experiment-observatory-link"

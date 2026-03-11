@@ -155,7 +155,8 @@ class SqlAlchemyStore:
         try:
             user = self._get_user(session, username=username)
             return (
-                session.query(SqlExperimentPermission)
+                session
+                .query(SqlExperimentPermission)
                 .filter(
                     SqlExperimentPermission.experiment_id == experiment_id,
                     SqlExperimentPermission.user_id == user.id,
@@ -185,7 +186,8 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             perms = (
-                session.query(SqlExperimentPermission)
+                session
+                .query(SqlExperimentPermission)
                 .filter(SqlExperimentPermission.user_id == user.id)
                 .all()
             )
@@ -243,7 +245,8 @@ class SqlAlchemyStore:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
             return (
-                session.query(SqlRegisteredModelPermission)
+                session
+                .query(SqlRegisteredModelPermission)
                 .filter(
                     SqlRegisteredModelPermission.workspace == workspace_name,
                     SqlRegisteredModelPermission.name == name,
@@ -276,7 +279,8 @@ class SqlAlchemyStore:
             user = self._get_user(session, username=username)
             workspace_name = self._get_active_workspace_name()
             perms = (
-                session.query(SqlRegisteredModelPermission)
+                session
+                .query(SqlRegisteredModelPermission)
                 .filter(
                     SqlRegisteredModelPermission.user_id == user.id,
                     SqlRegisteredModelPermission.workspace == workspace_name,
@@ -319,7 +323,8 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             workspace_name = self._get_active_workspace_name()
             perms = (
-                session.query(SqlRegisteredModelPermission)
+                session
+                .query(SqlRegisteredModelPermission)
                 .filter(
                     SqlRegisteredModelPermission.workspace == workspace_name,
                     SqlRegisteredModelPermission.name == old_name,
@@ -332,7 +337,8 @@ class SqlAlchemyStore:
     def list_workspace_permissions(self, workspace_name: str) -> list[WorkspacePermission]:
         with self.ManagedSessionMaker() as session:
             rows = (
-                session.query(SqlWorkspacePermission)
+                session
+                .query(SqlWorkspacePermission)
                 .filter(SqlWorkspacePermission.workspace == workspace_name)
                 .all()
             )
@@ -342,7 +348,8 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             rows = (
-                session.query(SqlWorkspacePermission)
+                session
+                .query(SqlWorkspacePermission)
                 .filter(SqlWorkspacePermission.user_id == user.id)
                 .all()
             )
@@ -395,7 +402,8 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             rows: list[SqlWorkspacePermission] = (
-                session.query(SqlWorkspacePermission)
+                session
+                .query(SqlWorkspacePermission)
                 .filter(SqlWorkspacePermission.user_id == user.id)
                 .all()
             )
@@ -446,7 +454,8 @@ class SqlAlchemyStore:
         try:
             user = self._get_user(session, username=username)
             return (
-                session.query(SqlScorerPermission)
+                session
+                .query(SqlScorerPermission)
                 .filter(
                     SqlScorerPermission.experiment_id == experiment_id,
                     SqlScorerPermission.scorer_name == scorer_name,
@@ -479,7 +488,8 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             perms = (
-                session.query(SqlScorerPermission)
+                session
+                .query(SqlScorerPermission)
                 .filter(SqlScorerPermission.user_id == user.id)
                 .all()
             )
@@ -532,7 +542,8 @@ class SqlAlchemyStore:
         try:
             user = self._get_user(session, username=username)
             return (
-                session.query(SqlGatewaySecretPermission)
+                session
+                .query(SqlGatewaySecretPermission)
                 .filter(
                     SqlGatewaySecretPermission.secret_id == secret_id,
                     SqlGatewaySecretPermission.user_id == user.id,
@@ -564,7 +575,8 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             perms = (
-                session.query(SqlGatewaySecretPermission)
+                session
+                .query(SqlGatewaySecretPermission)
                 .filter(SqlGatewaySecretPermission.user_id == user.id)
                 .all()
             )
@@ -616,7 +628,8 @@ class SqlAlchemyStore:
         try:
             user = self._get_user(session, username=username)
             return (
-                session.query(SqlGatewayEndpointPermission)
+                session
+                .query(SqlGatewayEndpointPermission)
                 .filter(
                     SqlGatewayEndpointPermission.endpoint_id == endpoint_id,
                     SqlGatewayEndpointPermission.user_id == user.id,
@@ -648,7 +661,8 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             perms = (
-                session.query(SqlGatewayEndpointPermission)
+                session
+                .query(SqlGatewayEndpointPermission)
                 .filter(SqlGatewayEndpointPermission.user_id == user.id)
                 .all()
             )
@@ -701,7 +715,8 @@ class SqlAlchemyStore:
         try:
             user = self._get_user(session, username=username)
             return (
-                session.query(SqlGatewayModelDefinitionPermission)
+                session
+                .query(SqlGatewayModelDefinitionPermission)
                 .filter(
                     SqlGatewayModelDefinitionPermission.model_definition_id == model_definition_id,
                     SqlGatewayModelDefinitionPermission.user_id == user.id,
@@ -735,7 +750,8 @@ class SqlAlchemyStore:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username=username)
             perms = (
-                session.query(SqlGatewayModelDefinitionPermission)
+                session
+                .query(SqlGatewayModelDefinitionPermission)
                 .filter(SqlGatewayModelDefinitionPermission.user_id == user.id)
                 .all()
             )

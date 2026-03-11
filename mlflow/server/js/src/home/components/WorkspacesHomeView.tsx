@@ -126,6 +126,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
         <TableCell>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
             <Link
+              componentId="mlflow.home.workspaces.workspace_link"
               disableWorkspacePrefix
               to={`/?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`}
               onClick={(e) => {
