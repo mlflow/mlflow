@@ -90,10 +90,10 @@ def test_issue_severity_enum_comparison():
 
 
 def test_issue_severity_enum_max():
-    assert IssueSeverity._max(IssueSeverity.LOW, IssueSeverity.HIGH) == IssueSeverity.HIGH
-    assert IssueSeverity._max(IssueSeverity.HIGH, IssueSeverity.LOW) == IssueSeverity.HIGH
-    assert IssueSeverity._max(IssueSeverity.MEDIUM, IssueSeverity.MEDIUM) == IssueSeverity.MEDIUM
-    assert IssueSeverity._max(IssueSeverity.NOT_AN_ISSUE, IssueSeverity.LOW) == IssueSeverity.LOW
+    assert max(IssueSeverity.LOW, IssueSeverity.HIGH) == IssueSeverity.HIGH
+    assert max(IssueSeverity.HIGH, IssueSeverity.LOW) == IssueSeverity.HIGH
+    assert max(IssueSeverity.MEDIUM, IssueSeverity.MEDIUM) == IssueSeverity.MEDIUM
+    assert max(IssueSeverity.NOT_AN_ISSUE, IssueSeverity.LOW) == IssueSeverity.LOW
 
 
 def test_issue_creation_required_fields():

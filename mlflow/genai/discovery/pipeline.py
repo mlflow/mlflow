@@ -301,7 +301,7 @@ def _dedup_issues_by_name(issues: list[_IdentifiedIssue]) -> list[_IdentifiedIss
         if key in seen_names:
             existing = deduped[seen_names[key]]
             existing.example_indices = list(set(existing.example_indices + issue.example_indices))
-            existing.severity = IssueSeverity._max(existing.severity, issue.severity)
+            existing.severity = max(existing.severity, issue.severity)
         else:
             seen_names[key] = len(deduped)
             deduped.append(issue)

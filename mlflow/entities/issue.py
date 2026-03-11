@@ -56,11 +56,6 @@ class IssueSeverity(str, Enum):
             return self._order >= other._order
         return NotImplemented
 
-    @classmethod
-    def _max(cls, a: "IssueSeverity", b: "IssueSeverity") -> "IssueSeverity":
-        """Return the more severe of two severity levels."""
-        return a if a >= b else b
-
 
 @dataclass
 class Issue(_MlflowObject):
