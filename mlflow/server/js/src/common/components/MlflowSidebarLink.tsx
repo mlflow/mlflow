@@ -1,14 +1,6 @@
-import { v4 as uuidv4 } from 'uuid';
 import type { Location, To } from '../utils/RoutingUtils';
 import { Link, useLocation } from '../utils/RoutingUtils';
-import {
-  DesignSystemEventProviderAnalyticsEventTypes,
-  DesignSystemEventProviderComponentTypes,
-  Tooltip,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
-import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
-import { useMemo } from 'react';
+import { Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 
 export const MlflowSidebarLink = ({
   className,
@@ -36,8 +28,6 @@ export const MlflowSidebarLink = ({
   tooltipContent?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const logTelemetryEvent = useLogTelemetryEvent();
-  const viewId = useMemo(() => uuidv4(), []);
   const location = useLocation();
 
   return (
@@ -75,13 +65,6 @@ export const MlflowSidebarLink = ({
             },
           }}
           onClick={() => {
-            logTelemetryEvent({
-              componentId,
-              componentViewId: viewId,
-              componentType: DesignSystemEventProviderComponentTypes.Button,
-              componentSubType: null,
-              eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-            });
             onClick?.();
           }}
           target={openInNewTab ? '_blank' : undefined}
