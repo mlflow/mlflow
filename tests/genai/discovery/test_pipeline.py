@@ -403,15 +403,15 @@ def test_annotate_traces_annotates_each_trace_with_feedback():
             "litellm.completion",
             return_value=_make_litellm_response("This trace shows slow response behavior."),
         ) as mock_completion,
-        patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
     ):
         _annotate_issue_traces(issues, issue_trace_ids, rationale_map, {}, "openai:/gpt-5-mini")
 
     assert mock_completion.call_count == 2
-    assert mock_feedback.call_count == 2
-    for c in mock_feedback.call_args_list:
-        assert c.kwargs["name"] == "issue: Slow responses [api]"
-        assert c.kwargs["value"] is False
+    assert mock_log_issue.call_count == 2
+    for c in mock_log_issue.call_args_list:
+        assert c.kwargs["issue_name"] == "Slow responses [api]"
+        assert c.kwargs["issue_id"] == issues[0].issue_id
         assert "slow response" in c.kwargs["rationale"]
 
 
@@ -447,17 +447,17 @@ def test_annotate_traces_llm_failure_falls_back_to_triage_rationale():
             "litellm.completion",
             side_effect=Exception("LLM unavailable"),
         ),
-        patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
     ):
         _annotate_issue_traces(issues, issue_trace_ids, rationale_map, {}, "openai:/gpt-5-mini")
 
-    mock_feedback.assert_called_once()
-    rationale = mock_feedback.call_args.kwargs["rationale"]
+    mock_log_issue.assert_called_once()
+    rationale = mock_log_issue.call_args.kwargs["rationale"]
     assert "Original triage rationale" in rationale
     assert "Timeout [api]" in rationale
 
 
-def test_annotate_traces_log_feedback_failure_handled_gracefully():
+def test_annotate_traces_log_issue_failure_handled_gracefully():
     issues = [
         _make_issue(
             name="Error [db]",
@@ -474,7 +474,7 @@ def test_annotate_traces_log_feedback_failure_handled_gracefully():
             return_value=_make_litellm_response("Annotation."),
         ),
         patch(
-            "mlflow.genai.discovery.pipeline.mlflow.log_feedback",
+            "mlflow.genai.discovery.pipeline.mlflow.log_issue",
             side_effect=Exception("Tracking server down"),
         ),
     ):
@@ -501,14 +501,14 @@ def test_annotate_traces_multiple_issues_annotated_independently():
             "litellm.completion",
             return_value=_make_litellm_response("Annotated."),
         ),
-        patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
     ):
         _annotate_issue_traces(issues, issue_trace_ids, rationale_map, {}, "openai:/gpt-5-mini")
 
-    assert mock_feedback.call_count == 3
-    feedback_names = [c.kwargs["name"] for c in mock_feedback.call_args_list]
-    assert feedback_names.count("issue: Issue A") == 1
-    assert feedback_names.count("issue: Issue B") == 2
+    assert mock_log_issue.call_count == 3
+    issue_names = [c.kwargs["issue_name"] for c in mock_log_issue.call_args_list]
+    assert issue_names.count("Issue A") == 1
+    assert issue_names.count("Issue B") == 2
 
 
 def test_annotate_traces_session_level_logs_on_first_trace():
@@ -540,7 +540,7 @@ def test_annotate_traces_session_level_logs_on_first_trace():
             "litellm.completion",
             return_value=_make_litellm_response("Session-level annotation."),
         ),
-        patch("mlflow.genai.discovery.pipeline.mlflow.log_feedback") as mock_feedback,
+        patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
     ):
         _annotate_issue_traces(
             issues,
@@ -552,16 +552,16 @@ def test_annotate_traces_session_level_logs_on_first_trace():
             session_first_trace=session_first_trace,
         )
 
-    # 2 sessions -> 2 feedback calls (not 3 per-trace)
-    assert mock_feedback.call_count == 2
-    logged_trace_ids = {c.kwargs["trace_id"] for c in mock_feedback.call_args_list}
+    # 2 sessions -> 2 log_issue calls (not 3 per-trace)
+    assert mock_log_issue.call_count == 2
+    logged_trace_ids = {c.kwargs["trace_id"] for c in mock_log_issue.call_args_list}
     assert logged_trace_ids == {"trace-0", "trace-3"}
-    for c in mock_feedback.call_args_list:
-        assert c.kwargs["name"] == "issue: Slow responses [api]"
+    for c in mock_log_issue.call_args_list:
+        assert c.kwargs["issue_name"] == "Slow responses [api]"
         metadata = c.kwargs["metadata"]
         assert "mlflow.trace.session" in metadata
     session_ids = {
-        c.kwargs["metadata"]["mlflow.trace.session"] for c in mock_feedback.call_args_list
+        c.kwargs["metadata"]["mlflow.trace.session"] for c in mock_log_issue.call_args_list
     }
     assert session_ids == {"session-A", "session-B"}
 

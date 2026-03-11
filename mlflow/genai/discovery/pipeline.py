@@ -4,6 +4,7 @@ import json
 import logging
 import time
 import uuid
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import mlflow
@@ -155,21 +156,18 @@ def _annotate_issue_traces(
                 f"Triage rationale: {triage_rationale or '(not available)'}"
             )
 
-        name = issue.name.removeprefix("Issue: ").removeprefix("issue: ")
-        feedback_name = f"issue: {name}"
         metadata = {TraceMetadataKey.TRACE_SESSION: session_id} if session_id else None
-        # TODO: Use mlflow.log_issue() after mlflow/mlflow#21491 lands
         try:
-            mlflow.log_feedback(
+            mlflow.log_issue(
                 trace_id=trace_id,
-                name=feedback_name,
-                value=False,
+                issue_id=issue.issue_id,
+                issue_name=issue.name,
                 source=source,
                 rationale=annotation,
                 metadata=metadata,
             )
         except Exception:
-            _logger.debug("Failed to log feedback for trace %s", trace_id, exc_info=True)
+            _logger.debug("Failed to log issue for trace %s", trace_id, exc_info=True)
             return None
         return annotation
 
@@ -238,58 +236,16 @@ def _build_analyses(
     return analyses, session_groups
 
 
-def _cluster_and_identify(
-    analyses: list[_ConversationAnalysis],
-    model: str,
-    max_issues: int,
-    token_counter: _TokenCounter | None = None,
+def _resplit_incoherent_clusters(
+    cluster_groups: list[list[int]],
+    summaries: list[_IdentifiedIssue],
+    summarize_fn: Callable[[list[int]], _IdentifiedIssue],
 ) -> list[_IdentifiedIssue]:
+    """Re-split multi-member clusters flagged below minimum severity.
+
+    Breaks incoherent clusters into singletons, resummarizes each one,
+    then filters all results by severity and non-issue status.
     """
-    Cluster analyses into identified issues via LLM-based labeling and grouping.
-
-    Extracts failure labels, clusters them, summarizes each cluster,
-    re-splits incoherent clusters, deduplicates by name, and re-clusters
-    singletons.
-
-    Args:
-        analyses: Conversation analyses to cluster.
-        model: Model URI for all LLM calls.
-        max_issues: Maximum number of issues to produce.
-        token_counter: Optional token counter for tracking LLM usage.
-
-    Returns:
-        List of identified issues that pass severity filtering.
-    """
-    labels, label_to_analysis = extract_failure_labels(analyses, model, token_counter=token_counter)
-    for i, label in enumerate(labels):
-        _logger.debug("  [%d] %s", i, label)
-
-    if len(labels) == 1:
-        cluster_groups = [[0]]
-    else:
-        cluster_groups = cluster_by_llm(labels, max_issues, model, token_counter=token_counter)
-    _logger.debug("Clustering produced %d groups", len(cluster_groups))
-
-    max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(cluster_groups))
-
-    def _summarize_one(group: list[int]) -> _IdentifiedIssue:
-        return summarize_cluster(
-            group, analyses, model, label_to_analysis=label_to_analysis, token_counter=token_counter
-        )
-
-    summaries: list[_IdentifiedIssue | None] = [None] * len(cluster_groups)
-    with ThreadPoolExecutor(
-        max_workers=max_workers, thread_name_prefix="MlflowIssueDiscoverySummarize"
-    ) as executor:
-        future_to_idx = {
-            executor.submit(_summarize_one, group): idx for idx, group in enumerate(cluster_groups)
-        }
-        for future in as_completed(future_to_idx):
-            summaries[future_to_idx[future]] = future.result()
-
-    # Re-split incoherent clusters: if the summarizer flags a multi-member
-    # cluster as low-severity, break it into singletons and resummarize
-    # each one so the individual items get a fair standalone assessment.
     resplit_groups: list[list[int]] = []
     for group, issue in zip(cluster_groups, summaries):
         if not severity_gte(issue.severity, MIN_SEVERITY) and len(group) > 1:
@@ -302,71 +258,115 @@ def _cluster_and_identify(
             resplit_groups.extend([idx] for idx in group)
 
     if resplit_groups:
+        max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(resplit_groups))
         resplit_summaries: list[_IdentifiedIssue | None] = [None] * len(resplit_groups)
         with ThreadPoolExecutor(
             max_workers=max_workers, thread_name_prefix="MlflowIssueDiscoveryResplit"
         ) as executor:
             future_to_idx = {
-                executor.submit(_summarize_one, group): ri
-                for ri, group in enumerate(resplit_groups)
+                executor.submit(summarize_fn, group): ri for ri, group in enumerate(resplit_groups)
             }
             for future in as_completed(future_to_idx):
                 resplit_summaries[future_to_idx[future]] = future.result()
-        final_groups: list[list[int]] = []
-        final_summaries: list[_IdentifiedIssue] = []
-        for group, issue in zip(cluster_groups, summaries):
-            if not severity_gte(issue.severity, MIN_SEVERITY) and len(group) > 1:
-                continue
-            final_groups.append(group)
-            final_summaries.append(issue)
-        final_groups.extend(resplit_groups)
-        final_summaries.extend(resplit_summaries)
-        cluster_groups = final_groups
-        summaries = final_summaries
 
-    identified: list[_IdentifiedIssue] = [
+        # Keep clusters that passed severity, replace incoherent ones with resplit results
+        kept = [
+            issue
+            for group, issue in zip(cluster_groups, summaries)
+            if severity_gte(issue.severity, MIN_SEVERITY) or len(group) <= 1
+        ]
+        summaries = kept + resplit_summaries
+
+    return [
         issue
         for issue in summaries
         if severity_gte(issue.severity, MIN_SEVERITY) and not _is_non_issue(issue)
     ]
 
-    # Merge issues with identical names (case-insensitive), combining their
-    # example indices and keeping the higher severity level.
+
+def _dedup_issues_by_name(issues: list[_IdentifiedIssue]) -> list[_IdentifiedIssue]:
+    """Merge issues with identical names, combining indices and keeping higher severity."""
     seen_names: dict[str, int] = {}
     deduped: list[_IdentifiedIssue] = []
-    for issue in identified:
+    for issue in issues:
         key = issue.name.strip().lower()
         if key in seen_names:
             existing = deduped[seen_names[key]]
-            merged_indices = list(set(existing.example_indices + issue.example_indices))
-            existing.example_indices = merged_indices
+            existing.example_indices = list(set(existing.example_indices + issue.example_indices))
             existing.severity = severity_max(existing.severity, issue.severity)
         else:
             seen_names[key] = len(deduped)
             deduped.append(issue)
-    identified = deduped
+    return deduped
 
-    # Re-cluster singletons — second LLM pass to merge orphaned
-    # single-analysis issues into better groupings
+
+def _merge_singleton_issues(
+    identified: list[_IdentifiedIssue],
+    analysis_labels: dict[int, str],
+    analyses: list[_ConversationAnalysis],
+    model: str,
+    max_issues: int,
+    token_counter: _TokenCounter | None = None,
+) -> list[_IdentifiedIssue]:
+    """Re-cluster singleton issues via a second LLM pass to merge orphaned groups."""
     singletons = [i for i in identified if len(i.example_indices) == 1]
     multi_member = [i for i in identified if len(i.example_indices) > 1]
-    if len(singletons) >= 2:
-        _logger.debug("Re-clustering %d singleton issues", len(singletons))
-        # Build mapping from analysis index to its first label for re-clustering
-        analysis_labels: dict[int, str] = {}
-        for label, analysis_idx in zip(labels, label_to_analysis):
-            analysis_labels.setdefault(analysis_idx, label)
-        merged = recluster_singletons(
-            singletons,
-            analysis_labels,
-            analyses,
-            model,
-            max_issues,
-            token_counter=token_counter,
-        )
-        identified = multi_member + merged
+    if len(singletons) < 2:
+        return identified
+    _logger.debug("Re-clustering %d singleton issues", len(singletons))
+    merged = recluster_singletons(
+        singletons,
+        analysis_labels,
+        analyses,
+        model,
+        max_issues,
+        token_counter=token_counter,
+    )
+    return multi_member + merged
 
-    return identified
+
+def _cluster_and_identify(
+    analyses: list[_ConversationAnalysis],
+    model: str,
+    max_issues: int,
+    token_counter: _TokenCounter | None = None,
+) -> list[_IdentifiedIssue]:
+    """Cluster analyses into identified issues via LLM-based labeling and grouping."""
+    labels, label_to_analysis = extract_failure_labels(analyses, model, token_counter=token_counter)
+    for i, label in enumerate(labels):
+        _logger.debug("  [%d] %s", i, label)
+
+    if len(labels) == 1:
+        cluster_groups = [[0]]
+    else:
+        cluster_groups = cluster_by_llm(labels, max_issues, model, token_counter=token_counter)
+    _logger.debug("Clustering produced %d groups", len(cluster_groups))
+
+    def summarize_fn(group: list[int]) -> _IdentifiedIssue:
+        return summarize_cluster(
+            group, analyses, model, label_to_analysis=label_to_analysis, token_counter=token_counter
+        )
+
+    max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(cluster_groups))
+    summaries: list[_IdentifiedIssue | None] = [None] * len(cluster_groups)
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="MlflowIssueDiscoverySummarize"
+    ) as executor:
+        future_to_idx = {
+            executor.submit(summarize_fn, group): idx for idx, group in enumerate(cluster_groups)
+        }
+        for future in as_completed(future_to_idx):
+            summaries[future_to_idx[future]] = future.result()
+
+    identified = _resplit_incoherent_clusters(cluster_groups, summaries, summarize_fn)
+    identified = _dedup_issues_by_name(identified)
+
+    analysis_labels: dict[int, str] = {}
+    for label, analysis_idx in zip(labels, label_to_analysis):
+        analysis_labels.setdefault(analysis_idx, label)
+    return _merge_singleton_issues(
+        identified, analysis_labels, analyses, model, max_issues, token_counter=token_counter
+    )
 
 
 def _build_issues(

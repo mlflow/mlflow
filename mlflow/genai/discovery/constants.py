@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from enum import Enum
 
 # Number of sessions (or individual traces) to sample for triage by default
 DEFAULT_TRIAGE_SAMPLE_SIZE = 100
@@ -18,11 +18,15 @@ LLM_MAX_TOKENS = 8192
 RATIONALE_TRUNCATION_LIMIT = 800
 TRACE_CONTENT_TRUNCATION = 1000
 
-# Severity scale — ordinal comparison for filtering/sorting
-# TODO: Convert to Enum (like IssueStatus) after mlflow/mlflow#21502 lands
-SeverityLevel = Literal["not_an_issue", "low", "medium", "high"]
-SEVERITY_LEVELS = ("not_an_issue", "low", "medium", "high")
-SEVERITY_ORDER = {level: i for i, level in enumerate(SEVERITY_LEVELS)}
+
+class SeverityLevel(str, Enum):
+    NOT_AN_ISSUE = "not_an_issue"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
+SEVERITY_ORDER = {level.value: i for i, level in enumerate(SeverityLevel)}
 MIN_SEVERITY = "low"
 
 
@@ -252,7 +256,7 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "tool may be returning stale cached results', 'the system prompt does not instruct "
     "the agent to respect user constraints'). Be specific but note these are hypotheses "
     "based on observed symptoms.\n"
-    f"- A severity level from: {', '.join(SEVERITY_LEVELS)}. "
+    f"- A severity level from: {', '.join(level.value for level in SeverityLevel)}. "
     "Use medium or high only if the analyses clearly share the same failure "
     "pattern. Use not_an_issue if they do NOT belong together or represent no real issue."
 )
