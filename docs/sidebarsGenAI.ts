@@ -517,6 +517,11 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'tracing/opentelemetry/export',
             },
+            {
+              type: 'doc',
+              id: 'tracing/opentelemetry/attribute-mapping',
+              label: 'Attribute Mapping',
+            },
           ],
         },
         {
