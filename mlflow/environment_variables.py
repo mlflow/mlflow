@@ -648,9 +648,9 @@ MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE = _BooleanEnvironmentVariable(
 )
 
 #: How often (in seconds) the gateway budget tracker re-fetches policies from the database.
-#: (default: ``60``)
+#: (default: ``600``)
 MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
-    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 60
+    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 600
 )
 
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
@@ -844,6 +844,20 @@ MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EX
 #: (default: ``True``)
 MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
+)
+
+#: When set to ``True``, MLflow uses a private ``random.Random`` instance for trace/span ID
+#: generation, making it immune to ``random.seed()`` calls in user code.  Enable this when
+#: ``random.seed()`` causes duplicate trace/span ID errors.
+#:
+#: .. note::
+#:     In global-provider mode (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false``), if an existing
+#:     ``TracerProvider`` is detected, setting ``MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR``
+#:     does not take effect.
+#:
+#: (default: ``False``)
+MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", False
 )
 
 #: When set to "true", MLflow translates span attributes from mlflow.* format

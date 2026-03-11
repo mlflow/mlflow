@@ -96,13 +96,21 @@ export const ExperimentViewHeader = React.memo(
     const breadcrumbs: React.ReactNode[] = useMemo(
       () => [
         // eslint-disable-next-line react/jsx-key
-        <Link to={Routes.experimentsObservatoryRoute} data-testid="experiment-observatory-link">
+        <Link
+          componentId="mlflow.experiment_tracking.header.experiments_breadcrumb_link"
+          to={Routes.experimentsObservatoryRoute}
+          data-testid="experiment-observatory-link"
+        >
           <FormattedMessage
             defaultMessage="Experiments"
             description="Breadcrumb nav item to link to the list of experiments page"
           />
         </Link>,
-        <Link to={Routes.getExperimentPageRoute(experiment.experimentId ?? '')} data-testid="experiment-link">
+        <Link
+          componentId="mlflow.experiment_tracking.header.experiment_name_breadcrumb_link"
+          to={Routes.getExperimentPageRoute(experiment.experimentId ?? '')}
+          data-testid="experiment-link"
+        >
           {normalizedExperimentName}
         </Link>,
       ],

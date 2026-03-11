@@ -969,6 +969,46 @@ def test_register_and_delete_scorer(client, monkeypatch):
     assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
+def test_reregister_scorer_does_not_raise(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("test_experiment")
+
+    scorer_json = '{"name": "test_scorer", "type": "pyfunc"}'
+
+    # First registration
+    with User(username1, password1, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "test_scorer",
+                "serialized_scorer": scorer_json,
+            },
+            auth=(username1, password1),
+        )
+    assert response.status_code == 200
+    assert response.json()["version"] == 1
+
+    # Re-registration with the same name should succeed (not raise RESOURCE_ALREADY_EXISTS)
+    updated_scorer_json = '{"name": "test_scorer", "type": "pyfunc", "updated": true}'
+    with User(username1, password1, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "test_scorer",
+                "serialized_scorer": updated_scorer_json,
+            },
+            auth=(username1, password1),
+        )
+    assert response.status_code == 200
+    assert response.json()["version"] == 2
+
+
 def test_scorer_permission_denial(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)

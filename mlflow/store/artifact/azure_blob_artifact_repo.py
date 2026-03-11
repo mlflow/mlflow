@@ -34,8 +34,10 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     Stores artifacts on Azure Blob Storage.
 
     This repository is used with URIs of the form
-    ``wasbs://<container-name>@<ystorage-account-name>.blob.core.windows.net/<path>``,
-    following the same URI scheme as Hadoop on Azure blob storage. It requires either that:
+    ``wasbs://<container-name>@<storage-account-name>.blob.core.windows.net/<path>``,
+    following the same URI scheme as Hadoop on Azure blob storage. Also supports
+    Azure China (``chinacloudapi.cn``) and Azure Government (``usgovcloudapi.net``)
+    endpoints. It requires either that:
     - Azure storage connection string is in the env var ``AZURE_STORAGE_CONNECTION_STRING``
     - Azure storage access key is in the env var ``AZURE_STORAGE_ACCESS_KEY``
     - DefaultAzureCredential is configured
@@ -79,7 +81,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             except ImportError as exc:
                 raise ImportError(
                     "Using DefaultAzureCredential requires the azure-identity package. "
-                    "Please install it via: pip install azure-identity"
+                    "Please install it via: pip install mlflow[azure]"
                 ) from exc
 
             account_url = f"https://{account}.{api_uri_suffix}"
@@ -94,17 +96,19 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         """Parse a wasbs:// URI, returning (container, storage_account, path, api_uri_suffix)."""
         parsed = urllib.parse.urlparse(uri)
         if parsed.scheme != "wasbs":
-            raise Exception(f"Not a WASBS URI: {uri}")
+            raise MlflowException.invalid_parameter_value(f"Not a WASBS URI: {uri}")
 
-        match = re.match(
-            r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn))", parsed.netloc
+        match = re.fullmatch(
+            r"([^@]+)@([^.]+)\.(blob\.core\.(windows\.net|chinacloudapi\.cn|usgovcloudapi\.net))",
+            parsed.netloc,
         )
 
         if match is None:
-            raise Exception(
+            raise MlflowException.invalid_parameter_value(
                 "WASBS URI must be of the form "
                 "<container>@<account>.blob.core.windows.net"
                 " or <container>@<account>.blob.core.chinacloudapi.cn"
+                " or <container>@<account>.blob.core.usgovcloudapi.net"
             )
         container = match.group(1)
         storage_account = match.group(2)

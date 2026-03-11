@@ -60,7 +60,7 @@ class BudgetTracker(ABC):
     in memory, Redis, or other backends.
     """
 
-    _last_refresh_time: float = 0.0
+    _last_refresh_time: float = float("-inf")
 
     def needs_refresh(self) -> bool:
         """Check whether policies should be re-fetched from the database."""
@@ -74,7 +74,7 @@ class BudgetTracker(ABC):
 
     def invalidate(self) -> None:
         """Reset the refresh timer so the next needs_refresh() call returns True."""
-        self._last_refresh_time = 0.0
+        self._last_refresh_time = float("-inf")
 
     @abstractmethod
     def refresh_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:

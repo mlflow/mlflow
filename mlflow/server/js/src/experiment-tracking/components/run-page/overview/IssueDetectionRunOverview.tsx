@@ -66,7 +66,12 @@ export const IssueDetectionRunOverview = ({
               value={runInfo?.experimentId ?? ''}
               element={
                 runInfo?.experimentId ? (
-                  <Link to={Routes.getExperimentPageRoute(runInfo.experimentId)}>{runInfo?.experimentId}</Link>
+                  <Link
+                    componentId="mlflow.run_page.overview.issue_detection_experiment_link"
+                    to={Routes.getExperimentPageRoute(runInfo.experimentId)}
+                  >
+                    {runInfo?.experimentId}
+                  </Link>
                 ) : undefined
               }
             />

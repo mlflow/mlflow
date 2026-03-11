@@ -72,7 +72,11 @@ export const ExperimentLoggedModelTableNameCell = (props: { data: LoggedModelsTa
           description="Tooltip text with link to the original logged model"
           values={{
             originalModelLink: (
-              <Link to={linkUrl} css={{ color: 'inherit', textDecoration: 'underline' }}>
+              <Link
+                componentId="mlflow.logged_models.table.original_model_tooltip_link"
+                to={linkUrl}
+                css={{ color: 'inherit', textDecoration: 'underline' }}
+              >
                 {originalName}
               </Link>
             ),
@@ -122,7 +126,11 @@ export const ExperimentLoggedModelTableNameCell = (props: { data: LoggedModelsTa
           }}
         >
           <RunColorPill color={getStableColorForRun(data.info?.model_id || '')} />
-          <Link to={primaryModel.link} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+          <Link
+            componentId="mlflow.logged_models.table.model_name_link"
+            to={primaryModel.link}
+            css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
+          >
             {primaryModel.displayedName}
             <Tag
               componentId="mlflow.logged_model.name_cell_version_tag"
@@ -159,7 +167,11 @@ export const ExperimentLoggedModelTableNameCell = (props: { data: LoggedModelsTa
         <Overflow>
           {registeredModelVersions.map((modelVersion) => (
             <React.Fragment key={modelVersion.link}>
-              <Link to={modelVersion.link} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              <Link
+                componentId="mlflow.logged_models.table.model_version_link"
+                to={modelVersion.link}
+                css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
+              >
                 {modelVersion.displayedName}
                 <Tag
                   componentId="mlflow.logged_model.name_cell_version_tag"
@@ -205,7 +217,9 @@ export const ExperimentLoggedModelTableNameCell = (props: { data: LoggedModelsTa
       }}
     >
       <RunColorPill color={getStableColorForRun(data.info?.model_id || '')} />
-      <Link to={linkUrl}>{originalName}</Link>
+      <Link componentId="mlflow.logged_models.table.name_link" to={linkUrl}>
+        {originalName}
+      </Link>
     </div>
   );
 };

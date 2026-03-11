@@ -2,7 +2,7 @@ import uuid
 
 import pytest
 
-from mlflow.entities import IssueStatus, TraceState
+from mlflow.entities import IssueSeverity, IssueStatus, TraceState
 from mlflow.entities.assessment import IssueReference
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
@@ -50,7 +50,7 @@ def test_create_issue_with_all_fields(store):
         name="Token limit exceeded",
         description="Model is hitting token limits frequently",
         status=IssueStatus.ACCEPTED,
-        severity="high",
+        severity=IssueSeverity.HIGH,
         root_causes=["Input prompts are too long", "Context window exceeded"],
         source_run_id=run.info.run_id,
         created_by="user@example.com",
@@ -61,7 +61,7 @@ def test_create_issue_with_all_fields(store):
     assert issue.name == "Token limit exceeded"
     assert issue.description == "Model is hitting token limits frequently"
     assert issue.status == IssueStatus.ACCEPTED
-    assert issue.severity == "high"
+    assert issue.severity == IssueSeverity.HIGH
     assert issue.root_causes == [
         "Input prompts are too long",
         "Context window exceeded",
@@ -109,7 +109,7 @@ def test_get_issue(store):
         name="Low accuracy",
         description="Model accuracy below threshold",
         status=IssueStatus.PENDING,
-        severity="medium",
+        severity=IssueSeverity.MEDIUM,
         root_causes=["Insufficient training data", "Model drift"],
         source_run_id=run.info.run_id,
         created_by="alice@example.com",
@@ -122,7 +122,7 @@ def test_get_issue(store):
     assert retrieved_issue.name == "Low accuracy"
     assert retrieved_issue.description == "Model accuracy below threshold"
     assert retrieved_issue.status == IssueStatus.PENDING
-    assert retrieved_issue.severity == "medium"
+    assert retrieved_issue.severity == IssueSeverity.MEDIUM
     assert retrieved_issue.root_causes == ["Insufficient training data", "Model drift"]
     assert retrieved_issue.source_run_id == run.info.run_id
     assert retrieved_issue.created_by == "alice@example.com"
@@ -144,7 +144,7 @@ def test_update_issue(store):
         description="Original description",
         status=IssueStatus.PENDING,
         root_causes=["Initial root cause"],
-        severity="low",
+        severity=IssueSeverity.LOW,
     )
 
     updated_issue = store.update_issue(
@@ -152,15 +152,15 @@ def test_update_issue(store):
         status=IssueStatus.ACCEPTED,
         name="Updated name",
         description="Updated description",
-        severity="high",
+        severity=IssueSeverity.HIGH,
     )
 
     assert updated_issue.issue_id == created_issue.issue_id
     assert updated_issue.experiment_id == exp_id
-    assert updated_issue.status == "accepted"
+    assert updated_issue.status == IssueStatus.ACCEPTED
     assert updated_issue.name == "Updated name"
     assert updated_issue.description == "Updated description"
-    assert updated_issue.severity == "high"
+    assert updated_issue.severity == IssueSeverity.HIGH
     assert updated_issue.root_causes == ["Initial root cause"]
     assert updated_issue.source_run_id is None
     assert updated_issue.created_by == created_issue.created_by
@@ -168,10 +168,10 @@ def test_update_issue(store):
     assert updated_issue.last_updated_timestamp > created_issue.last_updated_timestamp
 
     retrieved_issue = store.get_issue(created_issue.issue_id)
-    assert retrieved_issue.status == "accepted"
+    assert retrieved_issue.status == IssueStatus.ACCEPTED
     assert retrieved_issue.name == "Updated name"
     assert retrieved_issue.description == "Updated description"
-    assert retrieved_issue.severity == "high"
+    assert retrieved_issue.severity == IssueSeverity.HIGH
     assert retrieved_issue.root_causes == ["Initial root cause"]
     assert retrieved_issue.last_updated_timestamp == updated_issue.last_updated_timestamp
 

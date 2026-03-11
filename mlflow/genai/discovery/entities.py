@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 import pydantic
 
-from mlflow.entities.issue import Issue
-from mlflow.genai.discovery.constants import RATIONALE_TRUNCATION_LIMIT, SeverityLevel
+from mlflow.entities.issue import Issue, IssueSeverity
+from mlflow.genai.discovery.constants import RATIONALE_TRUNCATION_LIMIT
 
 
 @dataclass
@@ -48,7 +48,7 @@ class _IdentifiedIssue(pydantic.BaseModel):
     example_indices: list[int] = pydantic.Field(
         description="Indices into the input trace summary list that exemplify this issue"
     )
-    severity: SeverityLevel = pydantic.Field(
+    severity: IssueSeverity = pydantic.Field(
         description=(
             "Severity of this issue. "
             "not_an_issue=not a real issue, low=minor issue, "
