@@ -56,7 +56,7 @@ def test_issue_creation_required_fields():
     assert issue.status == IssueStatus.PENDING
     assert issue.created_timestamp == 1234567890
     assert issue.last_updated_timestamp == 1234567890
-    assert issue.confidence is None
+    assert issue.severity is None
     assert issue.root_causes is None
     assert issue.source_run_id is None
     assert issue.created_by is None
@@ -71,7 +71,7 @@ def test_issue_creation_all_fields():
         status=IssueStatus.ACCEPTED,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567900,
-        confidence="high",
+        severity="high",
         root_causes=["Input prompts are too long", "Context window exceeded"],
         source_run_id="run-789",
         created_by="user@example.com",
@@ -84,7 +84,7 @@ def test_issue_creation_all_fields():
     assert issue.status == IssueStatus.ACCEPTED
     assert issue.created_timestamp == 1234567890
     assert issue.last_updated_timestamp == 1234567900
-    assert issue.confidence == "high"
+    assert issue.severity == "high"
     assert issue.root_causes == ["Input prompts are too long", "Context window exceeded"]
     assert issue.source_run_id == "run-789"
     assert issue.created_by == "user@example.com"
@@ -99,7 +99,7 @@ def test_issue_to_dictionary():
         status=IssueStatus.REJECTED,
         created_timestamp=9876543210,
         last_updated_timestamp=9876543220,
-        confidence="medium",
+        severity="medium",
         root_causes=["API key rotation issue", "Token expired"],
         source_run_id="run-abc",
         created_by="system",
@@ -114,7 +114,7 @@ def test_issue_to_dictionary():
     assert issue_dict["status"] == "rejected"
     assert issue_dict["created_timestamp"] == 9876543210
     assert issue_dict["last_updated_timestamp"] == 9876543220
-    assert issue_dict["confidence"] == "medium"
+    assert issue_dict["severity"] == "medium"
     assert issue_dict["root_causes"] == ["API key rotation issue", "Token expired"]
     assert issue_dict["source_run_id"] == "run-abc"
     assert issue_dict["created_by"] == "system"
@@ -127,7 +127,7 @@ def test_issue_from_dictionary_all_fields():
         "name": "Low accuracy",
         "description": "Model accuracy below threshold",
         "status": "pending",
-        "confidence": "low",
+        "severity": "low",
         "root_causes": ["Training data quality issues", "Model drift"],
         "source_run_id": "run-xyz",
         "created_timestamp": 1111111111,
@@ -142,7 +142,7 @@ def test_issue_from_dictionary_all_fields():
     assert issue.name == "Low accuracy"
     assert issue.description == "Model accuracy below threshold"
     assert issue.status == IssueStatus.PENDING
-    assert issue.confidence == "low"
+    assert issue.severity == "low"
     assert issue.root_causes == ["Training data quality issues", "Model drift"]
     assert issue.source_run_id == "run-xyz"
     assert issue.created_timestamp == 1111111111
@@ -170,7 +170,7 @@ def test_issue_from_dictionary_required_fields_only():
     assert issue.status == IssueStatus.PENDING
     assert issue.created_timestamp == 5555555555
     assert issue.last_updated_timestamp == 5555555555
-    assert issue.confidence is None
+    assert issue.severity is None
     assert issue.root_causes is None
     assert issue.source_run_id is None
     assert issue.created_by is None
@@ -185,7 +185,7 @@ def test_issue_roundtrip_conversion():
         status=IssueStatus.ACCEPTED,
         created_timestamp=3333333333,
         last_updated_timestamp=4444444444,
-        confidence="high",
+        severity="high",
         root_causes=["Test root cause", "Another cause"],
         source_run_id="run-test",
         created_by="test-user",
@@ -201,7 +201,7 @@ def test_issue_roundtrip_conversion():
     assert recovered.status == original.status
     assert recovered.created_timestamp == original.created_timestamp
     assert recovered.last_updated_timestamp == original.last_updated_timestamp
-    assert recovered.confidence == original.confidence
+    assert recovered.severity == original.severity
     assert recovered.root_causes == original.root_causes
     assert recovered.source_run_id == original.source_run_id
     assert recovered.created_by == original.created_by
@@ -227,7 +227,7 @@ def test_issue_to_proto_required_fields():
     assert proto.status == "pending"
     assert proto.created_timestamp == 1000000000
     assert proto.last_updated_timestamp == 1000000001
-    assert proto.confidence == ""
+    assert proto.severity == ""
     assert len(proto.root_causes) == 0
     assert proto.source_run_id == ""
     assert proto.created_by == ""
@@ -242,7 +242,7 @@ def test_issue_to_proto_all_fields():
         status=IssueStatus.ACCEPTED,
         created_timestamp=2000000000,
         last_updated_timestamp=2000000010,
-        confidence="very_high",
+        severity="very_high",
         root_causes=["Proto test root cause", "Another root cause"],
         source_run_id="run-proto-2",
         created_by="proto-user@example.com",
@@ -257,7 +257,7 @@ def test_issue_to_proto_all_fields():
     assert proto.status == "accepted"
     assert proto.created_timestamp == 2000000000
     assert proto.last_updated_timestamp == 2000000010
-    assert proto.confidence == "very_high"
+    assert proto.severity == "very_high"
     assert list(proto.root_causes) == ["Proto test root cause", "Another root cause"]
     assert proto.source_run_id == "run-proto-2"
     assert proto.created_by == "proto-user@example.com"
@@ -283,7 +283,7 @@ def test_issue_from_proto_required_fields():
     assert issue.status == IssueStatus.PENDING
     assert issue.created_timestamp == 3000000000
     assert issue.last_updated_timestamp == 3000000001
-    assert issue.confidence is None
+    assert issue.severity is None
     assert issue.root_causes is None
     assert issue.source_run_id is None
     assert issue.created_by is None
@@ -298,7 +298,7 @@ def test_issue_from_proto_all_fields():
         status="rejected",
         created_timestamp=4000000000,
         last_updated_timestamp=4000000020,
-        confidence="low",
+        severity="low",
         source_run_id="run-from-proto-2",
         created_by="from-proto-user@example.com",
     )
@@ -313,7 +313,7 @@ def test_issue_from_proto_all_fields():
     assert issue.status == "rejected"
     assert issue.created_timestamp == 4000000000
     assert issue.last_updated_timestamp == 4000000020
-    assert issue.confidence == "low"
+    assert issue.severity == "low"
     assert issue.root_causes == ["From proto root cause", "Another cause"]
     assert issue.source_run_id == "run-from-proto-2"
     assert issue.created_by == "from-proto-user@example.com"
@@ -340,7 +340,7 @@ def test_issue_proto_roundtrip_required_fields():
     assert recovered.status == original.status
     assert recovered.created_timestamp == original.created_timestamp
     assert recovered.last_updated_timestamp == original.last_updated_timestamp
-    assert recovered.confidence == original.confidence
+    assert recovered.severity == original.severity
     assert recovered.root_causes == original.root_causes
     assert recovered.source_run_id == original.source_run_id
     assert recovered.created_by == original.created_by
@@ -355,7 +355,7 @@ def test_issue_proto_roundtrip_all_fields():
         status=IssueStatus.PENDING,
         created_timestamp=6000000000,
         last_updated_timestamp=6000000030,
-        confidence="medium",
+        severity="medium",
         root_causes=["Proto roundtrip root cause", "Secondary cause", "Tertiary cause"],
         source_run_id="run-proto-roundtrip-2",
         created_by="roundtrip-user@example.com",
@@ -371,7 +371,7 @@ def test_issue_proto_roundtrip_all_fields():
     assert recovered.status == original.status
     assert recovered.created_timestamp == original.created_timestamp
     assert recovered.last_updated_timestamp == original.last_updated_timestamp
-    assert recovered.confidence == original.confidence
+    assert recovered.severity == original.severity
     assert recovered.root_causes == original.root_causes
     assert recovered.source_run_id == original.source_run_id
     assert recovered.created_by == original.created_by

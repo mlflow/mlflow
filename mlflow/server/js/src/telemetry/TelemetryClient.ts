@@ -6,7 +6,12 @@
  */
 import { v4 as uuidv4 } from 'uuid';
 import type { TelemetryRecord } from './worker/types';
-import { isDesignSystemEvent, TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from './utils';
+import {
+  isDesignSystemEvent,
+  isTelemetryDevLoggingEnabled,
+  TELEMETRY_ENABLED_STORAGE_KEY,
+  TELEMETRY_ENABLED_STORAGE_VERSION,
+} from './utils';
 import { WorkerToClientMessageType, ClientToWorkerMessageType } from './worker/types';
 import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
 
@@ -110,6 +115,14 @@ class TelemetryClient {
         ...(record.value !== undefined && { value: String(record.value) }),
       },
     };
+
+    if (process.env['NODE_ENV'] === 'development' && isTelemetryDevLoggingEnabled()) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[TelemetryClient] Event "${record.eventType}" on component "${record.componentId}", payload:`,
+        payload,
+      );
+    }
 
     this.port?.postMessage({
       type: ClientToWorkerMessageType.LOG_EVENT,

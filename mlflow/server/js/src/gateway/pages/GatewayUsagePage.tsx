@@ -65,7 +65,9 @@ export const GatewayUsagePage = () => {
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
-  const activeTab = searchParams.get('tab') || 'usage';
+  const VALID_TABS = ['usage', 'logs'] as const;
+  const tabParam = searchParams.get('tab');
+  const activeTab = VALID_TABS.includes(tabParam as (typeof VALID_TABS)[number]) ? (tabParam as string) : 'usage';
 
   // Fetch all endpoints to get their experiment IDs
   const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
@@ -260,6 +262,7 @@ export const GatewayUsagePage = () => {
       {/* Tabs */}
       <Tabs.Root
         componentId="mlflow.gateway.usage.tabs"
+        valueHasNoPii
         value={activeTab}
         onValueChange={(value) => {
           setSearchParams(
