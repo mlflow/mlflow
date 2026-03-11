@@ -15,7 +15,7 @@ jobs:
       !contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
       && github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-slim
-    timeout-minutes: 10
+    timeout-minutes: 5
     permissions:
       pull-requests: write
       issues: read
