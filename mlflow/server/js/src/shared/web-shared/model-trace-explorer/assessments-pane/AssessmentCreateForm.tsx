@@ -159,10 +159,14 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
 
         // For existing schemas, update all fields
         setName(schema.name);
-        setDataType(schema.dataType);
+
+        // Clamp data type: JSON is only valid for expectations, fall back to string for feedback
+        const effectiveDataType =
+          schema.dataType === 'json' && assessmentType === 'feedback' ? 'string' : schema.dataType;
+        setDataType(effectiveDataType);
 
         // set the appropriate empty value for the data type
-        switch (schema.dataType) {
+        switch (effectiveDataType) {
           case 'string':
           case 'json':
             setValue('');
@@ -175,7 +179,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
             break;
         }
       },
-      [schemas],
+      [schemas, assessmentType],
     );
 
     return (

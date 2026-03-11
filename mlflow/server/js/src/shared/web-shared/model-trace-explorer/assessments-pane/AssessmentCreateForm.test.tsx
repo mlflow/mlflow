@@ -99,6 +99,38 @@ describe('AssessmentCreateForm', () => {
     });
   });
 
+  describe('handleChangeSchema - data type clamping', () => {
+    it('should clamp JSON data type to string when selecting an existing schema in feedback form', async () => {
+      const user = userEvent.setup();
+
+      // MOCK_EXPECTATION has dataType 'json'
+      const existingAssessments: Assessment[] = [MOCK_EXPECTATION];
+
+      render(
+        <TestWrapper assessments={existingAssessments}>
+          <AssessmentCreateForm {...defaultProps} assessmentType="feedback" />
+        </TestWrapper>,
+      );
+
+      const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
+
+      // Open the name typeahead and select the expectation schema (json type)
+      const nameInput = screen.getByPlaceholderText('Enter a feedback name');
+      await user.click(nameInput);
+
+      await waitFor(() => {
+        expect(screen.getByText('expected_facts')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('expected_facts'));
+
+      // Data type should be clamped to string (not json) since this is a feedback form
+      await waitFor(() => {
+        expect(nameInput).toHaveValue('expected_facts');
+        expect(dataTypeSelect).toHaveTextContent('String');
+      });
+    });
+  });
+
   describe('handleChangeSchema - new assessment names', () => {
     it('should preserve user-selected data type when typing a new assessment name', async () => {
       const user = userEvent.setup();
