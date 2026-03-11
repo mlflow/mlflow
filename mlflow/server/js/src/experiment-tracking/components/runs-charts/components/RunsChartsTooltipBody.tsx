@@ -16,6 +16,7 @@ import Routes from '../../../routes';
 import { useExperimentIds } from '../../experiment-page/hooks/useExperimentIds';
 import type { RunsChartsRunData } from './RunsCharts.common';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
+import Utils from '../../../../common/utils/Utils';
 import type { RunsChartsTooltipBodyProps } from '../hooks/useRunsChartsTooltip';
 import { RunsChartsTooltipMode, containsMultipleRunsTooltipData } from '../hooks/useRunsChartsTooltip';
 import type {
@@ -294,6 +295,7 @@ export const RunsChartsTooltipBody = ({
 
   const runName = activeRun.displayName || activeRun.uuid;
   const metricSuffix = singleTraceHoverData?.metricEntity ? ` (${singleTraceHoverData.metricEntity.key})` : '';
+  const description = Utils.getRunDescriptionFromTags(activeRun.tags);
 
   return (
     <div>
@@ -322,6 +324,8 @@ export const RunsChartsTooltipBody = ({
           />
         )}
       </div>
+
+      {description && <div css={styles.description}>{description}</div>}
 
       <ValuesBox
         isHovering={isHovering}
@@ -404,6 +408,17 @@ const styles = {
     gap: 8,
     alignItems: 'center',
   },
+  description: (theme: Theme) => ({
+    fontSize: theme.typography.fontSizeSm,
+    color: theme.colors.textSecondary,
+    marginBottom: theme.spacing.sm,
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical' as const,
+    overflow: 'hidden',
+    maxWidth: 240,
+    wordBreak: 'break-word' as const,
+  }),
   value: {
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
