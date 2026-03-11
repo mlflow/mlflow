@@ -186,37 +186,42 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
                 {window ? (
-                  <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-                    <Typography.Text color={window.current_spend >= policy.budget_amount ? 'danger' : undefined}>
-                      {formatBudgetAmount(window.current_spend, policy.budget_unit)}
-                    </Typography.Text>
-                    {window.current_spend >= policy.budget_amount && (
-                      <Tooltip
-                        componentId="mlflow.gateway.budgets-list.budget-exceeded-tooltip"
-                        content={formatMessage(
-                          {
-                            defaultMessage: 'Budget exceeded: {spend} of {limit} spent',
-                            description: 'Tooltip shown when current spend exceeds the budget limit',
-                          },
-                          {
-                            spend: formatBudgetAmount(window.current_spend, policy.budget_unit),
-                            limit: formatBudgetAmount(policy.budget_amount, policy.budget_unit),
-                          },
+                  (() => {
+                    const isBudgetExceeded = window.current_spend >= policy.budget_amount;
+                    return (
+                      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                        <Typography.Text color={isBudgetExceeded ? 'error' : undefined}>
+                          {formatBudgetAmount(window.current_spend, policy.budget_unit)}
+                        </Typography.Text>
+                        {isBudgetExceeded && (
+                          <Tooltip
+                            componentId="mlflow.gateway.budgets-list.budget-exceeded-tooltip"
+                            content={formatMessage(
+                              {
+                                defaultMessage: 'Budget exceeded: {spend} of {limit} spent',
+                                description: 'Tooltip shown when current spend exceeds the budget limit',
+                              },
+                              {
+                                spend: formatBudgetAmount(window.current_spend, policy.budget_unit),
+                                limit: formatBudgetAmount(policy.budget_amount, policy.budget_unit),
+                              },
+                            )}
+                          >
+                            <WarningFillIcon
+                              aria-label={formatMessage({
+                                defaultMessage: 'Budget exceeded',
+                                description: 'Warning icon label for exceeded budget',
+                              })}
+                              css={{
+                                fontSize: theme.typography.fontSizeSm,
+                                color: theme.colors.textValidationDanger,
+                              }}
+                            />
+                          </Tooltip>
                         )}
-                      >
-                        <WarningFillIcon
-                          aria-label={formatMessage({
-                            defaultMessage: 'Budget exceeded',
-                            description: 'Warning icon label for exceeded budget',
-                          })}
-                          css={{
-                            fontSize: theme.typography.fontSizeSm,
-                            color: theme.colors.textValidationDanger,
-                          }}
-                        />
-                      </Tooltip>
-                    )}
-                  </div>
+                      </div>
+                    );
+                  })()
                 ) : (
                   <Typography.Text color="secondary">—</Typography.Text>
                 )}
