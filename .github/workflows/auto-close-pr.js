@@ -73,7 +73,7 @@ module.exports = async ({ context, github }) => {
     body: [
       `This PR was automatically closed because the referenced issue #${issue.number} hasn't been triaged yet (missing the \`ready\` label).`,
       "This doesn't mean your contribution won't be merged. Once a maintainer reviews the issue and applies the `ready` label, feel free to reopen this PR.",
-      "Please do not force-push to or delete this branch, as that will make this PR unable to be reopened.",
+      "Please do not force-push to or delete the PR branch, as that will make this PR unable to be reopened.",
     ].join(" "),
   });
 
