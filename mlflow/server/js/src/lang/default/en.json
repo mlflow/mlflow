@@ -9327,6 +9327,10 @@
     "defaultMessage": "Copied to clipboard",
     "description": "Success message for the notification"
   },
+  "xhAFcl": {
+    "defaultMessage": "Failed to cancel job: {error}",
+    "description": "Error message when job cancellation fails"
+  },
   "xiFkTH": {
     "defaultMessage": "Use for evaluation",
     "description": "Trace actions dropdown group label"
