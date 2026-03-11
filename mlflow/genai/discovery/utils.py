@@ -201,3 +201,16 @@ def format_trace_content(trace: Trace) -> str:
     if errors := extract_span_errors(trace):
         parts.append(f"Errors: {errors}")
     return "\n".join(parts) if parts else "(trace content not available)"
+
+
+def format_annotation_prompt(issue: Issue, trace_content: str, triage_rationale: str) -> str:
+    return (
+        f"=== ISSUE ===\n"
+        f"Name: {issue.name}\n"
+        f"Description: {issue.description}\n"
+        f"Root causes: {'; '.join(issue.root_causes or [])}\n\n"
+        f"=== TRACE ===\n"
+        f"{trace_content}\n\n"
+        f"=== TRIAGE JUDGE RATIONALE ===\n"
+        f"{triage_rationale or '(not available)'}"
+    )

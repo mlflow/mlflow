@@ -6,6 +6,7 @@ import time
 import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
@@ -37,11 +38,10 @@ from mlflow.genai.discovery.entities import (
     _IdentifiedIssue,
 )
 from mlflow.genai.discovery.extraction import (
-    extract_assessment_rationale,
+    collect_session_rationales,
     extract_execution_paths_for_session,
     extract_failing_traces,
     extract_failure_labels,
-    extract_span_errors,
 )
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.genai.discovery.utils import (
@@ -49,6 +49,7 @@ from mlflow.genai.discovery.utils import (
     _TokenCounter,
     build_summary,
     collect_example_trace_ids,
+    format_annotation_prompt,
     format_trace_content,
     get_session_id,
     group_traces_by_session,
@@ -68,6 +69,57 @@ def _is_non_issue(issue: _IdentifiedIssue) -> bool:
     return issue.severity == "not_an_issue" or NO_ISSUE_KEYWORD.lower() in issue.name.lower()
 
 
+@dataclass
+class _AnnotationWorkItem:
+    issue: Issue
+    trace_id: str
+    triage_rationale: str
+    session_id: str | None
+
+
+def _build_annotation_work_items(
+    issues: list[Issue],
+    issue_trace_ids: dict[str, list[str]],
+    rationale_map: dict[str, str],
+    trace_to_session: dict[str, str] | None = None,
+    session_first_trace: dict[str, str] | None = None,
+) -> list[_AnnotationWorkItem]:
+    """Build one work item per (issue, trace) or per (issue, session).
+
+    When session mappings are provided, groups affected traces by session
+    and produces one item per session targeting the session's first trace.
+    """
+    work_items: list[_AnnotationWorkItem] = []
+    for issue in issues:
+        trace_ids = issue_trace_ids.get(issue.issue_id, [])
+        if trace_to_session and session_first_trace:
+            by_session: dict[str, list[str]] = {}
+            for tid in trace_ids:
+                by_session.setdefault(trace_to_session.get(tid, tid), []).append(tid)
+            for session_id, tids in by_session.items():
+                work_items.append(
+                    _AnnotationWorkItem(
+                        issue=issue,
+                        trace_id=session_first_trace.get(session_id, tids[0]),
+                        triage_rationale=next(
+                            (rationale_map[t] for t in tids if t in rationale_map), ""
+                        ),
+                        session_id=session_id,
+                    )
+                )
+        else:
+            work_items.extend(
+                _AnnotationWorkItem(
+                    issue=issue,
+                    trace_id=tid,
+                    triage_rationale=rationale_map.get(tid, ""),
+                    session_id=None,
+                )
+                for tid in trace_ids
+            )
+    return work_items
+
+
 def _annotate_issue_traces(
     issues: list[Issue],
     issue_trace_ids: dict[str, list[str]],
@@ -79,7 +131,7 @@ def _annotate_issue_traces(
     token_counter: _TokenCounter | None = None,
 ) -> None:
     """
-    Log a Feedback assessment for each issue on affected traces.
+    Log an Issue assessment for each issue on affected traces.
 
     When session information is provided, logs one annotation per (issue,
     session) on the session's first trace. Otherwise annotates each trace
@@ -99,46 +151,17 @@ def _annotate_issue_traces(
         source_type=AssessmentSourceType.LLM_JUDGE,
         source_id=model,
     )
-
-    # Build work items: (issue, target_trace_id, triage_rationale, session_id)
-    # When sessions are available, log one annotation per (issue, session)
-    # on the session's first trace with session metadata.
-    work_items: list[tuple[Issue, str, str, str | None]] = []
-    for issue in issues:
-        trace_ids = issue_trace_ids.get(issue.issue_id, [])
-        if trace_to_session and session_first_trace:
-            session_traces: dict[str, list[str]] = {}
-            for tid in trace_ids:
-                session_id = trace_to_session.get(tid, tid)
-                session_traces.setdefault(session_id, []).append(tid)
-            for session_id, tids in session_traces.items():
-                target = session_first_trace.get(session_id, tids[0])
-                rationale = next((rationale_map[t] for t in tids if t in rationale_map), "")
-                work_items.append((issue, target, rationale, session_id))
-        else:
-            work_items.extend(
-                (issue, trace_id, rationale_map.get(trace_id, ""), None) for trace_id in trace_ids
-            )
-
+    work_items = _build_annotation_work_items(
+        issues, issue_trace_ids, rationale_map, trace_to_session, session_first_trace
+    )
     if not work_items:
         return
 
-    def _annotate_one(
-        issue: Issue, trace_id: str, triage_rationale: str, session_id: str | None
-    ) -> str | None:
-        trace = trace_lookup.get(trace_id)
+    def _annotate_one(item: _AnnotationWorkItem) -> str | None:
+        trace = trace_lookup.get(item.trace_id)
         trace_content = format_trace_content(trace) if trace else "(trace not available)"
+        user_content = format_annotation_prompt(item.issue, trace_content, item.triage_rationale)
 
-        user_content = (
-            f"=== ISSUE ===\n"
-            f"Name: {issue.name}\n"
-            f"Description: {issue.description}\n"
-            f"Root causes: {'; '.join(issue.root_causes or [])}\n\n"
-            f"=== TRACE ===\n"
-            f"{trace_content}\n\n"
-            f"=== TRIAGE JUDGE RATIONALE ===\n"
-            f"{triage_rationale or '(not available)'}"
-        )
         try:
             response = _call_llm(
                 model,
@@ -150,24 +173,26 @@ def _annotate_issue_traces(
             )
             annotation = (response.choices[0].message.content or "").strip()
         except Exception:
-            _logger.debug("Failed to generate annotation for trace %s", trace_id, exc_info=True)
+            _logger.debug(
+                "Failed to generate annotation for trace %s", item.trace_id, exc_info=True
+            )
             annotation = (
-                f"This trace was flagged for issue '{issue.name}'. "
-                f"Triage rationale: {triage_rationale or '(not available)'}"
+                f"This trace was flagged for issue '{item.issue.name}'. "
+                f"Triage rationale: {item.triage_rationale or '(not available)'}"
             )
 
-        metadata = {TraceMetadataKey.TRACE_SESSION: session_id} if session_id else None
+        metadata = {TraceMetadataKey.TRACE_SESSION: item.session_id} if item.session_id else None
         try:
             mlflow.log_issue(
-                trace_id=trace_id,
-                issue_id=issue.issue_id,
-                issue_name=issue.name,
+                trace_id=item.trace_id,
+                issue_id=item.issue.issue_id,
+                issue_name=item.issue.name,
                 source=source,
                 rationale=annotation,
                 metadata=metadata,
             )
         except Exception:
-            _logger.debug("Failed to log issue for trace %s", trace_id, exc_info=True)
+            _logger.debug("Failed to log issue for trace %s", item.trace_id, exc_info=True)
             return None
         return annotation
 
@@ -175,14 +200,8 @@ def _annotate_issue_traces(
     with ThreadPoolExecutor(
         max_workers=max_workers, thread_name_prefix="MlflowIssueDiscoveryAnnotate"
     ) as executor:
-        future_to_item = {
-            executor.submit(_annotate_one, issue, trace_id, rationale, session_id): (
-                issue,
-                trace_id,
-            )
-            for issue, trace_id, rationale, session_id in work_items
-        }
-        for future in as_completed(future_to_item):
+        futures = {executor.submit(_annotate_one, item): item for item in work_items}
+        for future in as_completed(futures):
             future.result()
 
 
@@ -197,6 +216,11 @@ def _build_analyses(
     For each session with failing traces, combines triage rationales,
     human feedback, and span errors into a single ConversationAnalysis.
 
+    Args:
+        triage_traces: All traces from the triage phase (passing and failing).
+        rationale_map: Mapping of trace_id to triage rationale for failing traces.
+        scorer_name: Name of the triage scorer, used to look up human feedback.
+
     Returns:
         A tuple of (analyses, session_groups) where session_groups maps
         session_id to the list of traces in that session.
@@ -209,19 +233,7 @@ def _build_analyses(
         ]
         if not session_failing:
             continue
-        rationales: list[str] = []
-        seen_rationales: set[str] = set()
-
-        def _add_rationale(text: str, prefix: str = "") -> None:
-            if text and text not in seen_rationales:
-                seen_rationales.add(text)
-                rationales.append(f"{prefix}{text}" if prefix else text)
-
-        for trace in session_failing:
-            _add_rationale(rationale_map[trace.info.trace_id])
-            _add_rationale(extract_assessment_rationale(trace, scorer_name), "[human feedback] ")
-            _add_rationale(extract_span_errors(trace), "[span errors] ")
-        combined_rationale = "; ".join(rationales)
+        combined_rationale = collect_session_rationales(session_failing, rationale_map, scorer_name)
         if not combined_rationale:
             continue
         exec_path = extract_execution_paths_for_session(session_failing)
@@ -285,7 +297,6 @@ def _resplit_incoherent_clusters(
 
 
 def _dedup_issues_by_name(issues: list[_IdentifiedIssue]) -> list[_IdentifiedIssue]:
-    """Merge issues with identical names, combining indices and keeping higher severity."""
     seen_names: dict[str, int] = {}
     deduped: list[_IdentifiedIssue] = []
     for issue in issues:
@@ -308,7 +319,6 @@ def _merge_singleton_issues(
     max_issues: int,
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
-    """Re-cluster singleton issues via a second LLM pass to merge orphaned groups."""
     singletons = [i for i in identified if len(i.example_indices) == 1]
     multi_member = [i for i in identified if len(i.example_indices) > 1]
     if len(singletons) < 2:
@@ -548,7 +558,7 @@ def discover_issues(
         scorers[0], test_session[0] if test_session else triage_traces[0], session=test_session
     )
 
-    with mlflow.start_run(run_name="discover_issues - triage"):
+    with mlflow.start_run(run_name="discover_issues"):
         triage_eval = mlflow.genai.evaluate(
             data=triage_traces,
             scorers=scorers,
