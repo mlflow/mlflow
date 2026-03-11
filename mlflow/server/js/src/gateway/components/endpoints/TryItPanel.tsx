@@ -152,7 +152,19 @@ export const TryItPanel = ({
           </div>
         </div>
       </div>
-      <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'flex',
+          gap: theme.spacing.sm,
+          position: 'sticky',
+          bottom: 0,
+          backgroundColor: theme.colors.backgroundPrimary,
+          paddingTop: theme.spacing.sm,
+          paddingBottom: theme.spacing.sm,
+          borderTop: `1px solid ${theme.colors.border}`,
+          zIndex: 1,
+        }}
+      >
         <Button
           componentId="mlflow.gateway.usage-modal.try-it.send"
           type="primary"
