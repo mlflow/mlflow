@@ -24,20 +24,6 @@ Benchmark suite for measuring the latency overhead and scalability of the MLflow
 
 ## Architecture
 
-### Gateway-only benchmark (`run_benchmark.sh`)
-
-```
-┌─────────┐     ┌──────────────────────┐     ┌──────────────────┐
-│  Locust  │────▶│  MLflow AI Gateway   │────▶│  Fake OpenAI     │
-│  (load)  │◀────│  + OverheadMiddleware │◀────│  Server          │
-└─────────┘     └──────────────────────┘     └──────────────────┘
-                         │
-                ┌────────▼────────┐
-                │ Resource Monitor │
-                │ (CPU, Memory)    │
-                └─────────────────┘
-```
-
 ### Head-to-head comparison (`run_comparison.sh`)
 
 ```
@@ -60,27 +46,19 @@ Both proxies run on the same machine, same number of workers, hitting the same f
 
 | File                               | Purpose                                                                                                                                       |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Core benchmark**                 |                                                                                                                                               |
+| **Shared**                         |                                                                                                                                               |
 | `fake_openai_server.py`            | FastAPI app returning canned OpenAI-compatible responses (chat, completions, embeddings) with configurable delay via `FAKE_RESPONSE_DELAY_MS` |
-| `gateway_config.yaml`              | MLflow Gateway config with 3 endpoints pointing at fake server on `127.0.0.1:9000`                                                            |
-| `overhead_middleware.py`           | Starlette `BaseHTTPMiddleware` that adds `X-MLflow-Gateway-Overhead-Ms` response header                                                       |
-| `run_gateway_with_middleware.py`   | App factory (`create_app()`) wrapping `create_app_from_path` with `OverheadMiddleware` — no production code changes                           |
-| `locustfile.py`                    | Locust `HttpUser` with weighted tasks: chat (8), completions (1), embeddings (1); captures overhead header as custom metric                   |
-| `collect_resources.py`             | Polls `psutil` every 1s for CPU%, RSS, VMS, thread count across gateway + child workers; writes CSV                                           |
-| `run_benchmark.sh`                 | Orchestration: starts fake server, gateway, resource monitor, runs Locust, analyzes results, cleans up                                        |
-| `analyze_results.py`               | Reads Locust CSV + resource CSV, prints summary table with latency/RPS/overhead/resource stats                                                |
-| **Head-to-head comparison**        |                                                                                                                                               |
-| `litellm_config.yaml`              | LiteLLM proxy config pointing at the same fake server                                                                                         |
 | `benchmark_compare.py`             | aiohttp-based benchmark (matches LiteLLM's `benchmark_mock.py`), runs both proxies sequentially with warmup, prints comparison table          |
+| `setup_tracking_server.py`         | Creates secret + model definition + endpoint via REST API in a running tracking server                                                        |
+| **Head-to-head comparison**        |                                                                                                                                               |
+| `litellm_config.yaml`              | LiteLLM proxy config pointing at the same fake server (YAML-only, no DB)                                                                      |
 | `run_comparison.sh`                | Starts fake server + MLflow AI Gateway (SQLite) + LiteLLM (YAML) + runs `benchmark_compare.py`                                                |
 | **Tracking server benchmark**      |                                                                                                                                               |
-| `setup_tracking_server.py`         | Creates secret + model definition + endpoint via REST API in a running tracking server                                                        |
 | `run_tracking_server_benchmark.sh` | Starts fake server + `mlflow server` with SQLite + sets up endpoint + runs benchmark                                                          |
 | **Full-stack comparison**          |                                                                                                                                               |
 | `litellm_config_db.yaml`           | LiteLLM proxy config with PostgreSQL `database_url` for spend tracking                                                                        |
 | `run_full_stack_comparison.sh`     | Starts PostgreSQL (Docker) + MLflow AI Gateway (PostgreSQL) + LiteLLM (PostgreSQL) + runs comparison benchmark                                |
 | **Other**                          |                                                                                                                                               |
-| `requirements.txt`                 | `locust>=2.20`, `psutil>=5.9`                                                                                                                 |
 | `.gitignore`                       | Ignores `results/` directory                                                                                                                  |
 
 ### Modified existing files
@@ -94,27 +72,6 @@ Both proxies run on the same machine, same number of workers, hitting the same f
 ---
 
 ## Key Implementation Details
-
-### Overhead measurement
-
-The `OverheadMiddleware` wraps the entire request lifecycle (including the upstream HTTP call to the fake server). To isolate the **pure proxy overhead**, subtract the fake delay from the measured latency:
-
-```
-proxy_overhead = measured_latency - FAKE_RESPONSE_DELAY_MS
-```
-
-With `FAKE_RESPONSE_DELAY_MS=50`, a measured p50 of 54ms means ~4ms of proxy overhead.
-
-### No production code changes
-
-The gateway is launched via a factory function that imports `create_app_from_path` and adds middleware externally:
-
-```python
-def create_app():
-    gateway_app = create_app_from_path(config_path)
-    gateway_app.add_middleware(OverheadMiddleware)
-    return gateway_app
-```
 
 ### `uv run` auto-detection
 
@@ -133,24 +90,9 @@ Gunicorn workers on macOS hit an Objective-C runtime crash on `fork()`. The scri
 ```bash
 # If running inside the MLflow repo with uv (recommended):
 uv sync
-uv pip install -r benchmarks/gateway/requirements.txt
 
 # Otherwise:
-pip install mlflow[gateway] -r benchmarks/gateway/requirements.txt
-```
-
-### Smoke test (5 users, 10 seconds)
-
-```bash
-cd benchmarks/gateway
-LOCUST_USERS=5 LOCUST_RUN_TIME=10s bash run_benchmark.sh
-```
-
-### Full gateway benchmark
-
-```bash
-cd benchmarks/gateway
-GATEWAY_WORKERS=4 LOCUST_USERS=50 LOCUST_RUN_TIME=15s bash run_benchmark.sh
+pip install mlflow[gateway]
 ```
 
 ### Head-to-head vs LiteLLM
@@ -161,65 +103,57 @@ pip install 'litellm[proxy]'  # or: uv pip install 'litellm[proxy]'
 GATEWAY_WORKERS=4 REQUESTS=2000 MAX_CONCURRENT=50 RUNS=3 bash run_comparison.sh
 ```
 
+### MLflow-only tracking server benchmark
+
+```bash
+cd benchmarks/gateway
+bash run_tracking_server_benchmark.sh
+```
+
+### Full-stack comparison (both on PostgreSQL, requires Docker)
+
+```bash
+cd benchmarks/gateway
+pip install 'litellm[proxy]'
+bash run_full_stack_comparison.sh
+```
+
 ---
 
 ## Benchmark Configurations
 
-### `run_benchmark.sh` environment variables
-
-| Variable                 | Default               | Description                                |
-| ------------------------ | --------------------- | ------------------------------------------ |
-| `GATEWAY_WORKERS`        | 2                     | Number of gunicorn workers for the gateway |
-| `LOCUST_USERS`           | 1000                  | Concurrent simulated users                 |
-| `LOCUST_SPAWN_RATE`      | 500                   | Users spawned per second                   |
-| `LOCUST_RUN_TIME`        | 60s                   | Test duration                              |
-| `FAKE_RESPONSE_DELAY_MS` | 50                    | Simulated provider latency (ms)            |
-| `FAKE_SERVER_PORT`       | 9000                  | Port for fake OpenAI server                |
-| `GATEWAY_PORT`           | 5000                  | Port for the gateway                       |
-| `FAKE_SERVER_WORKERS`    | `GATEWAY_WORKERS * 2` | Workers for fake server (auto-scaled)      |
-
 ### `run_comparison.sh` environment variables
 
-| Variable                 | Default | Description                     |
-| ------------------------ | ------- | ------------------------------- |
-| `GATEWAY_WORKERS`        | 4       | Workers for both proxies        |
-| `REQUESTS`               | 2000    | Total requests per run          |
-| `MAX_CONCURRENT`         | 50      | Max concurrent requests         |
-| `RUNS`                   | 3       | Number of benchmark runs        |
-| `FAKE_RESPONSE_DELAY_MS` | 50      | Simulated provider latency (ms) |
+| Variable                 | Default | Description                                         |
+| ------------------------ | ------- | --------------------------------------------------- |
+| `GATEWAY_WORKERS`        | 4       | Workers for both proxies                            |
+| `REQUESTS`               | 2000    | Total requests per run                              |
+| `MAX_CONCURRENT`         | 50      | Max concurrent requests                             |
+| `RUNS`                   | 3       | Number of benchmark runs                            |
+| `FAKE_RESPONSE_DELAY_MS` | 50      | Simulated provider latency (ms)                     |
+| `USAGE_TRACKING`         | false   | Enable MLflow usage tracking (set `true` to enable) |
 
-### Suggested test matrix
+### `run_tracking_server_benchmark.sh` environment variables
 
-| Config    | Workers | Fake Delay | Purpose                     |
-| --------- | ------- | ---------- | --------------------------- |
-| Overhead  | 2       | 0 ms       | Isolate pure proxy overhead |
-| Default   | 2       | 50 ms      | Default gateway behavior    |
-| Scaled    | 4       | 50 ms      | Match LiteLLM's 4-CPU setup |
-| Realistic | 4       | 100 ms     | Simulate real API latency   |
+| Variable                  | Default | Description                                            |
+| ------------------------- | ------- | ------------------------------------------------------ |
+| `TRACKING_SERVER_WORKERS` | 4       | Workers for `mlflow server`                            |
+| `REQUESTS`                | 2000    | Total requests per run                                 |
+| `MAX_CONCURRENT`          | 50      | Max concurrent requests                                |
+| `RUNS`                    | 3       | Number of benchmark runs                               |
+| `FAKE_RESPONSE_DELAY_MS`  | 50      | Simulated provider latency (ms)                        |
+| `USAGE_TRACKING`          | true    | Enable usage tracking/tracing (set `false` to disable) |
 
-```bash
-# Run the full matrix:
-for delay in 0 50 100; do
-  for workers in 2 4; do
-    GATEWAY_WORKERS=$workers FAKE_RESPONSE_DELAY_MS=$delay \
-      LOCUST_USERS=50 LOCUST_RUN_TIME=15s bash run_benchmark.sh
-  done
-done
-```
+### `run_full_stack_comparison.sh` environment variables
 
-### Output files
-
-Results are saved to `results/<timestamp>_w<workers>_d<delay>ms_u<users>/`:
-
-| File                       | Content                        |
-| -------------------------- | ------------------------------ |
-| `locust_stats.csv`         | Aggregated request statistics  |
-| `locust_stats_history.csv` | Time-series stats (per-second) |
-| `resources.csv`            | CPU/memory usage over time     |
-| `config.txt`               | Benchmark configuration        |
-| `locust_output.log`        | Full Locust console output     |
-| `gateway.log`              | Gateway server logs            |
-| `fake_server.log`          | Fake OpenAI server logs        |
+| Variable                 | Default | Description                                           |
+| ------------------------ | ------- | ----------------------------------------------------- |
+| `WORKERS`                | 4       | Workers for both proxies                              |
+| `REQUESTS`               | 2000    | Total requests per run                                |
+| `MAX_CONCURRENT`         | 50      | Max concurrent requests                               |
+| `RUNS`                   | 3       | Number of benchmark runs                              |
+| `FAKE_RESPONSE_DELAY_MS` | 50      | Simulated provider latency (ms)                       |
+| `USAGE_TRACKING`         | true    | Enable MLflow usage tracking (set `false` to disable) |
 
 ---
 
@@ -313,17 +247,6 @@ USAGE_TRACKING=false bash run_tracking_server_benchmark.sh
                                     └───────────────────────────────┘
 ```
 
-### Configuration
-
-| Variable                  | Default | Description                                            |
-| ------------------------- | ------- | ------------------------------------------------------ |
-| `TRACKING_SERVER_WORKERS` | 4       | Workers for `mlflow server`                            |
-| `REQUESTS`                | 2000    | Total requests per run                                 |
-| `MAX_CONCURRENT`          | 50      | Max concurrent requests                                |
-| `RUNS`                    | 3       | Number of benchmark runs                               |
-| `FAKE_RESPONSE_DELAY_MS`  | 50      | Simulated provider latency (ms)                        |
-| `USAGE_TRACKING`          | true    | Enable usage tracking/tracing (set `false` to disable) |
-
 ### What it does
 
 1. Starts a fake OpenAI server (gunicorn, 8 workers, port 9000)
@@ -389,17 +312,6 @@ USAGE_TRACKING=false bash run_full_stack_comparison.sh
                    └───────────────┘
 ```
 
-### Configuration
-
-| Variable                 | Default | Description                                           |
-| ------------------------ | ------- | ----------------------------------------------------- |
-| `WORKERS`                | 4       | Workers for both proxies                              |
-| `REQUESTS`               | 2000    | Total requests per run                                |
-| `MAX_CONCURRENT`         | 50      | Max concurrent requests                               |
-| `RUNS`                   | 3       | Number of benchmark runs                              |
-| `FAKE_RESPONSE_DELAY_MS` | 50      | Simulated provider latency (ms)                       |
-| `USAGE_TRACKING`         | true    | Enable MLflow usage tracking (set `false` to disable) |
-
 ### What each side does per request
 
 | Operation      | MLflow (tracking server)                   | LiteLLM (PostgreSQL)                  |
@@ -421,11 +333,11 @@ Both proxies use the same PostgreSQL instance (separate databases). Key architec
 
 ## Preliminary Results
 
-All results: MacBook Pro (Apple Silicon), 4 workers, 50 concurrent users, 2000 requests/run, 3 runs, 50ms fake delay.
+All results: MacBook Pro (Apple Silicon), 4 workers, 50 concurrent users, 50ms fake delay.
 
 ### Head-to-head: MLflow AI Gateway vs LiteLLM (barebone)
 
-MLflow AI Gateway with SQLite (usage tracking OFF) vs LiteLLM with YAML config (no DB, `callbacks: []`).
+MLflow AI Gateway with SQLite (usage tracking OFF) vs LiteLLM with YAML config (no DB, `callbacks: []`). 2000 requests/run, 3 runs.
 
 | Metric          | MLflow AI Gateway | LiteLLM |
 | --------------- | ----------------- | ------- |
@@ -439,7 +351,7 @@ The MLflow AI Gateway resolves endpoint config from the database on every reques
 
 ### Full-stack: MLflow (PostgreSQL) vs LiteLLM (PostgreSQL)
 
-Both proxies with PostgreSQL backend and usage/spend tracking enabled.
+Both proxies with PostgreSQL backend and usage/spend tracking enabled. 2000 requests/run, 3 runs.
 
 | Metric          | MLflow AI Gateway | LiteLLM |
 | --------------- | ----------------- | ------- |
@@ -453,7 +365,7 @@ PostgreSQL is actually _slower_ for MLflow than SQLite (14 rps vs 21 rps) becaus
 
 ### MLflow AI Gateway: SQLite vs PostgreSQL
 
-Same AI Gateway code path, different DB backends (usage tracking ON).
+Same AI Gateway code path, different DB backends (usage tracking ON). 2000 requests/run, 3 runs.
 
 | Metric          | SQLite   | PostgreSQL |
 | --------------- | -------- | ---------- |
@@ -487,6 +399,16 @@ Caching the endpoint config alone gives a **3.4x throughput improvement**.
 
 **With both optimizations, MLflow is 1.6x faster than LiteLLM** (841 vs 539 rps) — the core proxy path is not the bottleneck.
 
+**Barebone comparison with cache (SQLite, usage tracking OFF, 2000 req/run, 3 runs):**
+
+| Metric          | MLflow AI Gateway | LiteLLM |
+| --------------- | ----------------- | ------- |
+| **P50 latency** | 55 ms             | 81 ms   |
+| **P95 latency** | 74 ms             | 123 ms  |
+| **P99 latency** | 105 ms            | 298 ms  |
+| **Throughput**  | 844 rps           | 577 rps |
+| **Failures**    | 0                 | 0       |
+
 ### Bottleneck breakdown
 
 | Bottleneck                        | Overhead factor | Evidence                             |
@@ -517,7 +439,6 @@ ssh benchmark-server
 git clone https://github.com/mlflow/mlflow.git
 cd mlflow
 pip install -e '.[gateway]'
-pip install -r benchmarks/gateway/requirements.txt
 pip install 'litellm[proxy]'
 
 # Increase file descriptor limit (critical for high concurrency)
@@ -526,9 +447,6 @@ ulimit -n 65536
 # Run head-to-head comparison
 cd benchmarks/gateway
 GATEWAY_WORKERS=4 REQUESTS=10000 MAX_CONCURRENT=200 RUNS=5 bash run_comparison.sh
-
-# Run the full Locust-based benchmark
-GATEWAY_WORKERS=4 LOCUST_USERS=500 LOCUST_RUN_TIME=120s bash run_benchmark.sh
 ```
 
 ### Option 2: Separate machines (recommended for high fidelity)
@@ -539,8 +457,8 @@ Use 3 machines to eliminate resource contention:
 ┌─────────────┐     ┌─────────────────┐     ┌──────────────────┐
 │ Machine A    │────▶│ Machine B       │────▶│ Machine C        │
 │ Load Gen     │     │ Proxy Under Test│     │ Fake OpenAI      │
-│ (Locust /    │◀────│ (MLflow or      │◀────│ Server           │
-│  aiohttp)    │     │  LiteLLM)       │     │                  │
+│ (aiohttp)    │◀────│ (MLflow or      │◀────│ Server           │
+│              │     │  LiteLLM)       │     │                  │
 └─────────────┘     └─────────────────┘     └──────────────────┘
 ```
 
@@ -572,7 +490,6 @@ litellm --config litellm_config.yaml --port 4000 --num_workers 4
 **Machine A — Load generator:**
 
 ```bash
-# aiohttp benchmark (apples-to-apples with LiteLLM methodology)
 python benchmark_compare.py \
     --target both \
     --requests 10000 \
@@ -580,51 +497,6 @@ python benchmark_compare.py \
     --runs 5 \
     --mlflow-url http://<machine-b>:5000/gateway/benchmark-chat/mlflow/invocations \
     --litellm-url http://<machine-b>:4000/chat/completions
-
-# OR Locust benchmark (with overhead header tracking)
-locust -f locustfile.py \
-    --host http://<machine-b>:5000 \
-    --headless --users 500 --spawn-rate 100 --run-time 120s \
-    --csv results/server_run
-```
-
-### Option 3: Docker Compose
-
-Create a `docker-compose.yaml` to standardize the environment:
-
-```yaml
-services:
-  fake-openai:
-    build: .
-    command: gunicorn fake_openai_server:app -k uvicorn.workers.UvicornWorker -w 16 -b 0.0.0.0:9000
-    environment:
-      FAKE_RESPONSE_DELAY_MS: 50
-    ports: ["9000:9000"]
-    deploy:
-      resources:
-        limits: { cpus: "4", memory: 4G }
-
-  mlflow-gateway:
-    build: .
-    command: >
-      mlflow server
-      --backend-store-uri sqlite:///mlflow.db
-      --host 0.0.0.0 --port 5000 --workers 4
-      --disable-security-middleware
-    ports: ["5000:5000"]
-    depends_on: [fake-openai]
-    deploy:
-      resources:
-        limits: { cpus: "4", memory: 8G }
-
-  litellm:
-    image: ghcr.io/berriai/litellm:main-latest
-    command: --config /app/litellm_config.yaml --port 4000 --num_workers 4
-    ports: ["4000:4000"]
-    depends_on: [fake-openai]
-    deploy:
-      resources:
-        limits: { cpus: "4", memory: 8G }
 ```
 
 ### Tips for server benchmarks
@@ -638,8 +510,6 @@ services:
 4. **Multiple runs**: Use `--runs 5` or more for statistical significance. The comparison script reports run-to-run variance.
 
 5. **Warm up the system**: The first run typically has higher latency. Use warmup runs or discard the first result.
-
-6. **Monitor with `collect_resources.py`**: Run it against each proxy PID to track CPU/memory during the test.
 
 ---
 
@@ -684,10 +554,6 @@ The MLflow Gateway's `send_request()` in `mlflow/gateway/providers/utils.py` cre
 **Impact**: Limits local laptop benchmarks to shorter durations or lower concurrency. On a server with separate machines (load gen / proxy / backend), this is less of an issue since TCP connections are distributed across network interfaces.
 
 **Potential fix**: Add a persistent `aiohttp.ClientSession` with a `TCPConnector` pool to the provider base class. This would also improve real-world performance.
-
-### CPU measurement on macOS
-
-`psutil.cpu_percent()` returns 0% for gunicorn worker trees on macOS due to how the OS reports CPU for forked processes. On Linux, CPU tracking works correctly.
 
 ### LiteLLM `network_mock` mode
 

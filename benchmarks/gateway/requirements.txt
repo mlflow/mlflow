@@ -1,2 +1,0 @@
-locust>=2.20
-psutil>=5.9
