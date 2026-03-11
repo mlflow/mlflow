@@ -74,7 +74,9 @@ if hasattr(os, "register_at_fork"):
     # from generating the same ID sequence as the parent process.
 
     def _reseed():
-        for r in _private_random_generators:
+        # use `tuple` to create a snapshot of the set for iterating,
+        # to avoid concurrency issue.
+        for r in tuple(_private_random_generators):
             r.seed()
 
     os.register_at_fork(after_in_child=_reseed)
