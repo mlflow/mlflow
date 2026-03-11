@@ -40,10 +40,18 @@ const PromptNameCellRenderer: ColumnDef<LinkedPromptsRow>['cell'] = ({ row }) =>
     const searchParams = new URLSearchParams();
     searchParams.set(PROMPT_VERSION_QUERY_PARAM, version);
     const routeWithVersion = `${baseRoute}?${searchParams.toString()}`;
-    return <Link to={routeWithVersion}>{name}</Link>;
+    return (
+      <Link componentId="mlflow.experiment_tracking.linked_prompts.prompt_version_link" to={routeWithVersion}>
+        {name}
+      </Link>
+    );
   }
 
-  return <Link to={baseRoute}>{name}</Link>;
+  return (
+    <Link componentId="mlflow.experiment_tracking.linked_prompts.prompt_name_link" to={baseRoute}>
+      {name}
+    </Link>
+  );
 };
 
 const VersionCellRenderer: ColumnDef<LinkedPromptsRow>['cell'] = ({ row }) => {

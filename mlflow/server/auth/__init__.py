@@ -51,6 +51,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -2183,7 +2184,13 @@ def set_can_manage_scorer_permission(resp: Response):
     experiment_id = response_message.experiment_id
     name = response_message.name
     username = authenticate_request().username
-    store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
+    try:
+        store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+            pass  # Permission already exists from a previous registration
+        else:
+            raise
 
 
 def delete_scorer_permissions_cascade(resp: Response):

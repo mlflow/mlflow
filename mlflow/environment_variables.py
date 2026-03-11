@@ -632,6 +632,14 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
+#: If True, the gateway will attempt to resolve API keys from environment variables
+#: (``$``-prefixed values). This is only enabled for the legacy YAML-config gateway
+#: (``mlflow gateway start``).
+#: (default: ``False``)
+MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV = _BooleanEnvironmentVariable(
+    "MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV", False
+)
+
 #: If True, the gateway will attempt to resolve API keys from local file paths.
 #: This is only enabled for the legacy YAML-config gateway (``mlflow gateway start``).
 #: (default: ``False``)
@@ -640,9 +648,9 @@ MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE = _BooleanEnvironmentVariable(
 )
 
 #: How often (in seconds) the gateway budget tracker re-fetches policies from the database.
-#: (default: ``60``)
+#: (default: ``600``)
 MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
-    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 60
+    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 600
 )
 
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
@@ -782,6 +790,12 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
 #: (default: ``300``)
 MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
 
+#: Number of sessions (or individual traces when no session metadata exists) to sample
+#: for the triage phase of ``mlflow.genai.discover_issues()``. (default: ``100``)
+MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE = _EnvironmentVariable(
+    "MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE", int, 100
+)
+
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
 #: inference or the process of capturing imported modules encounters any errors.
@@ -830,6 +844,20 @@ MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EX
 #: (default: ``True``)
 MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
+)
+
+#: When set to ``True``, MLflow uses a private ``random.Random`` instance for trace/span ID
+#: generation, making it immune to ``random.seed()`` calls in user code.  Enable this when
+#: ``random.seed()`` causes duplicate trace/span ID errors.
+#:
+#: .. note::
+#:     In global-provider mode (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false``), if an existing
+#:     ``TracerProvider`` is detected, setting ``MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR``
+#:     does not take effect.
+#:
+#: (default: ``False``)
+MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", False
 )
 
 #: When set to "true", MLflow translates span attributes from mlflow.* format

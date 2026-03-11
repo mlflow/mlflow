@@ -23,6 +23,7 @@ export const ExperimentLoggedModelTableGroupCell = ({ data }: { data: LoggedMode
       />
       {data.groupData?.sourceRun ? (
         <Link
+          componentId="mlflow.logged_models.table.group_source_run_link"
           to={Routes.getRunPageRoute(data.groupData.sourceRun.info.experimentId, data.groupData.sourceRun.info.runUuid)}
           target="_blank"
         >

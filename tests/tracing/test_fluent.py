@@ -25,7 +25,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -39,7 +39,12 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.destination import MlflowExperiment
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, _get_tracer, set_destination
+from mlflow.tracing.provider import (
+    _MLFLOW_TRACE_USER_DESTINATION,
+    _get_tracer,
+    safe_set_span_in_context,
+    set_destination,
+)
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -2612,7 +2617,7 @@ def test_trace_decorator_sampling_ratio(
     ("outer_ratio", "inner_ratio", "expected_outer", "expected_inner"),
     [
         (1.0, 0.0, 5, 5),  # Parent sampled -> child also sampled (inner ratio ignored)
-        (0.0, 1.0, 0, 5),  # Parent not sampled -> child creates its own root traces
+        (0.0, 1.0, 0, 0),  # Parent not sampled -> child also dropped (follows parent)
     ],
 )
 def test_trace_decorator_sampling_ratio_nested(
@@ -2640,6 +2645,51 @@ def test_trace_decorator_sampling_ratio_nested(
     assert len(inner_trace_ids) == expected_inner
 
 
+def test_global_sampling_ratio_nested(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.0")
+    mlflow.tracing.reset()
+
+    inner_trace_ids: list[str] = []
+
+    @mlflow.trace
+    def outer():
+        return inner()
+
+    # Inner uses sampling_ratio_override=1.0 so it would create a sampled
+    # root trace if the dropped parent context were not propagated.
+    @mlflow.trace(sampling_ratio_override=1.0)
+    def inner():
+        if trace_id := mlflow.get_active_trace_id():
+            inner_trace_ids.append(trace_id)
+        return "result"
+
+    for _ in range(5):
+        assert outer() == "result"
+
+    assert len(inner_trace_ids) == 0
+
+
+def test_start_span_no_context_preserves_dropped_parent_context(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.0")
+    mlflow.tracing.reset()
+
+    trace_ids: list[str] = []
+
+    @mlflow.trace(sampling_ratio_override=1.0)
+    def child():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        return "result"
+
+    root = start_span_no_context("root")
+    nested_noop = start_span_no_context("nested_noop", parent_span=root)
+
+    with safe_set_span_in_context(nested_noop):
+        assert child() == "result"
+
+    assert len(trace_ids) == 0
+
+
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_count"),
     [
@@ -2665,7 +2715,7 @@ def test_trace_decorator_sampling_ratio_generator(sampling_ratio: float, expecte
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_child_count"),
     [
-        (0.0, 6),
+        (0.0, 0),
         (1.0, 6),
     ],
 )
@@ -2745,7 +2795,7 @@ async def test_trace_decorator_sampling_ratio_async_generator(
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_child_count"),
     [
-        (0.0, 6),
+        (0.0, 0),
         (1.0, 6),
     ],
 )

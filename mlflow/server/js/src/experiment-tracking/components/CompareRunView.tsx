@@ -137,7 +137,11 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       const { name, basename } = experimentNameMap[experimentId];
       return (
         <td className="meta-info" key={runUuid}>
-          <Link to={Routes.getExperimentPageRoute(experimentId)} title={name}>
+          <Link
+            componentId="mlflow.experiment_tracking.compare_runs.experiment_name_link"
+            to={Routes.getExperimentPageRoute(experimentId)}
+            title={name}
+          >
             {basename}
           </Link>
         </td>
@@ -154,7 +158,14 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
   }
 
   getExperimentPageLink(experimentId: any, experimentName: any) {
-    return <Link to={Routes.getExperimentPageRoute(experimentId)}>{experimentName}</Link>;
+    return (
+      <Link
+        componentId="mlflow.experiment_tracking.compare_runs.experiment_link"
+        to={Routes.getExperimentPageRoute(experimentId)}
+      >
+        {experimentName}
+      </Link>
+    );
   }
 
   getCompareExperimentsPageLinkText(numExperiments: any) {
@@ -169,7 +180,10 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
 
   getCompareExperimentsPageLink(experimentIds: any) {
     return (
-      <Link to={Routes.getCompareExperimentsPageRoute(experimentIds)}>
+      <Link
+        componentId="mlflow.experiment_tracking.compare_runs.compare_experiments_link"
+        to={Routes.getCompareExperimentsPageRoute(experimentIds)}
+      >
         {this.getCompareExperimentsPageLinkText(experimentIds.length)}
       </Link>
     );
@@ -522,7 +536,12 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
                       align="end"
                       maxWidth={400}
                     >
-                      <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
+                      <Link
+                        componentId="mlflow.experiment_tracking.compare_runs.run_uuid_link"
+                        to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}
+                      >
+                        {r.runUuid}
+                      </Link>
                     </Tooltip>
                   </th>
                 ))}

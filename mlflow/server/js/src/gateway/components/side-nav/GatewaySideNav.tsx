@@ -99,7 +99,7 @@ export const GatewaySideNav = ({ activeTab }: GatewaySideNavProps) => {
         const isActive = activeTab === item.tab;
 
         return (
-          <Link key={item.tab} to={item.to}>
+          <Link componentId="mlflow.gateway.side_nav.tab_link" key={item.tab} to={item.to}>
             <div
               css={{
                 display: 'flex',

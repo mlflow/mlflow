@@ -101,6 +101,7 @@ export const MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME = 'eval_results_table.json'
 export enum RunPageTabName {
   OVERVIEW = 'overview',
   TRACES = 'traces',
+  ISSUES = 'issues',
   MODEL_METRIC_CHARTS = 'model-metrics',
   SYSTEM_METRIC_CHARTS = 'system-metrics',
   ARTIFACTS = 'artifacts',

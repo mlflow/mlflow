@@ -872,9 +872,11 @@ class TrackingServiceClient:
         tags: dict[str, str] | None = None,
         params: dict[str, str] | None = None,
         model_type: str | None = None,
-        # This parameter is only used for telemetry purposes, and
-        # does not affect the logged model.
+        # These parameters are only used for telemetry purposes, and
+        # do not affect the logged model.
         flavor: str | None = None,
+        serialization_format: str | None = None,
+        uses_uv: bool = False,
     ) -> LoggedModel:
         return self.store.create_logged_model(
             experiment_id=experiment_id,
