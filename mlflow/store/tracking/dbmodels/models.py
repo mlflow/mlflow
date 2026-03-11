@@ -50,6 +50,7 @@ from mlflow.entities import (
     InputTag,
     Issue,
     IssueReference,
+    IssueSeverity,
     IssueStatus,
     Metric,
     Param,
@@ -1050,6 +1051,7 @@ class SqlAssessments(Base):
                 source=source,
                 trace_id=self.trace_id,
                 run_id=self.run_id,
+                rationale=self.rationale,
                 metadata=parsed_metadata,
                 span_id=self.span_id,
                 create_time_ms=self.created_timestamp,
@@ -1144,9 +1146,9 @@ class SqlIssue(Base):
     """
     Issue status: `String` (limit 50 characters).
     """
-    confidence = Column(String(50), nullable=True)
+    severity = Column(String(50), nullable=True)
     """
-    Confidence level: `String` (limit 50 characters). Optional indicator of detection confidence.
+    Severity level: `String` (limit 50 characters). Optional indicator of issue severity.
     """
     root_causes = Column(Text, nullable=True)
     """
@@ -1203,7 +1205,7 @@ class SqlIssue(Base):
             name=self.name,
             description=self.description,
             status=IssueStatus(self.status),
-            confidence=self.confidence,
+            severity=IssueSeverity(self.severity) if self.severity else None,
             root_causes=json.loads(self.root_causes) if self.root_causes else None,
             source_run_id=self.source_run_id,
             created_timestamp=self.created_timestamp,

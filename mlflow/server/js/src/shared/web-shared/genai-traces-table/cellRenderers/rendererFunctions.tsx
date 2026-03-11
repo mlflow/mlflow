@@ -6,6 +6,7 @@ import type { FormatDateOptions } from 'react-intl';
 import type { ThemeType } from '@databricks/design-system';
 import {
   ArrowRightIcon,
+  Overflow,
   Spinner,
   Tag,
   Tooltip,
@@ -42,6 +43,7 @@ import { RunColorCircle } from '../components/RunColorCircle';
 import {
   CUSTOM_METADATA_COLUMN_ID,
   EXECUTION_DURATION_COLUMN_ID,
+  ISSUES_COLUMN_ID,
   LINKED_PROMPTS_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
@@ -899,6 +901,32 @@ export const traceInfoCellRenderer = (
     );
   } else if (colId === TOKENS_COLUMN_ID) {
     return <TokensCell currentTraceInfo={currentTraceInfo} otherTraceInfo={otherTraceInfo} isComparing={isComparing} />;
+  } else if (colId === ISSUES_COLUMN_ID) {
+    const issues = comparisonEntry.currentRunValue?.issues;
+    const otherIssues = comparisonEntry.otherRunValue?.issues;
+
+    const renderIssues = (issueList: string[] | undefined) => {
+      if (!issueList || issueList.length === 0) {
+        return <NullCell isComparing={isComparing} />;
+      }
+
+      return (
+        <Overflow>
+          {issueList.map((issueName, index) => (
+            <Tag
+              key={index}
+              componentId="mlflow.genai-traces-table.issue-tag"
+              color="coral"
+              css={{ width: 'min-content', maxWidth: '100%' }}
+            >
+              {issueName}
+            </Tag>
+          ))}
+        </Overflow>
+      );
+    };
+
+    return <StackedComponents first={renderIssues(issues)} second={isComparing && renderIssues(otherIssues)} />;
   } else if (colId.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
     const metadataKey = getCustomMetadataKeyFromColumnId(colId);
     if (!metadataKey) {

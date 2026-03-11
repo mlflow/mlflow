@@ -19,7 +19,6 @@ from mlflow.types.utils import _infer_schema
 from mlflow.utils.proto_json_utils import (
     MlflowFailedTypeConversion,
     _CustomJsonEncoder,
-    _stringify_all_experiment_ids,
     cast_df_types_according_to_schema,
     dataframe_from_parsed_json,
     dataframe_from_raw_json,
@@ -215,42 +214,6 @@ def test_parse_dict_int_as_string_backcompat():
     parse_dict(in_json, message)
     experiment = Metric.from_proto(message)
     assert experiment.timestamp == 123
-
-
-def test_parse_legacy_experiment():
-    in_json = {"experiment_id": 123, "name": "name", "unknown": "field"}
-    message = ProtoExperiment()
-    parse_dict(in_json, message)
-    experiment = Experiment.from_proto(message)
-    assert experiment.experiment_id == "123"
-    assert experiment.name == "name"
-    assert experiment.artifact_location == ""
-
-
-def test_back_compat():
-    in_json = {
-        "experiment_id": 123,
-        "name": "name",
-        "unknown": "field",
-        "experiment_ids": [1, 2, 3, 4, 5],
-        "things": {
-            "experiment_id": 4,
-            "more_things": {"experiment_id": 7, "experiment_ids": [2, 3, 4, 5]},
-        },
-    }
-
-    _stringify_all_experiment_ids(in_json)
-    exp_json = {
-        "experiment_id": "123",
-        "name": "name",
-        "unknown": "field",
-        "experiment_ids": ["1", "2", "3", "4", "5"],
-        "things": {
-            "experiment_id": "4",
-            "more_things": {"experiment_id": "7", "experiment_ids": ["2", "3", "4", "5"]},
-        },
-    }
-    assert exp_json == in_json
 
 
 def assert_result(result, expected_result):

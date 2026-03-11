@@ -71,6 +71,9 @@ def autolog(
                 if model := getattr(self, "model", None):
                     if isinstance(model, str):
                         span.set_attribute(SpanAttributeKey.MODEL, model)
+                        match model.split("/", 1):
+                            case [provider, _]:
+                                span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
                 if tools := inputs.get("tools"):
                     log_tools(span, tools)

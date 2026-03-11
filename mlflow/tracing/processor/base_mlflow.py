@@ -19,6 +19,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
     TraceTagKey,
 )
+from mlflow.tracing.context import get_configured_trace_metadata, get_configured_trace_tags
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
@@ -140,6 +141,10 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         elif model_id := maybe_get_logged_model_id():
             metadata[TraceMetadataKey.MODEL_ID] = model_id
 
+        # Append metadata from context() scope (caller-declared, wins on conflict)
+        if ctx_metadata := get_configured_trace_metadata():
+            metadata.update(ctx_metadata)
+
         return metadata
 
     def _get_basic_trace_tags(self, span: OTelReadableSpan) -> dict[str, Any]:
@@ -151,6 +156,12 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
             tags.update({TraceTagKey.EVAL_REQUEST_ID: request_id})
         if dependencies_schema := maybe_get_dependencies_schemas():
             tags.update(dependencies_schema)
+
+        # Append tags from context() scope before trace name
+        # (trace name tag always wins because it comes last)
+        if ctx_tags := get_configured_trace_tags():
+            tags.update(ctx_tags)
+
         tags.update({TraceTagKey.TRACE_NAME: span.name})
         return tags
 

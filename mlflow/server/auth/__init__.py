@@ -51,6 +51,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -2183,7 +2184,13 @@ def set_can_manage_scorer_permission(resp: Response):
     experiment_id = response_message.experiment_id
     name = response_message.name
     username = authenticate_request().username
-    store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
+    try:
+        store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+            pass  # Permission already exists from a previous registration
+        else:
+            raise
 
 
 def delete_scorer_permissions_cascade(resp: Response):
@@ -2950,8 +2957,14 @@ def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
         # The server generates a random token at startup and passes it to workers
         # via _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN. When the password matches that
         # token, we trust the username without calling store.authenticate_user().
+        # Restrict to /gateway/ routes only so the token cannot be used as a
+        # master password on other endpoints (e.g. /v1/traces, /ajax-api/).
         internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
-        if internal_token and secrets.compare_digest(password, internal_token):
+        if (
+            internal_token
+            and request.url.path.startswith("/gateway/")
+            and secrets.compare_digest(password, internal_token)
+        ):
             return store.get_user(username)
 
         if store.authenticate_user(username, password):
