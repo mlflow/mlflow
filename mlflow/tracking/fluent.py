@@ -266,41 +266,28 @@ def set_experiment(
     if resolved_location is not None:
         experiment.trace_location = resolved_location
 
-    _sync_trace_destination_and_provider(resolved_location, experiment)
+    _sync_trace_destination_and_provider(resolved_location)
 
     return experiment
 
 
 def _sync_trace_destination_and_provider(
     resolved_location: UnityCatalog | None,
-    experiment: Experiment,
 ) -> None:
-    from mlflow.tracing.provider import (
-        _MLFLOW_TRACE_USER_DESTINATION,
-        _initialize_tracer_provider,
-        is_tracing_enabled,
-    )
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, provider
 
-    was_uc_destination = isinstance(_MLFLOW_TRACE_USER_DESTINATION.get(), UnityCatalog)
+    # Eagerly validate env-var-based destination to surface misconfigurations
+    # (e.g. 3-part table-prefix in MLFLOW_TRACING_DESTINATION) at set_experiment time.
+    _MLFLOW_TRACE_USER_DESTINATION.get()
 
-    # Only clear the global slot when transitioning away from a UC destination
-    # to prevent stale UC routing. Non-UC destinations (e.g. from set_destination)
-    # are preserved across set_experiment calls.
-    if was_uc_destination:
+    # If the tracer provider has already been initialized, reset it so the
+    # next trace re-derives the correct processor chain from the new experiment.
+    if provider.once._done:
         _MLFLOW_TRACE_USER_DESTINATION.set(None)
+        provider.reset()
 
     if resolved_location is not None:
         _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
-
-    is_uc_destination = resolved_location is not None or bool(
-        experiment.tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
-    )
-
-    # Re-initialize provider when switching between UC and non-UC (processor type changes).
-    # UC-to-UC switches don't need reinit because the processor reads the destination
-    # from the registry at trace time.
-    if was_uc_destination != is_uc_destination and is_tracing_enabled():
-        _initialize_tracer_provider()
 
 
 def _resolve_experiment_to_trace_location(

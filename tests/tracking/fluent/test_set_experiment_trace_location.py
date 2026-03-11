@@ -7,7 +7,10 @@ from mlflow.entities import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.fluent import _resolve_experiment_to_trace_location
+from mlflow.tracking.fluent import (
+    _resolve_experiment_to_trace_location,
+    _sync_trace_destination_and_provider,
+)
 from mlflow.utils.mlflow_tags import (
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
@@ -226,7 +229,7 @@ def test_set_experiment_wires_trace_location_to_returned_experiment():
     mock_register.assert_called_once()
     _, kwargs = mock_register.call_args
     assert kwargs["experiment"].name == "test-trace-loc-integration"
-    mock_sync.assert_called_once_with(resolved, experiment)
+    mock_sync.assert_called_once_with(resolved)
     assert experiment.trace_location is resolved
 
 
@@ -275,3 +278,55 @@ def test_set_experiment_without_trace_location_does_not_install_uc_processor():
 
     _MLFLOW_TRACE_USER_DESTINATION.reset()
     mlflow.tracing.reset()
+
+
+@pytest.fixture
+def _clean_tracing_state():
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, provider
+
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    provider.reset()
+    yield _MLFLOW_TRACE_USER_DESTINATION, provider
+    _MLFLOW_TRACE_USER_DESTINATION.reset()
+    provider.reset()
+
+
+def test_sync_fresh_session_with_uc_location_sets_destination_only(_clean_tracing_state):
+    destination_registry, _ = _clean_tracing_state
+    location = UnityCatalog("catalog", "schema", table_prefix="pfx")
+
+    _sync_trace_destination_and_provider(location)
+
+    assert destination_registry.get() is location
+
+
+def test_sync_experiment_switch_with_uc_location_resets_and_sets_new(_clean_tracing_state):
+    destination_registry, prov = _clean_tracing_state
+    destination_registry.set(UnityCatalog("catalog", "schema", table_prefix="old"))
+    prov.once._done = True
+
+    new_location = UnityCatalog("catalog", "schema", table_prefix="new")
+    _sync_trace_destination_and_provider(new_location)
+
+    assert destination_registry.get() is new_location
+    assert not prov.once._done
+
+
+def test_sync_experiment_switch_without_location_clears_and_resets(_clean_tracing_state):
+    destination_registry, prov = _clean_tracing_state
+    destination_registry.set(UnityCatalog("catalog", "schema", table_prefix="old"))
+    prov.once._done = True
+
+    _sync_trace_destination_and_provider(None)
+
+    assert destination_registry.get() is None
+    assert not prov.once._done
+
+
+def test_sync_fresh_session_without_location_is_noop(_clean_tracing_state):
+    destination_registry, prov = _clean_tracing_state
+
+    _sync_trace_destination_and_provider(None)
+
+    assert destination_registry.get() is None
+    assert not prov.once._done
