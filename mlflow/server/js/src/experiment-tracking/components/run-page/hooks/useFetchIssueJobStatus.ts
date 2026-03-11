@@ -22,6 +22,8 @@ export interface FetchIssueJobStatusResponse {
   status: IssueJobStatus;
   total_traces?: number;
   result?: IssueJobResult;
+  model?: string;
+  provider?: string;
 }
 
 const POLLING_INTERVAL_MS = 3000;
@@ -39,6 +41,8 @@ export interface UseFetchIssueJobStatusResult {
   status: IssueJobStatus | undefined;
   totalTraces: number | undefined;
   result: IssueJobResult | undefined;
+  model: string | undefined;
+  provider: string | undefined;
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => void;
@@ -76,6 +80,8 @@ export const useFetchIssueJobStatus = ({
     status: data?.status,
     totalTraces: data?.total_traces,
     result: data?.result,
+    model: data?.model,
+    provider: data?.provider,
     isLoading,
     isFetching,
     refetch,

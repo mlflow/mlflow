@@ -33,10 +33,16 @@ export const IssueDetectionRunOverview = ({
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
 
-  const { status: jobStatus } = useFetchIssueJobStatus({
+  const {
+    status: jobStatus,
+    model,
+    provider,
+  } = useFetchIssueJobStatus({
     jobId: progressProps.jobId,
     enabled: !!progressProps.jobId,
   });
+
+  const modelDisplay = model && provider ? `${provider}:/${model}` : undefined;
 
   const jobComplete = isJobComplete(jobStatus);
   const prevJobCompleteRef = useRef(jobComplete);
@@ -70,6 +76,15 @@ export const IssueDetectionRunOverview = ({
           })}
           value={<RunViewUserLinkBox runInfo={runInfo} tags={tags} />}
         />
+        {modelDisplay && (
+          <KeyValueProperty
+            keyValue={intl.formatMessage({
+              defaultMessage: 'Model',
+              description: 'Run page > Overview > Model used for issue detection',
+            })}
+            value={modelDisplay}
+          />
+        )}
         <KeyValueProperty
           keyValue={intl.formatMessage({
             defaultMessage: 'Experiment ID',
