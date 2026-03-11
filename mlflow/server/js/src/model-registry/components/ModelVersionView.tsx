@@ -538,7 +538,10 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         artifactPath = extractArtifactPathFromModelSource(modelSource, runInfo.runUuid);
       }
       return (
-        <Link componentId="mlflow.model_registry.version_view.source_run_link" to={Routers.getRunPageRoute(runInfo.experimentId, runInfo.runUuid, artifactPath)}>
+        <Link
+          componentId="mlflow.model_registry.version_view.source_run_link"
+          to={Routers.getRunPageRoute(runInfo.experimentId, runInfo.runUuid, artifactPath)}
+        >
           {this.resolveRunName()}
         </Link>
       );
@@ -614,7 +617,10 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     );
     const breadcrumbs = [
       // eslint-disable-next-line react/jsx-key
-      <Link componentId="mlflow.model_registry.version_view.breadcrumb_registered_models_link" to={ModelRegistryRoutes.modelListPageRoute}>
+      <Link
+        componentId="mlflow.model_registry.version_view.breadcrumb_registered_models_link"
+        to={ModelRegistryRoutes.modelListPageRoute}
+      >
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for link back to models page under the header on the model version
@@ -622,7 +628,11 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
         />
       </Link>,
       // eslint-disable-next-line react/jsx-key
-      <Link componentId="mlflow.model_registry.version_view.breadcrumb_model_link" data-testid="breadcrumbRegisteredModel" to={ModelRegistryRoutes.getModelPageRoute(modelName)}>
+      <Link
+        componentId="mlflow.model_registry.version_view.breadcrumb_model_link"
+        data-testid="breadcrumbRegisteredModel"
+        to={ModelRegistryRoutes.getModelPageRoute(modelName)}
+      >
         {modelName}
       </Link>,
     ];

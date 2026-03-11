@@ -23,13 +23,21 @@ export const IssueDetectionRunDetailsPage = () => {
   const customBreadcrumbs = useMemo(() => {
     const experimentName = experiment?.name ?? safeExperimentId;
     return [
-      <Link componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_experiments_link" key="experiments" to={Routes.experimentsObservatoryRoute}>
+      <Link
+        componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_experiments_link"
+        key="experiments"
+        to={Routes.experimentsObservatoryRoute}
+      >
         <FormattedMessage
           defaultMessage="Experiments"
           description="Issue detection run details > Breadcrumb > Experiments"
         />
       </Link>,
-      <Link componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_experiment_link" key="experiment" to={Routes.getExperimentPageRoute(safeExperimentId)}>
+      <Link
+        componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_experiment_link"
+        key="experiment"
+        to={Routes.getExperimentPageRoute(safeExperimentId)}
+      >
         {experimentName}
       </Link>,
       <Link

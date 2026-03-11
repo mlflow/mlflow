@@ -83,7 +83,12 @@ function LoggedModelsDropdownContent({
           const { status, displayedName, version, link } = registeredModelSummary;
 
           return (
-            <Link componentId="mlflow.run_page.header.registered_model_version_link" target="_blank" to={link} key={model.absolutePath}>
+            <Link
+              componentId="mlflow.run_page.header.registered_model_version_link"
+              target="_blank"
+              to={link}
+              key={model.absolutePath}
+            >
               <DropdownMenu.Item componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewheaderregistermodelbutton.tsx_80">
                 <DropdownMenu.IconWrapper css={{ display: 'flex', alignItems: 'center' }}>
                   {status === 'READY' ? <RegisteredModelOkIcon /> : status ? ModelVersionStatusIcons[status] : null}
@@ -237,7 +242,12 @@ export const RunViewHeaderRegisterModelButton = ({
 
   if (registeredModelVersionSummary) {
     return (
-      <Link componentId="mlflow.run_page.header.view_registered_model_link" to={registeredModelVersionSummary.link} target="_blank" css={{ marginLeft: theme.spacing.sm }}>
+      <Link
+        componentId="mlflow.run_page.header.view_registered_model_link"
+        to={registeredModelVersionSummary.link}
+        target="_blank"
+        css={{ marginLeft: theme.spacing.sm }}
+      >
         <Button
           componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_runviewheaderregistermodelbutton.tsx_231"
           endIcon={<NewWindowIcon />}
