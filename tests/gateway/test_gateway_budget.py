@@ -16,7 +16,6 @@ from mlflow.entities.gateway_budget_policy import (
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.server.gateway_budget import (
-    _create_budget_error_trace,
     calculate_existing_cost_for_new_windows,
     check_budget_limit,
     fire_budget_exceeded_webhooks,
@@ -524,19 +523,6 @@ def test_check_budget_limit_no_trace_without_experiment_id():
 
     with pytest.raises(fastapi.HTTPException, match="Request rejected"):
         check_budget_limit(store, _NO_TRACE_CONFIG)
-
-    assert mlflow.get_last_active_trace_id() is None
-
-
-def test_create_budget_error_trace_skips_without_experiment_id():
-    endpoint_config = GatewayEndpointConfig(
-        endpoint_id="ep-test",
-        endpoint_name="test-endpoint",
-        experiment_id=None,
-        models=[],
-    )
-    exc = fastapi.HTTPException(status_code=429, detail="Budget exceeded")
-    _create_budget_error_trace(endpoint_config, exc)
 
     assert mlflow.get_last_active_trace_id() is None
 
