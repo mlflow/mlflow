@@ -43,7 +43,7 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved, eventFilt
   const defaultEvents =
     !editingWebhook && eventFilter && displayedEvents.length === 1
       ? displayedEvents.map((e) => eventKey(e.entity, e.action))
-      : editingWebhook?.events.map((e) => eventKey(e.entity, e.action)) ?? [];
+      : (editingWebhook?.events.map((e) => eventKey(e.entity, e.action)) ?? []);
 
   const form = useForm<WebhookFormData>({
     defaultValues: {
