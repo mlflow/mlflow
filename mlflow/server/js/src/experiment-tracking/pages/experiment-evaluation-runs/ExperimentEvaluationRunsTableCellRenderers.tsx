@@ -135,6 +135,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
           }}
         >
           <Link
+            componentId="mlflow.experiment_tracking.evaluation_runs.run_link"
             target="_blank"
             rel="noreferrer"
             to={Routes.getRunPageTabRoute(row.original.info.experimentId, runUuid, RunPageTabName.EVALUATIONS)}
@@ -252,6 +253,7 @@ export const ModelVersionCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row 
         css={{ maxWidth: '100%', marginRight: 0, cursor: 'pointer' }}
       >
         <Link
+          componentId="mlflow.experiment_tracking.evaluation_runs.model_version_link"
           to={Routes.getExperimentLoggedModelDetailsPageRoute(row.original.info.experimentId, modelId)}
           target="_blank"
           css={{ maxWidth: '100%' }}

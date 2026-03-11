@@ -91,7 +91,10 @@ export const RunViewHeader = ({
 
   function getExperimentPageLink() {
     return hasComparedExperimentsBefore && comparedExperimentIds ? (
-      <Link to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}>
+      <Link
+        componentId="mlflow.run_page.header.compare_experiments_link"
+        to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}
+      >
         <FormattedMessage
           defaultMessage="Displaying Runs from {numExperiments} Experiments"
           description="Breadcrumb nav item to link to the compare-experiments page on compare runs page"
@@ -101,7 +104,11 @@ export const RunViewHeader = ({
         />
       </Link>
     ) : (
-      <Link to={experimentPageTabRoute} data-testid="experiment-runs-link">
+      <Link
+        componentId="mlflow.run_page.header.experiment_name_link"
+        to={experimentPageTabRoute}
+        data-testid="experiment-runs-link"
+      >
         {experiment.name}
       </Link>
     );
@@ -110,7 +117,11 @@ export const RunViewHeader = ({
   const defaultBreadcrumbs = [getExperimentPageLink()];
   if (experiment.experimentId) {
     defaultBreadcrumbs.push(
-      <Link to={experimentPageTabRoute} data-testid="experiment-observatory-link-runs">
+      <Link
+        componentId="mlflow.run_page.header.experiment_tab_link"
+        to={experimentPageTabRoute}
+        data-testid="experiment-observatory-link-runs"
+      >
         {shouldRouteToEvaluations ? (
           <FormattedMessage
             defaultMessage="Evaluations"
