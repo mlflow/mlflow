@@ -1410,6 +1410,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url, token=api_token, insecure=ssl_trust_all
                 )
+
     elif dbr_major_minor_version >= (10, 3):
 
         class DynamicConfigProvider(DatabricksConfigProvider):
@@ -1440,6 +1441,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
                 )
+
     else:
 
         class DynamicConfigProvider(DatabricksConfigProvider):

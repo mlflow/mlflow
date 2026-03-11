@@ -48,6 +48,7 @@ MESSAGE_FIELD_TOOL_USE_RESULT = "toolUseResult"
 MESSAGE_FIELD_COMMAND_NAME = "commandName"
 MESSAGE_TYPE_QUEUE_OPERATION = "queue-operation"
 QUEUE_OPERATION_ENQUEUE = "enqueue"
+METADATA_KEY_CLAUDE_CODE_VERSION = "mlflow.claude_code_version"
 
 # Custom logging level for Claude tracing
 CLAUDE_TRACING_LEVEL = logging.WARNING - 5
@@ -450,13 +451,11 @@ def _create_llm_and_tool_spans(
             _set_token_usage_attribute(llm_span, usage)
 
             # Output in Anthropic response format for Chat UI rendering
-            llm_span.set_outputs(
-                {
-                    "type": "message",
-                    "role": "assistant",
-                    "content": content,
-                }
-            )
+            llm_span.set_outputs({
+                "type": "message",
+                "role": "assistant",
+                "content": content,
+            })
             llm_span.end(end_time_ns=timestamp_ns + duration_ns)
 
         # Create tool spans with proportional timing and actual results
@@ -492,6 +491,7 @@ def _finalize_trace(
     session_id: str | None,
     end_time_ns: int | None = None,
     usage: dict[str, Any] | None = None,
+    claude_code_version: str | None = None,
 ) -> mlflow.entities.Trace:
     try:
         # Set trace previews and metadata for UI display
@@ -507,6 +507,8 @@ def _finalize_trace(
             }
             if session_id:
                 metadata[TraceMetadataKey.TRACE_SESSION] = session_id
+            if claude_code_version:
+                metadata[METADATA_KEY_CLAUDE_CODE_VERSION] = claude_code_version
 
             # Set token usage directly on trace metadata so it survives
             # even if span-level aggregation doesn't pick it up
@@ -515,13 +517,11 @@ def _finalize_trace(
                     "cache_creation_input_tokens", 0
                 )
                 output_tokens = usage.get("output_tokens", 0)
-                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(
-                    {
-                        TokenUsageKey.INPUT_TOKENS: input_tokens,
-                        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
-                        TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
-                    }
-                )
+                metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps({
+                    TokenUsageKey.INPUT_TOKENS: input_tokens,
+                    TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+                    TokenUsageKey.TOTAL_TOKENS: input_tokens + output_tokens,
+                })
 
             in_memory_trace.info.trace_metadata = {
                 **in_memory_trace.info.trace_metadata,
@@ -638,12 +638,18 @@ def process_transcript(
         if not conv_end_ns or conv_end_ns <= conv_start_ns:
             conv_end_ns = conv_start_ns + int(10 * NANOSECONDS_PER_S)
 
+        # Extract Claude Code version from transcript entries (CLI-only)
+        claude_code_version = next(
+            (ver for entry in transcript if (ver := entry.get("version"))), None
+        )
+
         return _finalize_trace(
             parent_span,
             user_prompt_text,
             final_response,
             session_id,
             conv_end_ns,
+            claude_code_version=claude_code_version,
         )
 
     except Exception as e:
@@ -763,13 +769,11 @@ def _create_sdk_child_spans(
                         SpanAttributeKey.MESSAGE_FORMAT: "anthropic",
                     },
                 )
-                llm_span.set_outputs(
-                    {
-                        "type": "message",
-                        "role": "assistant",
-                        "content": [{"type": "text", "text": block.text} for block in text_blocks],
-                    }
-                )
+                llm_span.set_outputs({
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": block.text} for block in text_blocks],
+                })
                 llm_span.end()
                 pending_messages = []
                 continue

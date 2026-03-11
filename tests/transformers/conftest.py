@@ -31,6 +31,11 @@ from tests.transformers.helper import (
 
 @pytest.fixture
 def small_qa_pipeline():
+    if IS_TRANSFORMERS_V5_OR_LATER:
+        pytest.skip(
+            reason="QuestionAnsweringPipeline was removed in transformers 5.0. "
+            "See https://github.com/huggingface/transformers/blob/main/MIGRATION_GUIDE_V5.md"
+        )
     return load_small_qa_pipeline()
 
 
@@ -41,11 +46,21 @@ def small_vision_model():
 
 @pytest.fixture
 def small_multi_modal_pipeline():
+    if IS_TRANSFORMERS_V5_OR_LATER:
+        pytest.skip(
+            reason="VisualQuestionAnsweringPipeline was removed in transformers 5.0. "
+            "See https://github.com/huggingface/transformers/blob/main/MIGRATION_GUIDE_V5.md"
+        )
     return load_small_multi_modal_pipeline()
 
 
 @pytest.fixture
 def component_multi_modal():
+    if IS_TRANSFORMERS_V5_OR_LATER:
+        pytest.skip(
+            reason="VisualQuestionAnsweringPipeline was removed in transformers 5.0. "
+            "See https://github.com/huggingface/transformers/blob/main/MIGRATION_GUIDE_V5.md"
+        )
     return load_component_multi_modal()
 
 

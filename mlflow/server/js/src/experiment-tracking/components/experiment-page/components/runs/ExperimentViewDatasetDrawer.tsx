@@ -90,7 +90,11 @@ const ExperimentViewDatasetDrawerImpl = ({
                 description="Text for data details for the experiment run in the dataset drawer"
               />
             </Typography.Title>
-            <Link to={Routes.getRunPageRoute(experimentId, runData.runUuid)} css={styles.runLink}>
+            <Link
+              componentId="mlflow.experiment_tracking.dataset_drawer.run_link"
+              to={Routes.getRunPageRoute(experimentId, runData.runUuid)}
+              css={styles.runLink}
+            >
               <RunColorPill color={getRunColor(runData.runUuid)} />
               <span css={styles.runName}>{runData.runName}</span>
             </Link>
