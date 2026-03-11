@@ -86,7 +86,7 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
 
     if (this.hasMultipleExperiments()) {
       const text = this.getCompareExperimentsPageLinkText(experimentIds.length);
-      return <Link componentId="mlflow.experiment_tracking.metric_view.compare_experiments_link" to={Routes.getCompareExperimentsPageRoute(experimentIds)}>{text}</Link>;
+      return <Link componentId="mlflow.experiment_tracking.metric_view.multiple_experiments_link" to={Routes.getCompareExperimentsPageRoute(experimentIds)}>{text}</Link>;
     }
 
     return <Link componentId="mlflow.experiment_tracking.metric_view.experiment_link" to={Routes.getExperimentPageRoute(experimentIds[0])}>{experiments[0].name}</Link>;

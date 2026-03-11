@@ -81,7 +81,7 @@ class ErrorViewImpl extends Component<ErrorViewImplProps> {
           description="Default error message for error views in MLflow"
           values={{
             link: (chunks) => (
-              <Link data-testid="error-view-link" componentId="mlflow.common.error_view.fallback_link" to={fallbackHomePageReactRoute || Routes.rootRoute}>
+              <Link data-testid="error-view-link" componentId="mlflow.common.error_view.home_link" to={fallbackHomePageReactRoute || Routes.rootRoute}>
                 {chunks}
               </Link>
             ),
