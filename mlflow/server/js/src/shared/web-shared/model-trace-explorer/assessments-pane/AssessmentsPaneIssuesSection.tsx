@@ -8,7 +8,7 @@ import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { RunPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { getIssue } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
-import { SELECTED_ISSUE_ID_PARAM } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/RunViewIssuesTab';
+import { SELECTED_ISSUE_ID_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 
 const IssueItem = ({
   issue,
