@@ -276,10 +276,6 @@ def _sync_trace_destination_and_provider(
 ) -> None:
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, provider
 
-    # Eagerly validate env-var-based destination to surface misconfigurations
-    # (e.g. 3-part table-prefix in MLFLOW_TRACING_DESTINATION) at set_experiment time.
-    _MLFLOW_TRACE_USER_DESTINATION.get()
-
     # If the tracer provider has already been initialized, reset it so the
     # next trace re-derives the correct processor chain from the new experiment.
     if provider.once._done:

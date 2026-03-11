@@ -68,15 +68,24 @@ def test_non_databricks_backend_raises():
 
 
 def test_set_experiment_with_table_prefix_env_var_points_to_trace_location_param(monkeypatch):
+    from mlflow.tracing.provider import _get_tracer
+
     monkeypatch.setenv("MLFLOW_TRACING_DESTINATION", "catalog.schema.prefix")
 
+    mlflow.tracing.reset()
+    mlflow.set_experiment("test-experiment")
+
+    # The error surfaces lazily at trace creation time (provider init),
+    # not eagerly at set_experiment time.
     with pytest.raises(
         MlflowException,
         match=r"Unity Catalog table-prefix destinations "
         r"\(<catalog_name>\.<schema_name>\.<table_prefix>\) are not supported in "
         r"MLFLOW_TRACING_DESTINATION.*Use `mlflow\.set_experiment",
     ):
-        mlflow.set_experiment("test-experiment")
+        _get_tracer("test")
+
+    mlflow.tracing.reset()
 
 
 def test_creates_and_links_when_no_existing_location(monkeypatch):
