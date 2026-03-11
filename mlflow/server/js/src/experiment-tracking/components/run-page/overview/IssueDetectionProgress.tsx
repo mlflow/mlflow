@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Button,
   CheckCircleIcon,
@@ -12,22 +12,24 @@ import { GenAIMarkdownRenderer } from '../../../../shared/web-shared/genai-markd
 import { useNavigate, useParams } from '../../../../common/utils/RoutingUtils';
 import { RunPageTabName } from '../../../constants';
 import Routes from '../../../routes';
+import Utils from '../../../../common/utils/Utils';
 import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
 import { useFetchIssueJobStatus, IssueJobStatus, isJobComplete } from '../hooks/useFetchIssueJobStatus';
+import { useCancelJob } from '../hooks/useCancelJob';
 
 export interface IssueDetectionProgressProps {
-  /** Callback when cancel button is clicked */
+  /** Callback when cancel operation completes */
   onCancel?: () => void;
-  /** Whether the cancel operation is in progress */
-  isCancelling?: boolean;
   /** Job ID for fetching issue detection job status */
   jobId?: string;
 }
 
-export const IssueDetectionProgress = ({ onCancel, isCancelling, jobId }: IssueDetectionProgressProps) => {
+export const IssueDetectionProgress = ({ onCancel, jobId }: IssueDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const navigate = useNavigate();
   const { experimentId, runUuid } = useParams<{ experimentId: string; runUuid: string }>();
+  const { cancelJob, isCancelling } = useCancelJob();
 
   const handleViewTraces = () => {
     if (experimentId && runUuid) {
@@ -39,6 +41,29 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling, jobId }: IssueD
     if (experimentId && runUuid) {
       navigate(Routes.getIssueDetectionRunDetailsTabRoute(experimentId, runUuid, RunPageTabName.ISSUES));
     }
+  };
+
+  const handleCancel = () => {
+    if (!jobId) return;
+    cancelJob(
+      { jobId, runUuid },
+      {
+        onSuccess: () => {
+          onCancel?.();
+        },
+        onError: (error) => {
+          Utils.logErrorAndNotifyUser(
+            intl.formatMessage(
+              {
+                defaultMessage: 'Failed to cancel job: {error}',
+                description: 'Error message when job cancellation fails',
+              },
+              { error: error.message },
+            ),
+          );
+        },
+      },
+    );
   };
 
   const {
@@ -97,8 +122,12 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling, jobId }: IssueD
         <Typography.Title level={4} css={{ margin: 0 }}>
           <FormattedMessage defaultMessage="Detection progress" description="Issue detection progress > Title" />
         </Typography.Title>
-        {onCancel && !jobComplete && (
-          <Button componentId="mlflow.traces.issue-detection.cancel-button" onClick={onCancel} loading={isCancelling}>
+        {!jobComplete && (
+          <Button
+            componentId="mlflow.traces.issue-detection.cancel-button"
+            onClick={handleCancel}
+            loading={isCancelling}
+          >
             <FormattedMessage defaultMessage="Cancel" description="Issue detection progress > Cancel button" />
           </Button>
         )}

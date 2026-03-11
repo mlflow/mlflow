@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { KeyValueProperty, NoneCell } from '@databricks/web-shared/utils';
 import { useIntl } from 'react-intl';
@@ -38,6 +39,14 @@ export const IssueDetectionRunOverview = ({
   });
 
   const jobComplete = isJobComplete(jobStatus);
+  const prevJobCompleteRef = useRef(jobComplete);
+
+  useEffect(() => {
+    if (jobComplete && !prevJobCompleteRef.current) {
+      onRunDataUpdated();
+    }
+    prevJobCompleteRef.current = jobComplete;
+  }, [jobComplete, onRunDataUpdated]);
 
   const detailsSection = {
     id: 'DETAILS',
