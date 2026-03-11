@@ -162,7 +162,7 @@ export const IssueCard = ({ issue, isSelected, onSelect, onStatusUpdate }: Issue
               <FormattedMessage defaultMessage="Reject" description="Button to reject an issue" />
             </Button>
           )}
-          {(issue.status === 'pending' || issue.status === 'accepted') && (
+          {issue.status === 'accepted' && (
             <Button
               componentId="mlflow.issues.resolve-button"
               type="tertiary"
