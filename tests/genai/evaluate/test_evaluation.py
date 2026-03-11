@@ -444,36 +444,7 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
             dataset = create_dataset(
                 uc_table_name="mlflow.managed.dataset", experiment_id="exp-123"
             )
-            dataset.merge_records(
-                [
-                    {
-                        "inputs": {"question": "What is MLflow?"},
-                        "expectations": {
-                            "expected_response": "MLflow is a tool for ML",
-                            "max_length": 100,
-                        },
-                    },
-                    {
-                        "inputs": {"question": "What is Spark?"},
-                        "expectations": {
-                            "expected_response": "Spark is a fast data processing engine",
-                            "max_length": 1,
-                        },
-                    },
-                ]
-            )
-
-            result = mlflow.genai.evaluate(
-                data=dataset,
-                predict_fn=TestModel().predict,
-                scorers=[exact_match, is_concise, relevance, has_trace],
-            )
-    else:
-        dataset = create_dataset(
-            name="eval_test_dataset", tags={"source": "test", "version": "1.0"}
-        )
-        dataset.merge_records(
-            [
+            dataset.merge_records([
                 {
                     "inputs": {"question": "What is MLflow?"},
                     "expectations": {
@@ -488,8 +459,33 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
                         "max_length": 1,
                     },
                 },
-            ]
+            ])
+
+            result = mlflow.genai.evaluate(
+                data=dataset,
+                predict_fn=TestModel().predict,
+                scorers=[exact_match, is_concise, relevance, has_trace],
+            )
+    else:
+        dataset = create_dataset(
+            name="eval_test_dataset", tags={"source": "test", "version": "1.0"}
         )
+        dataset.merge_records([
+            {
+                "inputs": {"question": "What is MLflow?"},
+                "expectations": {
+                    "expected_response": "MLflow is a tool for ML",
+                    "max_length": 100,
+                },
+            },
+            {
+                "inputs": {"question": "What is Spark?"},
+                "expectations": {
+                    "expected_response": "Spark is a fast data processing engine",
+                    "max_length": 1,
+                },
+            },
+        ])
 
         result = mlflow.genai.evaluate(
             data=dataset,
@@ -684,12 +680,10 @@ def test_max_workers_env_var(monkeypatch):
 
 
 def test_dataset_name_is_logged_correctly(is_in_databricks):
-    data = pd.DataFrame(
-        {
-            "inputs": [{"question": "What is MLflow?"}],
-            "outputs": ["MLflow is a tool for ML"],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}],
+        "outputs": ["MLflow is a tool for ML"],
+    })
 
     with mlflow.start_run() as run:
         mlflow.genai.evaluate(
@@ -711,12 +705,10 @@ def test_dataset_name_is_logged_correctly(is_in_databricks):
 def test_evaluate_with_dataset_preserves_name(is_in_databricks):
     from mlflow.entities import Dataset as DatasetEntity
 
-    data = pd.DataFrame(
-        {
-            "inputs": [{"question": "What is MLflow?"}],
-            "outputs": ["MLflow is a tool for ML"],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}],
+        "outputs": ["MLflow is a tool for ML"],
+    })
 
     mock_managed_dataset = MagicMock(spec=EvaluationDataset)
     type(mock_managed_dataset).name = mock.PropertyMock(return_value="my_managed_dataset")
@@ -768,12 +760,10 @@ def test_evaluate_with_managed_dataset_preserves_name():
     mock_managed_dataset.created_by = None
     mock_managed_dataset.last_update_time = None
     mock_managed_dataset.last_updated_by = None
-    mock_managed_dataset.to_df.return_value = pd.DataFrame(
-        {
-            "inputs": [{"question": "What is MLflow?"}],
-            "outputs": ["MLflow is a tool for ML"],
-        }
-    )
+    mock_managed_dataset.to_df.return_value = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}],
+        "outputs": ["MLflow is a tool for ML"],
+    })
 
     dataset = EvaluationDataset(mock_managed_dataset)
 
@@ -921,9 +911,9 @@ def test_evaluate_without_inputs_in_eval_dataset():
 
     trace_df = mlflow.search_traces()
     trace_df["inputs"] = None
-    trace_df["expectations"] = pd.Series(
-        [{"expected_response": answer, "max_length": 100} for answer in answers]
-    )
+    trace_df["expectations"] = pd.Series([
+        {"expected_response": answer, "max_length": 100} for answer in answers
+    ])
 
     result = mlflow.genai.evaluate(
         data=trace_df,

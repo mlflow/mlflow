@@ -1,6 +1,6 @@
 ---
-title: Version Tracking for GenAI Applications
-description: Understand how MLflow enables version tracking for your complete GenAI applications using LoggedModels, linking code, configurations, evaluations, and traces.
+title: Version Tracking for Agents and LLMs | MLflow AI Platform
+description: Understand how MLflow enables version tracking for your complete agent and LLM applications using LoggedModels, linking code, configurations, evaluations, and traces.
 last_update:
   date: 2025-05-23
 ---
@@ -13,9 +13,9 @@ import { APILink } from "@site/src/components/APILink";
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import { GitBranch, Database, Shield, TrendingUp, Eye, Code2, Settings, BookOpen, Target } from "lucide-react";
 
-# Version Tracking for GenAI Applications
+# Version Tracking for LLM Applications and AI Agents
 
-MLflow's **<APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink>** provides systematic version control for your entire GenAI application—code, configurations, evaluations, and traces. Stop losing track of what works and start building with confidence through complete application lifecycle management.
+MLflow's **<APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink>** provides systematic version control for your entire LLM application or AI agent—code, configurations, evaluations, and traces. Stop losing track of what works and start building with confidence through complete application lifecycle management.
 
 <div style={{margin: '2rem 0', textAlign: 'center'}}>
   <img
@@ -25,9 +25,9 @@ MLflow's **<APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink>** pro
   />
 </div>
 
-## Why Version Control Matters for GenAI
+## Why Version Control Matters for LLM Applications and AI Agents
 
-GenAI applications are complex systems with interdependent components. Without systematic versioning, development becomes chaotic and deployments risky.
+LLM applications and AI agents are complex systems with interdependent components. Without systematic versioning, development becomes chaotic and deployments risky.
 
 <FeatureHighlights features={[
   {
@@ -52,9 +52,9 @@ GenAI applications are complex systems with interdependent components. Without s
   }
 ]} />
 
-## How LoggedModel Powers GenAI Version Control
+## How LoggedModel Powers Version Control
 
-MLflow's LoggedModel adapts traditional ML model versioning for GenAI applications. Instead of just tracking model weights, it becomes a comprehensive metadata hub that coordinates all the moving parts of your AI system.
+MLflow's LoggedModel adapts traditional ML model versioning for LLM applications and AI agents. Instead of just tracking model weights, it becomes a comprehensive metadata hub that coordinates all the moving parts of your AI system.
 
 <ConceptOverview concepts={[
   {
@@ -76,7 +76,7 @@ MLflow's LoggedModel adapts traditional ML model versioning for GenAI applicatio
 
 ## Start Version Tracking in 5 Minutes
 
-Transform chaotic GenAI development into systematic version control with just a few lines of code.
+Transform chaotic AI development into systematic version control with just a few lines of code.
 
 ### Automatic Version Tracking with Git Integration
 
@@ -166,12 +166,10 @@ Context manager automatically handles version switching—clean, explicit, and e
 import pandas as pd
 
 # Evaluate multiple versions against the same test set
-eval_data = pd.DataFrame(
-    {
-        "inputs": test_questions,
-        "expected_categories": ["account", "business_info", "billing"],
-    }
-)
+eval_data = pd.DataFrame({
+    "inputs": test_questions,
+    "expected_categories": ["account", "business_info", "billing"],
+})
 
 # Version A: Original configuration
 results_v1 = mlflow.evaluate(
@@ -217,14 +215,14 @@ For Databricks-hosted MLflow Tracking: `pip install --upgrade 'mlflow[genai,data
 
 ## Advanced Version Tracking Capabilities
 
-Once you've mastered basic version tracking, explore these advanced patterns for production GenAI applications.
+Once you've mastered basic version tracking, explore these advanced patterns for production LLM applications and AI agents.
 
 <TilesGrid>
   <TileCard
     icon={Target}
     iconSize={48}
     title="Track Application Versions"
-    description="Learn comprehensive patterns for versioning complex GenAI applications with external code management"
+    description="Learn comprehensive patterns for versioning complex LLM applications and AI agents with external code management"
     href="/genai/version-tracking/track-application-versions-with-mlflow"
     linkText="Master versioning →"
     containerHeight={64}

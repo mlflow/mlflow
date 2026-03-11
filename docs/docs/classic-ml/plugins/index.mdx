@@ -1,3 +1,8 @@
+---
+title: ML Plugins | MLflow AI Platform
+description: Extend MLflow with custom plugins for tracking backends, artifact storage, model deployment, and more.
+---
+
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
@@ -454,18 +459,14 @@ class MyEvaluator(ModelEvaluator):
         supported_types = ["classifier", "regressor"]
         return model_type in supported_types
 
-    def evaluate(
-        self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs
-    ):
+    def evaluate(self, *, model, model_type, dataset, run_id, evaluator_config, **kwargs):
         """Perform custom evaluation"""
 
         # Get predictions
         predictions = model.predict(dataset.features_data)
 
         # Compute custom metrics
-        metrics = self._compute_custom_metrics(
-            predictions, dataset.labels_data, evaluator_config
-        )
+        metrics = self._compute_custom_metrics(predictions, dataset.labels_data, evaluator_config)
 
         # Generate custom artifacts
         artifacts = self._generate_artifacts(predictions, dataset, evaluator_config)
@@ -541,9 +542,7 @@ pip install 'mlflow[xethub]'
 import mlflow
 
 # Authenticate with XetHub (via CLI or environment variables)
-mlflow.create_experiment(
-    "xet_experiment", artifact_location="xet://username/repo/branch"
-)
+mlflow.create_experiment("xet_experiment", artifact_location="xet://username/repo/branch")
 ```
 
 #### **Elasticsearch Plugin**
@@ -573,9 +572,7 @@ import mlflow.deployments
 
 # Deploy to custom target
 client = mlflow.deployments.get_deploy_client("redisai")
-client.create_deployment(
-    name="my_model", model_uri="models:/MyModel/1", config={"device": "GPU"}
-)
+client.create_deployment(name="my_model", model_uri="models:/MyModel/1", config={"device": "GPU"})
 ```
 
   </TabItem>
@@ -809,9 +806,7 @@ class TestPerformance:
             exp_id = store.create_experiment(f"concurrent_{name}")
             results.append(exp_id)
 
-        threads = [
-            threading.Thread(target=create_experiment, args=[i]) for i in range(10)
-        ]
+        threads = [threading.Thread(target=create_experiment, args=[i]) for i in range(10)]
 
         for t in threads:
             t.start()

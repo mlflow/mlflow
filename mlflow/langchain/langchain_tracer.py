@@ -348,8 +348,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._extract_and_set_model_name(span, kwargs)
 
     def _extract_and_set_model_name(self, span: LiveSpan, kwargs: dict[str, Any]):
-        if model := kwargs.get("invocation_params", {}).get("model"):
+        invocation_params = kwargs.get("invocation_params", {})
+        if model := invocation_params.get("model"):
             span.set_attribute(SpanAttributeKey.MODEL, model)
+        if _type := invocation_params.get("_type"):
+            # LangChain's _type field follows the pattern "<provider>" or "<provider>-chat"
+            provider = _type.removesuffix("-chat")
+            span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
     def _extract_tool_definitions(self, kwargs: dict[str, Any]) -> list[ChatTool]:
         raw_tools = kwargs.get("invocation_params", {}).get("tools", [])

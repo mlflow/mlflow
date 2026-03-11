@@ -339,6 +339,9 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             attr[SpanAttributeKey.MODEL] = metadata.model_name
             if params_str := metadata.model_dump_json(exclude_unset=True):
                 attr["invocation_params"] = json.loads(params_str)
+        # LlamaIndex LLM class names map directly to providers
+        # e.g., OpenAI, Anthropic, Gemini, Bedrock, etc.
+        attr[SpanAttributeKey.MODEL_PROVIDER] = instance.__class__.__name__.lower()
         return attr
 
     @_get_instance_attributes.register
@@ -346,6 +349,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         return {
             "model_name": instance.model_name,
             SpanAttributeKey.MODEL: instance.model_name,
+            SpanAttributeKey.MODEL_PROVIDER: instance.__class__.__name__.lower(),
             "embed_batch_size": instance.embed_batch_size,
         }
 
@@ -422,12 +426,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
             **template.kwargs,
             **(event.template_args or {}),
         }
-        span.set_attributes(
-            {
-                "prmopt_template": template.get_template(),
-                "template_arguments": {var: template_args.get(var) for var in template_args},
-            }
-        )
+        span.set_attributes({
+            "prmopt_template": template.get_template(),
+            "template_arguments": {var: template_args.get(var) for var in template_args},
+        })
 
     @_handle_event.register
     def _(self, event: LLMCompletionStartEvent, span: LiveSpan):
@@ -458,12 +460,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: ReRankStartEvent, span: LiveSpan):
         span.set_attribute(SpanAttributeKey.SPAN_TYPE, SpanType.RERANKER)
-        span.set_attributes(
-            {
-                "model_name": event.model_name,
-                "top_n": event.top_n,
-            }
-        )
+        span.set_attributes({
+            "model_name": event.model_name,
+            "top_n": event.top_n,
+        })
 
     @_handle_event.register
     def _(self, event: ExceptionEvent, span: LiveSpan):
@@ -479,6 +479,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     def _extract_and_set_model_name(self, span: LiveSpan, model_dict: dict[str, Any] | None):
         if model_dict and (model := model_dict.get("model")):
             span.set_attribute(SpanAttributeKey.MODEL, model)
+            if isinstance(model, str):
+                match model.split("/", 1):
+                    case [provider, _]:
+                        span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
     def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
         if raw := response.raw:
