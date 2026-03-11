@@ -8,6 +8,7 @@ import "datasets.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
+import "issues.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
 import "prompt_optimization.proto";
 import "scalapb/scalapb.proto";
@@ -1326,6 +1327,80 @@ service MlflowService {
     };
   }
 
+  // Issue RPCs
+
+  // Create an issue.
+  rpc createIssue(mlflow.issues.CreateIssue) returns (mlflow.issues.CreateIssue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/issues"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create an issue"
+    };
+  }
+
+  // Update an existing issue.
+  rpc updateIssue(mlflow.issues.UpdateIssue) returns (mlflow.issues.UpdateIssue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/issues/{issue_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update an existing issue"
+    };
+  }
+
+  // Get an issue by ID.
+  rpc getIssue(mlflow.issues.GetIssue) returns (mlflow.issues.GetIssue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/issues/{issue_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get an issue by ID"
+    };
+  }
+
+  // Search issues.
+  rpc searchIssues(mlflow.issues.SearchIssues) returns (mlflow.issues.SearchIssues.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/issues/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search issues"
+    };
+  }
+
   // Evaluation Dataset RPCs
 
   // Create an evaluation dataset
@@ -2201,6 +2276,24 @@ service MlflowService {
       ]
       visibility: PUBLIC
       rpc_doc_title: "List Budget Policies"
+    };
+  }
+
+  // List budget windows with current spending
+  rpc listBudgetWindows(ListGatewayBudgetWindows) returns (ListGatewayBudgetWindows.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/budgets/windows"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Budget Windows"
     };
   }
 
@@ -5084,6 +5177,22 @@ message ListGatewayBudgetPolicies {
     repeated GatewayBudgetPolicy budget_policies = 1;
 
     optional string next_page_token = 2;
+  }
+}
+
+message ListGatewayBudgetWindows {
+  message BudgetWindow {
+    optional string budget_policy_id = 1;
+
+    optional int64 window_start_ms = 2;
+
+    optional int64 window_end_ms = 3;
+
+    optional double current_spend = 4;
+  }
+
+  message Response {
+    repeated BudgetWindow windows = 1;
   }
 }
 

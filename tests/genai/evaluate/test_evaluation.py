@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 from unittest import mock
-from unittest.mock import ANY, MagicMock
+from unittest.mock import ANY, MagicMock, Mock
 
 import pandas as pd
 import pytest
@@ -15,8 +15,8 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
-from mlflow.genai.evaluation.entities import EvaluationResult
-from mlflow.genai.evaluation.harness import _log_assessments
+from mlflow.genai.evaluation.entities import EvalItem, EvaluationResult
+from mlflow.genai.evaluation.harness import _get_new_expectations, _log_assessments
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.genai.simulators import ConversationSimulator
@@ -444,36 +444,7 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
             dataset = create_dataset(
                 uc_table_name="mlflow.managed.dataset", experiment_id="exp-123"
             )
-            dataset.merge_records(
-                [
-                    {
-                        "inputs": {"question": "What is MLflow?"},
-                        "expectations": {
-                            "expected_response": "MLflow is a tool for ML",
-                            "max_length": 100,
-                        },
-                    },
-                    {
-                        "inputs": {"question": "What is Spark?"},
-                        "expectations": {
-                            "expected_response": "Spark is a fast data processing engine",
-                            "max_length": 1,
-                        },
-                    },
-                ]
-            )
-
-            result = mlflow.genai.evaluate(
-                data=dataset,
-                predict_fn=TestModel().predict,
-                scorers=[exact_match, is_concise, relevance, has_trace],
-            )
-    else:
-        dataset = create_dataset(
-            name="eval_test_dataset", tags={"source": "test", "version": "1.0"}
-        )
-        dataset.merge_records(
-            [
+            dataset.merge_records([
                 {
                     "inputs": {"question": "What is MLflow?"},
                     "expectations": {
@@ -488,8 +459,33 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
                         "max_length": 1,
                     },
                 },
-            ]
+            ])
+
+            result = mlflow.genai.evaluate(
+                data=dataset,
+                predict_fn=TestModel().predict,
+                scorers=[exact_match, is_concise, relevance, has_trace],
+            )
+    else:
+        dataset = create_dataset(
+            name="eval_test_dataset", tags={"source": "test", "version": "1.0"}
         )
+        dataset.merge_records([
+            {
+                "inputs": {"question": "What is MLflow?"},
+                "expectations": {
+                    "expected_response": "MLflow is a tool for ML",
+                    "max_length": 100,
+                },
+            },
+            {
+                "inputs": {"question": "What is Spark?"},
+                "expectations": {
+                    "expected_response": "Spark is a fast data processing engine",
+                    "max_length": 1,
+                },
+            },
+        ])
 
         result = mlflow.genai.evaluate(
             data=dataset,
@@ -684,12 +680,10 @@ def test_max_workers_env_var(monkeypatch):
 
 
 def test_dataset_name_is_logged_correctly(is_in_databricks):
-    data = pd.DataFrame(
-        {
-            "inputs": [{"question": "What is MLflow?"}],
-            "outputs": ["MLflow is a tool for ML"],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}],
+        "outputs": ["MLflow is a tool for ML"],
+    })
 
     with mlflow.start_run() as run:
         mlflow.genai.evaluate(
@@ -711,12 +705,10 @@ def test_dataset_name_is_logged_correctly(is_in_databricks):
 def test_evaluate_with_dataset_preserves_name(is_in_databricks):
     from mlflow.entities import Dataset as DatasetEntity
 
-    data = pd.DataFrame(
-        {
-            "inputs": [{"question": "What is MLflow?"}],
-            "outputs": ["MLflow is a tool for ML"],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}],
+        "outputs": ["MLflow is a tool for ML"],
+    })
 
     mock_managed_dataset = MagicMock(spec=EvaluationDataset)
     type(mock_managed_dataset).name = mock.PropertyMock(return_value="my_managed_dataset")
@@ -768,12 +760,10 @@ def test_evaluate_with_managed_dataset_preserves_name():
     mock_managed_dataset.created_by = None
     mock_managed_dataset.last_update_time = None
     mock_managed_dataset.last_updated_by = None
-    mock_managed_dataset.to_df.return_value = pd.DataFrame(
-        {
-            "inputs": [{"question": "What is MLflow?"}],
-            "outputs": ["MLflow is a tool for ML"],
-        }
-    )
+    mock_managed_dataset.to_df.return_value = pd.DataFrame({
+        "inputs": [{"question": "What is MLflow?"}],
+        "outputs": ["MLflow is a tool for ML"],
+    })
 
     dataset = EvaluationDataset(mock_managed_dataset)
 
@@ -921,9 +911,9 @@ def test_evaluate_without_inputs_in_eval_dataset():
 
     trace_df = mlflow.search_traces()
     trace_df["inputs"] = None
-    trace_df["expectations"] = pd.Series(
-        [{"expected_response": answer, "max_length": 100} for answer in answers]
-    )
+    trace_df["expectations"] = pd.Series([
+        {"expected_response": answer, "max_length": 100} for answer in answers
+    ])
 
     result = mlflow.genai.evaluate(
         data=trace_df,
@@ -1277,6 +1267,53 @@ def test_max_scorer_workers_env_var(monkeypatch):
     # set to 1 for sequential execution
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", "1")
     _validate_scorer_max_workers(expected_max_workers=1, num_scorers=3)
+
+
+@pytest.mark.parametrize(
+    "trace_setup",
+    [
+        None,  # trace is None
+        Mock(info=None),  # trace.info is None
+    ],
+    ids=["trace_none", "trace_info_none"],
+)
+def test_get_new_expectations_raises_exception_when_trace_unavailable(trace_setup):
+    eval_item = EvalItem(
+        inputs={"question": "What is the capital of France?"},
+        outputs="Paris",
+        expectations={"expected_response": "Paris"},
+        trace=trace_setup,  # Backend that does not support tracing
+        request_id="test-request-1",
+    )
+
+    with pytest.raises(MlflowException, match="GenAI evaluation requires trace support"):
+        _get_new_expectations(eval_item)
+
+
+def test_get_new_expectations_filters_existing_expectations():
+    existing_assessment = Mock()
+    existing_assessment.name = "existing_expectation"
+    existing_assessment.expectation = Mock()
+
+    mock_trace = Mock()
+    mock_trace.info = Mock()
+    mock_trace.info.assessments = [existing_assessment]
+
+    eval_item = EvalItem(
+        inputs={"question": "test"},
+        outputs="test output",
+        expectations={"expected": "test"},
+        trace=mock_trace,
+        request_id="test-request-3",
+    )
+    new_expectation = Expectation(name="new_expectation", value=True)
+    existing_expectation_obj = Expectation(name="existing_expectation", value=True)
+    eval_item.get_expectation_assessments = Mock(
+        return_value=[new_expectation, existing_expectation_obj]
+    )
+    result = _get_new_expectations(eval_item)
+    assert len(result) == 1
+    assert result[0].name == "new_expectation"
 
 
 # ===================== ConversationSimulator Integration Tests =====================

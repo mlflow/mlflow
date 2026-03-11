@@ -52,12 +52,10 @@ def test_voltagent_span_type_returns_none(attributes):
     [
         (
             {
-                "agent.messages": json.dumps(
-                    [
-                        {"role": "user", "content": "Hello, what can you do?"},
-                        {"role": "assistant", "content": "I can help you with various tasks."},
-                    ]
-                ),
+                "agent.messages": json.dumps([
+                    {"role": "user", "content": "Hello, what can you do?"},
+                    {"role": "assistant", "content": "I can help you with various tasks."},
+                ]),
                 "output": "I'm here to help!",
                 "span.type": "agent",
                 "voltagent.operation_id": "op-123",
@@ -71,12 +69,10 @@ def test_voltagent_span_type_returns_none(attributes):
         ),
         (
             {
-                "llm.messages": json.dumps(
-                    [
-                        {"role": "system", "content": "You are a helpful assistant."},
-                        {"role": "user", "content": "What's the weather like?"},
-                    ]
-                ),
+                "llm.messages": json.dumps([
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": "What's the weather like?"},
+                ]),
                 "output": "I don't have access to real-time weather data.",
                 "span.type": "llm",
             },

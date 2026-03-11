@@ -6,6 +6,7 @@ import trulens  # noqa: F401
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.trulens.models import create_trulens_provider
+from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig
 
 
 @pytest.fixture
@@ -86,3 +87,31 @@ def test_create_trulens_provider_litellm_format():
 def test_create_trulens_provider_invalid_format():
     with pytest.raises(MlflowException, match="Malformed model uri"):
         create_trulens_provider("gpt-4")
+
+
+def test_create_trulens_provider_gateway():
+    mock_config = GatewayLiteLLMConfig(
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        api_key="mlflow-gateway-auth",
+        model="openai/my-endpoint",
+        extra_headers=None,
+    )
+    mock_litellm_class = Mock()
+    mock_litellm_class.return_value = Mock()
+
+    with patch.dict("sys.modules", {"trulens.providers.litellm": Mock(LiteLLM=mock_litellm_class)}):
+        from mlflow.genai.scorers.trulens import models
+
+        importlib.reload(models)
+
+        with patch.object(
+            models, "get_gateway_litellm_config", return_value=mock_config
+        ) as mock_get_config:
+            models.create_trulens_provider("gateway:/my-endpoint")
+
+    mock_get_config.assert_called_once_with("my-endpoint")
+    mock_litellm_class.assert_called_once_with(
+        model_engine="openai/my-endpoint",
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        api_key="mlflow-gateway-auth",
+    )

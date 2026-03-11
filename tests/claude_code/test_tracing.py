@@ -17,6 +17,7 @@ import mlflow
 import mlflow.claude_code.tracing as tracing_module
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
+    METADATA_KEY_CLAUDE_CODE_VERSION,
     find_last_user_message_index,
     get_hook_response,
     parse_timestamp_to_ns,
@@ -753,6 +754,46 @@ def test_find_last_user_message_skips_consecutive_skill_injections():
     # Should skip both skill injections (entries 3 and 6) and return entry 0
     assert idx == 0
     assert transcript[idx]["message"]["content"] == "Do the thing."
+
+
+def test_process_transcript_captures_claude_code_version(tmp_path):
+    transcript = [
+        {
+            "type": "queue-operation",
+            "operation": "dequeue",
+            "timestamp": "2025-01-15T09:59:59.000Z",
+            "sessionId": "test-version-session",
+        },
+        {
+            "type": "user",
+            "version": "2.1.34",
+            "message": {"role": "user", "content": "Hello!"},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        {
+            "type": "assistant",
+            "version": "2.1.34",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hi there!"}],
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+    ]
+
+    transcript_path = tmp_path / "version_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(entry) for entry in transcript) + "\n")
+    trace = process_transcript(str(transcript_path), "test-version-session")
+
+    assert trace is not None
+    assert trace.info.trace_metadata.get(METADATA_KEY_CLAUDE_CODE_VERSION) == "2.1.34"
+
+
+def test_process_transcript_no_version_field(mock_transcript_file):
+    trace = process_transcript(mock_transcript_file, "test-session-no-version")
+
+    assert trace is not None
+    assert METADATA_KEY_CLAUDE_CODE_VERSION not in trace.info.trace_metadata
 
 
 def test_process_transcript_includes_steer_messages(tmp_path):

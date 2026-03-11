@@ -759,9 +759,9 @@ class LiveSpan(Span):
 
         # Copy all the attributes, inputs, outputs, and events from the original span
         clone_span.set_status(span.status)
-        clone_span.set_attributes(
-            {k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID}
-        )
+        clone_span.set_attributes({
+            k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID
+        })
         if span.inputs:
             clone_span.set_inputs(span.inputs)
         if span.outputs:
@@ -791,9 +791,10 @@ class NoOpSpan(Span):
     """
     No-op implementation of the Span interface.
 
-    This instance should be returned from the mlflow.start_span context manager when span
-    creation fails. This class should have exactly the same interface as the Span so that
-    user's setter calls do not raise runtime errors.
+    Returned when span creation fails or when the span is dropped by the
+    sampler. An optional ``otel_span`` can be provided to preserve the
+    underlying OTel span context so that child spans inherit the same
+    trace ID and sampling decision.
 
     E.g.
 
@@ -806,8 +807,8 @@ class NoOpSpan(Span):
 
     """
 
-    def __init__(self):
-        self._span = NonRecordingSpan(context=None)
+    def __init__(self, otel_span=None):
+        self._span = otel_span or NonRecordingSpan(context=None)
         self._attributes = {}
 
     @property

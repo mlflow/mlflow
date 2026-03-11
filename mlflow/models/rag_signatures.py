@@ -79,46 +79,36 @@ class StringResponse:
     content: str = "MLflow is an open source platform for the machine learning lifecycle."
 
 
-CHAT_COMPLETION_REQUEST_SCHEMA = Schema(
-    [
-        ColSpec(
-            name="messages",
-            type=Array(
-                Object(
-                    [
+CHAT_COMPLETION_REQUEST_SCHEMA = Schema([
+    ColSpec(
+        name="messages",
+        type=Array(
+            Object([
+                Property("role", DataType.string),
+                Property("content", DataType.string),
+            ])
+        ),
+    ),
+])
+
+CHAT_COMPLETION_RESPONSE_SCHEMA = Schema([
+    ColSpec(
+        name="choices",
+        type=Array(
+            Object([
+                Property("index", DataType.long),
+                Property(
+                    "message",
+                    Object([
                         Property("role", DataType.string),
                         Property("content", DataType.string),
-                    ]
-                )
-            ),
+                    ]),
+                ),
+                Property("finish_reason", DataType.string),
+            ])
         ),
-    ]
-)
-
-CHAT_COMPLETION_RESPONSE_SCHEMA = Schema(
-    [
-        ColSpec(
-            name="choices",
-            type=Array(
-                Object(
-                    [
-                        Property("index", DataType.long),
-                        Property(
-                            "message",
-                            Object(
-                                [
-                                    Property("role", DataType.string),
-                                    Property("content", DataType.string),
-                                ]
-                            ),
-                        ),
-                        Property("finish_reason", DataType.string),
-                    ]
-                )
-            ),
-        ),
-    ]
-)
+    ),
+])
 
 SIGNATURE_FOR_LLM_INFERENCE_TASK = {
     "llm/v1/chat": ModelSignature(

@@ -3,20 +3,24 @@ Integration test which starts a local Tracking Server on an ephemeral port,
 and ensures authentication is working.
 """
 
+import base64
 import re
 import subprocess
 import sys
 import time
 from pathlib import Path
+from unittest import mock
 
 import jwt
 import pytest
 import requests
+from cryptography.fernet import Fernet
 
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
     MLFLOW_TRACKING_PASSWORD,
     MLFLOW_TRACKING_USERNAME,
@@ -28,6 +32,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
+from mlflow.server.auth import _authenticate_fastapi_request
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     CREATE_REGISTERED_MODEL_PERMISSION,
@@ -150,6 +155,38 @@ def test_proxy_artifact_authorization_required(client, monkeypatch):
             + f"/ajax-api/2.0/mlflow-artifacts/artifacts/{experiment_id}/test.txt"
         ),
         data=b"forbidden",
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_proxy_artifact_list_query_param_uses_experiment_permission(client, monkeypatch):
+    # Regression test for https://github.com/mlflow/mlflow/issues/21201:
+    # When default_permission is NO_PERMISSIONS, a user with explicit experiment permission
+    # should be able to list artifacts via query parameter path (GET ?path=<experiment_id>/...).
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("proxy-artifact-list-query-param-test")
+
+    # user1 has MANAGE on experiment — list via query param path should be allowed (HTTP 200)
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow-artifacts/artifacts",
+        params={"path": f"{experiment_id}/models/m-abc123/artifacts"},
+        auth=(username1, password1),
+    )
+    assert response.status_code != 403
+
+    # user2 has no permission on the experiment — expect 403
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow-artifacts/artifacts",
+        params={"path": f"{experiment_id}/models/m-abc123/artifacts"},
         auth=(username2, password2),
     )
     assert response.status_code == 403
@@ -483,9 +520,9 @@ def test_graphql_search_model_versions(client, monkeypatch):
     resp.raise_for_status()
     payload = resp.json()
     assert payload.get("errors") in (None, [])
-    names = sorted(
-        {mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]}
-    )
+    names = sorted({
+        mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]
+    })
     assert names == [f"gql_mv_model{i}" for i in range(5)]
 
     # user2 only sees versions for readable models via GraphQL
@@ -497,9 +534,9 @@ def test_graphql_search_model_versions(client, monkeypatch):
     resp.raise_for_status()
     payload = resp.json()
     assert payload.get("errors") in (None, [])
-    names = sorted(
-        {mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]}
-    )
+    names = sorted({
+        mv["name"] for mv in payload["data"]["mlflowSearchModelVersions"]["modelVersions"]
+    })
     assert names == [f"gql_mv_model{i}" for i in readable]
 
 
@@ -930,6 +967,46 @@ def test_register_and_delete_scorer(client, monkeypatch):
 
     assert response.status_code == 404
     assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_reregister_scorer_does_not_raise(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("test_experiment")
+
+    scorer_json = '{"name": "test_scorer", "type": "pyfunc"}'
+
+    # First registration
+    with User(username1, password1, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "test_scorer",
+                "serialized_scorer": scorer_json,
+            },
+            auth=(username1, password1),
+        )
+    assert response.status_code == 200
+    assert response.json()["version"] == 1
+
+    # Re-registration with the same name should succeed (not raise RESOURCE_ALREADY_EXISTS)
+    updated_scorer_json = '{"name": "test_scorer", "type": "pyfunc", "updated": true}'
+    with User(username1, password1, monkeypatch):
+        response = _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/3.0/mlflow/scorers/register",
+            json_payload={
+                "experiment_id": experiment_id,
+                "name": "test_scorer",
+                "serialized_scorer": updated_scorer_json,
+            },
+            auth=(username1, password1),
+        )
+    assert response.status_code == 200
+    assert response.json()["version"] == 2
 
 
 def test_scorer_permission_denial(client, monkeypatch):
@@ -1719,6 +1796,90 @@ def test_gateway_model_definitions_permissions(client, monkeypatch):
             url=client.tracking_uri + "/api/3.0/mlflow/gateway/secrets/delete",
             json={"secret_id": secret_id},
             auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+
+def test_gateway_budget_policy_admin_only(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+
+    # Admin creates a budget policy
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 100.0,
+                "duration_unit": "DAYS",
+                "duration_value": 30,
+                "target_scope": "GLOBAL",
+                "budget_action": "ALERT",
+            },
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+        )
+        response.raise_for_status()
+        budget_policy_id = response.json()["budget_policy"]["budget_policy_id"]
+
+    # Non-admin can list budget policies
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/budgets/list",
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    # Non-admin can get a budget policy
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/budgets/get",
+            params={"budget_policy_id": budget_policy_id},
+            auth=(user1, password1),
+        )
+        response.raise_for_status()
+
+    # Non-admin cannot create a budget policy
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/budgets/create",
+            json={
+                "budget_unit": "USD",
+                "budget_amount": 50.0,
+                "duration_unit": "DAYS",
+                "duration_value": 7,
+                "target_scope": "GLOBAL",
+                "budget_action": "REJECT",
+            },
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Non-admin cannot update a budget policy
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/budgets/update",
+            json={
+                "budget_policy_id": budget_policy_id,
+                "budget_amount": 200.0,
+            },
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Non-admin cannot delete a budget policy
+    with User(user1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/budgets/delete",
+            json={"budget_policy_id": budget_policy_id},
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin can delete the budget policy
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/gateway/budgets/delete",
+            json={"budget_policy_id": budget_policy_id},
+            auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
         )
         response.raise_for_status()
 
@@ -2737,3 +2898,271 @@ def test_list_users(client):
     data = response.json()
     assert "users" in data
     assert len(data["users"]) >= 3
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY": Fernet.generate_key().decode("utf-8")}],
+    indirect=True,
+)
+def test_webhook_admin_only_permissions(client, monkeypatch):
+    user1, password1 = create_user(client.tracking_uri)
+
+    # Non-admin: create webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+            json={
+                "name": "test-webhook",
+                "url": "https://example.com/webhook",
+                "events": [{"entity": "MODEL_VERSION", "action": "CREATED"}],
+            },
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Non-admin: list webhooks should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: create webhook should succeed
+    response = requests.post(
+        url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+        json={
+            "name": "admin-webhook",
+            "url": "https://example.com/webhook",
+            "events": [{"entity": "MODEL_VERSION", "action": "CREATED"}],
+        },
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+    webhook_id = response.json()["webhook"]["webhook_id"]
+
+    # Admin: list webhooks should succeed
+    response = requests.get(
+        url=client.tracking_uri + "/api/2.0/mlflow/webhooks",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    # Non-admin: get webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.get(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: get webhook should succeed
+    response = requests.get(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    # Non-admin: update webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.patch(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+            json={"name": "updated-name"},
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: update webhook should succeed
+    response = requests.patch(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+        json={"name": "updated-name"},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    # Non-admin: test webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.post(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}/test",
+            json={},
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: test webhook should succeed
+    response = requests.post(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}/test",
+        json={},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+    # Non-admin: delete webhook should be forbidden
+    with User(user1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+            auth=(user1, password1),
+        )
+        assert response.status_code == 403
+
+    # Admin: delete webhook should succeed
+    response = requests.delete(
+        url=client.tracking_uri + f"/api/2.0/mlflow/webhooks/{webhook_id}",
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    response.raise_for_status()
+
+
+# -- Unit tests for _authenticate_fastapi_request --
+
+
+@pytest.fixture
+def mock_auth_store():
+    with mock.patch("mlflow.server.auth.store") as mock_store:
+        mock_store.get_user.side_effect = lambda username: mock.Mock(username=username)
+        mock_store.authenticate_user.return_value = True
+        yield mock_store
+
+
+@pytest.fixture
+def mock_auth_config():
+    with mock.patch("mlflow.server.auth.auth_config") as mock_config:
+        mock_config.admin_username = "admin"
+        yield mock_config
+
+
+def _make_request(path, authorization=None):
+    request = mock.Mock()
+    request.url.path = path
+    request.headers = {}
+    if authorization:
+        request.headers["Authorization"] = authorization
+    return request
+
+
+# -- Basic auth with internal token (trusted internal requests) --
+
+
+def test_basic_auth_with_internal_token_returns_user(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.get_user.assert_called_once_with("alice")
+    mock_auth_store.authenticate_user.assert_not_called()
+
+
+def test_basic_auth_with_internal_token_deleted_user_returns_none(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    mock_auth_store.get_user.side_effect = MlflowException("User not found")
+    credentials = base64.b64encode(b"deleted_user:internal-secret").decode("ascii")
+    request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
+
+
+def test_basic_auth_with_wrong_password_falls_through_to_authenticate(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    credentials = base64.b64encode(b"alice:wrong-password").decode("ascii")
+    request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "wrong-password")
+
+
+def test_basic_auth_internal_token_rejected_on_non_gateway_route(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "internal-secret")
+    credentials = base64.b64encode(b"alice:internal-secret").decode("ascii")
+    request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
+
+    _authenticate_fastapi_request(request)
+
+    # Internal token should NOT be accepted on non-gateway routes — falls through
+    # to store.authenticate_user instead
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "internal-secret")
+
+
+def test_basic_auth_no_internal_token_uses_normal_auth(
+    mock_auth_store, mock_auth_config, monkeypatch
+):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request("/gateway/mlflow/v1/chat", f"Basic {credentials}")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+# -- Standard Basic auth --
+
+
+def test_fastapi_valid_basic_auth(mock_auth_store, mock_auth_config, monkeypatch):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    credentials = base64.b64encode(b"alice:password123").decode("ascii")
+    request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user.username == "alice"
+    mock_auth_store.authenticate_user.assert_called_once_with("alice", "password123")
+
+
+def test_fastapi_invalid_basic_auth(mock_auth_store, mock_auth_config, monkeypatch):
+    monkeypatch.delenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, raising=False)
+    mock_auth_store.authenticate_user.return_value = False
+    credentials = base64.b64encode(b"alice:wrong").decode("ascii")
+    request = _make_request("/api/3.0/mlflow/experiments/list", f"Basic {credentials}")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
+
+
+# -- Non-Basic auth schemes --
+
+
+def test_bearer_returns_none(mock_auth_store, mock_auth_config, monkeypatch):
+    monkeypatch.setenv(_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.name, "abc123")
+    request = _make_request("/gateway/mlflow/v1/chat", "Bearer abc123")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
+    mock_auth_store.get_user.assert_not_called()
+
+
+# -- No auth header --
+
+
+def test_fastapi_no_authorization_header(mock_auth_store, mock_auth_config):
+    request = _make_request("/api/3.0/mlflow/experiments/list")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
+
+
+def test_fastapi_malformed_authorization_header(mock_auth_store, mock_auth_config):
+    request = _make_request("/api/3.0/mlflow/experiments/list", "garbage")
+
+    user = _authenticate_fastapi_request(request)
+
+    assert user is None
