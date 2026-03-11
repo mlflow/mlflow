@@ -6113,7 +6113,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 query = query.filter(*filter_clauses)
 
+            severity_order = case(
+                (SqlIssue.severity == IssueSeverity.HIGH.value, 0),
+                (SqlIssue.severity == IssueSeverity.MEDIUM.value, 1),
+                (SqlIssue.severity == IssueSeverity.LOW.value, 2),
+                (SqlIssue.severity == IssueSeverity.NOT_AN_ISSUE.value, 3),
+                else_=4,
+            )
             query = query.order_by(
+                severity_order.asc(),
                 SqlIssue.created_timestamp.desc(),
                 SqlIssue.issue_id.desc(),
             )
