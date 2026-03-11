@@ -42,15 +42,16 @@ export const TimelineTreeHeader = ({
         alignItems: 'center',
         display: 'flex',
         justifyContent: 'space-between',
+        gap: theme.spacing.xs,
       }}
     >
-      <Typography.Text bold>
+      <Typography.Text bold css={{ whiteSpace: 'nowrap' }}>
         <FormattedMessage
           defaultMessage="Trace breakdown"
           description="Header for the span tree within the MLflow trace UI"
         />
       </Typography.Text>
-      <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.sm }}>
+      <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.sm, flexShrink: 0 }}>
         {onToggleGraph && (
           <Button
             componentId="shared.model-trace-explorer.toggle-graph-button"

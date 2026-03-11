@@ -37,7 +37,7 @@ import { GraphViewSpanNavigator } from './graph-view/GraphViewSpanNavigator';
 import { useGraphTreeLinkedState } from './graph-view/useGraphTreeLinkedState';
 
 const LEFT_PANE_MIN_WIDTH_LARGE_SPACINGS = 7;
-const LEFT_PANE_HEADER_MIN_WIDTH_PX = 275;
+const LEFT_PANE_HEADER_MIN_WIDTH_PX = 350;
 const GRAPH_MIN_HEIGHT = 120;
 // Minimum space reserved for the tree section above the graph
 const TREE_MIN_HEIGHT = 200;
