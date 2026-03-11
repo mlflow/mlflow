@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
 
 
@@ -38,6 +38,64 @@ def test_issue_status_enum_isinstance():
     assert isinstance(IssueStatus.PENDING, IssueStatus)
 
 
+def test_issue_severity_enum_values():
+    assert IssueSeverity.NOT_AN_ISSUE.value == "not_an_issue"
+    assert IssueSeverity.LOW.value == "low"
+    assert IssueSeverity.MEDIUM.value == "medium"
+    assert IssueSeverity.HIGH.value == "high"
+
+
+def test_issue_severity_enum_string_behavior():
+    assert IssueSeverity.NOT_AN_ISSUE == "not_an_issue"
+    assert IssueSeverity.LOW == "low"
+    assert IssueSeverity.MEDIUM == "medium"
+    assert IssueSeverity.HIGH == "high"
+
+
+def test_issue_severity_enum_from_string():
+    assert IssueSeverity("not_an_issue") == IssueSeverity.NOT_AN_ISSUE
+    assert IssueSeverity("low") == IssueSeverity.LOW
+    assert IssueSeverity("medium") == IssueSeverity.MEDIUM
+    assert IssueSeverity("high") == IssueSeverity.HIGH
+
+
+def test_issue_severity_enum_invalid_value():
+    with pytest.raises(ValueError, match="'invalid' is not a valid IssueSeverity"):
+        IssueSeverity("invalid")
+
+
+def test_issue_severity_enum_str_method():
+    assert str(IssueSeverity.NOT_AN_ISSUE) == "not_an_issue"
+    assert str(IssueSeverity.LOW) == "low"
+    assert str(IssueSeverity.MEDIUM) == "medium"
+    assert str(IssueSeverity.HIGH) == "high"
+
+
+def test_issue_severity_enum_isinstance():
+    assert isinstance(IssueSeverity.LOW, str)
+    assert isinstance(IssueSeverity.LOW, IssueSeverity)
+
+
+def test_issue_severity_enum_comparison():
+    assert IssueSeverity.LOW < IssueSeverity.MEDIUM
+    assert IssueSeverity.MEDIUM < IssueSeverity.HIGH
+    assert IssueSeverity.NOT_AN_ISSUE < IssueSeverity.LOW
+    assert IssueSeverity.HIGH > IssueSeverity.MEDIUM
+    assert IssueSeverity.MEDIUM > IssueSeverity.LOW
+    assert IssueSeverity.LOW > IssueSeverity.NOT_AN_ISSUE
+    assert IssueSeverity.LOW <= IssueSeverity.LOW
+    assert IssueSeverity.LOW >= IssueSeverity.LOW
+    assert IssueSeverity.HIGH >= IssueSeverity.MEDIUM
+    assert IssueSeverity.MEDIUM <= IssueSeverity.HIGH
+
+
+def test_issue_severity_enum_max():
+    assert IssueSeverity._max(IssueSeverity.LOW, IssueSeverity.HIGH) == IssueSeverity.HIGH
+    assert IssueSeverity._max(IssueSeverity.HIGH, IssueSeverity.LOW) == IssueSeverity.HIGH
+    assert IssueSeverity._max(IssueSeverity.MEDIUM, IssueSeverity.MEDIUM) == IssueSeverity.MEDIUM
+    assert IssueSeverity._max(IssueSeverity.NOT_AN_ISSUE, IssueSeverity.LOW) == IssueSeverity.LOW
+
+
 def test_issue_creation_required_fields():
     issue = Issue(
         issue_id="iss-123",
@@ -71,7 +129,7 @@ def test_issue_creation_all_fields():
         status=IssueStatus.ACCEPTED,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567900,
-        severity="high",
+        severity=IssueSeverity.HIGH,
         root_causes=["Input prompts are too long", "Context window exceeded"],
         source_run_id="run-789",
         created_by="user@example.com",
@@ -84,7 +142,7 @@ def test_issue_creation_all_fields():
     assert issue.status == IssueStatus.ACCEPTED
     assert issue.created_timestamp == 1234567890
     assert issue.last_updated_timestamp == 1234567900
-    assert issue.severity == "high"
+    assert issue.severity == IssueSeverity.HIGH
     assert issue.root_causes == ["Input prompts are too long", "Context window exceeded"]
     assert issue.source_run_id == "run-789"
     assert issue.created_by == "user@example.com"
@@ -99,7 +157,7 @@ def test_issue_to_dictionary():
         status=IssueStatus.REJECTED,
         created_timestamp=9876543210,
         last_updated_timestamp=9876543220,
-        severity="medium",
+        severity=IssueSeverity.MEDIUM,
         root_causes=["API key rotation issue", "Token expired"],
         source_run_id="run-abc",
         created_by="system",
@@ -142,7 +200,7 @@ def test_issue_from_dictionary_all_fields():
     assert issue.name == "Low accuracy"
     assert issue.description == "Model accuracy below threshold"
     assert issue.status == IssueStatus.PENDING
-    assert issue.severity == "low"
+    assert issue.severity == IssueSeverity.LOW
     assert issue.root_causes == ["Training data quality issues", "Model drift"]
     assert issue.source_run_id == "run-xyz"
     assert issue.created_timestamp == 1111111111
@@ -185,7 +243,7 @@ def test_issue_roundtrip_conversion():
         status=IssueStatus.ACCEPTED,
         created_timestamp=3333333333,
         last_updated_timestamp=4444444444,
-        severity="high",
+        severity=IssueSeverity.HIGH,
         root_causes=["Test root cause", "Another cause"],
         source_run_id="run-test",
         created_by="test-user",
@@ -242,7 +300,7 @@ def test_issue_to_proto_all_fields():
         status=IssueStatus.ACCEPTED,
         created_timestamp=2000000000,
         last_updated_timestamp=2000000010,
-        severity="very_high",
+        severity=IssueSeverity.HIGH,
         root_causes=["Proto test root cause", "Another root cause"],
         source_run_id="run-proto-2",
         created_by="proto-user@example.com",
@@ -257,7 +315,7 @@ def test_issue_to_proto_all_fields():
     assert proto.status == "accepted"
     assert proto.created_timestamp == 2000000000
     assert proto.last_updated_timestamp == 2000000010
-    assert proto.severity == "very_high"
+    assert proto.severity == "high"
     assert list(proto.root_causes) == ["Proto test root cause", "Another root cause"]
     assert proto.source_run_id == "run-proto-2"
     assert proto.created_by == "proto-user@example.com"
@@ -310,10 +368,10 @@ def test_issue_from_proto_all_fields():
     assert issue.experiment_id == "exp-from-proto-2"
     assert issue.name == "Full from proto test"
     assert issue.description == "Testing conversion from proto with all fields"
-    assert issue.status == "rejected"
+    assert issue.status == IssueStatus.REJECTED
     assert issue.created_timestamp == 4000000000
     assert issue.last_updated_timestamp == 4000000020
-    assert issue.severity == "low"
+    assert issue.severity == IssueSeverity.LOW
     assert issue.root_causes == ["From proto root cause", "Another cause"]
     assert issue.source_run_id == "run-from-proto-2"
     assert issue.created_by == "from-proto-user@example.com"
@@ -355,7 +413,7 @@ def test_issue_proto_roundtrip_all_fields():
         status=IssueStatus.PENDING,
         created_timestamp=6000000000,
         last_updated_timestamp=6000000030,
-        severity="medium",
+        severity=IssueSeverity.MEDIUM,
         root_causes=["Proto roundtrip root cause", "Secondary cause", "Tertiary cause"],
         source_run_id="run-proto-roundtrip-2",
         created_by="roundtrip-user@example.com",
