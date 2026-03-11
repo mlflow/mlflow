@@ -413,7 +413,7 @@ def _build_issues(
         issue_trace_ids[issue_id] = example_ids
 
     issues.sort(
-        key=lambda i: i.severity._order,
+        key=lambda i: i.severity,
         reverse=True,
     )
     return issues, issue_trace_ids

@@ -1,7 +1,22 @@
+import uuid
+
 import pytest
 
 from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
+
+
+def create_issue(severity: IssueSeverity) -> Issue:
+    return Issue(
+        issue_id="iss-" + str(uuid.uuid4()),
+        experiment_id="exp-123",
+        name="High latency",
+        description="API calls are taking too long",
+        status=IssueStatus.PENDING,
+        created_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        severity=severity,
+    )
 
 
 def test_issue_status_enum_values():
@@ -94,6 +109,24 @@ def test_issue_severity_enum_max():
     assert max(IssueSeverity.HIGH, IssueSeverity.LOW) == IssueSeverity.HIGH
     assert max(IssueSeverity.MEDIUM, IssueSeverity.MEDIUM) == IssueSeverity.MEDIUM
     assert max(IssueSeverity.NOT_AN_ISSUE, IssueSeverity.LOW) == IssueSeverity.LOW
+
+
+def test_issue_sort_by_severity():
+    issues = [
+        create_issue(IssueSeverity.LOW),
+        create_issue(IssueSeverity.NOT_AN_ISSUE),
+        create_issue(IssueSeverity.HIGH),
+        create_issue(IssueSeverity.MEDIUM),
+        create_issue(IssueSeverity.NOT_AN_ISSUE),
+    ]
+    issues.sort(key=lambda i: i.severity, reverse=True)
+    assert [issue.severity for issue in issues] == [
+        IssueSeverity.HIGH,
+        IssueSeverity.MEDIUM,
+        IssueSeverity.LOW,
+        IssueSeverity.NOT_AN_ISSUE,
+        IssueSeverity.NOT_AN_ISSUE,
+    ]
 
 
 def test_issue_creation_required_fields():
