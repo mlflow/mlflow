@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { GatewayApi } from '../api';
+import { GatewayQueryKeys } from './queryKeys';
 
 export const useDeleteBudgetPolicy = () => {
   const queryClient = useQueryClient();
@@ -7,7 +8,8 @@ export const useDeleteBudgetPolicy = () => {
   return useMutation({
     mutationFn: (budgetPolicyId: string) => GatewayApi.deleteBudgetPolicy(budgetPolicyId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['gateway_budget_policies']);
+      queryClient.invalidateQueries(GatewayQueryKeys.budgetPolicies);
+      queryClient.invalidateQueries(GatewayQueryKeys.budgetWindows);
     },
   });
 };

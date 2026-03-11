@@ -632,6 +632,14 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
+#: If True, the gateway will attempt to resolve API keys from environment variables
+#: (``$``-prefixed values). This is only enabled for the legacy YAML-config gateway
+#: (``mlflow gateway start``).
+#: (default: ``False``)
+MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV = _BooleanEnvironmentVariable(
+    "MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV", False
+)
+
 #: If True, the gateway will attempt to resolve API keys from local file paths.
 #: This is only enabled for the legacy YAML-config gateway (``mlflow gateway start``).
 #: (default: ``False``)
@@ -781,6 +789,12 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
 #: function is passed as predict_fn, it will be wrapped with asyncio.run() with this timeout.
 #: (default: ``300``)
 MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
+
+#: Number of sessions (or individual traces when no session metadata exists) to sample
+#: for the triage phase of ``mlflow.genai.discover_issues()``. (default: ``100``)
+MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE = _EnvironmentVariable(
+    "MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE", int, 100
+)
 
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements

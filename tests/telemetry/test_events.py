@@ -51,6 +51,14 @@ from mlflow.telemetry.events import (
             {"flavor": "sklearn"},
         ),
         (
+            {"flavor": "mlflow.pyfunc", "serialization_format": "cloudpickle"},
+            {"flavor": "pyfunc", "serialization_format": "cloudpickle"},
+        ),
+        (
+            {"serialization_format": "cloudpickle"},
+            {"serialization_format": "cloudpickle"},
+        ),
+        (
             {
                 "flavor": None,
             },

@@ -58,7 +58,7 @@ export const IssueDetectionRunDetailsPage = () => {
       tabSwitchProps={{
         getBaseRoute: Routes.getIssueDetectionRunDetailsRoute,
         getTabRoute: Routes.getIssueDetectionRunDetailsTabRoute,
-        visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES],
+        visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES, RunPageTabName.ISSUES],
       }}
       onDeleteSuccess={handleDeleteSuccess}
       renderCustomOverview={({ runUuid, runInfo, tags, onRunDataUpdated }) => (

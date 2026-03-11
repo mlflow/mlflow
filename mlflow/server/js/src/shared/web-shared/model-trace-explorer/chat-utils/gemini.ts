@@ -1,6 +1,6 @@
 import { compact, has, isArray, isObject, isString } from 'lodash';
 
-import type { ModelTraceChatMessage, ModelTraceToolCall } from '../ModelTrace.types';
+import type { ModelTraceChatMessage, ModelTraceContentParts, ModelTraceToolCall } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
 export type GeminiChatInput = {
@@ -66,7 +66,26 @@ type GeminiFunctionResponsePart = {
   };
 };
 
-type GeminiContentPart = GeminiTextPart | GeminiFunctionCallPart | GeminiFunctionResponsePart;
+type GeminiInlineDataPart = {
+  inline_data: {
+    data: string;
+    mime_type: string;
+  };
+};
+
+type GeminiFileDataPart = {
+  file_data: {
+    file_uri: string;
+    mime_type: string;
+  };
+};
+
+type GeminiContentPart =
+  | GeminiTextPart
+  | GeminiFunctionCallPart
+  | GeminiFunctionResponsePart
+  | GeminiInlineDataPart
+  | GeminiFileDataPart;
 
 const isGeminiTextPart = (obj: unknown): obj is GeminiTextPart => {
   return isObject(obj) && 'text' in obj && isString(obj.text);
@@ -80,8 +99,34 @@ const isGeminiFunctionResponsePart = (obj: unknown): obj is GeminiFunctionRespon
   return isObject(obj) && 'function_response' in obj && isObject((obj as any).function_response);
 };
 
+const isGeminiInlineDataPart = (obj: unknown): obj is GeminiInlineDataPart => {
+  return (
+    isObject(obj) &&
+    'inline_data' in obj &&
+    isObject((obj as any).inline_data) &&
+    isString((obj as any).inline_data.data) &&
+    isString((obj as any).inline_data.mime_type)
+  );
+};
+
+const isGeminiFileDataPart = (obj: unknown): obj is GeminiFileDataPart => {
+  return (
+    isObject(obj) &&
+    'file_data' in obj &&
+    isObject((obj as any).file_data) &&
+    isString((obj as any).file_data.file_uri) &&
+    isString((obj as any).file_data.mime_type)
+  );
+};
+
 const isGeminiContentPart = (obj: unknown): obj is GeminiContentPart => {
-  return isGeminiTextPart(obj) || isGeminiFunctionCallPart(obj) || isGeminiFunctionResponsePart(obj);
+  return (
+    isGeminiTextPart(obj) ||
+    isGeminiFunctionCallPart(obj) ||
+    isGeminiFunctionResponsePart(obj) ||
+    isGeminiInlineDataPart(obj) ||
+    isGeminiFileDataPart(obj)
+  );
 };
 
 const isThinkingPart = (part: GeminiTextPart): boolean => {
@@ -100,6 +145,67 @@ const isGeminiContent = (obj: unknown): obj is GeminiContent => {
   );
 };
 
+// Gemini SDK serializes bytes as Python literal "b'...'" with escaped hex bytes.
+// This function detects that format, decodes the Python bytes, and returns base64.
+// If the data is already base64, it is returned as-is.
+const cleanBase64Data = (data: string): string => {
+  const match = data.match(/^b'(.*)'$/s);
+  if (!match) return data;
+
+  const inner = match[1];
+  // Check if this contains Python hex escapes (e.g., \x89, \r, \n)
+  if (/\\x[0-9a-fA-F]{2}|\\[rnt\\']/.test(inner)) {
+    return decodePythonBytesLiteral(inner);
+  }
+  // Otherwise it's already base64 wrapped in b'...'
+  return inner;
+};
+
+const decodePythonBytesLiteral = (inner: string): string => {
+  const bytes: number[] = [];
+  for (let i = 0; i < inner.length; i++) {
+    if (inner[i] === '\\' && i + 1 < inner.length) {
+      const next = inner[i + 1];
+      if (next === 'x' && i + 3 < inner.length) {
+        bytes.push(parseInt(inner.substring(i + 2, i + 4), 16));
+        i += 3;
+      } else if (next === 'n') {
+        bytes.push(0x0a);
+        i += 1;
+      } else if (next === 'r') {
+        bytes.push(0x0d);
+        i += 1;
+      } else if (next === 't') {
+        bytes.push(0x09);
+        i += 1;
+      } else if (next === '\\') {
+        bytes.push(0x5c);
+        i += 1;
+      } else if (next === "'") {
+        bytes.push(0x27);
+        i += 1;
+      } else {
+        bytes.push(inner.charCodeAt(i));
+      }
+    } else {
+      bytes.push(inner.charCodeAt(i));
+    }
+  }
+
+  // Convert byte array to base64
+  let binary = '';
+  for (const b of bytes) {
+    binary += String.fromCharCode(b);
+  }
+  return btoa(binary);
+};
+
+const getAudioFormat = (mimeType: string): 'wav' | 'mp3' | null => {
+  if (mimeType === 'audio/wav' || mimeType === 'audio/x-wav') return 'wav';
+  if (mimeType === 'audio/mpeg' || mimeType === 'audio/mp3') return 'mp3';
+  return null;
+};
+
 const isGeminiCandidate = (obj: unknown): obj is GeminiCandidate => {
   return isObject(obj) && 'content' in obj && isGeminiContent(obj.content);
 };
@@ -107,12 +213,12 @@ const isGeminiCandidate = (obj: unknown): obj is GeminiCandidate => {
 const processGeminiContentParts = (
   parts: GeminiContentPart[],
 ): {
-  textParts: { type: 'text'; text: string }[];
+  textParts: ModelTraceContentParts[];
   thinking: string | null;
   toolCalls: ModelTraceToolCall[];
   functionResponses: { name: string; response: Record<string, unknown> }[];
 } => {
-  const textParts: { type: 'text'; text: string }[] = [];
+  const textParts: ModelTraceContentParts[] = [];
   const thinkingParts: string[] = [];
   const toolCalls: ModelTraceToolCall[] = [];
   const functionResponses: { name: string; response: Record<string, unknown> }[] = [];
@@ -136,6 +242,31 @@ const processGeminiContentParts = (
         thinkingParts.push(part.text);
       } else {
         textParts.push({ type: 'text', text: part.text });
+      }
+    } else if (isGeminiInlineDataPart(part)) {
+      const { mime_type } = part.inline_data;
+      const data = cleanBase64Data(part.inline_data.data);
+      if (mime_type.startsWith('image/')) {
+        textParts.push({
+          type: 'image_url',
+          image_url: { url: `data:${mime_type};base64,${data}` },
+        });
+      } else if (mime_type.startsWith('audio/')) {
+        const format = getAudioFormat(mime_type);
+        if (format) {
+          textParts.push({
+            type: 'input_audio',
+            input_audio: { data, format },
+          });
+        }
+      }
+    } else if (isGeminiFileDataPart(part)) {
+      const { file_uri, mime_type } = part.file_data;
+      if (mime_type.startsWith('image/')) {
+        textParts.push({
+          type: 'image_url',
+          image_url: { url: file_uri },
+        });
       }
     }
   }
@@ -206,6 +337,22 @@ export const normalizeGeminiChatInput = (obj: unknown): ModelTraceChatMessage[] 
     if (isArray(obj.contents) && obj.contents.every(isGeminiContent)) {
       const messages = obj.contents.flatMap(normalizeGeminiContentToMessages);
       return messages.length > 0 ? messages : null;
+    }
+
+    // Handle flat list of parts and strings (e.g., [Part.from_bytes(...), "Caption this"])
+    if (isArray(obj.contents) && obj.contents.some((item: any) => isGeminiContentPart(item) || isString(item))) {
+      const parts: GeminiContentPart[] = [];
+      for (const item of obj.contents) {
+        if (isString(item)) {
+          parts.push({ text: item } as GeminiTextPart);
+        } else if (isGeminiContentPart(item)) {
+          parts.push(item);
+        }
+      }
+      if (parts.length > 0) {
+        const messages = normalizeGeminiContentToMessages({ role: 'user', parts });
+        return messages.length > 0 ? messages : null;
+      }
     }
   }
 

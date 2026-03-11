@@ -1166,6 +1166,7 @@ class Model:
                     if tags is not None
                     else None,
                     flavor=flavor_name,
+                    serialization_format=kwargs.get("serialization_format"),
                 )
                 _last_logged_model_id.set(model.model_id)
                 if (
