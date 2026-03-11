@@ -109,7 +109,7 @@ class BudgetTracker(ABC):
     def should_reject_request(
         self,
         workspace: str | None = None,
-    ) -> tuple[bool, "BudgetWindow | None"]:
+    ) -> tuple[bool, BudgetWindow | None]:
         """Check if any REJECT-capable policy is exceeded.
 
         Args:
