@@ -4299,7 +4299,7 @@ def test_create_issue_with_all_fields():
     request_message.status = "pending"
     request_message.source_run_id = "run-123"
     request_message.root_causes.extend(["Database query inefficiency", "Network latency"])
-    request_message.severity = "high"
+    request_message.severity = IssueSeverity.HIGH.value
     request_message.created_by = "user@example.com"
 
     issue = Issue(
@@ -4332,7 +4332,7 @@ def test_create_issue_with_all_fields():
         assert call_kwargs["status"] == IssueStatus.PENDING
         assert call_kwargs["source_run_id"] == "run-123"
         assert call_kwargs["root_causes"] == ["Database query inefficiency", "Network latency"]
-        assert call_kwargs["severity"] == "high"
+        assert call_kwargs["severity"] == IssueSeverity.HIGH.value
         assert call_kwargs["created_by"] == "user@example.com"
 
         json_response = json.loads(response.get_data())
@@ -4371,7 +4371,7 @@ def test_create_issue_without_optional_fields():
         call_kwargs = mock_store.return_value.create_issue.call_args[1]
         assert call_kwargs["source_run_id"] is None
         assert call_kwargs["root_causes"] is None
-        assert call_kwargs["severity"] is None
+        assert "severity" not in call_kwargs
 
         json_response = json.loads(response.get_data())
         assert json_response["issue"]["issue_id"] == "iss-456"
@@ -4483,7 +4483,7 @@ def test_update_issue():
         assert call_kwargs["name"] == "Updated issue name"
         assert call_kwargs["description"] == "Updated description"
         assert call_kwargs["status"] == IssueStatus.ACCEPTED
-        assert call_kwargs["severity"] == "medium"
+        assert call_kwargs["severity"] == IssueSeverity.MEDIUM.value
 
         json_response = json.loads(response.get_data())
         assert json_response["issue"]["issue_id"] == "iss-update-123"
