@@ -8,7 +8,11 @@ from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
 from mlflow.tracking.fluent import _resolve_experiment_to_trace_location
-from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
+)
 
 
 def _experiment(tags=None):
@@ -41,13 +45,11 @@ def test_uc_schema_location_is_rejected():
 
 
 def test_no_trace_location_returns_none():
-    with mock.patch("mlflow.tracking.fluent.TracingClient") as mock_tc_cls:
-        result = _resolve_experiment_to_trace_location(
-            experiment=_experiment(),
-            trace_location=None,
-        )
-        assert result is None
-        mock_tc_cls.assert_not_called()
+    result = _resolve_experiment_to_trace_location(
+        experiment=_experiment(),
+        trace_location=None,
+    )
+    assert result is None
 
 
 def test_non_databricks_backend_raises():
@@ -82,10 +84,9 @@ def test_creates_and_links_when_no_existing_location(monkeypatch):
     with (
         mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
         mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
-        mock.patch("mlflow.tracking.fluent.TracingClient") as tc_cls,
+        mock.patch("mlflow.tracing.client.TracingClient") as tc_cls,
     ):
         tc = tc_cls.return_value
-        tc._get_trace_location.return_value = None
         tc._create_or_get_trace_location.return_value = resolved
 
         result = _resolve_experiment_to_trace_location(
@@ -94,7 +95,6 @@ def test_creates_and_links_when_no_existing_location(monkeypatch):
         )
 
         assert result is resolved
-        tc._get_trace_location.assert_not_called()
         tc._create_or_get_trace_location.assert_called_once_with(requested, "warehouse-1")
         tc._link_trace_location.assert_called_once_with(
             experiment_id="123",
@@ -104,50 +104,109 @@ def test_creates_and_links_when_no_existing_location(monkeypatch):
 
 def test_noop_when_existing_location_matches():
     requested = UnityCatalog("catalog", "schema", table_prefix="prefix")
-    existing = UnityCatalog("catalog", "schema", table_prefix="prefix")
     experiment = _experiment(
-        tags={MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID: "some-uuid"}
+        tags={
+            MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH: "catalog.schema.prefix",
+            MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE: (
+                "catalog.schema.prefix_otel_spans"
+            ),
+            MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE: (
+                "catalog.schema.prefix_otel_logs"
+            ),
+        }
     )
 
     with (
         mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
         mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
-        mock.patch("mlflow.tracking.fluent.TracingClient") as tc_cls,
     ):
-        tc = tc_cls.return_value
-        tc._get_trace_location.return_value = existing
-
         result = _resolve_experiment_to_trace_location(
             experiment=experiment,
             trace_location=requested,
         )
 
-        assert result is existing
-        tc._get_trace_location.assert_called_once_with("some-uuid")
-        tc._create_or_get_trace_location.assert_not_called()
-        tc._link_trace_location.assert_not_called()
+        assert result == requested
+        assert result._otel_spans_table_name == "catalog.schema.prefix_otel_spans"
+        assert result._otel_logs_table_name == "catalog.schema.prefix_otel_logs"
 
 
 def test_errors_when_existing_location_differs():
     requested = UnityCatalog("catalog", "schema", table_prefix="new_prefix")
-    existing = UnityCatalog("catalog", "schema", table_prefix="old_prefix")
     experiment = _experiment(
-        tags={MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID: "some-uuid"}
+        tags={MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH: "catalog.schema.old_prefix"}
     )
 
     with (
         mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
         mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
-        mock.patch("mlflow.tracking.fluent.TracingClient") as tc_cls,
     ):
-        tc = tc_cls.return_value
-        tc._get_trace_location.return_value = existing
-
         with pytest.raises(MlflowException, match="already linked to a different"):
             _resolve_experiment_to_trace_location(
                 experiment=experiment,
                 trace_location=requested,
             )
+
+
+def test_existing_uc_schema_destination_rejects_table_prefix():
+    requested = UnityCatalog("catalog", "schema", table_prefix="pfx")
+    experiment = _experiment(
+        tags={MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH: "catalog.schema"}
+    )
+
+    with (
+        mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
+    ):
+        with pytest.raises(MlflowException, match="already linked to a different"):
+            _resolve_experiment_to_trace_location(
+                experiment=experiment,
+                trace_location=requested,
+            )
+
+
+def test_link_failure_on_new_experiment_includes_delete_guidance():
+    with (
+        mock.patch("mlflow.tracking.fluent.TrackingServiceClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            side_effect=MlflowException("backend error"),
+        ) as mock_resolve,
+    ):
+        client = mock_client_cls.return_value
+        # Simulate: experiment_name lookup returns None (not found) -> create -> get
+        client.get_experiment_by_name.return_value = None
+        client.create_experiment.return_value = "456"
+        new_exp = _experiment()
+        client.get_experiment.return_value = new_exp
+
+        with pytest.raises(MlflowException, match="delete the experiment before retrying"):
+            mlflow.set_experiment(
+                "new-exp",
+                trace_location=UnityCatalog("cat", "sch", "pfx"),
+            )
+
+        mock_resolve.assert_called_once()
+
+
+def test_link_failure_on_existing_experiment_reraises_original():
+    with (
+        mock.patch("mlflow.tracking.fluent.TrackingServiceClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            side_effect=MlflowException("backend error"),
+        ) as mock_resolve,
+    ):
+        client = mock_client_cls.return_value
+        # Simulate: experiment already exists
+        client.get_experiment_by_name.return_value = _experiment()
+
+        with pytest.raises(MlflowException, match="backend error"):
+            mlflow.set_experiment(
+                "test-experiment",
+                trace_location=UnityCatalog("cat", "sch", "pfx"),
+            )
+
+        mock_resolve.assert_called_once()
 
 
 def test_set_experiment_wires_trace_location_to_returned_experiment():

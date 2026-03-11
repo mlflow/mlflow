@@ -50,7 +50,11 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
-from mlflow.utils.mlflow_tags import MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
+)
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
@@ -539,8 +543,6 @@ def _get_trace_sampler() -> _MlflowSampler | None:
 
 
 def _resolve_experiment_uc_location() -> UnityCatalog | None:
-    # Lazy imports to avoid circular dependency (tracking.fluent -> tracing.provider).
-    from mlflow.tracing.client import TracingClient
     from mlflow.tracking.fluent import _get_experiment_id
 
     tracking_uri = mlflow.get_tracking_uri()
@@ -557,11 +559,22 @@ def _resolve_experiment_uc_location() -> UnityCatalog | None:
             return None
 
         tags = experiment.tags or {}
-        telemetry_profile_id = tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID)
-        if not telemetry_profile_id:
+        destination_path = tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
+        if not destination_path:
             return None
 
-        return TracingClient(tracking_uri)._get_trace_location(telemetry_profile_id)
+        match destination_path.split("."):
+            case [catalog, schema, table_prefix]:
+                location = UnityCatalog(catalog, schema, table_prefix)
+                location._otel_spans_table_name = tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE
+                )
+                location._otel_logs_table_name = tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE
+                )
+                return location
+            case _:
+                return None
     except Exception:
         _logger.debug(
             "Failed to auto-resolve UC location for active experiment",

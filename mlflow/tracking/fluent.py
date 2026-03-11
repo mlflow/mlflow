@@ -53,7 +53,6 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.client import TracingClient
 from mlflow.tracing.provider import (
     _get_trace_exporter,
 )
@@ -80,7 +79,9 @@ from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX,
     MLFLOW_DATASET_CONTEXT,
-    MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER,
     MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME,
     MLFLOW_MODEL_IS_EXTERNAL,
@@ -201,6 +202,8 @@ def set_experiment(
 
     client = TrackingServiceClient(_resolve_tracking_uri())
 
+    is_newly_created = False
+
     with _experiment_lock:
         if experiment_id is None:
             experiment = client.get_experiment_by_name(experiment_name)
@@ -220,6 +223,7 @@ def set_experiment(
                     raise
 
                 experiment = client.get_experiment(experiment_id)
+                is_newly_created = True
         else:
             experiment = client.get_experiment(experiment_id)
             if experiment is None:
@@ -239,10 +243,19 @@ def set_experiment(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    resolved_location = _resolve_experiment_to_trace_location(
-        experiment=experiment,
-        trace_location=trace_location,
-    )
+    try:
+        resolved_location = _resolve_experiment_to_trace_location(
+            experiment=experiment,
+            trace_location=trace_location,
+        )
+    except MlflowException:
+        if is_newly_created and trace_location is not None:
+            raise MlflowException.invalid_parameter_value(
+                f"Experiment '{experiment.name}' (ID: {experiment.experiment_id}) was created "
+                f"but linking to trace location '{trace_location.full_table_prefix}' failed. "
+                "Please delete the experiment before retrying."
+            )
+        raise
 
     global _active_experiment_id
     _active_experiment_id = experiment.experiment_id
@@ -280,7 +293,7 @@ def _sync_trace_destination_and_provider(
         _MLFLOW_TRACE_USER_DESTINATION.set(resolved_location)
 
     is_uc_destination = resolved_location is not None or bool(
-        experiment.tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID)
+        experiment.tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
     )
 
     # Re-initialize provider when switching between UC and non-UC (processor type changes).
@@ -314,34 +327,19 @@ def _resolve_experiment_to_trace_location(
             "`trace_location` is only supported with a Databricks tracking URI."
         )
 
-    tracing_client = TracingClient()
-
-    # Check if the experiment is already linked to a UC location via the backend.
-    existing_location = None
-    if telemetry_profile_id := experiment.tags.get(
-        MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID
-    ):
-        try:
-            existing_location = tracing_client._get_trace_location(telemetry_profile_id)
-        except Exception:
-            _logger.debug(
-                "Failed to resolve tracing location for "
-                f"telemetry_profile_id={telemetry_profile_id}",
-                exc_info=True,
-            )
-
-    # User explicitly requested a location. If the experiment already has one,
-    # verify it matches — we don't allow re-linking to a different location.
-    if existing_location is not None:
-        if trace_location == existing_location:
-            return existing_location
+    # Check if experiment is already linked via the destination path tag (no backend call).
+    if destination_path := experiment.tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH):
+        if destination_path == trace_location.full_table_prefix:
+            return _uc_location_from_experiment_tags(experiment)
         raise MlflowException.invalid_parameter_value(
             f"Experiment '{experiment.name}' is already linked to a different "
-            f"trace location {existing_location.full_table_prefix}."
+            f"trace location '{destination_path}'."
         )
 
-    # Experiment has no existing link — register the location in the backend
-    # and link it to this experiment.
+    # No existing link — register and link via backend.
+    from mlflow.tracing.client import TracingClient
+
+    tracing_client = TracingClient()
     resolved = tracing_client._create_or_get_trace_location(
         trace_location,
         MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
@@ -351,6 +349,25 @@ def _resolve_experiment_to_trace_location(
         location=resolved,
     )
     return resolved
+
+
+def _uc_location_from_experiment_tags(experiment: Experiment) -> UnityCatalog | None:
+    destination_path = experiment.tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
+    if not destination_path:
+        return None
+
+    match destination_path.split("."):
+        case [catalog, schema, table_prefix]:
+            location = UnityCatalog(catalog, schema, table_prefix)
+            location._otel_spans_table_name = experiment.tags.get(
+                MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE
+            )
+            location._otel_logs_table_name = experiment.tags.get(
+                MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE
+            )
+            return location
+        case _:
+            return None
 
 
 def _set_experiment_primary_metric(
