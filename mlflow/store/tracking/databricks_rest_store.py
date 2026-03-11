@@ -1081,7 +1081,7 @@ class DatabricksTracingRestStore(RestStore):
         experiment_id: str,
         name: str,
         description: str,
-        status,
+        status=None,
         severity=None,
         root_causes=None,
         source_run_id=None,
