@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { IssuesTabEmptyState } from './IssuesTabEmptyState';
 import { IssueCard } from './IssueCard';
 import { IssueTracesPanel } from './IssueTracesPanel';
+import { IssueStatusFilter, type IssueStatusFilterValue } from './IssueStatusFilter';
 import { useSearchIssuesQuery, type Issue } from './hooks/useSearchIssuesQuery';
 
 export interface RunViewIssuesTabProps {
@@ -13,13 +14,25 @@ export interface RunViewIssuesTabProps {
 export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProps) => {
   const { theme } = useDesignSystemTheme();
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
-  const { issues, isLoading } = useSearchIssuesQuery({
+  const [statusFilter, setStatusFilter] = useState<IssueStatusFilterValue>('pending');
+  const { issues, isLoading, refetch } = useSearchIssuesQuery({
     experimentId,
     sourceRunId: runUuid,
   });
 
+  const filteredIssues = useMemo(() => {
+    if (statusFilter === 'all') {
+      return issues;
+    }
+    return issues.filter((issue) => issue.status === statusFilter);
+  }, [issues, statusFilter]);
+
   const handleSelect = (issue: Issue) => {
     setSelectedIssue((prev) => (prev?.issue_id === issue.issue_id ? null : issue));
+  };
+
+  const handleStatusUpdate = () => {
+    refetch();
   };
 
   if (isLoading) {
@@ -53,44 +66,55 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
       css={{
         width: '100%',
         height: '100%',
-        display: 'grid',
-        gridTemplateColumns: selectedIssue ? '1fr 2fr' : '1fr',
-        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'auto',
+        minWidth: 320,
       }}
     >
+      <IssueStatusFilter issues={issues} value={statusFilter} onChange={setStatusFilter} />
       <div
         css={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: theme.spacing.sm,
-          padding: theme.spacing.md,
-          overflow: 'auto',
-          minWidth: 0,
+          flex: 1,
+          display: 'grid',
+          gridTemplateColumns: selectedIssue ? 'minmax(280px, 1fr) 2fr' : '1fr',
+          overflow: 'hidden',
         }}
       >
-        {issues.map((issue) => (
-          <IssueCard
-            key={issue.issue_id}
-            issue={issue}
-            isSelected={selectedIssue?.issue_id === issue.issue_id}
-            onSelect={() => handleSelect(issue)}
-          />
-        ))}
-      </div>
-      {selectedIssue && (
         <div
           css={{
-            flex: 1,
             display: 'flex',
-            borderLeft: `1px solid ${theme.colors.border}`,
-            minHeight: 0,
-            minWidth: 0,
-            overflowY: 'auto',
+            flexDirection: 'column',
+            gap: theme.spacing.sm,
+            padding: theme.spacing.md,
+            overflow: 'auto',
           }}
         >
-          <IssueTracesPanel issue={selectedIssue} experimentId={experimentId} />
+          {filteredIssues.map((issue) => (
+            <IssueCard
+              key={issue.issue_id}
+              issue={issue}
+              isSelected={selectedIssue?.issue_id === issue.issue_id}
+              onSelect={() => handleSelect(issue)}
+              onStatusUpdate={handleStatusUpdate}
+            />
+          ))}
         </div>
-      )}
+        {selectedIssue && (
+          <div
+            css={{
+              flex: 1,
+              display: 'flex',
+              borderLeft: `1px solid ${theme.colors.border}`,
+              minHeight: 0,
+              minWidth: 0,
+              overflowY: 'auto',
+            }}
+          >
+            <IssueTracesPanel issue={selectedIssue} experimentId={experimentId} />
+          </div>
+        )}
+      </div>
     </div>
   );
 };
