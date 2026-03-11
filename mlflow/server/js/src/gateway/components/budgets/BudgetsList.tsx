@@ -149,9 +149,11 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
               <TableCell css={{ flex: 1 }}>
                 <Tooltip
                   componentId="mlflow.gateway.budgets-list.budget-amount-tooltip"
-                  content={formatBudgetAmount(policy.budget_amount, policy.budget_unit)}
+                  content={formatBudgetAmount(policy.budget_amount, policy.budget_unit, 6)}
                 >
-                  <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
+                  <span>
+                    <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
+                  </span>
                 </Tooltip>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
@@ -176,13 +178,15 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
                       timeStyle: 'short',
                     })}
                   >
-                    <Typography.Text>
-                      {formatDate(window.window_end_ms, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </Typography.Text>
+                    <span>
+                      <Typography.Text>
+                        {formatDate(window.window_end_ms, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </Typography.Text>
+                    </span>
                   </Tooltip>
                 ) : (
                   <Typography.Text color="secondary">—</Typography.Text>
@@ -192,9 +196,11 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
                 {window ? (
                   <Tooltip
                     componentId="mlflow.gateway.budgets-list.current-spend-tooltip"
-                    content={formatBudgetAmount(window.current_spend, policy.budget_unit)}
+                    content={formatBudgetAmount(window.current_spend, policy.budget_unit, 6)}
                   >
-                    <Typography.Text>{formatBudgetAmount(window.current_spend, policy.budget_unit)}</Typography.Text>
+                    <span>
+                      <Typography.Text>{formatBudgetAmount(window.current_spend, policy.budget_unit)}</Typography.Text>
+                    </span>
                   </Tooltip>
                 ) : (
                   <Typography.Text color="secondary">—</Typography.Text>

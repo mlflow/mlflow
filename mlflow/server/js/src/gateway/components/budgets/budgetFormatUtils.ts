@@ -1,8 +1,8 @@
 import type { BudgetAction, BudgetPolicy, BudgetUnit, DurationUnit } from '../../types';
 
-export function formatBudgetAmount(amount: number, budgetUnit: BudgetUnit): string {
+export function formatBudgetAmount(amount: number, budgetUnit: BudgetUnit, digits: number = 2): string {
   if (budgetUnit === 'USD') {
-    return `$${amount.toFixed(2)}`;
+    return `$${amount.toLocaleString(undefined, { maximumFractionDigits: digits })}`;
   }
   return `${amount}`;
 }
