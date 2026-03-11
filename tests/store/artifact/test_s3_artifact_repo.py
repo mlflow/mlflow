@@ -235,18 +235,18 @@ def test_file_and_directories_artifacts_are_logged_and_listed_successfully_in_ba
 
     s3_artifact_repo.log_artifacts(str(subdir))
 
-    root_artifacts_listing = sorted(
-        [(f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts()]
-    )
+    root_artifacts_listing = sorted([
+        (f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts()
+    ])
     assert root_artifacts_listing == [
         ("a.txt", False, 1),
         ("b.txt", False, 1),
         ("nested", True, None),
     ]
 
-    nested_artifacts_listing = sorted(
-        [(f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts("nested")]
-    )
+    nested_artifacts_listing = sorted([
+        (f.path, f.is_dir, f.file_size) for f in s3_artifact_repo.list_artifacts("nested")
+    ])
     assert nested_artifacts_listing == [("nested/c.txt", False, 1)]
 
 

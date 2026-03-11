@@ -6,12 +6,13 @@ import sys
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from datetime import datetime
 from unittest import mock
 
 import pytest
+from opentelemetry.sdk.trace.export import SpanExporter
 
 import mlflow
 from mlflow.entities import (
@@ -986,13 +987,11 @@ def test_search_traces_with_pagination(mock_client):
         "model_id": None,
         "locations": ["1"],
     }
-    mock_client.search_traces.assert_has_calls(
-        [
-            mock.call(**common_args, page_token=None),
-            mock.call(**common_args, page_token="token-1"),
-            mock.call(**common_args, page_token="token-2"),
-        ]
-    )
+    mock_client.search_traces.assert_has_calls([
+        mock.call(**common_args, page_token=None),
+        mock.call(**common_args, page_token="token-1"),
+        mock.call(**common_args, page_token="token-2"),
+    ])
 
 
 def test_search_traces_with_default_experiment_id(mock_client):
@@ -2811,3 +2810,112 @@ assert len(trace_ids) == 5
             "MLFLOW_TRACE_SAMPLING_RATIO": "0.0",
         },
     )
+
+
+@mlflow.trace
+def my_func():
+    return "hello"
+
+
+def test_tracing_context_injects_metadata_and_tags():
+    with mlflow.tracing.context(
+        metadata={"custom_key": "custom_value"},
+        tags={"my_tag": "tag_value"},
+    ):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.request_metadata["custom_key"] == "custom_value"
+    assert trace.info.tags["my_tag"] == "tag_value"
+
+    # Trace created outside the block should NOT have the metadata
+    my_func()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert "session" not in trace.info.request_metadata
+
+
+def test_tracing_context_nesting_merges():
+    with mlflow.tracing.context(
+        metadata={"outer_key": "outer_val", "shared": "outer"},
+        tags={"outer_tag": "outer"},
+    ):
+        with mlflow.tracing.context(
+            metadata={"inner_key": "inner_val", "shared": "inner"},
+            tags={"inner_tag": "inner"},
+        ):
+            my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    # Both outer and inner metadata present
+    assert trace.info.request_metadata["outer_key"] == "outer_val"
+    assert trace.info.request_metadata["inner_key"] == "inner_val"
+    # Inner wins on conflict
+    assert trace.info.request_metadata["shared"] == "inner"
+    # Both tags present
+    assert trace.info.tags["outer_tag"] == "outer"
+    assert trace.info.tags["inner_tag"] == "inner"
+
+
+def test_tracing_context_enabled_false_suppresses_traces():
+    with mlflow.tracing.context(enabled=False):
+        my_func()
+
+        # Child context should inherit the enabled=False from the parent
+        with mlflow.tracing.context(metadata={"k": "v"}):
+            my_func()
+
+        # Start trace with start_trace_no_context (used in autologging)
+        span = mlflow.start_span_no_context("test")
+        span.end()
+
+    assert mlflow.get_last_active_trace_id() is None
+
+    # After exiting, tracing should work normally
+    my_func()
+    assert mlflow.get_last_active_trace_id() is not None
+
+
+def test_tracing_context_enabled_is_thread_safe():
+    def run_with_context(enabled):
+        with mlflow.tracing.context(enabled=enabled):
+            my_func()
+            return mlflow.get_last_active_trace_id(thread_local=True)
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {
+            pool.submit(run_with_context, enabled=(i % 2 == 0)): (i % 2 == 0) for i in range(10)
+        }
+        for future in as_completed(futures):
+            enabled = futures[future]
+            trace_id = future.result()
+            assert (trace_id is not None) == enabled
+
+
+def test_flush_trace_async_logging_calls_flush_when_async_queue_exists():
+    mock_exporter = mock.MagicMock()
+    with mock.patch("mlflow.tracking.fluent._get_trace_exporter", return_value=mock_exporter):
+        mlflow.flush_trace_async_logging(terminate=False)
+    mock_exporter._async_queue.flush.assert_called_once_with(terminate=False)
+
+
+def test_flush_trace_async_logging_skips_when_async_queue_missing():
+    # A bare SpanExporter (as used by StrandsSpanProcessor, mlflow/strands/autolog.py:40)
+    # has no _async_queue attribute. flush_trace_async_logging() should return without
+    # reaching the error handler.
+    exporter = SpanExporter()
+    assert not hasattr(exporter, "_async_queue")
+    with (
+        mock.patch("mlflow.tracking.fluent._get_trace_exporter", return_value=exporter),
+        mock.patch(
+            "mlflow.tracking.fluent._logger.error",
+            side_effect=AssertionError("flush should not reach error handler"),
+        ),
+    ):
+        mlflow.flush_trace_async_logging(terminate=False)
+
+
+def test_flush_trace_async_logging_no_spurious_error_when_tracing_disabled():
+    mlflow.tracing.disable()
+    with mock.patch("mlflow.tracking.fluent._logger") as mock_logger:
+        mlflow.flush_trace_async_logging()
+    mock_logger.error.assert_not_called()

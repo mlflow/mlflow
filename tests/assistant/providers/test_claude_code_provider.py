@@ -116,12 +116,10 @@ async def test_astream_builds_correct_command(tmp_path, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_astream_streams_assistant_messages():
-    mock_stdout = AsyncIterator(
-        [
-            b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi!"}]}}\n',
-            b'{"type": "result", "session_id": "session-123"}\n',
-        ]
-    )
+    mock_stdout = AsyncIterator([
+        b'{"type": "assistant", "message": {"content": [{"type": "text", "text": "Hi!"}]}}\n',
+        b'{"type": "result", "session_id": "session-123"}\n',
+    ])
 
     mock_process = MagicMock()
     mock_process.stdout = mock_stdout
@@ -210,12 +208,10 @@ async def test_astream_passes_session_id_for_resume():
 
 @pytest.mark.asyncio
 async def test_astream_handles_non_json_output():
-    mock_stdout = AsyncIterator(
-        [
-            b"Some plain text output\n",
-            b'{"type": "result"}\n',
-        ]
-    )
+    mock_stdout = AsyncIterator([
+        b"Some plain text output\n",
+        b'{"type": "result"}\n',
+    ])
 
     mock_process = MagicMock()
     mock_process.stdout = mock_stdout
@@ -243,11 +239,9 @@ async def test_astream_handles_non_json_output():
 
 @pytest.mark.asyncio
 async def test_astream_handles_error_message_type():
-    mock_stdout = AsyncIterator(
-        [
-            b'{"type": "error", "error": {"message": "API rate limit exceeded"}}\n',
-        ]
-    )
+    mock_stdout = AsyncIterator([
+        b'{"type": "error", "error": {"message": "API rate limit exceeded"}}\n',
+    ])
 
     mock_process = MagicMock()
     mock_process.stdout = mock_stdout

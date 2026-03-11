@@ -62,10 +62,10 @@ def _load_installation_id_from_disk() -> str | None:
 
 
 def _get_telemetry_file_path() -> Path:
-    if is_windows() and (appdata := os.getenv("APPDATA")):
+    if is_windows() and (appdata := os.environ.get("APPDATA")):
         base = Path(appdata)
     else:
-        xdg = os.getenv("XDG_CONFIG_HOME")
+        xdg = os.environ.get("XDG_CONFIG_HOME")
         base = Path(xdg) if xdg else Path.home() / ".config"
     return base / "mlflow" / "telemetry.json"
 

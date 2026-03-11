@@ -2,12 +2,13 @@ import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import ImageBox from "@site/src/components/ImageBox";
 
 # MLflow Tracing UI
 
-## GenAI Experiment Overview
+## LLM and AI Agent Experiment Overview
 
-The **Overview** tab in GenAI experiments provides comprehensive analytics and visualizations for your GenAI application traces. This tab is organized into three sub-tabs to help you monitor different aspects of your application.
+The **Overview** tab in LLM and AI agent experiments provides comprehensive analytics and visualizations for your LLM application and AI agent traces. This tab is organized into three sub-tabs to help you monitor different aspects of your application.
 
 All tabs include a **time range selector** and **time unit selector** to customize the granularity and range of the displayed data.
 
@@ -26,7 +27,7 @@ The Usage tab displays key metrics about your trace requests over time:
 
 ### Quality
 
-The Quality tab provides insights into the quality of your GenAI outputs:
+The Quality tab provides insights into the quality of your LLM and AI agent outputs:
 
 - **Quality Summary**: Provides overview of scorers result
 - **Quality Insights**: Displays metrics computed by [scorers](/genai/eval-monitor/scorers/), with a dedicated chart for each assessment type
@@ -78,7 +79,13 @@ This table includes high-level information about the traces, such as the trace I
 
 In order to browse the span data of an individual trace, simply click on the link in the "Trace ID" or "Trace name" columns to open the trace viewer:
 
-<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
+<ImageBox src="/images/llms/tracing/langgraph-agent-trace.png" alt="MLflow Tracing UI" />
+
+:::tip Image and Audio Content
+MLflow renders images and audio inline in the trace viewer. For supported formats,
+framework examples, and how to attach multimodal content to traces, see
+[Image and Audio (Multimodal) Content in Traces](/genai/tracing/observe-with-traces/multimodal).
+:::
 
 ## Jupyter Notebook integration
 

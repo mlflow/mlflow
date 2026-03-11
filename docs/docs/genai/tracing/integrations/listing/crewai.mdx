@@ -62,9 +62,7 @@ from crewai_tools import SerperDevTool, WebsiteSearchTool
 from textwrap import dedent
 
 content = "Users name is John. He is 30 years old and lives in San Francisco."
-string_source = StringKnowledgeSource(
-    content=content, metadata={"preference": "personal"}
-)
+string_source = StringKnowledgeSource(content=content, metadata={"preference": "personal"})
 
 search_tool = WebsiteSearchTool()
 

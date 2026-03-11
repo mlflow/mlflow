@@ -306,6 +306,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
 
         <Tabs.Root
           componentId="mlflow.gateway.usage-modal.tabs"
+          valueHasNoPii
           value={activeTab}
           onValueChange={(value) => setActiveTab(value as 'unified' | 'passthrough')}
           css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}

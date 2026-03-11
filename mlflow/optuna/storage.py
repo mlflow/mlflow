@@ -418,44 +418,38 @@ class MlflowStorage(BaseStorage):
         # Add metrics
         if frozen.values is not None:
             if len(frozen.values) > 1:
-                metrics.extend(
-                    [
-                        Metric(f"value_{idx}", val, timestamp, 1)
-                        for idx, val in enumerate(frozen.values)
-                    ]
-                )
+                metrics.extend([
+                    Metric(f"value_{idx}", val, timestamp, 1)
+                    for idx, val in enumerate(frozen.values)
+                ])
             else:
                 metrics.append(Metric("value", frozen.values[0], timestamp, 1))
         elif frozen.value is not None:
             metrics.append(Metric("value", frozen.value, timestamp, 1))
 
         # Add intermediate values
-        metrics.extend(
-            [
-                Metric("intermediate_value", val, timestamp, int(k))
-                for k, val in frozen.intermediate_values.items()
-            ]
-        )
+        metrics.extend([
+            Metric("intermediate_value", val, timestamp, int(k))
+            for k, val in frozen.intermediate_values.items()
+        ])
 
         # Add params
         params.extend([Param(k, param) for k, param in frozen.params.items()])
 
         # Add tags
-        tags.extend(
-            [RunTag(f"user_{key}", json.dumps(value)) for key, value in frozen.user_attrs.items()]
-        )
-        tags.extend(
-            [RunTag(f"sys_{key}", json.dumps(value)) for key, value in frozen.system_attrs.items()]
-        )
-        tags.extend(
-            [
-                RunTag(
-                    f"param_internal_val_{k}",
-                    json.dumps(frozen.distributions[k].to_internal_repr(param)),
-                )
-                for k, param in frozen.params.items()
-            ]
-        )
+        tags.extend([
+            RunTag(f"user_{key}", json.dumps(value)) for key, value in frozen.user_attrs.items()
+        ])
+        tags.extend([
+            RunTag(f"sys_{key}", json.dumps(value)) for key, value in frozen.system_attrs.items()
+        ])
+        tags.extend([
+            RunTag(
+                f"param_internal_val_{k}",
+                json.dumps(frozen.distributions[k].to_internal_repr(param)),
+            )
+            for k, param in frozen.params.items()
+        ])
 
         # Queue all the data to be sent in batches
         self._queue_batch_operation(trial_id, metrics=metrics, params=params, tags=tags)

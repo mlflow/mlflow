@@ -119,19 +119,15 @@ class CORSBlockingMiddleware:
 
         if should_block_cors_request(origin, method, self.allowed_origins):
             _logger.warning(f"Blocked cross-origin request from {origin}")
-            await send(
-                {
-                    "type": "http.response.start",
-                    "status": HTTPStatus.FORBIDDEN,
-                    "headers": [[b"content-type", b"text/plain"]],
-                }
-            )
-            await send(
-                {
-                    "type": "http.response.body",
-                    "body": CORS_BLOCKED_MSG.encode(),
-                }
-            )
+            await send({
+                "type": "http.response.start",
+                "status": HTTPStatus.FORBIDDEN,
+                "headers": [[b"content-type", b"text/plain"]],
+            })
+            await send({
+                "type": "http.response.body",
+                "body": CORS_BLOCKED_MSG.encode(),
+            })
             return
 
         await self.app(scope, receive, send)
