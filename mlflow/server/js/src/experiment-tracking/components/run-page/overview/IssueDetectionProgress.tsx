@@ -239,6 +239,15 @@ export const IssueDetectionProgress = ({ onCancel, jobId }: IssueDetectionProgre
               />
             )}
           </Typography.Hint>
+          {jobComplete && result?.total_cost_usd !== undefined && (
+            <Typography.Hint css={{ marginTop: theme.spacing.xs }}>
+              <FormattedMessage
+                defaultMessage="Total cost: ${cost}"
+                description="Issue detection progress > Total cost in USD"
+                values={{ cost: result.total_cost_usd.toFixed(4) }}
+              />
+            </Typography.Hint>
+          )}
         </div>
       </div>
 

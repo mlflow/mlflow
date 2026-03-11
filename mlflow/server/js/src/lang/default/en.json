@@ -3066,6 +3066,10 @@
     "defaultMessage": "Goal",
     "description": "Label for the simulation goal metadata in chat session metrics"
   },
+  "IaCZ/C": {
+    "defaultMessage": "Total cost: ${cost}",
+    "description": "Issue detection progress > Total cost in USD"
+  },
   "Id2mFI": {
     "defaultMessage": "The request was invalid.",
     "description": "Bad request (HTTP STATUS 400) generic error message"

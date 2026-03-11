@@ -16,6 +16,7 @@ export interface IssueJobResult {
   issues?: number;
   summary?: string;
   total_traces_analyzed?: number;
+  total_cost_usd?: number;
 }
 
 export interface FetchIssueJobStatusResponse {
