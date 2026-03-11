@@ -464,6 +464,41 @@ Same AI Gateway code path, different DB backends (usage tracking ON).
 
 > **Key takeaway**: The dominant bottleneck in the MLflow AI Gateway is the **uncached per-request endpoint config resolution** (3-5 SQL queries per request). Switching from SQLite to PostgreSQL does not improve performance — it adds network latency to each query. Caching the endpoint config would be the most impactful optimization.
 
+### Bottleneck isolation: config cache + usage tracking
+
+To verify the bottleneck hypothesis, a benchmark-only config cache was added to `config_resolver.py` (enabled via `MLFLOW_GATEWAY_CACHE_CONFIG=true`). This caches the result of `get_endpoint_config()` after the first DB lookup, eliminating per-request SQL queries.
+
+**Tracking server benchmark (SQLite, 4 workers, 50 concurrent, 1000 req/run, 2 runs):**
+
+| Configuration                   | Throughput | P50      | P99      |
+| ------------------------------- | ---------- | -------- | -------- |
+| No cache, usage tracking ON     | 22 rps     | 1,211 ms | 5,414 ms |
+| **Cache ON**, usage tracking ON | **75 rps** | 654 ms   | 1,565 ms |
+
+Caching the endpoint config alone gives a **3.4x throughput improvement**.
+
+**Full-stack comparison (PostgreSQL, 4 workers, 50 concurrent, 2000 req/run, 3 runs):**
+
+| Configuration                           | MLflow RPS | MLflow P50 | LiteLLM RPS | LiteLLM P50 |
+| --------------------------------------- | ---------- | ---------- | ----------- | ----------- |
+| Cache OFF, usage tracking ON (baseline) | 14         | 4,770 ms   | 430         | 113 ms      |
+| Cache ON, usage tracking ON             | 67         | 763 ms     | 521         | 86 ms       |
+| **Cache ON, usage tracking OFF**        | **841**    | **56 ms**  | 539         | 88 ms       |
+
+**With both optimizations, MLflow is 1.6x faster than LiteLLM** (841 vs 539 rps) — the core proxy path is not the bottleneck.
+
+### Bottleneck breakdown
+
+| Bottleneck                        | Overhead factor | Evidence                             |
+| --------------------------------- | --------------- | ------------------------------------ |
+| **Usage tracking / tracing**      | ~12x            | 75 rps → 841 rps when disabled       |
+| **Uncached config DB queries**    | ~5x             | 14 rps → 67 rps when cached          |
+| **Core proxy path** (no overhead) | 1x (baseline)   | 841 rps — faster than LiteLLM at 539 |
+
+The two bottlenecks are orthogonal and compound: together they reduce throughput from 841 rps to 14 rps (~60x total overhead). The usage tracking / tracing path is the dominant factor.
+
+> **How to reproduce**: Set `MLFLOW_GATEWAY_CACHE_CONFIG=true` when launching `mlflow server` to enable the benchmark config cache. This is a benchmark-only change in `mlflow/store/tracking/gateway/config_resolver.py` and should not be used in production (it bypasses config updates).
+
 ---
 
 ## Deploying to a Server
