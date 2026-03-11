@@ -79,6 +79,7 @@ from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_SGC_RESUME_RUN_JOB_RUN_ID_PREFIX,
     MLFLOW_DATASET_CONTEXT,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
@@ -347,6 +348,9 @@ def _uc_location_from_experiment_tags(experiment: Experiment) -> UnityCatalog | 
             )
             location._otel_logs_table_name = experiment.tags.get(
                 MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE
+            )
+            location._annotations_table_name = experiment.tags.get(
+                MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE
             )
             return location
         case _:

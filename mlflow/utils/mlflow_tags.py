@@ -99,6 +99,9 @@ MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE = (
 MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE = (
     "mlflow.experiment.databricksTraceLogStorageTable"
 )
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE = (
+    "mlflow.experiment.databricksTraceAnnotationsTable"
+)
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"

@@ -12,6 +12,7 @@ from mlflow.tracking.fluent import (
     _sync_trace_destination_and_provider,
 )
 from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
     MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
@@ -125,6 +126,9 @@ def test_noop_when_existing_location_matches():
             MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE: (
                 "catalog.schema.prefix_otel_logs"
             ),
+            MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE: (
+                "catalog.schema.prefix_annotations"
+            ),
         }
     )
 
@@ -140,6 +144,7 @@ def test_noop_when_existing_location_matches():
         assert result == requested
         assert result._otel_spans_table_name == "catalog.schema.prefix_otel_spans"
         assert result._otel_logs_table_name == "catalog.schema.prefix_otel_logs"
+        assert result._annotations_table_name == "catalog.schema.prefix_annotations"
 
 
 def test_errors_when_existing_location_differs():
