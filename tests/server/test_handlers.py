@@ -4227,6 +4227,7 @@ def test_list_budget_windows_returns_window_data():
     tracker = InMemoryBudgetTracker()
     policy = _make_budget_policy(budget_policy_id="bp-1", budget_amount=50.0)
     tracker.refresh_policies([policy])
+    tracker.backfill_spend({})
     tracker.record_cost(12.5)
 
     with (
@@ -4254,6 +4255,7 @@ def test_list_budget_windows_multiple_policies():
     policy1 = _make_budget_policy(budget_policy_id="bp-1", budget_amount=100.0)
     policy2 = _make_budget_policy(budget_policy_id="bp-2", budget_amount=200.0)
     tracker.refresh_policies([policy1, policy2])
+    tracker.backfill_spend({})
     tracker.record_cost(30.0)
 
     with (
@@ -4276,6 +4278,7 @@ def test_list_budget_windows_zero_spend():
     tracker = InMemoryBudgetTracker()
     policy = _make_budget_policy(budget_amount=100.0)
     tracker.refresh_policies([policy])
+    tracker.backfill_spend({})
 
     with (
         app.test_client() as c,

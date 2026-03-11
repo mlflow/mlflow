@@ -1,3 +1,4 @@
+import threading
 from unittest.mock import MagicMock, patch
 
 import fastapi
@@ -215,6 +216,7 @@ def test_fire_budget_exceeded_webhooks_alert():
         tracker = get_budget_tracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
         tracker.refresh_policies([policy])
+        tracker.backfill_spend({})
         crossed = tracker.record_cost(60.0)
         assert len(crossed) == 1
 
@@ -232,6 +234,7 @@ def test_fire_budget_exceeded_webhooks_reject_skipped():
         tracker = get_budget_tracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.REJECT)
         tracker.refresh_policies([policy])
+        tracker.backfill_spend({})
         crossed = tracker.record_cost(60.0)
         assert len(crossed) == 1
 
@@ -244,6 +247,7 @@ def test_fire_budget_exceeded_webhooks_with_workspace():
         tracker = get_budget_tracker()
         policy = _make_policy(budget_amount=50.0, budget_action=BudgetAction.ALERT)
         tracker.refresh_policies([policy])
+        tracker.backfill_spend({})
         crossed = tracker.record_cost(60.0)
 
         fire_budget_exceeded_webhooks(crossed, workspace="my-ws", registry_store=MagicMock())
@@ -269,6 +273,7 @@ def test_maybe_refresh_budget_policies():
 def test_maybe_refresh_skips_when_not_needed():
     tracker = get_budget_tracker()
     tracker.refresh_policies([_make_policy()])
+    tracker.backfill_spend({})
 
     store = MagicMock()
     maybe_refresh_budget_policies(store)
@@ -280,12 +285,12 @@ def test_maybe_refresh_skips_when_not_needed():
 
 def test_calculate_existing_cost_on_new_windows():
     tracker = get_budget_tracker()
-    new_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+    fresh_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     store = MagicMock()
     store.sum_gateway_trace_cost.return_value = 42.0
 
-    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    existing_spend = calculate_existing_cost_for_new_windows(store, fresh_windows)
     tracker.backfill_spend(existing_spend)
 
     store.sum_gateway_trace_cost.assert_called_once()
@@ -301,12 +306,12 @@ def test_calculate_existing_cost_skipped_when_no_new_windows():
 
 def test_calculate_existing_cost_handles_store_error():
     tracker = get_budget_tracker()
-    new_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+    fresh_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     store = MagicMock()
     store.sum_gateway_trace_cost.side_effect = Exception("DB error")
 
-    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    existing_spend = calculate_existing_cost_for_new_windows(store, fresh_windows)
     tracker.backfill_spend(existing_spend)
 
     assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
@@ -314,12 +319,12 @@ def test_calculate_existing_cost_handles_store_error():
 
 def test_calculate_existing_cost_zero_spend_excluded():
     tracker = get_budget_tracker()
-    new_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+    fresh_windows = tracker.refresh_policies([_make_policy(budget_amount=100.0)])
 
     store = MagicMock()
     store.sum_gateway_trace_cost.return_value = 0.0
 
-    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    existing_spend = calculate_existing_cost_for_new_windows(store, fresh_windows)
     assert existing_spend == {}
 
     tracker.backfill_spend(existing_spend)
@@ -352,6 +357,7 @@ def test_check_budget_limit_not_exceeded():
 
     tracker = get_budget_tracker()
     tracker.refresh_policies([policy])
+    tracker.backfill_spend({})
     tracker.record_cost(50.0)
 
     check_budget_limit(store)
@@ -363,6 +369,7 @@ def test_check_budget_limit_exceeded_rejects():
 
     tracker = get_budget_tracker()
     tracker.refresh_policies([policy])
+    tracker.backfill_spend({})
     tracker.record_cost(150.0)
 
     with pytest.raises(fastapi.HTTPException, match="Request rejected"):
@@ -375,6 +382,7 @@ def test_check_budget_limit_alert_does_not_reject():
 
     tracker = get_budget_tracker()
     tracker.refresh_policies([policy])
+    tracker.backfill_spend({})
     tracker.record_cost(150.0)
 
     check_budget_limit(store)
@@ -390,6 +398,7 @@ def test_check_budget_limit_error_message_format():
 
     tracker = get_budget_tracker()
     tracker.refresh_policies([policy])
+    tracker.backfill_spend({})
     tracker.record_cost(600.0)
 
     with pytest.raises(fastapi.HTTPException, match="Request rejected") as exc_info:
@@ -418,6 +427,7 @@ def test_check_budget_limit_error_message_plural():
 
     tracker = get_budget_tracker()
     tracker.refresh_policies([policy])
+    tracker.backfill_spend({})
     tracker.record_cost(300.0)
 
     with pytest.raises(fastapi.HTTPException, match="Request rejected") as exc_info:
@@ -447,6 +457,7 @@ def test_check_budget_limit_with_workspace():
 
     tracker = get_budget_tracker()
     tracker.refresh_policies([policy])
+    tracker.backfill_spend({})
     tracker.record_cost(100.0, workspace="ws1")
 
     with pytest.raises(fastapi.HTTPException, match="Request rejected"):
@@ -470,6 +481,7 @@ def test_check_budget_limit_multiple_policies():
 
     tracker = get_budget_tracker()
     tracker.refresh_policies([alert_policy, reject_policy])
+    tracker.backfill_spend({})
 
     # 75 exceeds alert (50) but not reject (100) → no rejection
     tracker.record_cost(75.0)
@@ -479,3 +491,36 @@ def test_check_budget_limit_multiple_policies():
     tracker.record_cost(30.0)
     with pytest.raises(fastapi.HTTPException, match="Request rejected"):
         check_budget_limit(store)
+
+
+def test_concurrent_refresh_does_not_lose_backfill():
+    policy = _make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)
+    store = MagicMock()
+    store.list_budget_policies.return_value = [policy]
+    store.sum_gateway_trace_cost.return_value = 80.0
+
+    barrier = threading.Barrier(2, timeout=5)
+    errors: list[Exception] = []
+
+    def refresh_thread():
+        try:
+            barrier.wait()
+            maybe_refresh_budget_policies(store)
+        except Exception as e:
+            errors.append(e)
+
+    tracker = get_budget_tracker()
+    tracker.invalidate()
+
+    t1 = threading.Thread(target=refresh_thread)
+    t2 = threading.Thread(target=refresh_thread)
+    t1.start()
+    t2.start()
+    t1.join(timeout=5)
+    t2.join(timeout=5)
+
+    assert not errors
+    window = tracker._get_window_info("bp-test")
+    assert window is not None
+    # The backfilled spend should be applied — never zero from a lost race
+    assert window.cumulative_spend == 80.0

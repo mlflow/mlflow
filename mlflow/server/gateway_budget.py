@@ -70,8 +70,8 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
     if tracker.needs_refresh():
         try:
             policies = store.list_budget_policies()
-            new_windows = tracker.refresh_policies(policies)
-            existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+            fresh_windows = tracker.refresh_policies(policies)
+            existing_spend = calculate_existing_cost_for_new_windows(store, fresh_windows)
             tracker.backfill_spend(existing_spend)
         except Exception:
             _logger.debug("Failed to refresh budget policies", exc_info=True)

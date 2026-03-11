@@ -67,7 +67,6 @@ class InMemoryBudgetTracker(BudgetTracker):
                     fresh_windows.append(window)
 
             self._windows = new_windows
-            self.mark_refreshed()
 
         return fresh_windows
 
@@ -156,6 +155,7 @@ class InMemoryBudgetTracker(BudgetTracker):
                     continue
                 window.cumulative_spend = spend
                 window.exceeded = spend >= window.policy.budget_amount
+            self.mark_refreshed()
 
     def get_all_windows(self) -> list[BudgetWindow]:
         with self._lock:
