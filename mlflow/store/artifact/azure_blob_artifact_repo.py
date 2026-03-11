@@ -81,7 +81,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             except ImportError as exc:
                 raise ImportError(
                     "Using DefaultAzureCredential requires the azure-identity package. "
-                    "Please install it via: pip install azure-identity"
+                    "Please install it via: pip install mlflow[azure]"
                 ) from exc
 
             account_url = f"https://{account}.{api_uri_suffix}"
