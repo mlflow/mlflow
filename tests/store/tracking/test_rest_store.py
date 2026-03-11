@@ -18,6 +18,9 @@ from mlflow.entities import (
     GatewayModelLinkageType,
     GatewayResourceType,
     InputTag,
+    Issue,
+    IssueSeverity,
+    IssueStatus,
     LifecycleStage,
     LoggedModelParameter,
     Metric,
@@ -3683,3 +3686,218 @@ def test_query_trace_metrics():
 
     # Verify pagination token
     assert result.token == "next_token"
+
+
+def test_create_issue():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "issue": {
+            "issue_id": "issue-123",
+            "experiment_id": "exp-456",
+            "name": "Test Issue",
+            "description": "Test description",
+            "status": "pending",
+            "severity": "high",
+            "root_causes": ["cause1", "cause2"],
+            "source_run_id": "run-789",
+            "created_timestamp": 1234567890000,
+            "last_updated_timestamp": 1234567890000,
+            "created_by": "test_user",
+        }
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        issue = store.create_issue(
+            experiment_id="exp-456",
+            name="Test Issue",
+            description="Test description",
+            status=IssueStatus.PENDING,
+            severity=IssueSeverity.HIGH,
+            root_causes=["cause1", "cause2"],
+            source_run_id="run-789",
+            created_by="test_user",
+        )
+
+    expected_request_json = json.dumps({
+        "experiment_id": "exp-456",
+        "name": "Test Issue",
+        "description": "Test description",
+        "status": "pending",
+        "severity": "high",
+        "root_causes": ["cause1", "cause2"],
+        "source_run_id": "run-789",
+        "created_by": "test_user",
+    })
+    _verify_requests(mock_http, creds, "issues", "POST", expected_request_json)
+
+    assert isinstance(issue, Issue)
+    assert issue.issue_id == "issue-123"
+    assert issue.experiment_id == "exp-456"
+    assert issue.name == "Test Issue"
+    assert issue.description == "Test description"
+    assert issue.status == IssueStatus.PENDING
+    assert issue.severity == IssueSeverity.HIGH
+    assert issue.root_causes == ["cause1", "cause2"]
+    assert issue.source_run_id == "run-789"
+    assert issue.created_by == "test_user"
+
+
+def test_get_issue():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "issue": {
+            "issue_id": "issue-123",
+            "experiment_id": "exp-456",
+            "name": "Test Issue",
+            "description": "Test description",
+            "status": "accepted",
+            "severity": "medium",
+            "root_causes": ["cause1"],
+            "source_run_id": "run-789",
+            "created_timestamp": 1234567890000,
+            "last_updated_timestamp": 1234567900000,
+            "created_by": "test_user",
+        }
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        issue = store.get_issue(issue_id="issue-123")
+
+    # The proto endpoint uses a template path, so we need to verify with params instead of json
+    call_args = mock_http.call_args[1]
+    assert call_args["endpoint"] == "/api/2.0/mlflow/issues/{issue_id}"
+    assert call_args["method"] == "GET"
+    assert call_args["params"] == {"issue_id": "issue-123"}
+
+    assert isinstance(issue, Issue)
+    assert issue.issue_id == "issue-123"
+    assert issue.experiment_id == "exp-456"
+    assert issue.name == "Test Issue"
+    assert issue.status == IssueStatus.ACCEPTED
+    assert issue.severity == IssueSeverity.MEDIUM
+
+
+def test_update_issue():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "issue": {
+            "issue_id": "issue-123",
+            "experiment_id": "exp-456",
+            "name": "Updated Issue",
+            "description": "Updated description",
+            "status": "rejected",
+            "severity": "low",
+            "root_causes": ["updated_cause"],
+            "source_run_id": "run-789",
+            "created_timestamp": 1234567890000,
+            "last_updated_timestamp": 1234567910000,
+            "created_by": "test_user",
+        }
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        issue = store.update_issue(
+            issue_id="issue-123",
+            status=IssueStatus.REJECTED,
+            name="Updated Issue",
+            description="Updated description",
+            severity=IssueSeverity.LOW,
+        )
+
+    # The proto endpoint uses a template path
+    call_args = mock_http.call_args[1]
+    assert call_args["endpoint"] == "/api/2.0/mlflow/issues/{issue_id}"
+    assert call_args["method"] == "PATCH"
+
+    # Verify the JSON body contains the issue_id and update fields
+    json_body = call_args["json"]
+    assert json_body["issue_id"] == "issue-123"
+    assert json_body["status"] == "rejected"
+    assert json_body["name"] == "Updated Issue"
+    assert json_body["description"] == "Updated description"
+    assert json_body["severity"] == "low"
+
+    assert isinstance(issue, Issue)
+    assert issue.issue_id == "issue-123"
+    assert issue.name == "Updated Issue"
+    assert issue.description == "Updated description"
+    assert issue.status == IssueStatus.REJECTED
+    assert issue.severity == IssueSeverity.LOW
+
+
+def test_search_issues():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "issues": [
+            {
+                "issue_id": "issue-123",
+                "experiment_id": "exp-456",
+                "name": "Issue 1",
+                "description": "Description 1",
+                "status": "pending",
+                "severity": "high",
+                "root_causes": [],
+                "source_run_id": None,
+                "created_timestamp": 1234567890000,
+                "last_updated_timestamp": 1234567890000,
+                "created_by": "user1",
+            },
+            {
+                "issue_id": "issue-124",
+                "experiment_id": "exp-456",
+                "name": "Issue 2",
+                "description": "Description 2",
+                "status": "accepted",
+                "severity": "medium",
+                "root_causes": ["cause"],
+                "source_run_id": "run-123",
+                "created_timestamp": 1234567900000,
+                "last_updated_timestamp": 1234567900000,
+                "created_by": "user2",
+            },
+        ],
+        "next_page_token": "next_token_456",
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        result = store.search_issues(
+            experiment_id="exp-456",
+            filter_string="severity = 'high'",
+            max_results=100,
+            page_token="page_token_123",
+        )
+
+    expected_request_json = json.dumps({
+        "experiment_id": "exp-456",
+        "filter_string": "severity = 'high'",
+        "max_results": 100,
+        "page_token": "page_token_123",
+    })
+    _verify_requests(mock_http, creds, "issues/search", "POST", expected_request_json)
+
+    assert len(result) == 2
+    assert isinstance(result[0], Issue)
+    assert result[0].issue_id == "issue-123"
+    assert result[0].name == "Issue 1"
+    assert result[0].status == IssueStatus.PENDING
+    assert result[0].severity == IssueSeverity.HIGH
+
+    assert isinstance(result[1], Issue)
+    assert result[1].issue_id == "issue-124"
+    assert result[1].name == "Issue 2"
+    assert result[1].status == IssueStatus.ACCEPTED
+    assert result[1].severity == IssueSeverity.MEDIUM
+
+    assert result.token == "next_token_456"

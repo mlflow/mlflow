@@ -1076,6 +1076,91 @@ class DatabricksTracingRestStore(RestStore):
 
         return PagedList(results_to_return, next_token)
 
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status,
+        severity=None,
+        root_causes=None,
+        source_run_id=None,
+        created_by=None,
+    ):
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
+    def get_issue(self, issue_id: str):
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status=None,
+        name=None,
+        description=None,
+        severity=None,
+    ):
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
+    def search_issues(
+        self,
+        experiment_id=None,
+        filter_string=None,
+        max_results=None,
+        page_token=None,
+    ):
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
             return f"{endpoint}?sql_warehouse_id={sql_warehouse_id}"
