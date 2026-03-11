@@ -1,15 +1,25 @@
+import importlib.metadata
 import json
 
 import openai
 import pytest
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+from packaging.version import Version
 
 import mlflow
 from mlflow.openai.genai_semconv_converter import _convert_content
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import provider as tracer_provider_wrapper
 
+from tests.tracing.helper import reset_autolog_state  # noqa: F401
+
 MODEL = "gpt-4o-mini"
+
+_openai_version = Version(importlib.metadata.version("openai"))
+requires_responses_api = pytest.mark.skipif(
+    _openai_version < Version("1.66.0"),
+    reason="OpenAI < 1.66.0 does not support the Responses API",
+)
 
 MOCK_CHAT_TOOLS = [
     {
@@ -69,7 +79,11 @@ def _get_chat_span(exporter, processor):
     return next(s for s in spans if s.attributes.get("gen_ai.operation.name") == "chat")
 
 
-@pytest.mark.parametrize("api", ["chat_completions", "responses"])
+@pytest.mark.parametrize(
+    "api",
+    ["chat_completions", pytest.param("responses", marks=requires_responses_api)],
+)
+@pytest.mark.usefixtures("reset_autolog_state")
 def test_autolog_basic(client, genai_semconv_capture, api):
     exporter, processor = genai_semconv_capture
 
@@ -109,7 +123,11 @@ def test_autolog_basic(client, genai_semconv_capture, api):
     assert not any(k.startswith("mlflow.") for k in chat_span.attributes)
 
 
-@pytest.mark.parametrize("api", ["chat_completions", "responses"])
+@pytest.mark.parametrize(
+    "api",
+    ["chat_completions", pytest.param("responses", marks=requires_responses_api)],
+)
+@pytest.mark.usefixtures("reset_autolog_state")
 def test_autolog_with_tool_calls(client, genai_semconv_capture, api):
     exporter, processor = genai_semconv_capture
 
@@ -189,7 +207,11 @@ def test_autolog_with_tool_calls(client, genai_semconv_capture, api):
     assert not any(k.startswith("mlflow.") for k in chat_span.attributes)
 
 
-@pytest.mark.parametrize("api", ["chat_completions", "responses"])
+@pytest.mark.parametrize(
+    "api",
+    ["chat_completions", pytest.param("responses", marks=requires_responses_api)],
+)
+@pytest.mark.usefixtures("reset_autolog_state")
 def test_autolog_streaming(client, genai_semconv_capture, api):
     exporter, processor = genai_semconv_capture
 
