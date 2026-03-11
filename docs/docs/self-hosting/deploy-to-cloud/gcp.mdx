@@ -10,7 +10,7 @@ This guide walks you through deploying the MLflow server to Google Cloud Run, th
 
 The overall deployment architecture is as follows:
 
-
+![overall architecture](/images/self-hosting/gcp-deployment-arch.png)
 
 The deployment architecture has a couple of advantages:
 
@@ -21,7 +21,7 @@ The deployment architecture has a couple of advantages:
 
 - **Security by design**
   - Cloud Run endpoints are automatically served over HTTPS, ensuring secure communication between MLflow clients and the server.
-  - The GCS bucket blocks public access, and the MLflow server running in Cloud Run accesses the artifact store securely through a service account with the "Storage Object User" role.
+  - The Google cloud storage bucket blocks public access, and the MLflow server running in Cloud Run accesses the artifact store securely through a service account with the "Storage Object User" role.
   - Cloud Run can connect to Cloud SQL using the built-in Cloud SQL integration or via the Cloud SQL Auth Proxy mechanism, avoiding the need to expose the database publicly.
   - The architecture can integrate with MLflow authentication configurations.
 
@@ -52,7 +52,6 @@ docker build -t <google-docker-repository-path>/mlflow-gcp:v3.10.0 .
 
 docker push <google-docker-repository-path>/mlflow-gcp:v3.10.0
 ```
-
 
 ## Step 2: Create a bucket in Google Cloud Storage
 
