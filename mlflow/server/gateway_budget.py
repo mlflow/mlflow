@@ -81,7 +81,7 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
             existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
             tracker.backfill_spend(existing_spend)
         except Exception:
-            _logger.error("Failed to refresh budget policies", exc_info=True)
+            _logger.debug("Failed to refresh budget policies", exc_info=True)
 
 
 def _compute_cost_from_child_spans(trace_id: str) -> float:
@@ -182,7 +182,7 @@ def check_budget_limit(
             "Request rejected."
         )
         exc = HTTPException(status_code=429, detail=detail)
-        if endpoint_config:
+        if endpoint_config is not None:
             _create_budget_error_trace(endpoint_config, exc)
         raise exc
 

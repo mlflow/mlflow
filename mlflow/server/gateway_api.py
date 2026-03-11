@@ -356,30 +356,6 @@ def _create_provider(
     return primary_provider
 
 
-def _create_provider_from_endpoint_name(
-    store: SqlAlchemyStore,
-    endpoint_name: str,
-    endpoint_type: EndpointType,
-    enable_tracing: bool = True,
-) -> tuple[BaseProvider, GatewayEndpointConfig]:
-    """
-    Create a provider from an endpoint name.
-
-    Args:
-        store: The SQLAlchemy store instance.
-        endpoint_name: The endpoint name.
-        endpoint_type: Endpoint type (chat or embeddings).
-        enable_tracing: If True, enables MLflow tracing for provider calls.
-
-    Returns:
-        Tuple of (provider instance, endpoint config)
-    """
-    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
-    return _create_provider(
-        endpoint_config, endpoint_type, enable_tracing=enable_tracing
-    ), endpoint_config
-
-
 def _validate_store(store: AbstractStore) -> None:
     if not isinstance(store, SqlAlchemyStore):
         raise HTTPException(
@@ -442,9 +418,7 @@ async def invocations(endpoint_name: str, request: Request):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-        provider, endpoint_config = _create_provider_from_endpoint_name(
-            store, endpoint_name, endpoint_type
-        )
+        provider = _create_provider(endpoint_config, endpoint_type)
 
         if payload.stream:
             stream = maybe_traced_gateway_call(
@@ -478,9 +452,7 @@ async def invocations(endpoint_name: str, request: Request):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
 
-        provider, endpoint_config = _create_provider_from_endpoint_name(
-            store, endpoint_name, endpoint_type
-        )
+        provider = _create_provider(endpoint_config, endpoint_type)
 
         return await maybe_traced_gateway_call(
             provider.embeddings,
@@ -536,9 +508,7 @@ async def chat_completions(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT)
 
     if payload.stream:
         stream = maybe_traced_gateway_call(
@@ -599,9 +569,7 @@ async def openai_passthrough_chat(request: Request):
     check_budget_limit(store, workspace=workspace, endpoint_config=endpoint_config)
 
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -668,9 +636,7 @@ async def openai_passthrough_embeddings(request: Request):
     check_budget_limit(store, workspace=workspace, endpoint_config=endpoint_config)
 
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
-    )
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_EMBEDDINGS)
 
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
@@ -719,9 +685,7 @@ async def openai_passthrough_responses(request: Request):
     check_budget_limit(store, workspace=workspace, endpoint_config=endpoint_config)
 
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -792,9 +756,7 @@ async def anthropic_passthrough_messages(request: Request):
     check_budget_limit(store, workspace=workspace, endpoint_config=endpoint_config)
 
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -865,9 +827,7 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     check_budget_limit(store, workspace=workspace, endpoint_config=endpoint_config)
 
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT)
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
         endpoint_config,
@@ -915,9 +875,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     check_budget_limit(store, workspace=workspace, endpoint_config=endpoint_config)
 
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT)
 
     stream = await provider.passthrough(
         action=PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload=body, headers=headers
