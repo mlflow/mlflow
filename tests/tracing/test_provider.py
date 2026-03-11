@@ -623,19 +623,23 @@ def test_isolated_random_id_generator_not_affected_by_random_seed(monkeypatch):
     mlflow.tracing.reset()
     _initialize_tracer_provider()
 
-    random.seed(42)
-    span1 = start_span_in_context("test1")
-    trace_id_1 = span1.get_span_context().trace_id
-    span_id_1 = span1.get_span_context().span_id
-    span1.end()
+    rng_state = random.getstate()
+    try:
+        random.seed(42)
+        span1 = start_span_in_context("test1")
+        trace_id_1 = span1.get_span_context().trace_id
+        span_id_1 = span1.get_span_context().span_id
+        span1.end()
 
-    # Re-seeding with the same value would make RandomIdGenerator replay the exact same
-    # ID sequence. _IsolatedRandomIdGenerator must be immune to this.
-    random.seed(42)
-    span2 = start_span_in_context("test2")
-    trace_id_2 = span2.get_span_context().trace_id
-    span_id_2 = span2.get_span_context().span_id
-    span2.end()
+        # Re-seeding with the same value would make RandomIdGenerator replay the exact same
+        # ID sequence. _IsolatedRandomIdGenerator must be immune to this.
+        random.seed(42)
+        span2 = start_span_in_context("test2")
+        trace_id_2 = span2.get_span_context().trace_id
+        span_id_2 = span2.get_span_context().span_id
+        span2.end()
+    finally:
+        random.setstate(rng_state)
 
     assert trace_id_1 != trace_id_2
     assert span_id_1 != span_id_2
