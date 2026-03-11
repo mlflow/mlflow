@@ -396,9 +396,10 @@ def test_check_budget_limit_error_message_format():
         check_budget_limit(store)
 
     detail = exc_info.value.detail
-    assert "bp-monthly" in detail
+    assert "bp-monthly" not in detail
     assert "$500.00" in detail
     assert "1 day" in detail
+    assert "resets at" in detail
     assert "Request rejected" in detail
 
 
@@ -424,9 +425,10 @@ def test_check_budget_limit_error_message_plural():
         check_budget_limit(store)
 
     detail = exc_info.value.detail
-    assert "bp-plural" in detail
+    assert "bp-plural" not in detail
     assert "$200.00" in detail
     assert "3 months" in detail
+    assert "resets at" in detail
     assert "Request rejected" in detail
 
 
