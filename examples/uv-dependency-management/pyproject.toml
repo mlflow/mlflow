@@ -1,0 +1,19 @@
+[project]
+name = "uv-dependency-management-example"
+version = "0.1.0"
+description = "Example showing MLflow uv dependency management"
+requires-python = ">=3.10"
+dependencies = ["mlflow", "scikit-learn", "numpy"]
+
+[project.optional-dependencies]
+serving = ["flask"]
+
+[dependency-groups]
+ml = ["xgboost"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
