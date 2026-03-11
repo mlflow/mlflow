@@ -227,7 +227,9 @@ def _convert_tool_call(tc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _convert_tool_response(role: str, tool_call_id: str, parts: list[dict[str, Any]]) -> dict[str, Any]:
+def _convert_tool_response(
+    role: str, tool_call_id: str, parts: list[dict[str, Any]]
+) -> dict[str, Any]:
     result = parts[0].get("content") if parts else None
     return {
         "role": role,
