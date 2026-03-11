@@ -47,6 +47,7 @@ Both proxies run on the same machine, same number of workers, hitting the same f
 | File                               | Purpose                                                                                                                                       |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Shared**                         |                                                                                                                                               |
+| `common.sh`                        | Shared shell functions sourced by all benchmark scripts                                                                                       |
 | `fake_openai_server.py`            | FastAPI app returning canned OpenAI-compatible responses (chat, completions, embeddings) with configurable delay via `FAKE_RESPONSE_DELAY_MS` |
 | `benchmark_compare.py`             | aiohttp-based benchmark (matches LiteLLM's `benchmark_mock.py`), runs both proxies sequentially with warmup, prints comparison table          |
 | `setup_tracking_server.py`         | Creates secret + model definition + endpoint via REST API in a running tracking server                                                        |
