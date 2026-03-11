@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import re
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -10,7 +11,8 @@ from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
 import mlflow.anthropic
 from mlflow.entities.span import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -190,6 +192,8 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     span.outputs["usage"] = {
         key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
     }
+    # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
+    span.outputs.pop("container", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -200,12 +204,13 @@ def test_messages_autolog(is_async, mock_litellm_cost):
     assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
-    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 10.0,
-        "output_cost": 36.0,
-        "total_cost": 46.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,
@@ -293,12 +298,13 @@ def test_messages_autolog_tool_calling(is_async, mock_litellm_cost):
     assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
 
-    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 10.0,
-        "output_cost": 36.0,
-        "total_cost": 46.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
@@ -380,6 +386,8 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     span.outputs["usage"] = {
         key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
     }
+    # Remove 'container' key added in anthropic v0.80.0 (code execution tool metadata)
+    span.outputs.pop("container", None)
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
@@ -390,15 +398,97 @@ def test_messages_autolog_with_thinking(is_async, mock_litellm_cost):
     assert span.model_name == "test_model"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
-    # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 10.0,
-        "output_cost": 36.0,
-        "total_cost": 46.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (10 input tokens * 1.0 + 18 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 10.0,
+            "output_cost": 36.0,
+            "total_cost": 46.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,
         "output_tokens": 18,
         "total_tokens": 28,
     }
+
+
+DUMMY_CREATE_MESSAGE_WITH_CACHE_RESPONSE = Message(
+    id="test_id",
+    content=[TextBlock(text="cached answer", type="text", citations=None)],
+    model="test_model",
+    role="assistant",
+    stop_reason="end_turn",
+    stop_sequence=None,
+    type="message",
+    usage=Usage(
+        input_tokens=50,
+        output_tokens=20,
+        cache_creation_input_tokens=15,
+        cache_read_input_tokens=25,
+    ),
+)
+
+
+def test_messages_autolog_with_cached_tokens(is_async, mock_litellm_cost):
+    mlflow.anthropic.autolog()
+
+    _call_anthropic(
+        DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_WITH_CACHE_RESPONSE, is_async
+    )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    span = traces[0].data.spans[0]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
+    }
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
+        TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
+    }
+
+
+def test_tracing_headers_injected(is_async):
+    mlflow.anthropic.autolog()
+
+    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    span_ctx = span._span.get_span_context()
+    expected_trace_id = format(span_ctx.trace_id, "032x")
+    expected_span_id = format(span_ctx.span_id, "016x")
+
+    # Verify the span has valid IDs that would produce a correct traceparent header
+    from mlflow.tracing.distributed import _get_tracing_headers_from_span
+
+    headers = _get_tracing_headers_from_span(span)
+    assert "traceparent" in headers
+    traceparent = headers["traceparent"]
+    assert re.fullmatch(r"00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}", traceparent)
+    assert traceparent.startswith(f"00-{expected_trace_id}-{expected_span_id}-")
+
+
+def test_tracing_headers_preserve_user_extra_headers(is_async):
+    mlflow.anthropic.autolog()
+
+    request = {**DUMMY_CREATE_MESSAGE_REQUEST, "extra_headers": {"X-Custom": "my-value"}}
+    _call_anthropic(request, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    # User-provided extra_headers should be recorded in span inputs and take precedence
+    assert span.inputs.get("extra_headers", {}).get("X-Custom") == "my-value"

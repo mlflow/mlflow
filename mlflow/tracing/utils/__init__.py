@@ -128,6 +128,14 @@ def dump_span_attribute_value(value: Any) -> str:
     return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
 
 
+def try_json_loads(value: Any) -> Any:
+    """Try to parse a value as JSON, returning the original value on failure."""
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
+
+
 @lru_cache(maxsize=1)
 def encode_span_id(span_id: int) -> str:
     """
@@ -286,6 +294,7 @@ def calculate_cost_by_model_and_token_usage(
         return None
 
     try:
+        import litellm
         from litellm import cost_per_token
     except ImportError:
         _logger.debug("LiteLLM not available for cost calculation")
@@ -303,7 +312,12 @@ def calculate_cost_by_model_and_token_usage(
     if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_creation_input_tokens"] = created
 
+    original_suppress = None
     try:
+        # Suppress litellm debug messages (e.g. "Provider List: ...") unless
+        # MLflow's logger is set to DEBUG level.
+        original_suppress = getattr(litellm, "suppress_debug_info")
+        litellm.suppress_debug_info = not _logger.isEnabledFor(logging.DEBUG)
         input_cost_usd, output_cost_usd = cost_per_token(
             model=model_name,
             prompt_tokens=prompt_tokens,
@@ -334,6 +348,9 @@ def calculate_cost_by_model_and_token_usage(
                 exc_info=True,
             )
             return None
+    finally:
+        if original_suppress is not None:
+            litellm.suppress_debug_info = original_suppress
 
     return {
         CostKey.INPUT_COST: input_cost_usd,
@@ -711,11 +728,11 @@ def get_active_spans_table_name() -> str | None:
     """
     Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
     """
-    from mlflow.entities.trace_location import UCSchemaLocation
+    from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        if isinstance(destination, UCSchemaLocation):
+        if isinstance(destination, (UCSchemaLocation, UnityCatalog)):
             return destination.full_otel_spans_table_name
 
     return None
@@ -792,6 +809,19 @@ def set_span_model_attribute(span: LiveSpan, inputs: dict[str, Any]) -> None:
             span.set_attribute(SpanAttributeKey.MODEL, model)
     except Exception as e:
         _logger.debug(f"Failed to set model for {span}. Error: {e}")
+
+
+def should_compute_cost_client_side() -> bool:
+    """Whether LLM cost should be computed on the client side.
+
+    Returns True only for Databricks backends where server-side
+    translate_span_when_storing() does not run. For non-Databricks backends,
+    cost is computed server-side in sqlalchemy_store.log_spans().
+    """
+    from mlflow.tracking._tracking_service.utils import get_tracking_uri
+    from mlflow.utils.uri import is_databricks_uri
+
+    return is_databricks_uri(get_tracking_uri())
 
 
 def set_span_cost_attribute(span: LiveSpan) -> None:

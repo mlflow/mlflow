@@ -23,6 +23,8 @@ export const PROMPT_TYPE_TAG_KEY = '_mlflow_prompt_type';
 export const PROMPT_EXPERIMENT_IDS_TAG_KEY = '_mlflow_experiment_ids';
 // Tag key used to store model config as JSON string (must match backend)
 export const PROMPT_MODEL_CONFIG_TAG_KEY = '_mlflow_prompt_model_config';
+// Tag key used to store response format / structured output schema (must match backend)
+export const RESPONSE_FORMAT_TAG_KEY = '_mlflow_prompt_response_format';
 
 export const MODEL_CONFIG_FIELD_LABELS: Record<Exclude<keyof PromptModelConfig, 'extra_params'>, string> = {
   provider: 'Provider',
@@ -147,7 +149,6 @@ export const getModelConfigFromTags = (tags?: KeyValueEntity[]): PromptModelConf
   try {
     return JSON.parse(configTag.value) as PromptModelConfig;
   } catch (error) {
-    console.error('Failed to parse model config:', error);
     return undefined;
   }
 };
@@ -280,4 +281,37 @@ export const validateModelConfig = (formData: PromptModelConfigFormData): Record
   }
 
   return errors;
+};
+
+/**
+ * Parse response format (structured output schema) from version tags.
+ * Returns the raw JSON string if the tag exists, or undefined if not.
+ */
+export const getResponseFormatFromTags = (tags?: KeyValueEntity[]): string | undefined => {
+  const tag = tags?.find((t) => t.key === RESPONSE_FORMAT_TAG_KEY);
+  return tag?.value || undefined;
+};
+
+/**
+ * Validate that a string is valid JSON and parses to an object (JSON schema).
+ * Returns { valid: true } or { valid: false, error: string }.
+ */
+export const validateResponseFormatJson = (value: string): { valid: boolean; error?: string } => {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return { valid: true };
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return {
+        valid: false,
+        error: 'Structured output must be a JSON object (e.g. a JSON schema).',
+      };
+    }
+    return { valid: true };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Invalid JSON';
+    return { valid: false, error: message };
+  }
 };

@@ -128,7 +128,7 @@ export const EndpointFormRenderer = ({
       {error && (
         <div css={{ padding: embedded ? 0 : `0 ${theme.spacing.md}px` }}>
           <Alert
-            componentId={`${componentIdPrefix}.error`}
+            componentId="codegen_mlflow_app_src_oss_gateway_components_endpoint-form_EndpointFormRenderer.tsx_130"
             closable={false}
             message={errorMessage}
             type="error"
@@ -177,7 +177,7 @@ export const EndpointFormRenderer = ({
                 <div>
                   <GatewayInput
                     id={`${componentIdPrefix}.name`}
-                    componentId={`${componentIdPrefix}.name`}
+                    componentId="codegen_mlflow_app_src_oss_gateway_components_endpoint-form_EndpointFormRenderer.tsx_179"
                     {...field}
                     onChange={(e) => {
                       field.onChange(e);
@@ -375,12 +375,18 @@ export const EndpointFormRenderer = ({
           flexShrink: 0,
         }}
       >
-        <Button componentId={`${componentIdPrefix}.cancel`} onClick={onCancel}>
+        <Button
+          componentId="codegen_mlflow_app_src_oss_gateway_components_endpoint-form_EndpointFormRenderer.tsx_354"
+          onClick={onCancel}
+        >
           <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
         </Button>
-        <Tooltip componentId={`${componentIdPrefix}.submit-tooltip`} content={buttonTooltip}>
+        <Tooltip
+          componentId="codegen_mlflow_app_src_oss_gateway_components_endpoint-form_EndpointFormRenderer.tsx_357"
+          content={buttonTooltip}
+        >
           <Button
-            componentId={`${componentIdPrefix}.submit`}
+            componentId="codegen_mlflow_app_src_oss_gateway_components_endpoint-form_EndpointFormRenderer.tsx_359"
             type="primary"
             onClick={form.handleSubmit(onSubmit)}
             loading={isSubmitting}

@@ -1,7 +1,7 @@
 import { describe, jest, beforeEach, it, expect } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 
-import { QueryClientProvider, QueryClient } from '@databricks/web-shared/query-client';
+import { QueryClientProvider, QueryClient } from '../../query-client/queryClient';
 
 import { useUpdateTraceTagsMutation } from './useUpdateTraceTagsMutation';
 import { shouldUseTracesV4API } from '../FeatureUtils';

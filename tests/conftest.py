@@ -88,7 +88,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--serve-wheel",
         action="store_true",
-        default=os.getenv("CI", "false").lower() == "true",
+        default=os.environ.get("CI", "false").lower() == "true",
         help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
     )
     parser.addoption(
@@ -389,17 +389,15 @@ def generate_duration_stats() -> str:
     # Prepare data for markdown table (headers + data rows)
     table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
     for idx, (path, dur, count, min_, max_, avg_) in enumerate(rows, 1):
-        table_rows.append(
-            [
-                str(idx),
-                f"`{path}`",
-                f"{dur:.2f}s",
-                str(count),
-                f"{min_:.3f}s",
-                f"{max_:.3f}s",
-                f"{avg_:.3f}s",
-            ]
-        )
+        table_rows.append([
+            str(idx),
+            f"`{path}`",
+            f"{dur:.2f}s",
+            str(count),
+            f"{min_:.3f}s",
+            f"{max_:.3f}s",
+            f"{avg_:.3f}s",
+        ])
 
     return to_md_table(table_rows)
 
@@ -552,6 +550,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/mistral",
             "tests/models",
             "tests/onnx",
+            "tests/otel",
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
@@ -739,6 +738,8 @@ def remote_backend_for_tracing_sdk_test():
                 mlflow_root,
                 "--with",
                 "setuptools<82",  # setuptools 82+ removed pkg_resources
+                "--with",
+                "litellm",  # Required for computing cost of LLM calls
                 "mlflow",
                 "server",
                 "--port",
@@ -1027,6 +1028,13 @@ def enable_mlflow_testing():
         yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def disable_uv_auto_detect():
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+        yield
+
+
 @pytest.fixture(scope="session", autouse=not IS_TRACING_SDK_ONLY)
 def serve_wheel(request, tmp_path_factory):
     """
@@ -1225,11 +1233,17 @@ def mock_litellm_cost():
     Uses cost of 1.0 per input token and 2.0 per output token.
     Returns (input_cost, output_cost) based on the token counts passed.
     """
+    try:
+        import litellm  # noqa: F401
+    except ImportError:
+        # mock.patch will fail if litellm is not installed, e.g. tracing SDK test
+        yield None
+        return
 
-    def calculate_cost(model, prompt_tokens, completion_tokens):
+    def calculate_cost(model, prompt_tokens, completion_tokens, **kwargs):
         input_cost = prompt_tokens * 1.0
         output_cost = completion_tokens * 2.0
         return (input_cost, output_cost)
 
-    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost) as mock_cost:
+    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost, create=True) as mock_cost:
         yield mock_cost

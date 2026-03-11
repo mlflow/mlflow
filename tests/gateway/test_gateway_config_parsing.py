@@ -77,6 +77,8 @@ def test_assemble_uri_path(paths, expected):
 
 
 def test_api_key_parsing_env(tmp_path, monkeypatch):
+    # Env-var resolution requires the flag to be enabled
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV", "true")
     monkeypatch.setenv("KEY_AS_ENV", "my_key")
 
     assert _resolve_api_key_from_input("$KEY_AS_ENV") == "my_key"
@@ -97,6 +99,14 @@ def test_api_key_parsing_env(tmp_path, monkeypatch):
     conf_path.write_text(file_key)
 
     assert _resolve_api_key_from_input(str(conf_path)) == file_key
+
+
+def test_api_key_env_resolution_blocked_without_flag(monkeypatch):
+    monkeypatch.setenv("KEY_AS_ENV", "my_key")
+    monkeypatch.delenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV", raising=False)
+
+    # Without the flag, $-prefixed values are returned as literal strings
+    assert _resolve_api_key_from_input("$KEY_AS_ENV") == "$KEY_AS_ENV"
 
 
 def test_api_key_input_exceeding_maximum_filename_length():
@@ -188,7 +198,7 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
     routes = [r.to_endpoint() for r in loaded.endpoints]
 
     for config in loaded.endpoints:
-        route = [x for x in routes if x.name == config.name][0]
+        route = next(x for x in routes if x.name == config.name)
         assert route.endpoint_type == config.endpoint_type
         assert route.model.name == config.model.name
         assert route.model.provider == config.model.provider

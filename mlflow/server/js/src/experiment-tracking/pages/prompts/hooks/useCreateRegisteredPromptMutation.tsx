@@ -1,7 +1,7 @@
 import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { RegisteredPromptsApi } from '../api';
 import type { PROMPT_TYPE_CHAT, PROMPT_TYPE_TEXT } from '../utils';
-import { PROMPT_TYPE_TAG_KEY, REGISTERED_PROMPT_CONTENT_TAG_KEY } from '../utils';
+import { PROMPT_TYPE_TAG_KEY, REGISTERED_PROMPT_CONTENT_TAG_KEY, RESPONSE_FORMAT_TAG_KEY } from '../utils';
 
 type UpdateContentPayload = {
   promptName: string;
@@ -11,6 +11,7 @@ type UpdateContentPayload = {
   commitMessage?: string;
   tags: { key: string; value: string }[];
   promptTags?: { key: string; value: string }[];
+  responseFormatJson?: string;
 };
 
 export const useCreateRegisteredPromptMutation = () => {
@@ -23,10 +24,13 @@ export const useCreateRegisteredPromptMutation = () => {
       commitMessage,
       tags,
       promptTags = [],
+      responseFormatJson,
     }) => {
       if (createPromptEntity) {
         await RegisteredPromptsApi.createRegisteredPrompt(promptName, promptTags);
       }
+
+      const responseFormatTag = responseFormatJson ? [{ key: RESPONSE_FORMAT_TAG_KEY, value: responseFormatJson }] : [];
 
       const version = await RegisteredPromptsApi.createRegisteredPromptVersion(
         promptName,
@@ -34,6 +38,7 @@ export const useCreateRegisteredPromptMutation = () => {
           { key: REGISTERED_PROMPT_CONTENT_TAG_KEY, value: content },
           { key: PROMPT_TYPE_TAG_KEY, value: promptType },
           ...tags,
+          ...responseFormatTag,
         ],
         commitMessage,
       );

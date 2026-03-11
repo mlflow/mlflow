@@ -30,6 +30,7 @@ from mlflow.tracing.utils import (
     generate_trace_id_v4_from_otel_trace_id,
     parse_trace_id_v4,
     set_span_cost_attribute,
+    should_compute_cost_client_side,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -675,7 +676,8 @@ class LiveSpan(Span):
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
 
-            set_span_cost_attribute(self)
+            if should_compute_cost_client_side():
+                set_span_cost_attribute(self)
 
             # Apply span processors
             apply_span_processors(self)
@@ -757,9 +759,9 @@ class LiveSpan(Span):
 
         # Copy all the attributes, inputs, outputs, and events from the original span
         clone_span.set_status(span.status)
-        clone_span.set_attributes(
-            {k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID}
-        )
+        clone_span.set_attributes({
+            k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID
+        })
         if span.inputs:
             clone_span.set_inputs(span.inputs)
         if span.outputs:

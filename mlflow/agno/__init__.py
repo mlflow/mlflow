@@ -3,14 +3,13 @@ import logging
 
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import experimental as experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "agno"
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.3.0")
 def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = False) -> None:
     """
     Enables (or disables) and configures autologging from Agno to MLflow.
@@ -54,27 +53,23 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
     }
 
     if storages := discover_storage_backends():
-        class_map.update(
-            {
-                cls.__module__ + "." + cls.__name__: [
-                    "create",
-                    "read",
-                    "upsert",
-                    "drop",
-                    "upgrade_schema",
-                ]
-                for cls in storages
-            }
-        )
+        class_map.update({
+            cls.__module__ + "." + cls.__name__: [
+                "create",
+                "read",
+                "upsert",
+                "drop",
+                "upgrade_schema",
+            ]
+            for cls in storages
+        })
 
     if models := find_model_subclasses():
-        class_map.update(
-            {
-                # TODO: Support streaming
-                cls.__module__ + "." + cls.__name__: ["invoke", "ainvoke"]
-                for cls in models
-            }
-        )
+        class_map.update({
+            # TODO: Support streaming
+            cls.__module__ + "." + cls.__name__: ["invoke", "ainvoke"]
+            for cls in models
+        })
 
     for cls_path, methods in class_map.items():
         mod_name, cls_name = cls_path.rsplit(".", 1)

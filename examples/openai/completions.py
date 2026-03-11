@@ -44,13 +44,11 @@ with mlflow.start_run():
         signature=ModelSignature(
             inputs=Schema([ColSpec(type="string", name=None)]),
             outputs=Schema([ColSpec(type="string", name=None)]),
-            params=ParamSchema(
-                [
-                    ParamSpec(name="max_tokens", default=16, dtype="long"),
-                    ParamSpec(name="temperature", default=0, dtype="float"),
-                    ParamSpec(name="best_of", default=1, dtype="long"),
-                ]
-            ),
+            params=ParamSchema([
+                ParamSpec(name="max_tokens", default=16, dtype="long"),
+                ParamSpec(name="temperature", default=0, dtype="float"),
+                ParamSpec(name="best_of", default=1, dtype="long"),
+            ]),
         ),
     )
 

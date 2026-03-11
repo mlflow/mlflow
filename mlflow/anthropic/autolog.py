@@ -6,6 +6,7 @@ from mlflow.anthropic.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import (
     construct_full_inputs,
@@ -73,6 +74,7 @@ def patched_claude_sdk_init(original, self, options=None):
 
 def patched_class_call(original, self, *args, **kwargs):
     with TracingSession(original, self, args, kwargs) as manager:
+        _inject_tracing_headers(kwargs, manager.span)
         output = original(self, *args, **kwargs)
         manager.output = output
         return output
@@ -80,6 +82,7 @@ def patched_class_call(original, self, *args, **kwargs):
 
 async def async_patched_class_call(original, self, *args, **kwargs):
     async with TracingSession(original, self, args, kwargs) as manager:
+        _inject_tracing_headers(kwargs, manager.span)
         output = await original(self, *args, **kwargs)
         manager.output = output
         return output
@@ -133,6 +136,17 @@ class TracingSession:
             self.span.end(outputs=self.output)
 
 
+def _inject_tracing_headers(kwargs: dict[str, Any], span: LiveSpan | None):
+    if span is None:
+        return
+    try:
+        if tracing_headers := _get_tracing_headers_from_span(span):
+            existing = kwargs.get("extra_headers") or {}
+            kwargs["extra_headers"] = tracing_headers | existing
+    except Exception:
+        _logger.debug("Failed to inject tracing headers", exc_info=True)
+
+
 def _get_span_type(task_name: str) -> str:
     # Anthropic has a few APIs in beta, e.g., count_tokens.
     # Once they are stable, we can add them to the mapping.
@@ -162,11 +176,16 @@ def _set_token_usage_attribute(span: LiveSpan, output: Any):
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         if usage := getattr(output, "usage", None):
-            return {
+            usage_dict = {
                 TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
                 TokenUsageKey.TOTAL_TOKENS: usage.input_tokens + usage.output_tokens,
             }
+            if (cached := getattr(usage, "cache_read_input_tokens", None)) is not None:
+                usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+            if (created := getattr(usage, "cache_creation_input_tokens", None)) is not None:
+                usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+            return usage_dict
     except Exception as e:
         _logger.debug(f"Failed to parse token usage from output: {e}")
     return None

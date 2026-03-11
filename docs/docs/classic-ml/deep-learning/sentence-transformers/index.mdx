@@ -43,7 +43,7 @@ The MLflow Sentence Transformers flavor provides integration with the [Sentence 
 ## Installation
 
 ```bash
-pip install mlflow[sentence-transformers]
+pip install 'mlflow[sentence-transformers]'
 ```
 
 ## Basic Usage
@@ -109,20 +109,18 @@ from sentence_transformers import SentenceTransformer, util
 documents = [
     "Machine learning is a subset of artificial intelligence",
     "Deep learning uses neural networks with multiple layers",
-    "MLflow helps manage the machine learning lifecycle",
+    "MLflow is an open-source AI engineering platform",
 ]
 
 with mlflow.start_run():
     model = SentenceTransformer("all-MiniLM-L6-v2")
 
     # Log model parameters
-    mlflow.log_params(
-        {
-            "model_name": "all-MiniLM-L6-v2",
-            "embedding_dimension": model.get_sentence_embedding_dimension(),
-            "corpus_size": len(documents),
-        }
-    )
+    mlflow.log_params({
+        "model_name": "all-MiniLM-L6-v2",
+        "embedding_dimension": model.get_sentence_embedding_dimension(),
+        "corpus_size": len(documents),
+    })
 
     # Encode corpus
     corpus_embeddings = model.encode(documents, convert_to_tensor=True)
@@ -164,14 +162,12 @@ with mlflow.start_run():
     model = SentenceTransformer("all-MiniLM-L6-v2")
 
     # Log training parameters
-    mlflow.log_params(
-        {
-            "base_model": "all-MiniLM-L6-v2",
-            "num_epochs": 3,
-            "batch_size": 16,
-            "learning_rate": 2e-5,
-        }
-    )
+    mlflow.log_params({
+        "base_model": "all-MiniLM-L6-v2",
+        "num_epochs": 3,
+        "batch_size": 16,
+        "learning_rate": 2e-5,
+    })
 
     # Fine-tune
     train_dataloader = DataLoader(train_examples, shuffle=True, batch_size=16)

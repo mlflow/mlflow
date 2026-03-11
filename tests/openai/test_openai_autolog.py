@@ -1,4 +1,5 @@
 import json
+import re
 from unittest import mock
 
 import httpx
@@ -18,6 +19,7 @@ from mlflow.tracing.constant import (
     TokenUsageKey,
     TraceMetadataKey,
 )
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.openai.mock_openai import EMPTY_CHOICES, LIST_CONTENT
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
@@ -127,12 +129,13 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
     assert span.model_name == "gpt-4o-mini"
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "openai"
 
-    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
 
     assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
     assert trace.info.token_usage == {
@@ -140,10 +143,80 @@ async def test_chat_completions_autolog(client, mock_litellm_cost):
         TokenUsageKey.OUTPUT_TOKENS: 12,
         TokenUsageKey.TOTAL_TOKENS: 21,
     }
-    assert trace.info.cost == {
-        CostKey.INPUT_COST: 9.0,
-        CostKey.OUTPUT_COST: 24.0,
-        CostKey.TOTAL_COST: 33.0,
+    if not IS_TRACING_SDK_ONLY:
+        assert trace.info.cost == {
+            CostKey.INPUT_COST: 9.0,
+            CostKey.OUTPUT_COST: 24.0,
+            CostKey.TOTAL_COST: 33.0,
+        }
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    Version(openai.__version__) < Version("1.66"), reason="Cost tracking does not work before 1.66"
+)
+async def test_chat_completions_autolog_with_cached_tokens(client, mock_litellm_cost):
+    mlflow.openai.autolog()
+
+    mock_response = {
+        "id": "chatcmpl-cached",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "Hello"},
+                "logprobs": None,
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 50,
+            "completion_tokens": 20,
+            "total_tokens": 70,
+            "prompt_tokens_details": {"cached_tokens": 30, "audio_tokens": 0},
+            "completion_tokens_details": {"reasoning_tokens": 0},
+        },
+    }
+
+    if client._is_async:
+        patch_target = "httpx.AsyncClient.send"
+
+        async def send_patch(self, request, *args, **kwargs):
+            return httpx.Response(status_code=200, request=request, json=mock_response)
+
+    else:
+        patch_target = "httpx.Client.send"
+
+        def send_patch(self, request, *args, **kwargs):
+            return httpx.Response(status_code=200, request=request, json=mock_response)
+
+    with mock.patch(patch_target, send_patch):
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": "test"}],
+            model="gpt-4o-mini",
+            temperature=0,
+        )
+        if client._is_async:
+            response = await response
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
+    }
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 50,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 70,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 30,
     }
 
 
@@ -667,6 +740,7 @@ async def test_response_format(client):
                 request=request,
                 json=mock_response,
             )
+
     else:
         patch_target = "httpx.Client.send"
 
@@ -699,13 +773,12 @@ async def test_response_format(client):
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.model_name == "gpt-4o"
 
-    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
-        {
-            TokenUsageKey.INPUT_TOKENS: 68,
-            TokenUsageKey.OUTPUT_TOKENS: 11,
-            TokenUsageKey.TOTAL_TOKENS: 79,
-        }
-    )
+    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps({
+        TokenUsageKey.INPUT_TOKENS: 68,
+        TokenUsageKey.OUTPUT_TOKENS: 11,
+        TokenUsageKey.TOTAL_TOKENS: 79,
+        TokenUsageKey.CACHE_READ_INPUT_TOKENS: 0,
+    })
 
 
 @skip_when_testing_trace_sdk
@@ -906,3 +979,120 @@ def test_reconstruct_response_from_stream():
         OutputItem(**chunk1.item.to_dict()),
         OutputItem(**chunk2.item.to_dict()),
     ]
+
+
+@pytest.mark.asyncio
+async def test_tracing_headers_injected(client):
+    mlflow.openai.autolog()
+
+    captured_request = {}
+    mock_response = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "hi"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+    }
+
+    if client._is_async:
+        patch_target = "httpx.AsyncClient.send"
+        original_send = httpx.AsyncClient.send
+
+        async def send_patch(self, request, *args, **kwargs):
+            if "chat/completions" in str(request.url):
+                captured_request["headers"] = dict(request.headers)
+                return httpx.Response(status_code=200, request=request, json=mock_response)
+            return await original_send(self, request, *args, **kwargs)
+
+    else:
+        patch_target = "httpx.Client.send"
+        original_send = httpx.Client.send
+
+        def send_patch(self, request, *args, **kwargs):
+            if "chat/completions" in str(request.url):
+                captured_request["headers"] = dict(request.headers)
+                return httpx.Response(status_code=200, request=request, json=mock_response)
+            return original_send(self, request, *args, **kwargs)
+
+    with mock.patch(patch_target, send_patch):
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": "test"}],
+            model="gpt-4o-mini",
+        )
+        if client._is_async:
+            response = await response
+
+    # Verify traceparent header was injected
+    assert "traceparent" in captured_request["headers"]
+    traceparent = captured_request["headers"]["traceparent"]
+    assert re.fullmatch(r"00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}", traceparent)
+
+    # Verify the traceparent points to the LLM span
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    span_ctx = span._span.get_span_context()
+    trace_id_hex = format(span_ctx.trace_id, "032x")
+    span_id_hex = format(span_ctx.span_id, "016x")
+    assert traceparent.startswith(f"00-{trace_id_hex}-{span_id_hex}-")
+
+
+@pytest.mark.asyncio
+async def test_tracing_headers_preserve_user_headers(client):
+    mlflow.openai.autolog()
+
+    captured_request = {}
+    mock_response = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "gpt-4o-mini",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "hi"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 9, "completion_tokens": 12, "total_tokens": 21},
+    }
+
+    if client._is_async:
+        patch_target = "httpx.AsyncClient.send"
+        original_send = httpx.AsyncClient.send
+
+        async def send_patch(self, request, *args, **kwargs):
+            if "chat/completions" in str(request.url):
+                captured_request["headers"] = dict(request.headers)
+                return httpx.Response(status_code=200, request=request, json=mock_response)
+            return await original_send(self, request, *args, **kwargs)
+
+    else:
+        patch_target = "httpx.Client.send"
+        original_send = httpx.Client.send
+
+        def send_patch(self, request, *args, **kwargs):
+            if "chat/completions" in str(request.url):
+                captured_request["headers"] = dict(request.headers)
+                return httpx.Response(status_code=200, request=request, json=mock_response)
+            return original_send(self, request, *args, **kwargs)
+
+    with mock.patch(patch_target, send_patch):
+        response = client.chat.completions.create(
+            messages=[{"role": "user", "content": "test"}],
+            model="gpt-4o-mini",
+            extra_headers={"X-Custom": "my-value"},
+        )
+        if client._is_async:
+            response = await response
+
+    # User-provided headers should be preserved alongside traceparent
+    assert "traceparent" in captured_request["headers"]
+    assert captured_request["headers"].get("x-custom") == "my-value"

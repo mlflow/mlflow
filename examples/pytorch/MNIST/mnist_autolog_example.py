@@ -36,9 +36,10 @@ class MNISTDataModule(L.LightningDataModule):
         self.num_workers = num_workers
 
         # transforms for images
-        self.transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        )
+        self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,)),
+        ])
 
     def setup(self, stage=None):
         """

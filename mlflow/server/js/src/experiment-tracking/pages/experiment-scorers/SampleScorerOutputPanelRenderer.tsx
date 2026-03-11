@@ -20,7 +20,7 @@ import { useFormContext } from 'react-hook-form';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { ExperimentSingleChatConversation } from '../experiment-chat-sessions/single-chat-view/ExperimentSingleChatConversation';
-import { SimplifiedAssessmentView } from '../../../shared/web-shared/model-trace-explorer/right-pane/SimplifiedAssessmentView';
+import { SimplifiedAssessmentView } from '@databricks/web-shared/model-trace-explorer';
 import { compact } from 'lodash';
 import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { isSessionJudgeEvaluationResult } from './useEvaluateTraces.common';
@@ -167,10 +167,6 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
           <FormattedMessage defaultMessage="Sample judge output" description="Title for sample judge output panel" />
         </Typography.Text>
         <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <SampleScorerTracesToEvaluatePicker
-            selectedItemIds={selectedItemIds}
-            onSelectedItemIdsChange={onSelectedItemIdsChange}
-          />
           {!isInitialScreen && (
             <Tooltip
               componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_178"
@@ -330,19 +326,25 @@ const SampleScorerOutputPanelRenderer: React.FC<SampleScorerOutputPanelRendererP
                     values={{ isTraces: evaluationScope === ScorerEvaluationScope.TRACES }}
                   />
                 </Typography.Text>
-                <Tooltip
-                  componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_316"
-                  content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
-                >
-                  <span>
-                    <RunScorerButton
-                      variant={BUTTON_VARIANT.RUN}
-                      onClick={handleRunScorer}
-                      loading={false}
-                      disabled={isRunScorerDisabled}
-                    />
-                  </span>
-                </Tooltip>
+                <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
+                  <SampleScorerTracesToEvaluatePicker
+                    selectedItemIds={selectedItemIds}
+                    onSelectedItemIdsChange={onSelectedItemIdsChange}
+                  />
+                  <Tooltip
+                    componentId="codegen_no_dynamic_mlflow_web_js_src_experiment_tracking_pages_experiment_scorers_samplescoreroutputpanelrenderer_316"
+                    content={isRunScorerDisabled ? runScorerDisabledTooltip : undefined}
+                  >
+                    <span>
+                      <RunScorerButton
+                        variant={BUTTON_VARIANT.RUN}
+                        onClick={handleRunScorer}
+                        loading={false}
+                        disabled={isRunScorerDisabled}
+                      />
+                    </span>
+                  </Tooltip>
+                </div>
               </>
             )}
           </div>

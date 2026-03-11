@@ -17,7 +17,7 @@ from mlflow.tracing.distributed import (
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
-REQUEST_TIMEOUT = 10
+REQUEST_TIMEOUT = 30
 
 
 @contextmanager

@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { TIME_BUCKET_DIMENSION_KEY, type MetricDataPoint } from '@databricks/web-shared/model-trace-explorer';
 import { useDesignSystemTheme, type DesignSystemThemeInterface } from '@databricks/design-system';
+import { isNil } from 'lodash';
 
 /**
  * Props for the active shape renderer in pie charts.
@@ -60,16 +61,16 @@ export function calculatePieActiveShapeGeometry(
   const sin = Math.sin(-RADIAN * midAngle);
   const cos = Math.cos(-RADIAN * midAngle);
 
-  // Line start point (just outside the pie slice)
-  const sx = cx + (outerRadius + theme.spacing.sm) * cos;
-  const sy = cy + (outerRadius + theme.spacing.sm) * sin;
+  // Line start point (just outside the outer highlight arc)
+  const sx = cx + (outerRadius + theme.spacing.md) * cos;
+  const sy = cy + (outerRadius + theme.spacing.md) * sin;
 
   // Line bend point (further out, creates an elbow in the line)
-  const mx = cx + (outerRadius + theme.spacing.md) * cos;
-  const my = cy + (outerRadius + theme.spacing.md) * sin;
+  const mx = cx + (outerRadius + theme.spacing.lg) * cos;
+  const my = cy + (outerRadius + theme.spacing.lg) * sin;
 
   // Line end point (horizontal offset from bend, direction based on left/right side)
-  const ex = mx + (cos >= 0 ? 1 : -1) * theme.spacing.md;
+  const ex = mx + (cos >= 0 ? 1 : -1) * theme.spacing.lg;
   const ey = my;
   const textAnchor = cos >= 0 ? 'start' : 'end';
 
@@ -94,8 +95,8 @@ export function useLegendHighlight(defaultOpacity = 1, dimmedOpacity = 0.2) {
     [hoveredItem, defaultOpacity, dimmedOpacity],
   );
 
-  const handleLegendMouseEnter = useCallback((data: { value: string }) => {
-    setHoveredItem(data.value);
+  const handleLegendMouseEnter = useCallback((data: { value: string | undefined }) => {
+    setHoveredItem(data.value ?? null);
   }, []);
 
   const handleLegendMouseLeave = useCallback(() => {
@@ -219,7 +220,11 @@ export function getLineDotStyle(color: string) {
  * @param count - Number to format
  * @returns Formatted string (e.g., "1.50M", "15.00K", "1.50K", "500")
  */
-export function formatCount(count: number): string {
+export function formatCount(count: number | undefined): string {
+  if (isNil(count)) {
+    return '0';
+  }
+
   if (count >= 1_000_000) {
     return `${(count / 1_000_000).toFixed(2)}M`;
   }
@@ -233,7 +238,11 @@ export function formatCount(count: number): string {
  * Formats latency in milliseconds to a human-readable string
  * @param ms - Latency in milliseconds
  */
-export function formatLatency(ms: number): string {
+export function formatLatency(ms: number | undefined): string {
+  if (isNil(ms)) {
+    return '';
+  }
+
   if (ms < 1000) {
     return `${ms.toFixed(2)}ms`;
   }
@@ -293,9 +302,9 @@ export interface ChartZoomState<T> {
   /** Right boundary of current selection (index or value) */
   refAreaRight: string | number | null;
   /** Handler for mouse down event - starts selection */
-  handleMouseDown: (e: { activeLabel?: string }) => void;
+  handleMouseDown: (e: { activeLabel?: string | number }) => void;
   /** Handler for mouse move event - updates selection */
-  handleMouseMove: (e: { activeLabel?: string }) => void;
+  handleMouseMove: (e: { activeLabel?: string | number }) => void;
   /** Handler for mouse up event - completes zoom */
   handleMouseUp: () => void;
   /** Reset zoom to show all data */
@@ -333,7 +342,7 @@ export function useChartZoom<T>(data: T[], labelKey: keyof T): ChartZoomState<T>
     }
   }, [data]);
 
-  const handleMouseDown = useCallback((e: { activeLabel?: string }) => {
+  const handleMouseDown = useCallback((e: { activeLabel?: string | number }) => {
     if (e.activeLabel) {
       setRefAreaLeft(e.activeLabel);
       setRefAreaRight(e.activeLabel);
@@ -342,7 +351,7 @@ export function useChartZoom<T>(data: T[], labelKey: keyof T): ChartZoomState<T>
   }, []);
 
   const handleMouseMove = useCallback(
-    (e: { activeLabel?: string }) => {
+    (e: { activeLabel?: string | number }) => {
       if (isSelecting && e.activeLabel) {
         setRefAreaRight(e.activeLabel);
       }

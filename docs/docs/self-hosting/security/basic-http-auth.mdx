@@ -19,7 +19,7 @@ MLflow Authentication provides Python and REST API for managing users and permis
 First, install all dependencies required for the basic auth app:
 
 ```bash
-pip install mlflow[auth]
+pip install 'mlflow[auth]'
 ```
 
 :::note
@@ -1134,6 +1134,42 @@ MLflow Authentication provides API endpoints to manage users and permissions.
       <td>`DELETE`</td>
       <td>can_manage</td>
     </tr>
+    <tr>
+      <td>Create Webhook</td>
+      <td>`2.0/mlflow/webhooks`</td>
+      <td>`POST`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>List Webhooks</td>
+      <td>`2.0/mlflow/webhooks`</td>
+      <td>`GET`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>Get Webhook</td>
+      <td>`2.0/mlflow/webhooks/&lt;webhook_id&gt;`</td>
+      <td>`GET`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>Update Webhook</td>
+      <td>`2.0/mlflow/webhooks/&lt;webhook_id&gt;`</td>
+      <td>`PATCH`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>Delete Webhook</td>
+      <td>`2.0/mlflow/webhooks/&lt;webhook_id&gt;`</td>
+      <td>`DELETE`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>Test Webhook</td>
+      <td>`2.0/mlflow/webhooks/&lt;webhook_id&gt;/test`</td>
+      <td>`POST`</td>
+      <td>Only admin</td>
+    </tr>
   </tbody>
 </table>
 
@@ -1463,8 +1499,7 @@ if you want to use another authentication method than HTTP basic auth. The value
 specifies `module_name:function_name`. The function has the following signature:
 
 ```python
-def authenticate_request() -> Union[Authorization, Response]:
-    ...
+def authenticate_request() -> Union[Authorization, Response]: ...
 ```
 
 The function should return a `werkzeug.datastructures.Authorization` object if

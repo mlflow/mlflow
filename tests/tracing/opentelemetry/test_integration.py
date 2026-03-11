@@ -65,8 +65,8 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
     assert trace.info.status == TraceState.OK
     assert trace.info.request_time == root_span.start_time // 1_000_000
     assert trace.info.execution_duration == (root_span.end_time - root_span.start_time) // 1_000_000
-    assert trace.info.request_preview == ""
-    assert trace.info.response_preview == ""
+    assert trace.info.request_preview is None
+    assert trace.info.response_preview is None
 
     spans = trace.data.spans
     assert len(spans) == 3

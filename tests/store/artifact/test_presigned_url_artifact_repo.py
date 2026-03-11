@@ -51,9 +51,9 @@ def mock_list_directory(*args, **kwargs):
     endpoint = kwargs["endpoint"]
     json_body = kwargs["json_body"]
 
-    if endpoint == f"{DIRECTORIES_ENDPOINT}{MODEL_URI}/dir" and json_body == json.dumps(
-        {"page_token": "some_token"}
-    ):
+    if endpoint == f"{DIRECTORIES_ENDPOINT}{MODEL_URI}/dir" and json_body == json.dumps({
+        "page_token": "some_token"
+    }):
         return ListDirectoryResponse(
             contents=[
                 DirectoryEntry(is_directory=False, path=f"{MODEL_URI}/dir/file2", file_size=2)

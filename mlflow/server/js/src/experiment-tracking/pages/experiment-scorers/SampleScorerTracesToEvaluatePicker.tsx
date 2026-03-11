@@ -1,6 +1,6 @@
 import { Button } from '@databricks/design-system';
 
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage } from '@databricks/i18n';
 import { useState } from 'react';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { SelectTracesModal } from '../../components/SelectTracesModal';
@@ -27,7 +27,6 @@ export const SampleScorerTracesToEvaluatePicker = ({
     <>
       <Button
         componentId="mlflow.experiment-scorers.form.traces-picker.trigger"
-        size="small"
         onClick={() => setDisplayPickCustomTracesModal(true)}
       >
         {hasSelectedItems ? (
