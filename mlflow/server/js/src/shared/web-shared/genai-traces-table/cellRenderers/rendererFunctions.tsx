@@ -301,8 +301,7 @@ export const AssessmentCell: React.FC<{
       (evaluation) =>
         evaluation.isLoading &&
         evaluation.label === assessmentInfo.name &&
-        evaluation.tracesData &&
-        traceId in evaluation.tracesData,
+        (!evaluation.tracesData || traceId in evaluation.tracesData),
     );
   }, [traceId, evaluations, assessmentInfo.name]);
 

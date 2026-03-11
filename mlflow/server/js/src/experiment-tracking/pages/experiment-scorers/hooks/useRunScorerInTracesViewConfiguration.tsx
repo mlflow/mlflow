@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LLMScorer } from '../types';
 import { LLM_TEMPLATE } from '../types';
 import { useGetScheduledScorers } from './useGetScheduledScorers';
@@ -115,6 +115,16 @@ export const useRunJudgesOnTracesConfiguration = (
     setIsModalVisible(false);
     setPendingTraceIds([]);
   }, []);
+
+  // Prune dismissed keys that no longer exist in allEvaluations to prevent unbounded growth
+  useEffect(() => {
+    if (!allEvaluations) return;
+    const currentKeys = new Set(Object.values(allEvaluations).map((e) => e.requestKey));
+    setDismissedKeys((prev) => {
+      const pruned = new Set([...prev].filter((key) => currentKeys.has(key)));
+      return pruned.size === prev.size ? prev : pruned;
+    });
+  }, [allEvaluations]);
 
   const activeEvaluations = useMemo(
     () => Object.values(allEvaluations ?? {}).filter((e) => !dismissedKeys.has(e.requestKey)),
