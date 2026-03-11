@@ -43,7 +43,7 @@ export const IssueDetectionRunOverview = ({
     enabled: !!progressProps.jobId,
   });
 
-  const modelDisplay = model && provider ? `${provider}/${model}` : undefined;
+  const modelDisplay = model && provider ? `${provider}:/${model}` : undefined;
 
   const jobComplete = isJobComplete(jobStatus);
   const prevJobCompleteRef = useRef(jobComplete);
