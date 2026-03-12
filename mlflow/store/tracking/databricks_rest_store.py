@@ -8,7 +8,16 @@ from urllib.parse import quote, urlencode
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from pydantic import BaseModel
 
-from mlflow.entities import Assessment, Span, Trace, TraceInfo, TraceLocation
+from mlflow.entities import (
+    Assessment,
+    Issue,
+    IssueSeverity,
+    IssueStatus,
+    Span,
+    Trace,
+    TraceInfo,
+    TraceLocation,
+)
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_location import (
     UCSchemaLocation as UCSchemaLocationEntity,
@@ -1081,12 +1090,12 @@ class DatabricksTracingRestStore(RestStore):
         experiment_id: str,
         name: str,
         description: str,
-        status=None,
-        severity=None,
-        root_causes=None,
-        source_run_id=None,
-        created_by=None,
-    ):
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
         """
         Create a new issue.
 
@@ -1094,7 +1103,7 @@ class DatabricksTracingRestStore(RestStore):
             experiment_id: The experiment ID.
             name: Short descriptive name for the issue.
             description: Detailed description of the issue.
-            status: Issue status.
+            status: Issue status. Defaults to IssueStatus.PENDING.
             severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional MLflow run ID that discovered this issue.
@@ -1105,7 +1114,7 @@ class DatabricksTracingRestStore(RestStore):
         """
         raise MlflowNotImplementedException("Issue management is not supported in Databricks")
 
-    def get_issue(self, issue_id: str):
+    def get_issue(self, issue_id: str) -> Issue:
         """
         Get an issue by ID.
 
@@ -1120,11 +1129,11 @@ class DatabricksTracingRestStore(RestStore):
     def update_issue(
         self,
         issue_id: str,
-        status=None,
-        name=None,
-        description=None,
-        severity=None,
-    ):
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+    ) -> Issue:
         """
         Update an existing issue.
 
@@ -1142,11 +1151,11 @@ class DatabricksTracingRestStore(RestStore):
 
     def search_issues(
         self,
-        experiment_id=None,
-        filter_string=None,
-        max_results=None,
-        page_token=None,
-    ):
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Issue]:
         """
         Search for issues matching the given filters.
 
