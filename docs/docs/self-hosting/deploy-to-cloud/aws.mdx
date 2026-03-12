@@ -53,7 +53,7 @@ MLflow will store metadata of experiments / runs / logged models / registered mo
 
 ## Step 3: Create IAM role for MLflow service to access the S3 bucket
 
-The s3 bucket that is created in the first step blocks all public access. Create an IAM role "mlflow-task-role" with an inline policy as follows:
+The S3 bucket that is created in the first step blocks all public access. Create an IAM role "mlflow-task-role" with an inline policy as follows:
 
 ```json
 {
@@ -78,9 +78,9 @@ The s3 bucket that is created in the first step blocks all public access. Create
 }
 ```
 
-## Step 4: Create ECS (Elastic container service) service to host the MLflow server
+## Step 4: Create ECS (Elastic Container Service) to host the MLflow server
 
-Create ECS (Elastic container service) service to host the MLflow web server and the UI. Choose "Express mode" to configure most settings including VPC and ALB automatically, but you need to fill the following settings correctly:
+Create ECS (Elastic Container Service) to host the MLflow web server and the UI. Choose "Express mode" to configure most settings including VPC and ALB automatically, but you need to fill the following settings correctly:
 
 - Set the "Image URI" to a certain version MLflow image, e.g. `ghcr.io/mlflow/mlflow:v3.10.0-full`. You can find available MLflow images in this [page](https://github.com/mlflow/mlflow/pkgs/container/mlflow).
 - Set the "Container port" to 5000, this is the port of the MLflow server running inside the container.
