@@ -966,6 +966,24 @@ service MlflowService {
     };
   }
 
+  // Archive traces from the tracking store to the trace repository.
+  rpc archiveTraces(ArchiveTraces) returns (ArchiveTraces.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/archive-traces"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Archive Traces"
+    };
+  }
+
   // Calculate the correlation (NPMI) between two trace filter conditions.
   rpc calculateTraceFilterCorrelation(CalculateTraceFilterCorrelation) returns (CalculateTraceFilterCorrelation.Response) {
     option (rpc) = {
@@ -3566,6 +3584,31 @@ message DeleteTracesV3 {
   }
 }
 
+message ArchiveTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Optional: scope archival to a single workspace. If omitted (and all_workspaces is false),
+  // the policy is applied globally across all experiments.
+  optional string workspace = 1;
+
+  // Optional: if true, apply the archival policy independently per workspace (the server
+  // iterates over each workspace). Mutually exclusive with workspace.
+  optional bool all_workspaces = 2;
+
+  // Optional: only archive traces older than this many days.
+  optional int64 older_than_days = 3;
+
+  // Optional: archive only this trace (by ID). When set, older_than_days is not required.
+  optional string trace_id = 4;
+
+  // Optional: limit archival to traces in this experiment (experiment ID string).
+  optional string experiment_id = 5;
+
+  message Response {
+    optional int32 traces_archived = 1;
+  }
+}
+
 message CalculateTraceFilterCorrelation {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -5279,6 +5322,9 @@ message Workspace {
 
   // Optional default artifact root override for this workspace.
   optional string default_artifact_root = 3;
+
+  // Optional trace repository root override for this workspace (trace archival).
+  optional string trace_archival_location = 4;
 }
 
 // List workspaces available to the current principal.
@@ -5303,6 +5349,9 @@ message CreateWorkspace {
 
   // Optional default artifact root override to apply at creation time.
   optional string default_artifact_root = 3;
+
+  // Optional trace repository root override to apply at creation time.
+  optional string trace_archival_location = 4;
 
   message Response {
     // Metadata describing the created workspace.
@@ -5335,6 +5384,9 @@ message UpdateWorkspace {
 
   // Optional default artifact root override update.
   optional string default_artifact_root = 3;
+
+  // Optional trace repository root override update.
+  optional string trace_archival_location = 4;
 
   message Response {
     // Metadata describing the updated workspace.
