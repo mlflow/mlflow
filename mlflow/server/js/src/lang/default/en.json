@@ -2029,6 +2029,10 @@
     "defaultMessage": "{isTraces, select, true {Trace} other {Session}} {index} of {total}",
     "description": "Index of the current trace and total number of traces"
   },
+  "BDnRzZ": {
+    "defaultMessage": "Total cost: {cost}",
+    "description": "Issue detection progress > Total cost in USD"
+  },
   "BEFBcB": {
     "defaultMessage": "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
     "description": "Popover message displayed when the experiment type could not not inferred"
