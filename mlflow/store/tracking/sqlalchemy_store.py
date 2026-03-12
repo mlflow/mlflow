@@ -6113,7 +6113,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 query = query.filter(*filter_clauses)
 
+            # IssueSeverity enum is ordered from lowest to highest severity
+            severity_priorities = {severity.value: severity._rank for severity in IssueSeverity}
+            severity_order = case(
+                severity_priorities,
+                value=SqlIssue.severity,
+                else_=-1,
+            )
             query = query.order_by(
+                severity_order.desc(),
                 SqlIssue.created_timestamp.desc(),
                 SqlIssue.issue_id.desc(),
             )

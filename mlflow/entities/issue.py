@@ -33,28 +33,28 @@ class IssueSeverity(str, Enum):
         return self.value
 
     @cached_property
-    def _order(self) -> int:
+    def _rank(self) -> int:
         """Return the ordinal rank for severity comparison."""
         return list(IssueSeverity).index(self)
 
     def __lt__(self, other) -> bool:
         if isinstance(other, IssueSeverity):
-            return self._order < other._order
+            return self._rank < other._rank
         return NotImplemented
 
     def __le__(self, other) -> bool:
         if isinstance(other, IssueSeverity):
-            return self._order <= other._order
+            return self._rank <= other._rank
         return NotImplemented
 
     def __gt__(self, other) -> bool:
         if isinstance(other, IssueSeverity):
-            return self._order > other._order
+            return self._rank > other._rank
         return NotImplemented
 
     def __ge__(self, other) -> bool:
         if isinstance(other, IssueSeverity):
-            return self._order >= other._order
+            return self._rank >= other._rank
         return NotImplemented
 
 
