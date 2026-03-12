@@ -165,10 +165,27 @@ def test_tag_command(runner):
             ["tag", "--trace-id", "tr-abc", "--tag", "env=prod", "--tag", "version=2"],
         )
         assert result.exit_code == 0
-        assert "Set 2 tag(s) on trace tr-abc" in result.output
+        assert "Set 2 tag(s) on 1 trace(s)" in result.output
         mock_client.return_value.set_trace_tags.assert_called_once_with(
             "tr-abc", {"env": "prod", "version": "2"}
         )
+
+
+def test_tag_command_multiple_traces(runner):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        result = runner.invoke(
+            commands,
+            [
+                "tag",
+                "--trace-id", "tr-abc",
+                "--trace-id", "tr-def",
+                "--tag", "env=prod",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Set 1 tag(s) on 2 trace(s)" in result.output
+        mock_client.return_value.set_trace_tags.assert_any_call("tr-abc", {"env": "prod"})
+        mock_client.return_value.set_trace_tags.assert_any_call("tr-def", {"env": "prod"})
 
 
 def test_tag_command_bad_format(runner):
@@ -187,9 +204,26 @@ def test_untag_command(runner):
             ["untag", "--trace-id", "tr-abc", "--tag", "env", "--tag", "version"],
         )
         assert result.exit_code == 0
-        assert "Removed 2 tag(s) from trace tr-abc" in result.output
+        assert "Removed 2 tag(s) from 1 trace(s)" in result.output
         mock_client.return_value.delete_trace_tag.assert_any_call("tr-abc", "env")
         mock_client.return_value.delete_trace_tag.assert_any_call("tr-abc", "version")
+
+
+def test_untag_command_multiple_traces(runner):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        result = runner.invoke(
+            commands,
+            [
+                "untag",
+                "--trace-id", "tr-abc",
+                "--trace-id", "tr-def",
+                "--tag", "env",
+            ],
+        )
+        assert result.exit_code == 0
+        assert "Removed 1 tag(s) from 2 trace(s)" in result.output
+        mock_client.return_value.delete_trace_tag.assert_any_call("tr-abc", "env")
+        mock_client.return_value.delete_trace_tag.assert_any_call("tr-def", "env")
 
 
 def test_field_validation_error(runner):

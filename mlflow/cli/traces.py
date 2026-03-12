@@ -495,7 +495,14 @@ def set_trace_tag(trace_id: str, key: str, value: str) -> None:
 
 @commands.command("tag")
 @mlflow_mcp(tool_name="tag_trace")
-@TRACE_ID
+@click.option(
+    "--trace-id",
+    "trace_ids",
+    type=click.STRING,
+    multiple=True,
+    required=True,
+    help="Trace ID to tag. Can be repeated.",
+)
 @click.option(
     "--tag",
     "tags",
@@ -504,10 +511,10 @@ def set_trace_tag(trace_id: str, key: str, value: str) -> None:
     required=True,
     help="Tag in 'key=value' format. Can be repeated.",
 )
-def tag_trace(trace_id: str, tags: tuple[str, ...]) -> None:
+def tag_trace(trace_ids: tuple[str, ...], tags: tuple[str, ...]) -> None:
     """\b
     Example:
-    mlflow traces tag --trace-id tr-abc123 --tag env=prod --tag version=2
+    mlflow traces tag --trace-id tr-abc123 --trace-id tr-def456 --tag env=prod --tag version=2
     """
     parsed: dict[str, str] = {}
     for t in tags:
@@ -520,13 +527,21 @@ def tag_trace(trace_id: str, tags: tuple[str, ...]) -> None:
                     param_hint="--tag",
                 )
     client = TracingClient()
-    client.set_trace_tags(trace_id, parsed)
-    click.echo(f"Set {len(parsed)} tag(s) on trace {trace_id}.")
+    for trace_id in trace_ids:
+        client.set_trace_tags(trace_id, parsed)
+    click.echo(f"Set {len(parsed)} tag(s) on {len(trace_ids)} trace(s).")
 
 
 @commands.command("untag")
 @mlflow_mcp(tool_name="untag_trace")
-@TRACE_ID
+@click.option(
+    "--trace-id",
+    "trace_ids",
+    type=click.STRING,
+    multiple=True,
+    required=True,
+    help="Trace ID to untag. Can be repeated.",
+)
 @click.option(
     "--tag",
     "tags",
@@ -535,15 +550,16 @@ def tag_trace(trace_id: str, tags: tuple[str, ...]) -> None:
     required=True,
     help="Tag key to remove. Can be repeated.",
 )
-def untag_trace(trace_id: str, tags: tuple[str, ...]) -> None:
+def untag_trace(trace_ids: tuple[str, ...], tags: tuple[str, ...]) -> None:
     """\b
     Example:
-    mlflow traces untag --trace-id tr-abc123 --tag env --tag version
+    mlflow traces untag --trace-id tr-abc123 --trace-id tr-def456 --tag env --tag version
     """
     client = TracingClient()
-    for key in tags:
-        client.delete_trace_tag(trace_id, key)
-    click.echo(f"Removed {len(tags)} tag(s) from trace {trace_id}.")
+    for trace_id in trace_ids:
+        for key in tags:
+            client.delete_trace_tag(trace_id, key)
+    click.echo(f"Removed {len(tags)} tag(s) from {len(trace_ids)} trace(s).")
 
 
 @commands.command("delete-tag")
