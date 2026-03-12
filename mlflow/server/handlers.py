@@ -7,6 +7,7 @@ import pathlib
 import posixpath
 import re
 import tempfile
+import threading
 import time
 import urllib
 from functools import partial, wraps
@@ -22,7 +23,6 @@ from mlflow.entities import (
     Assessment,
     DatasetInput,
     Expectation,
-    Experiment,
     ExperimentTag,
     FallbackConfig,
     FallbackStrategy,
@@ -32,15 +32,24 @@ from mlflow.entities import (
     GatewayEndpointTag,
     GatewayResourceType,
     InputTag,
+    IssueSeverity,
+    IssueStatus,
     Metric,
     Param,
     RunStatus,
     RunTag,
     ViewType,
     Workspace,
+    WorkspaceDeletionMode,
 )
 from mlflow.entities import (
     RoutingStrategy as RoutingStrategyEntity,
+)
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
 )
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -60,13 +69,16 @@ from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
     MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS,
 )
 from mlflow.exceptions import (
     MlflowException,
     MlflowNotImplementedException,
     MlflowTracingException,
+    _UnsupportedMultipartDownloadException,
     _UnsupportedMultipartUploadException,
 )
+from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.utils import is_valid_endpoint_name
 from mlflow.models import Model
 from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
@@ -78,6 +90,12 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
 )
+from mlflow.protos.issues_pb2 import (
+    CreateIssue,
+    GetIssue,
+    SearchIssues,
+    UpdateIssue,
+)
 from mlflow.protos.jobs_pb2 import JobStatus
 from mlflow.protos.mlflow_artifacts_pb2 import (
     AbortMultipartUpload,
@@ -85,6 +103,7 @@ from mlflow.protos.mlflow_artifacts_pb2 import (
     CreateMultipartUpload,
     DeleteArtifact,
     DownloadArtifact,
+    GetPresignedDownloadUrl,
     MlflowArtifactsService,
     UploadArtifact,
 )
@@ -127,6 +146,7 @@ from mlflow.protos.service_pb2 import (
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
+    CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
@@ -141,6 +161,7 @@ from mlflow.protos.service_pb2 import (
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
+    DeleteGatewayBudgetPolicy,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
@@ -166,6 +187,7 @@ from mlflow.protos.service_pb2 import (
     GetDatasetRecords,
     GetExperiment,
     GetExperimentByName,
+    GetGatewayBudgetPolicy,
     GetGatewayEndpoint,
     GetGatewayModelDefinition,
     GetGatewaySecretInfo,
@@ -182,6 +204,8 @@ from mlflow.protos.service_pb2 import (
     LinkPromptsToTrace,
     LinkTracesToRun,
     ListArtifacts,
+    ListGatewayBudgetPolicies,
+    ListGatewayBudgetWindows,
     ListGatewayEndpointBindings,
     ListGatewayEndpoints,
     ListGatewayModelDefinitions,
@@ -222,6 +246,7 @@ from mlflow.protos.service_pb2 import (
     StartTraceV3,
     UpdateAssessment,
     UpdateExperiment,
+    UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
@@ -239,21 +264,23 @@ from mlflow.protos.webhooks_pb2 import (
     UpdateWebhook,
     WebhookService,
 )
+from mlflow.server.gateway_budget import maybe_refresh_budget_policies
 from mlflow.server.validation import _validate_content_type
 from mlflow.server.workspace_helpers import (
     _get_workspace_store,
 )
-from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
+from mlflow.store.artifact.artifact_repo import MultipartDownloadMixin, MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
-from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS
+from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
 from mlflow.telemetry import get_telemetry_client
+from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.telemetry.utils import (
     FALLBACK_UI_CONFIG,
@@ -1101,24 +1128,6 @@ def _ensure_artifact_root_available(workspace_artifact_root: str | None) -> None
 
 
 @catch_mlflow_exception
-def _server_features_handler():
-    """
-    Returns a dictionary containing the server features state.
-
-    This helps clients determine if workspaces are enabled.
-    """
-    response = Response(mimetype="application/json")
-    response.set_data(
-        json.dumps(
-            {
-                "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
-            }
-        )
-    )
-    return response
-
-
-@catch_mlflow_exception
 @_disable_if_workspaces_disabled
 def _list_workspaces_handler():
     _get_request_message(ListWorkspaces())
@@ -1164,17 +1173,6 @@ def _create_workspace_handler():
         )
     except NotImplementedError:
         raise _workspace_not_supported("Workspace creation is not supported by this provider")
-
-    tracking_store = _get_tracking_store()
-    with workspace_context.WorkspaceContext(workspace.name):
-        if tracking_store.get_experiment_by_name(Experiment.DEFAULT_EXPERIMENT_NAME) is None:
-            try:
-                tracking_store.create_experiment(Experiment.DEFAULT_EXPERIMENT_NAME)
-            except MlflowException as exc:
-                if exc.error_code != databricks_pb2.ErrorCode.Name(
-                    databricks_pb2.RESOURCE_ALREADY_EXISTS
-                ):
-                    raise
 
     response_message = CreateWorkspace.Response()
     response_message.workspace.MergeFrom(workspace.to_proto())
@@ -1247,9 +1245,17 @@ def _delete_workspace_handler(workspace_name: str):
             f"The '{DEFAULT_WORKSPACE_NAME}' workspace is reserved and cannot be deleted"
         )
     WorkspaceNameValidator.validate(workspace_name)
+    mode_str = request.args.get("mode", WorkspaceDeletionMode.RESTRICT.value)
+    try:
+        mode = WorkspaceDeletionMode(mode_str)
+    except ValueError:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid deletion mode '{mode_str}'. "
+            f"Must be one of: {', '.join(m.value for m in WorkspaceDeletionMode)}"
+        )
     store = _get_workspace_store()
     try:
-        store.delete_workspace(workspace_name)
+        store.delete_workspace(workspace_name, mode=mode)
     except NotImplementedError:
         raise _workspace_not_supported("Workspace deletion is not supported by this provider")
     return Response(status=204)
@@ -1878,18 +1884,16 @@ def get_metric_history_bulk_handler():
                 ),
                 key=lambda metric: (metric.timestamp, metric.step, metric.value),
             )
-            metrics_with_run_ids.extend(
-                [
-                    {
-                        "key": metric.key,
-                        "value": metric.value,
-                        "timestamp": metric.timestamp,
-                        "step": metric.step,
-                        "run_id": run_id,
-                    }
-                    for metric in metrics_for_run
-                ]
-            )
+            metrics_with_run_ids.extend([
+                {
+                    "key": metric.key,
+                    "value": metric.value,
+                    "timestamp": metric.timestamp,
+                    "step": metric.step,
+                    "run_id": run_id,
+                }
+                for metric in metrics_for_run
+            ])
         return metrics_with_run_ids
 
     if hasattr(store, "get_metric_history_bulk"):
@@ -2014,9 +2018,9 @@ def search_datasets_impl(request_message):
 
     if hasattr(store, "_search_datasets"):
         response_message = SearchDatasets.Response()
-        response_message.dataset_summaries.extend(
-            [summary.to_proto() for summary in store._search_datasets(experiment_ids)]
-        )
+        response_message.dataset_summaries.extend([
+            summary.to_proto() for summary in store._search_datasets(experiment_ids)
+        ])
         return response_message
     else:
         return _not_implemented()
@@ -2644,9 +2648,24 @@ def _create_model_version():
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    # If the model version is a prompt, we don't validate the source
     is_prompt = _is_prompt_request(request_message)
-    if not is_prompt:
+    if is_prompt:
+        # Prompt sources must not point to local filesystem paths.
+        # Block file:// URIs and absolute paths (e.g. /etc/passwd) but allow
+        # the legitimate schemeless placeholder sources used internally
+        # (e.g. "prompt-template", "dummy-source").
+        source = request_message.source
+        parsed = urllib.parse.urlparse(source)
+        if parsed.scheme == "file" or (parsed.scheme == "" and source.startswith("/")):
+            raise MlflowException(
+                f"Invalid prompt source: '{source}'. "
+                "Local source paths are not allowed for prompts.",
+                INVALID_PARAMETER_VALUE,
+            )
+        # Only validate traversal for sources with a URL scheme (http, https, etc.)
+        if parsed.scheme:
+            _validate_non_local_source_contains_relative_paths(source)
+    else:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
         else:
@@ -3372,6 +3391,11 @@ def _validate_support_multipart_upload(artifact_repo):
         raise _UnsupportedMultipartUploadException()
 
 
+def _validate_support_multipart_download(artifact_repo):
+    if not isinstance(artifact_repo, MultipartDownloadMixin):
+        raise _UnsupportedMultipartDownloadException()
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _create_multipart_upload_artifact(artifact_path):
@@ -3469,6 +3493,27 @@ def _abort_multipart_upload_artifact(artifact_path):
         artifact_path,
     )
     return _wrap_response(AbortMultipartUpload.Response())
+
+
+@catch_mlflow_exception
+@_disable_unless_serve_artifacts
+def _get_presigned_download_url(artifact_path):
+    """
+    A request handler for `GET /mlflow-artifacts/presigned/<artifact_path>` to get
+    a presigned URL for downloading an artifact directly from cloud storage.
+    """
+    artifact_path = validate_path_is_safe(artifact_path)
+
+    artifact_repo = _get_artifact_repo_mlflow_artifacts()
+    _validate_support_multipart_download(artifact_repo)
+
+    expiration = MLFLOW_PRESIGNED_DOWNLOAD_URL_TTL_SECONDS.get()
+    presigned_response = artifact_repo.get_download_presigned_url(
+        artifact_path, expiration=expiration
+    )
+    response = Response(mimetype="application/json")
+    response.set_data(json.dumps(presigned_response.to_dict()))
+    return response
 
 
 # MLflow Tracing APIs
@@ -3966,6 +4011,111 @@ def _delete_assessment(trace_id, assessment_id):
     _get_tracking_store().delete_assessment(trace_id, assessment_id)
 
     response_message = DeleteAssessment.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_issue():
+    """
+    A request handler for `POST /mlflow/issues` to create a new issue.
+    """
+    request_message = _get_request_message(
+        CreateIssue(),
+        schema={
+            "name": [_assert_required, _assert_string],
+            "description": [_assert_required, _assert_string],
+            "experiment_id": [_assert_required, _assert_string],
+        },
+    )
+
+    # Build kwargs for create_issue
+    create_kwargs = {
+        "experiment_id": request_message.experiment_id,
+        "name": request_message.name,
+        "description": request_message.description,
+        "source_run_id": request_message.source_run_id or None,
+        "root_causes": list(request_message.root_causes) or None,
+        "created_by": request_message.created_by or None,
+    }
+
+    if request_message.HasField("status"):
+        create_kwargs["status"] = IssueStatus(request_message.status)
+    if request_message.HasField("severity"):
+        create_kwargs["severity"] = IssueSeverity(request_message.severity)
+
+    created_issue = _get_tracking_store().create_issue(**create_kwargs)
+
+    response_message = CreateIssue.Response(issue=created_issue.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_issue(issue_id):
+    """
+    A request handler for `PATCH /mlflow/issues/{issue_id}` to update an issue.
+    """
+    request_message = _get_request_message(
+        UpdateIssue(),
+        schema={
+            "issue_id": [_assert_required],
+        },
+    )
+
+    status = IssueStatus(request_message.status) if request_message.HasField("status") else None
+    severity = (
+        IssueSeverity(request_message.severity) if request_message.HasField("severity") else None
+    )
+
+    updated_issue = _get_tracking_store().update_issue(
+        issue_id=issue_id,
+        status=status,
+        name=request_message.name or None,
+        description=request_message.description or None,
+        severity=severity,
+    )
+
+    response_message = UpdateIssue.Response(issue=updated_issue.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_issue(issue_id):
+    """
+    A request handler for `GET /mlflow/issues/{issue_id}` to get an issue.
+    """
+    issue = _get_tracking_store().get_issue(issue_id)
+
+    response_message = GetIssue.Response(issue=issue.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_issues():
+    """
+    A request handler for `POST /mlflow/issues/search` to search for issues.
+    """
+    request_message = _get_request_message(SearchIssues())
+
+    # Build kwargs for search_issues
+    search_kwargs = {
+        "experiment_id": request_message.experiment_id or None,
+        "filter_string": request_message.filter_string or None,
+        "page_token": request_message.page_token or None,
+    }
+
+    if request_message.HasField("max_results"):
+        search_kwargs["max_results"] = request_message.max_results
+
+    issues = _get_tracking_store().search_issues(**search_kwargs)
+
+    issue_protos = [issue.to_proto() for issue in issues]
+    response_message = SearchIssues.Response(
+        issues=issue_protos, next_page_token=issues.token or ""
+    )
     return _wrap_response(response_message)
 
 
@@ -4647,7 +4797,7 @@ def _create_gateway_endpoint():
         request_message.experiment_id if request_message.HasField("experiment_id") else None
     )
     usage_tracking = (
-        request_message.usage_tracking if request_message.HasField("usage_tracking") else False
+        request_message.usage_tracking if request_message.HasField("usage_tracking") else True
     )
 
     endpoint = _get_tracking_store().create_gateway_endpoint(
@@ -5035,6 +5185,206 @@ def _delete_gateway_endpoint_tag():
     return response
 
 
+# =============================================================================
+# Budget Policy Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_budget_policy():
+    request_message = _get_request_message(
+        CreateGatewayBudgetPolicy(),
+        schema={
+            "budget_unit": [_assert_required],
+            "budget_amount": [_assert_required],
+            "duration_unit": [_assert_required],
+            "duration_value": [_assert_required],
+            "target_scope": [_assert_required],
+            "budget_action": [_assert_required],
+            "created_by": [_assert_string],
+        },
+    )
+    budget_unit = BudgetUnit.from_proto(request_message.budget_unit)
+    if budget_unit is None:
+        raise MlflowException(
+            message=f"Invalid budget_unit: {request_message.budget_unit}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    duration_unit = BudgetDurationUnit.from_proto(request_message.duration_unit)
+    if duration_unit is None:
+        raise MlflowException(
+            message=f"Invalid duration_unit: {request_message.duration_unit}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
+    if target_scope is None:
+        raise MlflowException(
+            message=f"Invalid target_scope: {request_message.target_scope}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    budget_action = BudgetAction.from_proto(request_message.budget_action)
+    if budget_action is None:
+        raise MlflowException(
+            message=f"Invalid budget_action: {request_message.budget_action}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    store = _get_tracking_store()
+    policy = store.create_budget_policy(
+        budget_unit=budget_unit,
+        budget_amount=request_message.budget_amount,
+        duration_unit=duration_unit,
+        duration_value=request_message.duration_value,
+        target_scope=target_scope,
+        budget_action=budget_action,
+        created_by=request_message.created_by or None,
+    )
+    get_budget_tracker().invalidate()
+    maybe_refresh_budget_policies(store)
+    response_message = CreateGatewayBudgetPolicy.Response()
+    response_message.budget_policy.CopyFrom(policy.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_budget_policy():
+    request_message = _get_request_message(
+        GetGatewayBudgetPolicy(),
+        schema={
+            "budget_policy_id": [_assert_required, _assert_string],
+        },
+    )
+    policy = _get_tracking_store().get_budget_policy(
+        budget_policy_id=request_message.budget_policy_id,
+    )
+    response_message = GetGatewayBudgetPolicy.Response()
+    response_message.budget_policy.CopyFrom(policy.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_budget_policy():
+    request_message = _get_request_message(
+        UpdateGatewayBudgetPolicy(),
+        schema={
+            "budget_policy_id": [_assert_required, _assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+    budget_unit = None
+    if request_message.HasField("budget_unit"):
+        budget_unit = BudgetUnit.from_proto(request_message.budget_unit)
+        if budget_unit is None:
+            raise MlflowException(
+                message=f"Invalid budget_unit: {request_message.budget_unit}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    duration_unit = None
+    if request_message.HasField("duration_unit"):
+        duration_unit = BudgetDurationUnit.from_proto(request_message.duration_unit)
+        if duration_unit is None:
+            raise MlflowException(
+                message=f"Invalid duration_unit: {request_message.duration_unit}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    target_scope = None
+    if request_message.HasField("target_scope"):
+        target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
+        if target_scope is None:
+            raise MlflowException(
+                message=f"Invalid target_scope: {request_message.target_scope}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    budget_action = None
+    if request_message.HasField("budget_action"):
+        budget_action = BudgetAction.from_proto(request_message.budget_action)
+        if budget_action is None:
+            raise MlflowException(
+                message=f"Invalid budget_action: {request_message.budget_action}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    store = _get_tracking_store()
+    policy = store.update_budget_policy(
+        budget_policy_id=request_message.budget_policy_id,
+        budget_unit=budget_unit,
+        budget_amount=request_message.budget_amount
+        if request_message.HasField("budget_amount")
+        else None,
+        duration_unit=duration_unit,
+        duration_value=request_message.duration_value
+        if request_message.HasField("duration_value")
+        else None,
+        target_scope=target_scope,
+        budget_action=budget_action,
+        updated_by=request_message.updated_by or None,
+    )
+    get_budget_tracker().invalidate()
+    maybe_refresh_budget_policies(store)
+    response_message = UpdateGatewayBudgetPolicy.Response()
+    response_message.budget_policy.CopyFrom(policy.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_budget_policy():
+    request_message = _get_request_message(
+        DeleteGatewayBudgetPolicy(),
+        schema={
+            "budget_policy_id": [_assert_required, _assert_string],
+        },
+    )
+    store = _get_tracking_store()
+    store.delete_budget_policy(request_message.budget_policy_id)
+    get_budget_tracker().invalidate()
+    maybe_refresh_budget_policies(store)
+    response_message = DeleteGatewayBudgetPolicy.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_budget_policies():
+    request_message = _get_request_message(
+        ListGatewayBudgetPolicies(),
+        schema={
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    budget_policies = _get_tracking_store().list_budget_policies(
+        max_results=request_message.max_results or SEARCH_MAX_RESULTS_DEFAULT,
+        page_token=request_message.page_token or None,
+    )
+    response_message = ListGatewayBudgetPolicies.Response()
+    response_message.budget_policies.extend([p.to_proto() for p in budget_policies])
+    if budget_policies.token:
+        response_message.next_page_token = budget_policies.token
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_budget_windows():
+    _get_request_message(ListGatewayBudgetWindows())
+    store = _get_tracking_store()
+    maybe_refresh_budget_policies(store)
+    windows = get_budget_tracker().get_all_windows()
+    response_message = ListGatewayBudgetWindows.Response()
+    for w in windows:
+        window_msg = ListGatewayBudgetWindows.BudgetWindow(
+            budget_policy_id=w.policy.budget_policy_id,
+            window_start_ms=int(w.window_start.timestamp() * 1000),
+            window_end_ms=int(w.window_end.timestamp() * 1000),
+            current_spend=w.cumulative_spend,
+        )
+        response_message.windows.append(window_msg)
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
 def _get_server_info():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -5047,7 +5397,10 @@ def _get_server_info():
         store_type = "SqlStore"
     else:
         store_type = None
-    return jsonify({"store_type": store_type})
+    return jsonify({
+        "store_type": store_type,
+        "workspaces_enabled": MLFLOW_ENABLE_WORKSPACES.get(),
+    })
 
 
 @catch_mlflow_exception
@@ -5086,19 +5439,15 @@ def _get_provider_config():
 @_disable_if_artifacts_only
 def _get_secrets_config():
     if not _PROVIDER_BACKEND_AVAILABLE:
-        return jsonify(
-            {
-                "secrets_available": False,
-                "using_default_passphrase": False,
-            }
-        )
+        return jsonify({
+            "secrets_available": False,
+            "using_default_passphrase": False,
+        })
     kek_manager = KEKManager()
-    return jsonify(
-        {
-            "secrets_available": True,
-            "using_default_passphrase": kek_manager.using_default_passphrase,
-        }
-    )
+    return jsonify({
+        "secrets_available": True,
+        "using_default_passphrase": kek_manager.using_default_passphrase,
+    })
 
 
 @catch_mlflow_exception
@@ -5142,6 +5491,10 @@ def _invoke_scorer_handler():
     tracking_store = _get_tracking_store()
     batches = get_trace_batches_for_scorer(trace_ids, scorer, tracking_store)
 
+    # Extract the authenticated username so that job subprocesses can make
+    # gateway requests authorised as the original user (not the admin).
+    username = request.authorization.username if request.authorization else None
+
     jobs = []
     for batch_trace_ids in batches:
         job = submit_job(
@@ -5151,6 +5504,7 @@ def _invoke_scorer_handler():
                 "serialized_scorer": serialized_scorer,
                 "trace_ids": batch_trace_ids,
                 "log_assessments": log_assessments,
+                "username": username,
             },
         )
         jobs.append({"job_id": job.job_id, "trace_ids": batch_trace_ids})
@@ -5224,19 +5578,20 @@ def get_endpoints(get_handler=get_handler):
     Returns:
         List of tuples (path, handler, methods)
     """
-    server_feature_paths = [
-        (_path, _server_features_handler, ["GET"])
-        for _path in _get_paths("/mlflow/server-features", version=3)
-    ]
     return (
         get_service_endpoints(MlflowService, get_handler)
         + get_internal_online_scoring_endpoints()
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
-        + server_feature_paths
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
-        + [(_add_static_prefix("/server-info"), _get_server_info, ["GET"])]
+        # NB: Use _get_paths() (not _add_static_prefix()) so that the endpoint is reachable
+        # both at /api/3.0/mlflow/server-info (for the Python client, unaffected by static prefix)
+        # and at <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
+        + [
+            (_path, _get_server_info, ["GET"])
+            for _path in _get_paths("/mlflow/server-info", version=3)
+        ]
         + get_gateway_endpoints()
         + get_demo_endpoints()
     )
@@ -5274,6 +5629,11 @@ def get_gateway_endpoints():
 
 
 # Demo APIs
+
+# Serialize demo generation so concurrent requests (e.g. FastAPI running Flask
+# handlers in a thread pool) cannot race on the process-wide MLFLOW_WORKSPACE
+# env var that WorkspaceContext temporarily sets during generate_all_demos.
+_demo_generate_lock = threading.Lock()
 
 
 def get_demo_endpoints():
@@ -5320,29 +5680,26 @@ def _generate_demo():
         all_exist = all(demo_registry.get(name)().is_generated() for name in generator_names)
 
     if experiment and all_exist:
-        return jsonify(
-            {
-                "status": "exists",
-                "experiment_id": experiment.experiment_id,
-                "features_generated": [],
-                "navigation_url": f"/experiments/{experiment.experiment_id}",
-            }
-        )
+        return jsonify({
+            "status": "exists",
+            "experiment_id": experiment.experiment_id,
+            "features_generated": [],
+            "navigation_url": f"/experiments/{experiment.experiment_id}",
+        })
 
-    results = generate_all_demos(features=features)
+    with _demo_generate_lock:
+        results = generate_all_demos(features=features)
 
     experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     experiment_id = experiment.experiment_id if experiment else None
     navigation_url = f"/experiments/{experiment_id}" if experiment_id else "/experiments"
 
-    return jsonify(
-        {
-            "status": "created",
-            "experiment_id": experiment_id,
-            "features_generated": [r.feature for r in results],
-            "navigation_url": navigation_url,
-        }
-    )
+    return jsonify({
+        "status": "created",
+        "experiment_id": experiment_id,
+        "features_generated": [r.feature for r in results],
+        "navigation_url": navigation_url,
+    })
 
 
 @catch_mlflow_exception
@@ -5369,12 +5726,10 @@ def _delete_demo():
     if experiment and experiment.lifecycle_stage == "active":
         store.delete_experiment(experiment.experiment_id)
 
-    return jsonify(
-        {
-            "status": "deleted",
-            "features_deleted": deleted_features,
-        }
-    )
+    return jsonify({
+        "status": "deleted",
+        "features_deleted": deleted_features,
+    })
 
 
 def get_internal_online_scoring_endpoints():
@@ -5705,6 +6060,7 @@ def post_ui_telemetry_handler():
         if config.get("disable_ui_telemetry", True) or config.get("disable_telemetry", True):
             return jsonify({"status": "disabled"})
 
+        server_installation_id = get_or_create_installation_id()
         records = [
             Record(
                 event_name=event["event_name"],
@@ -5713,6 +6069,7 @@ def post_ui_telemetry_handler():
                 status=Status.SUCCESS,
                 installation_id=event["installation_id"],
                 session_id=event["session_id"],
+                server_installation_id=server_installation_id,
                 duration_ms=0,
             )
             for event in data
@@ -6135,6 +6492,7 @@ HANDLERS = {
     CreateMultipartUpload: _create_multipart_upload_artifact,
     CompleteMultipartUpload: _complete_multipart_upload_artifact,
     AbortMultipartUpload: _abort_multipart_upload_artifact,
+    GetPresignedDownloadUrl: _get_presigned_download_url,
     # MLflow Tracing APIs (V3)
     StartTraceV3: _start_trace_v3,
     GetTraceInfoV3: _get_trace_info_v3,
@@ -6153,6 +6511,11 @@ HANDLERS = {
     GetAssessmentRequest: _get_assessment,
     UpdateAssessment: _update_assessment,
     DeleteAssessment: _delete_assessment,
+    # Issue APIs
+    CreateIssue: _create_issue,
+    UpdateIssue: _update_issue,
+    GetIssue: _get_issue,
+    SearchIssues: _search_issues,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
     StartTrace: _deprecated_start_trace_v2,
     EndTrace: _deprecated_end_trace_v2,
@@ -6205,6 +6568,13 @@ HANDLERS = {
     # Endpoint Tags APIs
     SetGatewayEndpointTag: _set_gateway_endpoint_tag,
     DeleteGatewayEndpointTag: _delete_gateway_endpoint_tag,
+    # Budget Policy APIs
+    CreateGatewayBudgetPolicy: _create_budget_policy,
+    GetGatewayBudgetPolicy: _get_budget_policy,
+    UpdateGatewayBudgetPolicy: _update_budget_policy,
+    DeleteGatewayBudgetPolicy: _delete_budget_policy,
+    ListGatewayBudgetPolicies: _list_budget_policies,
+    ListGatewayBudgetWindows: _list_budget_windows,
     # Prompt Optimization APIs
     CreatePromptOptimizationJob: _create_prompt_optimization_job,
     GetPromptOptimizationJob: _get_prompt_optimization_job,

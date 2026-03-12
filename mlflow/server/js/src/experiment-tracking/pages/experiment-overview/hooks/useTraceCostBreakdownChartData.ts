@@ -26,7 +26,7 @@ export interface UseTraceCostBreakdownChartDataResult {
 export function useTraceCostBreakdownChartData(
   dimension: CostDimension = 'model',
 ): UseTraceCostBreakdownChartDataResult {
-  const { experimentIds, startTimeMs, endTimeMs } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, filters } = useOverviewChartContext();
 
   const dimensionKey = dimension === 'model' ? SpanDimensionKey.MODEL_NAME : SpanDimensionKey.MODEL_PROVIDER;
 
@@ -39,6 +39,7 @@ export function useTraceCostBreakdownChartData(
     metricName: SpanMetricKey.TOTAL_COST,
     aggregations: [{ aggregation_type: AggregationType.SUM }],
     dimensions: [dimensionKey],
+    filters,
   });
 
   const dataPoints = useMemo(() => data?.data_points || [], [data?.data_points]);

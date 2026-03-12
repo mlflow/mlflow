@@ -22,14 +22,21 @@ export type DrawerComponentType = {
   Content: (props: Drawer.DrawerContentProps) => React.ReactElement;
 };
 
+export interface AddToDatasetAction {
+  openModal: () => void;
+}
+
 export interface ModelTraceExplorerContextValue {
   renderExportTracesToDatasetsModal?: (params: RenderExportTracesToDatasetsModalParams) => React.ReactNode;
   DrawerComponent: DrawerComponentType;
+  /** When set (e.g. by the evaluation review drawer), content can show "Add to dataset" that calls openModal */
+  addToDatasetAction?: AddToDatasetAction;
 }
 
 const ModelTraceExplorerContext = createContext<ModelTraceExplorerContextValue>({
   renderExportTracesToDatasetsModal: () => null,
   DrawerComponent: Drawer,
+  addToDatasetAction: undefined,
 });
 
 interface ModelTraceExplorerContextProviderProps {
@@ -51,6 +58,16 @@ export const ModelTraceExplorerContextProvider: React.FC<ModelTraceExplorerConte
     [renderExportTracesToDatasetsModal, DrawerComponent],
   );
 
+  return <ModelTraceExplorerContext.Provider value={value}>{children}</ModelTraceExplorerContext.Provider>;
+};
+
+/** Use inside the drawer to expose "Add to dataset" to trace content (e.g. next to Show assessments). */
+export const ModelTraceExplorerAddToDatasetProvider: React.FC<{
+  openModal: () => void;
+  children: ReactNode;
+}> = ({ openModal, children }) => {
+  const parent = useContext(ModelTraceExplorerContext);
+  const value = useMemo(() => ({ ...parent, addToDatasetAction: { openModal } }), [parent, openModal]);
   return <ModelTraceExplorerContext.Provider value={value}>{children}</ModelTraceExplorerContext.Provider>;
 };
 

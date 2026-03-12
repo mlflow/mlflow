@@ -1,0 +1,76 @@
+---
+title: Budget Alerts & Limits
+---
+
+import useBaseUrl from "@docusaurus/useBaseUrl";
+
+# Budget Alerts & Limits
+
+Budget policies let you control AI Gateway spending by setting a threshold (USD) over a recurring time window (daily, weekly, or monthly). When the threshold is exceeded, the policy takes one of two actions:
+
+- **Alert** — fires a webhook notification. Requests continue normally.
+- **Reject** — blocks subsequent requests with HTTP 429. The request that causes the spend to exceed the budget is allowed to complete; rejection applies to requests that arrive after the threshold has been exceeded.
+
+Spend resets automatically at the start of each new time window. When workspaces are enabled, budget policies can be scoped to a specific workspace so that spend is tracked per workspace.
+
+## Managing Budget Policies
+
+Navigate to **AI Gateway > Budgets** in the MLflow UI to view and manage your budget policies.
+
+<img src={useBaseUrl("/images/budget-policies-list.png")} alt="Budget policies list" style={{ maxWidth: "100%" }} />
+
+### Creating a Budget Policy
+
+Click **Create budget policy** to open the creation dialog. Specify the budget amount (USD), reset period, and the action to take when the threshold is exceeded.
+
+<img src={useBaseUrl("/images/budget-policies-create.png")} alt="Create budget policy dialog" style={{ maxWidth: "100%" }} />
+
+## Alert Webhooks
+
+When an `ALERT` policy's threshold is exceeded, the gateway fires a webhook with details about the breach. The alert fires once per window, subsequent requests within the same window do not trigger additional webhooks.
+
+Webhook endpoints can be configured directly from the **Budgets** page under the **Budget alert webhooks** section.
+
+The webhook payload includes:
+
+```json
+{
+  "budget_policy_id": "bp-abc123",
+  "budget_unit": "USD",
+  "budget_amount": 500.0,
+  "current_spend": 523.40,
+  "duration_unit": "MONTHS",
+  "duration_value": 1,
+  "target_scope": "GLOBAL",
+  "workspace": "default",
+  "window_start": 1704067200000
+}
+```
+
+## Reject Behavior
+
+When a `REJECT` policy's threshold is exceeded, the gateway blocks all subsequent requests to AI Gateway endpoints with an HTTP 429 response:
+
+```
+HTTP/1.1 429 Too Many Requests
+
+{
+  "detail": "Budget limit exceeded for policy 'bp-abc123'. Limit: $500.00 USD per 1 month. Request rejected."
+}
+```
+
+Requests resume automatically when the current time window expires and a new window begins.
+
+## Time Windows
+
+Budget windows are fixed intervals:
+
+- **Daily** — resets every day at midnight UTC
+- **Weekly** — resets every 7 days on Sundays
+- **Monthly** — resets on the 1st of each month
+
+Accumulated spend resets to zero at the start of each new window. Budget tracking is in-memory and resets on server restart.
+
+## Authorization
+
+When [authentication](/self-hosting/security/basic-http-auth) is enabled for the tracking server, only admin users can create, update, or delete budget policies.

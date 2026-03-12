@@ -327,16 +327,14 @@ def _validate_server_args(
 
     security_params_specified = False
     if ctx:
-        security_params_specified = any(
-            [
-                ctx.get_parameter_source("allowed_hosts") == ParameterSource.COMMANDLINE,
-                ctx.get_parameter_source("cors_allowed_origins") == ParameterSource.COMMANDLINE,
-                (
-                    ctx.get_parameter_source("disable_security_middleware")
-                    == ParameterSource.COMMANDLINE
-                ),
-            ]
-        )
+        security_params_specified = any([
+            ctx.get_parameter_source("allowed_hosts") == ParameterSource.COMMANDLINE,
+            ctx.get_parameter_source("cors_allowed_origins") == ParameterSource.COMMANDLINE,
+            (
+                ctx.get_parameter_source("disable_security_middleware")
+                == ParameterSource.COMMANDLINE
+            ),
+        ])
 
     if using_flask_only and security_params_specified:
         raise click.UsageError(
@@ -1274,6 +1272,10 @@ cli.add_command(mlflow.experiments.commands)
 cli.add_command(mlflow.store.artifact.cli.commands)
 cli.add_command(mlflow.runs.commands)
 cli.add_command(mlflow.db.commands)
+
+from mlflow.store.fs2db.cli import migrate_filestore
+
+cli.add_command(migrate_filestore)
 
 # Add traces CLI commands
 from mlflow.cli import traces

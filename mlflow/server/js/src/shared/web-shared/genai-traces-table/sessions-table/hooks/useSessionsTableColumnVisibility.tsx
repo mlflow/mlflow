@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useLocalStorage } from '@databricks/web-shared/hooks';
+import { useLocalStorage } from '../../../hooks/useLocalStorage';
 
 import type { SessionTableColumn } from '../types';
 

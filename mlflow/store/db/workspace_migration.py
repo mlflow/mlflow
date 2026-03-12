@@ -1,21 +1,21 @@
 import sqlalchemy as sa
 
+from mlflow.store.workspace.sqlalchemy_store import _WORKSPACE_ROOT_MODELS
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
-_WORKSPACE_TABLES = [
-    "experiments",
-    "registered_models",
+# Derive table names from the shared ORM model list and add child/tags tables that also carry
+# a workspace column but are not "root" tables (they are updated via FK cascades during
+# delete_workspace, but the migration script must handle them explicitly).
+_WORKSPACE_CHILD_TABLES = [
     "model_versions",
     "registered_model_tags",
     "model_version_tags",
     "registered_model_aliases",
-    "evaluation_datasets",
-    "webhooks",
-    "secrets",
-    "endpoints",
-    "model_definitions",
-    "jobs",
 ]
+
+_WORKSPACE_TABLES = [
+    model.__tablename__ for model in _WORKSPACE_ROOT_MODELS
+] + _WORKSPACE_CHILD_TABLES
 
 _CONFLICT_SPECS = [
     ("experiments", ("name",), "experiments with the same name"),
@@ -89,7 +89,8 @@ def _assert_no_workspace_conflicts(
     if table_name == "experiments" and "experiment_id" in table.c:
         extra_columns.append(table.c.experiment_id)
     conflict_rows_stmt = (
-        sa.select(*group_columns, table.c.workspace, *extra_columns)
+        sa
+        .select(*group_columns, table.c.workspace, *extra_columns)
         .select_from(table.join(conflict_keys, sa.and_(*join_conditions)))
         .order_by(*group_columns, table.c.workspace, *extra_columns)
     )
@@ -132,7 +133,8 @@ def migrate_to_default_workspace(
         for table_name in _WORKSPACE_TABLES:
             table = _get_table(conn, table_name)
             stmt = (
-                sa.select(sa.func.count())
+                sa
+                .select(sa.func.count())
                 .select_from(table)
                 .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
             )
@@ -141,7 +143,8 @@ def migrate_to_default_workspace(
             if dry_run or counts[table_name] == 0:
                 continue
             conn.execute(
-                table.update()
+                table
+                .update()
                 .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
                 .values(workspace=DEFAULT_WORKSPACE_NAME)
             )

@@ -2,17 +2,17 @@
 
 Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with OpenAI to automatically trace your OpenAI API calls.
 
-| Package             | NPM                                                                                                                                         | Description                                  |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| [mlflow-openai](./) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-openai?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-openai) | Auto-instrumentation integration for OpenAI. |
+| Package              | NPM                                                                                                                               | Description                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| [@mlflow/openai](./) | [![npm package](https://img.shields.io/npm/v/%40mlflow%2Fopenai?style=flat-square)](https://www.npmjs.com/package/@mlflow/openai) | Auto-instrumentation integration for OpenAI. |
 
 ## Installation
 
 ```bash
-npm install mlflow-openai
+npm install @mlflow/openai
 ```
 
-The package includes the [`mlflow-tracing`](https://github.com/mlflow/mlflow/tree/main/libs/typescript) package and `openai` package as peer dependencies. Depending on your package manager, you may need to install these two packages separately.
+The package includes the [`@mlflow/core`](https://github.com/mlflow/mlflow/tree/main/libs/typescript) package and `openai` package as peer dependencies. Depending on your package manager, you may need to install these two packages separately.
 
 ## Quickstart
 
@@ -28,7 +28,7 @@ If you don't have Python environment locally, MLflow also supports Docker deploy
 Instantiate MLflow SDK in your application:
 
 ```typescript
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 
 mlflow.init({
   trackingUri: 'http://localhost:5000',
@@ -40,7 +40,7 @@ Create a trace:
 
 ```typescript
 import { OpenAI } from 'openai';
-import { tracedOpenAI } from 'mlflow-openai';
+import { tracedOpenAI } from '@mlflow/openai';
 
 // Wrap the OpenAI client with the tracedOpenAI function
 const client = tracedOpenAI(new OpenAI());

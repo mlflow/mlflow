@@ -46,7 +46,11 @@ export interface UseTraceErrorsChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
-  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
+
+  const errorFilters = useMemo(() => [...(filters ?? []), ERROR_FILTER], [filters]);
+
   // Fetch error count metrics grouped by time bucket
   const {
     data: errorCountData,
@@ -60,7 +64,7 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
     metricName: TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     timeIntervalSeconds,
-    filters: [ERROR_FILTER],
+    filters: errorFilters,
   });
 
   // Fetch total trace count metrics grouped by time bucket (for calculating error rate)
@@ -77,6 +81,7 @@ export function useTraceErrorsChartData(): UseTraceErrorsChartDataResult {
     metricName: TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     timeIntervalSeconds,
+    filters,
   });
 
   const errorDataPoints = useMemo(() => errorCountData?.data_points || [], [errorCountData?.data_points]);

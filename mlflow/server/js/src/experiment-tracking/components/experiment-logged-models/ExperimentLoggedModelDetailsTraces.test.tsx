@@ -71,7 +71,7 @@ describe('ExperimentLoggedModelDetailsTraces integration test', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Search traces by request')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Search traces by id, request, or response')).toBeInTheDocument();
     });
   });
   test('should display quickstart when model contains no traces', async () => {

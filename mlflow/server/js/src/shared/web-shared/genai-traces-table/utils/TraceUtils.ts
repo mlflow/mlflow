@@ -4,16 +4,16 @@ import type {
   Assessment,
   ExpectationAssessment,
   FeedbackAssessment,
+  IssueReferenceAssessment,
   ModelTrace,
+  ModelTraceLocation,
   ModelTraceSpan,
   ModelTraceInfoV3,
   RetrieverDocument,
-} from '@databricks/web-shared/model-trace-explorer';
-import {
-  createTraceV4LongIdentifier,
-  getAssessmentValue,
-  ModelTraceSpanType,
-} from '@databricks/web-shared/model-trace-explorer';
+} from '../../model-trace-explorer/ModelTrace.types';
+import { createTraceV4LongIdentifier } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import { getAssessmentValue } from '../../model-trace-explorer/assessments-pane/utils';
+import { ModelTraceSpanType } from '../../model-trace-explorer/ModelTrace.types';
 
 import { doesTraceSupportV4API } from './TraceLocationUtils';
 import {
@@ -46,6 +46,16 @@ export const DEFAULT_RUN_PLACEHOLDER_NAME = 'monitor';
 
 const SPANS_LOCATION_TAG_KEY = 'mlflow.trace.spansLocation';
 export const TRACKING_STORE_SPANS_LOCATION = 'TRACKING_STORE';
+
+/**
+ * Extracts the experiment ID from a trace location, if it is an MLflow experiment location.
+ */
+export const getExperimentIdFromTraceLocation = (location?: ModelTraceLocation): string | undefined => {
+  if (location?.type === 'MLFLOW_EXPERIMENT') {
+    return location.mlflow_experiment.experiment_id;
+  }
+  return undefined;
+};
 
 export const getRowIdFromEvaluation = (evaluation?: RunEvaluationTracesDataEntry) => {
   return evaluation?.evaluationId || '';
@@ -162,6 +172,14 @@ const isExpectationAssessment = (assessment: Assessment): assessment is Expectat
   return Boolean('expectation' in assessment && assessment.expectation);
 };
 
+const isFeedbackAssessment = (assessment: Assessment): assessment is FeedbackAssessment => {
+  return Boolean('feedback' in assessment && assessment.feedback);
+};
+
+const isIssueReferenceAssessment = (assessment: Assessment): assessment is IssueReferenceAssessment => {
+  return Boolean('issue' in assessment && assessment.issue);
+};
+
 const LIST_TRACES_IGNORE_ASSESSMENTS = ['agent/latency_seconds'];
 
 function processExpectationAssessment(assessment: ExpectationAssessment, targets: Record<string, any>): void {
@@ -251,6 +269,7 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
   const overallAssessments: RunEvaluationResultAssessment[] = [];
   const responseAssessmentsByName: Record<string, RunEvaluationResultAssessment[]> = {};
   const targets: Record<string, any> = {};
+  const issues: string[] = [];
 
   traceInfo.assessments?.forEach((assessment) => {
     const assessmentName = assessment.assessment_name;
@@ -265,8 +284,11 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
 
     if (isExpectationAssessment(assessment)) {
       processExpectationAssessment(assessment, targets);
-    } else {
+    } else if (isFeedbackAssessment(assessment)) {
       processFeedbackAssessment(assessment, overallAssessments, responseAssessmentsByName);
+    } else if (isIssueReferenceAssessment(assessment)) {
+      const issueName = assessment.issue.issue_name || assessmentName;
+      issues.push(issueName);
     }
   });
 
@@ -313,6 +335,7 @@ export const convertTraceInfoV3ToRunEvalEntry = (traceInfo: ModelTraceInfoV3): R
     metrics: {},
     traceInfo,
     fullTraceId: createTraceV4LongIdentifier(traceInfo),
+    issues: issues.length > 0 ? issues : undefined,
   };
 };
 

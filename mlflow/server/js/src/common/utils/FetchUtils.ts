@@ -104,8 +104,9 @@ export const defaultError = ({ reject, response, err }: any) => {
 
 /**
  * Makes a fetch request.
- * Note this is not intended to be used outside of this file,
- * use `fetchEndpoint` instead.
+ * Note: this function is intended for internal use within this module.
+ * External callers should use `fetchAPI` or `fetchOrFail` instead.
+ * @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support.
  */
 export const fetchEndpointRaw = ({
   relativeUrl,
@@ -212,6 +213,7 @@ const defaultFetchErrorConditionFn = (res: any) => !res || (!res.ok && !HTTPRetr
 
 /**
  * Makes a fetch request.
+ * @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support.
  * @param relativeUrl: relative URL to the shard URL
  * @param method: HTTP method for the request
  * @param body: request body
@@ -284,8 +286,6 @@ const generateJsonBody = (data: any) => {
     return JSON.stringify(filterUndefinedFields(data));
   } else {
     throw new Error(
-      // Reported during ESLint upgrade
-      // eslint-disable-next-line max-len
       'Unexpected type of input. The REST api payload type must be either an object or a string, got ' + typeof data,
     );
   }
@@ -293,6 +293,7 @@ const generateJsonBody = (data: any) => {
 
 /* All functions below are essentially syntactic sugars for fetchEndpoint */
 
+/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const getJson = (props: any) => {
   const { relativeUrl, data } = props;
   const queryParams = new URLSearchParams(filterUndefinedFields(data)).toString();
@@ -305,6 +306,7 @@ export const getJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const postJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -315,6 +317,7 @@ export const postJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const putJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -325,6 +328,7 @@ export const putJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const patchJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -335,6 +339,7 @@ export const patchJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const deleteJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -345,6 +350,7 @@ export const deleteJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const getBigIntJson = (props: any) => {
   const { relativeUrl, data } = props;
   const queryParams = new URLSearchParams(filterUndefinedFields(data));
@@ -358,6 +364,7 @@ export const getBigIntJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const postBigIntJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -368,6 +375,7 @@ export const postBigIntJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const putBigIntJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -378,6 +386,7 @@ export const putBigIntJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const patchBigIntJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({
@@ -388,6 +397,7 @@ export const patchBigIntJson = (props: any) => {
   });
 };
 
+/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
 export const deleteBigIntJson = (props: any) => {
   const { data } = props;
   return fetchEndpoint({

@@ -6,6 +6,7 @@ from mlflow.anthropic.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import (
     construct_full_inputs,
@@ -18,38 +19,62 @@ _logger = logging.getLogger(__name__)
 
 
 def patched_claude_sdk_init(original, self, options=None):
-    """Patched __init__ that adds MLflow tracing hook to ClaudeSDKClient.
-
-    The hook handler checks autologging_is_disabled() at runtime, so hooks
-    are always injected but become no-ops when autologging is disabled.
-    """
     try:
-        from claude_agent_sdk import ClaudeAgentOptions, HookMatcher
+        from claude_agent_sdk.types import UserMessage
 
-        from mlflow.claude_code.hooks import sdk_stop_hook_handler
+        result = original(self, options)
+        messages = []
 
-        # Create options if not provided
-        if options is None:
-            options = ClaudeAgentOptions()
+        # query() sends the user prompt but doesn't echo it through receive_response()
+        original_query = self.query
 
-        if options.hooks is None:
-            options.hooks = {}
-        if "Stop" not in options.hooks:
-            options.hooks["Stop"] = []
+        async def wrapped_query(prompt, *args, **kwargs):
+            if isinstance(prompt, str):
+                messages.append(UserMessage(content=prompt))
+            elif hasattr(prompt, "__aiter__"):
+                # prompt is an async generator yielding message dicts — wrap it
+                # to capture the user content while passing items through to the SDK
+                original_prompt = prompt
 
-        options.hooks["Stop"].append(HookMatcher(hooks=[sdk_stop_hook_handler]))
+                async def capturing_prompt():
+                    async for item in original_prompt:
+                        if isinstance(item, dict) and item.get("type") == "user":
+                            content = item.get("message", {}).get("content", "")
+                            if isinstance(content, str) and content.strip():
+                                messages.append(UserMessage(content=content))
+                        yield item
 
-        # Call original init with modified options
-        return original(self, options)
+                prompt = capturing_prompt()
+            return await original_query(prompt, *args, **kwargs)
 
+        self.query = wrapped_query
+
+        original_receive_response = self.receive_response
+
+        async def wrapped_receive_response(*args, **kwargs):
+            async for msg in original_receive_response(*args, **kwargs):
+                messages.append(msg)
+                yield msg
+            try:
+                from mlflow.utils.autologging_utils import autologging_is_disabled
+
+                if not autologging_is_disabled("anthropic"):
+                    from mlflow.claude_code.tracing import process_sdk_messages
+
+                    process_sdk_messages(list(messages))
+            except Exception as e:
+                _logger.debug("Error building SDK trace: %s", e, exc_info=True)
+
+        self.receive_response = wrapped_receive_response
+        return result
     except Exception as e:
         _logger.debug("Error in patched_claude_sdk_init: %s", e, exc_info=True)
-        # Fall back to original behavior if patching fails
         return original(self, options)
 
 
 def patched_class_call(original, self, *args, **kwargs):
     with TracingSession(original, self, args, kwargs) as manager:
+        _inject_tracing_headers(kwargs, manager.span)
         output = original(self, *args, **kwargs)
         manager.output = output
         return output
@@ -57,6 +82,7 @@ def patched_class_call(original, self, *args, **kwargs):
 
 async def async_patched_class_call(original, self, *args, **kwargs):
     async with TracingSession(original, self, args, kwargs) as manager:
+        _inject_tracing_headers(kwargs, manager.span)
         output = await original(self, *args, **kwargs)
         manager.output = output
         return output
@@ -110,6 +136,17 @@ class TracingSession:
             self.span.end(outputs=self.output)
 
 
+def _inject_tracing_headers(kwargs: dict[str, Any], span: LiveSpan | None):
+    if span is None:
+        return
+    try:
+        if tracing_headers := _get_tracing_headers_from_span(span):
+            existing = kwargs.get("extra_headers") or {}
+            kwargs["extra_headers"] = tracing_headers | existing
+    except Exception:
+        _logger.debug("Failed to inject tracing headers", exc_info=True)
+
+
 def _get_span_type(task_name: str) -> str:
     # Anthropic has a few APIs in beta, e.g., count_tokens.
     # Once they are stable, we can add them to the mapping.
@@ -139,11 +176,16 @@ def _set_token_usage_attribute(span: LiveSpan, output: Any):
 def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         if usage := getattr(output, "usage", None):
-            return {
+            usage_dict = {
                 TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
                 TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
                 TokenUsageKey.TOTAL_TOKENS: usage.input_tokens + usage.output_tokens,
             }
+            if (cached := getattr(usage, "cache_read_input_tokens", None)) is not None:
+                usage_dict[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
+            if (created := getattr(usage, "cache_creation_input_tokens", None)) is not None:
+                usage_dict[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
+            return usage_dict
     except Exception as e:
         _logger.debug(f"Failed to parse token usage from output: {e}")
     return None

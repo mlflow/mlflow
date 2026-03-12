@@ -17,19 +17,17 @@ def test_upgrade(tmp_path: Path) -> None:
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = cursor.fetchall()
 
-    assert sorted(tables) == sorted(
-        [
-            ("alembic_version_auth",),
-            ("users",),
-            ("experiment_permissions",),
-            ("registered_model_permissions",),
-            ("scorer_permissions",),
-            ("gateway_secret_permissions",),
-            ("gateway_endpoint_permissions",),
-            ("gateway_model_definition_permissions",),
-            ("workspace_permissions",),
-        ]
-    )
+    assert sorted(tables) == sorted([
+        ("alembic_version_auth",),
+        ("users",),
+        ("experiment_permissions",),
+        ("registered_model_permissions",),
+        ("scorer_permissions",),
+        ("gateway_secret_permissions",),
+        ("gateway_endpoint_permissions",),
+        ("gateway_model_definition_permissions",),
+        ("workspace_permissions",),
+    ])
 
 
 def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:

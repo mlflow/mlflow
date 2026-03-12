@@ -24,6 +24,24 @@ mlflow.genai
     :show-inheritance:
     :exclude-members: RagasScorer
 
+.. automodule:: mlflow.genai.scorers.phoenix
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: PhoenixScorer
+
+.. automodule:: mlflow.genai.scorers.trulens
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: TruLensScorer, TruLensAgentScorer
+
+.. automodule:: mlflow.genai.scorers.guardrails
+    :members:
+    :undoc-members:
+    :show-inheritance:
+    :exclude-members: GuardrailsScorer
+
 .. automodule:: mlflow.genai.datasets
     :members:
     :undoc-members:

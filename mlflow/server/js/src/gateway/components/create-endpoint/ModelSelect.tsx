@@ -13,6 +13,10 @@ interface ModelSelectProps {
   error?: string;
   /** Component ID prefix for telemetry (default: 'mlflow.gateway.model-select') */
   componentIdPrefix?: string;
+  /** Custom label for the select field. If not provided, defaults to "Model" */
+  label?: React.ReactNode;
+  /** If true, hides the model capabilities tags (Tools, Reasoning, Caching) */
+  hideCapabilities?: boolean;
 }
 
 export const ModelSelect = ({
@@ -22,6 +26,8 @@ export const ModelSelect = ({
   disabled,
   error,
   componentIdPrefix = 'mlflow.gateway.model-select',
+  label,
+  hideCapabilities,
 }: ModelSelectProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -51,11 +57,11 @@ export const ModelSelect = ({
   return (
     <div>
       <FormUI.Label htmlFor={componentIdPrefix}>
-        <FormattedMessage defaultMessage="Model" description="Label for model select field" />
+        {label ?? <FormattedMessage defaultMessage="Model" description="Label for model select field" />}
       </FormUI.Label>
       <Input
         id={componentIdPrefix}
-        componentId={componentIdPrefix}
+        componentId="codegen_mlflow_app_src_oss_gateway_components_create-endpoint_ModelSelect.tsx_58"
         placeholder={
           !provider
             ? intl.formatMessage({
@@ -81,7 +87,7 @@ export const ModelSelect = ({
         }}
       />
       {error && <FormUI.Message type="error" message={error} />}
-      {selectedModel && <ModelCapabilities model={selectedModel} />}
+      {selectedModel && !hideCapabilities && <ModelCapabilities model={selectedModel} />}
       <ModelSelectorModal isOpen={isModalOpen} onClose={handleClose} onSelect={handleSelect} provider={provider} />
     </div>
   );
@@ -113,7 +119,7 @@ const ModelCapabilities = memo(function ModelCapabilities({ model }: { model: Pr
       }}
     >
       {capabilities.map((cap) => (
-        <Tag key={cap} componentId={`mlflow.gateway.model-select.capability.${cap.toLowerCase()}`}>
+        <Tag key={cap} componentId="codegen_mlflow_app_src_oss_gateway_components_create-endpoint_ModelSelect.tsx_116">
           {cap}
         </Tag>
       ))}

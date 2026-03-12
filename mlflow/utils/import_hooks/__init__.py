@@ -279,7 +279,7 @@ class ImportHookFinder:
             # real loader to import the module and invoke the
             # post import hooks.
             try:
-                import importlib.util  # clint: disable=lazy-builtin-import
+                import importlib.util  # clint: disable=lazy-import
 
                 loader = importlib.util.find_spec(fullname).loader
             # If an ImportError (or AttributeError) is encountered while finding the module,
@@ -317,7 +317,7 @@ class ImportHookFinder:
         # Now call back into the import system again.
 
         try:
-            import importlib.util  # clint: disable=lazy-builtin-import
+            import importlib.util  # clint: disable=lazy-import
 
             spec = importlib.util.find_spec(fullname)
             # Replace the module spec's loader with a wrapped version that executes import

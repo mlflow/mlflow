@@ -16,7 +16,6 @@ def mock_databricks_runtime():
         patch(
             "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
         ),
-        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
         patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
         patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_get_store,
     ):

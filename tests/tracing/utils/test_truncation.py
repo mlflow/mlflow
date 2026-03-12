@@ -3,7 +3,11 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow.tracing.utils.truncation import _get_truncated_preview
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
+from mlflow.tracing.utils.truncation import _get_truncated_preview, set_request_response_preview
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +23,7 @@ def patch_max_length():
         ("short string", "short string"),
         ("{'a': 'b'}", "{'a': 'b'}"),
         ("start" + "a" * 50, "start" + "a" * 42 + "..."),
-        (None, ""),
+        (None, None),
     ],
     ids=["short string", "short json", "long string", "none"],
 )
@@ -28,12 +32,10 @@ def test_truncate_simple_string(input_str, expected):
 
 
 def test_truncate_long_non_message_json():
-    input_str = json.dumps(
-        {
-            "a": "b" + "a" * 30,
-            "b": "c" + "a" * 30,
-        }
-    )
+    input_str = json.dumps({
+        "a": "b" + "a" * 30,
+        "b": "c" + "a" * 30,
+    })
     result = _get_truncated_preview(input_str, role="user")
     assert len(result) == 50
     assert result.startswith('{"a": "b')
@@ -69,18 +71,16 @@ def test_truncate_request_messages(input):
 
 
 def test_truncate_request_choices():
-    input_str = json.dumps(
-        {
-            "choices": [
-                {
-                    "index": 1,
-                    "message": {"role": "assistant", "content": "First" + "a" * 50},
-                    "finish_reason": "stop",
-                },
-            ],
-            "object": "chat.completions",
-        }
-    )
+    input_str = json.dumps({
+        "choices": [
+            {
+                "index": 1,
+                "message": {"role": "assistant", "content": "First" + "a" * 50},
+                "finish_reason": "stop",
+            },
+        ],
+        "object": "chat.completions",
+    })
     assert _get_truncated_preview(input_str, role="assistant").startswith("First")
 
 
@@ -88,9 +88,9 @@ def test_truncate_multi_content_messages():
     # If text content exists, use it
     assert (
         _get_truncated_preview(
-            json.dumps(
-                {"messages": [{"role": "user", "content": [{"type": "text", "text": "a" * 60}]}]}
-            ),
+            json.dumps({
+                "messages": [{"role": "user", "content": [{"type": "text", "text": "a" * 60}]}]
+            }),
             role="user",
         )
         == "a" * 47 + "..."
@@ -99,19 +99,17 @@ def test_truncate_multi_content_messages():
     # Ignore non text content
     assert (
         _get_truncated_preview(
-            json.dumps(
-                {
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": "a" * 60},
-                                {"type": "image", "image_url": "http://example.com/image.jpg"},
-                            ],
-                        },
-                    ]
-                }
-            ),
+            json.dumps({
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "a" * 60},
+                            {"type": "image", "image_url": "http://example.com/image.jpg"},
+                        ],
+                    },
+                ]
+            }),
             role="user",
         )
         == "a" * 47 + "..."
@@ -119,38 +117,34 @@ def test_truncate_multi_content_messages():
 
     # If non-text content exists, truncate the full json as-is
     assert _get_truncated_preview(
-        json.dumps(
-            {
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "image",
-                                "image_url": "http://example.com/image.jpg" + "a" * 50,
-                            }
-                        ],
-                    },
-                ]
-            }
-        ),
+        json.dumps({
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "image_url": "http://example.com/image.jpg" + "a" * 50,
+                        }
+                    ],
+                },
+            ]
+        }),
         role="user",
     ).startswith('{"messages":')
 
 
 def test_truncate_responses_api_output():
-    input_str = json.dumps(
-        {
-            "output": [
-                {
-                    "type": "message",
-                    "id": "test",
-                    "role": "assistant",
-                    "content": [{"type": "output_text", "text": "a" * 60}],
-                }
-            ],
-        }
-    )
+    input_str = json.dumps({
+        "output": [
+            {
+                "type": "message",
+                "id": "test",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "a" * 60}],
+            }
+        ],
+    })
 
     assert _get_truncated_preview(input_str, role="assistant") == "a" * 47 + "..."
 
@@ -222,3 +216,17 @@ def test_truncate_invalid_content_falls_back_to_json(content_value, expected_in_
     input_str = json.dumps(request_data)
     result = _get_truncated_preview(input_str, role="user")
     assert expected_in_result in result or result.endswith("...")
+
+
+def test_set_request_response_preview_skips_none_data():
+    trace_info = TraceInfo(
+        trace_id="tr-test",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        state=TraceState.OK,
+    )
+    trace_data = TraceData(spans=[], request=None, response=None)
+    set_request_response_preview(trace_info, trace_data)
+
+    assert trace_info.request_preview is None
+    assert trace_info.response_preview is None

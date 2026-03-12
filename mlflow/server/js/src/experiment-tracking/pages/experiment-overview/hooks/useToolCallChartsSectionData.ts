@@ -67,7 +67,7 @@ export function useToolCallChartsSectionData(): UseToolCallChartsSectionDataResu
         toolData.set(name, { error: 0, total: 0 });
       }
 
-      const tool = toolData.get(name)!;
+      const tool = toolData.get(name) as { error: number; total: number };
       tool.total += count;
       if (status === SpanStatus.ERROR) {
         tool.error += count;

@@ -15,6 +15,7 @@ import importlib
 import json
 import logging
 import re
+import secrets
 from http import HTTPStatus
 from typing import Any, Awaitable, Callable
 
@@ -40,6 +41,7 @@ from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import (
+    _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN,
     _MLFLOW_SGI_NAME,
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_FLASK_SERVER_SECRET_KEY,
@@ -49,6 +51,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -66,6 +69,7 @@ from mlflow.protos.model_registry_pb2 import (
     GetModelVersionDownloadUri,
     GetRegisteredModel,
     RenameRegisteredModel,
+    SearchModelVersions,
     SearchRegisteredModels,
     SetModelVersionTag,
     SetRegisteredModelAlias,
@@ -78,6 +82,7 @@ from mlflow.protos.service_pb2 import (
     AttachModelToGatewayEndpoint,
     CancelPromptOptimizationJob,
     CreateExperiment,
+    CreateGatewayBudgetPolicy,
     CreateGatewayEndpoint,
     CreateGatewayEndpointBinding,
     CreateGatewayModelDefinition,
@@ -88,6 +93,7 @@ from mlflow.protos.service_pb2 import (
     CreateWorkspace,
     DeleteExperiment,
     DeleteExperimentTag,
+    DeleteGatewayBudgetPolicy,
     DeleteGatewayEndpoint,
     DeleteGatewayEndpointBinding,
     DeleteGatewayEndpointTag,
@@ -134,11 +140,18 @@ from mlflow.protos.service_pb2 import (
     SetLoggedModelTags,
     SetTag,
     UpdateExperiment,
+    UpdateGatewayBudgetPolicy,
     UpdateGatewayEndpoint,
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
     UpdateRun,
     UpdateWorkspace,
+)
+from mlflow.protos.service_pb2 import (
+    GetGatewayBudgetPolicy as GetGatewayBudgetPolicy,
+)
+from mlflow.protos.service_pb2 import (
+    ListGatewayBudgetPolicies as ListGatewayBudgetPolicies,
 )
 from mlflow.protos.service_pb2 import (
     ListGatewayEndpoints as ListGatewayEndpoints,
@@ -148,6 +161,15 @@ from mlflow.protos.service_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     ListGatewaySecretInfos as ListGatewaySecretInfos,
+)
+from mlflow.protos.webhooks_pb2 import (
+    CreateWebhook,
+    DeleteWebhook,
+    GetWebhook,
+    ListWebhooks,
+    TestWebhook,
+    UpdateWebhook,
+    WebhookService,
 )
 from mlflow.server import app
 from mlflow.server.auth.config import DEFAULT_AUTHORIZATION_FUNCTION, read_auth_config
@@ -160,6 +182,7 @@ from mlflow.server.auth.permissions import (
     get_permission,
 )
 from mlflow.server.auth.routes import (
+    AJAX_LIST_USERS,
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_GATEWAY_ENDPOINT_PERMISSION,
     CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
@@ -196,6 +219,7 @@ from mlflow.server.auth.routes import (
     HOME,
     INVOKE_SCORER,
     LIST_USER_WORKSPACE_PERMISSIONS,
+    LIST_USERS,
     LIST_WORKSPACE_PERMISSIONS,
     SEARCH_DATASETS,
     SIGNUP,
@@ -218,6 +242,7 @@ from mlflow.server.handlers import (
     _get_tracking_store,
     catch_mlflow_exception,
     get_endpoints,
+    get_service_endpoints,
 )
 from mlflow.server.jobs import get_job
 from mlflow.server.workspace_helpers import _get_workspace_store
@@ -541,6 +566,10 @@ def _has_registered_model_read_access(
 def _get_permission_from_experiment_id() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     username = authenticate_request().username
+    return _get_experiment_permission(experiment_id, username)
+
+
+def _get_experiment_permission(experiment_id: str, username: str) -> Permission:
     return _get_permission_from_store_or_default(
         lambda: store.get_experiment_permission(experiment_id, username).permission,
         workspace_level_permission_func=lambda: _workspace_permission_for_experiment(
@@ -553,7 +582,9 @@ _EXPERIMENT_ID_PATTERN = re.compile(r"^(\d+)/")
 
 
 def _get_experiment_id_from_view_args():
-    if artifact_path := request.view_args.get("artifact_path"):
+    # For download/upload/delete artifact endpoints, artifact_path is a URL path parameter.
+    # For the list-artifacts endpoint, the path is a query parameter named "path".
+    if artifact_path := (request.view_args.get("artifact_path") or request.args.get("path")):
         if m := _EXPERIMENT_ID_PATTERN.match(artifact_path):
             return m.group(1)
     return None
@@ -1047,6 +1078,11 @@ def validate_can_read_user():
     return username_is_sender()
 
 
+def validate_can_list_users():
+    # only admins can list all users, but admins won't reach this validator
+    return False
+
+
 def validate_can_create_user():
     # only admins can create user, but admins won't reach this validator
     return False
@@ -1483,6 +1519,10 @@ BEFORE_REQUEST_HANDLERS = {
     GetGatewayModelDefinition: validate_can_read_gateway_model_definition,
     UpdateGatewayModelDefinition: validate_can_update_gateway_model_definition,
     DeleteGatewayModelDefinition: validate_can_delete_gateway_model_definition,
+    # Routes for gateway budget policies
+    CreateGatewayBudgetPolicy: sender_is_admin,
+    UpdateGatewayBudgetPolicy: sender_is_admin,
+    DeleteGatewayBudgetPolicy: sender_is_admin,
     # Routes for gateway endpoint-model mappings
     AttachModelToGatewayEndpoint: validate_can_update_gateway_endpoint,
     DetachModelFromGatewayEndpoint: validate_can_update_gateway_endpoint,
@@ -1525,79 +1565,78 @@ BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
+    if "/scorers/online-config" not in http_path
 }
 
 # Auth-related routes
-BEFORE_REQUEST_VALIDATORS.update(
-    {
-        (SIGNUP, "GET"): validate_can_create_user,
-        (GET_USER, "GET"): validate_can_read_user,
-        (CREATE_USER, "POST"): validate_can_create_user,
-        (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
-        (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
-        (DELETE_USER, "DELETE"): validate_can_delete_user,
-        (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
-        (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
-        (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
-        (DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
-        (GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
-        (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
-        (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
-        (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
-        (GET_SCORER_PERMISSION, "GET"): validate_can_manage_scorer_permission,
-        (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
-        (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
-        (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
-        # Gateway secret permissions
-        (GET_GATEWAY_SECRET_PERMISSION, "GET"): validate_can_manage_gateway_secret,
-        (CREATE_GATEWAY_SECRET_PERMISSION, "POST"): validate_can_manage_gateway_secret,
-        (UPDATE_GATEWAY_SECRET_PERMISSION, "PATCH"): validate_can_manage_gateway_secret,
-        (DELETE_GATEWAY_SECRET_PERMISSION, "DELETE"): validate_can_manage_gateway_secret,
-        # Gateway endpoint permissions
-        (GET_GATEWAY_ENDPOINT_PERMISSION, "GET"): validate_can_manage_gateway_endpoint,
-        (CREATE_GATEWAY_ENDPOINT_PERMISSION, "POST"): validate_can_manage_gateway_endpoint,
-        (UPDATE_GATEWAY_ENDPOINT_PERMISSION, "PATCH"): validate_can_manage_gateway_endpoint,
-        (DELETE_GATEWAY_ENDPOINT_PERMISSION, "DELETE"): validate_can_manage_gateway_endpoint,
-        # Gateway model definition permissions
-        (
-            GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "GET",
-        ): validate_can_manage_gateway_model_definition,
-        (
-            CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "POST",
-        ): validate_can_manage_gateway_model_definition,
-        (
-            UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "PATCH",
-        ): validate_can_manage_gateway_model_definition,
-        (
-            DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
-            "DELETE",
-        ): validate_can_manage_gateway_model_definition,
-    }
-)
+BEFORE_REQUEST_VALIDATORS.update({
+    (SIGNUP, "GET"): validate_can_create_user,
+    (GET_USER, "GET"): validate_can_read_user,
+    (LIST_USERS, "GET"): validate_can_list_users,
+    (AJAX_LIST_USERS, "GET"): validate_can_list_users,
+    (CREATE_USER, "POST"): validate_can_create_user,
+    (UPDATE_USER_PASSWORD, "PATCH"): validate_can_update_user_password,
+    (UPDATE_USER_ADMIN, "PATCH"): validate_can_update_user_admin,
+    (DELETE_USER, "DELETE"): validate_can_delete_user,
+    (GET_EXPERIMENT_PERMISSION, "GET"): validate_can_manage_experiment,
+    (CREATE_EXPERIMENT_PERMISSION, "POST"): validate_can_manage_experiment,
+    (UPDATE_EXPERIMENT_PERMISSION, "PATCH"): validate_can_manage_experiment,
+    (DELETE_EXPERIMENT_PERMISSION, "DELETE"): validate_can_manage_experiment,
+    (GET_REGISTERED_MODEL_PERMISSION, "GET"): validate_can_manage_registered_model,
+    (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
+    (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
+    (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
+    (GET_SCORER_PERMISSION, "GET"): validate_can_manage_scorer_permission,
+    (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
+    (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
+    (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
+    # Gateway secret permissions
+    (GET_GATEWAY_SECRET_PERMISSION, "GET"): validate_can_manage_gateway_secret,
+    (CREATE_GATEWAY_SECRET_PERMISSION, "POST"): validate_can_manage_gateway_secret,
+    (UPDATE_GATEWAY_SECRET_PERMISSION, "PATCH"): validate_can_manage_gateway_secret,
+    (DELETE_GATEWAY_SECRET_PERMISSION, "DELETE"): validate_can_manage_gateway_secret,
+    # Gateway endpoint permissions
+    (GET_GATEWAY_ENDPOINT_PERMISSION, "GET"): validate_can_manage_gateway_endpoint,
+    (CREATE_GATEWAY_ENDPOINT_PERMISSION, "POST"): validate_can_manage_gateway_endpoint,
+    (UPDATE_GATEWAY_ENDPOINT_PERMISSION, "PATCH"): validate_can_manage_gateway_endpoint,
+    (DELETE_GATEWAY_ENDPOINT_PERMISSION, "DELETE"): validate_can_manage_gateway_endpoint,
+    # Gateway model definition permissions
+    (
+        GET_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        "GET",
+    ): validate_can_manage_gateway_model_definition,
+    (
+        CREATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        "POST",
+    ): validate_can_manage_gateway_model_definition,
+    (
+        UPDATE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        "PATCH",
+    ): validate_can_manage_gateway_model_definition,
+    (
+        DELETE_GATEWAY_MODEL_DEFINITION_PERMISSION,
+        "DELETE",
+    ): validate_can_manage_gateway_model_definition,
+})
 
 # Flask routes (no proto mapping)
-BEFORE_REQUEST_VALIDATORS.update(
-    {
-        (GET_ARTIFACT, "GET"): validate_can_read_run_artifact,
-        (UPLOAD_ARTIFACT, "POST"): validate_can_update_run_artifact,
-        (GET_MODEL_VERSION_ARTIFACT, "GET"): validate_can_read_model_version_artifact,
-        (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
-        (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
-        (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
-        (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
-        (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
-        (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
-        (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
-        (INVOKE_SCORER, "POST"): validate_gateway_proxy,
-        (LIST_WORKSPACE_PERMISSIONS, "GET"): validate_can_list_workspace_permissions,
-        (LIST_WORKSPACE_PERMISSIONS, "POST"): validate_can_modify_workspace_permission,
-        (LIST_WORKSPACE_PERMISSIONS, "DELETE"): validate_can_modify_workspace_permission,
-        (LIST_USER_WORKSPACE_PERMISSIONS, "GET"): sender_is_admin,
-    }
-)
+BEFORE_REQUEST_VALIDATORS.update({
+    (GET_ARTIFACT, "GET"): validate_can_read_run_artifact,
+    (UPLOAD_ARTIFACT, "POST"): validate_can_update_run_artifact,
+    (GET_MODEL_VERSION_ARTIFACT, "GET"): validate_can_read_model_version_artifact,
+    (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
+    (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
+    (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
+    (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
+    (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
+    (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
+    (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
+    (INVOKE_SCORER, "POST"): validate_gateway_proxy,
+    (LIST_WORKSPACE_PERMISSIONS, "GET"): validate_can_list_workspace_permissions,
+    (LIST_WORKSPACE_PERMISSIONS, "POST"): validate_can_modify_workspace_permission,
+    (LIST_WORKSPACE_PERMISSIONS, "DELETE"): validate_can_modify_workspace_permission,
+    (LIST_USER_WORKSPACE_PERMISSIONS, "GET"): sender_is_admin,
+})
 
 # Precompile workspace parameterized paths (e.g., workspace_name) for fast matching.
 WORKSPACE_PARAMETERIZED_BEFORE_REQUEST_VALIDATORS = {
@@ -1628,6 +1667,29 @@ LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
     for method in methods
 }
 
+WEBHOOK_BEFORE_REQUEST_HANDLERS = {
+    CreateWebhook: sender_is_admin,
+    GetWebhook: sender_is_admin,
+    ListWebhooks: sender_is_admin,
+    UpdateWebhook: sender_is_admin,
+    DeleteWebhook: sender_is_admin,
+    TestWebhook: sender_is_admin,
+}
+
+
+def get_webhook_before_request_handler(request_class):
+    return WEBHOOK_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+WEBHOOK_BEFORE_REQUEST_VALIDATORS = {
+    # Paths for webhooks contain path parameters (e.g. /mlflow/webhooks/<webhook_id>)
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_service_endpoints(
+        WebhookService, get_webhook_before_request_handler
+    )
+    for method in methods
+}
+
 _AJAX_API_PATH_PREFIX = "/ajax-api/2.0"
 
 
@@ -1640,6 +1702,8 @@ def _is_proxy_artifact_path(path: str) -> bool:
     prefixes = [
         f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
         f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/artifacts",
+        f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
+        f"{_AJAX_API_PATH_PREFIX}/mlflow-artifacts/mpu/",
     ]
     return any(path.startswith(prefix) for prefix in prefixes)
 
@@ -1654,6 +1718,7 @@ def _get_proxy_artifact_validator(
         "GET": validate_can_read_experiment_artifact_proxy,  # Download
         "PUT": validate_can_update_experiment_artifact_proxy,  # Upload
         "DELETE": validate_can_delete_experiment_artifact_proxy,  # Delete
+        "POST": validate_can_update_experiment_artifact_proxy,  # Multipart upload
     }.get(method)
 
 
@@ -1701,6 +1766,18 @@ def _find_validator(req: Request) -> Callable[[], bool] | None:
             (
                 v
                 for (pat, method), v in LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+
+    if "/mlflow/webhooks" in req.path:
+        # Webhook routes contain path parameters (e.g., /mlflow/webhooks/<webhook_id>)
+        # so we need regex matching
+        return next(
+            (
+                v
+                for (pat, method), v in WEBHOOK_BEFORE_REQUEST_VALIDATORS.items()
                 if pat.fullmatch(req.path) and method == req.method
             ),
             None,
@@ -2070,6 +2147,26 @@ def filter_search_registered_models(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def filter_search_model_versions(resp: Response):
+    if sender_is_admin():
+        return
+
+    response_message = SearchModelVersions.Response()
+    parse_dict(resp.json, response_message)
+
+    # fetch permissions
+    username = authenticate_request().username
+    perms = store.list_registered_model_permissions(username)
+    can_read = {p.name: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+    # filter out model versions whose parent model is unreadable
+    for mv in list(response_message.model_versions):
+        if not _has_registered_model_read_access(username, mv.name, can_read, default_can_read):
+            response_message.model_versions.remove(mv)
+
+    resp.data = message_to_json(response_message)
+
+
 def rename_registered_model_permission(resp: Response):
     """
     A model registry can be assigned to multiple users with different permissions.
@@ -2087,7 +2184,13 @@ def set_can_manage_scorer_permission(resp: Response):
     experiment_id = response_message.experiment_id
     name = response_message.name
     username = authenticate_request().username
-    store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
+    try:
+        store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
+    except MlflowException as e:
+        if e.error_code == ErrorCode.Name(RESOURCE_ALREADY_EXISTS):
+            pass  # Permission already exists from a previous registration
+        else:
+            raise
 
 
 def delete_scorer_permissions_cascade(resp: Response):
@@ -2146,6 +2249,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
     SearchLoggedModels: filter_search_logged_models,
+    SearchModelVersions: filter_search_model_versions,
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
@@ -2165,15 +2269,13 @@ def get_after_request_handler(request_class):
     return AFTER_REQUEST_PATH_HANDLERS.get(request_class)
 
 
-_AJAX_GATEWAY_PATHS = frozenset(
-    [
-        GATEWAY_SUPPORTED_PROVIDERS,
-        GATEWAY_SUPPORTED_MODELS,
-        GATEWAY_PROVIDER_CONFIG,
-        GATEWAY_SECRETS_CONFIG,
-        INVOKE_SCORER,
-    ]
-)
+_AJAX_GATEWAY_PATHS = frozenset([
+    GATEWAY_SUPPORTED_PROVIDERS,
+    GATEWAY_SUPPORTED_MODELS,
+    GATEWAY_PROVIDER_CONFIG,
+    GATEWAY_SECRETS_CONFIG,
+    INVOKE_SCORER,
+])
 
 AFTER_REQUEST_HANDLERS = {
     (http_path, method): handler
@@ -2181,7 +2283,8 @@ AFTER_REQUEST_HANDLERS = {
     for method in methods
     if handler is not None
     and "/graphql" not in http_path
-    and "/server-features" not in http_path
+    and "/scorers/online-config" not in http_path
+    and "/mlflow/server-info" not in http_path
     and http_path not in _AJAX_GATEWAY_PATHS
 }
 
@@ -2372,6 +2475,12 @@ def get_user():
     username = _get_request_param("username")
     user = store.get_user(username)
     return jsonify({"user": user.to_json()})
+
+
+@catch_mlflow_exception
+def list_users():
+    users = store.list_users()
+    return jsonify({"users": [{"id": u.id, "username": u.username} for u in users]})
 
 
 @catch_mlflow_exception
@@ -2679,6 +2788,7 @@ class GraphQLAuthorizationMiddleware:
         "mlflowGetMetricHistoryBulkInterval",
         "mlflowSearchRuns",
         "mlflowSearchDatasets",
+        "mlflowSearchModelVersions",
     }
 
     def resolve(self, next, root, info, **args):
@@ -2721,7 +2831,8 @@ class GraphQLAuthorizationMiddleware:
             _logger.warning(f"GraphQL authorization error for {field_name}", exc_info=True)
             return None
 
-        return next(root, info, **args)
+        result = next(root, info, **args)
+        return self._post_resolve(field_name, result, username) if result is not None else None
 
     def _check_authorization(self, field_name: str, args: dict[str, Any], username: str) -> bool:
         """
@@ -2769,6 +2880,27 @@ class GraphQLAuthorizationMiddleware:
 
         return True
 
+    def _post_resolve(self, field_name: str, result, username: str):
+        """Apply post-resolution filtering on GraphQL results."""
+        if field_name == "mlflowSearchModelVersions":
+            return self._filter_model_versions_result(result, username)
+        return result
+
+    def _filter_model_versions_result(self, result, username: str):
+        """Filter model versions the user doesn't have read access to."""
+        perms = store.list_registered_model_permissions(username)
+        can_read = {p.name: get_permission(p.permission).can_read for p in perms}
+        default_can_read = get_permission(auth_config.default_permission).can_read
+        if hasattr(result, "model_versions") and result.model_versions is not None:
+            filtered = [
+                mv
+                for mv in result.model_versions
+                if _has_registered_model_read_access(username, mv.name, can_read, default_can_read)
+            ]
+            del result.model_versions[:]
+            result.model_versions.extend(filtered)
+        return result
+
 
 def get_graphql_authorization_middleware():
     """
@@ -2786,22 +2918,23 @@ def get_graphql_authorization_middleware():
 
 
 # Routes that need request body to extract endpoint name for validation
-_ROUTES_NEEDING_BODY = frozenset(
-    (
-        "/gateway/mlflow/v1/chat/completions",
-        "/gateway/openai/v1/chat/completions",
-        "/gateway/openai/v1/embeddings",
-        "/gateway/openai/v1/responses",
-        "/gateway/anthropic/v1/messages",
-    )
-)
+_ROUTES_NEEDING_BODY = frozenset((
+    "/gateway/mlflow/v1/chat/completions",
+    "/gateway/openai/v1/chat/completions",
+    "/gateway/openai/v1/embeddings",
+    "/gateway/openai/v1/responses",
+    "/gateway/anthropic/v1/messages",
+))
 
 
-def _authenticate_request(request: StarletteRequest) -> User | None:
+def _authenticate_fastapi_request(request: StarletteRequest) -> User | None:
     """
-    Authenticate request using Basic Auth and return user object.
+    Authenticate request using Basic Auth.
 
-    This mirrors the Flask authenticate_request() logic for FastAPI routes.
+    External clients send real username/password credentials. Server-spawned job
+    subprocesses (e.g., online scoring) send the internal gateway token as the
+    password; when it matches, the user is trusted without calling
+    ``store.authenticate_user()``.
 
     Args:
         request: The Starlette/FastAPI Request object.
@@ -2818,12 +2951,27 @@ def _authenticate_request(request: StarletteRequest) -> User | None:
         if scheme.lower() != "basic":
             return None
         decoded = base64.b64decode(credentials).decode("ascii")
+        username, _, password = decoded.partition(":")
+
+        # Check if this is a trusted internal request from a job subprocess.
+        # The server generates a random token at startup and passes it to workers
+        # via _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN. When the password matches that
+        # token, we trust the username without calling store.authenticate_user().
+        # Restrict to /gateway/ routes only so the token cannot be used as a
+        # master password on other endpoints (e.g. /v1/traces, /ajax-api/).
+        internal_token = _MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN.get()
+        if (
+            internal_token
+            and request.url.path.startswith("/gateway/")
+            and secrets.compare_digest(password, internal_token)
+        ):
+            return store.get_user(username)
+
+        if store.authenticate_user(username, password):
+            return store.get_user(username)
     except Exception:
         return None
 
-    username, _, password = decoded.partition(":")
-    if store.authenticate_user(username, password):
-        return store.get_user(username)
     return None
 
 
@@ -2902,6 +3050,38 @@ def _get_gateway_validator(path: str) -> Callable[[str, StarletteRequest], Await
     return validator
 
 
+def _get_require_authentication_validator() -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    """
+    Get a validator that requires authentication but grants access to any authenticated user.
+
+    Returns:
+        An async validator function that always returns True.
+    """
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        return True
+
+    return validator
+
+
+def _get_otel_validator(
+    path: str,
+) -> Callable[[str, StarletteRequest], Awaitable[bool]]:
+    """
+    Get a validator for OpenTelemetry trace ingestion routes.
+    """
+
+    async def validator(username: str, request: StarletteRequest) -> bool:
+        experiment_id = request.headers.get("x-mlflow-experiment-id")
+        if not experiment_id:
+            raise MlflowException(
+                "Missing required header: X-Mlflow-Experiment-Id", error_code=BAD_REQUEST
+            )
+        return _get_experiment_permission(experiment_id, username).can_update
+
+    return validator
+
+
 def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awaitable[bool]] | None:
     """
     Find the validator for a FastAPI route that bypasses Flask.
@@ -2914,10 +3094,19 @@ def _find_fastapi_validator(path: str) -> Callable[[str, StarletteRequest], Awai
 
     Returns:
         An async validator function that takes (username, request) and returns
-        True if authorized, or None if the route is not handled by FastAPI.
+        True if authorized, or None if the route is handled by Flask (WSGI).
     """
     if path.startswith("/gateway/"):
         return _get_gateway_validator(path)
+
+    if path.startswith("/v1/traces"):
+        return _get_otel_validator(path)
+
+    if path.startswith("/ajax-api/3.0/jobs"):
+        return _get_require_authentication_validator()
+
+    if path.startswith("/ajax-api/3.0/mlflow/assistant"):
+        return _get_require_authentication_validator()
 
     return None
 
@@ -2965,7 +3154,7 @@ def add_fastapi_permission_middleware(app: FastAPI) -> None:
             )
 
         # Authenticate user
-        user = _authenticate_request(request)
+        user = _authenticate_fastapi_request(request)
         if user is None:
             return PlainTextResponse(
                 "You are not authenticated. Please see "
@@ -3062,6 +3251,12 @@ def create_app(app: Flask = app):
         view_func=get_user,
         methods=["GET"],
     )
+    for rule in [LIST_USERS, AJAX_LIST_USERS]:
+        app.add_url_rule(
+            rule=rule,
+            view_func=list_users,
+            methods=["GET"],
+        )
     app.add_url_rule(
         rule=UPDATE_USER_PASSWORD,
         view_func=update_user_password,

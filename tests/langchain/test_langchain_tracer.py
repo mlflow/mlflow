@@ -706,6 +706,57 @@ async def test_tracer_with_manual_traces_async():
     assert spans[2].parent_id == spans[1].span_id
 
 
+@pytest.mark.parametrize(
+    ("_type", "expected_provider"),
+    [
+        ("openai-chat", "openai"),
+        ("anthropic-chat", "anthropic"),
+        ("bedrock-chat", "bedrock"),
+        ("openai", "openai"),
+    ],
+)
+def test_chat_model_extracts_model_provider(_type, expected_provider):
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    callback.on_chat_model_start(
+        {},
+        [[HumanMessage("test")]],
+        run_id=run_id,
+        name="test_chat_model",
+        invocation_params={"model": "gpt-4", "_type": _type},
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "response"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.MODEL) == "gpt-4"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) == expected_provider
+
+
+def test_chat_model_no_provider_when_type_missing():
+    callback = MlflowLangchainTracer()
+    run_id = str(uuid.uuid4())
+    callback.on_chat_model_start(
+        {},
+        [[HumanMessage("test")]],
+        run_id=run_id,
+        name="test_chat_model",
+        invocation_params={"model": "gpt-4"},
+    )
+    callback.on_llm_end(
+        LLMResult(generations=[[{"text": "response"}]]),
+        run_id=run_id,
+    )
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = trace.data.spans[0]
+    assert span.get_attribute(SpanAttributeKey.MODEL) == "gpt-4"
+    assert span.get_attribute(SpanAttributeKey.MODEL_PROVIDER) is None
+
+
 @pytest.mark.parametrize("run_tracer_inline", [True, False])
 def test_tracer_run_inline_parameter(run_tracer_inline):
     tracer = MlflowLangchainTracer(run_inline=run_tracer_inline)

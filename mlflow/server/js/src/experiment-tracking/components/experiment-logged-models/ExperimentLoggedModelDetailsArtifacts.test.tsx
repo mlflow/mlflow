@@ -13,12 +13,10 @@ import { apis, artifactsByRunUuid } from '../../reducers/Reducers';
 import { ExperimentLoggedModelDetailsArtifacts } from './ExperimentLoggedModelDetailsArtifacts';
 import { setupTestRouter, testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
 import { setActiveWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
-import { getWorkspacesEnabledSync } from '../../../common/utils/ServerFeaturesContext';
+import { getWorkspacesEnabledSync } from '../../hooks/useServerInfo';
 
-jest.mock('../../../common/utils/ServerFeaturesContext', () => ({
-  ...jest.requireActual<typeof import('../../../common/utils/ServerFeaturesContext')>(
-    '../../../common/utils/ServerFeaturesContext',
-  ),
+jest.mock('../../hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../../hooks/useServerInfo')>('../../hooks/useServerInfo'),
   getWorkspacesEnabledSync: jest.fn(),
 }));
 

@@ -4,6 +4,7 @@ from clint.rules.do_not_disable import DoNotDisable
 from clint.rules.docstring_param_order import DocstringParamOrder
 from clint.rules.empty_notebook_cell import EmptyNotebookCell
 from clint.rules.example_syntax_error import ExampleSyntaxError
+from clint.rules.except_bool_op import ExceptBoolOp
 from clint.rules.extraneous_docstring_param import ExtraneousDocstringParam
 from clint.rules.forbidden_deprecation_warning import ForbiddenDeprecationWarning
 from clint.rules.forbidden_make_judge_in_builtin_scorers import (
@@ -18,7 +19,7 @@ from clint.rules.incorrect_type_annotation import IncorrectTypeAnnotation
 from clint.rules.invalid_abstract_method import InvalidAbstractMethod
 from clint.rules.invalid_experimental_decorator import InvalidExperimentalDecorator
 from clint.rules.isinstance_union_syntax import IsinstanceUnionSyntax
-from clint.rules.lazy_builtin_import import LazyBuiltinImport
+from clint.rules.lazy_import import LazyImport
 from clint.rules.lazy_module import LazyModule
 from clint.rules.log_model_artifact_path import LogModelArtifactPath
 from clint.rules.markdown_link import MarkdownLink
@@ -36,6 +37,8 @@ from clint.rules.os_chdir_in_test import OsChdirInTest
 from clint.rules.os_environ_delete_in_test import OsEnvironDeleteInTest
 from clint.rules.os_environ_set_in_test import OsEnvironSetInTest
 from clint.rules.prefer_dict_union import PreferDictUnion
+from clint.rules.prefer_next import PreferNext
+from clint.rules.prefer_os_environ import PreferOsEnviron
 from clint.rules.pytest_mark_repeat import PytestMarkRepeat
 from clint.rules.redundant_test_docstring import RedundantTestDocstring
 from clint.rules.subprocess_check_call import SubprocessCheckCall
@@ -63,6 +66,7 @@ __all__ = [
     "DocstringParamOrder",
     "EmptyNotebookCell",
     "ExampleSyntaxError",
+    "ExceptBoolOp",
     "ExtraneousDocstringParam",
     "ForbiddenDeprecationWarning",
     "ForbiddenMakeJudgeInBuiltinScorers",
@@ -75,7 +79,7 @@ __all__ = [
     "IsinstanceUnionSyntax",
     "InvalidAbstractMethod",
     "InvalidExperimentalDecorator",
-    "LazyBuiltinImport",
+    "LazyImport",
     "LazyModule",
     "LogModelArtifactPath",
     "MarkdownLink",
@@ -92,6 +96,8 @@ __all__ = [
     "OsEnvironDeleteInTest",
     "OsEnvironSetInTest",
     "PreferDictUnion",
+    "PreferNext",
+    "PreferOsEnviron",
     "PytestMarkRepeat",
     "RedundantTestDocstring",
     "SubprocessCheckCall",

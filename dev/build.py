@@ -51,14 +51,12 @@ def restore_changes() -> Generator[None, None, None]:
     try:
         yield
     finally:
-        subprocess.check_call(
-            [
-                "git",
-                "restore",
-                "README.md",
-                "pyproject.toml",
-            ]
-        )
+        subprocess.check_call([
+            "git",
+            "restore",
+            "README.md",
+            "pyproject.toml",
+        ])
 
 
 def main() -> None:
@@ -89,14 +87,12 @@ def main() -> None:
         if package == RELEASE:
             pyproject.write_text(Path("pyproject.release.toml").read_text())
 
-        subprocess.check_call(
-            [
-                sys.executable,
-                "-m",
-                "build",
-                package.build_path,
-            ]
-        )
+        subprocess.check_call([
+            sys.executable,
+            "-m",
+            "build",
+            package.build_path,
+        ])
 
         DIST_DIR = Path("dist")
         DIST_DIR.mkdir(exist_ok=True)

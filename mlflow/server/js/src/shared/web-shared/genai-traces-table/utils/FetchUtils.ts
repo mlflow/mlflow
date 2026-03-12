@@ -1,15 +1,20 @@
 import cookie from 'cookie';
 
+import { getWorkspacesEnabledSync } from '@mlflow/mlflow/src/experiment-tracking/hooks/useServerInfo';
+
 // eslint-disable-next-line no-restricted-globals
 export const fetchFn = fetch; // use global fetch for oss
 
 const WORKSPACE_STORAGE_KEY = 'mlflow.activeWorkspace';
 
 /**
- * Get the currently active workspace from localStorage.
- * This is a minimal implementation for the shared library that cannot depend on main mlflow code.
+ * Get the active workspace from localStorage, but only when the server has workspaces enabled.
+ * This prevents stale localStorage values from causing errors on servers without workspaces.
  */
 const getActiveWorkspace = (): string | null => {
+  if (!getWorkspacesEnabledSync()) {
+    return null;
+  }
   if (typeof window === 'undefined') {
     return null;
   }
@@ -105,7 +110,22 @@ export const fetchAPI = async (url: string, options: Omit<RequestInit, 'body'> &
   // eslint-disable-next-line no-restricted-globals
   const response = await fetch(url, fetchOptions);
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    try {
+      const responseBody = await response.text();
+      if (responseBody) {
+        // Limit response body to 1000 characters to prevent memory issues
+        const maxBodyLength = 1000;
+        if (responseBody.length > maxBodyLength) {
+          errorMessage += ` - ${responseBody.substring(0, maxBodyLength)}... (truncated)`;
+        } else {
+          errorMessage += ` - ${responseBody}`;
+        }
+      }
+    } catch {
+      // If we can't read the body, just use the status message
+    }
+    throw new Error(errorMessage);
   }
   return response.json();
 };

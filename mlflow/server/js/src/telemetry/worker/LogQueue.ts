@@ -4,7 +4,6 @@
  * Maintains a queue of telemetry records and flushes them every 15 seconds
  * by batching and uploading to the telemetry endpoint.
  */
-
 import { UI_TELEMETRY_ENDPOINT } from './constants';
 import { type TelemetryRecord } from './types';
 
@@ -51,10 +50,7 @@ export class LogQueue {
     this.flush();
   }
 
-  /**
-   * Flush the queue by batching and uploading logs to the server. Re-queues
-   * failed records.
-   */
+  // Flush the queue by batching and uploading logs to the server. Re-queues failed records.
   public async flush(): Promise<void> {
     if (this.queue.length === 0 || !navigator.onLine) {
       return;

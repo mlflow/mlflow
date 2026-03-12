@@ -177,7 +177,7 @@ def _get_stopping_criteria(stop: str | list[str] | None, model_name: str | None 
     tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
 
     def _get_slow_token_ids(seq: str):
-        return tokenizer.convert_tokens_to_ids(tokenizer._tokenize(seq))
+        return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(seq))
 
     # NB: We need to define this as an inner class to avoid importing
     # transformers in the global scope that confuses autologging
@@ -311,8 +311,10 @@ def _get_completions_text(prompt: str, output_tensor: list[int], pipeline):
 
     # In order to correctly remove the prompt tokens from the decoded tokens,
     # we need to acquire the length of the prompt without special tokens
+    # NB: `pipeline.framework` was removed in transformers 5.x. Fall back to "pt" since
+    # MLflow only supports PyTorch for transformers pipelines.
     prompt_ids_without_special_tokens = pipeline.tokenizer(
-        prompt, return_tensors=pipeline.framework, add_special_tokens=False
+        prompt, return_tensors=getattr(pipeline, "framework", "pt"), add_special_tokens=False
     )["input_ids"][0]
 
     prompt_length = len(
@@ -330,7 +332,7 @@ def _get_token_usage(prompt: str, output_tensor: list[int], pipeline, model_conf
     """Return the prompt tokens, completion tokens, and the total tokens as dict."""
     inputs = pipeline.tokenizer(
         prompt,
-        return_tensors=pipeline.framework,
+        return_tensors=getattr(pipeline, "framework", "pt"),
         max_length=model_config.get("max_length", None),
         add_special_tokens=False,
     )

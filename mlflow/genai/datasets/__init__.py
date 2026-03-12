@@ -391,7 +391,7 @@ def search_datasets(
     order_by: list[str] | None = None,
 ) -> list[EvaluationDataset]:
     """
-    Search for datasets (non-Databricks only).
+    Search for datasets.
 
     .. warning::
         Calling ``search_datasets()`` without any parameters will return ALL datasets
@@ -518,9 +518,6 @@ def search_datasets(
                 print(f"{dataset.name} (ID: {dataset.dataset_id})")
                 print(f"  Tags: {dataset.tags}")
 
-    Note:
-        This API is not available in Databricks environments. Use Unity Catalog
-        search capabilities in Databricks instead.
     """
     if isinstance(experiment_ids, str):
         experiment_ids = [experiment_ids]

@@ -1,39 +1,56 @@
+import type { CSSObject } from '@emotion/react';
 import React, { type ComponentType, useMemo } from 'react';
-import type { Components, Options, UrlTransform } from 'react-markdown-10';
+import type { Components, Options } from 'react-markdown-10';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown-10';
 import remarkGfm from 'remark-gfm-4';
 
 import { TableCell, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import type { CodeSnippetLanguage } from '@databricks/web-shared/snippet';
-import { CodeSnippet, SnippetCopyAction } from '@databricks/web-shared/snippet';
+import type { CodeSnippetLanguage } from '../snippet/CodeSnippet';
+import { CodeSnippet } from '../snippet/CodeSnippet';
+import { SnippetCopyAction } from '../snippet/actions/SnippetCopyAction';
+
 import { TableRenderer, VirtualizedTableCell, VirtualizedTableRow } from './TableRenderer';
 import type { ReactMarkdownComponent, ReactMarkdownComponents, ReactMarkdownProps } from './types';
 
-/**
- * NOTE: react-markdown sanitizes urls by default, including `data:` urls, with the `urlTransform` prop, documented here: https://github.com/remarkjs/react-markdown?tab=readme-ov-file#defaulturltransformurl
- * It uses `micromark-util-sanitize-uri` package under the hood to escape urls and prevent injection: https://github.com/micromark/micromark/tree/main/packages/micromark-util-sanitize-uri#readme
- * We can allow jpeg and png data urls, and use the default transformer for everything else.
- */
-const urlTransform: UrlTransform = (value) => {
-  if (value.startsWith('data:image/png') || value.startsWith('data:image/jpeg')) {
-    return value;
-  }
-  return defaultUrlTransform(value);
+interface OverrideStyles {
+  paragraph?: CSSObject;
+  heading?: CSSObject;
+  list?: CSSObject;
+}
+
+const useCompactMarkdownStyles = (): OverrideStyles => {
+  const { theme } = useDesignSystemTheme();
+  return useMemo(
+    () => ({
+      paragraph: { marginBottom: theme.spacing.xs, marginTop: 0 },
+      heading: { marginBottom: theme.spacing.xs, marginTop: 0 },
+      list: { marginBottom: theme.spacing.xs, marginTop: 0, paddingLeft: theme.spacing.lg },
+    }),
+    [theme.spacing.xs, theme.spacing.lg],
+  );
 };
 
-const isRelativeUrl = (url: string | undefined): boolean => {
-  if (!url) return false;
-  // Check if URL has a protocol (absolute URL)
-  return !/^[a-z][a-z0-9+.-]*:/i.test(url);
-};
+export interface GenAIMarkdownRendererProps extends Pick<Options, 'urlTransform'> {
+  children: string;
+  components?: ExtendedComponents;
+  /** When true, renders markdown with reduced margins/spacing for compact UI contexts */
+  compact?: boolean;
+}
 
-export const GenAIMarkdownRenderer = (props: { children: string; components?: ExtendedComponents }) => {
+export const GenAIMarkdownRenderer = (props: GenAIMarkdownRendererProps) => {
+  const compactStyles = useCompactMarkdownStyles();
+  const overrideStyles = props.compact ? compactStyles : undefined;
+
   const components: Components = useMemo(
-    () => getMarkdownComponents({ extensions: props.components }),
-    [props.components],
+    () => getMarkdownComponents({ extensions: props.components, overrideStyles }),
+    [props.components, overrideStyles],
   );
   return (
-    <ReactMarkdown components={components} remarkPlugins={RemarkPlugins} urlTransform={urlTransform}>
+    <ReactMarkdown
+      components={components}
+      remarkPlugins={RemarkPlugins}
+      urlTransform={props.urlTransform ?? urlTransform}
+    >
       {props.children}
     </ReactMarkdown>
   );
@@ -57,7 +74,11 @@ const CodeMarkdownComponent = ({
   return React.createElement(codeBlock, { ...codeProps, language });
 };
 
-const InlineCode = ({ children }: ReactMarkdownProps<'code'>) => <Typography.Text code>{children}</Typography.Text>;
+const InlineCode = ({ children }: ReactMarkdownProps<'code'>) => (
+  <Typography.Text code css={{ whiteSpace: 'pre-wrap' }}>
+    {children}
+  </Typography.Text>
+);
 
 /**
  * Since this component is quite expensive to render we memoize it so if multiple
@@ -95,6 +116,30 @@ const CodeBlock = React.memo(({ children, language }: ReactMarkdownProps<'code'>
 
 const RemarkPlugins: Options['remarkPlugins'] = [remarkGfm];
 
+/**
+ * Custom URL transform that extends the default to also allow data: and blob: URLs.
+ * The default urlTransform in react-markdown-10 only allows http(s), mailto, irc(s), and xmpp protocols,
+ * which causes data URLs (e.g., base64 images) to be stripped.
+ */
+const urlTransform: Options['urlTransform'] = (url: string) => {
+  // Allow data: URLs (e.g., base64 encoded images)
+  if (url.startsWith('data:')) {
+    return url;
+  }
+  // Allow blob: URLs (locally generated)
+  if (url.startsWith('blob:')) {
+    return url;
+  }
+  // Fall back to default transform for other URLs
+  return defaultUrlTransform(url);
+};
+
+const isRelativeUrl = (url: string | undefined): boolean => {
+  if (!url) return false;
+  // Check if URL has a protocol (absolute URL)
+  return !/^[a-z][a-z0-9+.-]*:/i.test(url);
+};
+
 // react-markdown handles both inline and block code rendering in the same component
 // however, we want to render them differently so we need to split them into two components.
 // This also allows callees to override the default renderers separately
@@ -105,7 +150,7 @@ type ExtededCodeRenderers = {
 
 type ExtendedComponents = Omit<ReactMarkdownComponents, 'code'> & ExtededCodeRenderers;
 
-export const getMarkdownComponents = (props: { extensions?: ExtendedComponents }) =>
+export const getMarkdownComponents = (props: { extensions?: ExtendedComponents; overrideStyles?: OverrideStyles }) =>
   ({
     a: ({ href, children }) => (
       <Typography.Link
@@ -129,12 +174,34 @@ export const getMarkdownComponents = (props: { extensions?: ExtendedComponents }
         codeInline={props.extensions?.codeInline ?? InlineCode} // Optionally override the default inline code renderer
       />
     ),
-    p: ({ children }) => <Typography.Paragraph children={children} />,
-    h1: ({ children }) => <Typography.Title level={1} children={children} />,
-    h2: ({ children }) => <Typography.Title level={2} children={children} />,
-    h3: ({ children }) => <Typography.Title level={3} children={children} />,
-    h4: ({ children }) => <Typography.Title level={4} children={children} />,
-    h5: ({ children }) => <Typography.Title level={5} children={children} />,
+    p: ({ children }) => <Typography.Paragraph css={props.overrideStyles?.paragraph}>{children}</Typography.Paragraph>,
+    h1: ({ children }) => (
+      <Typography.Title level={1} css={props.overrideStyles?.heading}>
+        {children}
+      </Typography.Title>
+    ),
+    h2: ({ children }) => (
+      <Typography.Title level={2} css={props.overrideStyles?.heading}>
+        {children}
+      </Typography.Title>
+    ),
+    h3: ({ children }) => (
+      <Typography.Title level={3} css={props.overrideStyles?.heading}>
+        {children}
+      </Typography.Title>
+    ),
+    h4: ({ children }) => (
+      <Typography.Title level={4} css={props.overrideStyles?.heading}>
+        {children}
+      </Typography.Title>
+    ),
+    h5: ({ children }) => (
+      <Typography.Title level={5} css={props.overrideStyles?.heading}>
+        {children}
+      </Typography.Title>
+    ),
+    ul: ({ children }) => <ul css={props.overrideStyles?.list}>{children}</ul>,
+    ol: ({ children }) => <ol css={props.overrideStyles?.list}>{children}</ol>,
     table: ({ children, node }) => <TableRenderer children={children} node={node} />,
     tr: ({ children, node }) => <VirtualizedTableRow children={children} node={node} />,
     th: ({ children, node }) => <VirtualizedTableCell children={children} node={node} />,
@@ -146,6 +213,7 @@ export const getMarkdownComponents = (props: { extensions?: ExtendedComponents }
     tbody: ({ children }) => <>{children}</>,
     img: ({ src, alt }) =>
       isRelativeUrl(src) ? <span>{`[${alt}](${src})`}</span> : <img src={src} alt={alt} css={{ maxWidth: '100%' }} />,
+    ...props.extensions,
   }) satisfies ReactMarkdownComponents;
 
 const isCodeSnippetLanguage = (languageString: string): languageString is CodeSnippetLanguage => {
@@ -162,6 +230,8 @@ const isCodeSnippetLanguage = (languageString: string): languageString is CodeSn
     case 'yaml':
       return true;
     default:
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const exhaust: never = typeCast;
       return false;
   }
 };

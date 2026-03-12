@@ -1,6 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { normalizeConversation } from '../ModelTraceExplorer.utils';
 import {
   normalizeVoltAgentChatInput,
   normalizeVoltAgentChatOutput,
@@ -8,6 +7,7 @@ import {
 } from './voltagent';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import { ModelSpanType } from '../ModelTrace.types';
+import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 const MOCK_VOLTAGENT_SIMPLE_MESSAGES = [
   { role: 'user', content: 'Hello, how are you?' },

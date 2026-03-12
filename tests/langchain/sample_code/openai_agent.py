@@ -19,15 +19,13 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Using itertools.cycle to create an infinite iterator
-        self._responses = itertools.cycle(
-            [
-                AIMessageChunk(
-                    content="",
-                    tool_calls=[ToolCall(name="multiply", args={"a": 2, "b": 3}, id="123")],
-                ),
-                AIMessageChunk(content="The result of 2 * 3 is 6."),
-            ]
-        )
+        self._responses = itertools.cycle([
+            AIMessageChunk(
+                content="",
+                tool_calls=[ToolCall(name="multiply", args={"a": 2, "b": 3}, id="123")],
+            ),
+            AIMessageChunk(content="The result of 2 * 3 is 6."),
+        ])
 
     def _generate(self, *args, **kwargs):
         return ChatResult(generations=[ChatGeneration(message=next(self._responses))])

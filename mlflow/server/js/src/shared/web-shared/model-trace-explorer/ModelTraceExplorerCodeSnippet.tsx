@@ -43,6 +43,7 @@ export function ModelTraceExplorerCodeSnippet({
   activeMatch = null,
   containsActiveMatch = false,
   initialRenderMode,
+  initialExpanded,
 }: {
   title: string;
   tokens?: number;
@@ -54,6 +55,7 @@ export function ModelTraceExplorerCodeSnippet({
   // current active match (either in the key or value)
   containsActiveMatch?: boolean;
   initialRenderMode?: CodeSnippetRenderMode;
+  initialExpanded?: boolean;
 }) {
   const parsedData = useMemo(() => JSON.parse(data), [data]);
   const dataIsString = isString(parsedData);
@@ -162,6 +164,7 @@ export function ModelTraceExplorerCodeSnippet({
           activeMatch={activeMatch}
           containsActiveMatch={containsActiveMatch}
           renderMode={renderMode}
+          initialExpanded={initialExpanded}
         />
       </div>
     </div>

@@ -4,13 +4,24 @@ import logging
 from pathlib import Path
 
 import pytest
+from claude_agent_sdk.types import (
+    AssistantMessage,
+    ResultMessage,
+    TextBlock,
+    ToolResultBlock,
+    ToolUseBlock,
+    UserMessage,
+)
 
 import mlflow
 import mlflow.claude_code.tracing as tracing_module
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
+    METADATA_KEY_CLAUDE_CODE_VERSION,
+    find_last_user_message_index,
     get_hook_response,
     parse_timestamp_to_ns,
+    process_sdk_messages,
     process_transcript,
     setup_logging,
 )
@@ -125,6 +136,29 @@ def test_get_hook_response_with_additional_fields():
 
 
 # ============================================================================
+# ASYNC TRACE LOGGING UTILITY TESTS
+# ============================================================================
+
+
+def test_flush_trace_async_logging_calls_flush(monkeypatch):
+    mock_exporter = type("MockExporter", (), {"_async_queue": True})()
+    monkeypatch.setattr(tracing_module, "_get_trace_exporter", lambda: mock_exporter)
+    flushed = []
+    monkeypatch.setattr(mlflow, "flush_trace_async_logging", lambda: flushed.append(True))
+    tracing_module._flush_trace_async_logging()
+    assert len(flushed) == 1
+
+
+def test_flush_trace_async_logging_skips_without_async_queue(monkeypatch):
+    mock_exporter = object()  # no _async_queue attribute
+    monkeypatch.setattr(tracing_module, "_get_trace_exporter", lambda: mock_exporter)
+    flushed = []
+    monkeypatch.setattr(mlflow, "flush_trace_async_logging", lambda: flushed.append(True))
+    tracing_module._flush_trace_async_logging()
+    assert len(flushed) == 0
+
+
+# ============================================================================
 # INTEGRATION TESTS
 # ============================================================================
 
@@ -224,6 +258,23 @@ def test_process_transcript_creates_spans(mock_transcript_file):
     tool_span = tool_spans[0]
     assert tool_span.name == "tool_Bash"
 
+    # Verify LLM spans have MESSAGE_FORMAT set to "anthropic" for Chat UI rendering
+    for llm_span in llm_spans:
+        assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    # Verify LLM span outputs are in Anthropic response format
+    first_llm = llm_spans[0]
+    outputs = first_llm.outputs
+    assert outputs["type"] == "message"
+    assert outputs["role"] == "assistant"
+    assert isinstance(outputs["content"], list)
+
+    # Verify LLM span inputs contain messages in Anthropic format
+    inputs = first_llm.inputs
+    assert "messages" in inputs
+    messages = inputs["messages"]
+    assert any(m["role"] == "user" for m in messages)
+
 
 def test_process_transcript_returns_none_for_nonexistent_file():
     result = process_transcript("/nonexistent/path/transcript.jsonl", "test-session-123")
@@ -292,3 +343,509 @@ def test_process_transcript_tracks_token_usage(mock_transcript_file_with_usage):
     assert trace.info.token_usage["input_tokens"] == 150
     assert trace.info.token_usage["output_tokens"] == 25
     assert trace.info.token_usage["total_tokens"] == 175
+
+
+# ============================================================================
+# SDK MESSAGE PROCESSING TESTS
+# ============================================================================
+
+
+def test_process_sdk_messages_empty_list():
+    assert process_sdk_messages([]) is None
+
+
+def test_process_sdk_messages_no_user_prompt():
+    messages = [
+        AssistantMessage(
+            content=[TextBlock(text="Hello!")],
+            model="claude-sonnet-4-20250514",
+        ),
+    ]
+    assert process_sdk_messages(messages) is None
+
+
+def test_process_sdk_messages_simple_conversation():
+    messages = [
+        UserMessage(content="What is 2 + 2?"),
+        AssistantMessage(
+            content=[TextBlock(text="The answer is 4.")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=1000,
+            duration_api_ms=800,
+            is_error=False,
+            num_turns=1,
+            session_id="test-sdk-session",
+            usage={"input_tokens": 100, "output_tokens": 20},
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "test-sdk-session")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    root_span = trace.data.spans[0]
+    assert root_span.name == "claude_code_conversation"
+    assert root_span.span_type == SpanType.AGENT
+
+    # LLM span should have conversation context as input in Anthropic format
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 1
+    assert llm_spans[0].name == "llm"
+    assert llm_spans[0].inputs["model"] == "claude-sonnet-4-20250514"
+    assert llm_spans[0].inputs["messages"] == [{"role": "user", "content": "What is 2 + 2?"}]
+    assert llm_spans[0].get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    # Output should be in Anthropic response format
+    outputs = llm_spans[0].outputs
+    assert outputs["type"] == "message"
+    assert outputs["role"] == "assistant"
+    assert outputs["content"] == [{"type": "text", "text": "The answer is 4."}]
+
+    # Token usage from ResultMessage should be on the root span and trace level
+    token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage is not None
+    assert token_usage["input_tokens"] == 100
+    assert token_usage["output_tokens"] == 20
+    assert token_usage["total_tokens"] == 120
+
+    assert trace.info.token_usage is not None
+    assert trace.info.token_usage["input_tokens"] == 100
+    assert trace.info.token_usage["output_tokens"] == 20
+    assert trace.info.token_usage["total_tokens"] == 120
+
+    # Duration should reflect ResultMessage.duration_ms (1000ms = 1s)
+    duration_ns = root_span.end_time_ns - root_span.start_time_ns
+    assert abs(duration_ns - 1_000_000_000) < 1_000_000  # within 1ms tolerance
+
+    assert trace.info.trace_metadata.get("mlflow.trace.session") == "test-sdk-session"
+    assert trace.info.request_preview == "What is 2 + 2?"
+    assert trace.info.response_preview == "The answer is 4."
+
+
+def test_process_sdk_messages_multiple_tools():
+    messages = [
+        UserMessage(content="Read two files"),
+        AssistantMessage(
+            content=[
+                ToolUseBlock(id="tool_1", name="Read", input={"path": "a.py"}),
+                ToolUseBlock(id="tool_2", name="Read", input={"path": "b.py"}),
+            ],
+            model="claude-sonnet-4-20250514",
+        ),
+        UserMessage(
+            content=[
+                ToolResultBlock(tool_use_id="tool_1", content="content of a"),
+                ToolResultBlock(tool_use_id="tool_2", content="content of b"),
+            ],
+            tool_use_result={"tool_use_id": "tool_1"},
+        ),
+        AssistantMessage(
+            content=[TextBlock(text="Here are the contents.")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=2000,
+            duration_api_ms=1500,
+            is_error=False,
+            num_turns=2,
+            session_id="multi-tool-session",
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "multi-tool-session")
+
+    assert trace is not None
+    spans = list(trace.search_spans())
+
+    tool_spans = [s for s in spans if s.span_type == SpanType.TOOL]
+    assert len(tool_spans) == 2
+    assert all(s.name == "tool_Read" for s in tool_spans)
+    tool_results = {s.outputs["result"] for s in tool_spans}
+    assert tool_results == {"content of a", "content of b"}
+
+
+def test_process_sdk_messages_cache_tokens():
+    messages = [
+        UserMessage(content="Hello"),
+        AssistantMessage(
+            content=[TextBlock(text="Hi!")],
+            model="claude-sonnet-4-20250514",
+        ),
+        ResultMessage(
+            subtype="success",
+            duration_ms=5000,
+            duration_api_ms=4000,
+            is_error=False,
+            num_turns=1,
+            session_id="cache-session",
+            usage={
+                "input_tokens": 36,
+                "cache_creation_input_tokens": 23554,
+                "cache_read_input_tokens": 139035,
+                "output_tokens": 3344,
+            },
+        ),
+    ]
+
+    trace = process_sdk_messages(messages, "cache-session")
+
+    assert trace is not None
+    root_span = trace.data.spans[0]
+
+    # input_tokens should include cache_creation but not cache_read: 36 + 23554 = 23590
+    token_usage = root_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert token_usage["input_tokens"] == 23590
+    assert token_usage["output_tokens"] == 3344
+    assert token_usage["total_tokens"] == 23590 + 3344
+
+    # Trace-level aggregation should match
+    assert trace.info.token_usage["input_tokens"] == 23590
+    assert trace.info.token_usage["output_tokens"] == 3344
+
+
+# ============================================================================
+# FIND LAST USER MESSAGE INDEX TESTS
+# ============================================================================
+
+
+def test_find_last_user_message_skips_skill_injection():
+    transcript = [
+        {"type": "queue-operation"},
+        {"type": "queue-operation"},
+        # Entry 2: actual user prompt
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Enable tracing on the agent."},
+            "timestamp": "2025-01-01T00:00:00Z",
+        },
+        # Entry 3: assistant thinking
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "thinking", "thinking": "Let me use the skill."}],
+            },
+            "timestamp": "2025-01-01T00:00:01Z",
+        },
+        # Entry 4: assistant invokes Skill tool
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_abc123",
+                        "name": "Skill",
+                        "input": {"skill": "instrumenting-with-mlflow-tracing"},
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:02Z",
+        },
+        # Entry 5: tool result with commandName (correctly skipped by toolUseResult check)
+        {
+            "type": "user",
+            "toolUseResult": {
+                "success": True,
+                "commandName": "instrumenting-with-mlflow-tracing",
+            },
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_abc123",
+                        "content": "Launching skill: instrumenting-with-mlflow-tracing",
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:03Z",
+        },
+        # Entry 6: skill content injection (BUG: not flagged as tool result)
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Base directory for this skill: /path/to/skill\n\n"
+                            "# MLflow Tracing Guide\n\n...(full skill content)..."
+                        ),
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:04Z",
+        },
+        # Entry 7: assistant continues
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "thinking", "thinking": "Now let me implement tracing."}],
+            },
+            "timestamp": "2025-01-01T00:00:05Z",
+        },
+        # Entry 8: assistant text response
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "I've enabled tracing on the agent."}],
+            },
+            "timestamp": "2025-01-01T00:00:06Z",
+        },
+    ]
+
+    idx = find_last_user_message_index(transcript)
+
+    # Should return index 2 (actual user prompt), not 6 (skill injection)
+    assert idx == 2
+    assert transcript[idx]["message"]["content"] == "Enable tracing on the agent."
+
+
+def test_find_last_user_message_index_basic():
+    transcript = [
+        {"type": "queue-operation"},
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "First question"},
+            "timestamp": "2025-01-01T00:00:00Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "First answer"}],
+            },
+            "timestamp": "2025-01-01T00:00:01Z",
+        },
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Second question"},
+            "timestamp": "2025-01-01T00:00:02Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Second answer"}],
+            },
+            "timestamp": "2025-01-01T00:00:03Z",
+        },
+    ]
+
+    idx = find_last_user_message_index(transcript)
+
+    assert idx == 3
+    assert transcript[idx]["message"]["content"] == "Second question"
+
+
+def test_find_last_user_message_skips_consecutive_skill_injections():
+    transcript = [
+        # Entry 0: actual user prompt
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Do the thing."},
+            "timestamp": "2025-01-01T00:00:00Z",
+        },
+        # Entry 1: assistant invokes first Skill
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_1",
+                        "name": "Skill",
+                        "input": {"skill": "skill-one"},
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:01Z",
+        },
+        # Entry 2: first skill tool result
+        {
+            "type": "user",
+            "toolUseResult": {"success": True, "commandName": "skill-one"},
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_1",
+                        "content": "Launching skill: skill-one",
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:02Z",
+        },
+        # Entry 3: first skill content injection
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [{"type": "text", "text": "Base directory: /skill-one\n# Skill One"}],
+            },
+            "timestamp": "2025-01-01T00:00:03Z",
+        },
+        # Entry 4: assistant invokes second Skill
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "toolu_2",
+                        "name": "Skill",
+                        "input": {"skill": "skill-two"},
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:04Z",
+        },
+        # Entry 5: second skill tool result
+        {
+            "type": "user",
+            "toolUseResult": {"success": True, "commandName": "skill-two"},
+            "message": {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "toolu_2",
+                        "content": "Launching skill: skill-two",
+                    }
+                ],
+            },
+            "timestamp": "2025-01-01T00:00:05Z",
+        },
+        # Entry 6: second skill content injection
+        {
+            "type": "user",
+            "message": {
+                "role": "user",
+                "content": [{"type": "text", "text": "Base directory: /skill-two\n# Skill Two"}],
+            },
+            "timestamp": "2025-01-01T00:00:06Z",
+        },
+        # Entry 7: assistant response
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Done."}],
+            },
+            "timestamp": "2025-01-01T00:00:07Z",
+        },
+    ]
+
+    idx = find_last_user_message_index(transcript)
+
+    # Should skip both skill injections (entries 3 and 6) and return entry 0
+    assert idx == 0
+    assert transcript[idx]["message"]["content"] == "Do the thing."
+
+
+def test_process_transcript_captures_claude_code_version(tmp_path):
+    transcript = [
+        {
+            "type": "queue-operation",
+            "operation": "dequeue",
+            "timestamp": "2025-01-15T09:59:59.000Z",
+            "sessionId": "test-version-session",
+        },
+        {
+            "type": "user",
+            "version": "2.1.34",
+            "message": {"role": "user", "content": "Hello!"},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        {
+            "type": "assistant",
+            "version": "2.1.34",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Hi there!"}],
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+    ]
+
+    transcript_path = tmp_path / "version_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(entry) for entry in transcript) + "\n")
+    trace = process_transcript(str(transcript_path), "test-version-session")
+
+    assert trace is not None
+    assert trace.info.trace_metadata.get(METADATA_KEY_CLAUDE_CODE_VERSION) == "2.1.34"
+
+
+def test_process_transcript_no_version_field(mock_transcript_file):
+    trace = process_transcript(mock_transcript_file, "test-session-no-version")
+
+    assert trace is not None
+    assert METADATA_KEY_CLAUDE_CODE_VERSION not in trace.info.trace_metadata
+
+
+def test_process_transcript_includes_steer_messages(tmp_path):
+    transcript = [
+        {
+            "type": "user",
+            "message": {"role": "user", "content": "Tell me about Python."},
+            "timestamp": "2025-01-15T10:00:00.000Z",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Python is a programming language."}],
+            },
+            "timestamp": "2025-01-15T10:00:01.000Z",
+        },
+        {
+            "type": "queue-operation",
+            "operation": "enqueue",
+            "content": "also tell me about Java",
+            "timestamp": "2025-01-15T10:00:02.000Z",
+            "sessionId": "test-steer-session",
+        },
+        {
+            "type": "queue-operation",
+            "operation": "remove",
+            "timestamp": "2025-01-15T10:00:03.000Z",
+            "sessionId": "test-steer-session",
+        },
+        {
+            "type": "assistant",
+            "message": {
+                "role": "assistant",
+                "content": [{"type": "text", "text": "Java is also a programming language."}],
+            },
+            "timestamp": "2025-01-15T10:00:04.000Z",
+        },
+    ]
+
+    transcript_path = tmp_path / "steer_transcript.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(entry) for entry in transcript) + "\n")
+    trace = process_transcript(str(transcript_path), "test-steer-session")
+    assert trace is not None
+
+    spans = list(trace.search_spans())
+    llm_spans = [s for s in spans if s.span_type == SpanType.LLM]
+    assert len(llm_spans) == 2
+
+    # The second LLM span should include the steer message in its inputs
+    second_llm = llm_spans[1]
+    input_messages = second_llm.inputs["messages"]
+    steer_messages = [m for m in input_messages if m.get("content") == "also tell me about Java"]
+    assert len(steer_messages) == 1
+    assert steer_messages[0]["role"] == "user"

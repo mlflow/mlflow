@@ -117,7 +117,7 @@ let globalAuthProvider: AuthProvider | null = null;
  *
  * @example
  * ```typescript
- * import { init, withSpan } from 'mlflow-tracing-ts';
+ * import { init, withSpan } from '@mlflow/core';
  *
  * // Option 1: Use MLflow Tracking Server
  * init({

@@ -23,6 +23,12 @@ _LLM_ANSWER = "What about Tokyo?"
 
 _CREWAI_VERSION = Version(crewai.__version__)
 _IS_CREWAI_V1_OR_LATER = _CREWAI_VERSION.major >= 1
+# _create_long_term_memory was replaced by _save_to_memory in crewai 1.10.0
+_MEMORY_SPAN_NAME = (
+    "CrewAgentExecutor._save_to_memory"
+    if _CREWAI_VERSION >= Version("1.10.0")
+    else "CrewAgentExecutor._create_long_term_memory"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -51,33 +57,31 @@ def create_sample_llm_response(content, tool_calls=None):
     if tool_calls:
         message["tool_calls"] = tool_calls
 
-    return ModelResponse(
-        **{
-            "id": "chatcmpl-123",
-            "object": "chat.completion",
-            "created": 1677652288,
-            "model": "gpt-4o",
-            "system_fingerprint": "fp_44709d6fcb",
-            "choices": [
-                {
-                    "index": 0,
-                    "message": message,
-                    "logprobs": None,
-                    "finish_reason": "tool_calls" if tool_calls else "stop",
-                }
-            ],
-            "usage": {
-                "prompt_tokens": 9,
-                "completion_tokens": 12,
-                "total_tokens": 21,
-                "completion_tokens_details": {
-                    "reasoning_tokens": 0,
-                    "accepted_prediction_tokens": 0,
-                    "rejected_prediction_tokens": 0,
-                },
+    return ModelResponse(**{
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "gpt-4o",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [
+            {
+                "index": 0,
+                "message": message,
+                "logprobs": None,
+                "finish_reason": "tool_calls" if tool_calls else "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+            "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0,
             },
-        }
-    )
+        },
+    })
 
 
 def _simple_chat_completion(*args, **kwargs):
@@ -323,16 +327,17 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog, mock_li
     assert span_3.inputs["messages"] is not None
     assert span_3.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     assert span_3.model_name == "openai/gpt-4o-mini"
-    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert span_3.llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+        assert span_3.llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
 
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
-    assert span_4.name == "CrewAgentExecutor._create_long_term_memory"
+    assert span_4.name == _MEMORY_SPAN_NAME
     assert span_4.span_type == SpanType.MEMORY
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs == {
@@ -464,11 +469,12 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog, mock_lite
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert span_3.model_name == "openai/gpt-4o-mini"
-    assert span_3.llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert span_3.llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
     # Tool trace
     span_4 = traces[0].data.spans[4]
     assert span_4.name == "TestTool"
@@ -483,14 +489,15 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog, mock_lite
     assert span_5.inputs["messages"] is not None
     assert span_5.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     assert span_5.model_name == "openai/gpt-4o-mini"
-    assert span_5.llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        assert span_5.llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
     # Create Long Term Memory
     span_6 = traces[0].data.spans[6]
-    assert span_6.name == "CrewAgentExecutor._create_long_term_memory"
+    assert span_6.name == _MEMORY_SPAN_NAME
     assert span_6.span_type == SpanType.MEMORY
     assert span_6.parent_id is span_2.span_id
 
@@ -555,7 +562,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
 
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
-    assert span_4.name == "CrewAgentExecutor._create_long_term_memory"
+    assert span_4.name == _MEMORY_SPAN_NAME
     assert span_4.span_type == SpanType.MEMORY
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs == {
@@ -597,7 +604,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_7.model_name == "openai/gpt-4o-mini"
     # Create Long Term Memory
     span_8 = traces[0].data.spans[8]
-    assert span_8.name == "CrewAgentExecutor._create_long_term_memory"
+    assert span_8.name == _MEMORY_SPAN_NAME
     assert span_8.span_type == SpanType.MEMORY
     assert span_8.parent_id is span_6.span_id
     assert span_8.inputs == {
@@ -617,8 +624,12 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
 
 
 @pytest.mark.skipif(
-    Version(crewai.__version__) < Version("0.83.0"),
-    reason=("Memory feature in the current style is not available before 0.83.0"),
+    Version(crewai.__version__) < Version("0.83.0")
+    or Version(crewai.__version__) >= Version("1.10.0"),
+    reason=(
+        "Memory feature in the current style is not available before 0.83.0. "
+        "The memory API was redesigned in 1.10.0 and this test needs to be updated."
+    ),
 )
 def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     crew = Crew(
@@ -728,7 +739,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
 
     # Create Long Term Memory
     span_8 = traces[0].data.spans[8]
-    assert span_8.name == "CrewAgentExecutor._create_long_term_memory"
+    assert span_8.name == _MEMORY_SPAN_NAME
     assert span_8.span_type == SpanType.MEMORY
     assert span_8.parent_id is span_2.span_id
     assert span_8.inputs == {
@@ -813,7 +824,7 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
 
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
-    assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
+    assert span_5.name == _MEMORY_SPAN_NAME
     assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_2.span_id
     assert span_5.inputs == {
@@ -893,7 +904,7 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
     assert span_4.model_name == "openai/gpt-4o-mini"
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
-    assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
+    assert span_5.name == _MEMORY_SPAN_NAME
     assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_3.span_id
     assert span_5.inputs == {
@@ -973,7 +984,7 @@ def test_flow(simple_agent_1, task_1, autolog):
     assert span_4.model_name == "openai/gpt-4o-mini"
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
-    assert span_5.name == "CrewAgentExecutor._create_long_term_memory"
+    assert span_5.name == _MEMORY_SPAN_NAME
     assert span_5.span_type == SpanType.MEMORY
     assert span_5.parent_id is span_3.span_id
     assert span_5.inputs == {

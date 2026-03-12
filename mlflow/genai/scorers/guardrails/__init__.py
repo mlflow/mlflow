@@ -78,8 +78,14 @@ class GuardrailsScorer(Scorer):
         from guardrails import Guard, OnFailAction
 
         validator_class = get_validator_class(validator_name)
-        # Use NOOP on_fail to get validation result instead of raising exception
-        self._guard = Guard().use(validator_class, on_fail=OnFailAction.NOOP, **validator_kwargs)
+        validator = validator_class(on_fail=OnFailAction.NOOP, **validator_kwargs)
+        try:
+            self._guard = Guard().use(validator)
+        except TypeError:
+            # guardrails-ai < 0.9.0: on_fail is passed to Guard.use() instead
+            self._guard = Guard().use(
+                validator_class, on_fail=OnFailAction.NOOP, **validator_kwargs
+            )
 
     def __call__(
         self,
