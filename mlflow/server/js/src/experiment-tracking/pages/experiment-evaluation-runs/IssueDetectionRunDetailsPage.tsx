@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import { RunPage } from '../../components/run-page/RunPage';
-import { ExperimentPageTabName, RunPageTabName } from '../../constants';
+import { ExperimentPageTabName, RunPageTabName, MLFLOW_ISSUE_DETECTION_JOB_ID_TAG } from '../../constants';
 import Routes from '../../routes';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { IssueDetectionRunOverview } from '../../components/run-page/overview/IssueDetectionRunOverview';
@@ -70,15 +70,12 @@ export const IssueDetectionRunDetailsPage = () => {
         visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES, RunPageTabName.ISSUES],
       }}
       onDeleteSuccess={handleDeleteSuccess}
-      renderCustomOverview={({ runUuid, runInfo, tags, onRunDataUpdated }) => (
+      renderCustomOverview={({ runInfo, tags }) => (
         <IssueDetectionRunOverview
-          runUuid={runUuid}
           runInfo={runInfo}
           tags={tags}
-          onRunDataUpdated={onRunDataUpdated}
-          progressProps={{
-            onCancel: handleCancelDetection,
-          }}
+          jobId={tags[MLFLOW_ISSUE_DETECTION_JOB_ID_TAG]?.value}
+          onCancel={handleCancelDetection}
         />
       )}
     />

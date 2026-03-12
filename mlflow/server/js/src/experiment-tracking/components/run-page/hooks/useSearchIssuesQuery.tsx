@@ -22,14 +22,19 @@ type SearchIssuesResponse = {
   next_page_token?: string;
 };
 
+const POLLING_INTERVAL_MS = 3000;
+
 export const useSearchIssuesQuery = ({
   experimentId,
   sourceRunId,
   enabled = true,
+  pollingEnabled = false,
 }: {
   experimentId: string;
   sourceRunId: string;
   enabled?: boolean;
+  /** Whether to poll for updates (e.g., while job is running) */
+  pollingEnabled?: boolean;
 }) => {
   const { data, isLoading, isFetching, refetch, error } = useQuery<SearchIssuesResponse, Error>({
     queryKey: [SEARCH_ISSUES_QUERY_KEY, experimentId, sourceRunId],
@@ -49,6 +54,12 @@ export const useSearchIssuesQuery = ({
     refetchOnWindowFocus: false,
     retry: false,
     enabled,
+    refetchInterval: (_data, query) => {
+      if (!pollingEnabled || query.state.error) {
+        return false;
+      }
+      return POLLING_INTERVAL_MS;
+    },
   });
 
   return {

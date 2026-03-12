@@ -1,38 +1,50 @@
-import { useDesignSystemTheme } from '@databricks/design-system';
 import { KeyValueProperty, NoneCell } from '@databricks/web-shared/utils';
 import { useIntl } from 'react-intl';
-import { Link, useLocation } from '../../../../common/utils/RoutingUtils';
+import { Link } from '../../../../common/utils/RoutingUtils';
 import Utils from '../../../../common/utils/Utils';
 import { DetailsPageLayout } from '../../../../common/components/details-page-layout/DetailsPageLayout';
 import { DetailsOverviewCopyableIdBox } from '../../DetailsOverviewCopyableIdBox';
-import { RunViewDescriptionBox } from './RunViewDescriptionBox';
 import { RunViewStatusBox } from './RunViewStatusBox';
 import { RunViewUserLinkBox } from './RunViewUserLinkBox';
-import { RunViewSourceBox } from './RunViewSourceBox';
-import { IssueDetectionProgress, type IssueDetectionProgressProps } from './IssueDetectionProgress';
+import { IssueDetectionProgress } from './IssueDetectionProgress';
+import { useFetchIssueJobStatus, isJobComplete } from '../hooks/useFetchIssueJobStatus';
 import Routes from '../../../routes';
 import type { RunInfoEntity } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 
 export interface IssueDetectionRunOverviewProps {
-  runUuid: string;
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   tags: Record<string, KeyValueEntity>;
-  onRunDataUpdated: () => void | Promise<any>;
-  progressProps: IssueDetectionProgressProps;
+  /** Job ID for fetching issue detection job status */
+  jobId?: string;
+  /** Callback when cancel button is clicked */
+  onCancel?: () => void;
+  /** Whether the cancel operation is in progress */
+  isCancelling?: boolean;
 }
 
 export const IssueDetectionRunOverview = ({
-  runUuid,
   runInfo,
   tags,
-  onRunDataUpdated,
-  progressProps,
+  jobId,
+  onCancel,
+  isCancelling,
 }: IssueDetectionRunOverviewProps) => {
   const intl = useIntl();
-  const { theme } = useDesignSystemTheme();
-  const { search } = useLocation();
+
+  const {
+    status: jobStatus,
+    totalTraces,
+    result,
+    isLoading: isLoadingJobStatus,
+    error: jobStatusError,
+  } = useFetchIssueJobStatus({
+    jobId,
+    enabled: !!jobId,
+  });
+
+  const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
 
   const detailsSection = {
     id: 'DETAILS',
@@ -91,30 +103,15 @@ export const IssueDetectionRunOverview = ({
           })}
           value={<DetailsOverviewCopyableIdBox value={runInfo.runUuid ?? ''} />}
         />
-        <KeyValueProperty
-          keyValue={intl.formatMessage({
-            defaultMessage: 'Duration',
-            description: 'Run page > Overview > Run duration section label',
-          })}
-          value={Utils.getDuration(runInfo.startTime, runInfo.endTime)}
-        />
-        <KeyValueProperty
-          keyValue={intl.formatMessage({
-            defaultMessage: 'Source',
-            description: 'Run page > Overview > Run source section label',
-          })}
-          value={
-            <RunViewSourceBox
-              tags={tags}
-              search={search}
-              runUuid={runUuid}
-              css={{
-                paddingTop: theme.spacing.xs,
-                paddingBottom: theme.spacing.xs,
-              }}
-            />
-          }
-        />
+        {jobComplete && (
+          <KeyValueProperty
+            keyValue={intl.formatMessage({
+              defaultMessage: 'Duration',
+              description: 'Run page > Overview > Run duration section label',
+            })}
+            value={Utils.getDuration(runInfo.startTime, runInfo.endTime)}
+          />
+        )}
       </>
     ),
   };
@@ -125,8 +122,15 @@ export const IssueDetectionRunOverview = ({
       usingSidebarLayout
       secondarySections={[detailsSection]}
     >
-      <RunViewDescriptionBox runUuid={runUuid} tags={tags} onDescriptionChanged={onRunDataUpdated} />
-      <IssueDetectionProgress {...progressProps} />
+      <IssueDetectionProgress
+        onCancel={onCancel}
+        isCancelling={isCancelling}
+        jobStatus={jobStatus}
+        totalTraces={totalTraces}
+        result={result}
+        isLoadingJobStatus={isLoadingJobStatus}
+        jobStatusError={jobStatusError}
+      />
     </DetailsPageLayout>
   );
 };
