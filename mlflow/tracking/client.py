@@ -730,7 +730,6 @@ class MlflowClient:
         # OSS approach using RegisteredModel with special tags
         is_new_prompt = False
         rm = None
-        tags = tags or {}
         try:
             rm = registry_client.get_registered_model(name)
         except MlflowException:
