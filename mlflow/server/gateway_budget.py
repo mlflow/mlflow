@@ -73,7 +73,7 @@ def calculate_existing_cost_for_new_windows(
 
 def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
     """Refresh budget policies from the database if stale."""
-    tracker = get_budget_tracker()
+    tracker = get_budget_tracker(store)
     if tracker.needs_refresh():
         try:
             policies = store.list_budget_policies()
@@ -165,7 +165,7 @@ def check_budget_limit(
     Raises HTTPException(429) with an error trace if the budget limit is exceeded.
     """
     maybe_refresh_budget_policies(store)
-    tracker = get_budget_tracker()
+    tracker = get_budget_tracker(store)
     exceeded, window = tracker.should_reject_request(workspace=workspace)
     if exceeded:
         policy = window.policy
@@ -208,7 +208,7 @@ def make_budget_on_complete(
                 return
 
             maybe_refresh_budget_policies(store)
-            tracker = get_budget_tracker()
+            tracker = get_budget_tracker(store)
             if newly_exceeded := tracker.record_cost(total_cost, workspace=workspace):
                 if registry_store:
                     fire_budget_exceeded_webhooks(newly_exceeded, workspace, registry_store)

@@ -659,6 +659,18 @@ MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
 #: (default: ``None`` — uses in-memory tracker)
 MLFLOW_GATEWAY_BUDGET_REDIS_URL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_REDIS_URL", str, None)
 
+#: Budget tracker implementation: ``"in_memory"`` (default, single-process) or
+#: ``"database"`` (multi-process, queries DB for accurate cross-worker enforcement).
+#: (default: ``"in_memory"``)
+MLFLOW_GATEWAY_BUDGET_TRACKER_TYPE = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_BUDGET_TRACKER_TYPE", str, "in_memory"
+)
+
+#: TTL in seconds for the database budget tracker's rejection-check cache.
+#: Only used when ``MLFLOW_GATEWAY_BUDGET_TRACKER_TYPE=database``.
+#: (default: ``5``)
+MLFLOW_GATEWAY_BUDGET_CACHE_TTL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_CACHE_TTL", int, 5)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 

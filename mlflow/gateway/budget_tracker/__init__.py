@@ -20,6 +20,7 @@ from mlflow.entities.gateway_budget_policy import (
 from mlflow.environment_variables import (
     MLFLOW_GATEWAY_BUDGET_REDIS_URL,
     MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL,
+    MLFLOW_GATEWAY_BUDGET_TRACKER_TYPE,
 )
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -32,8 +33,13 @@ _budget_tracker: BudgetTracker | None = None
 _tracker_lock = threading.Lock()
 
 
-def get_budget_tracker() -> BudgetTracker:
-    """Get or create the module-level BudgetTracker singleton."""
+def get_budget_tracker(store=None) -> BudgetTracker:
+    """Get or create the module-level BudgetTracker singleton.
+
+    Args:
+        store: SqlAlchemyStore instance, required when using the ``"database"``
+            tracker type. Ignored after the singleton is created.
+    """
     global _budget_tracker
     if _budget_tracker is None:
         with _tracker_lock:
@@ -42,6 +48,16 @@ def get_budget_tracker() -> BudgetTracker:
                     from mlflow.gateway.budget_tracker.redis import RedisBudgetTracker
 
                     _budget_tracker = RedisBudgetTracker(_redis_url=redis_url)
+                elif MLFLOW_GATEWAY_BUDGET_TRACKER_TYPE.get() == "database":
+                    if store is None:
+                        raise ValueError(
+                            "MLFLOW_GATEWAY_BUDGET_TRACKER_TYPE is set to 'database' but "
+                            "no store was provided to get_budget_tracker(). Ensure the "
+                            "tracking store is initialized before budget tracking starts."
+                        )
+                    from mlflow.gateway.budget_tracker.database import DatabaseBudgetTracker
+
+                    _budget_tracker = DatabaseBudgetTracker(_store=store)
                 else:
                     from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
 
