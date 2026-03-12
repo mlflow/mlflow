@@ -97,6 +97,17 @@ const sidebarsSelfHosting: SidebarsConfig = {
       ],
     },
     {
+      type: 'category',
+      label: 'Deploying MLflow to cloud',
+      items: [
+        {
+          type: 'doc',
+          id: 'deploy-to-cloud/gcp',
+          label: 'GCP',
+        },
+      ],
+    },
+    {
       type: 'doc',
       id: 'migration',
       label: 'Upgrade',
