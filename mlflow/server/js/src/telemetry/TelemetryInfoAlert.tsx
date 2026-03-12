@@ -32,6 +32,7 @@ export const TelemetryInfoAlert = () => {
               values={{
                 documentation: (chunks: any) => (
                   <Link
+                    componentId="mlflow.telemetry.info_alert.documentation_link"
                     to="https://mlflow.org/docs/latest/community/usage-tracking.html"
                     target="_blank"
                     rel="noopener noreferrer"

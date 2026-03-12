@@ -1,0 +1,371 @@
+# Attribute Mapping Reference
+
+When MLflow ingests traces from third-party OpenTelemetry instrumentation, it automatically translates
+framework-specific span attributes into MLflow's standard format. This ensures that key information
+like span types, inputs/outputs, token usage, and model names display correctly in the MLflow UI
+regardless of the originating framework.
+
+## How Translation Works
+
+When a trace is received via the [OTLP endpoint](/genai/tracing/opentelemetry/ingest), MLflow runs
+each span through a series of translators. Each translator understands a specific set of OTel semantic
+conventions and maps them to MLflow span attributes.
+
+## Supported Translations
+
+MLflow includes built-in translators for the following frameworks and conventions:
+
+- [OpenTelemetry GenAI Semantic Conventions](#opentelemetry-genai-semantic-conventions)
+- [OpenInference (Arize)](#openinference-arize)
+- [Traceloop / OpenLLMetry](#traceloop--openllmetry)
+- [Langfuse](#langfuse)
+- [Vercel AI SDK](#vercel-ai-sdk)
+- [Spring AI](#spring-ai)
+- [Google ADK](#google-adk)
+- [LiveKit Agents](#livekit-agents)
+- [VoltAgent](#voltagent)
+
+## Translated Span Attributes
+
+| MLflow Attribute                                             | Where It Appears in the UI                                                                                            |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Span type (`mlflow.spanType`)                                | Determines the icon shown next to each span in the span tree (e.g., a model icon for `LLM`, a wrench icon for `TOOL`) |
+| Inputs / Outputs (`mlflow.spanInputs`, `mlflow.spanOutputs`) | Displayed in the **Inputs / Outputs** tab of the span detail panel                                                    |
+| Token usage (`mlflow.chat.tokenUsage`)                       | Shown in the trace drawer header and aggregated in the trace table's **Tokens** column                                |
+| Model name (`mlflow.llm.model`)                              | Shown in the span detail panel as the model used for the LLM call                                                     |
+| Model provider (`mlflow.llm.provider`)                       | Shown alongside the model name (e.g., `openai`, `anthropic`)                                                          |
+| Message format (`mlflow.message.format`)                     | Controls how inputs/outputs are rendered in the chat UI view                                                          |
+
+## Mapping Tables
+
+### OpenTelemetry GenAI Semantic Conventions
+
+Based on the [OTel GenAI semantic conventions](https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/).
+
+**Span Type** (from `gen_ai.operation.name`):
+
+| Source Value       | MLflow Span Type |
+| ------------------ | ---------------- |
+| `chat`             | `CHAT_MODEL`     |
+| `create_agent`     | `AGENT`          |
+| `embeddings`       | `EMBEDDING`      |
+| `execute_tool`     | `TOOL`           |
+| `generate_content` | `LLM`            |
+| `invoke_agent`     | `AGENT`          |
+| `text_completion`  | `LLM`            |
+| `response`         | `LLM`            |
+
+**Inputs / Outputs:**
+
+| Source Attribute             | MLflow Attribute     |
+| ---------------------------- | -------------------- |
+| `gen_ai.input.messages`      | `mlflow.spanInputs`  |
+| `gen_ai.tool.call.arguments` | `mlflow.spanInputs`  |
+| `gen_ai.output.messages`     | `mlflow.spanOutputs` |
+| `gen_ai.tool.call.result`    | `mlflow.spanOutputs` |
+
+Inputs and outputs can also be extracted from span events:
+
+- **Input events**: `gen_ai.system.message`, `gen_ai.user.message`, `gen_ai.assistant.message`
+- **Output events**: `gen_ai.choice`
+
+**Token Usage:**
+
+| Source Attribute                   | MLflow Token Field |
+| ---------------------------------- | ------------------ |
+| `gen_ai.usage.input_tokens`        | `input_tokens`     |
+| `gen_ai.usage.output_tokens`       | `output_tokens`    |
+| _(calculated from input + output)_ | `total_tokens`     |
+
+**Model:**
+
+| Source Attribute        | MLflow Attribute      |
+| ----------------------- | --------------------- |
+| `gen_ai.response.model` | `mlflow.llm.model`    |
+| `gen_ai.request.model`  | `mlflow.llm.model`    |
+| `gen_ai.provider.name`  | `mlflow.llm.provider` |
+
+---
+
+### OpenInference (Arize)
+
+Based on the [OpenInference semantic conventions](https://github.com/Arize-ai/openinference/tree/main/python/openinference-semantic-conventions).
+
+**Span Type** (from `openinference.span.kind`):
+
+| Source Value | MLflow Span Type |
+| ------------ | ---------------- |
+| `TOOL`       | `TOOL`           |
+| `CHAIN`      | `CHAIN`          |
+| `LLM`        | `LLM`            |
+| `RETRIEVER`  | `RETRIEVER`      |
+| `EMBEDDING`  | `EMBEDDING`      |
+| `AGENT`      | `AGENT`          |
+| `RERANKER`   | `RERANKER`       |
+| `UNKNOWN`    | `UNKNOWN`        |
+| `GUARDRAIL`  | `GUARDRAIL`      |
+| `EVALUATOR`  | `EVALUATOR`      |
+
+**Inputs / Outputs:**
+
+| Source Attribute | MLflow Attribute     |
+| ---------------- | -------------------- |
+| `input.value`    | `mlflow.spanInputs`  |
+| `output.value`   | `mlflow.spanOutputs` |
+
+**Token Usage:**
+
+| Source Attribute             | MLflow Token Field |
+| ---------------------------- | ------------------ |
+| `llm.token_count.prompt`     | `input_tokens`     |
+| `llm.token_count.completion` | `output_tokens`    |
+| `llm.token_count.total`      | `total_tokens`     |
+
+**Model:**
+
+| Source Attribute       | MLflow Attribute      |
+| ---------------------- | --------------------- |
+| `llm.model_name`       | `mlflow.llm.model`    |
+| `embedding.model_name` | `mlflow.llm.model`    |
+| `llm.provider`         | `mlflow.llm.provider` |
+
+---
+
+### Traceloop / OpenLLMetry
+
+Based on [OpenLLMetry semantic conventions](https://github.com/traceloop/openllmetry/).
+
+**Span Type** (from `traceloop.span.kind`):
+
+| Source Value | MLflow Span Type |
+| ------------ | ---------------- |
+| `workflow`   | `WORKFLOW`       |
+| `task`       | `TASK`           |
+| `agent`      | `AGENT`          |
+| `tool`       | `TOOL`           |
+| `unknown`    | `UNKNOWN`        |
+
+**Inputs / Outputs:**
+
+| Source Attribute                                         | MLflow Attribute     |
+| -------------------------------------------------------- | -------------------- |
+| `traceloop.entity.input`                                 | `mlflow.spanInputs`  |
+| `gen_ai.prompt.*.content` _(pattern)_                    | `mlflow.spanInputs`  |
+| `gen_ai.completion.*.tool_calls.*.arguments` _(pattern)_ | `mlflow.spanInputs`  |
+| `traceloop.entity.output`                                | `mlflow.spanOutputs` |
+| `gen_ai.completion.*.content` _(pattern)_                | `mlflow.spanOutputs` |
+
+**Token Usage:**
+
+| Source Attribute                 | MLflow Token Field |
+| -------------------------------- | ------------------ |
+| `gen_ai.usage.prompt_tokens`     | `input_tokens`     |
+| `gen_ai.usage.completion_tokens` | `output_tokens`    |
+| `llm.usage.total_tokens`         | `total_tokens`     |
+
+**Model Provider:**
+
+| Source Attribute | MLflow Attribute      |
+| ---------------- | --------------------- |
+| `gen_ai.system`  | `mlflow.llm.provider` |
+
+---
+
+### Langfuse
+
+Maps [Langfuse observation attributes](https://langfuse.com/) to MLflow.
+
+**Span Type** (from `langfuse.observation.type`):
+
+| Source Value | MLflow Span Type |
+| ------------ | ---------------- |
+| `generation` | `LLM`            |
+| `embedding`  | `EMBEDDING`      |
+| `tool`       | `TOOL`           |
+| `retriever`  | `RETRIEVER`      |
+| `agent`      | `AGENT`          |
+| `chain`      | `CHAIN`          |
+| `evaluator`  | `EVALUATOR`      |
+| `guardrail`  | `GUARDRAIL`      |
+| `span`       | `UNKNOWN`        |
+
+**Inputs / Outputs:**
+
+| Source Attribute              | MLflow Attribute     |
+| ----------------------------- | -------------------- |
+| `langfuse.observation.input`  | `mlflow.spanInputs`  |
+| `langfuse.observation.output` | `mlflow.spanOutputs` |
+
+---
+
+### Vercel AI SDK
+
+Based on [Vercel AI SDK telemetry](https://ai-sdk.dev/docs/ai-sdk-core/telemetry).
+
+**Span Type** (from `ai.operationId`):
+
+| Source Value                   | MLflow Span Type |
+| ------------------------------ | ---------------- |
+| `ai.generateText`              | `LLM`            |
+| `ai.generateText.doGenerate`   | `LLM`            |
+| `ai.toolCall`                  | `TOOL`           |
+| `ai.streamText`                | `LLM`            |
+| `ai.streamText.doStream`       | `LLM`            |
+| `ai.generateObject`            | `LLM`            |
+| `ai.generateObject.doGenerate` | `LLM`            |
+| `ai.streamObject`              | `LLM`            |
+| `ai.streamObject.doStream`     | `LLM`            |
+| `ai.embed`                     | `EMBEDDING`      |
+| `ai.embed.doEmbed`             | `EMBEDDING`      |
+| `ai.embedMany`                 | `EMBEDDING`      |
+
+**Inputs / Outputs:**
+
+| Source Attribute                 | MLflow Attribute     |
+| -------------------------------- | -------------------- |
+| `ai.prompt`                      | `mlflow.spanInputs`  |
+| `ai.toolCall.args`               | `mlflow.spanInputs`  |
+| `ai.value` / `ai.values`         | `mlflow.spanInputs`  |
+| `ai.response.text`               | `mlflow.spanOutputs` |
+| `ai.toolCall.result`             | `mlflow.spanOutputs` |
+| `ai.response.object`             | `mlflow.spanOutputs` |
+| `ai.embedding` / `ai.embeddings` | `mlflow.spanOutputs` |
+
+For chat spans (`ai.generateText.doGenerate`, `ai.streamText.doStream`), MLflow unpacks all
+`ai.prompt.*` attributes as inputs and all `ai.response.*` attributes as outputs.
+
+---
+
+### Spring AI
+
+Based on [Spring AI](https://docs.spring.io/spring-ai/reference/) using OTel GenAI semantic conventions.
+
+**Span Type** (from `gen_ai.operation.name`):
+
+| Source Value | MLflow Span Type |
+| ------------ | ---------------- |
+| `chat`       | `CHAT_MODEL`     |
+| `embeddings` | `EMBEDDING`      |
+
+**Inputs / Outputs:**
+
+Spring AI stores inputs and outputs in span events rather than attributes:
+
+| Event Name                  | Event Attribute     | MLflow Attribute     |
+| --------------------------- | ------------------- | -------------------- |
+| `gen_ai.content.prompt`     | `gen_ai.prompt`     | `mlflow.spanInputs`  |
+| `gen_ai.content.completion` | `gen_ai.completion` | `mlflow.spanOutputs` |
+
+**Token Usage:**
+
+| Source Attribute                   | MLflow Token Field |
+| ---------------------------------- | ------------------ |
+| `gen_ai.usage.input_tokens`        | `input_tokens`     |
+| `gen_ai.usage.output_tokens`       | `output_tokens`    |
+| _(calculated from input + output)_ | `total_tokens`     |
+
+---
+
+### Google ADK
+
+Based on [Google Agent Development Kit](https://github.com/google/adk-python) telemetry.
+
+Google ADK uses OTel GenAI semantic conventions for span types and token usage. The following
+additional attributes are mapped for inputs and outputs:
+
+**Inputs / Outputs:**
+
+| Source Attribute                  | MLflow Attribute     |
+| --------------------------------- | -------------------- |
+| `gcp.vertex.agent.llm_request`    | `mlflow.spanInputs`  |
+| `gcp.vertex.agent.tool_call_args` | `mlflow.spanInputs`  |
+| `gcp.vertex.agent.llm_response`   | `mlflow.spanOutputs` |
+| `gcp.vertex.agent.tool_response`  | `mlflow.spanOutputs` |
+
+---
+
+### LiveKit Agents
+
+Based on [LiveKit Agents](https://docs.livekit.io/agents/observability/) telemetry. Inherits GenAI
+semantic conventions for token usage and event-based message extraction.
+
+**Span Type:**
+
+LiveKit uses a combination of heuristics to determine span type:
+
+| Condition                                                                  | MLflow Span Type          |
+| -------------------------------------------------------------------------- | ------------------------- |
+| `gen_ai.request.model` present                                             | `LLM`                     |
+| `gen_ai.operation.name` matches GenAI mapping                              | _(see GenAI table above)_ |
+| `lk.retry_count` present                                                   | `LLM`                     |
+| `lk.function_tool*` prefix                                                 | `TOOL`                    |
+| `lk.agent_name`, `lk.instructions`, `lk.generation_id`                     | `AGENT`                   |
+| `lk.tts*`, `lk.input_text`                                                 | `UNKNOWN`                 |
+| `lk.user_transcript`, `lk.transcript_confidence`, `lk.transcription_delay` | `UNKNOWN`                 |
+
+**Inputs / Outputs:**
+
+| Source Attribute             | MLflow Attribute     |
+| ---------------------------- | -------------------- |
+| `lk.user_input`              | `mlflow.spanInputs`  |
+| `lk.user_transcript`         | `mlflow.spanInputs`  |
+| `lk.chat_ctx`                | `mlflow.spanInputs`  |
+| `lk.input_text`              | `mlflow.spanInputs`  |
+| `lk.response.text`           | `mlflow.spanOutputs` |
+| `lk.response.function_calls` | `mlflow.spanOutputs` |
+
+Also supports GenAI event-based input/output extraction (see [GenAI table above](#opentelemetry-genai-semantic-conventions)).
+
+**Token Usage:** Same as GenAI semantic conventions (`gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`).
+
+---
+
+### VoltAgent
+
+Based on [VoltAgent](https://voltagent.dev/) telemetry.
+
+**Span Type** (from `span.type`, with fallback to `entity.type`):
+
+| Source Value | MLflow Span Type |
+| ------------ | ---------------- |
+| `agent`      | `AGENT`          |
+| `llm`        | `LLM`            |
+| `tool`       | `TOOL`           |
+| `memory`     | `MEMORY`         |
+
+:::note
+`span.type` is checked first because child spans inherit `entity.type` from their parent
+agent, which would incorrectly classify LLM/tool spans as `AGENT`.
+:::
+
+**Inputs / Outputs:**
+
+| Source Attribute | MLflow Attribute     |
+| ---------------- | -------------------- |
+| `agent.messages` | `mlflow.spanInputs`  |
+| `llm.messages`   | `mlflow.spanInputs`  |
+| `input`          | `mlflow.spanInputs`  |
+| `output`         | `mlflow.spanOutputs` |
+
+**Token Usage:**
+
+| Source Attribute                                           | MLflow Token Field |
+| ---------------------------------------------------------- | ------------------ |
+| `usage.prompt_tokens` or `llm.usage.prompt_tokens`         | `input_tokens`     |
+| `usage.completion_tokens` or `llm.usage.completion_tokens` | `output_tokens`    |
+| `usage.total_tokens` or `llm.usage.total_tokens`           | `total_tokens`     |
+
+## Session and User Mapping
+
+In addition to span-level attributes, MLflow also maps the following OTel span attributes to
+trace-level metadata:
+
+| Span Attribute | Trace Metadata Key     | Description                        |
+| -------------- | ---------------------- | ---------------------------------- |
+| `session.id`   | `mlflow.trace.session` | Session or conversation identifier |
+| `user.id`      | `mlflow.trace.user`    | Application end-user identifier    |
+
+These attributes follow the [OTel semantic conventions for sessions](https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/)
+and [users](https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/).
+
+For more details, see [Track Users and Sessions](/genai/tracing/track-users-sessions/).

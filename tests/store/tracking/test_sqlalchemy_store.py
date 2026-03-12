@@ -6272,6 +6272,60 @@ def test_search_traces_with_assessment_is_null_filters(store: SqlAlchemyStore):
     assert traces[0].request_id == trace1_id
 
 
+def test_search_traces_with_feedback_filters_excludes_invalid_assessments(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment("test_feedback_filters_excludes_invalid")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+
+    # trace1: overridden from "no" to "yes" - only "yes" is valid
+    original_feedback = Feedback(
+        trace_id=trace1_id,
+        name="correctness",
+        value="no",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+    )
+    created_original = store.create_assessment(original_feedback)
+
+    override_feedback = Feedback(
+        trace_id=trace1_id,
+        name="correctness",
+        value="yes",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+        overrides=created_original.assessment_id,
+    )
+    store.create_assessment(override_feedback)
+
+    # trace2: "no" assessment, never overridden
+    feedback2 = Feedback(
+        trace_id=trace2_id,
+        name="correctness",
+        value="no",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+    )
+    store.create_assessment(feedback2)
+
+    # Filtering by "yes" should return only trace1 (current valid assessment)
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.correctness = "yes"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Filtering by "no" should return only trace2 (trace1's "no" is invalid/overridden)
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.correctness = "no"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # IS NOT NULL should return both (both have a valid assessment)
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.correctness IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_expectation_like")
 

@@ -165,6 +165,8 @@ class CreateLoggedModelEvent(Event):
             data["flavor"] = flavor.removeprefix("mlflow.")
         if serialization_format := arguments.get("serialization_format"):
             data["serialization_format"] = serialization_format
+        if arguments.get("uses_uv"):
+            data["uses_uv"] = True
         return data or None
 
 

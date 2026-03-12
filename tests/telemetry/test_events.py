@@ -65,6 +65,22 @@ from mlflow.telemetry.events import (
             None,
         ),
         ({}, None),
+        (
+            {"flavor": "mlflow.pyfunc", "uses_uv": True},
+            {"flavor": "pyfunc", "uses_uv": True},
+        ),
+        (
+            {"flavor": "mlflow.pyfunc", "uses_uv": False},
+            {"flavor": "pyfunc"},
+        ),
+        (
+            {"uses_uv": True},
+            {"uses_uv": True},
+        ),
+        (
+            {"flavor": "sklearn", "serialization_format": "cloudpickle", "uses_uv": True},
+            {"flavor": "sklearn", "serialization_format": "cloudpickle", "uses_uv": True},
+        ),
     ],
 )
 def test_logged_model_parse_params(arguments, expected_params):
