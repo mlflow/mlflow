@@ -6114,9 +6114,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 query = query.filter(*filter_clauses)
 
             # IssueSeverity enum is ordered from lowest to highest severity
-            severity_priorities = {
-                severity.value: index for index, severity in enumerate(IssueSeverity)
-            }
+            severity_priorities = {severity.value: severity._order for severity in IssueSeverity}
             severity_order = case(
                 severity_priorities,
                 value=SqlIssue.severity,
