@@ -22,10 +22,10 @@ from mlflow.telemetry.utils import (
 @pytest.mark.parametrize(
     ("env_var", "expected"),
     [
-        ("KAGGLE_KERNEL_RUN_TYPE", Environment.KAGGLE),
-        ("COLAB_RELEASE_TAG", Environment.COLAB),
-        ("AZUREML_FRAMEWORK", Environment.AZURE_ML),
-        ("SAGEMAKER_APP_TYPE", Environment.SAGEMAKER_STUDIO),
+        ("KAGGLE_KERNEL_RUN_TYPE", Environment.KAGGLE.value),
+        ("COLAB_RELEASE_TAG", Environment.COLAB.value),
+        ("AZUREML_FRAMEWORK", Environment.AZURE_ML.value),
+        ("SAGEMAKER_APP_TYPE", Environment.SAGEMAKER_STUDIO.value),
     ],
 )
 def test_detect_environment_from_env_var(monkeypatch, env_var, expected):
@@ -61,7 +61,20 @@ def test_detect_environment_docker(tmp_path, monkeypatch):
         assert _detect_environment() == Environment.DOCKER
 
 
-def test_detect_environment_none():
+def test_detect_environment_none(monkeypatch):
+    env_vars = (
+        "KAGGLE_KERNEL_RUN_TYPE",
+        "COLAB_RELEASE_TAG",
+        "AZUREML_FRAMEWORK",
+        "SAGEMAKER_APP_TYPE",
+    )
+    with (
+        monkeypatch.context() as m,
+        patch("mlflow.telemetry.utils.Path.exists") as mock_path_exists,
+    ):
+        for env_var in env_vars:
+            m.delenv(env_var, raising=False)
+        mock_path_exists.return_value = False
     assert _detect_environment() is None
 
 
