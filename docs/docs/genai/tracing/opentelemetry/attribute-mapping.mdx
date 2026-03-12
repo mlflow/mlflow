@@ -268,15 +268,15 @@ semantic conventions for token usage and event-based message extraction.
 
 LiveKit uses a combination of heuristics to determine span type:
 
-| Condition                                              | MLflow Span Type          |
-| ------------------------------------------------------ | ------------------------- |
-| `gen_ai.request.model` present                         | `LLM`                     |
-| `gen_ai.operation.name` matches GenAI mapping          | _(see GenAI table above)_ |
-| `lk.retry_count` present                               | `LLM`                     |
-| `lk.function_tool*` prefix                             | `TOOL`                    |
-| `lk.agent_name`, `lk.instructions`, `lk.generation_id` | `AGENT`                   |
-| `lk.tts*`, `lk.input_text`                             | `UNKNOWN`                 |
-| `lk.user_transcript`                                   | `UNKNOWN`                 |
+| Condition                                                                  | MLflow Span Type          |
+| -------------------------------------------------------------------------- | ------------------------- |
+| `gen_ai.request.model` present                                             | `LLM`                     |
+| `gen_ai.operation.name` matches GenAI mapping                              | _(see GenAI table above)_ |
+| `lk.retry_count` present                                                   | `LLM`                     |
+| `lk.function_tool*` prefix                                                 | `TOOL`                    |
+| `lk.agent_name`, `lk.instructions`, `lk.generation_id`                     | `AGENT`                   |
+| `lk.tts*`, `lk.input_text`                                                 | `UNKNOWN`                 |
+| `lk.user_transcript`, `lk.transcript_confidence`, `lk.transcription_delay` | `UNKNOWN`                 |
 
 **Inputs / Outputs:**
 

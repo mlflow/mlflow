@@ -189,10 +189,10 @@ def test_update_issue_partial(store):
 
     updated_issue = store.update_issue(
         issue_id=created_issue.issue_id,
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
     )
 
-    assert updated_issue.status == "accepted"
+    assert updated_issue.status == "resolved"
     assert updated_issue.name == "Test issue"
     assert updated_issue.description == "Test description"
     assert updated_issue.root_causes == ["Initial root cause"]
@@ -234,6 +234,60 @@ def test_search_issues_no_filters(store):
     assert result[1].issue_id == issue2.issue_id
     assert result[2].issue_id == issue1.issue_id
     assert result.token is None
+
+
+def test_search_issues_sorted_by_severity(store):
+    exp_id = DEFAULT_EXPERIMENT_ID
+
+    issue_low = store.create_issue(
+        experiment_id=exp_id,
+        name="Low severity issue",
+        description="Low severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.LOW,
+    )
+
+    issue_high = store.create_issue(
+        experiment_id=exp_id,
+        name="High severity issue",
+        description="High severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.HIGH,
+    )
+
+    issue_medium = store.create_issue(
+        experiment_id=exp_id,
+        name="Medium severity issue",
+        description="Medium severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.MEDIUM,
+    )
+
+    issue_none = store.create_issue(
+        experiment_id=exp_id,
+        name="No severity issue",
+        description="No severity",
+        status=IssueStatus.PENDING,
+    )
+
+    issue_not_an_issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Not an issue",
+        description="Not an issue severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.NOT_AN_ISSUE,
+    )
+
+    result = store.search_issues()
+
+    assert len(result) == 5
+    assert [issue.issue_id for issue in result] == [
+        issue_high.issue_id,
+        issue_medium.issue_id,
+        issue_low.issue_id,
+        issue_not_an_issue.issue_id,
+        issue_none.issue_id,
+    ]
 
 
 def test_search_issues_by_experiment_id(store):

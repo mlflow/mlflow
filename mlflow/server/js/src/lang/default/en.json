@@ -785,6 +785,10 @@
     "defaultMessage": "Delete",
     "description": "String for the delete button to delete a particular experiment run"
   },
+  "3S361w": {
+    "defaultMessage": "View source",
+    "description": "Tooltip for button that shows raw markdown source text"
+  },
   "3S3Ah4": {
     "defaultMessage": "Download data",
     "description": "String for the download csv button to download metrics from this run offline in a CSV format"
@@ -3574,6 +3578,10 @@
     "defaultMessage": "avg per trace",
     "description": "Subtitle for average tokens per trace"
   },
+  "MXsbcc": {
+    "defaultMessage": "Supported formats: image, text, markdown, html, pdf, audio, video, geojson files",
+    "description": "Text to explain users which formats are supported to display the artifacts"
+  },
   "MZCW9F": {
     "defaultMessage": "Labeling schemas",
     "description": "Label for the labeling schemas tab in the MLflow experiment navbar"
@@ -5171,9 +5179,9 @@
     "defaultMessage": "Error",
     "description": "Title for error fallback component in experiment datasets UI"
   },
-  "Wv3B3G": {
-    "defaultMessage": "Supported formats: image, text, html, pdf, audio, video, geojson files",
-    "description": "Text to explain users which formats are supported to display the artifacts"
+  "Wum+Hu": {
+    "defaultMessage": "<link>Learn more about budget time windows.</link>",
+    "description": "Tooltip with link to budget time windows documentation"
   },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
@@ -7883,6 +7891,10 @@
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
     "description": "Evaluation results > known type of evaluation result assessment > description of relevance judge."
   },
+  "oH2nPk": {
+    "defaultMessage": "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
+    "description": "Info message when alert action is selected for budget policy"
+  },
   "oHW+ks": {
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
@@ -9122,6 +9134,10 @@
   "wrNl6F": {
     "defaultMessage": "Preview",
     "description": "Label for the preview mode on the registered prompt details page"
+  },
+  "wtcucM": {
+    "defaultMessage": "View rendered",
+    "description": "Tooltip for button that shows rendered markdown"
   },
   "wtpLvY": {
     "defaultMessage": "Load more",
