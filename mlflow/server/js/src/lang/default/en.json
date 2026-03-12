@@ -642,6 +642,10 @@
     "defaultMessage": "Output tokens",
     "description": "Label for output token usage"
   },
+  "2Im7IU": {
+    "defaultMessage": "Move to pending",
+    "description": "Button to move an issue back to pending status"
+  },
   "2JfWh3": {
     "defaultMessage": "Type prompt content here. Wrap variables with double curly brace e.g. '{{' name '}}'.",
     "description": "A placeholder for the prompt content in the prompt creation modal"
@@ -3937,10 +3941,6 @@
   "OZXWas": {
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
-  },
-  "Ob0aR7": {
-    "defaultMessage": "Reopen",
-    "description": "Button to reopen an issue"
   },
   "Ob5d+s": {
     "defaultMessage": "System metrics",

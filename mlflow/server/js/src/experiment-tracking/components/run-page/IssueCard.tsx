@@ -154,13 +154,16 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
           )}
           {(issue.status === 'resolved' || issue.status === 'rejected') && (
             <Button
-              componentId="mlflow.issues.reopen-button"
+              componentId="mlflow.issues.move-to-pending-button"
               type="tertiary"
               size="small"
               onClick={handleStatusChange('pending')}
               loading={isUpdating}
             >
-              <FormattedMessage defaultMessage="Reopen" description="Button to reopen an issue" />
+              <FormattedMessage
+                defaultMessage="Move to pending"
+                description="Button to move an issue back to pending status"
+              />
             </Button>
           )}
         </div>
