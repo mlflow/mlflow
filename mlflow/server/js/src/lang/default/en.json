@@ -15,6 +15,10 @@
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
   },
+  "+2J6oE": {
+    "defaultMessage": "Medium",
+    "description": "Issue severity tag label for medium severity"
+  },
   "+33ShX": {
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
@@ -2708,6 +2712,10 @@
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
   },
+  "Ft2NsS": {
+    "defaultMessage": "High",
+    "description": "Issue severity tag label for high severity"
+  },
   "FxQYyX": {
     "defaultMessage": "Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems.",
     "description": "Tooltip for workflow switch"
@@ -4160,6 +4168,10 @@
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
   },
+  "Q0tqO9": {
+    "defaultMessage": "Not an issue",
+    "description": "Issue severity tag label for not an issue"
+  },
   "Q5CR/y": {
     "defaultMessage": "Create a new key if a different name is needed.",
     "description": "Tooltip suggestion to create new key for different name"
@@ -5067,6 +5079,10 @@
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
   },
+  "Vvs+79": {
+    "defaultMessage": "Low",
+    "description": "Issue severity tag label for low severity"
+  },
   "VwxvII": {
     "defaultMessage": "forecasting",
     "description": "A short label for experiments focused on time series forecasting"
@@ -5589,6 +5605,10 @@
   "ZO8PZt": {
     "defaultMessage": "{count, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Time duration in minutes"
+  },
+  "ZOV936": {
+    "defaultMessage": "Resolved",
+    "description": "Issue status tag label for resolved issues"
   },
   "ZOsiNc": {
     "defaultMessage": "just now",
@@ -6208,6 +6228,10 @@
   "d1Ou4x": {
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
+  },
+  "d34yzQ": {
+    "defaultMessage": "Rejected",
+    "description": "Issue status tag label for rejected issues"
   },
   "d44IPd": {
     "defaultMessage": "Reopen review",
@@ -8906,6 +8930,10 @@
   "ubeHow": {
     "defaultMessage": "Input",
     "description": "Column header for the input in the runs table on the logged model details page"
+  },
+  "ue/dsm": {
+    "defaultMessage": "Pending",
+    "description": "Issue status tag label for pending issues"
   },
   "ufamzi": {
     "defaultMessage": "Comparing {runs} MLflow Runs",
