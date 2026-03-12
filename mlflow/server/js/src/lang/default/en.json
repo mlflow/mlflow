@@ -5179,6 +5179,10 @@
     "defaultMessage": "Error",
     "description": "Title for error fallback component in experiment datasets UI"
   },
+  "Wum+Hu": {
+    "defaultMessage": "<link>Learn more about budget time windows.</link>",
+    "description": "Tooltip with link to budget time windows documentation"
+  },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"

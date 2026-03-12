@@ -94,8 +94,8 @@ describe('BudgetsList', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('$100.00')).toBeInTheDocument();
-    expect(screen.getByText('$500.50')).toBeInTheDocument();
+    expect(screen.getByText('$100')).toBeInTheDocument();
+    expect(screen.getByText('$500.5')).toBeInTheDocument();
     expect(screen.getByText('Daily')).toBeInTheDocument();
     expect(screen.getByText('Monthly')).toBeInTheDocument();
     expect(screen.getByText('Reject')).toBeInTheDocument();
@@ -130,7 +130,7 @@ describe('BudgetsList', () => {
     );
 
     // Current spend should be formatted as budget amount
-    expect(screen.getByText('$42.50')).toBeInTheDocument();
+    expect(screen.getByText('$42.5')).toBeInTheDocument();
   });
 
   test('shows violation indicator when current spend exceeds budget', () => {
@@ -160,7 +160,7 @@ describe('BudgetsList', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('$120.00')).toBeInTheDocument();
+    expect(screen.getByText('$120')).toBeInTheDocument();
     expect(screen.getByLabelText('Budget exceeded')).toBeInTheDocument();
   });
 
@@ -191,7 +191,7 @@ describe('BudgetsList', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('$50.00')).toBeInTheDocument();
+    expect(screen.getByText('$50')).toBeInTheDocument();
     expect(screen.queryByLabelText('Budget exceeded')).not.toBeInTheDocument();
   });
 
