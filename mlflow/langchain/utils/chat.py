@@ -55,10 +55,10 @@ _TOKEN_USAGE_KEY_MAPPING = {
 }
 
 
+# Maps MIME subtypes to the formats InputAudio accepts: Literal["wav", "mp3"].
+# Identity mappings (e.g. "wav" -> "wav") are handled by the fallback in _normalize_content.
 _MIME_TO_AUDIO_FORMAT: dict[str, str] = {
-    "wav": "wav",
     "x-wav": "wav",
-    "mp3": "mp3",
     "mpeg": "mp3",
 }
 
@@ -67,51 +67,51 @@ def _normalize_content(
     content: str | list[dict[str, Any]],
 ) -> str | list[dict[str, Any]]:
     """
-    Normalize multimodal content blocks from LangChain's format to MLflow's expected format.
+    Normalize multi-modal content blocks from LangChain's format to MLflow's expected format.
 
-    LangChain uses ``{"type": "audio", "source_type": "base64", "data": "...", "mime_type":
-    "audio/wav"}`` while MLflow expects ``{"type": "input_audio", "input_audio": {"data": "...",
-    "format": "wav"}}``.  This function converts audio blocks to MLflow's format and returns
-    the normalized content so that it can be validated by
-    :class:`~mlflow.types.chat.ChatMessage`.
+    LangChain uses:
+
+        {"type": "audio", "source_type": "base64", "data": "...", "mime_type": "audio/wav"}
+
+    while MLflow expects:
+
+        {"type": "input_audio", "input_audio": {"data": "...", "format": "wav"}}
+
+    This function converts audio blocks to MLflow's format and returns the normalized content
+    so that it can be validated by :class:`~mlflow.types.chat.ChatMessage`.
     """
     if isinstance(content, str):
         return content
 
     normalized = []
     for block in content:
-        if not isinstance(block, dict):
-            normalized.append(block)
-            continue
+        match block:
+            case {
+                "type": "audio",
+                "source_type": "base64",
+                "mime_type": str(mime_type),
+                "data": str(data),
+            }:
+                # Extract and normalize format from mime_type (e.g. "audio/wav" -> "wav",
+                # "audio/mpeg" -> "mp3"). Strip parameters like "; codecs=..."
+                raw_subtype = mime_type.rsplit("/", 1)[-1].split(";")[0].strip()
+                audio_format = _MIME_TO_AUDIO_FORMAT.get(raw_subtype, raw_subtype)
 
-        if block.get("type") != "audio":
-            normalized.append(block)
-            continue
-
-        # Only base64-encoded audio with a valid mime_type can be converted
-        source_type = block.get("source_type")
-        mime_type = block.get("mime_type")
-        if source_type != "base64" or not mime_type:
-            raise MlflowException.invalid_parameter_value(
-                "Unsupported LangChain audio content. Only base64-encoded audio with a valid "
-                "mime_type is supported for conversion to MLflow chat messages."
-            )
-
-        # Extract and normalize format from mime_type (e.g. "audio/wav" -> "wav",
-        # "audio/mpeg" -> "mp3"). Strip parameters like "; codecs=..."
-        raw_subtype = (
-            mime_type.split("/")[-1].split(";")[0].strip() if "/" in mime_type else mime_type
-        )
-        audio_format = _MIME_TO_AUDIO_FORMAT.get(raw_subtype, raw_subtype)
-
-        audio_part = AudioContentPart(
-            type="input_audio",
-            input_audio=InputAudio(
-                data=block.get("data", ""),
-                format=audio_format,
-            ),
-        )
-        normalized.append(audio_part.model_dump())
+                audio_part = AudioContentPart(
+                    type="input_audio",
+                    input_audio=InputAudio(
+                        data=data,
+                        format=audio_format,
+                    ),
+                )
+                normalized.append(audio_part.model_dump())
+            case {"type": "audio"}:
+                raise MlflowException.invalid_parameter_value(
+                    "Unsupported LangChain audio content. Only base64-encoded audio with a valid "
+                    "mime_type is supported for conversion to MLflow chat messages."
+                )
+            case _:
+                normalized.append(block)
 
     return normalized
 
