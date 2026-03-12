@@ -61,8 +61,30 @@ module.exports = async ({ context, github }) => {
   }
 
   const hasReadyLabel = issue.labels.nodes.some((label) => label.name === READY_LABEL);
-  if (hasReadyLabel) {
-    console.log(`Issue #${issue.number} has the "${READY_LABEL}" label. No action needed.`);
+  if (!hasReadyLabel) {
+    console.log(
+      `Issue #${issue.number} is missing the "${READY_LABEL}" label. Closing PR #${prNumber}.`
+    );
+
+    await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: prNumber,
+      body: [
+        `This PR was automatically closed because #${issue.number} is missing the \`${READY_LABEL}\` label.`,
+        "Once a maintainer triages the issue and applies the label, feel free to reopen this PR.",
+        "Please do not force-push to or delete the PR branch so this PR can be reopened.",
+      ].join(" "),
+    });
+
+    await github.rest.pulls.update({
+      owner,
+      repo,
+      pull_number: prNumber,
+      state: "closed",
+    });
+
+    console.log(`PR #${prNumber} closed.`);
     return;
   }
 
@@ -95,27 +117,5 @@ module.exports = async ({ context, github }) => {
     return;
   }
 
-  console.log(
-    `Issue #${issue.number} is missing the "${READY_LABEL}" label. Closing PR #${prNumber}.`
-  );
-
-  await github.rest.issues.createComment({
-    owner,
-    repo,
-    issue_number: prNumber,
-    body: [
-      `This PR was automatically closed because #${issue.number} is missing the \`${READY_LABEL}\` label.`,
-      "Once a maintainer triages the issue and applies the label, feel free to reopen this PR.",
-      "Please do not force-push to or delete the PR branch so this PR can be reopened.",
-    ].join(" "),
-  });
-
-  await github.rest.pulls.update({
-    owner,
-    repo,
-    pull_number: prNumber,
-    state: "closed",
-  });
-
-  console.log(`PR #${prNumber} closed.`);
+  console.log(`Issue #${issue.number} has the "${READY_LABEL}" label. No action needed.`);
 };
