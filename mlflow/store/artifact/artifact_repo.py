@@ -9,9 +9,13 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.file_info import FileInfo
+
+if TYPE_CHECKING:
+    from mlflow.entities.span import Span
+
 from mlflow.entities.multipart_upload import (
     CreateMultipartUploadResponse,
     MultipartUploadPart,
@@ -24,6 +28,12 @@ from mlflow.exceptions import (
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
+)
+from mlflow.tracing.otel.otel_archival import (
+    TRACE_ARCHIVAL_ARTIFACT_PATH,
+    TRACE_ARCHIVAL_FILENAME,
+    spans_to_traces_data_pb,
+    traces_data_pb_to_spans,
 )
 from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.annotations import developer_stable
@@ -419,12 +429,58 @@ class ArtifactRepository:
             temp_file.write_bytes(content_bytes)
             self.log_artifact(temp_file, artifact_path="attachments")
 
+    def upload_trace_data_pb(self, spans: list["Span"]) -> None:
+        """
+        Upload trace span data as OTLP TracesData protobuf (traces.pb).
+
+        Writes to the ``artifacts/traces.pb`` path under this repository's URI.
+        Use for trace archival when the repository points at a trace directory
+        (e.g. ``<trace_repo_root>/<experiment_id>/traces/<trace_id>``).
+
+        Args:
+            spans: List of MLflow Span entities (must belong to the same trace).
+        """
+        data = spans_to_traces_data_pb(spans)
+        with write_local_temp_trace_data_pb_file(data) as temp_file:
+            self.log_artifact(temp_file, artifact_path=TRACE_ARCHIVAL_ARTIFACT_PATH)
+
+    def download_trace_data_pb(self) -> list["Span"]:
+        """
+        Download trace span data from OTLP TracesData protobuf (traces.pb).
+
+        Expects ``artifacts/traces.pb`` to exist under this repository's URI.
+
+        Returns:
+            List of MLflow Span entities.
+
+        Raises:
+            MlflowTraceDataNotFound: If traces.pb does not exist.
+        """
+        trace_pb_path = f"{TRACE_ARCHIVAL_ARTIFACT_PATH}/{TRACE_ARCHIVAL_FILENAME}"
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, TRACE_ARCHIVAL_FILENAME)
+            try:
+                self._download_file(trace_pb_path, temp_file)
+            except Exception as e:
+                _logger.debug("Failed to download traces.pb from artifact repository: %s", e)
+                raise MlflowTraceDataNotFound(artifact_path=trace_pb_path) from e
+            return try_read_trace_data_pb(temp_file)
+
 
 @contextmanager
 def write_local_temp_trace_data_file(trace_data: str):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_file = Path(temp_dir, TRACE_DATA_FILE_NAME)
         temp_file.write_text(trace_data, encoding="utf-8")
+        yield temp_file
+
+
+@contextmanager
+def write_local_temp_trace_data_pb_file(data: bytes):
+    """Context manager that writes trace protobuf bytes to a temp file and yields its path."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_file = Path(temp_dir) / TRACE_ARCHIVAL_FILENAME
+        temp_file.write_bytes(data)
         yield temp_file
 
 
@@ -438,6 +494,19 @@ def try_read_trace_data(trace_data_path):
     try:
         return json.loads(data)
     except json.decoder.JSONDecodeError as e:
+        raise MlflowTraceDataCorrupted(artifact_path=trace_data_path) from e
+
+
+def try_read_trace_data_pb(trace_data_path):
+    """Read trace protobuf from a local file and return a list of Span entities."""
+    if not os.path.exists(trace_data_path):
+        raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
+    data = Path(trace_data_path).read_bytes()
+    if not data:
+        raise MlflowTraceDataNotFound(artifact_path=trace_data_path)
+    try:
+        return traces_data_pb_to_spans(data)
+    except Exception as e:
         raise MlflowTraceDataCorrupted(artifact_path=trace_data_path) from e
 
 
