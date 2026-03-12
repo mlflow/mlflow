@@ -21,20 +21,20 @@ def create_issue(severity: IssueSeverity) -> Issue:
 
 def test_issue_status_enum_values():
     assert IssueStatus.PENDING.value == "pending"
-    assert IssueStatus.ACCEPTED.value == "accepted"
     assert IssueStatus.REJECTED.value == "rejected"
+    assert IssueStatus.RESOLVED.value == "resolved"
 
 
 def test_issue_status_enum_string_behavior():
     assert IssueStatus.PENDING == "pending"
-    assert IssueStatus.ACCEPTED == "accepted"
     assert IssueStatus.REJECTED == "rejected"
+    assert IssueStatus.RESOLVED == "resolved"
 
 
 def test_issue_status_enum_from_string():
     assert IssueStatus("pending") == IssueStatus.PENDING
-    assert IssueStatus("accepted") == IssueStatus.ACCEPTED
     assert IssueStatus("rejected") == IssueStatus.REJECTED
+    assert IssueStatus("resolved") == IssueStatus.RESOLVED
 
 
 def test_issue_status_enum_invalid_value():
@@ -44,8 +44,8 @@ def test_issue_status_enum_invalid_value():
 
 def test_issue_status_enum_str_method():
     assert str(IssueStatus.PENDING) == "pending"
-    assert str(IssueStatus.ACCEPTED) == "accepted"
     assert str(IssueStatus.REJECTED) == "rejected"
+    assert str(IssueStatus.RESOLVED) == "resolved"
 
 
 def test_issue_status_enum_isinstance():
@@ -159,7 +159,7 @@ def test_issue_creation_all_fields():
         experiment_id="exp-456",
         name="Token limit exceeded",
         description="Model is hitting token limits frequently",
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567900,
         severity=IssueSeverity.HIGH,
@@ -172,7 +172,7 @@ def test_issue_creation_all_fields():
     assert issue.experiment_id == "exp-456"
     assert issue.name == "Token limit exceeded"
     assert issue.description == "Model is hitting token limits frequently"
-    assert issue.status == IssueStatus.ACCEPTED
+    assert issue.status == IssueStatus.RESOLVED
     assert issue.created_timestamp == 1234567890
     assert issue.last_updated_timestamp == 1234567900
     assert issue.severity == IssueSeverity.HIGH
@@ -273,7 +273,7 @@ def test_issue_roundtrip_conversion():
         experiment_id="exp-roundtrip",
         name="Roundtrip test",
         description="Testing dictionary conversion",
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
         created_timestamp=3333333333,
         last_updated_timestamp=4444444444,
         severity=IssueSeverity.HIGH,
@@ -330,7 +330,7 @@ def test_issue_to_proto_all_fields():
         experiment_id="exp-proto-2",
         name="Full proto test",
         description="Testing proto conversion with all fields",
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
         created_timestamp=2000000000,
         last_updated_timestamp=2000000010,
         severity=IssueSeverity.HIGH,
@@ -345,7 +345,7 @@ def test_issue_to_proto_all_fields():
     assert proto.experiment_id == "exp-proto-2"
     assert proto.name == "Full proto test"
     assert proto.description == "Testing proto conversion with all fields"
-    assert proto.status == "accepted"
+    assert proto.status == "resolved"
     assert proto.created_timestamp == 2000000000
     assert proto.last_updated_timestamp == 2000000010
     assert proto.severity == "high"
@@ -416,7 +416,7 @@ def test_issue_proto_roundtrip_required_fields():
         experiment_id="exp-proto-roundtrip-1",
         name="Proto roundtrip test",
         description="Testing proto roundtrip conversion",
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
         created_timestamp=5000000000,
         last_updated_timestamp=5000000005,
     )

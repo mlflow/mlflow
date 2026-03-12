@@ -37,6 +37,14 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved, eventFilt
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  const displayedEvents = eventFilter ? VALID_EVENTS.filter((e) => e.entity === eventFilter) : VALID_EVENTS;
+
+  // When filtered to a single event (e.g. budget page), pre-select it for new webhooks
+  const defaultEvents =
+    !editingWebhook && eventFilter && displayedEvents.length === 1
+      ? displayedEvents.map((e) => eventKey(e.entity, e.action))
+      : (editingWebhook?.events.map((e) => eventKey(e.entity, e.action)) ?? []);
+
   const form = useForm<WebhookFormData>({
     defaultValues: {
       name: editingWebhook?.name ?? '',
@@ -44,11 +52,9 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved, eventFilt
       description: editingWebhook?.description ?? '',
       secret: '',
       status: editingWebhook ? editingWebhook.status === 'ACTIVE' : true,
-      events: editingWebhook?.events.map((e) => eventKey(e.entity, e.action)) ?? [],
+      events: defaultEvents,
     },
   });
-
-  const displayedEvents = eventFilter ? VALID_EVENTS.filter((e) => e.entity === eventFilter) : VALID_EVENTS;
 
   const formatEventLabel = (entity: string, action: string) => {
     const key = eventKey(entity, action);

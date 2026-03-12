@@ -57,12 +57,10 @@ Based on the [OTel GenAI semantic conventions](https://opentelemetry.io/docs/spe
 
 **Inputs / Outputs:**
 
-| Source Attribute             | MLflow Attribute     |
-| ---------------------------- | -------------------- |
-| `gen_ai.input.messages`      | `mlflow.spanInputs`  |
-| `gen_ai.tool.call.arguments` | `mlflow.spanInputs`  |
-| `gen_ai.output.messages`     | `mlflow.spanOutputs` |
-| `gen_ai.tool.call.result`    | `mlflow.spanOutputs` |
+| Source Attributes                                     | MLflow Attribute     |
+| ----------------------------------------------------- | -------------------- |
+| `gen_ai.input.messages`, `gen_ai.tool.call.arguments` | `mlflow.spanInputs`  |
+| `gen_ai.output.messages`, `gen_ai.tool.call.result`   | `mlflow.spanOutputs` |
 
 Inputs and outputs can also be extracted from span events:
 
@@ -91,27 +89,14 @@ Inputs and outputs can also be extracted from span events:
 
 Based on the [OpenInference semantic conventions](https://github.com/Arize-ai/openinference/tree/main/python/openinference-semantic-conventions).
 
-**Span Type** (from `openinference.span.kind`):
-
-| Source Value | MLflow Span Type |
-| ------------ | ---------------- |
-| `TOOL`       | `TOOL`           |
-| `CHAIN`      | `CHAIN`          |
-| `LLM`        | `LLM`            |
-| `RETRIEVER`  | `RETRIEVER`      |
-| `EMBEDDING`  | `EMBEDDING`      |
-| `AGENT`      | `AGENT`          |
-| `RERANKER`   | `RERANKER`       |
-| `UNKNOWN`    | `UNKNOWN`        |
-| `GUARDRAIL`  | `GUARDRAIL`      |
-| `EVALUATOR`  | `EVALUATOR`      |
+**Span Type** (from `openinference.span.kind`): Mapped directly to the matching MLflow span type (e.g., `LLM` → `LLM`, `TOOL` → `TOOL`, `AGENT` → `AGENT`, etc.).
 
 **Inputs / Outputs:**
 
-| Source Attribute | MLflow Attribute     |
-| ---------------- | -------------------- |
-| `input.value`    | `mlflow.spanInputs`  |
-| `output.value`   | `mlflow.spanOutputs` |
+| Source Attributes | MLflow Attribute     |
+| ----------------- | -------------------- |
+| `input.value`     | `mlflow.spanInputs`  |
+| `output.value`    | `mlflow.spanOutputs` |
 
 **Token Usage:**
 
@@ -147,13 +132,10 @@ Based on [OpenLLMetry semantic conventions](https://github.com/traceloop/openllm
 
 **Inputs / Outputs:**
 
-| Source Attribute                                         | MLflow Attribute     |
-| -------------------------------------------------------- | -------------------- |
-| `traceloop.entity.input`                                 | `mlflow.spanInputs`  |
-| `gen_ai.prompt.*.content` _(pattern)_                    | `mlflow.spanInputs`  |
-| `gen_ai.completion.*.tool_calls.*.arguments` _(pattern)_ | `mlflow.spanInputs`  |
-| `traceloop.entity.output`                                | `mlflow.spanOutputs` |
-| `gen_ai.completion.*.content` _(pattern)_                | `mlflow.spanOutputs` |
+| Source Attributes                                                                                                         | MLflow Attribute     |
+| ------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `traceloop.entity.input`, `gen_ai.prompt.*.content` _(pattern)_, `gen_ai.completion.*.tool_calls.*.arguments` _(pattern)_ | `mlflow.spanInputs`  |
+| `traceloop.entity.output`, `gen_ai.completion.*.content` _(pattern)_                                                      | `mlflow.spanOutputs` |
 
 **Token Usage:**
 
@@ -191,7 +173,7 @@ Maps [Langfuse observation attributes](https://langfuse.com/) to MLflow.
 
 **Inputs / Outputs:**
 
-| Source Attribute              | MLflow Attribute     |
+| Source Attributes             | MLflow Attribute     |
 | ----------------------------- | -------------------- |
 | `langfuse.observation.input`  | `mlflow.spanInputs`  |
 | `langfuse.observation.output` | `mlflow.spanOutputs` |
@@ -221,15 +203,10 @@ Based on [Vercel AI SDK telemetry](https://ai-sdk.dev/docs/ai-sdk-core/telemetry
 
 **Inputs / Outputs:**
 
-| Source Attribute                 | MLflow Attribute     |
-| -------------------------------- | -------------------- |
-| `ai.prompt`                      | `mlflow.spanInputs`  |
-| `ai.toolCall.args`               | `mlflow.spanInputs`  |
-| `ai.value` / `ai.values`         | `mlflow.spanInputs`  |
-| `ai.response.text`               | `mlflow.spanOutputs` |
-| `ai.toolCall.result`             | `mlflow.spanOutputs` |
-| `ai.response.object`             | `mlflow.spanOutputs` |
-| `ai.embedding` / `ai.embeddings` | `mlflow.spanOutputs` |
+| Source Attributes                                                                                | MLflow Attribute     |
+| ------------------------------------------------------------------------------------------------ | -------------------- |
+| `ai.prompt`, `ai.toolCall.args`, `ai.value` / `ai.values`                                        | `mlflow.spanInputs`  |
+| `ai.response.text`, `ai.toolCall.result`, `ai.response.object`, `ai.embedding` / `ai.embeddings` | `mlflow.spanOutputs` |
 
 For chat spans (`ai.generateText.doGenerate`, `ai.streamText.doStream`), MLflow unpacks all
 `ai.prompt.*` attributes as inputs and all `ai.response.*` attributes as outputs.
@@ -275,12 +252,10 @@ additional attributes are mapped for inputs and outputs:
 
 **Inputs / Outputs:**
 
-| Source Attribute                  | MLflow Attribute     |
-| --------------------------------- | -------------------- |
-| `gcp.vertex.agent.llm_request`    | `mlflow.spanInputs`  |
-| `gcp.vertex.agent.tool_call_args` | `mlflow.spanInputs`  |
-| `gcp.vertex.agent.llm_response`   | `mlflow.spanOutputs` |
-| `gcp.vertex.agent.tool_response`  | `mlflow.spanOutputs` |
+| Source Attributes                                                 | MLflow Attribute     |
+| ----------------------------------------------------------------- | -------------------- |
+| `gcp.vertex.agent.llm_request`, `gcp.vertex.agent.tool_call_args` | `mlflow.spanInputs`  |
+| `gcp.vertex.agent.llm_response`, `gcp.vertex.agent.tool_response` | `mlflow.spanOutputs` |
 
 ---
 
@@ -305,14 +280,10 @@ LiveKit uses a combination of heuristics to determine span type:
 
 **Inputs / Outputs:**
 
-| Source Attribute             | MLflow Attribute     |
-| ---------------------------- | -------------------- |
-| `lk.user_input`              | `mlflow.spanInputs`  |
-| `lk.user_transcript`         | `mlflow.spanInputs`  |
-| `lk.chat_ctx`                | `mlflow.spanInputs`  |
-| `lk.input_text`              | `mlflow.spanInputs`  |
-| `lk.response.text`           | `mlflow.spanOutputs` |
-| `lk.response.function_calls` | `mlflow.spanOutputs` |
+| Source Attributes                                                     | MLflow Attribute     |
+| --------------------------------------------------------------------- | -------------------- |
+| `lk.user_input`, `lk.user_transcript`, `lk.chat_ctx`, `lk.input_text` | `mlflow.spanInputs`  |
+| `lk.response.text`, `lk.response.function_calls`                      | `mlflow.spanOutputs` |
 
 Also supports GenAI event-based input/output extraction (see [GenAI table above](#opentelemetry-genai-semantic-conventions)).
 
@@ -340,12 +311,10 @@ agent, which would incorrectly classify LLM/tool spans as `AGENT`.
 
 **Inputs / Outputs:**
 
-| Source Attribute | MLflow Attribute     |
-| ---------------- | -------------------- |
-| `agent.messages` | `mlflow.spanInputs`  |
-| `llm.messages`   | `mlflow.spanInputs`  |
-| `input`          | `mlflow.spanInputs`  |
-| `output`         | `mlflow.spanOutputs` |
+| Source Attributes                         | MLflow Attribute     |
+| ----------------------------------------- | -------------------- |
+| `agent.messages`, `llm.messages`, `input` | `mlflow.spanInputs`  |
+| `output`                                  | `mlflow.spanOutputs` |
 
 **Token Usage:**
 

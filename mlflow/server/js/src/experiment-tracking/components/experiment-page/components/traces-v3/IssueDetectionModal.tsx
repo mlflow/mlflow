@@ -6,13 +6,14 @@ import { useCreateSecret } from '../../../../../gateway/hooks/useCreateSecret';
 import { ALL_ISSUE_CATEGORIES, type IssueCategory } from './IssueDetectionCategories';
 import { IssueDetectionCategorySelection } from './IssueDetectionCategorySelection';
 import { IssueDetectionModelSelection, type IssueDetectionModelSelectionRef } from './IssueDetectionModelSelection';
+import { useInvokeIssueDetection } from './hooks/useInvokeIssueDetection';
 
 interface IssueDetectionModalProps {
   onClose: () => void;
   experimentId?: string;
   initialSelectedTraceIds?: string[];
   availableTraceIds?: string[];
-  onSubmitSuccess?: () => void;
+  onSubmitSuccess?: (runId?: string) => void;
 }
 
 export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
@@ -39,6 +40,13 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     error: createSecretError,
     reset: resetCreateSecret,
   } = useCreateSecret();
+
+  const {
+    mutate: invokeIssueDetection,
+    isLoading: isInvokingIssueDetection,
+    error: issueDetectionError,
+    reset: resetIssueDetection,
+  } = useInvokeIssueDetection();
 
   const resetForm = useCallback(() => {
     setCurrentStep(1);
@@ -70,15 +78,27 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
 
   const handleSubmit = () => {
     const values = modelSelectionRef.current?.getValues();
-    if (!values) return;
+    if (!values || !experimentId) return;
 
-    const { provider, apiKeyConfig, saveKey } = values;
+    const { provider, model, apiKeyConfig, saveKey } = values;
 
-    const completeSubmit = () => {
-      // TODO: Implement backend API call for issue detection
-      onSubmitSuccess?.();
-      resetForm();
-      onClose();
+    const submitIssueDetection = () => {
+      invokeIssueDetection(
+        {
+          experimentId,
+          traceIds: selectedTraceIds,
+          categories: Array.from(selectedCategories),
+          provider,
+          model,
+        },
+        {
+          onSuccess: (response) => {
+            onSubmitSuccess?.(response.run_id);
+            resetForm();
+            onClose();
+          },
+        },
+      );
     };
 
     if (saveKey && apiKeyConfig.mode === 'new') {
@@ -96,20 +116,21 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         },
         {
           onSuccess: () => {
-            completeSubmit();
+            submitIssueDetection();
           },
         },
       );
     } else {
-      completeSubmit();
+      submitIssueDetection();
     }
   };
 
   const handleClose = useCallback(() => {
     resetForm();
     resetCreateSecret();
+    resetIssueDetection();
     onClose();
-  }, [resetForm, resetCreateSecret, onClose]);
+  }, [resetForm, resetCreateSecret, resetIssueDetection, onClose]);
 
   const isStep1Valid = selectedCategories.size > 0;
   const isStep2Valid = isModelSelectionValid;
@@ -143,7 +164,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         componentId="mlflow.traces.issue-detection-modal.submit"
         type="primary"
         onClick={handleSubmit}
-        loading={isCreatingSecret}
+        loading={isCreatingSecret || isInvokingIssueDetection}
         disabled={!isStep2Valid}
       >
         <SparkleIcon css={{ marginRight: theme.spacing.xs }} />
@@ -169,13 +190,16 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
         onCancel={handleClose}
         footer={currentStep === 1 ? renderStep1Footer() : renderStep2Footer()}
       >
-        {createSecretError && (
+        {(createSecretError || issueDetectionError) && (
           <Alert
             componentId="mlflow.traces.issue-detection-modal.error"
             type="error"
-            message={createSecretError.message}
+            message={createSecretError?.message || issueDetectionError?.message}
             closable
-            onClose={() => resetCreateSecret()}
+            onClose={() => {
+              resetCreateSecret();
+              resetIssueDetection();
+            }}
             css={{ marginBottom: theme.spacing.md }}
           />
         )}
