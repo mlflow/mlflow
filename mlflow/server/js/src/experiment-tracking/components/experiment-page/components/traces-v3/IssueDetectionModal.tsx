@@ -82,7 +82,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
 
     const { provider, model, apiKeyConfig, saveKey } = values;
 
-    const submitIssueDetection = () => {
+    const submitIssueDetection = (secretId: string) => {
       invokeIssueDetection(
         {
           experimentId,
@@ -90,6 +90,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           categories: Array.from(selectedCategories),
           provider,
           model,
+          secret_id: secretId,
         },
         {
           onSuccess: (response) => {
@@ -115,13 +116,13 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
         },
         {
-          onSuccess: () => {
-            submitIssueDetection();
+          onSuccess: (response) => {
+            submitIssueDetection(response.secret.secret_id);
           },
         },
       );
-    } else {
-      submitIssueDetection();
+    } else if (apiKeyConfig.mode === 'existing' && apiKeyConfig.existingSecretId) {
+      submitIssueDetection(apiKeyConfig.existingSecretId);
     }
   };
 

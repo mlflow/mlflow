@@ -1,19 +1,12 @@
 import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
-import {
-  useDesignSystemTheme,
-  Typography,
-  Checkbox,
-  Tooltip,
-  Input,
-  Button,
-  Accordion,
-} from '@databricks/design-system';
+import { useDesignSystemTheme, Typography, Tooltip, Input, Button, Accordion } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ProviderSelect } from '../../../../../gateway/components/create-endpoint/ProviderSelect';
 import { IssueDetectionApiKeyConfigurator } from './IssueDetectionApiKeyConfigurator';
 import { IssueDetectionAdvancedSettings } from './IssueDetectionAdvancedSettings';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
+import { generateRandomName } from '../../../../../common/utils/NameUtils';
 
 const DEFAULT_PROVIDER = 'openai';
 
@@ -64,7 +57,7 @@ export const IssueDetectionModelSelection = forwardRef<
   const [provider, setProvider] = useState(DEFAULT_PROVIDER);
   const [model, setModel] = useState(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
   const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(DEFAULT_API_KEY_CONFIG);
-  const [saveKey, setSaveKey] = useState(false);
+  const [saveKey] = useState(true);
   const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
 
   const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
@@ -84,12 +77,25 @@ export const IssueDetectionModelSelection = forwardRef<
     }
   }, [provider, existingSecrets.length]);
 
+  // Generate a random default name when user starts entering a new API key
+  useEffect(() => {
+    if (
+      apiKeyConfig.mode === 'new' &&
+      Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
+      !apiKeyConfig.newSecret.name
+    ) {
+      setApiKeyConfig((prev) => ({
+        ...prev,
+        newSecret: { ...prev.newSecret, name: generateRandomName(provider) },
+      }));
+    }
+  }, [apiKeyConfig.mode, apiKeyConfig.newSecret.secretFields, apiKeyConfig.newSecret.name, provider]);
+
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
     const defaultModel = DEFAULT_MODEL_BY_PROVIDER[newProvider];
     setModel(defaultModel ?? '');
     setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
-    setSaveKey(false);
     // Auto-expand advanced settings if provider doesn't have a default model, collapse if it does
     setIsAdvancedSettingsExpanded(!defaultModel);
   }, []);
@@ -98,7 +104,6 @@ export const IssueDetectionModelSelection = forwardRef<
     setProvider(DEFAULT_PROVIDER);
     setModel(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
     setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
-    setSaveKey(false);
     setIsAdvancedSettingsExpanded(false);
   }, []);
 
@@ -197,36 +202,28 @@ export const IssueDetectionModelSelection = forwardRef<
                     description: 'Tooltip explaining where saved API keys can be found',
                   })}
                 >
-                  <span>
-                    <Checkbox
-                      componentId="mlflow.traces.issue-detection-modal.save-key-checkbox"
-                      isChecked={saveKey}
-                      onChange={(checked) => setSaveKey(checked)}
-                    >
-                      <FormattedMessage
-                        defaultMessage="Save this key for reuse"
-                        description="Checkbox to save API key for reuse"
-                      />
-                    </Checkbox>
-                  </span>
+                  <Typography.Text color="secondary">
+                    <FormattedMessage
+                      defaultMessage="This key will be saved for reuse"
+                      description="Text indicating API key will be saved for reuse"
+                    />
+                  </Typography.Text>
                 </Tooltip>
-                {saveKey && (
-                  <Input
-                    componentId="mlflow.traces.issue-detection-modal.api-key-name"
-                    value={apiKeyConfig.newSecret.name}
-                    onChange={(e) =>
-                      setApiKeyConfig({
-                        ...apiKeyConfig,
-                        newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
-                      })
-                    }
-                    placeholder={intl.formatMessage({
-                      defaultMessage: 'API key name',
-                      description: 'Placeholder for API key name input',
-                    })}
-                    css={{ width: 200 }}
-                  />
-                )}
+                <Input
+                  componentId="mlflow.traces.issue-detection-modal.api-key-name"
+                  value={apiKeyConfig.newSecret.name}
+                  onChange={(e) =>
+                    setApiKeyConfig({
+                      ...apiKeyConfig,
+                      newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
+                    })
+                  }
+                  placeholder={intl.formatMessage({
+                    defaultMessage: 'API key name',
+                    description: 'Placeholder for API key name input',
+                  })}
+                  css={{ width: 200 }}
+                />
               </div>
             )}
           </>
