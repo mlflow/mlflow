@@ -141,6 +141,53 @@ async def test_get_prompt(client: Client):
     assert "MLflow" in content
 
 
+def test_get_input_schema_multiple_params():
+    """
+    Params with multiple=True or nargs=-1 must be exposed as JSON array schemas,
+    not scalar strings.  Regression test for
+    https://github.com/mlflow/mlflow/issues/21548
+    """
+    import click
+
+    from mlflow.mcp.server import get_input_schema
+
+    @click.command()
+    @click.option("--tag", "tags", multiple=True, type=str, help="Repeatable tag option")
+    @click.argument("files", nargs=-1, type=str)
+    @click.option("--name", type=str, help="Scalar string option")
+    def cmd(tags, files, name):
+        pass
+
+    schema = get_input_schema(cmd.params)["properties"]
+
+    # multiple=True option → array of strings
+    assert schema["tags"]["type"] == "array", "multiple=True option should emit type:array"
+    assert schema["tags"]["items"] == {"type": "string"}
+
+    # nargs=-1 argument → array of strings
+    assert schema["files"]["type"] == "array", "nargs=-1 argument should emit type:array"
+    assert schema["files"]["items"] == {"type": "string"}
+
+    # plain scalar option → unchanged
+    assert schema["name"]["type"] == "string", "scalar option should remain type:string"
+
+
+def test_get_input_schema_multiple_int_params():
+    """Item type must be preserved when multiple/variadic params are non-string."""
+    import click
+
+    from mlflow.mcp.server import get_input_schema
+
+    @click.command()
+    @click.option("--count", "counts", multiple=True, type=int)
+    def cmd(counts):
+        pass
+
+    schema = get_input_schema(cmd.params)["properties"]
+    assert schema["counts"]["type"] == "array"
+    assert schema["counts"]["items"] == {"type": "integer"}
+
+
 def test_fn_wrapper_handles_unset_defaults(monkeypatch):
     import click
 
