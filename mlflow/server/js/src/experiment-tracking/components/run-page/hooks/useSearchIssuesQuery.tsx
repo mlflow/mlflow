@@ -3,7 +3,7 @@ import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils
 
 export const SEARCH_ISSUES_QUERY_KEY = 'SEARCH_ISSUES';
 
-export type IssueStatus = 'pending' | 'accepted' | 'rejected' | 'resolved';
+export type IssueStatus = 'pending' | 'rejected' | 'resolved';
 
 export interface Issue {
   issue_id: string;

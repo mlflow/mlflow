@@ -18,7 +18,6 @@ export const IssueStatusFilter = ({ issues, value, onChange }: IssueStatusFilter
     const result = {
       all: issues.length,
       pending: 0,
-      accepted: 0,
       rejected: 0,
       resolved: 0,
     };
@@ -36,13 +35,6 @@ export const IssueStatusFilter = ({ issues, value, onChange }: IssueStatusFilter
             defaultMessage="Pending ({count})"
             description="Issue status filter > Pending button label"
             values={{ count: counts.pending }}
-          />
-        </SegmentedControlButton>
-        <SegmentedControlButton value="accepted" onClick={() => onChange('accepted')}>
-          <FormattedMessage
-            defaultMessage="Accepted ({count})"
-            description="Issue status filter > Accepted button label"
-            values={{ count: counts.accepted }}
           />
         </SegmentedControlButton>
         <SegmentedControlButton value="rejected" onClick={() => onChange('rejected')}>
