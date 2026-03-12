@@ -113,9 +113,6 @@ export const ExperimentViewRunsTableResizerHandle = React.forwardRef<
             border: `2px solid ${theme.colors.actionDefaultBorderHover}`,
           },
         },
-        '@media (max-width: 768px)': {
-          display: 'none',
-        },
       }}
     >
       <div
