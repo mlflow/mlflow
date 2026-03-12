@@ -94,7 +94,7 @@ describe('useIssueDetectionNotification', () => {
     });
 
     const link = screen.getByText('View status').closest('a');
-    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/exp-123/runs/run-456'));
+    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/exp-123/evaluation-runs/run-456'));
   });
 
   test('notification does not show View status link when experimentId is not provided', async () => {
