@@ -160,7 +160,7 @@ describe('BudgetsList', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('$120.00')).toBeInTheDocument();
+    expect(screen.getByText('$120')).toBeInTheDocument();
     expect(screen.getByLabelText('Budget exceeded')).toBeInTheDocument();
   });
 
@@ -191,7 +191,7 @@ describe('BudgetsList', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('$50.00')).toBeInTheDocument();
+    expect(screen.getByText('$50')).toBeInTheDocument();
     expect(screen.queryByLabelText('Budget exceeded')).not.toBeInTheDocument();
   });
 
