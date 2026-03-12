@@ -22,7 +22,7 @@ from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.utils.chat import parse_token_usage
+from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message, parse_token_usage
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
@@ -302,12 +302,23 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             kwargs.update({"metadata": metadata})
         kwargs[SpanAttributeKey.MESSAGE_FORMAT] = "langchain"
 
+        try:
+            normalized_inputs = {
+                "messages": [
+                    convert_lc_message_to_chat_message(msg).model_dump()
+                    for msg_list in messages
+                    for msg in msg_list
+                ]
+            }
+        except Exception:
+            normalized_inputs = messages
+
         span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
             parent_run_id=parent_run_id,
             span_type=SpanType.CHAT_MODEL,
             run_id=run_id,
-            inputs=messages,
+            inputs=normalized_inputs,
             attributes=kwargs,
         )
 
@@ -443,7 +454,20 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         except Exception as e:
             _logger.debug(f"Failed to log token usage for LangChain: {e}", exc_info=True)
 
-        self._end_span(run_id, llm_span, outputs=response)
+        try:
+            choices = []
+            for gen_list in response.generations:
+                for g in gen_list:
+                    if hasattr(g, "message"):
+                        msg_dict = convert_lc_message_to_chat_message(g.message).model_dump()
+                    else:
+                        msg_dict = {"role": "assistant", "content": g.text}
+                    choices.append({"message": msg_dict, "finish_reason": None})
+            normalized_outputs = {"choices": choices}
+        except Exception:
+            normalized_outputs = response
+
+        self._end_span(run_id, llm_span, outputs=normalized_outputs)
 
     def on_llm_error(
         self,
