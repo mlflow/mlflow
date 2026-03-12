@@ -40,11 +40,11 @@ FROM ghcr.io/mlflow/mlflow:<mlflow-version>-full
 RUN pip install google-cloud-storage
 ```
 
-The `<mlflow-version>` in the Dockerfile is value like `v3.10.0`.
+The `<mlflow-version>` in the Dockerfile is a value like `v3.10.0`.
 
 This docker image is based on the official MLflow docker image, but preinstalls "google-cloud-storage" package which is required by MLflow server to access Google Cloud storage.
 
-In Google Cloud "Artifact Registry" console, create a repository with name of "mlflow-repo", set the repository format to "Docker", the repository path is like `{region}-docker.pkg.dev/<gcp-project-name>/mlflow-repo`, then build the above docker image and push it to the Google docker repository as follows:
+In Google Cloud "Artifact Registry" console, create a repository with name of "mlflow-repo", set the repository format to "Docker", the repository path is like `<region>-docker.pkg.dev/<gcp-project-name>/mlflow-repo`, then build the above docker image and push it to the Google docker repository as follows:
 
 ```bash
 docker build -t <google-docker-repository-path>/mlflow-gcp:v3.10.0 .
@@ -87,7 +87,6 @@ In Google Cloud "Cloud Run" console, click "Deploy container" button to create a
 - Container command: mlflow
 - Container arguments: `server --backend-store-uri <database-connection-string> --artifacts-destination gs://<cloud-storage-bucket-name> --host 0.0.0.0 --port 5000 --disable-security-middleware`
 - Resources: at least 2GiB memory and 1 CPU.
-- Revision scaling: set both minimum and maximum number of instances to 1.
 - Cloud SQL connections: Click "Add connection" button and add the connection to the cloud SQL instance that is created in "Step 4".
 
 After created the cloud run instance, you can view the application URL like `https://<instance-name>-<unique-id>.<region>.run.app` on the instance console page, and you can also view the instance metrics and logs as follows:
