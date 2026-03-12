@@ -102,11 +102,6 @@ const sidebarsSelfHosting: SidebarsConfig = {
       items: [
         {
           type: 'doc',
-          id: 'deploy-to-cloud/index',
-          label: 'Overview',
-        },
-        {
-          type: 'doc',
           id: 'deploy-to-cloud/aws',
           label: 'AWS',
         },
