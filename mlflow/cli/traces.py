@@ -10,7 +10,9 @@ AVAILABLE COMMANDS:
     get                 Retrieve detailed trace information as JSON
     delete              Delete traces by ID or timestamp criteria
     set-tag             Add tags to traces
+    tag                 Set one or more tags on a trace
     delete-tag          Remove tags from traces
+    untag               Remove one or more tags from a trace
     log-feedback        Log evaluation feedback/scores to traces
     log-expectation     Log ground truth expectations to traces
     get-assessment      Retrieve assessment details
@@ -489,6 +491,59 @@ def set_trace_tag(trace_id: str, key: str, value: str) -> None:
     client = TracingClient()
     client.set_trace_tag(trace_id, key, value)
     click.echo(f"Set tag '{key}' on trace {trace_id}.")
+
+
+@commands.command("tag")
+@mlflow_mcp(tool_name="tag_trace")
+@TRACE_ID
+@click.option(
+    "--tag",
+    "tags",
+    type=click.STRING,
+    multiple=True,
+    required=True,
+    help="Tag in 'key=value' format. Can be repeated.",
+)
+def tag_trace(trace_id: str, tags: tuple[str, ...]) -> None:
+    """\b
+    Example:
+    mlflow traces tag --trace-id tr-abc123 --tag env=prod --tag version=2
+    """
+    parsed: dict[str, str] = {}
+    for t in tags:
+        match t.split("=", 1):
+            case [key, value]:
+                parsed[key] = value
+            case _:
+                raise click.BadParameter(
+                    f"Tags must be in 'key=value' format, got: {t!r}",
+                    param_hint="--tag",
+                )
+    client = TracingClient()
+    client.set_trace_tags(trace_id, parsed)
+    click.echo(f"Set {len(parsed)} tag(s) on trace {trace_id}.")
+
+
+@commands.command("untag")
+@mlflow_mcp(tool_name="untag_trace")
+@TRACE_ID
+@click.option(
+    "--tag",
+    "tags",
+    type=click.STRING,
+    multiple=True,
+    required=True,
+    help="Tag key to remove. Can be repeated.",
+)
+def untag_trace(trace_id: str, tags: tuple[str, ...]) -> None:
+    """\b
+    Example:
+    mlflow traces untag --trace-id tr-abc123 --tag env --tag version
+    """
+    client = TracingClient()
+    for key in tags:
+        client.delete_trace_tag(trace_id, key)
+    click.echo(f"Removed {len(tags)} tag(s) from trace {trace_id}.")
 
 
 @commands.command("delete-tag")

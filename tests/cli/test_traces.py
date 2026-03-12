@@ -158,6 +158,40 @@ def test_delete_command(runner):
         assert "Deleted 5 trace(s)" in result.output
 
 
+def test_tag_command(runner):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        result = runner.invoke(
+            commands,
+            ["tag", "--trace-id", "tr-abc", "--tag", "env=prod", "--tag", "version=2"],
+        )
+        assert result.exit_code == 0
+        assert "Set 2 tag(s) on trace tr-abc" in result.output
+        mock_client.return_value.set_trace_tags.assert_called_once_with(
+            "tr-abc", {"env": "prod", "version": "2"}
+        )
+
+
+def test_tag_command_bad_format(runner):
+    result = runner.invoke(
+        commands,
+        ["tag", "--trace-id", "tr-abc", "--tag", "badformat"],
+    )
+    assert result.exit_code != 0
+    assert "key=value" in result.output
+
+
+def test_untag_command(runner):
+    with mock.patch("mlflow.cli.traces.TracingClient") as mock_client:
+        result = runner.invoke(
+            commands,
+            ["untag", "--trace-id", "tr-abc", "--tag", "env", "--tag", "version"],
+        )
+        assert result.exit_code == 0
+        assert "Removed 2 tag(s) from trace tr-abc" in result.output
+        mock_client.return_value.delete_trace_tag.assert_any_call("tr-abc", "env")
+        mock_client.return_value.delete_trace_tag.assert_any_call("tr-abc", "version")
+
+
 def test_field_validation_error(runner):
     trace_location = TraceLocation(
         type=TraceLocationType.MLFLOW_EXPERIMENT,
