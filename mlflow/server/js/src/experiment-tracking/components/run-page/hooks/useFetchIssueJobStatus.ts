@@ -20,7 +20,6 @@ export interface IssueJobResult {
 
 export interface FetchIssueJobStatusResponse {
   status: IssueJobStatus;
-  total_traces?: number;
   result?: IssueJobResult;
 }
 
@@ -37,7 +36,6 @@ export const isJobComplete = (status: IssueJobStatus | undefined): boolean => {
 
 export interface UseFetchIssueJobStatusResult {
   status: IssueJobStatus | undefined;
-  totalTraces: number | undefined;
   result: IssueJobResult | undefined;
   isLoading: boolean;
   isFetching: boolean;
@@ -74,7 +72,6 @@ export const useFetchIssueJobStatus = ({
 
   return {
     status: data?.status,
-    totalTraces: data?.total_traces,
     result: data?.result,
     isLoading,
     isFetching,
