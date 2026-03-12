@@ -15,29 +15,20 @@ import type { KeyValueEntity } from '../../../../common/types';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 
 export interface IssueDetectionRunOverviewProps {
-  runUuid: string;
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   tags: Record<string, KeyValueEntity>;
-  onRunDataUpdated: () => void | Promise<any>;
   progressProps: IssueDetectionProgressProps;
 }
 
-export const IssueDetectionRunOverview = ({
-  runUuid,
-  runInfo,
-  tags,
-  onRunDataUpdated,
-  progressProps,
-}: IssueDetectionRunOverviewProps) => {
+export const IssueDetectionRunOverview = ({ runInfo, tags, progressProps }: IssueDetectionRunOverviewProps) => {
   const intl = useIntl();
-  const { theme } = useDesignSystemTheme();
 
-  const { status: jobStatus } = useFetchIssueJobStatus({
+  const { status: jobStatus, error: jobStatusError } = useFetchIssueJobStatus({
     jobId: progressProps.jobId,
     enabled: !!progressProps.jobId,
   });
 
-  const jobComplete = isJobComplete(jobStatus);
+  const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
 
   const detailsSection = {
     id: 'DETAILS',

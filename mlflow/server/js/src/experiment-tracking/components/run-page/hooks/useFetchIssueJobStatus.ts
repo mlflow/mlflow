@@ -64,8 +64,8 @@ export const useFetchIssueJobStatus = ({
     refetchOnWindowFocus: false,
     retry: false,
     enabled: enabled && !!jobId,
-    refetchInterval: (data) => {
-      if (isJobComplete(data?.status)) {
+    refetchInterval: (data, query) => {
+      if (isJobComplete(data?.status) || query.state.error) {
         return false;
       }
       return POLLING_INTERVAL_MS;

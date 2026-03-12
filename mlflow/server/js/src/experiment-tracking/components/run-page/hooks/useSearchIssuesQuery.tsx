@@ -54,7 +54,12 @@ export const useSearchIssuesQuery = ({
     refetchOnWindowFocus: false,
     retry: false,
     enabled,
-    refetchInterval: pollingEnabled ? POLLING_INTERVAL_MS : false,
+    refetchInterval: (_data, query) => {
+      if (!pollingEnabled || query.state.error) {
+        return false;
+      }
+      return POLLING_INTERVAL_MS;
+    },
   });
 
   return {

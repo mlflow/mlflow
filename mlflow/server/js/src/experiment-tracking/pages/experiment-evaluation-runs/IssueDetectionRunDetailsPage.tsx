@@ -70,12 +70,10 @@ export const IssueDetectionRunDetailsPage = () => {
         visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES, RunPageTabName.ISSUES],
       }}
       onDeleteSuccess={handleDeleteSuccess}
-      renderCustomOverview={({ runUuid, runInfo, tags, onRunDataUpdated }) => (
+      renderCustomOverview={({ runInfo, tags }) => (
         <IssueDetectionRunOverview
-          runUuid={runUuid}
           runInfo={runInfo}
           tags={tags}
-          onRunDataUpdated={onRunDataUpdated}
           progressProps={{
             onCancel: handleCancelDetection,
             jobId: tags[MLFLOW_ISSUE_DETECTION_JOB_ID_TAG]?.value,
