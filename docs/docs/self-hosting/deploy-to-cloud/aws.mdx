@@ -66,7 +66,8 @@ The s3 bucket that is created in the first step blocks all public access. Create
                 "s3:PutObject",
                 "s3:GetObject",
                 "s3:DeleteObject",
-                "s3:ListBucket"
+                "s3:ListBucket",
+                "s3:AbortMultipartUpload"
             ],
             "Resource": [
                 "arn:aws:s3:::<the name of s3 bucket for mlflow artifacts store>",
@@ -87,7 +88,7 @@ Create ECS (Elastic container service) service to host the MLflow web server and
 - Set the "Command" to `bash,-c,mlflow server --backend-store-uri {database-URL} --artifacts-destination s3://{s3-bucket-name}/ --host 0.0.0.0 --port 5000 --disable-security-middleware`, note that we disable the security middleware because the MLflow service is protected behind the Amazon ALB Security group + VPC subnet, and the ECS express mode will generate the default ALB / VPC settings automatically.
 - Set the "Task role" to the "mlflow-task-role" that is created above.
 - Set the compute resources used by the MLflow server (CPU / memory etc) properly.
-- Set both of "Minimum number of tasks" and "Maximum number of tasks" to 1. We only need to run 1 MLflow server task at a time. The ECS service guarantees that only one task is running at a time. If a task crashes, a new task will be automatically started to replace it.
+- Set both of "Minimum number of tasks" and "Maximum number of tasks" to 1 so that the desired steady-state is a single MLflow server task. ECS will attempt to keep one task running and will automatically start a replacement if the running task crashes.
 
 After creation, you can view the ECS express service overview page as follows:
 ![create ECS](/images/self-hosting/create-aws-ecs.png)
@@ -96,7 +97,7 @@ The "Application URL" on the overview page is the MLflow service URL that you ca
 
 ### Integration with MLflow authentication
 
-MLflow supports [basic authentication](https://mlflow.org/docs/latest/self-hosting/security/basic-http-auth/) and [authentication with OIDC plugin](https://mlflow.org/docs/latest/self-hosting/security/sso/#using-oidc-plugin), the 2 kinds of authentication settings require:
+MLflow supports [basic authentication](/self-hosting/security/basic-http-auth/) and [authentication with OIDC plugin](/self-hosting/security/sso/#using-oidc-plugin), the 2 kinds of authentication settings require:
 
 - Additional pip package installation: Inject it as a `pip install` command into the "Command" setting.
 - Additional environment variable settings: Set them as the environment variables of the ECS service.
@@ -104,7 +105,7 @@ MLflow supports [basic authentication](https://mlflow.org/docs/latest/self-hosti
 
 ## Step 5: Validate the deployment
 
-Use [MLflow demo](https://mlflow.org/docs/latest/api_reference/cli.html#mlflow-demo) CLI to validate the deployment. Run the command from your own laptop as follows:
+Use [MLflow demo](/api_reference/cli.html#mlflow-demo) CLI to validate the deployment. Run the command from your own laptop as follows:
 
 ```
 mlflow demo --tracking-uri <ECS-application-URL>
