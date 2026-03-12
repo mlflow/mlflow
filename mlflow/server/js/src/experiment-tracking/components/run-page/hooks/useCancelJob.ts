@@ -21,12 +21,17 @@ export const useCancelJob = () => {
         method: 'PATCH',
       })) as CancelJobResponse;
 
-      // Terminate the underlying MLflow run since the job process is killed independently
+      // Terminate the underlying MLflow run since the job process is killed independently.
+      // Swallow errors here so cancel success isn't masked by run update failures.
       if (runUuid) {
-        await MlflowService.updateRun({
-          run_id: runUuid,
-          status: 'KILLED',
-        });
+        try {
+          await MlflowService.updateRun({
+            run_id: runUuid,
+            status: 'KILLED',
+          });
+        } catch (e) {
+          console.error('Failed to update run status after job cancellation:', e);
+        }
       }
 
       return response;
