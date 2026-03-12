@@ -208,10 +208,7 @@ class DatabaseBudgetTracker(BudgetTracker):
             window_end = _compute_window_end(
                 policy.duration_unit, policy.duration_value, window_start
             )
-            try:
-                spend = self._query_spend(policy, window_start, window_end)
-            except Exception:
-                spend = 0.0
+            spend = self._query_spend(policy, window_start, window_end)
             windows.append(
                 BudgetWindow(
                     policy=policy,
@@ -235,10 +232,7 @@ class DatabaseBudgetTracker(BudgetTracker):
 
         window_start = _compute_window_start(policy.duration_unit, policy.duration_value, now)
         window_end = _compute_window_end(policy.duration_unit, policy.duration_value, window_start)
-        try:
-            spend = self._query_spend(policy, window_start, window_end)
-        except Exception:
-            spend = 0.0
+        spend = self._query_spend(policy, window_start, window_end)
         return BudgetWindow(
             policy=policy,
             window_start=window_start,
