@@ -2171,10 +2171,10 @@ def test_update_issue_is_workspace_scoped(workspace_tracking_store):
         updated_issue = workspace_tracking_store.update_issue(
             issue_id=issue_a.issue_id,
             name="Updated Name A",
-            status=IssueStatus.ACCEPTED,
+            status=IssueStatus.RESOLVED,
         )
         assert updated_issue.name == "Updated Name A"
-        assert updated_issue.status == IssueStatus.ACCEPTED
+        assert updated_issue.status == IssueStatus.RESOLVED
 
     with WorkspaceContext("team-b"):
         with pytest.raises(
@@ -2201,7 +2201,7 @@ def test_search_issues_is_workspace_scoped(workspace_tracking_store):
             experiment_id=exp_id_a2,
             name="Issue A2",
             description="Second issue in workspace A",
-            status=IssueStatus.ACCEPTED,
+            status=IssueStatus.RESOLVED,
         )
 
         # Search all issues in workspace A

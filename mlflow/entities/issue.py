@@ -13,7 +13,6 @@ class IssueStatus(str, Enum):
     """Enum for status of an :py:class:`mlflow.entities.Issue`."""
 
     PENDING = "pending"
-    ACCEPTED = "accepted"
     REJECTED = "rejected"
     RESOLVED = "resolved"
 

@@ -4412,7 +4412,7 @@ def test_get_issue():
         experiment_id="exp-123",
         name="Test issue",
         description="Test description",
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
         severity=IssueSeverity.HIGH,
         root_causes=["Root cause 1"],
         created_timestamp=1234567890,
@@ -4455,7 +4455,7 @@ def test_update_issue():
     request_message.issue_id = "iss-update-123"
     request_message.name = "Updated issue name"
     request_message.description = "Updated description"
-    request_message.status = "accepted"
+    request_message.status = "resolved"
     request_message.severity = "medium"
 
     updated_issue = Issue(
@@ -4463,7 +4463,7 @@ def test_update_issue():
         experiment_id="exp-123",
         name="Updated issue name",
         description="Updated description",
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
         severity=IssueSeverity.MEDIUM,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567900,
@@ -4482,7 +4482,7 @@ def test_update_issue():
         assert call_kwargs["issue_id"] == "iss-update-123"
         assert call_kwargs["name"] == "Updated issue name"
         assert call_kwargs["description"] == "Updated description"
-        assert call_kwargs["status"] == IssueStatus.ACCEPTED
+        assert call_kwargs["status"] == IssueStatus.RESOLVED
         assert call_kwargs["severity"] == IssueSeverity.MEDIUM.value
 
         json_response = json.loads(response.get_data())
@@ -4509,7 +4509,7 @@ def test_search_issues_all():
             experiment_id="exp-1",
             name="Issue 2",
             description="Description 2",
-            status=IssueStatus.ACCEPTED,
+            status=IssueStatus.RESOLVED,
             created_timestamp=1234567891,
             last_updated_timestamp=1234567891,
         ),
@@ -4541,7 +4541,7 @@ def test_search_issues_all():
 def test_search_issues_with_filters():
     request_message = SearchIssues()
     request_message.experiment_id = "exp-specific"
-    request_message.filter_string = "status = 'accepted' AND source_run_id = 'run-specific'"
+    request_message.filter_string = "status = 'resolved' AND source_run_id = 'run-specific'"
     request_message.max_results = 50
 
     issues = [
@@ -4550,7 +4550,7 @@ def test_search_issues_with_filters():
             experiment_id="exp-specific",
             name="Filtered issue",
             description="Description",
-            status=IssueStatus.ACCEPTED,
+            status=IssueStatus.RESOLVED,
             source_run_id="run-specific",
             created_timestamp=1234567890,
             last_updated_timestamp=1234567890,
@@ -4568,7 +4568,7 @@ def test_search_issues_with_filters():
         call_kwargs = mock_store.return_value.search_issues.call_args[1]
         assert call_kwargs["experiment_id"] == "exp-specific"
         assert (
-            call_kwargs["filter_string"] == "status = 'accepted' AND source_run_id = 'run-specific'"
+            call_kwargs["filter_string"] == "status = 'resolved' AND source_run_id = 'run-specific'"
         )
         assert call_kwargs["max_results"] == 50
 

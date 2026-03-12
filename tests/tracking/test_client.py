@@ -3695,7 +3695,7 @@ def test_create_issue_with_all_fields(tmp_path: Path):
                 experiment_id=exp_id,
                 name="High latency",
                 description="API response times exceed threshold",
-                status=IssueStatus.ACCEPTED,
+                status=IssueStatus.RESOLVED,
                 severity=IssueSeverity.HIGH,
                 root_causes=["Database query slow", "Network congestion"],
                 source_run_id=run.info.run_id,
@@ -3706,7 +3706,7 @@ def test_create_issue_with_all_fields(tmp_path: Path):
     assert issue.experiment_id == exp_id
     assert issue.name == "High latency"
     assert issue.description == "API response times exceed threshold"
-    assert issue.status == IssueStatus.ACCEPTED
+    assert issue.status == IssueStatus.RESOLVED
     assert issue.severity == IssueSeverity.HIGH
     assert issue.root_causes == ["Database query slow", "Network congestion"]
     assert issue.source_run_id == run.info.run_id

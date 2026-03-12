@@ -3757,7 +3757,7 @@ def test_get_issue():
             "experiment_id": "exp-456",
             "name": "Test Issue",
             "description": "Test description",
-            "status": "accepted",
+            "status": "resolved",
             "severity": "medium",
             "root_causes": ["cause1"],
             "source_run_id": "run-789",
@@ -3780,7 +3780,7 @@ def test_get_issue():
     assert issue.issue_id == "issue-123"
     assert issue.experiment_id == "exp-456"
     assert issue.name == "Test Issue"
-    assert issue.status == IssueStatus.ACCEPTED
+    assert issue.status == IssueStatus.RESOLVED
     assert issue.severity == IssueSeverity.MEDIUM
 
 
@@ -3860,7 +3860,7 @@ def test_search_issues():
                 "experiment_id": "exp-456",
                 "name": "Issue 2",
                 "description": "Description 2",
-                "status": "accepted",
+                "status": "resolved",
                 "severity": "medium",
                 "root_causes": ["cause"],
                 "source_run_id": "run-123",
@@ -3898,7 +3898,7 @@ def test_search_issues():
     assert isinstance(result[1], Issue)
     assert result[1].issue_id == "issue-124"
     assert result[1].name == "Issue 2"
-    assert result[1].status == IssueStatus.ACCEPTED
+    assert result[1].status == IssueStatus.RESOLVED
     assert result[1].severity == IssueSeverity.MEDIUM
 
     assert result.token == "next_token_456"
