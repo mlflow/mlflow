@@ -30,7 +30,17 @@ export const ExperimentViewRunsTableResizer = ({
   return (
     <>
       <ResizableBox
-        css={{ display: 'flex', position: 'relative' }}
+        css={{
+          display: 'flex',
+          position: 'relative',
+          '@media (max-width: 768px)': {
+            flex: 'initial !important',
+            width: '100% !important',
+            height: 'auto !important',
+            maxWidth: '100% !important',
+            minWidth: 0,
+          },
+        }}
         style={{ flex: `0 0 ${runListHidden ? 0 : width}px` }}
         width={width}
         axis="x"
@@ -102,6 +112,9 @@ export const ExperimentViewRunsTableResizerHandle = React.forwardRef<
           '.button': {
             border: `2px solid ${theme.colors.actionDefaultBorderHover}`,
           },
+        },
+        '@media (max-width: 768px)': {
+          display: 'none',
         },
       }}
     >

@@ -68,7 +68,12 @@ const MlflowRootLayout = ({
             css={{
               display: 'flex',
               flexDirection: 'row',
+              '@media (max-width: 768px)': {
+                flexDirection: 'column',
+              },
               width: '100%',
+              flex: 1,
+              overflow: 'hidden',
               background:
                 workflowType === WorkflowType.GENAI
                   ? `linear-gradient(163deg, rgba(66, 153, 224, 0.06) 20%, rgba(202, 66, 224, 0.06) 35%, rgba(255, 95, 70, 0.06) 50%, transparent 80%), ${theme.colors.backgroundSecondary}`
@@ -84,6 +89,10 @@ const MlflowRootLayout = ({
                 borderRadius: theme.borders.borderRadiusMd,
                 boxShadow: theme.shadows.md,
                 overflowX: 'auto',
+                minWidth: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
               }}
             >
               <React.Suspense fallback={<LegacySkeleton />}>
@@ -106,7 +115,12 @@ const MlflowRootRoute = () => {
   const routeTitle = usePageTitle();
   useDocumentTitle({ title: routeTitle });
 
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [showSidebar, setShowSidebar] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth > 768;
+    }
+    return true;
+  });
   const { experimentId } = useParams();
   const enableWorkflowBasedNavigation = shouldEnableWorkflowBasedNavigation();
 

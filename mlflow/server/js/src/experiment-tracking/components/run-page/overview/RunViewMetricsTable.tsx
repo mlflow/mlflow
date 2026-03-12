@@ -87,6 +87,7 @@ const RunViewMetricsTableSection = ({
               style={{
                 flex: keyColumn.getCanResize() ? keyColumn.getSize() / 100 : undefined,
               }}
+              multiline
             >
               <Link
                 componentId="mlflow.run_page.overview.metric_chart_link"
@@ -102,7 +103,9 @@ const RunViewMetricsTableSection = ({
             <TableCell
               css={{
                 flex: valueColumn?.getCanResize() ? valueColumn.getSize() / 100 : undefined,
+                wordBreak: 'break-all',
               }}
+              multiline
             >
               {value.toString()}
             </TableCell>
