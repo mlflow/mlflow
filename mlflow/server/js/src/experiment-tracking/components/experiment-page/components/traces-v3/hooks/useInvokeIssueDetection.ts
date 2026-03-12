@@ -1,4 +1,4 @@
-import { useMutation } from '@tanstack/react-query';
+import { useMutation } from '@databricks/web-shared/query-client';
 import { fetchAPI, getAjaxUrl } from '../../../../../../common/utils/FetchUtils';
 import type { IssueCategory } from '../IssueDetectionCategories';
 
