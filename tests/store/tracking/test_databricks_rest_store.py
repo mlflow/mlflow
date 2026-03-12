@@ -371,14 +371,11 @@ def test_delete_trace_tag(monkeypatch):
             trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
             key=request.key,
         )
-        expected_json = {
-            "sql_warehouse_id": sql_warehouse_id,
-        }
         mock_http.assert_called_once_with(
             host_creds=creds,
-            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/{request.key}",
+            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/{request.key}?sql_warehouse_id={sql_warehouse_id}",
             method="DELETE",
-            json=expected_json,
+            json=None,
         )
         assert res is None
 
@@ -400,15 +397,12 @@ def test_delete_trace_tag_with_special_characters(monkeypatch):
             trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
             key=key_with_slash,
         )
-        expected_json = {
-            "sql_warehouse_id": sql_warehouse_id,
-        }
         # Verify that the key is URL-encoded in the endpoint (/ becomes %2F)
         mock_http.assert_called_once_with(
             host_creds=creds,
-            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/foo%2Fbar",
+            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/foo%2Fbar?sql_warehouse_id={sql_warehouse_id}",
             method="DELETE",
-            json=expected_json,
+            json=None,
         )
         assert res is None
 
