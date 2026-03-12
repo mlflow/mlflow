@@ -298,7 +298,7 @@ export const RunsChartsTooltipBody = ({
   const description = Utils.getRunDescriptionFromTags(activeRun.tags);
 
   return (
-    <div>
+    <div css={styles.tooltipBody}>
       <div css={[styles.contentWrapper, description && styles.contentWrapperCompact]}>
         <div css={styles.header}>
           <div css={styles.colorPill} style={{ backgroundColor: activeRun.color }} />
@@ -325,7 +325,11 @@ export const RunsChartsTooltipBody = ({
         )}
       </div>
 
-      {description && <div css={styles.description}>{description}</div>}
+      {description && (
+        <Typography.Text size="sm" color="secondary" css={styles.description}>
+          {description}
+        </Typography.Text>
+      )}
 
       <ValuesBox
         isHovering={isHovering}
@@ -393,6 +397,9 @@ export const RunsChartsTooltipBody = ({
 };
 
 const styles = {
+  tooltipBody: {
+    maxWidth: 300,
+  },
   runLink: (theme: Theme) => ({
     color: theme.colors.primary,
     '&:hover': {},
@@ -411,16 +418,15 @@ const styles = {
   contentWrapperCompact: {
     marginBottom: 4,
   },
-  description: (theme: Theme) => ({
-    fontSize: theme.typography.fontSizeSm,
-    color: theme.colors.textSecondary,
+  description: {
     marginBottom: 12,
     display: '-webkit-box',
-    WebkitLineClamp: 2,
-    WebkitBoxOrient: 'vertical' as const,
     overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    WebkitBoxOrient: 'vertical' as const,
+    WebkitLineClamp: 2,
     wordBreak: 'break-word' as const,
-  }),
+  },
   value: {
     whiteSpace: 'nowrap' as const,
     overflow: 'hidden',
