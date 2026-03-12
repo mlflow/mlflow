@@ -61,20 +61,7 @@ def test_detect_environment_docker(tmp_path, monkeypatch):
         assert _detect_environment() == Environment.DOCKER
 
 
-def test_detect_environment_none(monkeypatch):
-    env_vars = (
-        "KAGGLE_KERNEL_RUN_TYPE",
-        "COLAB_RELEASE_TAG",
-        "AZUREML_FRAMEWORK",
-        "SAGEMAKER_APP_TYPE",
-    )
-    with (
-        monkeypatch.context() as m,
-        patch("mlflow.telemetry.utils.Path.exists") as mock_path_exists,
-    ):
-        for env_var in env_vars:
-            m.delenv(env_var, raising=False)
-        mock_path_exists.return_value = False
+def test_detect_environment_none():
     assert _detect_environment() is None
 
 

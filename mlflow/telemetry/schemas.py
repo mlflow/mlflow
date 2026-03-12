@@ -54,6 +54,23 @@ class Environment(str, Enum):
     DOCKER = "docker"
 
 
+# The following env vars were found by manually inspecting
+# env vars in the specified environments and avoiding potentially
+# PII-containing variables.
+ENV_VAR_TO_ENVIRONMENT_MAP = {
+    # Undocumented env var in Kaggle notebooks
+    # https://www.kaggle.com/discussions/general/147433
+    "KAGGLE_KERNEL_RUN_TYPE": Environment.KAGGLE,
+    # Undocumented env var in Colabe notebooks
+    "COLAB_RELEASE_TAG": Environment.COLAB,
+    # Undocumented env var in AzureML notebooks
+    "AZUREML_FRAMEWORK": Environment.AZURE_ML,
+    # Internal env var that SageMaker inserts
+    # https://docs.aws.amazon.com/sagemaker/latest/dg/studio-updated-byoi-specs.html#studio-updated-byoi-specs-run
+    "SAGEMAKER_APP_TYPE": Environment.SAGEMAKER_STUDIO,
+}
+
+
 class SourceSDK(str, Enum):
     MLFLOW_TRACING = "mlflow-tracing"
     MLFLOW = "mlflow"

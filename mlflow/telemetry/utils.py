@@ -70,18 +70,16 @@ def _is_in_databricks() -> bool:
 
 
 def _detect_environment() -> str | None:
-    from mlflow.telemetry.schemas import Environment
+    from mlflow.telemetry.schemas import ENV_VAR_TO_ENVIRONMENT_MAP, Environment
 
-    if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
-        return Environment.KAGGLE.value
-    if "COLAB_RELEASE_TAG" in os.environ:
-        return Environment.COLAB.value
-    if "AZUREML_FRAMEWORK" in os.environ:
-        return Environment.AZURE_ML.value
-    if "SAGEMAKER_APP_TYPE" in os.environ:
-        return Environment.SAGEMAKER_STUDIO.value
+    for env_var, environment in ENV_VAR_TO_ENVIRONMENT_MAP.items():
+        if env_var in os.environ:
+            return environment.value
+
+    # https://docs.aws.amazon.com/sagemaker/latest/dg/nbi-metadata.html
     if Path("/opt/ml/metadata/resource-metadata.json").exists():
         return Environment.SAGEMAKER_NOTEBOOK.value
+    # unofficial heuristic to detect docker environment
     if Path("/.dockerenv").exists():
         return Environment.DOCKER.value
     return None
