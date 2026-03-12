@@ -326,7 +326,7 @@ export const RunsChartsTooltipBody = ({
       </div>
 
       {description && (
-        <Typography.Text size="sm" color="secondary" css={styles.description}>
+        <Typography.Text size="sm" color="secondary" css={styles.description} title={description}>
           {description}
         </Typography.Text>
       )}
