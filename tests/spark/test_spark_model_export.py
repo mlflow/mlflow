@@ -908,7 +908,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
                     expected_uri.format(mlflow.active_run().info.run_id)
                 )
 
-                if expected_uri.startswith("mflowdbfs"):
+                if expected_uri.startswith("mlflowdbfs"):
                     # If mlflowdbfs is used, infer_pip_requirements should load the model from the
                     # remote model path instead of a local tmp path.
                     assert (
