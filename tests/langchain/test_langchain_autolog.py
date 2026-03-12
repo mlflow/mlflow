@@ -24,8 +24,8 @@ from langchain_core.messages import (
     SystemMessage,
     ToolMessage,
 )
-from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.prompts import PromptTemplate
 from langchain_core.prompts.chat import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
@@ -213,7 +213,6 @@ def test_chat_model_autolog():
     ],
 )
 def test_chat_model_autolog_audio_input_normalization(mime_type, expected_format):
-    """LangChain audio content blocks in inputs are normalized to input_audio in the trace."""
     audio_b64 = "SGVsbG8="
 
     class AudioInputModel(BaseChatModel):
@@ -227,10 +226,17 @@ def test_chat_model_autolog_audio_input_normalization(mime_type, expected_format
     mlflow.langchain.autolog()
     model = AudioInputModel()
     model.invoke([
-        HumanMessage(content=[
-            {"type": "text", "text": "What is this?"},
-            {"type": "audio", "source_type": "base64", "data": audio_b64, "mime_type": mime_type},
-        ])
+        HumanMessage(
+            content=[
+                {"type": "text", "text": "What is this?"},
+                {
+                    "type": "audio",
+                    "source_type": "base64",
+                    "data": audio_b64,
+                    "mime_type": mime_type,
+                },
+            ]
+        )
     ])
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
@@ -244,15 +250,21 @@ def test_chat_model_autolog_audio_input_normalization(mime_type, expected_format
 
 
 def test_chat_model_autolog_audio_output_normalization():
-    """LangChain audio content blocks in outputs are normalized to input_audio in the trace."""
     audio_b64 = "SGVsbG8="
 
     class AudioOutputModel(BaseChatModel):
         def _generate(self, messages, stop=None, run_manager=None, **kwargs):
-            ai_msg = AIMessage(content=[
-                {"type": "text", "text": "Here is audio."},
-                {"type": "audio", "source_type": "base64", "data": audio_b64, "mime_type": "audio/wav"},
-            ])
+            ai_msg = AIMessage(
+                content=[
+                    {"type": "text", "text": "Here is audio."},
+                    {
+                        "type": "audio",
+                        "source_type": "base64",
+                        "data": audio_b64,
+                        "mime_type": "audio/wav",
+                    },
+                ]
+            )
             return ChatResult(generations=[ChatGeneration(message=ai_msg)])
 
         @property
