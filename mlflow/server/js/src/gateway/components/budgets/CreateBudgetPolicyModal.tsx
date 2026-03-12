@@ -1,12 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
 import {
   Alert,
-  InfoSmallIcon,
   Input,
   Modal,
   SimpleSelect,
   SimpleSelectOption,
-  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -139,18 +137,20 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           <Typography.Text bold>
             <FormattedMessage defaultMessage="Budget amount (USD)" description="Budget amount label" />
           </Typography.Text>
-          <Input
-            componentId="mlflow.gateway.create-budget-policy-modal.budget-amount"
-            value={formData.budgetAmount}
-            onChange={(e) => handleFieldChange('budgetAmount', e.target.value)}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'e.g., 100.00',
-              description: 'Budget amount placeholder',
-            })}
-            type="number"
-            min={0}
-            step="0.01"
-          />
+          <div css={{ maxWidth: 200 }}>
+            <Input
+              componentId="mlflow.gateway.create-budget-policy-modal.budget-amount"
+              value={formData.budgetAmount}
+              onChange={(e) => handleFieldChange('budgetAmount', e.target.value)}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'e.g., 100.00',
+                description: 'Budget amount placeholder',
+              })}
+              type="number"
+              min={0}
+              step="0.01"
+            />
+          </div>
         </div>
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
@@ -195,34 +195,9 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
         </div>
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-            <Typography.Text bold>
-              <FormattedMessage defaultMessage="On exceeded" description="Budget on exceeded label" />
-            </Typography.Text>
-            <Tooltip
-              componentId="mlflow.gateway.create-budget-policy-modal.on-exceeded-tooltip"
-              content={
-                <FormattedMessage
-                  defaultMessage="Alert sends a webhook notification. <link>Learn how to set up webhooks.</link>"
-                  description="Tooltip explaining budget exceeded actions and webhook setup"
-                  values={{
-                    link: (chunks: React.ReactNode) => (
-                      <a
-                        href="https://mlflow.org/docs/latest/ml/webhooks/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        css={{ color: 'inherit', textDecoration: 'underline' }}
-                      >
-                        {chunks}
-                      </a>
-                    ),
-                  }}
-                />
-              }
-            >
-              <InfoSmallIcon css={{ color: theme.colors.textSecondary, cursor: 'help' }} />
-            </Tooltip>
-          </div>
+          <Typography.Text bold>
+            <FormattedMessage defaultMessage="On exceeded" description="Budget on exceeded label" />
+          </Typography.Text>
           <SimpleSelect
             id="create-budget-policy-on-exceeded"
             componentId="mlflow.gateway.create-budget-policy-modal.on-exceeded"
@@ -232,6 +207,18 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
             <SimpleSelectOption value="ALERT">Alert</SimpleSelectOption>
             <SimpleSelectOption value="REJECT">Reject requests</SimpleSelectOption>
           </SimpleSelect>
+          {formData.budgetAction === 'ALERT' && (
+            <Alert
+              componentId="mlflow.gateway.create-budget-policy-modal.alert-webhook-info"
+              type="info"
+              closable={false}
+              message={intl.formatMessage({
+                defaultMessage:
+                  "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
+                description: 'Info message when alert action is selected for budget policy',
+              })}
+            />
+          )}
         </div>
       </div>
     </Modal>
