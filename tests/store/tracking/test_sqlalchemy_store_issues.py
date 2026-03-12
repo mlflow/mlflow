@@ -49,7 +49,7 @@ def test_create_issue_with_all_fields(store):
         experiment_id=exp_id,
         name="Token limit exceeded",
         description="Model is hitting token limits frequently",
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
         severity=IssueSeverity.HIGH,
         root_causes=["Input prompts are too long", "Context window exceeded"],
         source_run_id=run.info.run_id,
@@ -60,7 +60,7 @@ def test_create_issue_with_all_fields(store):
     assert issue.experiment_id == exp_id
     assert issue.name == "Token limit exceeded"
     assert issue.description == "Model is hitting token limits frequently"
-    assert issue.status == IssueStatus.ACCEPTED
+    assert issue.status == IssueStatus.RESOLVED
     assert issue.severity == IssueSeverity.HIGH
     assert issue.root_causes == [
         "Input prompts are too long",
@@ -149,7 +149,7 @@ def test_update_issue(store):
 
     updated_issue = store.update_issue(
         issue_id=created_issue.issue_id,
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
         name="Updated name",
         description="Updated description",
         severity=IssueSeverity.HIGH,
@@ -157,7 +157,7 @@ def test_update_issue(store):
 
     assert updated_issue.issue_id == created_issue.issue_id
     assert updated_issue.experiment_id == exp_id
-    assert updated_issue.status == IssueStatus.ACCEPTED
+    assert updated_issue.status == IssueStatus.RESOLVED
     assert updated_issue.name == "Updated name"
     assert updated_issue.description == "Updated description"
     assert updated_issue.severity == IssueSeverity.HIGH
@@ -168,7 +168,7 @@ def test_update_issue(store):
     assert updated_issue.last_updated_timestamp > created_issue.last_updated_timestamp
 
     retrieved_issue = store.get_issue(created_issue.issue_id)
-    assert retrieved_issue.status == IssueStatus.ACCEPTED
+    assert retrieved_issue.status == IssueStatus.RESOLVED
     assert retrieved_issue.name == "Updated name"
     assert retrieved_issue.description == "Updated description"
     assert retrieved_issue.severity == IssueSeverity.HIGH
@@ -200,7 +200,7 @@ def test_update_issue_partial(store):
 
 def test_update_issue_nonexistent(store):
     with pytest.raises(MlflowException, match=r"Issue with ID 'nonexistent-id' not found"):
-        store.update_issue(issue_id="nonexistent-id", status=IssueStatus.ACCEPTED)
+        store.update_issue(issue_id="nonexistent-id", status=IssueStatus.RESOLVED)
 
 
 def test_search_issues_no_filters(store):
@@ -370,11 +370,11 @@ def test_search_issues_filter_by_status(store):
         status=IssueStatus.PENDING,
     )
 
-    issue_accepted = store.create_issue(
+    issue_resolved = store.create_issue(
         experiment_id=exp_id,
-        name="Accepted Issue",
-        description="Accepted",
-        status=IssueStatus.ACCEPTED,
+        name="Resolved Issue",
+        description="Resolved",
+        status=IssueStatus.RESOLVED,
     )
 
     store.create_issue(
@@ -384,11 +384,11 @@ def test_search_issues_filter_by_status(store):
         status=IssueStatus.REJECTED,
     )
 
-    result = store.search_issues(filter_string="status = 'accepted'")
+    result = store.search_issues(filter_string="status = 'resolved'")
 
     assert len(result) == 1
-    assert result[0].issue_id == issue_accepted.issue_id
-    assert result[0].status == IssueStatus.ACCEPTED
+    assert result[0].issue_id == issue_resolved.issue_id
+    assert result[0].status == IssueStatus.RESOLVED
 
 
 def test_search_issues_filter_by_source_run_id(store):
@@ -446,9 +446,9 @@ def test_search_issues_filter_combined_with_experiment_id(store):
 
     store.create_issue(
         experiment_id=exp_id1,
-        name="Exp1 Accepted",
-        description="Accepted in exp1",
-        status=IssueStatus.ACCEPTED,
+        name="Exp1 Resolved",
+        description="Resolved in exp1",
+        status=IssueStatus.RESOLVED,
     )
 
     store.create_issue(
@@ -490,18 +490,18 @@ def test_search_issues_filter_inequality(store):
         status=IssueStatus.PENDING,
     )
 
-    issue_accepted = store.create_issue(
+    issue_resolved = store.create_issue(
         experiment_id=exp_id,
-        name="Accepted Issue",
-        description="Accepted",
-        status=IssueStatus.ACCEPTED,
+        name="Resolved Issue",
+        description="Resolved",
+        status=IssueStatus.RESOLVED,
     )
 
     result = store.search_issues(filter_string="status != 'pending'")
 
     assert len(result) == 1
-    assert result[0].issue_id == issue_accepted.issue_id
-    assert result[0].status == IssueStatus.ACCEPTED
+    assert result[0].issue_id == issue_resolved.issue_id
+    assert result[0].status == IssueStatus.RESOLVED
 
 
 def test_search_issues_filter_and_operator(store):
@@ -531,29 +531,29 @@ def test_search_issues_filter_and_operator(store):
         source_run_id=run1.info.run_id,
     )
 
-    issue_accepted_run1 = store.create_issue(
+    issue_resolved_run1 = store.create_issue(
         experiment_id=exp_id,
-        name="Accepted Run1",
-        description="Accepted from run1",
-        status=IssueStatus.ACCEPTED,
+        name="Resolved Run1",
+        description="Resolved from run1",
+        status=IssueStatus.RESOLVED,
         source_run_id=run1.info.run_id,
     )
 
     store.create_issue(
         experiment_id=exp_id,
-        name="Accepted Run2",
-        description="Accepted from run2",
-        status=IssueStatus.ACCEPTED,
+        name="Resolved Run2",
+        description="Resolved from run2",
+        status=IssueStatus.RESOLVED,
         source_run_id=run2.info.run_id,
     )
 
     result = store.search_issues(
-        filter_string=f"status = 'accepted' AND source_run_id = '{run1.info.run_id}'"
+        filter_string=f"status = 'resolved' AND source_run_id = '{run1.info.run_id}'"
     )
 
     assert len(result) == 1
-    assert result[0].issue_id == issue_accepted_run1.issue_id
-    assert result[0].status == IssueStatus.ACCEPTED
+    assert result[0].issue_id == issue_resolved_run1.issue_id
+    assert result[0].status == IssueStatus.RESOLVED
     assert result[0].source_run_id == run1.info.run_id
 
 
@@ -564,7 +564,7 @@ def test_search_issues_invalid_max_results(store):
         experiment_id=exp_id,
         name="Test Issue",
         description="Test",
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
     )
 
     with pytest.raises(MlflowException, match=r"Invalid value 0 for parameter 'max_results'"):

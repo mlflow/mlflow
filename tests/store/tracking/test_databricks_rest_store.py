@@ -2035,7 +2035,7 @@ def test_update_issue_not_implemented():
     with pytest.raises(
         MlflowNotImplementedException, match="Issue management is not supported in Databricks"
     ):
-        store.update_issue(issue_id="issue-123", status="accepted")
+        store.update_issue(issue_id="issue-123", status="resolved")
 
 
 def test_search_issues_not_implemented():

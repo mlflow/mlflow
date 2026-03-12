@@ -6085,9 +6085,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 Supported filters: status, source_run_id
                 Supported comparators: =, !=
                 Examples:
-                    - "status = 'accepted'"
+                    - "status = 'resolved'"
                     - "source_run_id = 'run123'"
-                    - "status = 'draft' AND source_run_id != 'run456'"
+                    - "status = 'pending' AND source_run_id != 'run456'"
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
 
