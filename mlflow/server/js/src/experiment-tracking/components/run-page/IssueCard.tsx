@@ -19,7 +19,6 @@ interface IssueCardProps {
   issue: Issue;
   isSelected: boolean;
   onSelect: () => void;
-  onStatusUpdate?: () => void;
 }
 
 const STATUS_TAG_CONFIG: Record<IssueStatus, { color: TagColors; label: string }> = {
@@ -28,21 +27,14 @@ const STATUS_TAG_CONFIG: Record<IssueStatus, { color: TagColors; label: string }
   resolved: { color: 'purple', label: 'Resolved' },
 };
 
-export const IssueCard = ({ issue, isSelected, onSelect, onStatusUpdate }: IssueCardProps) => {
+export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { updateIssue, isUpdating } = useUpdateIssue();
 
   const handleStatusChange = (newStatus: IssueStatus) => (e: React.MouseEvent) => {
     e.stopPropagation();
-    updateIssue(
-      { issueId: issue.issue_id, status: newStatus },
-      {
-        onSuccess: () => {
-          onStatusUpdate?.();
-        },
-      },
-    );
+    updateIssue({ issueId: issue.issue_id, status: newStatus });
   };
 
   const statusConfig = STATUS_TAG_CONFIG[issue.status];

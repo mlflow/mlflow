@@ -15,7 +15,7 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
   const { theme } = useDesignSystemTheme();
   const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [statusFilter, setStatusFilter] = useState<IssueStatusFilterValue>('pending');
-  const { issues, isLoading, refetch } = useSearchIssuesQuery({
+  const { issues, isLoading } = useSearchIssuesQuery({
     experimentId,
     sourceRunId: runUuid,
   });
@@ -29,10 +29,6 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
 
   const handleSelect = (issue: Issue) => {
     setSelectedIssue((prev) => (prev?.issue_id === issue.issue_id ? null : issue));
-  };
-
-  const handleStatusUpdate = () => {
-    refetch();
   };
 
   if (isLoading) {
@@ -96,7 +92,6 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
               issue={issue}
               isSelected={selectedIssue?.issue_id === issue.issue_id}
               onSelect={() => handleSelect(issue)}
-              onStatusUpdate={handleStatusUpdate}
             />
           ))}
         </div>
