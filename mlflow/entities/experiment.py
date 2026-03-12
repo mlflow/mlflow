@@ -22,6 +22,7 @@ class Experiment(_MlflowObject):
         creation_time=None,
         last_update_time=None,
         workspace=None,
+        trace_location=None,
     ):
         super().__init__()
         self._experiment_id = experiment_id
@@ -32,6 +33,7 @@ class Experiment(_MlflowObject):
         self._creation_time = creation_time
         self._last_update_time = last_update_time
         self._workspace = resolve_entity_workspace_name(workspace)
+        self._trace_location = trace_location
 
     @property
     def experiment_id(self):
@@ -77,6 +79,15 @@ class Experiment(_MlflowObject):
 
     def _set_last_update_time(self, last_update_time):
         self._last_update_time = last_update_time
+
+    @property
+    def trace_location(self):
+        """Trace storage location, if configured."""
+        return self._trace_location
+
+    @trace_location.setter
+    def trace_location(self, trace_location):
+        self._trace_location = trace_location
 
     @property
     def workspace(self):
