@@ -4272,6 +4272,10 @@
     "defaultMessage": "Add to evaluation dataset",
     "description": "Add traces to evaluation dataset action"
   },
+  "QevoXx": {
+    "defaultMessage": "Error details",
+    "description": "Issue detection error details > Title"
+  },
   "Qg12xQ": {
     "defaultMessage": "Register prompts",
     "description": "Home page quick action title for registering prompts"
@@ -6755,6 +6759,10 @@
   "gUhc5g": {
     "defaultMessage": "You need to evaluate the resulting output first",
     "description": "Experiment page > new run modal > invalid state - result not evaluated"
+  },
+  "gUnKp0": {
+    "defaultMessage": "This key will be saved for reuse",
+    "description": "Text indicating API key will be saved for reuse"
   },
   "gVxisd": {
     "defaultMessage": "Tag \"{value}\" already exists.",
