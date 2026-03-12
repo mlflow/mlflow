@@ -313,7 +313,7 @@ const TracesV3LogsImpl = React.memo(
       useRunJudgesOnTracesConfiguration(
         runJudgeConfiguration.evaluateTraces,
         runJudgeConfiguration.allEvaluations,
-        runJudgeConfiguration.subscribeToScorerFinished as Parameters<typeof useRunJudgesOnTracesConfiguration>[2],
+        runJudgeConfiguration.subscribeToScorerFinished,
       );
 
     useEffect(() => {

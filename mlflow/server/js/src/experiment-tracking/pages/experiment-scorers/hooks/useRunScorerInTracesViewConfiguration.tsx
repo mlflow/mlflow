@@ -99,7 +99,7 @@ export const useRunScorerInTracesViewConfiguration = (
 export const useRunJudgesOnTracesConfiguration = (
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void,
   allEvaluations: Record<string, ScorerEvaluation> | undefined,
-  subscribeToScorerFinished: ((callback: (event: ScorerFinishedEvent) => void) => () => void) | undefined,
+  subscribeToScorerFinished: ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
   scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
 ) => {
   const [pendingTraceIds, setPendingTraceIds] = useState<string[]>([]);

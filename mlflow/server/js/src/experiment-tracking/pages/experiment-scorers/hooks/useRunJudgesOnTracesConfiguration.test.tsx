@@ -5,7 +5,8 @@ import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { useRunJudgesOnTracesConfiguration } from './useRunScorerInTracesViewConfiguration';
-import type { ScorerEvaluation, ScorerFinishedEvent } from '../useEvaluateTracesAsync';
+import type { ScorerEvaluation } from '../useEvaluateTracesAsync';
+import type { ModelTraceExplorerRunJudgeConfig } from '@databricks/web-shared/model-trace-explorer';
 
 // Wrapper with required providers
 const wrapper = ({ children }: { children: React.ReactNode }) => (
@@ -166,7 +167,7 @@ describe('useRunJudgesOnTracesConfiguration', () => {
         useRunJudgesOnTracesConfiguration(
           mockEvaluateTraces,
           undefined,
-          mockSubscribe as unknown as (callback: (event: ScorerFinishedEvent) => void) => () => void,
+          mockSubscribe as unknown as ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
         ),
       { wrapper },
     );
