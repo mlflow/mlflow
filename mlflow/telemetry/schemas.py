@@ -45,6 +45,15 @@ class Record:
         return result
 
 
+class Environment(str, Enum):
+    KAGGLE = "kaggle"
+    COLAB = "colab"
+    AZURE_ML = "azure_ml"
+    SAGEMAKER_STUDIO = "sagemaker_studio"
+    SAGEMAKER_NOTEBOOK = "sagemaker_notebook"
+    DOCKER = "docker"
+
+
 class SourceSDK(str, Enum):
     MLFLOW_TRACING = "mlflow-tracing"
     MLFLOW = "mlflow"
@@ -70,6 +79,7 @@ class TelemetryInfo:
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     operating_system: str = platform.platform()
+    environment: str | None = None
     tracking_uri_scheme: str | None = None
     is_localhost: bool | None = None
     installation_id: str | None = None

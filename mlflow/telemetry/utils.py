@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -66,6 +67,24 @@ def _is_in_databricks() -> bool:
         return True
 
     return False
+
+
+def _detect_environment() -> str | None:
+    from mlflow.telemetry.schemas import Environment
+
+    if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
+        return Environment.KAGGLE
+    if "COLAB_RELEASE_TAG" in os.environ:
+        return Environment.COLAB
+    if "AZUREML_FRAMEWORK" in os.environ:
+        return Environment.AZURE_ML
+    if "SAGEMAKER_APP_TYPE" in os.environ:
+        return Environment.SAGEMAKER_STUDIO
+    if Path("/opt/ml/metadata/resource-metadata.json").exists():
+        return Environment.SAGEMAKER_NOTEBOOK
+    if Path("/.dockerenv").exists():
+        return Environment.DOCKER
+    return None
 
 
 _IS_MLFLOW_DEV_VERSION = Version(VERSION).is_devrelease
