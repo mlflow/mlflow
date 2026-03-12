@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { KeyValueProperty, NoneCell } from '@databricks/web-shared/utils';
 import { useIntl } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
@@ -18,18 +19,15 @@ export interface IssueDetectionRunOverviewProps {
   tags: Record<string, KeyValueEntity>;
   /** Job ID for fetching issue detection job status */
   jobId?: string;
-  /** Callback when cancel button is clicked */
-  onCancel?: () => void;
-  /** Whether the cancel operation is in progress */
-  isCancelling?: boolean;
+  /** Callback when run data is updated (e.g., job completes) */
+  onRunDataUpdated?: () => void;
 }
 
 export const IssueDetectionRunOverview = ({
   runInfo,
   tags,
   jobId,
-  onCancel,
-  isCancelling,
+  onRunDataUpdated,
 }: IssueDetectionRunOverviewProps) => {
   const intl = useIntl();
 
@@ -45,6 +43,14 @@ export const IssueDetectionRunOverview = ({
   });
 
   const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
+  const prevJobCompleteRef = useRef(jobComplete);
+
+  useEffect(() => {
+    if (jobComplete && !prevJobCompleteRef.current) {
+      onRunDataUpdated?.();
+    }
+    prevJobCompleteRef.current = jobComplete;
+  }, [jobComplete, onRunDataUpdated]);
 
   const detailsSection = {
     id: 'DETAILS',
@@ -123,8 +129,7 @@ export const IssueDetectionRunOverview = ({
       secondarySections={[detailsSection]}
     >
       <IssueDetectionProgress
-        onCancel={onCancel}
-        isCancelling={isCancelling}
+        jobId={jobId}
         jobStatus={jobStatus}
         totalTraces={totalTraces}
         result={result}

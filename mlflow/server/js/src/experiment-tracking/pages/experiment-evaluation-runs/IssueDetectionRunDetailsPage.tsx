@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import { RunPage } from '../../components/run-page/RunPage';
@@ -57,10 +57,6 @@ export const IssueDetectionRunDetailsPage = () => {
     navigate(Routes.getExperimentPageTabRoute(expId, ExperimentPageTabName.EvaluationRuns));
   };
 
-  const handleCancelDetection = useCallback(() => {
-    // TODO: Implement cancel detection logic
-  }, []);
-
   return (
     <RunPage
       customBreadcrumbs={customBreadcrumbs}
@@ -75,7 +71,6 @@ export const IssueDetectionRunDetailsPage = () => {
           runInfo={runInfo}
           tags={tags}
           jobId={tags[MLFLOW_ISSUE_DETECTION_JOB_ID_TAG]?.value}
-          onCancel={handleCancelDetection}
         />
       )}
     />
