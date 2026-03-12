@@ -98,20 +98,18 @@ def _policy_set_key() -> str:
 
 
 def _serialize_policy(policy: GatewayBudgetPolicy) -> str:
-    return json.dumps(
-        {
-            "budget_policy_id": policy.budget_policy_id,
-            "budget_unit": policy.budget_unit.value,
-            "budget_amount": policy.budget_amount,
-            "duration_unit": policy.duration_unit.value,
-            "duration_value": policy.duration_value,
-            "target_scope": policy.target_scope.value,
-            "budget_action": policy.budget_action.value,
-            "workspace": policy.workspace,
-            "created_at": policy.created_at,
-            "last_updated_at": policy.last_updated_at,
-        }
-    )
+    return json.dumps({
+        "budget_policy_id": policy.budget_policy_id,
+        "budget_unit": policy.budget_unit.value,
+        "budget_amount": policy.budget_amount,
+        "duration_unit": policy.duration_unit.value,
+        "duration_value": policy.duration_value,
+        "target_scope": policy.target_scope.value,
+        "budget_action": policy.budget_action.value,
+        "workspace": policy.workspace,
+        "created_at": policy.created_at,
+        "last_updated_at": policy.last_updated_at,
+    })
 
 
 def _deserialize_policy(data: str) -> GatewayBudgetPolicy:

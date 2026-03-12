@@ -307,13 +307,11 @@ def test_record_cost_at_exact_budget_boundary():
 
 def test_window_rollover_resets_spend():
     tracker = _make_tracker()
-    tracker.refresh_policies(
-        [
-            _make_policy(
-                budget_amount=100.0, duration_unit=BudgetDurationUnit.MINUTES, duration_value=1
-            )
-        ]
-    )
+    tracker.refresh_policies([
+        _make_policy(
+            budget_amount=100.0, duration_unit=BudgetDurationUnit.MINUTES, duration_value=1
+        )
+    ])
 
     tracker.record_cost(150.0)
     window = tracker._get_window_info("bp-test")
