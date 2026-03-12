@@ -106,7 +106,8 @@ def test_should_reject_uses_ttl_cache(tracker, mock_store):
     mock_store.sum_gateway_trace_cost.assert_called_once()
 
 
-def test_should_reject_cache_expires(tracker, mock_store):
+def test_should_reject_cache_expires(tracker, mock_store, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_BUDGET_CACHE_TTL", "5")
     mock_store.sum_gateway_trace_cost.return_value = 50.0
     tracker.refresh_policies([_make_policy(budget_action=BudgetAction.REJECT)])
 
@@ -176,6 +177,25 @@ def test_record_cost_alert_fires_only_once_per_window(tracker, mock_store):
 
     assert len(tracker.record_cost(10.0)) == 1
     assert len(tracker.record_cost(10.0)) == 0
+
+
+def test_record_cost_adds_inflight_cost(tracker, mock_store):
+    mock_store.sum_gateway_trace_cost.return_value = 95.0
+    tracker.refresh_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)])
+
+    # DB shows 95, but with cost_usd=10 the total is 105 which exceeds 100
+    newly_exceeded = tracker.record_cost(10.0)
+    assert len(newly_exceeded) == 1
+    assert newly_exceeded[0].cumulative_spend == 105.0
+
+
+def test_record_cost_inflight_cost_below_threshold(tracker, mock_store):
+    mock_store.sum_gateway_trace_cost.return_value = 85.0
+    tracker.refresh_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)])
+
+    # DB shows 85, with cost_usd=10 the total is 95 which is under 100
+    newly_exceeded = tracker.record_cost(10.0)
+    assert newly_exceeded == []
 
 
 def test_record_cost_skips_reject_policies(tracker, mock_store):

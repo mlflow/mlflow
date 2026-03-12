@@ -11,6 +11,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
@@ -25,6 +26,9 @@ from mlflow.gateway.budget_tracker import (
     _compute_window_start,
     _policy_applies,
 )
+
+if TYPE_CHECKING:
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 _logger = logging.getLogger(__name__)
 
@@ -50,7 +54,7 @@ class DatabaseBudgetTracker(BudgetTracker):
     crossings across all workers.
     """
 
-    _store: object  # SqlAlchemyStore — typed as object to avoid circular import
+    _store: SqlAlchemyStore
     _policies: list[GatewayBudgetPolicy] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock)
     _reject_cache: dict[str | None, _CachedRejectResult] = field(default_factory=dict)
@@ -169,6 +173,10 @@ class DatabaseBudgetTracker(BudgetTracker):
             except Exception:
                 _logger.debug("Failed to query spend for policy %s", pid, exc_info=True)
                 continue
+
+            # Add cost_usd to account for the in-flight request whose trace
+            # may not yet be persisted to the database.
+            spend += cost_usd
 
             if spend >= policy.budget_amount:
                 with self._lock:
