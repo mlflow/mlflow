@@ -1,7 +1,6 @@
 import {
   Button,
   Card,
-  CheckIcon,
   CloseIcon,
   CopyIcon,
   CheckCircleIcon,
@@ -25,7 +24,6 @@ interface IssueCardProps {
 
 const STATUS_TAG_CONFIG: Record<IssueStatus, { color: TagColors; label: string }> = {
   pending: { color: 'lemon', label: 'Pending' },
-  accepted: { color: 'turquoise', label: 'Accepted' },
   rejected: { color: 'coral', label: 'Rejected' },
   resolved: { color: 'purple', label: 'Resolved' },
 };
@@ -138,16 +136,16 @@ export const IssueCard = ({ issue, isSelected, onSelect, onStatusUpdate }: Issue
           }}
           onClick={(e) => e.stopPropagation()}
         >
-          {(issue.status === 'pending' || issue.status === 'rejected') && (
+          {issue.status === 'pending' && (
             <Button
-              componentId="mlflow.issues.accept-button"
+              componentId="mlflow.issues.resolve-button"
               type="tertiary"
               size="small"
-              icon={<CheckIcon />}
-              onClick={handleStatusChange('accepted')}
+              icon={<CheckCircleIcon />}
+              onClick={handleStatusChange('resolved')}
               loading={isUpdating}
             >
-              <FormattedMessage defaultMessage="Accept" description="Button to accept an issue" />
+              <FormattedMessage defaultMessage="Resolve" description="Button to resolve an issue" />
             </Button>
           )}
           {issue.status === 'pending' && (
@@ -162,19 +160,7 @@ export const IssueCard = ({ issue, isSelected, onSelect, onStatusUpdate }: Issue
               <FormattedMessage defaultMessage="Reject" description="Button to reject an issue" />
             </Button>
           )}
-          {issue.status === 'accepted' && (
-            <Button
-              componentId="mlflow.issues.resolve-button"
-              type="tertiary"
-              size="small"
-              icon={<CheckCircleIcon />}
-              onClick={handleStatusChange('resolved')}
-              loading={isUpdating}
-            >
-              <FormattedMessage defaultMessage="Resolve" description="Button to resolve an issue" />
-            </Button>
-          )}
-          {issue.status === 'resolved' && (
+          {(issue.status === 'resolved' || issue.status === 'rejected') && (
             <Button
               componentId="mlflow.issues.reopen-button"
               type="tertiary"

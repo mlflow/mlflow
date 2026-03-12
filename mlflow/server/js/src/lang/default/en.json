@@ -371,10 +371,6 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
-  "0Mdurr": {
-    "defaultMessage": "Accept",
-    "description": "Button to accept an issue"
-  },
   "0QTEQi": {
     "defaultMessage": "Usage",
     "description": "Tab label for usage charts"
@@ -8774,10 +8770,6 @@
   "tdmVWN": {
     "defaultMessage": "While deleting an experiment run, an error occurred.",
     "description": "Experiment tracking > delete run modal > error message"
-  },
-  "tezR82": {
-    "defaultMessage": "Accepted ({count})",
-    "description": "Issue status filter > Accepted button label"
   },
   "tiQptW": {
     "defaultMessage": "Learn more",
