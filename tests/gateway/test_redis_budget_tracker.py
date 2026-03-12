@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
@@ -251,6 +252,87 @@ def test_refresh_policies_is_idempotent_for_existing_policies():
     window_after = tracker._get_window_info("bp-1")
     assert window_after.cumulative_spend == window_before.cumulative_spend
     assert window_after.exceeded == window_before.exceeded
+
+
+def test_get_all_windows():
+    tracker = _make_tracker()
+    policy1 = _make_policy(budget_policy_id="bp-1", budget_amount=100.0)
+    policy2 = _make_policy(budget_policy_id="bp-2", budget_amount=200.0)
+    tracker.refresh_policies([policy1, policy2])
+
+    tracker.record_cost(75.0)
+
+    windows = tracker.get_all_windows()
+    assert len(windows) == 2
+    by_id = {w.policy.budget_policy_id: w for w in windows}
+    assert by_id["bp-1"].cumulative_spend == 75.0
+    assert by_id["bp-1"].exceeded is False
+    assert by_id["bp-2"].cumulative_spend == 75.0
+    assert by_id["bp-2"].exceeded is False
+
+
+def test_should_reject_request_workspace_filtering():
+    tracker = _make_tracker()
+    policy = _make_policy(
+        target_scope=BudgetTargetScope.WORKSPACE,
+        workspace="ws1",
+        budget_amount=100.0,
+        budget_action=BudgetAction.REJECT,
+    )
+    tracker.refresh_policies([policy])
+
+    tracker.record_cost(150.0, workspace="ws1")
+
+    exceeded, window = tracker.should_reject_request(workspace="ws2")
+    assert exceeded is False
+    assert window is None
+
+    exceeded, window = tracker.should_reject_request(workspace="ws1")
+    assert exceeded is True
+    assert window.policy.budget_policy_id == "bp-test"
+
+
+def test_record_cost_at_exact_budget_boundary():
+    tracker = _make_tracker()
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+
+    exceeded = tracker.record_cost(100.0)
+    assert len(exceeded) == 1
+    assert exceeded[0].policy.budget_policy_id == "bp-test"
+
+    window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 100.0
+    assert window.exceeded is True
+
+
+def test_window_rollover_resets_spend():
+    tracker = _make_tracker()
+    tracker.refresh_policies(
+        [
+            _make_policy(
+                budget_amount=100.0, duration_unit=BudgetDurationUnit.MINUTES, duration_value=1
+            )
+        ]
+    )
+
+    tracker.record_cost(150.0)
+    window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 150.0
+    assert window.exceeded is True
+
+    # Simulate time advancing past the window boundary
+    future = datetime.now(timezone.utc) + timedelta(minutes=2)
+    with patch(
+        "mlflow.gateway.budget_tracker.redis.datetime",
+    ) as mock_dt:
+        mock_dt.now.return_value = future
+        mock_dt.fromisoformat = datetime.fromisoformat
+
+        tracker.record_cost(10.0)
+
+    window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 10.0
+    assert window.exceeded is False
 
 
 def test_get_budget_tracker_returns_redis_when_configured():

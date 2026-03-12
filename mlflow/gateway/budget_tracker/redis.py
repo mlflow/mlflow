@@ -171,6 +171,8 @@ class RedisBudgetTracker(BudgetTracker):
         window_start = _compute_window_start(policy.duration_unit, policy.duration_value, now)
         window_end = _compute_window_end(policy.duration_unit, policy.duration_value, window_start)
 
+        # Keep the key for 1 hour past window_end so late-arriving requests
+        # can still read/update the window before it expires from Redis.
         ttl_seconds = int((window_end - now).total_seconds()) + 3600
         result = self._client.eval(
             _ENSURE_WINDOW_LUA,
@@ -294,9 +296,10 @@ class RedisBudgetTracker(BudgetTracker):
             if policy.budget_action != BudgetAction.REJECT:
                 continue
 
-            if not (window := self._get_window_info(pid)):
+            if not (stored := self._client.hgetall(_window_key(pid))):
                 continue
 
+            window = self._build_window(policy, stored)
             if now >= window.window_end:
                 # Stale window: the budget period has ended; don't reject based on old data.
                 continue
@@ -330,17 +333,7 @@ class RedisBudgetTracker(BudgetTracker):
             if (window := self._get_window_info(pid))
         ]
 
-    def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
-        wkey = _window_key(budget_policy_id)
-        stored = self._client.hgetall(wkey)
-        if not stored:
-            return None
-
-        if not (policy_data := self._client.hget(_policy_key(budget_policy_id), "data")):
-            return None
-
-        policy = _deserialize_policy(policy_data)
-
+    def _build_window(self, policy: GatewayBudgetPolicy, stored: dict[str, str]) -> BudgetWindow:
         return BudgetWindow(
             policy=policy,
             window_start=datetime.fromisoformat(stored["window_start"]),
@@ -348,3 +341,13 @@ class RedisBudgetTracker(BudgetTracker):
             cumulative_spend=float(stored.get("cumulative_spend", 0.0)),
             exceeded=stored.get("exceeded", "0") == "1",
         )
+
+    def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:
+        wkey = _window_key(budget_policy_id)
+        if not (stored := self._client.hgetall(wkey)):
+            return None
+
+        if not (policy_data := self._client.hget(_policy_key(budget_policy_id), "data")):
+            return None
+
+        return self._build_window(_deserialize_policy(policy_data), stored)
