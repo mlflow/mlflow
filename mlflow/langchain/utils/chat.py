@@ -97,13 +97,19 @@ def _normalize_content(
                 raw_subtype = mime_type.rsplit("/", 1)[-1].split(";")[0].strip()
                 audio_format = _MIME_TO_AUDIO_FORMAT.get(raw_subtype, raw_subtype)
 
-                audio_part = AudioContentPart(
-                    type="input_audio",
-                    input_audio=InputAudio(
-                        data=data,
-                        format=audio_format,
-                    ),
-                )
+                try:
+                    audio_part = AudioContentPart(
+                        type="input_audio",
+                        input_audio=InputAudio(
+                            data=data,
+                            format=audio_format,
+                        ),
+                    )
+                except pydantic.ValidationError as e:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Unsupported audio format {audio_format!r} derived from "
+                        f"mime_type {mime_type!r}. Supported formats: 'wav', 'mp3'."
+                    ) from e
                 normalized.append(audio_part.model_dump())
             case {"type": "audio"}:
                 raise MlflowException.invalid_parameter_value(
