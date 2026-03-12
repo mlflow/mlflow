@@ -347,3 +347,90 @@ export interface BudgetPolicyWindow {
 export interface ListBudgetWindowsResponse {
   windows: BudgetPolicyWindow[];
 }
+
+// Guardrail types
+export type GuardrailHook = 'PRE' | 'POST';
+export type GuardrailOperation = 'VALIDATION' | 'MUTATION';
+
+export interface Guardrail {
+  guardrail_id: string;
+  endpoint_name: string | null;
+  scorer_name: string;
+  hook: GuardrailHook;
+  operation: GuardrailOperation;
+  order: number;
+  enabled: boolean;
+  config: GuardrailScorerConfig | null;
+}
+
+export interface AddGuardrailRequest {
+  scorer_name: string;
+  hook: GuardrailHook;
+  operation: GuardrailOperation;
+  endpoint_name?: string;
+  order?: number;
+  config?: GuardrailScorerConfig;
+}
+
+export interface GuardrailScorerConfig {
+  /** For builtin judges (Safety, Guidelines, etc.) */
+  builtin_scorer?: string;
+  guidelines?: string;
+  /** For registered judges — name, experiment_id, and version to uniquely identify */
+  registered_scorer?: string;
+  experiment_id?: string;
+  scorer_version?: number;
+  /** For custom judges (make_judge style) */
+  prompt?: string;
+  response_schema?: 'yes_no' | 'chat_request' | 'chat_response';
+  /** Model identifier for custom judges (e.g. "gateway:/my-endpoint" or "openai:/gpt-4.1-mini") */
+  model?: string;
+}
+
+export interface AddGuardrailResponse {
+  guardrail: Guardrail;
+}
+
+export interface UpdateGuardrailRequest {
+  guardrail_id: string;
+  scorer_name?: string;
+  hook?: GuardrailHook;
+  operation?: GuardrailOperation;
+  config?: GuardrailScorerConfig;
+}
+
+export interface RemoveGuardrailRequest {
+  guardrail_id: string;
+}
+
+export interface ListGuardrailsResponse {
+  guardrails: Guardrail[];
+}
+
+export interface TestGuardrailRequest {
+  guardrail_id?: string;
+  scorer_name?: string;
+  hook?: string;
+  operation?: string;
+  config?: GuardrailScorerConfig;
+  text?: string;
+  trace_id?: string;
+  experiment_id?: string;
+}
+
+export interface TestGuardrailResponse {
+  result: {
+    score: string;
+    rationale: string;
+    modified_text?: string;
+  };
+  guardrail: {
+    guardrail_id: string;
+    scorer_name: string;
+    hook: string;
+    operation: string;
+  };
+  input_text: string;
+  trace_input?: string;
+  trace_output?: string;
+}

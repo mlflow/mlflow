@@ -37,6 +37,12 @@ import type {
   UpdateBudgetPolicyResponse,
   ListBudgetPoliciesResponse,
   ListBudgetWindowsResponse,
+  AddGuardrailRequest,
+  AddGuardrailResponse,
+  UpdateGuardrailRequest,
+  ListGuardrailsResponse,
+  TestGuardrailRequest,
+  TestGuardrailResponse,
 } from './types';
 
 const defaultErrorHandler = async ({
@@ -369,5 +375,63 @@ export const GatewayApi = {
       relativeUrl: 'ajax-api/3.0/mlflow/gateway/budgets/windows',
       error: defaultErrorHandler,
     }) as Promise<ListBudgetWindowsResponse>;
+  },
+
+  // Guardrails
+  addGuardrail: (request: AddGuardrailRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'gateway/guardrails/add',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<AddGuardrailResponse>;
+  },
+
+  updateGuardrail: (request: UpdateGuardrailRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'gateway/guardrails/update',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<AddGuardrailResponse>;
+  },
+
+  removeGuardrail: (guardrailId: string) => {
+    return fetchEndpoint({
+      relativeUrl: 'gateway/guardrails/remove',
+      method: 'POST',
+      body: JSON.stringify({ guardrail_id: guardrailId }),
+      error: defaultErrorHandler,
+    });
+  },
+
+  listGuardrails: (endpointName?: string) => {
+    const params = new URLSearchParams();
+    if (endpointName) {
+      params.append('endpoint_name', endpointName);
+    }
+    const relativeUrl = `gateway/guardrails/list?${params.toString()}`;
+    return fetchEndpoint({
+      relativeUrl,
+      error: defaultErrorHandler,
+    }) as Promise<ListGuardrailsResponse>;
+  },
+
+  reorderGuardrails: (guardrailIds: string[]) => {
+    return fetchEndpoint({
+      relativeUrl: 'gateway/guardrails/reorder',
+      method: 'POST',
+      body: JSON.stringify({ guardrail_ids: guardrailIds }),
+      error: defaultErrorHandler,
+    });
+  },
+
+  testGuardrail: (request: TestGuardrailRequest) => {
+    return fetchEndpoint({
+      relativeUrl: 'gateway/guardrails/test',
+      method: 'POST',
+      body: JSON.stringify(request),
+      error: defaultErrorHandler,
+    }) as Promise<TestGuardrailResponse>;
   },
 };

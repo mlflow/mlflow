@@ -43,6 +43,12 @@ from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_tra
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server.gateway_budget import check_budget_limit, make_budget_on_complete
+from mlflow.server.gateway_guardrails import (
+    GuardrailRejection,
+    _ensure_gateway_uri,
+    run_post_guardrails,
+    run_pre_guardrails,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.gateway.entities import (
@@ -60,6 +66,17 @@ from mlflow.utils.workspace_context import get_request_workspace
 _logger = logging.getLogger(__name__)
 
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
+
+
+def _load_guardrails(store, endpoint_name: str):
+    """Load enabled guardrails for the given endpoint from the store."""
+    if not isinstance(store, SqlAlchemyStore):
+        return []
+    try:
+        return store.list_guardrails(endpoint_name=endpoint_name)
+    except Exception:
+        _logger.debug("Failed to load guardrails", exc_info=True)
+        return []
 
 
 async def _get_request_body(request: Request) -> dict[str, Any]:
@@ -422,6 +439,7 @@ async def invocations(endpoint_name: str, request: Request):
     - If payload has "messages" field -> chat endpoint
     - If payload has "input" field -> embeddings endpoint
     """
+    _ensure_gateway_uri(request)
     body = await _get_request_body(request)
     user_metadata = _get_user_metadata(request)
     headers = dict(request.headers)
@@ -436,6 +454,17 @@ async def invocations(endpoint_name: str, request: Request):
     if "messages" in body:
         # Chat request
         endpoint_type = EndpointType.LLM_V1_CHAT
+
+        # ── Run PRE guardrails ──
+        guardrails = _load_guardrails(store, endpoint_name)
+        try:
+            body = run_pre_guardrails(guardrails, body)
+        except GuardrailRejection as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Request blocked by guardrail '{e.guardrail_name}': {e.reason}",
+            )
+
         try:
             payload = chat.RequestPayload(**body)
         except Exception as e:
@@ -460,7 +489,7 @@ async def invocations(endpoint_name: str, request: Request):
                 media_type="text/event-stream",
             )
         else:
-            return await maybe_traced_gateway_call(
+            response = await maybe_traced_gateway_call(
                 provider.chat,
                 endpoint_config,
                 user_metadata,
@@ -468,6 +497,21 @@ async def invocations(endpoint_name: str, request: Request):
                 request_type=GatewayRequestType.UNIFIED_CHAT,
                 on_complete=make_budget_on_complete(store, workspace),
             )(payload)
+
+            # ── Run POST guardrails ──
+            if guardrails:
+                try:
+                    response_dict = (
+                        response.model_dump() if hasattr(response, "model_dump") else response
+                    )
+                    run_post_guardrails(guardrails, response_dict)
+                except GuardrailRejection as e:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Response blocked by guardrail '{e.guardrail_name}': {e.reason}",
+                    )
+
+            return response
 
     elif "input" in body:
         # Embeddings request

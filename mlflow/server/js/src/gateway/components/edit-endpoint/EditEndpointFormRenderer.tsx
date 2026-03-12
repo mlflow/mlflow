@@ -27,6 +27,7 @@ import { TracesV3Logs } from '../../../experiment-tracking/components/experiment
 import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
 import { useMonitoringFiltersTimeRange } from '../../../experiment-tracking/hooks/useMonitoringFilters';
 import { TracesV3DateSelector } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
+import { GuardrailsTabContent } from '../guardrails/GuardrailsTabContent';
 
 const LogsTabContent = ({ experimentId }: { experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
@@ -97,7 +98,7 @@ export const EditEndpointFormRenderer = ({
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
-  const VALID_TABS = ['configuration', 'usage', 'traces'] as const;
+  const VALID_TABS = ['configuration', 'guardrails', 'usage', 'traces'] as const;
   const tabParam = searchParams.get('tab');
   const activeTab = VALID_TABS.includes(tabParam as (typeof VALID_TABS)[number])
     ? (tabParam as string)
@@ -210,6 +211,9 @@ export const EditEndpointFormRenderer = ({
           <Tabs.List>
             <Tabs.Trigger value="configuration">
               <FormattedMessage defaultMessage="Configuration" description="Tab label for endpoint configuration" />
+            </Tabs.Trigger>
+            <Tabs.Trigger value="guardrails">
+              <FormattedMessage defaultMessage="Guardrails" description="Tab label for endpoint guardrails" />
             </Tabs.Trigger>
             {isUsageTabDisabled ? (
               <Tooltip
@@ -384,6 +388,10 @@ export const EditEndpointFormRenderer = ({
                   </Typography.Text>
                 </div>
               </div>
+            </Tabs.Content>
+
+            <Tabs.Content value="guardrails">
+              {endpoint && <GuardrailsTabContent endpointName={endpoint.name} experimentId={experimentId} />}
             </Tabs.Content>
 
             <Tabs.Content value="usage">
