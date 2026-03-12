@@ -168,6 +168,7 @@ def _exec_job_in_subproc(
     job_id: str,
     job_name: str,
     workspace: str | None,
+    extra_envs: dict[str, str] | None = None,
 ) -> JobResult | None:
     """
     Executes the job function in a subprocess,
@@ -233,6 +234,7 @@ def _exec_job_in_subproc(
         "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
         "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
         "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
+        **(extra_envs or {}),
     }
 
     if workspace:
@@ -292,6 +294,7 @@ def _exec_job(
     params: dict[str, Any],
     timeout: float | None,
     exclusive: bool | list[str] = False,
+    extra_envs: dict[str, str] | None = None,
 ) -> None:
     """
     Execute a job in a subprocess.
@@ -359,6 +362,7 @@ def _exec_job(
                     job_id,
                     job_name,
                     workspace,
+                    extra_envs,
                 )
 
             if job_result is None:
