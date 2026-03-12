@@ -299,6 +299,7 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   traceId: string;
   modelName?: string;
   cost?: SpanCostInfo;
+  linkedGatewayTraceId?: string;
 }
 
 export type ModelTraceExplorerTab = 'chat' | 'content' | 'attributes' | 'events';
@@ -505,4 +506,12 @@ export interface ExpectationAssessment extends AssessmentBase {
   expectation: Expectation;
 }
 
-export type Assessment = FeedbackAssessment | ExpectationAssessment;
+export interface IssueReferenceValue {
+  issue_name: string;
+}
+
+export interface IssueReferenceAssessment extends AssessmentBase {
+  issue: IssueReferenceValue;
+}
+
+export type Assessment = FeedbackAssessment | ExpectationAssessment | IssueReferenceAssessment;

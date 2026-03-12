@@ -526,34 +526,32 @@ def test_trace_agent():
     class MockLLMForAgent(OpenAI, extra="allow"):
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
-            self._mock_response = iter(
-                [
-                    ChatResponse(
-                        message=ChatMessage(
-                            role="assistant",
-                            content=None,
-                            additional_kwargs={
-                                "tool_calls": [
-                                    ChatCompletionMessageToolCall(
-                                        id="test",
-                                        function={
-                                            "name": "add",
-                                            "arguments": '{"a": 1, "b": 2}',
-                                        },
-                                        type="function",
-                                    )
-                                ]
-                            },
-                        )
-                    ),
-                    ChatResponse(
-                        message=ChatMessage(
-                            role="assistant",
-                            content="The result is 3",
-                        )
-                    ),
-                ]
-            )
+            self._mock_response = iter([
+                ChatResponse(
+                    message=ChatMessage(
+                        role="assistant",
+                        content=None,
+                        additional_kwargs={
+                            "tool_calls": [
+                                ChatCompletionMessageToolCall(
+                                    id="test",
+                                    function={
+                                        "name": "add",
+                                        "arguments": '{"a": 1, "b": 2}',
+                                    },
+                                    type="function",
+                                )
+                            ]
+                        },
+                    )
+                ),
+                ChatResponse(
+                    message=ChatMessage(
+                        role="assistant",
+                        content="The result is 3",
+                    )
+                ),
+            ])
 
         @llm_chat_callback()
         def chat(self, *args, **kwargs):

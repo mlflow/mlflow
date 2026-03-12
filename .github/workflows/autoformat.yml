@@ -104,8 +104,9 @@ jobs:
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
         run: |
-          git config user.name 'mlflow-app[bot]'
-          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+          # This identity is only used for the temporary merge commit and is not pushed.
+          git config user.name 'name'
+          git config user.email 'email'
           git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
           git fetch base ${{ needs.check-comment.outputs.base_ref }}
           git merge base/${{ needs.check-comment.outputs.base_ref }}
@@ -229,13 +230,28 @@ jobs:
             exit 1
           fi
 
+      - name: Configure git
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ needs.check-comment.outputs.pull_number }}
+          REPO: ${{ github.repository }}
+        run: |
+          AUTHOR=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json author --jq '.author')
+          IS_BOT=$(echo "$AUTHOR" | jq -r '.is_bot')
+          if [ "$IS_BOT" = "false" ]; then
+            LOGIN=$(echo "$AUTHOR" | jq -r '.login')
+          else
+            LOGIN="mlflow-app[bot]"
+          fi
+          ID=$(gh api "users/$LOGIN" --jq '.id')
+          git config user.name "$LOGIN"
+          git config user.email "${ID}+${LOGIN}@users.noreply.github.com"
+
       - name: Merge base branch
         env:
           BASE_REPO: ${{ needs.check-comment.outputs.base_repo }}
           BASE_REF: ${{ needs.check-comment.outputs.base_ref }}
         run: |
-          git config user.name 'mlflow-app[bot]'
-          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
           git remote add base https://github.com/${BASE_REPO}.git
           git fetch base $BASE_REF
           git merge base/${BASE_REF}

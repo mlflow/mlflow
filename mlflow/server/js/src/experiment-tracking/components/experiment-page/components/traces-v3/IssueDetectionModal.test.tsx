@@ -127,13 +127,13 @@ describe('IssueDetectionModal', () => {
     expect(screen.getByTestId('provider-select')).toBeInTheDocument();
   });
 
-  test('shows default models when provider with defaults is selected', async () => {
+  test('shows default model when provider with defaults is selected', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
     await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
 
-    expect(screen.getByText(/Analysis model: gpt-5 · Judge model: gpt-5-mini/)).toBeInTheDocument();
+    expect(screen.getByText(/Model: gpt-5-mini/)).toBeInTheDocument();
   });
 
   test('shows message when provider without defaults is selected', async () => {
@@ -150,7 +150,7 @@ describe('IssueDetectionModal', () => {
 
     await userEvent.selectOptions(providerSelect, 'other-provider');
 
-    expect(screen.getByText(/Please select models in `Advanced settings` below/)).toBeInTheDocument();
+    expect(screen.getByText(/Please select a model in `Advanced settings` below/)).toBeInTheDocument();
   });
 
   test('renders api key configurator in step 2', async () => {

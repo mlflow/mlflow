@@ -557,14 +557,10 @@ You can control caching on a per-request basis using the `cache_ttl_seconds` par
 import mlflow
 
 # Custom TTL: Cache for 5 minutes
-prompt = mlflow.genai.load_prompt(
-    "prompts:/summarization-prompt/1", cache_ttl_seconds=300
-)
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/1", cache_ttl_seconds=300)
 
 # Bypass cache entirely: Always fetch from registry
-prompt = mlflow.genai.load_prompt(
-    "prompts:/summarization-prompt@production", cache_ttl_seconds=0
-)
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@production", cache_ttl_seconds=0)
 
 # Use infinite TTL even for alias-based prompts
 prompt = mlflow.genai.load_prompt(

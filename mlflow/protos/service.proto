@@ -2279,6 +2279,24 @@ service MlflowService {
     };
   }
 
+  // List budget windows with current spending
+  rpc listBudgetWindows(ListGatewayBudgetWindows) returns (ListGatewayBudgetWindows.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/budgets/windows"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Budget Windows"
+    };
+  }
+
   // Create a new prompt optimization job.
   // This endpoint initiates an optimization run with the specified configuration.
   // The optimization process runs asynchronously and can be monitored via getPromptOptimizationJob.
@@ -5159,6 +5177,22 @@ message ListGatewayBudgetPolicies {
     repeated GatewayBudgetPolicy budget_policies = 1;
 
     optional string next_page_token = 2;
+  }
+}
+
+message ListGatewayBudgetWindows {
+  message BudgetWindow {
+    optional string budget_policy_id = 1;
+
+    optional int64 window_start_ms = 2;
+
+    optional int64 window_end_ms = 3;
+
+    optional double current_spend = 4;
+  }
+
+  message Response {
+    repeated BudgetWindow windows = 1;
   }
 }
 

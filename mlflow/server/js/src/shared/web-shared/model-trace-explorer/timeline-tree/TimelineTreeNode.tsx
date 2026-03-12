@@ -6,6 +6,8 @@ import {
   ChevronRightIcon,
   Tag,
   GavelIcon,
+  LinkIcon,
+  Tooltip,
 } from '@databricks/design-system';
 
 import type { HierarchyBar } from './TimelineTree.types';
@@ -15,6 +17,8 @@ import { TimelineTreeSpanTooltip } from './TimelineTreeSpanTooltip';
 import { type ModelTraceSpanNode } from '../ModelTrace.types';
 import { getSpanExceptionCount } from '../ModelTraceExplorer.utils';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useGatewayTraceLink } from '../hooks/useGatewayTraceLink';
+import { Link } from '../RoutingUtils';
 
 export const TimelineTreeNode = ({
   node,
@@ -49,6 +53,7 @@ export const TimelineTreeNode = ({
   const isInActiveChain = activeChildIndex > -1;
 
   const hasException = getSpanExceptionCount(node) > 0;
+  const gatewayTraceHref = useGatewayTraceLink(node.linkedGatewayTraceId);
 
   const backgroundColor = isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent';
 
@@ -141,6 +146,29 @@ export const TimelineTreeNode = ({
               >
                 {node.title}
               </Typography.Text>
+              {gatewayTraceHref && (
+                <Tooltip
+                  content="View linked gateway trace"
+                  componentId="shared.model-trace-explorer.gateway-trace-link"
+                >
+                  <Link
+                    to={gatewayTraceHref}
+                    target="_blank"
+                    rel="noreferrer"
+                    data-testid={`gateway-trace-link-${node.key}`}
+                    onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                    css={{
+                      flexShrink: 0,
+                      display: 'flex',
+                      alignItems: 'center',
+                      marginLeft: theme.spacing.xs,
+                      color: theme.colors.actionPrimaryBackgroundDefault,
+                    }}
+                  >
+                    <LinkIcon css={{ fontSize: 14 }} />
+                  </Link>
+                </Tooltip>
+              )}
               {node.assessments.length > 0 && (
                 <Tag
                   color="indigo"

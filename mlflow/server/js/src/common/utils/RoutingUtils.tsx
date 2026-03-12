@@ -37,7 +37,13 @@ import {
  */
 import { HashRouter as HashRouterV5, Link as LinkV5, NavLink as NavLinkV5 } from 'react-router-dom';
 import type { ComponentProps } from 'react';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+} from '@databricks/design-system';
+import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
 
 import {
   prefixRouteWithWorkspace,
@@ -134,11 +140,25 @@ const prefixRouteWithWorkspaceForTo = (to: To): To => {
 
 const Link = React.forwardRef<
   HTMLAnchorElement,
-  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean }
+  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
 >(function Link(props, ref) {
-  const { to, disableWorkspacePrefix, ...rest } = props;
+  const { to, disableWorkspacePrefix, componentId, onClick, ...rest } = props;
   const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  return <LinkDirect ref={ref} to={finalTo} {...rest} />;
+  const logTelemetryEvent = useLogTelemetryEvent();
+  const viewId = useMemo(() => uuidv4(), []);
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    logTelemetryEvent({
+      componentId,
+      componentViewId: viewId,
+      componentType: DesignSystemEventProviderComponentTypes.Button,
+      componentSubType: null,
+      eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+    });
+    onClick?.(e);
+  };
+
+  return <LinkDirect ref={ref} to={finalTo} onClick={handleClick} {...rest} />;
 });
 
 const NavLink = React.forwardRef<

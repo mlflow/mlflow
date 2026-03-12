@@ -36,6 +36,7 @@ import type {
   UpdateBudgetPolicyRequest,
   UpdateBudgetPolicyResponse,
   ListBudgetPoliciesResponse,
+  ListBudgetWindowsResponse,
 } from './types';
 
 const defaultErrorHandler = async ({
@@ -361,5 +362,12 @@ export const GatewayApi = {
       relativeUrl,
       error: defaultErrorHandler,
     }) as Promise<ListBudgetPoliciesResponse>;
+  },
+
+  getBudgetWindows: () => {
+    return fetchEndpoint({
+      relativeUrl: 'ajax-api/3.0/mlflow/gateway/budgets/windows',
+      error: defaultErrorHandler,
+    }) as Promise<ListBudgetWindowsResponse>;
   },
 };

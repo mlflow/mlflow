@@ -186,7 +186,8 @@ def get_percentile_aggregation(
             # (typically by wrapping in MAX/MIN in a subquery approach).
             partition_by = partition_by_columns or []
             return (
-                func.percentile_cont(percentile_fraction)
+                func
+                .percentile_cont(percentile_fraction)
                 .within_group(column)
                 .over(partition_by=partition_by)
             )
@@ -624,7 +625,8 @@ def _build_query_with_percentile_subquery(
         case db_types.MYSQL:
             # add single PERCENT_RANK column for interpolation
             inner_columns.append(
-                func.percent_rank()
+                func
+                .percent_rank()
                 .over(partition_by=partition_by_columns, order_by=agg_column)
                 .label("_pct_rank")
             )

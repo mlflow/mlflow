@@ -1,7 +1,7 @@
 const createCommitStatus = async (context, github, sha, state) => {
   const { workflow, runId } = context;
   const { owner, repo } = context.repo;
-  const target_url = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
+  const target_url = `https://github.com/${owner}/${repo}/actions/runs/${runId}?pr=${context.issue.number}`;
   await github.rest.repos.createCommitStatus({
     owner,
     repo,

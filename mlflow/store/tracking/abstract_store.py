@@ -8,6 +8,8 @@ from mlflow.entities import (
     DatasetInput,
     DatasetRecord,
     Issue,
+    IssueSeverity,
+    IssueStatus,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -605,8 +607,8 @@ class AbstractStore(GatewayStoreMixin):
         experiment_id: str,
         name: str,
         description: str,
-        status: str,
-        confidence: str | None = None,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
         created_by: str | None = None,
@@ -618,8 +620,8 @@ class AbstractStore(GatewayStoreMixin):
             experiment_id: The experiment ID.
             name: Short descriptive name for the issue.
             description: Detailed description of the issue.
-            status: Issue status.
-            confidence: Optional confidence level indicator.
+            status: Issue status. Defaults to IssueStatus.PENDING.
+            severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional MLflow run ID that discovered this issue.
             created_by: Optional identifier for who created this issue.
@@ -644,10 +646,10 @@ class AbstractStore(GatewayStoreMixin):
     def update_issue(
         self,
         issue_id: str,
-        status: str | None = None,
+        status: IssueStatus | None = None,
         name: str | None = None,
         description: str | None = None,
-        confidence: str | None = None,
+        severity: IssueSeverity | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -657,10 +659,31 @@ class AbstractStore(GatewayStoreMixin):
             status: Optional new status.
             name: Optional new name for the issue.
             description: Optional new description.
-            confidence: Optional new confidence level.
+            severity: Optional new severity level.
 
         Returns:
             The updated Issue entity.
+        """
+        raise MlflowNotImplementedException()
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+
+        Returns:
+            A PagedList of Issue entities.
         """
         raise MlflowNotImplementedException()
 

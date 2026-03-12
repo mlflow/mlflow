@@ -1,4 +1,5 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { EditBudgetPolicyModal } from './EditBudgetPolicyModal';
 import { useUpdateBudgetPolicy } from '../../hooks/useUpdateBudgetPolicy';
@@ -49,7 +50,6 @@ describe('EditBudgetPolicyModal', () => {
   });
 
   test('submits with correct payload mapping duration preset', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onClose = jest.fn();
     const onSuccess = jest.fn();
 

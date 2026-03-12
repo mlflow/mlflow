@@ -63,7 +63,8 @@ def get_resource_endpoint_configs(
 
     with store.ManagedSessionMaker() as session:
         sql_bindings = (
-            store._get_query(session, SqlGatewayEndpointBinding)
+            store
+            ._get_query(session, SqlGatewayEndpointBinding)
             .filter(
                 SqlGatewayEndpointBinding.resource_type == resource_type,
                 SqlGatewayEndpointBinding.resource_id == resource_id,

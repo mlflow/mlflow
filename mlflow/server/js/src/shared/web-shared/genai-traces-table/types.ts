@@ -265,6 +265,9 @@ export type RunEvaluationTracesDataEntry = {
   metrics: Record<string, RunEvaluationResultMetric>;
   retrievalChunks?: RunEvaluationTracesRetrievalChunk[];
 
+  // Issue names associated with this trace
+  issues?: string[];
+
   // NOTE(nsthorat): We will slowly migrate to this type.
   traceInfo?: ModelTraceInfoV3;
 };

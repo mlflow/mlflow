@@ -580,7 +580,11 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const modelName = model.name;
 
     const breadcrumbs = [
-      <Link to={ModelRegistryRoutes.modelListPageRoute} key="registered-models">
+      <Link
+        componentId="mlflow.model_registry.model_view.breadcrumb_registered_models_link"
+        to={ModelRegistryRoutes.modelListPageRoute}
+        key="registered-models"
+      >
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for link back to model page under the header on the model view page"

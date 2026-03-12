@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, get_origin
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
@@ -30,6 +30,15 @@ def format_prompt(prompt: str, **values) -> str:
     return prompt
 
 
+def format_type(value_type: Any) -> str:
+    if value_type in (str, int, float, bool):
+        return value_type.__name__
+    elif get_origin(value_type) is Literal:
+        return str(value_type).replace("typing.", "")
+    # dict and list
+    return str(value_type)
+
+
 def add_output_format_instructions(prompt: str, output_fields: list["JudgeField"]) -> str:
     """
     Add structured output format instructions to a judge prompt.
@@ -44,15 +53,18 @@ def add_output_format_instructions(prompt: str, output_fields: list["JudgeField"
     Returns:
         The prompt with output format instructions appended
     """
-    json_format_lines = [f'    "{field.name}": "{field.description}"' for field in output_fields]
-
-    json_format = "{\n" + ",\n".join(json_format_lines) + "\n}"
+    field_descriptions = "\n".join(
+        f"- {field.name} ({format_type(field.value_type)}): {field.description}"
+        for field in output_fields
+    )
 
     output_format_instructions = f"""
 
-Please provide your assessment in the following JSON format only (no markdown):
+You *must* format your evaluation rating as a JSON object with the following fields (no markdown). \
+Pay close attention to the field type of the evaluation rating (string, boolean, numeric, etc.), \
+and ensure that it conforms to the instructions.
 
-{json_format}"""
+{field_descriptions}"""
     return prompt + output_format_instructions
 
 

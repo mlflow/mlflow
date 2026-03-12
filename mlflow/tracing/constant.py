@@ -349,3 +349,26 @@ class AssessmentMetricSearchKey:
             cls.NAME: False,
             cls.TYPE: False,
         }
+
+
+# OpenTelemetry GenAI Semantic Convention attribute keys.
+# https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
+class GenAiSemconvKey:
+    OPERATION_NAME = "gen_ai.operation.name"
+    REQUEST_MODEL = "gen_ai.request.model"
+    RESPONSE_MODEL = "gen_ai.response.model"
+    RESPONSE_ID = "gen_ai.response.id"
+    PROVIDER_NAME = "gen_ai.provider.name"
+    USAGE_INPUT_TOKENS = "gen_ai.usage.input_tokens"
+    USAGE_OUTPUT_TOKENS = "gen_ai.usage.output_tokens"
+    INPUT_MESSAGES = "gen_ai.input.messages"
+    OUTPUT_MESSAGES = "gen_ai.output.messages"
+    SYSTEM_INSTRUCTIONS = "gen_ai.system_instructions"
+    REQUEST_TEMPERATURE = "gen_ai.request.temperature"
+    REQUEST_MAX_TOKENS = "gen_ai.request.max_tokens"
+    REQUEST_TOP_P = "gen_ai.request.top_p"
+    REQUEST_STOP_SEQUENCES = "gen_ai.request.stop_sequences"
+    RESPONSE_FINISH_REASONS = "gen_ai.response.finish_reasons"
+    TOOL_DEFINITIONS = "gen_ai.tool.definitions"
+    TOOL_CALL_ARGUMENTS = "gen_ai.tool.call.arguments"
+    TOOL_CALL_RESULT = "gen_ai.tool.call.result"

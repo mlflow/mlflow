@@ -48,7 +48,10 @@ export const useIssueDetectionNotification = (experimentId?: string) => {
             <Notification.Description>
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
                 {evaluationRunsLink && (
-                  <Link to={evaluationRunsLink}>
+                  <Link
+                    componentId="mlflow.experiment_tracking.traces.issue_detection_notification_link"
+                    to={evaluationRunsLink}
+                  >
                     <FormattedMessage
                       defaultMessage="View status"
                       description="Link to view issue detection job status"

@@ -13,6 +13,7 @@ from mlflow.claude_code.config import (
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_HOOK_IDENTIFIER,
+    MLFLOW_LEGACY_HOOK_IDENTIFIER,
     MLFLOW_TRACING_ENABLED,
     MLFLOW_TRACKING_URI,
     load_claude_config,
@@ -33,22 +34,19 @@ from mlflow.claude_code.tracing import (
 # ============================================================================
 
 
-def upsert_hook(config: dict[str, Any], hook_type: str, handler_name: str) -> None:
+def upsert_hook(config: dict[str, Any], hook_type: str, subcommand: str) -> None:
     """Insert or update a single MLflow hook in the configuration.
 
     Args:
         config: The hooks configuration dictionary to modify
         hook_type: The hook type (e.g., 'PostToolUse', 'Stop')
-        handler_name: The handler function name (e.g., 'post_tool_use_handler')
+        subcommand: The CLI subcommand name (e.g., 'stop-hook')
     """
     if hook_type not in config[HOOK_FIELD_HOOKS]:
         config[HOOK_FIELD_HOOKS][hook_type] = []
 
-    python_cmd = "uv run python" if "UV" in os.environ else "python"
-    hook_command = (
-        f"{python_cmd} -I -c "
-        f'"from mlflow.claude_code.hooks import {handler_name}; {handler_name}()"'
-    )
+    mlflow_cmd = "uv run mlflow" if "UV" in os.environ else "mlflow"
+    hook_command = f"{mlflow_cmd} autolog claude {subcommand}"
 
     mlflow_hook = {"type": "command", HOOK_FIELD_COMMAND: hook_command}
 
@@ -57,7 +55,8 @@ def upsert_hook(config: dict[str, Any], hook_type: str, handler_name: str) -> No
     for hook_group in config[HOOK_FIELD_HOOKS][hook_type]:
         if HOOK_FIELD_HOOKS in hook_group:
             for hook in hook_group[HOOK_FIELD_HOOKS]:
-                if MLFLOW_HOOK_IDENTIFIER in hook.get(HOOK_FIELD_COMMAND, ""):
+                cmd = hook.get(HOOK_FIELD_COMMAND, "")
+                if MLFLOW_HOOK_IDENTIFIER in cmd or MLFLOW_LEGACY_HOOK_IDENTIFIER in cmd:
                     hook.update(mlflow_hook)
                     hook_exists = True
                     break
@@ -81,7 +80,7 @@ def setup_hooks_config(settings_path: Path) -> None:
     if HOOK_FIELD_HOOKS not in config:
         config[HOOK_FIELD_HOOKS] = {}
 
-    upsert_hook(config, "Stop", "stop_hook_handler")
+    upsert_hook(config, "Stop", "stop-hook")
 
     save_claude_config(settings_path, config)
 
@@ -118,6 +117,7 @@ def disable_tracing_hooks(settings_path: Path) -> bool:
                     hook
                     for hook in group[HOOK_FIELD_HOOKS]
                     if MLFLOW_HOOK_IDENTIFIER not in hook.get(HOOK_FIELD_COMMAND, "")
+                    and MLFLOW_LEGACY_HOOK_IDENTIFIER not in hook.get(HOOK_FIELD_COMMAND, "")
                 ]
 
                 if filtered_hooks:

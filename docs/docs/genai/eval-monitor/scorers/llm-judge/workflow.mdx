@@ -209,9 +209,7 @@ for trace_id, truth_value in ground_truth.items():
         trace_id=trace_id,
         name="support_quality",  # MUST match judge name
         value=truth_value,
-        source=AssessmentSource(
-            source_type=AssessmentSourceType.HUMAN, source_id="ground_truth"
-        ),
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="ground_truth"),
     )
 ```
 
@@ -231,12 +229,8 @@ traces = mlflow.search_traces(locations=[experiment_id], return_type="list")
 aligned_traces = []
 for trace in traces:
     assessments = trace.search_assessments(name="support_quality")
-    has_judge = any(
-        a.source.source_type == AssessmentSourceType.LLM_JUDGE for a in assessments
-    )
-    has_human = any(
-        a.source.source_type == AssessmentSourceType.HUMAN for a in assessments
-    )
+    has_judge = any(a.source.source_type == AssessmentSourceType.LLM_JUDGE for a in assessments)
+    has_human = any(a.source.source_type == AssessmentSourceType.HUMAN for a in assessments)
 
     if has_judge and has_human:
         aligned_traces.append(trace)
@@ -299,18 +293,16 @@ import pandas as pd
 production_judge = get_scorer(name="support_quality", experiment_id=experiment_id)
 
 # Prepare evaluation data
-eval_data = pd.DataFrame(
-    [
-        {
-            "inputs": {"issue": "Can't access my account"},
-            "outputs": {"response": "I'll help you regain access immediately."},
-        },
-        {
-            "inputs": {"issue": "Slow website performance"},
-            "outputs": {"response": "Let me investigate the performance issues."},
-        },
-    ]
-)
+eval_data = pd.DataFrame([
+    {
+        "inputs": {"issue": "Can't access my account"},
+        "outputs": {"response": "I'll help you regain access immediately."},
+    },
+    {
+        "inputs": {"issue": "Slow website performance"},
+        "outputs": {"response": "Let me investigate the performance issues."},
+    },
+])
 
 # Run evaluation with the aligned judge
 results = mlflow.genai.evaluate(data=eval_data, scorers=[production_judge])

@@ -304,6 +304,7 @@ export const RunsChartsTooltipBody = ({
             <Typography.Text>{runName + metricSuffix}</Typography.Text>
           ) : (
             <Link
+              componentId="mlflow.experiment_tracking.charts.tooltip_run_link"
               to={getDataTraceLink?.(experimentId, runUuid) ?? Routes.getRunPageRoute(experimentId, runUuid)}
               target="_blank"
               css={styles.runLink}

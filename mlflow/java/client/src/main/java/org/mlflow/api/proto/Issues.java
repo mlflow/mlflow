@@ -165,32 +165,32 @@ public final class Issues {
 
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 6;</code>
-     * @return Whether the confidence field is set.
+     * <code>optional string severity = 6;</code>
+     * @return Whether the severity field is set.
      */
-    boolean hasConfidence();
+    boolean hasSeverity();
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 6;</code>
-     * @return The confidence.
+     * <code>optional string severity = 6;</code>
+     * @return The severity.
      */
-    java.lang.String getConfidence();
+    java.lang.String getSeverity();
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 6;</code>
-     * @return The bytes for confidence.
+     * <code>optional string severity = 6;</code>
+     * @return The bytes for severity.
      */
     com.google.protobuf.ByteString
-        getConfidenceBytes();
+        getSeverityBytes();
 
     /**
      * <pre>
@@ -351,7 +351,7 @@ public final class Issues {
       name_ = "";
       description_ = "";
       status_ = "";
-      confidence_ = "";
+      severity_ = "";
       rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       sourceRunId_ = "";
       createdBy_ = "";
@@ -421,7 +421,7 @@ public final class Issues {
             case 50: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000020;
-              confidence_ = bs;
+              severity_ = bs;
               break;
             }
             case 58: {
@@ -791,31 +791,31 @@ public final class Issues {
       }
     }
 
-    public static final int CONFIDENCE_FIELD_NUMBER = 6;
-    private volatile java.lang.Object confidence_;
+    public static final int SEVERITY_FIELD_NUMBER = 6;
+    private volatile java.lang.Object severity_;
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 6;</code>
-     * @return Whether the confidence field is set.
+     * <code>optional string severity = 6;</code>
+     * @return Whether the severity field is set.
      */
     @java.lang.Override
-    public boolean hasConfidence() {
+    public boolean hasSeverity() {
       return ((bitField0_ & 0x00000020) != 0);
     }
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 6;</code>
-     * @return The confidence.
+     * <code>optional string severity = 6;</code>
+     * @return The severity.
      */
     @java.lang.Override
-    public java.lang.String getConfidence() {
-      java.lang.Object ref = confidence_;
+    public java.lang.String getSeverity() {
+      java.lang.Object ref = severity_;
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
@@ -823,28 +823,28 @@ public final class Issues {
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         if (bs.isValidUtf8()) {
-          confidence_ = s;
+          severity_ = s;
         }
         return s;
       }
     }
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 6;</code>
-     * @return The bytes for confidence.
+     * <code>optional string severity = 6;</code>
+     * @return The bytes for severity.
      */
     @java.lang.Override
     public com.google.protobuf.ByteString
-        getConfidenceBytes() {
-      java.lang.Object ref = confidence_;
+        getSeverityBytes() {
+      java.lang.Object ref = severity_;
       if (ref instanceof java.lang.String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        confidence_ = b;
+        severity_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -1106,7 +1106,7 @@ public final class Issues {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 5, status_);
       }
       if (((bitField0_ & 0x00000020) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, confidence_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 6, severity_);
       }
       for (int i = 0; i < rootCauses_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 7, rootCauses_.getRaw(i));
@@ -1148,7 +1148,7 @@ public final class Issues {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, status_);
       }
       if (((bitField0_ & 0x00000020) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, confidence_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, severity_);
       }
       {
         int dataSize = 0;
@@ -1212,10 +1212,10 @@ public final class Issues {
         if (!getStatus()
             .equals(other.getStatus())) return false;
       }
-      if (hasConfidence() != other.hasConfidence()) return false;
-      if (hasConfidence()) {
-        if (!getConfidence()
-            .equals(other.getConfidence())) return false;
+      if (hasSeverity() != other.hasSeverity()) return false;
+      if (hasSeverity()) {
+        if (!getSeverity()
+            .equals(other.getSeverity())) return false;
       }
       if (!getRootCausesList()
           .equals(other.getRootCausesList())) return false;
@@ -1270,9 +1270,9 @@ public final class Issues {
         hash = (37 * hash) + STATUS_FIELD_NUMBER;
         hash = (53 * hash) + getStatus().hashCode();
       }
-      if (hasConfidence()) {
-        hash = (37 * hash) + CONFIDENCE_FIELD_NUMBER;
-        hash = (53 * hash) + getConfidence().hashCode();
+      if (hasSeverity()) {
+        hash = (37 * hash) + SEVERITY_FIELD_NUMBER;
+        hash = (53 * hash) + getSeverity().hashCode();
       }
       if (getRootCausesCount() > 0) {
         hash = (37 * hash) + ROOT_CAUSES_FIELD_NUMBER;
@@ -1443,7 +1443,7 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000008);
         status_ = "";
         bitField0_ = (bitField0_ & ~0x00000010);
-        confidence_ = "";
+        severity_ = "";
         bitField0_ = (bitField0_ & ~0x00000020);
         rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000040);
@@ -1506,7 +1506,7 @@ public final class Issues {
         if (((from_bitField0_ & 0x00000020) != 0)) {
           to_bitField0_ |= 0x00000020;
         }
-        result.confidence_ = confidence_;
+        result.severity_ = severity_;
         if (((bitField0_ & 0x00000040) != 0)) {
           rootCauses_ = rootCauses_.getUnmodifiableView();
           bitField0_ = (bitField0_ & ~0x00000040);
@@ -1602,9 +1602,9 @@ public final class Issues {
           status_ = other.status_;
           onChanged();
         }
-        if (other.hasConfidence()) {
+        if (other.hasSeverity()) {
           bitField0_ |= 0x00000020;
-          confidence_ = other.confidence_;
+          severity_ = other.severity_;
           onChanged();
         }
         if (!other.rootCauses_.isEmpty()) {
@@ -2203,34 +2203,34 @@ public final class Issues {
         return this;
       }
 
-      private java.lang.Object confidence_ = "";
+      private java.lang.Object severity_ = "";
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 6;</code>
-       * @return Whether the confidence field is set.
+       * <code>optional string severity = 6;</code>
+       * @return Whether the severity field is set.
        */
-      public boolean hasConfidence() {
+      public boolean hasSeverity() {
         return ((bitField0_ & 0x00000020) != 0);
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 6;</code>
-       * @return The confidence.
+       * <code>optional string severity = 6;</code>
+       * @return The severity.
        */
-      public java.lang.String getConfidence() {
-        java.lang.Object ref = confidence_;
+      public java.lang.String getSeverity() {
+        java.lang.Object ref = severity_;
         if (!(ref instanceof java.lang.String)) {
           com.google.protobuf.ByteString bs =
               (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           if (bs.isValidUtf8()) {
-            confidence_ = s;
+            severity_ = s;
           }
           return s;
         } else {
@@ -2239,20 +2239,20 @@ public final class Issues {
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 6;</code>
-       * @return The bytes for confidence.
+       * <code>optional string severity = 6;</code>
+       * @return The bytes for severity.
        */
       public com.google.protobuf.ByteString
-          getConfidenceBytes() {
-        java.lang.Object ref = confidence_;
+          getSeverityBytes() {
+        java.lang.Object ref = severity_;
         if (ref instanceof String) {
           com.google.protobuf.ByteString b = 
               com.google.protobuf.ByteString.copyFromUtf8(
                   (java.lang.String) ref);
-          confidence_ = b;
+          severity_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
@@ -2260,53 +2260,53 @@ public final class Issues {
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 6;</code>
-       * @param value The confidence to set.
+       * <code>optional string severity = 6;</code>
+       * @param value The severity to set.
        * @return This builder for chaining.
        */
-      public Builder setConfidence(
+      public Builder setSeverity(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000020;
-        confidence_ = value;
+        severity_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 6;</code>
+       * <code>optional string severity = 6;</code>
        * @return This builder for chaining.
        */
-      public Builder clearConfidence() {
+      public Builder clearSeverity() {
         bitField0_ = (bitField0_ & ~0x00000020);
-        confidence_ = getDefaultInstance().getConfidence();
+        severity_ = getDefaultInstance().getSeverity();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 6;</code>
-       * @param value The bytes for confidence to set.
+       * <code>optional string severity = 6;</code>
+       * @param value The bytes for severity to set.
        * @return This builder for chaining.
        */
-      public Builder setConfidenceBytes(
+      public Builder setSeverityBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000020;
-        confidence_ = value;
+        severity_ = value;
         onChanged();
         return this;
       }
@@ -2956,32 +2956,32 @@ public final class Issues {
 
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return Whether the confidence field is set.
+     * <code>optional string severity = 5;</code>
+     * @return Whether the severity field is set.
      */
-    boolean hasConfidence();
+    boolean hasSeverity();
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return The confidence.
+     * <code>optional string severity = 5;</code>
+     * @return The severity.
      */
-    java.lang.String getConfidence();
+    java.lang.String getSeverity();
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return The bytes for confidence.
+     * <code>optional string severity = 5;</code>
+     * @return The bytes for severity.
      */
     com.google.protobuf.ByteString
-        getConfidenceBytes();
+        getSeverityBytes();
 
     /**
      * <pre>
@@ -3103,7 +3103,7 @@ public final class Issues {
       name_ = "";
       description_ = "";
       status_ = "";
-      confidence_ = "";
+      severity_ = "";
       rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       sourceRunId_ = "";
       createdBy_ = "";
@@ -3167,7 +3167,7 @@ public final class Issues {
             case 42: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000010;
-              confidence_ = bs;
+              severity_ = bs;
               break;
             }
             case 50: {
@@ -4159,31 +4159,31 @@ public final class Issues {
       }
     }
 
-    public static final int CONFIDENCE_FIELD_NUMBER = 5;
-    private volatile java.lang.Object confidence_;
+    public static final int SEVERITY_FIELD_NUMBER = 5;
+    private volatile java.lang.Object severity_;
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return Whether the confidence field is set.
+     * <code>optional string severity = 5;</code>
+     * @return Whether the severity field is set.
      */
     @java.lang.Override
-    public boolean hasConfidence() {
+    public boolean hasSeverity() {
       return ((bitField0_ & 0x00000010) != 0);
     }
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return The confidence.
+     * <code>optional string severity = 5;</code>
+     * @return The severity.
      */
     @java.lang.Override
-    public java.lang.String getConfidence() {
-      java.lang.Object ref = confidence_;
+    public java.lang.String getSeverity() {
+      java.lang.Object ref = severity_;
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
@@ -4191,28 +4191,28 @@ public final class Issues {
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         if (bs.isValidUtf8()) {
-          confidence_ = s;
+          severity_ = s;
         }
         return s;
       }
     }
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return The bytes for confidence.
+     * <code>optional string severity = 5;</code>
+     * @return The bytes for severity.
      */
     @java.lang.Override
     public com.google.protobuf.ByteString
-        getConfidenceBytes() {
-      java.lang.Object ref = confidence_;
+        getSeverityBytes() {
+      java.lang.Object ref = severity_;
       if (ref instanceof java.lang.String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        confidence_ = b;
+        severity_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -4417,7 +4417,7 @@ public final class Issues {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, status_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, confidence_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, severity_);
       }
       for (int i = 0; i < rootCauses_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 6, rootCauses_.getRaw(i));
@@ -4450,7 +4450,7 @@ public final class Issues {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, status_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, confidence_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, severity_);
       }
       {
         int dataSize = 0;
@@ -4501,10 +4501,10 @@ public final class Issues {
         if (!getStatus()
             .equals(other.getStatus())) return false;
       }
-      if (hasConfidence() != other.hasConfidence()) return false;
-      if (hasConfidence()) {
-        if (!getConfidence()
-            .equals(other.getConfidence())) return false;
+      if (hasSeverity() != other.hasSeverity()) return false;
+      if (hasSeverity()) {
+        if (!getSeverity()
+            .equals(other.getSeverity())) return false;
       }
       if (!getRootCausesList()
           .equals(other.getRootCausesList())) return false;
@@ -4545,9 +4545,9 @@ public final class Issues {
         hash = (37 * hash) + STATUS_FIELD_NUMBER;
         hash = (53 * hash) + getStatus().hashCode();
       }
-      if (hasConfidence()) {
-        hash = (37 * hash) + CONFIDENCE_FIELD_NUMBER;
-        hash = (53 * hash) + getConfidence().hashCode();
+      if (hasSeverity()) {
+        hash = (37 * hash) + SEVERITY_FIELD_NUMBER;
+        hash = (53 * hash) + getSeverity().hashCode();
       }
       if (getRootCausesCount() > 0) {
         hash = (37 * hash) + ROOT_CAUSES_FIELD_NUMBER;
@@ -4706,7 +4706,7 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000004);
         status_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
-        confidence_ = "";
+        severity_ = "";
         bitField0_ = (bitField0_ & ~0x00000010);
         rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
         bitField0_ = (bitField0_ & ~0x00000020);
@@ -4761,7 +4761,7 @@ public final class Issues {
         if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.confidence_ = confidence_;
+        result.severity_ = severity_;
         if (((bitField0_ & 0x00000020) != 0)) {
           rootCauses_ = rootCauses_.getUnmodifiableView();
           bitField0_ = (bitField0_ & ~0x00000020);
@@ -4844,9 +4844,9 @@ public final class Issues {
           status_ = other.status_;
           onChanged();
         }
-        if (other.hasConfidence()) {
+        if (other.hasSeverity()) {
           bitField0_ |= 0x00000010;
-          confidence_ = other.confidence_;
+          severity_ = other.severity_;
           onChanged();
         }
         if (!other.rootCauses_.isEmpty()) {
@@ -5331,34 +5331,34 @@ public final class Issues {
         return this;
       }
 
-      private java.lang.Object confidence_ = "";
+      private java.lang.Object severity_ = "";
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
-       * @return Whether the confidence field is set.
+       * <code>optional string severity = 5;</code>
+       * @return Whether the severity field is set.
        */
-      public boolean hasConfidence() {
+      public boolean hasSeverity() {
         return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
-       * @return The confidence.
+       * <code>optional string severity = 5;</code>
+       * @return The severity.
        */
-      public java.lang.String getConfidence() {
-        java.lang.Object ref = confidence_;
+      public java.lang.String getSeverity() {
+        java.lang.Object ref = severity_;
         if (!(ref instanceof java.lang.String)) {
           com.google.protobuf.ByteString bs =
               (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           if (bs.isValidUtf8()) {
-            confidence_ = s;
+            severity_ = s;
           }
           return s;
         } else {
@@ -5367,20 +5367,20 @@ public final class Issues {
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
-       * @return The bytes for confidence.
+       * <code>optional string severity = 5;</code>
+       * @return The bytes for severity.
        */
       public com.google.protobuf.ByteString
-          getConfidenceBytes() {
-        java.lang.Object ref = confidence_;
+          getSeverityBytes() {
+        java.lang.Object ref = severity_;
         if (ref instanceof String) {
           com.google.protobuf.ByteString b = 
               com.google.protobuf.ByteString.copyFromUtf8(
                   (java.lang.String) ref);
-          confidence_ = b;
+          severity_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
@@ -5388,53 +5388,53 @@ public final class Issues {
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
-       * @param value The confidence to set.
+       * <code>optional string severity = 5;</code>
+       * @param value The severity to set.
        * @return This builder for chaining.
        */
-      public Builder setConfidence(
+      public Builder setSeverity(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000010;
-        confidence_ = value;
+        severity_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
+       * <code>optional string severity = 5;</code>
        * @return This builder for chaining.
        */
-      public Builder clearConfidence() {
+      public Builder clearSeverity() {
         bitField0_ = (bitField0_ & ~0x00000010);
-        confidence_ = getDefaultInstance().getConfidence();
+        severity_ = getDefaultInstance().getSeverity();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
-       * @param value The bytes for confidence to set.
+       * <code>optional string severity = 5;</code>
+       * @param value The bytes for severity to set.
        * @return This builder for chaining.
        */
-      public Builder setConfidenceBytes(
+      public Builder setSeverityBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000010;
-        confidence_ = value;
+        severity_ = value;
         onChanged();
         return this;
       }
@@ -5974,32 +5974,32 @@ public final class Issues {
 
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return Whether the confidence field is set.
+     * <code>optional string severity = 5;</code>
+     * @return Whether the severity field is set.
      */
-    boolean hasConfidence();
+    boolean hasSeverity();
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return The confidence.
+     * <code>optional string severity = 5;</code>
+     * @return The severity.
      */
-    java.lang.String getConfidence();
+    java.lang.String getSeverity();
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return The bytes for confidence.
+     * <code>optional string severity = 5;</code>
+     * @return The bytes for severity.
      */
     com.google.protobuf.ByteString
-        getConfidenceBytes();
+        getSeverityBytes();
   }
   /**
    * <pre>
@@ -6022,7 +6022,7 @@ public final class Issues {
       name_ = "";
       description_ = "";
       status_ = "";
-      confidence_ = "";
+      severity_ = "";
     }
 
     @java.lang.Override
@@ -6083,7 +6083,7 @@ public final class Issues {
             case 42: {
               com.google.protobuf.ByteString bs = input.readBytes();
               bitField0_ |= 0x00000010;
-              confidence_ = bs;
+              severity_ = bs;
               break;
             }
             default: {
@@ -7051,31 +7051,31 @@ public final class Issues {
       }
     }
 
-    public static final int CONFIDENCE_FIELD_NUMBER = 5;
-    private volatile java.lang.Object confidence_;
+    public static final int SEVERITY_FIELD_NUMBER = 5;
+    private volatile java.lang.Object severity_;
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return Whether the confidence field is set.
+     * <code>optional string severity = 5;</code>
+     * @return Whether the severity field is set.
      */
     @java.lang.Override
-    public boolean hasConfidence() {
+    public boolean hasSeverity() {
       return ((bitField0_ & 0x00000010) != 0);
     }
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return The confidence.
+     * <code>optional string severity = 5;</code>
+     * @return The severity.
      */
     @java.lang.Override
-    public java.lang.String getConfidence() {
-      java.lang.Object ref = confidence_;
+    public java.lang.String getSeverity() {
+      java.lang.Object ref = severity_;
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
@@ -7083,28 +7083,28 @@ public final class Issues {
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         if (bs.isValidUtf8()) {
-          confidence_ = s;
+          severity_ = s;
         }
         return s;
       }
     }
     /**
      * <pre>
-     * Confidence level indicator.
+     * Severity level indicator.
      * </pre>
      *
-     * <code>optional string confidence = 5;</code>
-     * @return The bytes for confidence.
+     * <code>optional string severity = 5;</code>
+     * @return The bytes for severity.
      */
     @java.lang.Override
     public com.google.protobuf.ByteString
-        getConfidenceBytes() {
-      java.lang.Object ref = confidence_;
+        getSeverityBytes() {
+      java.lang.Object ref = severity_;
       if (ref instanceof java.lang.String) {
         com.google.protobuf.ByteString b = 
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
-        confidence_ = b;
+        severity_ = b;
         return b;
       } else {
         return (com.google.protobuf.ByteString) ref;
@@ -7138,7 +7138,7 @@ public final class Issues {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, status_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, confidence_);
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, severity_);
       }
       unknownFields.writeTo(output);
     }
@@ -7162,7 +7162,7 @@ public final class Issues {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(4, status_);
       }
       if (((bitField0_ & 0x00000010) != 0)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, confidence_);
+        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, severity_);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -7199,10 +7199,10 @@ public final class Issues {
         if (!getStatus()
             .equals(other.getStatus())) return false;
       }
-      if (hasConfidence() != other.hasConfidence()) return false;
-      if (hasConfidence()) {
-        if (!getConfidence()
-            .equals(other.getConfidence())) return false;
+      if (hasSeverity() != other.hasSeverity()) return false;
+      if (hasSeverity()) {
+        if (!getSeverity()
+            .equals(other.getSeverity())) return false;
       }
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
@@ -7231,9 +7231,9 @@ public final class Issues {
         hash = (37 * hash) + STATUS_FIELD_NUMBER;
         hash = (53 * hash) + getStatus().hashCode();
       }
-      if (hasConfidence()) {
-        hash = (37 * hash) + CONFIDENCE_FIELD_NUMBER;
-        hash = (53 * hash) + getConfidence().hashCode();
+      if (hasSeverity()) {
+        hash = (37 * hash) + SEVERITY_FIELD_NUMBER;
+        hash = (53 * hash) + getSeverity().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -7380,7 +7380,7 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000004);
         status_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
-        confidence_ = "";
+        severity_ = "";
         bitField0_ = (bitField0_ & ~0x00000010);
         return this;
       }
@@ -7429,7 +7429,7 @@ public final class Issues {
         if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000010;
         }
-        result.confidence_ = confidence_;
+        result.severity_ = severity_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -7499,9 +7499,9 @@ public final class Issues {
           status_ = other.status_;
           onChanged();
         }
-        if (other.hasConfidence()) {
+        if (other.hasSeverity()) {
           bitField0_ |= 0x00000010;
-          confidence_ = other.confidence_;
+          severity_ = other.severity_;
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -7966,34 +7966,34 @@ public final class Issues {
         return this;
       }
 
-      private java.lang.Object confidence_ = "";
+      private java.lang.Object severity_ = "";
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
-       * @return Whether the confidence field is set.
+       * <code>optional string severity = 5;</code>
+       * @return Whether the severity field is set.
        */
-      public boolean hasConfidence() {
+      public boolean hasSeverity() {
         return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
-       * @return The confidence.
+       * <code>optional string severity = 5;</code>
+       * @return The severity.
        */
-      public java.lang.String getConfidence() {
-        java.lang.Object ref = confidence_;
+      public java.lang.String getSeverity() {
+        java.lang.Object ref = severity_;
         if (!(ref instanceof java.lang.String)) {
           com.google.protobuf.ByteString bs =
               (com.google.protobuf.ByteString) ref;
           java.lang.String s = bs.toStringUtf8();
           if (bs.isValidUtf8()) {
-            confidence_ = s;
+            severity_ = s;
           }
           return s;
         } else {
@@ -8002,20 +8002,20 @@ public final class Issues {
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
-       * @return The bytes for confidence.
+       * <code>optional string severity = 5;</code>
+       * @return The bytes for severity.
        */
       public com.google.protobuf.ByteString
-          getConfidenceBytes() {
-        java.lang.Object ref = confidence_;
+          getSeverityBytes() {
+        java.lang.Object ref = severity_;
         if (ref instanceof String) {
           com.google.protobuf.ByteString b = 
               com.google.protobuf.ByteString.copyFromUtf8(
                   (java.lang.String) ref);
-          confidence_ = b;
+          severity_ = b;
           return b;
         } else {
           return (com.google.protobuf.ByteString) ref;
@@ -8023,53 +8023,53 @@ public final class Issues {
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
-       * @param value The confidence to set.
+       * <code>optional string severity = 5;</code>
+       * @param value The severity to set.
        * @return This builder for chaining.
        */
-      public Builder setConfidence(
+      public Builder setSeverity(
           java.lang.String value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000010;
-        confidence_ = value;
+        severity_ = value;
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
+       * <code>optional string severity = 5;</code>
        * @return This builder for chaining.
        */
-      public Builder clearConfidence() {
+      public Builder clearSeverity() {
         bitField0_ = (bitField0_ & ~0x00000010);
-        confidence_ = getDefaultInstance().getConfidence();
+        severity_ = getDefaultInstance().getSeverity();
         onChanged();
         return this;
       }
       /**
        * <pre>
-       * Confidence level indicator.
+       * Severity level indicator.
        * </pre>
        *
-       * <code>optional string confidence = 5;</code>
-       * @param value The bytes for confidence to set.
+       * <code>optional string severity = 5;</code>
+       * @param value The bytes for severity to set.
        * @return This builder for chaining.
        */
-      public Builder setConfidenceBytes(
+      public Builder setSeverityBytes(
           com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
   bitField0_ |= 0x00000010;
-        confidence_ = value;
+        severity_ = value;
         onChanged();
         return this;
       }
@@ -11926,30 +11926,30 @@ public final class Issues {
   static {
     java.lang.String[] descriptorData = {
       "\n\014issues.proto\022\rmlflow.issues\032\020databrick" +
-      "s.proto\"\362\001\n\005Issue\022\020\n\010issue_id\030\001 \001(\t\022\025\n\re" +
+      "s.proto\"\360\001\n\005Issue\022\020\n\010issue_id\030\001 \001(\t\022\025\n\re" +
       "xperiment_id\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\023\n\013desc" +
-      "ription\030\004 \001(\t\022\016\n\006status\030\005 \001(\t\022\022\n\nconfide" +
-      "nce\030\006 \001(\t\022\023\n\013root_causes\030\007 \003(\t\022\025\n\rsource" +
-      "_run_id\030\010 \001(\t\022\031\n\021created_timestamp\030\t \001(\003" +
-      "\022\036\n\026last_updated_timestamp\030\n \001(\003\022\022\n\ncrea" +
-      "ted_by\030\013 \001(\t\"\356\001\n\013CreateIssue\022\033\n\rexperime" +
-      "nt_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\031\n" +
-      "\013description\030\003 \001(\tB\004\370\206\031\001\022\016\n\006status\030\004 \001(\t" +
-      "\022\022\n\nconfidence\030\005 \001(\t\022\023\n\013root_causes\030\006 \003(" +
-      "\t\022\025\n\rsource_run_id\030\007 \001(\t\022\022\n\ncreated_by\030\010" +
-      " \001(\t\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow" +
-      ".issues.Issue\"\235\001\n\013UpdateIssue\022\026\n\010issue_i" +
-      "d\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\023\n\013descripti" +
-      "on\030\003 \001(\t\022\016\n\006status\030\004 \001(\t\022\022\n\nconfidence\030\005" +
-      " \001(\t\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow" +
-      ".issues.Issue\"S\n\010GetIssue\022\026\n\010issue_id\030\001 " +
-      "\001(\tB\004\370\206\031\001\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.m" +
-      "lflow.issues.Issue\"\260\001\n\014SearchIssues\022\025\n\re" +
-      "xperiment_id\030\001 \001(\t\022\025\n\rfilter_string\030\002 \001(" +
-      "\t\022\023\n\013max_results\030\003 \001(\005\022\022\n\npage_token\030\004 \001" +
-      "(\t\032I\n\010Response\022$\n\006issues\030\001 \003(\0132\024.mlflow." +
-      "issues.Issue\022\027\n\017next_page_token\030\002 \001(\tB\031\n" +
-      "\024org.mlflow.api.proto\220\001\001"
+      "ription\030\004 \001(\t\022\016\n\006status\030\005 \001(\t\022\020\n\010severit" +
+      "y\030\006 \001(\t\022\023\n\013root_causes\030\007 \003(\t\022\025\n\rsource_r" +
+      "un_id\030\010 \001(\t\022\031\n\021created_timestamp\030\t \001(\003\022\036" +
+      "\n\026last_updated_timestamp\030\n \001(\003\022\022\n\ncreate" +
+      "d_by\030\013 \001(\t\"\354\001\n\013CreateIssue\022\033\n\rexperiment" +
+      "_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\031\n\013d" +
+      "escription\030\003 \001(\tB\004\370\206\031\001\022\016\n\006status\030\004 \001(\t\022\020" +
+      "\n\010severity\030\005 \001(\t\022\023\n\013root_causes\030\006 \003(\t\022\025\n" +
+      "\rsource_run_id\030\007 \001(\t\022\022\n\ncreated_by\030\010 \001(\t" +
+      "\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow.iss" +
+      "ues.Issue\"\233\001\n\013UpdateIssue\022\026\n\010issue_id\030\001 " +
+      "\001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\023\n\013description\030\003" +
+      " \001(\t\022\016\n\006status\030\004 \001(\t\022\020\n\010severity\030\005 \001(\t\032/" +
+      "\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow.issue" +
+      "s.Issue\"S\n\010GetIssue\022\026\n\010issue_id\030\001 \001(\tB\004\370" +
+      "\206\031\001\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow." +
+      "issues.Issue\"\260\001\n\014SearchIssues\022\025\n\rexperim" +
+      "ent_id\030\001 \001(\t\022\025\n\rfilter_string\030\002 \001(\t\022\023\n\013m" +
+      "ax_results\030\003 \001(\005\022\022\n\npage_token\030\004 \001(\t\032I\n\010" +
+      "Response\022$\n\006issues\030\001 \003(\0132\024.mlflow.issues" +
+      ".Issue\022\027\n\017next_page_token\030\002 \001(\tB\031\n\024org.m" +
+      "lflow.api.proto\220\001\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -11961,13 +11961,13 @@ public final class Issues {
     internal_static_mlflow_issues_Issue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_Issue_descriptor,
-        new java.lang.String[] { "IssueId", "ExperimentId", "Name", "Description", "Status", "Confidence", "RootCauses", "SourceRunId", "CreatedTimestamp", "LastUpdatedTimestamp", "CreatedBy", });
+        new java.lang.String[] { "IssueId", "ExperimentId", "Name", "Description", "Status", "Severity", "RootCauses", "SourceRunId", "CreatedTimestamp", "LastUpdatedTimestamp", "CreatedBy", });
     internal_static_mlflow_issues_CreateIssue_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_issues_CreateIssue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_CreateIssue_descriptor,
-        new java.lang.String[] { "ExperimentId", "Name", "Description", "Status", "Confidence", "RootCauses", "SourceRunId", "CreatedBy", });
+        new java.lang.String[] { "ExperimentId", "Name", "Description", "Status", "Severity", "RootCauses", "SourceRunId", "CreatedBy", });
     internal_static_mlflow_issues_CreateIssue_Response_descriptor =
       internal_static_mlflow_issues_CreateIssue_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_CreateIssue_Response_fieldAccessorTable = new
@@ -11979,7 +11979,7 @@ public final class Issues {
     internal_static_mlflow_issues_UpdateIssue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_UpdateIssue_descriptor,
-        new java.lang.String[] { "IssueId", "Name", "Description", "Status", "Confidence", });
+        new java.lang.String[] { "IssueId", "Name", "Description", "Status", "Severity", });
     internal_static_mlflow_issues_UpdateIssue_Response_descriptor =
       internal_static_mlflow_issues_UpdateIssue_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_UpdateIssue_Response_fieldAccessorTable = new

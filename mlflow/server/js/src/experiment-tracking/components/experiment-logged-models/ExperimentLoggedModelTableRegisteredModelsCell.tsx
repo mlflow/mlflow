@@ -19,7 +19,11 @@ export const ExperimentLoggedModelTableRegisteredModelsCell = ({ data }: { data:
       <Overflow>
         {modelVersions.map((modelVersion) => (
           <React.Fragment key={modelVersion.link}>
-            <Link to={modelVersion.link} css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <Link
+              componentId="mlflow.logged_models.table.registered_model_link"
+              to={modelVersion.link}
+              css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
+            >
               <RegisteredModelOkIcon />
               {modelVersion.displayedName}
               <Tag

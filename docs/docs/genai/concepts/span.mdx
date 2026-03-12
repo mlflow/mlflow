@@ -42,17 +42,15 @@ MLflow's Span object is designed to be compatible with the [OpenTelemetry Span s
 Span attributes are key-value pairs that provide insight into behavioral modifications for function and method calls.
 
 ```python
-span.set_attributes(
-    {
-        "ai.model.name": "o3-mini",
-        "ai.model.version": "2024-01-01",
-        "ai.model.provider": "openai",
-        "ai.model.temperature": 0.7,
-        "ai.model.max_tokens": 1000,
-        "infrastructure.gpu.type": "A100",
-        "infrastructure.memory.used_mb": 2048,
-    }
-)
+span.set_attributes({
+    "ai.model.name": "o3-mini",
+    "ai.model.version": "2024-01-01",
+    "ai.model.provider": "openai",
+    "ai.model.temperature": 0.7,
+    "ai.model.max_tokens": 1000,
+    "infrastructure.gpu.type": "A100",
+    "infrastructure.memory.used_mb": 2048,
+})
 ```
 
 ## Span Types
@@ -86,8 +84,7 @@ Span types are a way to categorize spans within a trace. MLflow provides a set o
 
     # Setting a span type with the decorator
     @mlflow.trace(span_type=SpanType.RETRIEVER)
-    def retrieve_documents(query: str):
-        ...
+    def retrieve_documents(query: str): ...
 
 
     # Setting a span type with the context manager
@@ -99,8 +96,7 @@ Span types are a way to categorize spans within a trace. MLflow provides a set o
 
     # You can also define a custom span type string
     @mlflow.trace(span_type="ROUTER")
-    def route_request(request):
-        ...
+    def route_request(request): ...
     ```
 
   </TabItem>
@@ -175,9 +171,7 @@ def retrieve_relevant_documents(query: str):
     span = mlflow.get_current_active_span()
 
     # Set the outputs of the span in accordance with the tracing schema
-    outputs = [
-        Document(page_content=doc, metadata={"doc_uri": uri}) for doc, uri in docs
-    ]
+    outputs = [Document(page_content=doc, metadata={"doc_uri": uri}) for doc, uri in docs]
     span.set_outputs(outputs)
 
     # Return the original format for downstream usage

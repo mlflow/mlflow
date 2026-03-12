@@ -144,9 +144,9 @@ def test_invalid_return_key_from_mlflow_serving():
     config = completions_config()
     provider = MlflowModelServingProvider(EndpointConfig(**config))
     with pytest.raises(AIGatewayException, match=r".*") as e:
-        provider._process_completions_response_for_mlflow_serving(
-            {"invalid_return_key": ["invalid", "response"]}
-        )
+        provider._process_completions_response_for_mlflow_serving({
+            "invalid_return_key": ["invalid", "response"]
+        })
 
     assert "1 validation error for ServingTextResponse\npredictions" in e.value.detail
     assert e.value.status_code == 502

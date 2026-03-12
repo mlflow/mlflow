@@ -237,9 +237,12 @@ loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 print(loaded_model.predict({"operation": "add", "x": 10, "y": 5}))  # 15
 print(loaded_model.predict({"operation": "multiply", "x": 4, "y": 7}))  # 28
 print(
-    loaded_model.predict(
-        {"operation": "compound_interest", "principal": 1000, "rate": 0.05, "time": 10}
-    )
+    loaded_model.predict({
+        "operation": "compound_interest",
+        "principal": 1000,
+        "rate": 0.05,
+        "time": 10,
+    })
 )  # 1628.89
 ```
 

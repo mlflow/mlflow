@@ -179,15 +179,13 @@ def get_pipeline_model_dataset():
     f3[2::8] = np.nan
     f4[3::8] = np.nan
 
-    data = pd.DataFrame(
-        {
-            "f1": f1,
-            "f2": f2,
-            "f3": f3,
-            "f4": f4,
-            "y": y,
-        }
-    )
+    data = pd.DataFrame({
+        "f1": f1,
+        "f2": f2,
+        "f3": f3,
+        "f4": f4,
+        "y": y,
+    })
     return data, "y"
 
 
@@ -210,25 +208,21 @@ def get_pipeline_model_uri():
     encoder = sklearn.preprocessing.OrdinalEncoder()
     str_imputer = sklearn.impute.SimpleImputer(missing_values=None, strategy="most_frequent")
     num_imputer = sklearn.impute.SimpleImputer(missing_values=np.nan, strategy="mean")
-    preproc_pipeline = sklearn.pipeline.Pipeline(
-        [
-            ("imputer", str_imputer),
-            ("encoder", encoder),
-        ]
-    )
+    preproc_pipeline = sklearn.pipeline.Pipeline([
+        ("imputer", str_imputer),
+        ("encoder", encoder),
+    ])
 
-    pipeline = sklearn.pipeline.Pipeline(
-        [
-            (
-                "transformer",
-                sklearn.compose.make_column_transformer(
-                    (preproc_pipeline, ["f1", "f2"]),
-                    (num_imputer, ["f3", "f4"]),
-                ),
+    pipeline = sklearn.pipeline.Pipeline([
+        (
+            "transformer",
+            sklearn.compose.make_column_transformer(
+                (preproc_pipeline, ["f1", "f2"]),
+                (num_imputer, ["f3", "f4"]),
             ),
-            ("clf", sklearn.linear_model.LogisticRegression()),
-        ]
-    )
+        ),
+        ("clf", sklearn.linear_model.LogisticRegression()),
+    ])
     pipeline.fit(X, y)
 
     with mlflow.start_run():
@@ -316,15 +310,13 @@ def iris_pandas_df_dataset():
     X, y = get_iris()
     eval_X = X[0::3]
     eval_y = y[0::3]
-    data = pd.DataFrame(
-        {
-            "f1": eval_X[:, 0],
-            "f2": eval_X[:, 1],
-            "f3": eval_X[:, 2],
-            "f4": eval_X[:, 3],
-            "y": eval_y,
-        }
-    )
+    data = pd.DataFrame({
+        "f1": eval_X[:, 0],
+        "f2": eval_X[:, 1],
+        "f3": eval_X[:, 2],
+        "f4": eval_X[:, 3],
+        "y": eval_y,
+    })
     constructor_args = {"data": data, "targets": "y"}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
@@ -345,15 +337,13 @@ def iris_pandas_df_num_cols_dataset():
 
 
 def test_mlflow_evaluate_logs_traces():
-    eval_data = pd.DataFrame(
-        {
-            "inputs": [
-                "What is MLflow?",
-                "What is Spark?",
-            ],
-            "ground_truth": ["What is MLflow?", "Not what is Spark?"],
-        }
-    )
+    eval_data = pd.DataFrame({
+        "inputs": [
+            "What is MLflow?",
+            "What is Spark?",
+        ],
+        "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+    })
 
     @mlflow.trace
     def model(inputs):
@@ -377,12 +367,10 @@ def test_pyfunc_evaluate_logs_traces():
         def add(self, x, y):
             return x + y
 
-    eval_data = pd.DataFrame(
-        {
-            "inputs": [1, 2, 4],
-            "ground_truth": [2, 4, 8],
-        }
-    )
+    eval_data = pd.DataFrame({
+        "inputs": [1, 2, 4],
+        "ground_truth": [2, 4, 8],
+    })
 
     with mlflow.start_run() as run:
         model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
@@ -725,21 +713,17 @@ def test_dataset_hash(
 
 def test_trace_dataset_hash():
     # Validates that a dataset containing Traces can be hashed.
-    df = pd.DataFrame(
-        {
-            "request": ["Hello"],
-            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([]))],
-        }
-    )
+    df = pd.DataFrame({
+        "request": ["Hello"],
+        "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([]))],
+    })
     dataset = EvaluationDataset(data=df)
     assert dataset.hash == "757c14bf38aa42d36b93ccd70b1ea719"
     # Hash of a dataset with a different column should be different
-    df2 = pd.DataFrame(
-        {
-            "request": ["Hi"],
-            "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([]))],
-        }
-    )
+    df2 = pd.DataFrame({
+        "request": ["Hi"],
+        "trace": [Trace(info=create_test_trace_info("tr"), data=TraceData([]))],
+    })
     dataset2 = EvaluationDataset(data=df2)
     assert dataset2.hash != dataset.hash
 
@@ -1031,18 +1015,18 @@ def test_evaluate_with_multi_evaluators(
                             evaluator1_config,
                         )
                     )
-                    mock_can_evaluate1.assert_has_calls(
-                        [mock.call(model_type="classifier", evaluator_config=evaluator1_config)]
-                    )
+                    mock_can_evaluate1.assert_has_calls([
+                        mock.call(model_type="classifier", evaluator_config=evaluator1_config)
+                    ])
                     mock_evaluate2.assert_called_once_with(
                         **get_evaluate_call_arg(
                             mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri),
                             evaluator2_config,
                         )
                     )
-                    mock_can_evaluate2.assert_has_calls(
-                        [mock.call(model_type="classifier", evaluator_config=evaluator2_config)]
-                    )
+                    mock_can_evaluate2.assert_has_calls([
+                        mock.call(model_type="classifier", evaluator_config=evaluator2_config)
+                    ])
 
 
 def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model_uri, iris_dataset):
@@ -1779,18 +1763,16 @@ _TEST_GT_LIST = [
         ),
         # Dictionary input column that contains message history
         (
-            pd.DataFrame(
-                {
-                    "inputs": [
-                        {
-                            "messages": [{"content": q, "role": "user"}],
-                            "max_tokens": 10,
-                        }
-                        for q in _TEST_QUERY_LIST
-                    ],
-                    "ground_truth": _TEST_GT_LIST,
-                }
-            ),
+            pd.DataFrame({
+                "inputs": [
+                    {
+                        "messages": [{"content": q, "role": "user"}],
+                        "max_tokens": 10,
+                    }
+                    for q in _TEST_QUERY_LIST
+                ],
+                "ground_truth": _TEST_GT_LIST,
+            }),
             None,
             "ground_truth",
         ),
@@ -1941,18 +1923,16 @@ def test_evaluate_on_model_endpoint_without_type():
         mock_deploy_client.return_value.get_endpoint.return_value = {}
         mock_deploy_client.return_value.predict.return_value = "This is a response"
 
-        input_data = pd.DataFrame(
-            {
-                "inputs": [
-                    {
-                        "messages": [{"content": q, "role": "user"}],
-                        "max_tokens": 10,
-                    }
-                    for q in _TEST_QUERY_LIST
-                ],
-                "ground_truth": _TEST_GT_LIST,
-            }
-        )
+        input_data = pd.DataFrame({
+            "inputs": [
+                {
+                    "messages": [{"content": q, "role": "user"}],
+                    "max_tokens": 10,
+                }
+                for q in _TEST_QUERY_LIST
+            ],
+            "ground_truth": _TEST_GT_LIST,
+        })
 
         with mlflow.start_run():
             eval_result = mlflow.evaluate(
@@ -2002,11 +1982,9 @@ def test_evaluate_on_model_endpoint_invalid_payload():
         mock_deploy_client.return_value.get_endpoint.return_value = {}
         mock_deploy_client.return_value.predict.side_effect = ValueError("Invalid payload")
 
-        input_data = pd.DataFrame(
-            {
-                "inputs": [{"invalid": "payload"}],
-            }
-        )
+        input_data = pd.DataFrame({
+            "inputs": [{"invalid": "payload"}],
+        })
 
         with pytest.raises(MlflowException, match="Failed to call the deployment endpoint"):
             mlflow.evaluate(
@@ -2022,13 +2000,11 @@ def test_evaluate_on_model_endpoint_invalid_payload():
     [
         # Extra input columns
         (
-            pd.DataFrame(
-                {
-                    "inputs": _TEST_QUERY_LIST,
-                    "extra_input": ["a", "b"],
-                    "ground_truth": _TEST_GT_LIST,
-                }
-            ),
+            pd.DataFrame({
+                "inputs": _TEST_QUERY_LIST,
+                "extra_input": ["a", "b"],
+                "ground_truth": _TEST_GT_LIST,
+            }),
             "The number of input columns must be 1",
         ),
         # Missing input columns
@@ -2075,25 +2051,21 @@ def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message
             {"messages": [{"content": "What is Spark?", "role": "user"}]},
         ],
         # Case 3: DataFrame with a column of dictionaries
-        pd.DataFrame(
-            {
-                "inputs": [
-                    {
-                        "messages": [{"content": "What is MLflow?", "role": "user"}],
-                        "max_tokens": 10,
-                    },
-                    {
-                        "messages": [{"content": "What is Spark?", "role": "user"}],
-                    },
-                ]
-            }
-        ),
+        pd.DataFrame({
+            "inputs": [
+                {
+                    "messages": [{"content": "What is MLflow?", "role": "user"}],
+                    "max_tokens": 10,
+                },
+                {
+                    "messages": [{"content": "What is Spark?", "role": "user"}],
+                },
+            ]
+        }),
         # Case 4: DataFrame with a column of strings
-        pd.DataFrame(
-            {
-                "inputs": ["What is MLflow?", "What is Spark?"],
-            }
-        ),
+        pd.DataFrame({
+            "inputs": ["What is MLflow?", "What is Spark?"],
+        }),
     ],
 )
 def test_model_from_deployment_endpoint(model_input):
@@ -2278,13 +2250,11 @@ def test_evaluate_log_metrics_to_active_model(iris_dataset):
 
     model = sklearn.linear_model.LogisticRegression()
     model.fit(iris_dataset._constructor_args["data"], iris_dataset._constructor_args["targets"])
-    eval_df = pd.DataFrame(
-        {
-            "inputs": iris_dataset._constructor_args["data"].tolist(),
-            "targets": iris_dataset._constructor_args["targets"],
-            "predictions": model.predict(iris_dataset._constructor_args["data"]),
-        }
-    )
+    eval_df = pd.DataFrame({
+        "inputs": iris_dataset._constructor_args["data"].tolist(),
+        "targets": iris_dataset._constructor_args["targets"],
+        "predictions": model.predict(iris_dataset._constructor_args["data"]),
+    })
 
     eval_dataset = mlflow.data.from_pandas(
         df=eval_df,
@@ -2317,15 +2287,13 @@ def test_evaluate_log_metrics_to_active_model(iris_dataset):
 
 
 def test_mlflow_evaluate_logs_traces_to_active_model():
-    eval_data = pd.DataFrame(
-        {
-            "inputs": [
-                "What is MLflow?",
-                "What is Spark?",
-            ],
-            "ground_truth": ["What is MLflow?", "Not what is Spark?"],
-        }
-    )
+    eval_data = pd.DataFrame({
+        "inputs": [
+            "What is MLflow?",
+            "What is Spark?",
+        ],
+        "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+    })
 
     @mlflow.trace
     def model(inputs):
@@ -2399,12 +2367,10 @@ def test_delete_run_deletes_assessments_with_source_run_id():
     def model(inputs):
         return inputs
 
-    eval_data = pd.DataFrame(
-        {
-            "inputs": ["What is MLflow?"],
-            "ground_truth": ["MLflow is an ML platform."],
-        }
-    )
+    eval_data = pd.DataFrame({
+        "inputs": ["What is MLflow?"],
+        "ground_truth": ["MLflow is an ML platform."],
+    })
 
     with mlflow.start_run() as run:
         evaluate(

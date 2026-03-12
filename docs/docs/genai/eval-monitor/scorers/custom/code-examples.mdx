@@ -133,9 +133,7 @@ def llm_response_time_good(trace: Trace) -> Feedback:
     # Search particular span type from the trace
     llm_span = trace.search_spans(span_type=SpanType.CHAT_MODEL)[0]
 
-    response_time = (
-        llm_span.end_time_ns - llm_span.start_time_ns
-    ) / 1e9  # convert to seconds
+    response_time = (llm_span.end_time_ns - llm_span.start_time_ns) / 1e9  # convert to seconds
     max_duration = 5.0
     if response_time <= max_duration:
         return Feedback(
@@ -221,11 +219,7 @@ expectations_eval_dataset_list = [
         },
     },
     {
-        "inputs": {
-            "messages": [
-                {"role": "user", "content": "Describe MLflow in one sentence."}
-            ]
-        },
+        "inputs": {"messages": [{"role": "user", "content": "Describe MLflow in one sentence."}]},
         "expectations": {
             "expected_response": "MLflow is the largest open source AI engineering platform, enabling teams to build production-quality agents and ML models.",
             "expected_keywords": [
@@ -274,9 +268,7 @@ def keyword_presence_scorer(outputs: str, expectations: dict[str, Any]) -> Feedb
     expected_keywords = expectations.get("expected_keywords")
     print(expected_keywords)
     if expected_keywords is None:
-        return Feedback(
-            value="yes", rationale="No keywords were expected in the response."
-        )
+        return Feedback(value="yes", rationale="No keywords were expected in the response.")
 
     missing_keywords = []
     for keyword in expected_keywords:
@@ -284,13 +276,9 @@ def keyword_presence_scorer(outputs: str, expectations: dict[str, Any]) -> Feedb
             missing_keywords.append(keyword)
 
     if not missing_keywords:
-        return Feedback(
-            value="yes", rationale="All expected keywords are present in the response."
-        )
+        return Feedback(value="yes", rationale="All expected keywords are present in the response.")
     else:
-        return Feedback(
-            value="no", rationale=f"Missing keywords: {', '.join(missing_keywords)}."
-        )
+        return Feedback(value="no", rationale=f"Missing keywords: {', '.join(missing_keywords)}.")
 
 
 keyword_presence_eval_results = mlflow.genai.evaluate(
@@ -322,9 +310,7 @@ from typing import Any, Optional
 def comprehensive_response_checker(outputs: str) -> list[Feedback]:
     feedbacks = []
     # 1. Check if the response is not empty
-    feedbacks.append(
-        Feedback(name="is_not_empty_check", value="yes" if outputs != "" else "no")
-    )
+    feedbacks.append(Feedback(name="is_not_empty_check", value="yes" if outputs != "" else "no"))
     # 2. Calculate response character length
     char_length = len(outputs)
     feedbacks.append(Feedback(name="response_char_length", value=char_length))
@@ -378,6 +364,7 @@ AI's Response:
 Provide your evaluation strictly as a JSON object with "score" and "rationale" keys.
 """
 
+
 @scorer
 def answer_quality(inputs: dict[str, Any], outputs: str) -> Feedback:
     user_query = inputs["messages"][-1]["content"]
@@ -387,10 +374,12 @@ def answer_quality(inputs: dict[str, Any], outputs: str) -> Feedback:
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": judge_system_prompt},
-            {"role": "user", "content": judge_user_prompt.format(
-                user_query=user_query,
-                llm_response_from_app=outputs
-            )},
+            {
+                "role": "user",
+                "content": judge_user_prompt.format(
+                    user_query=user_query, llm_response_from_app=outputs
+                ),
+            },
         ],
         max_tokens=200,  # Max tokens for the judge's rationale
         temperature=0.0,  # For more deterministic judging
@@ -409,13 +398,13 @@ def answer_quality(inputs: dict[str, Any], outputs: str) -> Feedback:
         source=AssessmentSource(
             source_type=AssessmentSourceType.LLM_JUDGE,
             source_id="claude-sonnet-4-5",
-        )
+        ),
     )
+
 
 # Evaluate the scorer using the pre-generated traces from the prerequisite code block.
 custom_llm_judge_eval_results = mlflow.genai.evaluate(
-    data=generated_traces,
-    scorers=[answer_quality]
+    data=generated_traces, scorers=[answer_quality]
 )
 ````
 
@@ -463,9 +452,7 @@ class ResponseQualityScorer(Scorer):
         return Feedback(value=True, rationale="Response meets all quality criteria")
 
 
-response_quality_scorer = ResponseQualityScorer(
-    required_sections=["# Summary", "# Sources"]
-)
+response_quality_scorer = ResponseQualityScorer(required_sections=["# Summary", "# Sources"])
 
 # Evaluate the scorer using the pre-generated traces from the prerequisite code block.
 class_based_scorer_results = mlflow.genai.evaluate(
@@ -638,8 +625,7 @@ traces = mlflow.search_traces(run_id=results1.run_id)
 safety_failures = traces[
     traces["assessments"].apply(
         lambda x: any(
-            a["assessment_name"] == "Safety" and a["feedback"]["value"] == "no"
-            for a in x
+            a["assessment_name"] == "Safety" and a["feedback"]["value"] == "no" for a in x
         )
     )
 ]

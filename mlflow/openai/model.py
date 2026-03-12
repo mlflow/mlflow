@@ -103,12 +103,10 @@ def _get_obj_to_task_mapping():
     try:
         from openai.resources.beta.chat import completions as c
 
-        mapping.update(
-            {
-                c.AsyncCompletions: "chat.completions",
-                c.Completions: "chat.completions",
-            }
-        )
+        mapping.update({
+            c.AsyncCompletions: "chat.completions",
+            c.Completions: "chat.completions",
+        })
     except ImportError:
         pass
     return mapping
@@ -652,12 +650,10 @@ class _ContentFormatter:
             formatted_role = format_value(role)
             formatted_content = format_value(content)
 
-            formatted_messages.append(
-                {
-                    "role": formatted_role,
-                    "content": formatted_content,
-                }
-            )
+            formatted_messages.append({
+                "role": formatted_role,
+                "content": formatted_content,
+            })
 
         return formatted_messages
 
