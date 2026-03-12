@@ -19,6 +19,9 @@ const QUERY = `
             labels(first: 50) {
               nodes { name }
             }
+            assignees(first: 10) {
+              nodes { login }
+            }
           }
         }
       }
@@ -28,6 +31,7 @@ const QUERY = `
 
 module.exports = async ({ context, github }) => {
   const prNumber = context.payload.pull_request.number;
+  const prAuthor = context.payload.pull_request.user.login;
   const { owner, repo } = context.repo;
 
   const response = await github.graphql(QUERY, { owner, repo, number: prNumber });
@@ -59,6 +63,35 @@ module.exports = async ({ context, github }) => {
   const hasReadyLabel = issue.labels.nodes.some((label) => label.name === READY_LABEL);
   if (hasReadyLabel) {
     console.log(`Issue #${issue.number} has the "${READY_LABEL}" label. No action needed.`);
+    return;
+  }
+
+  const assigneeLogins = issue.assignees.nodes.map((a) => a.login);
+  if (assigneeLogins.length > 0 && !assigneeLogins.includes(prAuthor)) {
+    const assigneeList = assigneeLogins.map((login) => `@${login}`).join(", ");
+    console.log(
+      `Issue #${issue.number} is assigned to ${assigneeList} but PR author is @${prAuthor}. Closing PR #${prNumber}.`
+    );
+
+    await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: prNumber,
+      body: [
+        `This PR was automatically closed because #${issue.number} is assigned to ${assigneeList}.`,
+        "If you believe this was done in error, please reach out to a maintainer.",
+        "Please do not force-push to or delete the PR branch so this PR can be reopened.",
+      ].join(" "),
+    });
+
+    await github.rest.pulls.update({
+      owner,
+      repo,
+      pull_number: prNumber,
+      state: "closed",
+    });
+
+    console.log(`PR #${prNumber} closed.`);
     return;
   }
 
