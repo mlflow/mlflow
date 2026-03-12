@@ -98,6 +98,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
     },
     {
       type: 'doc',
+      id: 'webhooks/index',
+      label: 'Webhooks',
+    },
+    {
+      type: 'doc',
       id: 'migration',
       label: 'Upgrade',
     },
