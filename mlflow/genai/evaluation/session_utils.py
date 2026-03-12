@@ -2,12 +2,13 @@
 
 import traceback
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.exceptions import MlflowException
+from mlflow.genai.evaluation.entities import ScorerStat
 from mlflow.genai.evaluation.utils import (
     make_code_type_assessment_source,
     standardize_scorer_value,
@@ -91,7 +92,7 @@ def evaluate_session_level_scorers(
     session_id: str,
     session_items: list["EvalItem"],
     multi_turn_scorers: list[Scorer],
-) -> dict[str, list[Feedback]]:
+) -> tuple[dict[str, list[Feedback]], dict[str, ScorerStat]]:
     """
     Evaluate all multi-turn scorers for a single session.
 
@@ -101,7 +102,9 @@ def evaluate_session_level_scorers(
         multi_turn_scorers: List of multi-turn scorer instances
 
     Returns:
-        dict: {first_trace_id: [feedback1, feedback2, ...]}
+        Tuple of (assessments dict, scorer stats dict).
+        - assessments: {first_trace_id: [feedback1, feedback2, ...]}
+        - scorer_stats: {scorer_name: ScorerStat}
     """
     first_item = get_first_trace_in_session(session_items)
     first_trace_id = first_item.trace.info.trace_id
@@ -138,17 +141,26 @@ def evaluate_session_level_scorers(
         max_workers=len(multi_turn_scorers),
         thread_name_prefix="MlflowGenAIEvalMultiTurnScorer",
     ) as executor:
-        futures = [executor.submit(run_scorer, scorer) for scorer in multi_turn_scorers]
+        futures = {
+            scorer.name: executor.submit(run_scorer, scorer) for scorer in multi_turn_scorers
+        }
 
         try:
-            results = [future.result() for future in as_completed(futures)]
+            results = {scorer_name: future.result() for scorer_name, future in futures.items()}
         except KeyboardInterrupt:
             executor.shutdown(cancel_futures=True)
             raise
 
-    # Flatten results
-    all_feedbacks = [fb for sublist in results for fb in sublist]
-    return {first_trace_id: all_feedbacks}
+    # Track scorer stats
+    scorer_stats: dict[str, ScorerStat] = {}
+    all_feedbacks = []
+    for scorer_name, feedbacks in results.items():
+        if scorer_name not in scorer_stats:
+            scorer_stats[scorer_name] = ScorerStat()
+        failed = len(feedbacks) == 1 and feedbacks[0].error is not None
+        scorer_stats[scorer_name].record_invocation(failed=failed)
+        all_feedbacks.extend(feedbacks)
+    return {first_trace_id: all_feedbacks}, scorer_stats
 
 
 def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: Any) -> None:
