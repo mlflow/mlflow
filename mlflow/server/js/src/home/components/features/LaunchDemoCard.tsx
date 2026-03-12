@@ -3,7 +3,9 @@ import { ArrowRightIcon, Button, Spinner, useDesignSystemTheme } from '@databric
 import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../../common/utils/RoutingUtils';
 import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
+import { WorkflowType, useWorkflowType } from '../../../common/contexts/WorkflowTypeContext';
 import demoScreenshot from '../../../common/static/demo-tracing-screenshot.png';
+import demoScreenshotDark from '../../../common/static/demo-tracing-screenshot-dark.png';
 
 export const DEMO_BANNER_DISMISSED_KEY = 'mlflow.demo.banner.dismissed';
 
@@ -11,6 +13,7 @@ export const LaunchDemoCard = () => {
   const navigate = useNavigate();
   const { theme } = useDesignSystemTheme();
   const [isLoading, setIsLoading] = useState(false);
+  const { setWorkflowType } = useWorkflowType();
 
   const handleLaunchDemo = useCallback(async () => {
     setIsLoading(true);
@@ -19,6 +22,7 @@ export const LaunchDemoCard = () => {
         method: 'POST',
       });
       const url = (data.navigation_url || '/experiments').replace(/^#\//, '/');
+      setWorkflowType(WorkflowType.GENAI);
       navigate(url);
     } catch (error) {
       console.error('Failed to generate demo:', error);
@@ -26,7 +30,7 @@ export const LaunchDemoCard = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, setWorkflowType]);
 
   return (
     <div
@@ -42,7 +46,7 @@ export const LaunchDemoCard = () => {
       }}
     >
       <img
-        src={demoScreenshot}
+        src={theme.isDarkMode ? demoScreenshotDark : demoScreenshot}
         alt="MLflow Tracing UI"
         css={{
           width: 200,

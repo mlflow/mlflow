@@ -51,7 +51,7 @@ class JobResult:
 
 class XTestViz:
     def __init__(self, github_token: str | None = None, repo: str = "mlflow/dev"):
-        self.github_token = github_token or os.getenv("GH_TOKEN")
+        self.github_token = github_token or os.environ.get("GH_TOKEN")
         self.repo = repo
         self.per_page = 30
         self.headers: dict[str, str] = {}
@@ -342,7 +342,7 @@ async def main() -> None:
 
     args = parser.parse_args()
 
-    token = args.token or os.getenv("GH_TOKEN")
+    token = args.token or os.environ.get("GH_TOKEN")
     if not token:
         print(
             "Warning: No GitHub token provided. API requests may be rate-limited.", file=sys.stderr

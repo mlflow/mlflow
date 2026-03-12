@@ -18,7 +18,8 @@ export const FeatureCard = ({ feature }: FeatureCardProps) => {
     padding: theme.spacing.sm + theme.spacing.xs,
     display: 'flex',
     gap: theme.spacing.sm,
-    width: 320,
+    minWidth: 240,
+    flex: 1,
     boxSizing: 'border-box' as const,
     boxShadow: theme.shadows.sm,
     cursor: 'pointer',
@@ -91,6 +92,8 @@ export const FeatureCard = ({ feature }: FeatureCardProps) => {
           cursor: 'pointer',
           font: 'inherit',
           textAlign: 'left',
+          flex: 1,
+          minWidth: 240,
         }}
       >
         {card}
@@ -107,6 +110,8 @@ export const FeatureCard = ({ feature }: FeatureCardProps) => {
         textDecoration: 'none',
         color: theme.colors.textPrimary,
         display: 'block',
+        flex: 1,
+        minWidth: 240,
       }}
     >
       {card}

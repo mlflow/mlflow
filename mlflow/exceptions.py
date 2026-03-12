@@ -119,7 +119,7 @@ class RestException(MlflowException):
     def __init__(self, json):
         self.json = json
 
-        error_code = json.get("error_code", ErrorCode.Name(INTERNAL_ERROR))
+        error_code = json.get("error_code") or ErrorCode.Name(INTERNAL_ERROR)
         message = "{}: {}".format(
             error_code,
             json["message"] if "message" in json else "Response: " + str(json),
@@ -133,7 +133,7 @@ class RestException(MlflowException):
                 # corresponding `ErrorCode`.
                 error_code = HTTP_STATUS_TO_ERROR_CODE[int(error_code)]
                 super().__init__(message, error_code=ErrorCode.Value(error_code))
-            except ValueError or KeyError:
+            except (ValueError, KeyError, TypeError):
                 _logger.warning(
                     f"Received error code not recognized by MLflow: {error_code}, this may "
                     "indicate your request encountered an error before reaching MLflow server, "
@@ -164,6 +164,15 @@ class _UnsupportedMultipartUploadException(MlflowException):
     """Exception thrown when multipart upload is unsupported by an artifact repository"""
 
     MESSAGE = "Multipart upload is not supported for the current artifact repository"
+
+    def __init__(self):
+        super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)
+
+
+class _UnsupportedMultipartDownloadException(MlflowException):
+    """Exception thrown when multipart download (MPD) is unsupported by an artifact repository"""
+
+    MESSAGE = "Multipart download is not supported for the current artifact repository"
 
     def __init__(self):
         super().__init__(self.MESSAGE, error_code=NOT_IMPLEMENTED)

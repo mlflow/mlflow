@@ -3,9 +3,23 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 from mlflow.protos.service_pb2 import Workspace as ProtoWorkspace
+
+
+class WorkspaceDeletionMode(str, Enum):
+    """Controls what happens to resources when a workspace is deleted."""
+
+    SET_DEFAULT = "SET_DEFAULT"
+    """Reassign all resources in the workspace to the default workspace."""
+
+    CASCADE = "CASCADE"
+    """Delete all resources in the workspace."""
+
+    RESTRICT = "RESTRICT"
+    """Refuse to delete the workspace if it still contains resources."""
 
 
 @dataclass(frozen=True, slots=True)

@@ -41,7 +41,7 @@ repos:
         name: format
         entry: uv run --only-group lint dev/format.py
         language: system
-        files: '\.(py|ipynb)$'
+        files: '\.(py|ipynb|md|mdx)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -63,14 +63,6 @@ repos:
             dev/tests/.*\.py
           )$
         entry: uv run --only-group lint mypy
-        require_serial: true
-
-      - id: blacken-docs
-        name: blacken-docs
-        entry: uv run --only-group lint blacken-docs
-        language: system
-        files: '\.(rst|md|mdx)$'
-        stages: [pre-commit]
         require_serial: true
 
       - id: clint
@@ -128,7 +120,8 @@ repos:
         exclude: |
           (?x)^(
             \.pre-commit-config\.yaml|
-            changelogs/CHANGELOG\.md|
+            CHANGELOG\.md|
+            changelogs/.*|
             docs/api_reference/source/R-api\.rst|
             examples/llms/RAG/.*\.(json|csv)|
             mlflow/cli/__init__\.py|

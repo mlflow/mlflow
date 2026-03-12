@@ -2,13 +2,7 @@
  * MLflow Tracing wrapper for the @google/genai Gemini SDK.
  */
 
-import {
-  withSpan,
-  SpanAttributeKey,
-  SpanType,
-  type TokenUsage,
-  type LiveSpan,
-} from 'mlflow-tracing';
+import { withSpan, SpanAttributeKey, SpanType, type TokenUsage, type LiveSpan } from '@mlflow/core';
 
 const SUPPORTED_MODULES = ['models'];
 const SUPPORTED_METHODS = ['generateContent'];

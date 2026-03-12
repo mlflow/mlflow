@@ -3,12 +3,10 @@ import { rest } from 'msw';
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { fetchArtifactUnified } from './fetchArtifactUnified';
 import { setActiveWorkspace } from '../../../../workspaces/utils/WorkspaceUtils';
-import { getWorkspacesEnabledSync } from '../../../../common/utils/ServerFeaturesContext';
+import { getWorkspacesEnabledSync } from '../../../hooks/useServerInfo';
 
-jest.mock('../../../../common/utils/ServerFeaturesContext', () => ({
-  ...jest.requireActual<typeof import('../../../../common/utils/ServerFeaturesContext')>(
-    '../../../../common/utils/ServerFeaturesContext',
-  ),
+jest.mock('../../../hooks/useServerInfo', () => ({
+  ...jest.requireActual<typeof import('../../../hooks/useServerInfo')>('../../../hooks/useServerInfo'),
   getWorkspacesEnabledSync: jest.fn(),
 }));
 

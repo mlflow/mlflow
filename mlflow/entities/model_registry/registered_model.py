@@ -166,22 +166,20 @@ class RegisteredModel(_ModelRegistryEntity):
         if self.description:
             rmd.description = self.description
         if self.latest_versions is not None:
-            rmd.latest_versions.extend(
-                [model_version.to_proto() for model_version in self.latest_versions]
-            )
+            rmd.latest_versions.extend([
+                model_version.to_proto() for model_version in self.latest_versions
+            ])
         if self.deployment_job_id:
             rmd.deployment_job_id = self.deployment_job_id
         if self.deployment_job_state:
             rmd.deployment_job_state = RegisteredModelDeploymentJobState.from_string(
                 self.deployment_job_state
             )
-        rmd.tags.extend(
-            [ProtoRegisteredModelTag(key=key, value=value) for key, value in self._tags.items()]
-        )
-        rmd.aliases.extend(
-            [
-                ProtoRegisteredModelAlias(alias=alias, version=str(version))
-                for alias, version in self._aliases.items()
-            ]
-        )
+        rmd.tags.extend([
+            ProtoRegisteredModelTag(key=key, value=value) for key, value in self._tags.items()
+        ])
+        rmd.aliases.extend([
+            ProtoRegisteredModelAlias(alias=alias, version=str(version))
+            for alias, version in self._aliases.items()
+        ])
         return rmd

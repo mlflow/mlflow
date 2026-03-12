@@ -2,13 +2,13 @@ import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
+from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock, UserMessage
 
 import mlflow.anthropic
 from mlflow.anthropic.autolog import patched_claude_sdk_init
 
 
 def test_anthropic_autolog_without_claude_sdk():
-    # Ensure claude_agent_sdk is not in sys.modules
     sys.modules.pop("claude_agent_sdk", None)
 
     with (
@@ -21,33 +21,124 @@ def test_anthropic_autolog_without_claude_sdk():
         ),
         patch("mlflow.anthropic.safe_patch"),
     ):
-        # Should not raise exception when claude_agent_sdk is not installed
         mlflow.anthropic.autolog()
 
 
-def test_patched_claude_sdk_init_with_options():
+def _patch_sdk_init(mock_self, response_messages):
     original_init = MagicMock()
 
-    mock_options = MagicMock()
-    mock_options.hooks = {"Stop": ["a"]}
+    async def fake_receive_response():
+        for msg in response_messages:
+            yield msg
+
+    mock_self.receive_response = fake_receive_response
+    patched_claude_sdk_init(original_init, mock_self)
+    return original_init
+
+
+def test_patched_claude_sdk_init_wraps_receive_response():
     mock_self = MagicMock()
 
-    # Mock claude_agent_sdk imports
-    mock_hook_matcher = MagicMock()
-    with patch.dict(
-        "sys.modules",
-        {
-            "claude_agent_sdk": MagicMock(
-                ClaudeAgentOptions=MagicMock, HookMatcher=mock_hook_matcher
-            )
-        },
-    ):
-        patched_claude_sdk_init(original_init, mock_self, mock_options)
+    async def fake_receive_response():
+        yield "msg1"
 
-    # Verify original_init was called
-    original_init.assert_called_once_with(mock_self, mock_options)
-    # Verify Stop hook was appended
-    assert len(mock_options.hooks["Stop"]) == 2
+    mock_self.receive_response = fake_receive_response
+    original_init = MagicMock()
+    patched_claude_sdk_init(original_init, mock_self)
+
+    original_init.assert_called_once_with(mock_self, None)
+    assert mock_self.receive_response is not fake_receive_response
+
+
+@pytest.mark.asyncio
+async def test_receive_response_builds_trace():
+    mock_self = MagicMock()
+    messages = [
+        UserMessage(content="Hello"),
+        AssistantMessage(content=[TextBlock(text="Hi!")], model="claude-sonnet-4-20250514"),
+        ResultMessage(
+            subtype="success",
+            duration_ms=5000,
+            duration_api_ms=4000,
+            is_error=False,
+            num_turns=1,
+            session_id="test-session",
+            usage={"input_tokens": 100, "output_tokens": 20},
+        ),
+    ]
+    _patch_sdk_init(mock_self, messages)
+
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
+        patch(
+            "mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()
+        ) as mock_process,
+    ):
+        [msg async for msg in mock_self.receive_response()]
+
+    mock_process.assert_called_once()
+    called_messages = mock_process.call_args[0][0]
+    assert len(called_messages) == 3
+    result_messages = [m for m in called_messages if isinstance(m, ResultMessage)]
+    assert len(result_messages) == 1
+    assert result_messages[0].usage == {"input_tokens": 100, "output_tokens": 20}
+
+
+@pytest.mark.asyncio
+async def test_query_captures_async_generator_prompt():
+    mock_self = MagicMock()
+
+    async def fake_query(prompt, *args, **kwargs):
+        # Consume the generator like the real SDK would
+        async for _ in prompt:
+            pass
+
+    mock_self.query = fake_query
+
+    response_messages = [
+        AssistantMessage(content=[TextBlock(text="Hi!")], model="claude-sonnet-4-20250514"),
+        ResultMessage(
+            subtype="success",
+            duration_ms=1000,
+            duration_api_ms=800,
+            is_error=False,
+            num_turns=1,
+            session_id="s",
+        ),
+    ]
+    _patch_sdk_init(mock_self, response_messages)
+
+    async def prompt_generator():
+        yield {"type": "user", "message": {"role": "user", "content": "Hello from generator"}}
+
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
+        patch(
+            "mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()
+        ) as mock_process,
+    ):
+        await mock_self.query(prompt_generator())
+        [msg async for msg in mock_self.receive_response()]
+
+    mock_process.assert_called_once()
+    called_messages = mock_process.call_args[0][0]
+    user_messages = [m for m in called_messages if isinstance(m, UserMessage)]
+    assert len(user_messages) == 1
+    assert user_messages[0].content == "Hello from generator"
+
+
+@pytest.mark.asyncio
+async def test_receive_response_skips_when_autologging_disabled():
+    mock_self = MagicMock()
+    _patch_sdk_init(mock_self, ["msg1", "msg2"])
+
+    with (
+        patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=True),
+        patch("mlflow.claude_code.tracing.process_sdk_messages") as mock_process,
+    ):
+        [msg async for msg in mock_self.receive_response()]
+
+    mock_process.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -63,6 +154,5 @@ async def test_sdk_hook_handler_when_disabled():
             tool_use_id=None,
             context=None,
         )
-        # Should return early without calling _process_stop_hook
         mock_process.assert_not_called()
         assert result == {"continue": True}

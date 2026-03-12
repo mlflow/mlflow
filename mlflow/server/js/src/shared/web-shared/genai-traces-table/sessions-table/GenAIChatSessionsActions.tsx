@@ -3,8 +3,11 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, Tooltip, DropdownMenu, ChevronDownIcon } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { displayErrorNotification, displaySuccessNotification } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+import {
+  displayErrorNotification,
+  displaySuccessNotification,
+} from '../../model-trace-explorer/ModelTraceExplorer.utils';
 
 import type { SessionTableRow } from './types';
 import { GenAiDeleteTraceModal } from '../components/GenAiDeleteTraceModal';

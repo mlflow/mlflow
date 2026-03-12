@@ -8,7 +8,7 @@ import {
   AssessmentsPane,
   ModelTraceExplorerRunJudgesContextProvider,
 } from '@databricks/web-shared/model-trace-explorer';
-import { first, last } from 'lodash';
+import { first } from 'lodash';
 import { useEffect, useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ResizableBox } from 'react-resizable';
@@ -18,10 +18,6 @@ import { ScorerEvaluationScope } from '../../experiment-scorers/constants';
 
 const initialWidth = 300;
 const maxWidth = 600;
-
-const getAssessmentsPaneComponent = () => {
-  return AssessmentsPane;
-};
 
 export const ExperimentSingleChatSessionScoreResults = ({
   traces,
@@ -47,8 +43,6 @@ export const ExperimentSingleChatSessionScoreResults = ({
     [firstTraceInfoInSession],
   );
 
-  const AssessmentsPaneComponent = getAssessmentsPaneComponent();
-
   const traceUpdateContext = useModelTraceExplorerUpdateTraceContext();
 
   if (!firstTraceInfoInSession) {
@@ -56,7 +50,7 @@ export const ExperimentSingleChatSessionScoreResults = ({
   }
 
   const assessmentPaneElement = (
-    <AssessmentsPaneComponent
+    <AssessmentsPane
       assessments={sessionAssessments}
       traceId={firstTraceInfoInSession.trace_id}
       css={{
@@ -134,9 +128,9 @@ export const ExperimentSingleChatSessionScoreResults = ({
 const AssessmentsTitleOverride = (count?: number) => (
   <Typography.Title level={3} withoutMargins css={{ flexShrink: 0 }}>
     <FormattedMessage
-      defaultMessage="Session scorers{count, plural, =0 {} other { (#)}}"
+      defaultMessage="Session assessments{count, plural, =0 {} other { (#)}}"
       values={{ count: count ?? 0 }}
-      description="Section title in a side panel that displays session-level scorers"
+      description="Section title in a side panel that displays session-level assessments"
     />
   </Typography.Title>
 );

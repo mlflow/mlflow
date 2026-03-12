@@ -6,7 +6,7 @@ import React from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClientProvider, QueryClient } from '@databricks/web-shared/query-client';
+import { QueryClientProvider, QueryClient } from '../../query-client/queryClient';
 
 import { useDeleteAssessment } from './useDeleteAssessment';
 import { useTraceCachedActions } from './useTraceCachedActions';

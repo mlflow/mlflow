@@ -4,6 +4,7 @@ import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import Utils from '../../common/utils/Utils';
 import { fetchAPI, getAjaxUrl } from '../../common/utils/FetchUtils';
+import { WorkflowType, useWorkflowType } from '../../common/contexts/WorkflowTypeContext';
 
 const DEMO_BANNER_DISMISSED_KEY = 'mlflow.demo.banner.dismissed';
 
@@ -12,6 +13,7 @@ export const DemoBanner = () => {
   const { theme } = useDesignSystemTheme();
   const [isDismissed, setIsDismissed] = useState(() => localStorage.getItem(DEMO_BANNER_DISMISSED_KEY) === 'true');
   const [isLoading, setIsLoading] = useState(false);
+  const { setWorkflowType } = useWorkflowType();
 
   const handleLaunchDemo = useCallback(async () => {
     setIsLoading(true);
@@ -19,13 +21,14 @@ export const DemoBanner = () => {
       const data = await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/demo/generate'), {
         method: 'POST',
       });
+      setWorkflowType(WorkflowType.GENAI);
       navigate(data.navigation_url || '/experiments');
     } catch (error) {
       Utils.logErrorAndNotifyUser(error);
     } finally {
       setIsLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, setWorkflowType]);
 
   const handleDismiss = useCallback(() => {
     localStorage.setItem(DEMO_BANNER_DISMISSED_KEY, 'true');

@@ -4,6 +4,8 @@ from subprocess import Popen
 from typing import Literal
 from urllib.parse import urlparse
 
+from packaging.version import Version
+
 from mlflow.environment_variables import MLFLOW_DOCKER_OPENJDK_VERSION
 from mlflow.utils import env_manager as em
 from mlflow.utils.file_utils import _copy_project
@@ -136,8 +138,8 @@ def generate_dockerfile(
 
 
 def _get_maven_proxy():
-    http_proxy = os.getenv("http_proxy")
-    https_proxy = os.getenv("https_proxy")
+    http_proxy = os.environ.get("http_proxy")
+    https_proxy = os.environ.get("https_proxy")
     if not http_proxy or not https_proxy:
         return ""
 
@@ -163,13 +165,11 @@ def _get_maven_proxy():
     if parsed_http_proxy.username is None or parsed_http_proxy.password is None:
         return " ".join(maven_proxy_options)
 
-    return " ".join(
-        (
-            *maven_proxy_options,
-            f"-Dhttp.proxyUser={parsed_http_proxy.username}",
-            f"-Dhttp.proxyPassword={parsed_http_proxy.password}",
-        )
-    )
+    return " ".join((
+        *maven_proxy_options,
+        f"-Dhttp.proxyUser={parsed_http_proxy.username}",
+        f"-Dhttp.proxyPassword={parsed_http_proxy.password}",
+    ))
 
 
 def _pip_mlflow_install_step(dockerfile_context_dir, mlflow_home):
@@ -187,6 +187,9 @@ def _pip_mlflow_install_step(dockerfile_context_dir, mlflow_home):
             "RUN pip install /opt/mlflow"
         )
     else:
+        # Dev version is not available on PyPI, install from GitHub instead
+        if Version(VERSION).is_devrelease:
+            return "# Install MLflow\nRUN pip install https://github.com/mlflow/mlflow/archive/refs/heads/master.zip"
         return f"# Install MLflow\nRUN pip install mlflow=={VERSION}"
 
 

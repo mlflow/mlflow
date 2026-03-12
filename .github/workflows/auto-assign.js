@@ -20,6 +20,87 @@ async function getMaintainers({ github, context }) {
     .sort();
 }
 
+async function getLinkedIssues({ github, owner, repo, prNumber }) {
+  const query = `
+    query($owner: String!, $repo: String!, $number: Int!) {
+      repository(owner: $owner, name: $repo) {
+        pullRequest(number: $number) {
+          createdAt
+          closingIssuesReferences(first: 10) {
+            nodes {
+              number
+              createdAt
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const result = await github.graphql(query, {
+    owner,
+    repo,
+    number: prNumber,
+  });
+
+  return {
+    prCreatedAt: result.repository.pullRequest.createdAt,
+    issues: result.repository.pullRequest.closingIssuesReferences.nodes,
+  };
+}
+
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function findFirstMaintainerInIssueComments({
+  github,
+  owner,
+  repo,
+  issueNumber,
+  maintainers,
+}) {
+  for await (const response of github.paginate.iterator(github.rest.issues.listComments, {
+    owner,
+    repo,
+    issue_number: issueNumber,
+  })) {
+    for (const comment of response.data) {
+      if (maintainers.has(comment.user.login)) {
+        return comment.user.login;
+      }
+    }
+  }
+  return null;
+}
+
+async function findMaintainerFromLinkedIssue({ github, owner, repo, prNumber, maintainers }) {
+  const { prCreatedAt, issues: linkedIssues } = await getLinkedIssues({
+    github,
+    owner,
+    repo,
+    prNumber,
+  });
+
+  if (linkedIssues.length !== 1 || !prCreatedAt) {
+    return null;
+  }
+
+  const linkedIssue = linkedIssues[0];
+  const prCreatedDate = new Date(prCreatedAt);
+  const issueCreatedDate = new Date(linkedIssue.createdAt);
+
+  if (prCreatedDate - issueCreatedDate > SEVEN_DAYS_MS) {
+    return null;
+  }
+
+  return findFirstMaintainerInIssueComments({
+    github,
+    owner,
+    repo,
+    issueNumber: linkedIssue.number,
+    maintainers,
+  });
+}
+
 module.exports = async ({ github, context, skipAssignment = false }) => {
   const { owner, repo } = context.repo;
   const maintainers = new Set(await getMaintainers({ github, context }));
@@ -63,9 +144,21 @@ module.exports = async ({ github, context, skipAssignment = false }) => {
     const currentAssignees = new Set(pr.assignees.map((a) => a.login));
     const excludeSet = new Set([prAuthor, ...currentAssignees]);
 
-    const maintainersToAssign = [
-      ...commentAuthors.intersection(maintainers).difference(excludeSet),
-    ];
+    let maintainersToAssign = [...commentAuthors.intersection(maintainers).difference(excludeSet)];
+
+    // Fall back to linked issue comments if no maintainers found from recent PR activity
+    if (maintainersToAssign.length === 0) {
+      const maintainer = await findMaintainerFromLinkedIssue({
+        github,
+        owner,
+        repo,
+        prNumber: pr.number,
+        maintainers,
+      });
+      if (maintainer && !excludeSet.has(maintainer)) {
+        maintainersToAssign = [maintainer];
+      }
+    }
 
     if (maintainersToAssign.length === 0) {
       continue;

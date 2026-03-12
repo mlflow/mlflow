@@ -12,10 +12,13 @@ It must only depend on mlflow + stdlib (no local imports).
 
 import argparse
 import enum
+import logging
 import math
 import os
 import uuid
+import warnings
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from packaging.version import Version
@@ -112,22 +115,18 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
             ) as run:
                 run_ids.append(run.info.run_id)
 
-                mlflow.log_params(
-                    {
-                        "learning_rate": "0.001",
-                        "batch_size": "32",
-                        "model_type": f"model_v{run_idx}",
-                    }
-                )
+                mlflow.log_params({
+                    "learning_rate": "0.001",
+                    "batch_size": "32",
+                    "model_type": f"model_v{run_idx}",
+                })
 
-                mlflow.log_metrics(
-                    {
-                        "accuracy": 0.85 + run_idx * 0.01,
-                        "loss": 0.35 - run_idx * 0.01,
-                        "zero_metric": 0.0,
-                        "negative_metric": -1.5 + run_idx * 0.1,
-                    }
-                )
+                mlflow.log_metrics({
+                    "accuracy": 0.85 + run_idx * 0.01,
+                    "loss": 0.35 - run_idx * 0.01,
+                    "zero_metric": 0.0,
+                    "negative_metric": -1.5 + run_idx * 0.1,
+                })
                 for step in range(5):
                     mlflow.log_metric("train_loss", 1.0 - step * 0.15, step=step)
 
@@ -139,9 +138,11 @@ def generate_core(cfg: SizeConfig) -> list[ExperimentData]:
 
     # NaN / Inf metrics (on first run of first experiment)
     with mlflow.start_run(run_id=result[0].run_ids[0]):
-        mlflow.log_metrics(
-            {"nan_metric": math.nan, "inf_metric": math.inf, "neg_inf_metric": -math.inf}
-        )
+        mlflow.log_metrics({
+            "nan_metric": math.nan,
+            "inf_metric": math.inf,
+            "neg_inf_metric": -math.inf,
+        })
 
     # Unicode experiment name and tag values
     unicode_exp_id = client.create_experiment(
@@ -280,22 +281,33 @@ def generate_assessments(cfg: SizeConfig, trace_ids: list[str]) -> None:
 
 
 def generate_logged_models(cfg: SizeConfig, experiments: list[ExperimentData]) -> list[str]:
-    """Returns list of model artifact URIs (runs:/<run_id>/model)."""
+    """Returns list of model artifact URIs."""
+    from mlflow.entities.logged_model_input import LoggedModelInput
+
     client = MlflowClient()
     model_uris: list[str] = []
 
     for exp in experiments:
+        model_ids: list[str] = []
         for m_idx in range(cfg.logged_models_per_exp):
-            with mlflow.start_run(experiment_id=exp.experiment_id) as run:
+            with mlflow.start_run(experiment_id=exp.experiment_id):
                 model_info = mlflow.pyfunc.log_model(
                     name=f"logged_model_{m_idx}",
                     python_model=lambda model_input: model_input,
                     input_example="hello",
+                    pip_requirements=[],  # skip dependency inference
                 )
-                model_uris.append(f"runs:/{run.info.run_id}/model")
+                model_uris.append(model_info.model_uri)
             client.set_logged_model_tags(
                 model_info.model_id, {"framework": "pytorch", "stage": "dev"}
             )
+            model_ids.append(model_info.model_id)
+
+        # Log model inputs on existing runs in this experiment
+        if model_ids and exp.run_ids:
+            for i, model_id in enumerate(model_ids):
+                run_id = exp.run_ids[i % len(exp.run_ids)]
+                client.log_inputs(run_id, models=[LoggedModelInput(model_id=model_id)])
 
     return model_uris
 
@@ -361,8 +373,12 @@ def main() -> None:
     output = os.path.abspath(args.output)
     os.makedirs(output, exist_ok=True)
 
-    os.environ["MLFLOW_TRACKING_URI"] = output
-    mlflow.set_tracking_uri(output)
+    tracking_uri = Path(output).as_uri()
+    mlflow.set_tracking_uri(tracking_uri)
+
+    # Suppress noisy warnings and logs from mlflow internals
+    warnings.filterwarnings("ignore")
+    logging.getLogger("mlflow").setLevel(logging.ERROR)
 
     size: Size = args.size
     cfg = SIZES[size]

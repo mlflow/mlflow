@@ -3,7 +3,7 @@
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
 
-import { getWorkspacesEnabledSync } from './ServerFeaturesContext';
+import { getWorkspacesEnabledSync } from '../../experiment-tracking/hooks/useServerInfo';
 
 // Returns the current workspaces enabled state from the cached server features.
 // This is synchronous and returns the cached value (false if not yet loaded).
@@ -155,9 +155,6 @@ export const shouldEnableExperimentPageSideTabs = () => {
   return true;
 };
 
-/**
- * Determines if the Overview tab is enabled on the experiment page
- */
 export const shouldEnableExperimentOverviewTab = () => {
   return true;
 };
@@ -175,5 +172,24 @@ export const shouldEnableWorkflowBasedNavigation = () => {
  * dataset grouping, and streamlined run comparison workflow.
  */
 export const shouldEnableImprovedEvalRunsComparison = () => {
+  return false;
+};
+
+export const isScorerModelSelectionEnabled = () => {
+  return true;
+};
+
+/**
+ * Determines if issue detection feature is enabled in the traces table toolbar.
+ */
+export const shouldEnableIssueDetection = () => {
+  return false;
+};
+
+/**
+ * Controls visibility of the right panel (issues) on the evaluation runs page.
+ * When enabled (true), the right panel is hidden by default and only the evaluation runs table is shown.
+ */
+export const shouldShowEvalRunsIssuesPanel = () => {
   return false;
 };

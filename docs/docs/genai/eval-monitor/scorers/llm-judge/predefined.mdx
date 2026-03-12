@@ -88,6 +88,7 @@ results = mlflow.genai.evaluate(
 | <APILink fn="mlflow.genai.scorers.Fluency">Fluency</APILink>                                                                           | Is the response grammatically correct and naturally flowing?  | No                     | No               |
 | [Safety](/genai/eval-monitor/scorers/llm-judge/response-quality/safety)                                                                | Does the app's response avoid harmful or toxic content?       | No                     | No               |
 | <APILink fn="mlflow.genai.scorers.Equivalence">Equivalence</APILink>                                                                   | Is the app's response equivalent to the expected output?      | Yes                    | No               |
+| <APILink fn="mlflow.genai.scorers.Summarization">Summarization</APILink>                                                               | Is the summary faithful, comprehensive, concise, and clear?   | No                     | No               |
 | [Guidelines](/genai/eval-monitor/scorers/llm-judge/guidelines/#1-built-in-guidelines-judge-global-guidelines)                          | Does the response adhere to provided guidelines?              | Yes\*                  | No               |
 | [ExpectationsGuidelines](/genai/eval-monitor/scorers/llm-judge/guidelines/#2-built-in-expectationsguidelines-judge-per-row-guidelines) | Does the response meet specific expectations and guidelines?  | Yes\*                  | No               |
 

@@ -1,14 +1,6 @@
-import { v4 as uuidv4 } from 'uuid';
-import type { Location } from '../utils/RoutingUtils';
+import type { Location, To } from '../utils/RoutingUtils';
 import { Link, useLocation } from '../utils/RoutingUtils';
-import {
-  DesignSystemEventProviderAnalyticsEventTypes,
-  DesignSystemEventProviderComponentTypes,
-  Tooltip,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
-import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
-import { useMemo } from 'react';
+import { Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 
 export const MlflowSidebarLink = ({
   className,
@@ -24,7 +16,7 @@ export const MlflowSidebarLink = ({
   tooltipContent,
 }: {
   className?: string;
-  to: string;
+  to: To;
   componentId: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
@@ -36,8 +28,6 @@ export const MlflowSidebarLink = ({
   tooltipContent?: React.ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const logTelemetryEvent = useLogTelemetryEvent();
-  const viewId = useMemo(() => uuidv4(), []);
   const location = useLocation();
 
   return (
@@ -50,6 +40,7 @@ export const MlflowSidebarLink = ({
         delayDuration={0}
       >
         <Link
+          componentId={componentId}
           disableWorkspacePrefix={disableWorkspacePrefix}
           to={to}
           aria-current={isActive(location) ? 'page' : undefined}
@@ -59,10 +50,9 @@ export const MlflowSidebarLink = ({
             alignItems: 'center',
             gap: theme.spacing.sm,
             color: theme.colors.textPrimary,
-            paddingInline: collapsed ? 0 : theme.spacing.sm,
+            paddingInline: theme.spacing.sm,
             justifyContent: collapsed ? 'center' : 'flex-start',
-            // 5 seems to be the magic number to match the text line height
-            paddingBlock: collapsed ? 5 : theme.spacing.xs,
+            paddingBlock: theme.spacing.sm,
             borderRadius: theme.borders.borderRadiusSm,
             '&:hover': {
               color: theme.colors.actionLinkHover,
@@ -75,13 +65,6 @@ export const MlflowSidebarLink = ({
             },
           }}
           onClick={() => {
-            logTelemetryEvent({
-              componentId,
-              componentViewId: viewId,
-              componentType: DesignSystemEventProviderComponentTypes.Button,
-              componentSubType: null,
-              eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-            });
             onClick?.();
           }}
           target={openInNewTab ? '_blank' : undefined}

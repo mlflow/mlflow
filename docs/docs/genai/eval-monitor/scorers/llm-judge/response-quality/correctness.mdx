@@ -9,7 +9,7 @@ import SelectJudgeModel from '@site/src/content/select_judge_model.mdx';
 
 # Correctness Judge
 
-The `Correctness` judge assesses whether your GenAI application's response is factually correct by comparing it against provided ground truth information (`expected_facts` or `expected_response`).
+The `Correctness` judge assesses whether your LLM application or AI agent's response is factually correct by comparing it against provided ground truth information (`expected_facts` or `expected_response`).
 
 This built-in LLM judge is designed for evaluating application responses against known correct answers.
 
@@ -29,13 +29,11 @@ correctness_judge = Correctness()
 # Example 1: Response contains expected facts
 feedback = correctness_judge(
     inputs={"request": "What is MLflow?"},
-    outputs={
-        "response": "MLflow is an open-source platform for managing the ML lifecycle."
-    },
+    outputs={"response": "MLflow is an open-source AI engineering platform."},
     expectations={
         "expected_facts": [
             "MLflow is open-source",
-            "MLflow is a platform for ML lifecycle",
+            "MLflow is an AI engineering platform",
         ]
     },
 )
@@ -67,13 +65,11 @@ eval_dataset = [
     # Example 1: Response contains expected facts
     {
         "inputs": {"request": "What is MLflow?"},
-        "outputs": {
-            "response": "MLflow is an open-source platform for managing the ML lifecycle."
-        },
+        "outputs": {"response": "MLflow is an open-source AI engineering platform."},
         "expectations": {
             "expected_facts": [
                 "MLflow is open-source",
-                "MLflow is a platform for ML lifecycle",
+                "MLflow is an AI engineering platform",
             ]
         },
     },

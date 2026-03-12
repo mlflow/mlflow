@@ -11,7 +11,7 @@ export const CostIndicator = ({ inputCost, outputCost }: CostIndicatorProps) => 
   const formatCostPerMillion = (cost: number | undefined): string => {
     if (cost === undefined) return '-';
     const perMillion = cost * 1_000_000;
-    if (perMillion < 0.01) return `$${perMillion.toFixed(4)}`;
+    if (perMillion < 0.01) return `&#36;${perMillion.toFixed(4)}`;
     return `$${perMillion.toFixed(2)}`;
   };
 

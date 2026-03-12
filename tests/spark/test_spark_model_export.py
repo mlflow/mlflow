@@ -61,14 +61,12 @@ def spark_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
     additional_pip_deps = ["/opt/mlflow", f"pyspark=={PYSPARK_VERSION}", "pytest"]
     if PYSPARK_VERSION < Version("3.4"):
-        additional_pip_deps.extend(
-            [
-                # Versions of PySpark < 3.4 are incompatible with pandas >= 2
-                "pandas<2",
-                # pandas<2.0 is incompatible with numpy>=2.0
-                "numpy<2.0",
-            ]
-        )
+        additional_pip_deps.extend([
+            # Versions of PySpark < 3.4 are incompatible with pandas >= 2
+            "pandas<2",
+            # pandas<2.0 is incompatible with numpy>=2.0
+            "numpy<2.0",
+        ])
     _mlflow_conda_env(conda_env, additional_pip_deps=additional_pip_deps)
     return conda_env
 
@@ -140,14 +138,12 @@ def iris_df(spark):
 @pytest.fixture(scope="module")
 def iris_signature():
     return ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="0", type=DataType.double),
-                ColSpec(name="1", type=DataType.double),
-                ColSpec(name="2", type=DataType.double),
-                ColSpec(name="3", type=DataType.double),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(name="0", type=DataType.double),
+            ColSpec(name="1", type=DataType.double),
+            ColSpec(name="2", type=DataType.double),
+            ColSpec(name="3", type=DataType.double),
+        ]),
         outputs=Schema([ColSpec(type=DataType.double)]),
     )
 
@@ -220,12 +216,15 @@ def test_hadoop_filesystem(tmp_path):
     FS.copy_from_local_file(test_dir_0, remote, remove_src=False)
     local = os.path.join(tmp_path, "actual")
     FS.copy_to_local_file(remote, local, remove_src=True)
-    assert sorted(os.listdir(os.path.join(local, "root"))) == sorted(
-        ["subdir", "file_0", ".file_0.crc"]
-    )
-    assert sorted(os.listdir(os.path.join(local, "root", "subdir"))) == sorted(
-        ["file_1", ".file_1.crc"]
-    )
+    assert sorted(os.listdir(os.path.join(local, "root"))) == sorted([
+        "subdir",
+        "file_0",
+        ".file_0.crc",
+    ])
+    assert sorted(os.listdir(os.path.join(local, "root", "subdir"))) == sorted([
+        "file_1",
+        ".file_1.crc",
+    ])
     # compare the files
     with open(os.path.join(test_dir_0, "root", "file_0")) as expected_f:
         with open(os.path.join(local, "root", "file_0")) as actual_f:
@@ -526,6 +525,37 @@ def test_log_model_no_registered_model_name(tmp_path, spark_model_iris):
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
+def test_log_model_skips_maybe_save_for_acled_artifact_uri(tmp_path):
+    """_maybe_save_model should not be called for Databricks ACL-protected artifact URIs
+    (dbfs:/databricks/mlflow-tracking/...) since Spark cannot write to them directly.
+    Calling it wastes ~6s per model on a guaranteed Py4JError before falling back.
+    """
+    acled_uri = "dbfs:/databricks/mlflow-tracking/abc123/run456/artifacts"
+
+    class FakePipelineModel:
+        def __init__(self, stages=None):
+            pass
+
+    mock_model = FakePipelineModel()
+    with (
+        mock.patch("mlflow.spark._validate_model"),
+        mock.patch("mlflow.spark._is_spark_connect_model", return_value=False),
+        mock.patch("mlflow.spark._maybe_save_model") as mock_maybe_save,
+        mock.patch("mlflow.get_artifact_uri", return_value=acled_uri),
+        mock.patch("mlflow.spark._should_use_mlflowdbfs", return_value=False),
+        mock.patch("mlflow.models.Model._log_v2") as mock_log_v2,
+        mock.patch("pyspark.ml.PipelineModel", FakePipelineModel),
+        mlflow.start_run(),
+    ):
+        mlflow.spark.log_model(
+            mock_model,
+            artifact_path="model",
+            dfs_tmpdir=str(tmp_path),
+        )
+        mock_maybe_save.assert_not_called()
+        mock_log_v2.assert_called_once()
+
+
 def test_sparkml_model_load_from_remote_uri_succeeds(spark_model_iris, model_path, mock_s3_bucket):
     mlflow.spark.save_model(spark_model=spark_model_iris.model, path=model_path)
 
@@ -750,6 +780,7 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
         "mlflowdbfs_available",
         "dbutils_available",
         "expected_uri",
+        "expect_log_v2",
     ),
     [
         (
@@ -759,6 +790,7 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             True,
             True,
             "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml",
+            False,
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
@@ -767,14 +799,19 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             True,
             True,
             "mlflowdbfs:///artifacts?run_id={}&path=/model/sparkml",
+            False,
         ),
+        # ACL-protected paths where mlflowdbfs is unavailable/disabled always route through
+        # Model._log_v2 because _maybe_save_model is skipped via is_databricks_acled_artifacts_uri.
+        # In real Databricks, _maybe_save_model always fails with Py4JError for these paths anyway.
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
             "12.0",
             "false",
             True,
             False,
-            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml",
+            None,
+            True,
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
@@ -782,7 +819,8 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "",
             False,
             True,
-            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml",
+            None,
+            True,
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
@@ -790,7 +828,8 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "",
             True,
             True,
-            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml",
+            None,
+            True,
         ),
         (
             "dbfs:/databricks/mlflow-tracking/a/b",
@@ -798,10 +837,11 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
             "true",
             True,
             True,
-            "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml",
+            None,
+            True,
         ),
-        ("dbfs:/root/a/b", "12.0", "", True, True, "dbfs:/root/a/b/model/sparkml"),
-        ("s3://mybucket/a/b", "12.0", "", True, True, "s3://mybucket/a/b/model/sparkml"),
+        ("dbfs:/root/a/b", "12.0", "", True, True, "dbfs:/root/a/b/model/sparkml", False),
+        ("s3://mybucket/a/b", "12.0", "", True, True, "s3://mybucket/a/b/model/sparkml", False),
     ],
 )
 def test_model_logged_via_mlflowdbfs_when_appropriate(
@@ -813,6 +853,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     mlflowdbfs_available,
     dbutils_available,
     expected_uri,
+    expect_log_v2,
 ):
     def mock_spark_session_load(path):
         raise Exception("MlflowDbfsClient operation failed!")
@@ -848,21 +889,32 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
         mock.patch("mlflow.utils.databricks_utils._get_dbutils", mock_get_dbutils),
         mock.patch.object(spark_model_iris.model, "save") as mock_save,
         mock.patch("mlflow.models.infer_pip_requirements", return_value=[]) as mock_infer,
+        mock.patch("mlflow.models.Model._log_v2") as mock_log_v2,
     ):
         with mlflow.start_run():
             if db_runtime_version:
                 monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", db_runtime_version)
             monkeypatch.setenv("DISABLE_MLFLOWDBFS", mlflowdbfs_disabled)
             mlflow.spark.log_model(spark_model_iris.model, artifact_path="model")
-            mock_save.assert_called_once_with(expected_uri.format(mlflow.active_run().info.run_id))
 
-            if expected_uri.startswith("mflowdbfs"):
-                # If mlflowdbfs is used, infer_pip_requirements should load the model from the
-                # remote model path instead of a local tmp path.
-                assert (
-                    mock_infer.call_args[0][0]
-                    == "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml"
+            if expect_log_v2:
+                # ACL-protected paths where mlflowdbfs is unavailable skip _maybe_save_model
+                # entirely and fall through to Model._log_v2. In production, _maybe_save_model
+                # always raises Py4JError for these paths, so skipping it is correct.
+                mock_log_v2.assert_called_once()
+                mock_save.assert_not_called()
+            else:
+                mock_save.assert_called_once_with(
+                    expected_uri.format(mlflow.active_run().info.run_id)
                 )
+
+                if expected_uri.startswith("mlflowdbfs"):
+                    # If mlflowdbfs is used, infer_pip_requirements should load the model from the
+                    # remote model path instead of a local tmp path.
+                    assert (
+                        mock_infer.call_args[0][0]
+                        == "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml"
+                    )
 
 
 @pytest.mark.parametrize("dummy_read_shows_mlflowdbfs_available", [True, False])
@@ -910,16 +962,22 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
             mock_get_dbutils,
         ),
         mock.patch.object(spark_model_iris.model, "save") as mock_save,
+        mock.patch("mlflow.models.Model._log_v2") as mock_log_v2,
     ):
         with mlflow.start_run():
             monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.0")
             mlflow.spark.log_model(spark_model_iris.model, artifact_path="model")
             run_id = mlflow.active_run().info.run_id
-            mock_save.assert_called_once_with(
-                f"mlflowdbfs:///artifacts?run_id={run_id}&path=/model/sparkml"
-                if dummy_read_shows_mlflowdbfs_available
-                else "dbfs:/databricks/mlflow-tracking/a/b/model/sparkml"
-            )
+            if dummy_read_shows_mlflowdbfs_available:
+                mock_save.assert_called_once_with(
+                    f"mlflowdbfs:///artifacts?run_id={run_id}&path=/model/sparkml"
+                )
+            else:
+                # mlflowdbfs unavailable + ACL-protected path: _maybe_save_model is skipped,
+                # Model._log_v2 is called directly. In production, _maybe_save_model always
+                # raises Py4JError for these ACL-protected paths, so skipping it is correct.
+                mock_log_v2.assert_called_once()
+                mock_save.assert_not_called()
 
 
 def test_log_model_with_code_paths(spark_model_iris):
@@ -1007,11 +1065,9 @@ def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator
             model,
             artifact_path="model",
             signature=ModelSignature(
-                inputs=Schema(
-                    [
-                        ColSpec(name="features", type=SparkMLVector()),
-                    ]
-                ),
+                inputs=Schema([
+                    ColSpec(name="features", type=SparkMLVector()),
+                ]),
                 outputs=Schema([ColSpec(type=DataType.double)]),
             ),
         )

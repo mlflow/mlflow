@@ -108,22 +108,25 @@ def test_download_artifacts_with_uri(run_with_artifact):
     # specifying `artifact_uri` and `artifact_path` together did not throw an exception (unlike
     # `mlflow.artifacts.download_artifacts()`) and instead used `artifact_uri` while ignoring
     # `run_id` and `artifact_path`
-    downloaded_content = _run_download_artifact_command(
-        ["-u", uri, "--run-id", "bad", "--artifact-path", "bad"]
-    ).read_text()
+    downloaded_content = _run_download_artifact_command([
+        "-u",
+        uri,
+        "--run-id",
+        "bad",
+        "--artifact-path",
+        "bad",
+    ]).read_text()
     assert downloaded_content == artifact_content
 
 
 def test_download_artifacts_with_run_id_and_path(run_with_artifact):
     run, artifact_path, artifact_content = run_with_artifact
-    downloaded_content = _run_download_artifact_command(
-        [
-            "--run-id",
-            run.info.run_id,
-            "--artifact-path",
-            artifact_path,
-        ]
-    ).read_text()
+    downloaded_content = _run_download_artifact_command([
+        "--run-id",
+        run.info.run_id,
+        "--artifact-path",
+        artifact_path,
+    ]).read_text()
     assert downloaded_content == artifact_content
 
 

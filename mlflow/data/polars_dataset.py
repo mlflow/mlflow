@@ -113,17 +113,15 @@ def infer_dtype(
                 _raise_unknown_type(dtype)
             return Object([])
 
-        return Object(
-            [
-                Property(
-                    name=field.name,
-                    dtype=infer_dtype(
-                        field.dtype, f"{col_name}.{field.name}", allow_unknown=allow_unknown
-                    ),
-                )
-                for field in dtype.fields
-            ]
-        )
+        return Object([
+            Property(
+                name=field.name,
+                dtype=infer_dtype(
+                    field.dtype, f"{col_name}.{field.name}", allow_unknown=allow_unknown
+                ),
+            )
+            for field in dtype.fields
+        ])
 
     return _handle_unknown_dtype(dtype=dtype, col_name=col_name, allow_unknown=allow_unknown)
 

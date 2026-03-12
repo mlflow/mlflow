@@ -5,15 +5,19 @@ import type { ComponentProps } from 'react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { getUser } from '@databricks/web-shared/global-settings';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { getUser } from '../global-settings/getUser';
+import { QueryClient, QueryClientProvider } from '../query-client/queryClient';
 
 import { GenAITracesTableBodyContainer } from './GenAITracesTableBodyContainer';
 // eslint-disable-next-line import/no-namespace
 import * as GenAiTracesTableUtils from './GenAiTracesTable.utils';
-import { createTestTraceInfoV3, createTestAssessmentInfo, createTestColumns } from './index';
+import {
+  createTestTraceInfoV3,
+  createTestAssessmentInfo,
+  createTestColumns,
+} from './test-fixtures/EvaluatedTraceTestUtils';
 import { TestRouter, testRoute } from './utils/RoutingTestUtils';
-import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 // Mock the virtualizer to render all rows in tests
 jest.mock('@tanstack/react-virtual', () => {
@@ -41,13 +45,13 @@ jest.mock('@tanstack/react-virtual', () => {
 jest.setTimeout(30000);
 
 // Mock necessary modules
-jest.mock('@databricks/web-shared/global-settings', () => ({
+jest.mock('../global-settings/getUser', () => ({
   getUser: jest.fn(),
 }));
 
-jest.mock('@databricks/web-shared/hooks', () => {
+jest.mock('../hooks/useLocalStorage', () => {
   return {
-    ...jest.requireActual<typeof import('@databricks/web-shared/hooks')>('@databricks/web-shared/hooks'),
+    ...jest.requireActual<typeof import('../hooks/useLocalStorage')>('../hooks/useLocalStorage'),
     getLocalStorageItemByParams: jest.fn().mockReturnValue({ hiddenColumns: undefined }),
     useLocalStorage: jest.fn().mockReturnValue([{}, jest.fn()]),
   };

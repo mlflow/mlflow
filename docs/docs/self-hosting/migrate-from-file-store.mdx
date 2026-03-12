@@ -1,0 +1,87 @@
+---
+title: Migrate from File Store
+---
+
+# Migrate from File Store to Database
+
+If you have existing data in a file-based backend (`./mlruns`), you can migrate it to a database using the built-in migration command.
+
+## Prerequisites
+
+You must have MLflow 3.10 or later installed. Run the following command to upgrade if needed:
+
+```bash
+pip install 'mlflow>=3.10'
+```
+
+## Quick Start
+
+If you're running a tracking server, stop it before migrating. Then run:
+
+```bash
+mlflow migrate-filestore --source /path/to/mlruns --target sqlite:///path/to/mlflow.db
+```
+
+:::note
+The migration tool only supports SQLite as the target database. See [Important Notes](#important-notes) for details.
+:::
+
+This reads all data from the specified directory and writes it to the specified SQLite database. The migration is atomic for the migrated data: if any error occurs, all inserted rows are rolled back and no migrated data is committed, so you can safely re-run the command after fixing the issue.
+
+Once complete, start the server with the new database. If you haven't explicitly set a `--backend-store-uri`, the tracking server will use `./mlruns` if existing file-based experiment data is found there, and fall back to `sqlite:///mlflow.db` otherwise. To avoid relying on these defaults, explicitly point the server to the new database:
+
+```bash
+mlflow server --backend-store-uri sqlite:///path/to/mlflow.db
+```
+
+Open the MLflow UI and confirm your experiments, runs, and models are present.
+
+## What Gets Migrated
+
+The migration tool transfers **all metadata** stored in the file-based backend:
+
+| Category       | Entities                                                 |
+| -------------- | -------------------------------------------------------- |
+| Experiments    | Experiments, experiment tags                             |
+| Runs           | Runs, params, metrics, latest metrics, tags              |
+| Datasets       | Datasets, inputs, input tags                             |
+| Run I/O        | Model inputs (run → model), model outputs (run → model)  |
+| Traces         | Trace info, trace tags, trace request metadata           |
+| Assessments    | Assessments (feedback, expectations)                     |
+| Logged Models  | Logged models, tags                                      |
+| Model Registry | Registered models, model versions, tags, aliases         |
+| Prompts        | Prompts (stored as registered models and model versions) |
+
+### What Is NOT Migrated
+
+- **Artifacts** (model files, images, etc.) stay in their original location. The database stores the same artifact URIs that point to the existing files.
+- **Trace spans** are stored as artifact files, not in the database.
+
+## Lossless Migration
+
+The migration tool preserves your data exactly as it was in the FileStore. No timestamps are altered.
+
+- **All IDs** (experiment, run, trace, model, etc.) are preserved as-is. Internal linkage IDs for dataset inputs and run I/O are generated because FileStore does not persist them.
+- **All timestamps** (`creation_time`, `start_time`, `end_time`, `last_update_time`) retain their original millisecond precision.
+- **Deleted items are included.** Experiments and runs in the `.trash` directory are migrated with their `deleted` lifecycle stage preserved.
+- **Artifact URIs** remain unchanged, pointing to the same files on disk.
+
+### Comparison with `mlflow-export-import`
+
+[`mlflow-export-import`](https://github.com/mlflow/mlflow-export-import) is a separate tool for copying MLflow objects (runs, experiments, registered models, etc.) from one tracking server to another. It is useful for moving between environments but **does not preserve original IDs or timestamps**.
+
+|                                  | `mlflow migrate-filestore`      | `mlflow-export-import`              |
+| -------------------------------- | ------------------------------- | ----------------------------------- |
+| **Use case**                     | Migrate FileStore to a database | Copy objects between MLflow servers |
+| **Preserves IDs and timestamps** | Yes                             | No (regenerated on import)          |
+| **Requires a running server**    | No                              | Yes (both source and target)        |
+| **Target**                       | SQLite Only                     | Any MLflow server                   |
+
+## Important Notes
+
+- **Target database must be empty.** The migration tool refuses to write to a database that already contains data to prevent conflicts. If the target file already exists, you will be prompted to overwrite it.
+- **SQLite only.** The migration tool only supports SQLite as the target database. FileStore generates large experiment IDs that exceed the 32-bit integer limit enforced by PostgreSQL and MySQL, but SQLite handles them natively.
+
+## Feedback
+
+If you run into issues or have feedback (e.g., support for PostgreSQL/MySQL), please comment on [GitHub issue #18534](https://github.com/mlflow/mlflow/issues/18534).

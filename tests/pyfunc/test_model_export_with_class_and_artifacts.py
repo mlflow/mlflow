@@ -30,6 +30,7 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
 from mlflow.entities import Trace
 from mlflow.environment_variables import (
+    MLFLOW_ALLOW_PICKLE_DESERIALIZATION,
     MLFLOW_LOG_MODEL_COMPRESSION,
     MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
 )
@@ -227,7 +228,7 @@ def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     pyfunc_artifact_path = "pyfunc_model"
     with (
         mlflow.start_run(),
-        mock.patch("warnings.warn") as mock_warning,
+        mock.patch("mlflow.pyfunc._logger.warning") as mock_warning,
     ):
         pyfunc_model_info = mlflow.pyfunc.log_model(
             name=pyfunc_artifact_path,
@@ -1101,6 +1102,20 @@ def test_load_model_with_missing_cloudpickle_version_logs_warning(model_path):
     )
 
 
+def test_load_cloudpickle_model_raises_when_pickle_deserialization_disallowed(
+    model_path, monkeypatch
+):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    mlflow.pyfunc.save_model(path=model_path, python_model=TestModel())
+    monkeypatch.setenv(MLFLOW_ALLOW_PICKLE_DESERIALIZATION.name, "false")
+
+    with pytest.raises(MlflowException, match="Deserializing model using pickle is disallowed"):
+        mlflow.pyfunc.load_model(model_uri=model_path)
+
+
 def test_save_and_load_model_with_special_chars(
     sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
@@ -1425,7 +1440,6 @@ def test_python_model_with_type_hint_errors_with_different_signature():
                 python_model=AnnotatedPythonModel(),
                 signature=signature,
             )
-        warn_mock.assert_called_once()
         assert (
             "Provided signature does not match the signature inferred from"
             in warn_mock.call_args[0][0]
@@ -2303,7 +2317,7 @@ def test_environment_variables_used_during_model_logging(monkeypatch):
             # existing env var is tracked
             os.environ["TEST_API_KEY"]
             # existing env var fetched by getenv is tracked
-            os.getenv("ANOTHER_API_KEY")
+            os.environ.get("ANOTHER_API_KEY")
             # existing env var not in allowlist is not tracked
             os.environ.get("INVALID_ENV_VAR")
             # non-existing env var is not tracked

@@ -4,8 +4,9 @@ import { useLocalStorage } from '../shared/web-shared/hooks';
 import { TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from '../telemetry/utils';
 import { telemetryClient } from '../telemetry';
 import { useCallback, useState } from 'react';
-import { getAjaxUrl } from '../common/utils/FetchUtils';
+import { fetchEndpointRaw, HTTPMethods } from '../common/utils/FetchUtils';
 import { useDarkThemeContext } from '../common/contexts/DarkThemeContext';
+import WebhooksSettings from './WebhooksSettings';
 
 const SettingsPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -43,8 +44,9 @@ const SettingsPage = () => {
   const handleClearAllDemoData = useCallback(async () => {
     setIsCleaningDemo(true);
     try {
-      await fetch(getAjaxUrl('ajax-api/3.0/mlflow/demo/delete'), {
-        method: 'POST',
+      await fetchEndpointRaw({
+        relativeUrl: 'ajax-api/3.0/mlflow/demo/delete',
+        method: HTTPMethods.POST,
       });
     } catch (error) {
       console.error('Failed to clear demo data:', error);
@@ -152,6 +154,10 @@ const SettingsPage = () => {
             <FormattedMessage defaultMessage="Clear all demo data" description="Clear demo data button" />
           )}
         </Button>
+      </div>
+
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, maxWidth: 800 }}>
+        <WebhooksSettings />
       </div>
 
       <Modal

@@ -1,8 +1,8 @@
 import { describe, it, expect } from '@jest/globals';
 
-import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-
 import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
+
 import type { AssessmentInfo } from '../types';
 
 import {

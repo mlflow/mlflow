@@ -51,8 +51,13 @@ def strip_html_comments(text: str) -> str:
     return re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
 
 
+def strip_empty_checkboxes(text: str) -> str:
+    return re.sub(r"^\s{0,3}[-*]\s+\[\s*\]\s+.+\n?", "", text, flags=re.MULTILINE)
+
+
 def build_prompt(title: str, body: str) -> str:
     body = strip_html_comments(body)
+    body = strip_empty_checkboxes(body)
     return PROMPT_TEMPLATE.format(
         title=title,
         body=body[:MAX_BODY_LENGTH],
@@ -158,13 +163,11 @@ def parse_dataset(path: Path) -> list[dict[str, str]]:
         title_match = re.search(r"\*\*Title:\*\*\s*(.+)$", section, re.MULTILINE)
         body_match = re.search(r"\*\*Body:\*\*\s*\n(.*)", section, re.DOTALL)
         if header_match and title_match and body_match:
-            issues.append(
-                {
-                    "header": header_match.group(1).strip(),
-                    "title": title_match.group(1).strip(),
-                    "body": body_match.group(1).strip(),
-                }
-            )
+            issues.append({
+                "header": header_match.group(1).strip(),
+                "title": title_match.group(1).strip(),
+                "body": body_match.group(1).strip(),
+            })
     return issues
 
 
@@ -198,6 +201,31 @@ def run_tests() -> None:
     print(f"\nTotal usage: {json.dumps(total_usage, indent=2)}")
 
 
+def write_step_summary(result: dict[str, Any]) -> None:
+    step_summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not step_summary_path:
+        return
+
+    comment = result.get("comment")
+    reason = result.get("reason", "")
+    usage = result.get("usage", {})
+    usage_json = json.dumps({"usage": usage}, indent=2)
+
+    summary = f"""## Comment
+{comment or "None"}
+
+## Reason
+{reason}
+
+## Usage
+```json
+{usage_json}
+```
+"""
+    with open(step_summary_path, "a") as f:
+        f.write(summary)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Triage GitHub issues")
     subparsers = parser.add_subparsers(dest="command")
@@ -212,6 +240,7 @@ def main() -> None:
     match args.command:
         case "triage":
             result = triage_issue(args.title, args.body)
+            write_step_summary(result)
             print(json.dumps(result))
         case "test":
             run_tests()

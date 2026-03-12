@@ -192,9 +192,7 @@ from datetime import datetime, timedelta
 
 # Get traces from the last 24 hours
 yesterday = datetime.now() - timedelta(days=1)
-traces = mlflow.search_traces(
-    filter_string=f"timestamp > {int(yesterday.timestamp() * 1000)}"
-)
+traces = mlflow.search_traces(filter_string=f"timestamp > {int(yesterday.timestamp() * 1000)}")
 ```
 
 The API returns a set of traces as a pandas DataFrame, where various data in the trace is expanded into columns. The dataframe can be directly passed into the <APILink fn="mlflow.genai.evaluate" /> function for evaluation.
@@ -271,8 +269,9 @@ Using the <APILink fn="mlflow.log_feedback" /> API, you can record end-user feed
 
 ```python
 # Decorate the endpoint with MLflow tracing
-@mlflow.trace(span_type="LLM")
+# Framework route decorator should be outermost, @mlflow.trace should be inner
 @app.post("/chat", response_model=ChatResponse)
+@mlflow.trace(span_type="LLM")
 async def chat(request: ChatRequest):
     """
     Chat endpoint that answers user questions and returns response with MLflow trace ID.
@@ -292,9 +291,7 @@ async def chat(request: ChatRequest):
             timestamp=time.time(),
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error processing chat request: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error processing chat request: {str(e)}")
 
 
 @app.post("/feedback", response_model=FeedbackResponse)
@@ -313,15 +310,11 @@ async def feedback(request: FeedbackRequest):
             ),
             rationale=request.rationale,
         )
-        return FeedbackResponse(
-            message="Feedback recorded successfully", trace_id=request.trace_id
-        )
+        return FeedbackResponse(message="Feedback recorded successfully", trace_id=request.trace_id)
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Error processing feedback: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error processing feedback: {str(e)}")
 ```
 
 ## Next steps

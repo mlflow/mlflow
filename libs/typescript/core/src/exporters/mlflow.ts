@@ -18,11 +18,7 @@ import {
   TRACE_SCHEMA_VERSION,
   TraceMetadataKey,
 } from '../core/constants';
-import {
-  convertHrTimeToMs,
-  deduplicateSpanNamesInPlace,
-  aggregateUsageFromSpans,
-} from '../core/utils';
+import { convertHrTimeToMs, aggregateUsageFromSpans } from '../core/utils';
 import { getConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 import { executeOnSpanEndHooks, executeOnSpanStartHooks } from './span_processor_hooks';
@@ -115,8 +111,6 @@ export class MlflowSpanProcessor implements SpanProcessor {
     }
 
     this.updateTraceInfo(trace.info, span);
-    deduplicateSpanNamesInPlace(Array.from(trace.spanDict.values()));
-
     // Aggregate token usage from all spans and add to trace metadata
     const allSpans = Array.from(trace.spanDict.values());
     const aggregatedUsage = aggregateUsageFromSpans(allSpans);

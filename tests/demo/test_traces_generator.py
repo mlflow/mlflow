@@ -41,7 +41,7 @@ def test_generate_creates_traces():
     assert isinstance(result, DemoResult)
     assert result.feature == DemoFeature.TRACES
     assert len(result.entity_ids) > 0
-    assert "traces" in result.navigation_url
+    assert "experiments" in result.navigation_url
 
 
 def test_generate_creates_experiment():

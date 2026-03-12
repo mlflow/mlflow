@@ -249,6 +249,14 @@ _DATABRICKS_VERSION_FILE_PATH = "/databricks/DBR_VERSION"
 
 
 def get_databricks_runtime_version():
+    # DATABRICKS_ENV_VERSION is set for serverless clusters with the major version (e.g. 4).
+    # Use it over DATABRICKS_RUNTIME_VERSION (which includes the minor version) if present.
+    if env_version := os.environ.get("DATABRICKS_ENV_VERSION"):
+        version = f"client.{env_version}"
+        # DATABRICKS_ACCELERATOR is set for serverless GPU clusters.
+        if os.environ.get("DATABRICKS_ACCELERATOR"):
+            version += "-gpu"
+        return version
     if ver := os.environ.get("DATABRICKS_RUNTIME_VERSION"):
         return ver
     if os.path.exists(_DATABRICKS_VERSION_FILE_PATH):
@@ -1302,11 +1310,16 @@ class DatabricksRuntimeVersion(NamedTuple):
     is_client_image: bool
     major: int
     minor: int
+    is_gpu_image: bool
 
     @classmethod
     def parse(cls, databricks_runtime: str | None = None):
         dbr_version = databricks_runtime or get_databricks_runtime_version()
         try:
+            is_gpu_image = dbr_version.endswith("-gpu")
+            if is_gpu_image:
+                dbr_version = dbr_version[:-4]
+
             dbr_version_splits = dbr_version.split(".", maxsplit=2)
             if dbr_version_splits[0] == "client":
                 is_client_image = True
@@ -1316,7 +1329,7 @@ class DatabricksRuntimeVersion(NamedTuple):
                 is_client_image = False
                 major = int(dbr_version_splits[0])
                 minor = int(dbr_version_splits[1])
-            return cls(is_client_image, major, minor)
+            return cls(is_client_image, major, minor, is_gpu_image)
         except Exception:
             raise MlflowException(f"Failed to parse databricks runtime version '{dbr_version}'.")
 
@@ -1392,6 +1405,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url, token=api_token, insecure=ssl_trust_all
                 )
+
     elif dbr_major_minor_version >= (10, 3):
 
         class DynamicConfigProvider(DatabricksConfigProvider):
@@ -1422,6 +1436,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
                 )
+
     else:
 
         class DynamicConfigProvider(DatabricksConfigProvider):

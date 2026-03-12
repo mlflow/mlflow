@@ -350,9 +350,9 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         self.client.set_tags(self.run_id, {"Mode": "testing"})
         self.client.flush(synchronous=True)
 
-        self.metrics_logger.record_metrics(
-            {key: float(value) for key, value in trainer.callback_metrics.items()}
-        )
+        self.metrics_logger.record_metrics({
+            key: float(value) for key, value in trainer.callback_metrics.items()
+        })
         self.metrics_logger.flush()
 
 

@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Iterable
 
 from mlflow.entities import Workspace
+from mlflow.entities.workspace import WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException
 
 
@@ -49,8 +50,20 @@ class AbstractStore(ABC):
 
         raise NotImplementedError
 
-    def delete_workspace(self, workspace_name: str) -> None:
-        """Delete an existing workspace."""
+    def delete_workspace(
+        self,
+        workspace_name: str,
+        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.RESTRICT,
+    ) -> None:
+        """Delete an existing workspace.
+
+        Args:
+            workspace_name: Name of the workspace to delete.
+            mode: Controls what happens to resources in the workspace:
+                - SET_DEFAULT: Reassign resources to the default workspace.
+                - CASCADE: Delete all resources in the workspace.
+                - RESTRICT: Refuse if the workspace still contains resources.
+        """
 
         raise NotImplementedError
 

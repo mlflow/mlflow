@@ -89,6 +89,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
           id: 'security/custom',
           label: 'Custom Authentication',
         },
+        {
+          type: 'doc',
+          id: 'security/kubernetes',
+          label: 'Kubernetes Authentication',
+        },
       ],
     },
     {
@@ -111,6 +116,11 @@ const sidebarsSelfHosting: SidebarsConfig = {
       type: 'doc',
       id: 'migration',
       label: 'Upgrade',
+    },
+    {
+      type: 'doc',
+      id: 'migrate-from-file-store',
+      label: 'Migrate from File Store',
     },
     {
       type: 'doc',

@@ -82,9 +82,7 @@ def test_create_registered_model(store):
 
 def test_create_registered_model_with_name_that_looks_like_path(store, tmp_path):
     name = str(tmp_path.joinpath("test"))
-    with pytest.raises(
-        MlflowException, match=r"Registered model name cannot contain path separator"
-    ):
+    with pytest.raises(MlflowException, match=r"Names cannot contain '/' or ':'"):
         store.get_registered_model(name)
 
 
@@ -115,9 +113,7 @@ def test_get_registered_model(store, registered_model_names, rm_data):
         store.get_registered_model(name)
 
     name = "../../path"
-    with pytest.raises(
-        MlflowException, match="Registered model name cannot contain path separator"
-    ):
+    with pytest.raises(MlflowException, match="Names cannot contain '/' or ':'"):
         store.get_registered_model(name)
 
 

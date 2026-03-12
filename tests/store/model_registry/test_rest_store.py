@@ -87,9 +87,9 @@ def _verify_requests(http_request, creds, endpoint, method, proto_message):
 
 def _verify_all_requests(http_request, creds, endpoints, proto_message):
     json_body = message_to_json(proto_message)
-    http_request.assert_has_calls(
-        [mock.call(**(_args(creds, endpoint, method, json_body))) for endpoint, method in endpoints]
-    )
+    http_request.assert_has_calls([
+        mock.call(**(_args(creds, endpoint, method, json_body))) for endpoint, method in endpoints
+    ])
 
 
 def test_create_registered_model(store, creds):

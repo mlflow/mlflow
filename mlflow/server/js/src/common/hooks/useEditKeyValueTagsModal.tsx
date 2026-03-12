@@ -107,9 +107,12 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
   const onKeyChangeCallback = (key: string | undefined) => {
     const tag = key ? finalTags.get(key) : undefined;
     /**
-     * If a tag value exists for provided key, set the value to the existing tag value
+     * If a tag value exists for provided key, set the value to the existing tag value.
+     * Otherwise, leave the current value intact so the user's input is not cleared.
      */
-    form.setValue('value', tag?.value ?? '');
+    if (tag) {
+      form.setValue('value', tag.value);
+    }
   };
 
   const handleTagDelete = ({ key }: KeyValueEntity) => {

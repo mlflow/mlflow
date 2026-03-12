@@ -6,12 +6,13 @@ import sys
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import asdict
 from datetime import datetime
 from unittest import mock
 
 import pytest
+from opentelemetry.sdk.trace.export import SpanExporter
 
 import mlflow
 from mlflow.entities import (
@@ -24,7 +25,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.trace_location import TraceLocation, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO, MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -38,7 +39,12 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.destination import MlflowExperiment
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION, _get_tracer, set_destination
+from mlflow.tracing.provider import (
+    _MLFLOW_TRACE_USER_DESTINATION,
+    _get_tracer,
+    safe_set_span_in_context,
+    set_destination,
+)
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -986,13 +992,11 @@ def test_search_traces_with_pagination(mock_client):
         "model_id": None,
         "locations": ["1"],
     }
-    mock_client.search_traces.assert_has_calls(
-        [
-            mock.call(**common_args, page_token=None),
-            mock.call(**common_args, page_token="token-1"),
-            mock.call(**common_args, page_token="token-2"),
-        ]
-    )
+    mock_client.search_traces.assert_has_calls([
+        mock.call(**common_args, page_token=None),
+        mock.call(**common_args, page_token="token-1"),
+        mock.call(**common_args, page_token="token-2"),
+    ])
 
 
 def test_search_traces_with_default_experiment_id(mock_client):
@@ -2613,7 +2617,7 @@ def test_trace_decorator_sampling_ratio(
     ("outer_ratio", "inner_ratio", "expected_outer", "expected_inner"),
     [
         (1.0, 0.0, 5, 5),  # Parent sampled -> child also sampled (inner ratio ignored)
-        (0.0, 1.0, 0, 5),  # Parent not sampled -> child creates its own root traces
+        (0.0, 1.0, 0, 0),  # Parent not sampled -> child also dropped (follows parent)
     ],
 )
 def test_trace_decorator_sampling_ratio_nested(
@@ -2641,6 +2645,51 @@ def test_trace_decorator_sampling_ratio_nested(
     assert len(inner_trace_ids) == expected_inner
 
 
+def test_global_sampling_ratio_nested(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.0")
+    mlflow.tracing.reset()
+
+    inner_trace_ids: list[str] = []
+
+    @mlflow.trace
+    def outer():
+        return inner()
+
+    # Inner uses sampling_ratio_override=1.0 so it would create a sampled
+    # root trace if the dropped parent context were not propagated.
+    @mlflow.trace(sampling_ratio_override=1.0)
+    def inner():
+        if trace_id := mlflow.get_active_trace_id():
+            inner_trace_ids.append(trace_id)
+        return "result"
+
+    for _ in range(5):
+        assert outer() == "result"
+
+    assert len(inner_trace_ids) == 0
+
+
+def test_start_span_no_context_preserves_dropped_parent_context(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACE_SAMPLING_RATIO.name, "0.0")
+    mlflow.tracing.reset()
+
+    trace_ids: list[str] = []
+
+    @mlflow.trace(sampling_ratio_override=1.0)
+    def child():
+        if trace_id := mlflow.get_active_trace_id():
+            trace_ids.append(trace_id)
+        return "result"
+
+    root = start_span_no_context("root")
+    nested_noop = start_span_no_context("nested_noop", parent_span=root)
+
+    with safe_set_span_in_context(nested_noop):
+        assert child() == "result"
+
+    assert len(trace_ids) == 0
+
+
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_count"),
     [
@@ -2666,7 +2715,7 @@ def test_trace_decorator_sampling_ratio_generator(sampling_ratio: float, expecte
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_child_count"),
     [
-        (0.0, 6),
+        (0.0, 0),
         (1.0, 6),
     ],
 )
@@ -2746,7 +2795,7 @@ async def test_trace_decorator_sampling_ratio_async_generator(
 @pytest.mark.parametrize(
     ("sampling_ratio", "expected_child_count"),
     [
-        (0.0, 6),
+        (0.0, 0),
         (1.0, 6),
     ],
 )
@@ -2811,3 +2860,112 @@ assert len(trace_ids) == 5
             "MLFLOW_TRACE_SAMPLING_RATIO": "0.0",
         },
     )
+
+
+@mlflow.trace
+def my_func():
+    return "hello"
+
+
+def test_tracing_context_injects_metadata_and_tags():
+    with mlflow.tracing.context(
+        metadata={"custom_key": "custom_value"},
+        tags={"my_tag": "tag_value"},
+    ):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.request_metadata["custom_key"] == "custom_value"
+    assert trace.info.tags["my_tag"] == "tag_value"
+
+    # Trace created outside the block should NOT have the metadata
+    my_func()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert "session" not in trace.info.request_metadata
+
+
+def test_tracing_context_nesting_merges():
+    with mlflow.tracing.context(
+        metadata={"outer_key": "outer_val", "shared": "outer"},
+        tags={"outer_tag": "outer"},
+    ):
+        with mlflow.tracing.context(
+            metadata={"inner_key": "inner_val", "shared": "inner"},
+            tags={"inner_tag": "inner"},
+        ):
+            my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    # Both outer and inner metadata present
+    assert trace.info.request_metadata["outer_key"] == "outer_val"
+    assert trace.info.request_metadata["inner_key"] == "inner_val"
+    # Inner wins on conflict
+    assert trace.info.request_metadata["shared"] == "inner"
+    # Both tags present
+    assert trace.info.tags["outer_tag"] == "outer"
+    assert trace.info.tags["inner_tag"] == "inner"
+
+
+def test_tracing_context_enabled_false_suppresses_traces():
+    with mlflow.tracing.context(enabled=False):
+        my_func()
+
+        # Child context should inherit the enabled=False from the parent
+        with mlflow.tracing.context(metadata={"k": "v"}):
+            my_func()
+
+        # Start trace with start_trace_no_context (used in autologging)
+        span = mlflow.start_span_no_context("test")
+        span.end()
+
+    assert mlflow.get_last_active_trace_id() is None
+
+    # After exiting, tracing should work normally
+    my_func()
+    assert mlflow.get_last_active_trace_id() is not None
+
+
+def test_tracing_context_enabled_is_thread_safe():
+    def run_with_context(enabled):
+        with mlflow.tracing.context(enabled=enabled):
+            my_func()
+            return mlflow.get_last_active_trace_id(thread_local=True)
+
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = {
+            pool.submit(run_with_context, enabled=(i % 2 == 0)): (i % 2 == 0) for i in range(10)
+        }
+        for future in as_completed(futures):
+            enabled = futures[future]
+            trace_id = future.result()
+            assert (trace_id is not None) == enabled
+
+
+def test_flush_trace_async_logging_calls_flush_when_async_queue_exists():
+    mock_exporter = mock.MagicMock()
+    with mock.patch("mlflow.tracking.fluent._get_trace_exporter", return_value=mock_exporter):
+        mlflow.flush_trace_async_logging(terminate=False)
+    mock_exporter._async_queue.flush.assert_called_once_with(terminate=False)
+
+
+def test_flush_trace_async_logging_skips_when_async_queue_missing():
+    # A bare SpanExporter (as used by StrandsSpanProcessor, mlflow/strands/autolog.py:40)
+    # has no _async_queue attribute. flush_trace_async_logging() should return without
+    # reaching the error handler.
+    exporter = SpanExporter()
+    assert not hasattr(exporter, "_async_queue")
+    with (
+        mock.patch("mlflow.tracking.fluent._get_trace_exporter", return_value=exporter),
+        mock.patch(
+            "mlflow.tracking.fluent._logger.error",
+            side_effect=AssertionError("flush should not reach error handler"),
+        ),
+    ):
+        mlflow.flush_trace_async_logging(terminate=False)
+
+
+def test_flush_trace_async_logging_no_spurious_error_when_tracing_disabled():
+    mlflow.tracing.disable()
+    with mock.patch("mlflow.tracking.fluent._logger") as mock_logger:
+        mlflow.flush_trace_async_logging()
+    mock_logger.error.assert_not_called()

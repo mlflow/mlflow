@@ -4,16 +4,15 @@ sidebar_label: LangChain
 toc_max_heading_level: 2
 ---
 
-import useBaseUrl from '@docusaurus/useBaseUrl';
-
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
+import ImageBox from "@site/src/components/ImageBox";
 
 # Tracing LangChain🦜⛓️
 
-<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
+<ImageBox src="/images/llms/tracing/langgraph-agent-trace.png" alt="LangChain Tracing with MLflow" />
 
 [LangChain](https://www.langchain.com/) is an open-source framework for building LLM-powered applications.
 
@@ -92,12 +91,10 @@ prompt_template = PromptTemplate.from_template(
 chain = prompt_template | llm | StrOutputParser()
 
 # Let's test another call
-chain.invoke(
-    {
-        "person": "Linus Torvalds",
-        "question": "Can I just set everyone's access to sudo to make things easier?",
-    }
-)
+chain.invoke({
+    "person": "Linus Torvalds",
+    "question": "Can I just set everyone's access to sudo to make things easier?",
+})
 ```
 
 ### 5. View the trace in the MLflow UI
@@ -256,6 +253,10 @@ pip install openai==1.30.5 langchain==0.2.1 langchain-openai==0.1.8 langchain-co
 
 :::
 
+:::tip Image Support for LangChain Traces
+MLflow captures image content parts passed through LangChain models. See [Image and Audio (Multimodal) Content in Traces](/genai/tracing/observe-with-traces/multimodal) for details.
+:::
+
 ## Supported APIs
 
 The following APIs are supported by auto tracing for LangChain.
@@ -269,57 +270,9 @@ The following APIs are supported by auto tracing for LangChain.
 - `get_relevant_documents` (for retrievers)
 - `__call__` (for Chains and AgentExecutors)
 
-## Token Usage Tracking
+## Tracking Token Usage and Cost
 
-MLflow >= 3.1.0 supports token usage tracking for LangChain. The token usage for each LLM call during a chain invocation will be logged in the `mlflow.chat.tokenUsage` span attribute, and the total usage in the entire trace will be logged in the `mlflow.trace.tokenUsage` metadata field.
-
-```python
-import json
-import mlflow
-
-mlflow.langchain.autolog()
-
-# Execute the chain defined in the previous example
-chain.invoke(
-    {
-        "person": "Linus Torvalds",
-        "question": "Can I just set everyone's access to sudo to make things easier?",
-    }
-)
-
-# Get the trace object just created
-last_trace_id = mlflow.get_last_active_trace_id()
-trace = mlflow.get_trace(trace_id=last_trace_id)
-
-# Print the token usage
-total_usage = trace.info.token_usage
-print("== Total token usage: ==")
-print(f"  Input tokens: {total_usage['input_tokens']}")
-print(f"  Output tokens: {total_usage['output_tokens']}")
-print(f"  Total tokens: {total_usage['total_tokens']}")
-
-# Print the token usage for each LLM call
-print("\n== Token usage for each LLM call: ==")
-for span in trace.data.spans:
-    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
-        print(f"{span.name}:")
-        print(f"  Input tokens: {usage['input_tokens']}")
-        print(f"  Output tokens: {usage['output_tokens']}")
-        print(f"  Total tokens: {usage['total_tokens']}")
-```
-
-```bash
-== Total token usage: ==
-  Input tokens: 81
-  Output tokens: 257
-  Total tokens: 338
-
-== Token usage for each LLM call: ==
-ChatOpenAI:
-  Input tokens: 81
-  Output tokens: 257
-  Total tokens: 338
-```
+MLflow automatically tracks token usage and cost for LangChain. The token usage for each LLM call during a chain invocation will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
 
 ## Customize Tracing Behavior
 

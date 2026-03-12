@@ -67,12 +67,10 @@ def test_call_endpoints():
         host_only = MlflowHostCreds("http://my-host")
         endpoints = [("/my/endpoint", "POST"), ("/my/endpoint", "GET")]
         resp = call_endpoints(host_only, endpoints, "", response_proto)
-        mock_call_endpoint.assert_has_calls(
-            [
-                mock.call(host_only, endpoint, method, "", response_proto, None)
-                for endpoint, method in endpoints
-            ]
-        )
+        mock_call_endpoint.assert_has_calls([
+            mock.call(host_only, endpoint, method, "", response_proto, None)
+            for endpoint, method in endpoints
+        ])
         assert resp is None
 
 

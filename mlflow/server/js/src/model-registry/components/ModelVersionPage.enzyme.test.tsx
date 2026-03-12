@@ -101,7 +101,6 @@ describe('ModelVersionPage', () => {
     expect(wrapper.find(Spinner).length).toBe(1);
   });
   test('should fetch new data when props are updated after mount', () => {
-    // eslint-disable-next-line no-unused-vars
     const endpoint = 'ajax-api/2.0/mlflow/model-versions/get';
     const TestComponent = ({ params = minimalProps.params }) => (
       <Provider store={minimalStore}>

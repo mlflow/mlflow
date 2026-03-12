@@ -84,24 +84,20 @@ def doctor(mask_envs=False):
         items.append(("Databricks runtime version", runtime))
 
     if active_run := mlflow.active_run():
-        items.extend(
-            [
-                ("Active experiment ID", active_run.info.experiment_id),
-                ("Active run ID", active_run.info.run_id),
-                ("Active run artifact URI", active_run.info.artifact_uri),
-            ]
-        )
+        items.extend([
+            ("Active experiment ID", active_run.info.experiment_id),
+            ("Active run ID", active_run.info.run_id),
+            ("Active run artifact URI", active_run.info.artifact_uri),
+        ])
 
     mlflow_envs = {
         k: ("***" if mask_envs else v) for k, v in os.environ.items() if k.startswith("MLFLOW_")
     }
     if mlflow_envs:
-        items.append(
-            (
-                "MLflow environment variables",
-                yaml.dump({"_": mlflow_envs}, indent=2).replace("'", "").lstrip("_:").rstrip("\n"),
-            )
-        )
+        items.append((
+            "MLflow environment variables",
+            yaml.dump({"_": mlflow_envs}, indent=2).replace("'", "").lstrip("_:").rstrip("\n"),
+        ))
 
     try:
         requires = importlib_metadata.requires("mlflow")
@@ -118,15 +114,10 @@ def doctor(mask_envs=False):
         else:
             mlflow_dependencies[req.name] = dist.version
 
-    items.append(
-        (
-            "MLflow dependencies",
-            yaml.dump({"_": mlflow_dependencies}, indent=2)
-            .replace("'", "")
-            .lstrip("_:")
-            .rstrip("\n"),
-        )
-    )
+    items.append((
+        "MLflow dependencies",
+        yaml.dump({"_": mlflow_dependencies}, indent=2).replace("'", "").lstrip("_:").rstrip("\n"),
+    ))
     for key, val in items:
         click.secho(key, fg="blue", nl=False)
         click.echo(f": {val}")

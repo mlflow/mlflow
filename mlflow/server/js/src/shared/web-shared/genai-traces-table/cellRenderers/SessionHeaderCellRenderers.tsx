@@ -2,6 +2,7 @@ import React from 'react';
 
 import {
   HoverCard,
+  Overflow,
   SpeechBubbleIcon,
   TableCell,
   Tag,
@@ -11,9 +12,9 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
+import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-explorer';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
-  FeedbackAssessment,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   SESSION_ID_METADATA_KEY,
@@ -35,6 +36,7 @@ import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
+  ISSUES_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RESPONSE_COLUMN_ID,
   SESSION_COLUMN_ID,
@@ -47,9 +49,10 @@ import {
 } from '../hooks/useTableColumns';
 import { TracesTableColumnType, type TracesTableColumn } from '../types';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
-import { escapeCssSpecialCharacters } from '../utils/DisplayUtils';
+import { escapeCssSpecialCharacters, highlightSearchInText } from '../utils/DisplayUtils';
 import {
   convertFeedbackAssessmentToRunEvalAssessment,
+  getExperimentIdFromTraceLocation,
   getTraceInfoInputs,
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
@@ -72,12 +75,14 @@ interface SessionHeaderCellProps {
   goal?: string;
   persona?: string;
   onChangeEvaluationId?: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
-  experimentId: string;
+  experimentId?: string;
   isComparing?: boolean;
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
   compareToRunUuid?: string;
   onExpandSession?: () => void;
+  /** When set, matching text in the Request column is highlighted. */
+  searchQuery?: string;
 }
 
 /**
@@ -92,16 +97,18 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   otherTraces,
   goal,
   persona,
-  experimentId,
+  experimentId: experimentIdProp,
   isComparing,
   getRunColor,
   runUuid,
   compareToRunUuid,
   onExpandSession,
+  searchQuery,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const firstTrace = traces[0];
+  const experimentId = getExperimentIdFromTraceLocation(firstTrace?.trace_location) ?? experimentIdProp;
   const firstOtherTrace = otherTraces?.[0];
 
   // Get run colors - use the passed runUuid/compareToRunUuid props directly for consistency with the comparison header.
@@ -196,6 +203,9 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     // In comparison mode, show stacked inputs with run colors
     const inputTitle = firstTrace ? getTraceInfoInputs(firstTrace) : undefined;
     const otherInputTitle = firstOtherTrace ? getTraceInfoInputs(firstOtherTrace) : undefined;
+    const displayInputTitle = inputTitle && searchQuery ? highlightSearchInText(inputTitle, searchQuery) : inputTitle;
+    const displayOtherInputTitle =
+      otherInputTitle && searchQuery ? highlightSearchInText(otherInputTitle, searchQuery) : otherInputTitle;
 
     if (isComparing) {
       cellContent = (
@@ -211,7 +221,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
           <div css={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             <StackedComponents
               first={
-                inputTitle ? (
+                displayInputTitle ? (
                   <div
                     css={{
                       overflow: 'hidden',
@@ -219,16 +229,16 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
                       whiteSpace: 'nowrap',
                       minWidth: 0,
                     }}
-                    title={inputTitle}
+                    title={typeof inputTitle === 'string' ? inputTitle : undefined}
                   >
-                    {inputTitle}
+                    {displayInputTitle}
                   </div>
                 ) : (
                   <NullCell isComparing />
                 )
               }
               second={
-                otherInputTitle ? (
+                displayOtherInputTitle ? (
                   <div
                     css={{
                       overflow: 'hidden',
@@ -236,9 +246,9 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
                       whiteSpace: 'nowrap',
                       minWidth: 0,
                     }}
-                    title={otherInputTitle}
+                    title={typeof otherInputTitle === 'string' ? otherInputTitle : undefined}
                   >
-                    {otherInputTitle}
+                    {displayOtherInputTitle}
                   </div>
                 ) : (
                   <NullCell isComparing />
@@ -257,7 +267,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
         </div>
       );
     } else {
-      cellContent = inputTitle ? (
+      cellContent = displayInputTitle ? (
         <SessionIdLinkWrapper sessionId={sessionId} experimentId={experimentId}>
           <span
             css={{
@@ -271,9 +281,9 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
                 textDecoration: 'underline',
               },
             }}
-            title={inputTitle}
+            title={typeof inputTitle === 'string' ? inputTitle : undefined}
           >
-            {inputTitle}
+            {displayInputTitle}
           </span>
         </SessionIdLinkWrapper>
       ) : (
@@ -428,29 +438,31 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     const lastOtherTrace = otherTraces?.[otherTraces.length - 1];
     const value = lastTrace ? formatResponseTitle(getTraceInfoOutputs(lastTrace)) : undefined;
     const otherValue = lastOtherTrace ? formatResponseTitle(getTraceInfoOutputs(lastOtherTrace)) : undefined;
+    const displayValue = value && searchQuery ? highlightSearchInText(value, searchQuery) : value;
+    const displayOtherValue = otherValue && searchQuery ? highlightSearchInText(otherValue, searchQuery) : otherValue;
 
     if (isComparing) {
       cellContent = (
         <StackedComponents
           first={
-            value ? (
+            displayValue ? (
               <div
                 css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
-                title={value}
+                title={typeof value === 'string' ? value : undefined}
               >
-                {value}
+                {displayValue}
               </div>
             ) : (
               <NullCell isComparing />
             )
           }
           second={
-            otherValue ? (
+            displayOtherValue ? (
               <div
                 css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}
-                title={otherValue}
+                title={typeof otherValue === 'string' ? otherValue : undefined}
               >
-                {otherValue}
+                {displayOtherValue}
               </div>
             ) : (
               <NullCell isComparing />
@@ -459,7 +471,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
         />
       );
     } else {
-      cellContent = value ? (
+      cellContent = displayValue ? (
         <div
           css={{
             overflow: 'hidden',
@@ -467,9 +479,9 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
             whiteSpace: 'nowrap',
             minWidth: 0,
           }}
-          title={value}
+          title={typeof value === 'string' ? value : undefined}
         >
-          {value}
+          {displayValue}
         </div>
       ) : (
         <NullCell />
@@ -673,6 +685,52 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
       );
     } else {
       cellContent = currentUniqueValueCounts.length > 0 ? renderAssessmentTags(currentUniqueValueCounts) : <NullCell />;
+    }
+  } else if (column.id === ISSUES_COLUMN_ID) {
+    // Issues column - collect all unique issues from all traces in the session
+    const collectUniqueIssues = (tracesList: ModelTraceInfoV3[]): string[] => {
+      const issueSet = new Set<string>();
+      tracesList.forEach((trace) => {
+        trace.assessments?.forEach((assessment) => {
+          if ('issue' in assessment && assessment.issue) {
+            const issueName = assessment.issue.issue_name || assessment.assessment_name;
+            issueSet.add(issueName);
+          }
+        });
+      });
+      return Array.from(issueSet);
+    };
+
+    const currentIssues = traces.length > 0 ? collectUniqueIssues(traces) : [];
+    const otherIssuesCollected = otherTraces && otherTraces.length > 0 ? collectUniqueIssues(otherTraces) : [];
+
+    const renderIssues = (issueList: string[]) => {
+      if (issueList.length === 0) {
+        return <NullCell isComparing={isComparing} />;
+      }
+
+      return (
+        <Overflow>
+          {issueList.map((issueName, index) => (
+            <Tag
+              key={index}
+              componentId="mlflow.genai-traces-table.session-header-issue-tag"
+              color="coral"
+              css={{ width: 'min-content', maxWidth: '100%' }}
+            >
+              {issueName}
+            </Tag>
+          ))}
+        </Overflow>
+      );
+    };
+
+    if (isComparing) {
+      cellContent = (
+        <StackedComponents first={renderIssues(currentIssues)} second={renderIssues(otherIssuesCollected)} />
+      );
+    } else {
+      cellContent = renderIssues(currentIssues);
     }
   } else if (
     column.type === TracesTableColumnType.ASSESSMENT &&

@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { LLM_TEMPLATE, LLMScorer } from '../types';
+import type { LLMScorer } from '../types';
+import { LLM_TEMPLATE } from '../types';
 import { useGetScheduledScorers } from './useGetScheduledScorers';
 import { useExperimentIds } from '../../../components/experiment-page/hooks/useExperimentIds';
 import { FormattedMessage, useIntl } from 'react-intl';
@@ -10,7 +11,7 @@ import {
   Input,
   Modal,
   PlusIcon,
-  Radio,
+  Checkbox,
   SearchIcon,
   TableSkeleton,
   Typography,
@@ -20,8 +21,8 @@ import { PillControl } from '@databricks/design-system/development';
 import ScorerModalRenderer from '../ScorerModalRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from '../constants';
 import { useRunSerializedScorer } from './useRunSerializedScorer';
-import { ModelTraceExplorerRunJudgeConfig } from '@databricks/web-shared/model-trace-explorer';
-import { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
+import type { ModelTraceExplorerRunJudgeConfig } from '@databricks/web-shared/model-trace-explorer';
+import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 import { useTemplateOptions } from '../llmScorerUtils';
 import { EndpointSelector } from '../../../components/EndpointSelector';
 import {
@@ -29,7 +30,7 @@ import {
   getEndpointNameFromGatewayModel,
 } from '../../../../gateway/utils/gatewayUtils';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
-import { isEmpty, isObject } from 'lodash';
+import { isEmpty } from 'lodash';
 
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
   RunJudgeModalElement: React.ReactNode;
@@ -134,15 +135,34 @@ const RunJudgeModalImpl = ({
   }, [templateOptions, searchValue]);
 
   const [error, setError] = useState<Error | undefined>(undefined);
-  const [selectedJudge, setSelectedJudge] = useState<LLMScorer | LLM_TEMPLATE | undefined>(undefined);
+  const [selectedScorers, setSelectedScorers] = useState<LLMScorer[]>([]);
+  const [selectedTemplates, setSelectedTemplates] = useState<LLM_TEMPLATE[]>([]);
+
+  const selectedJudgeCount = selectedScorers.length + selectedTemplates.length;
+  const hasSelectedTemplates = selectedTemplates.length > 0;
+
+  const toggleScorer = (scorer: LLMScorer) => {
+    setSelectedScorers((prev) => {
+      const isSelected = prev.some((s) => s.name === scorer.name);
+      return isSelected ? prev.filter((s) => s.name !== scorer.name) : [...prev, scorer];
+    });
+  };
+
+  const toggleTemplate = (template: LLM_TEMPLATE) => {
+    setSelectedTemplates((prev) => {
+      const isSelected = prev.includes(template);
+      return isSelected ? prev.filter((t) => t !== template) : [...prev, template];
+    });
+  };
 
   const handleModalConfirm = async () => {
-    if (!selectedJudge) {
+    if (selectedJudgeCount === 0) {
       return;
     }
     setError(undefined);
     try {
-      evaluateTraces(selectedJudge, [itemId], currentEndpointName);
+      selectedScorers.forEach((scorer) => evaluateTraces(scorer, [itemId], currentEndpointName));
+      selectedTemplates.forEach((template) => evaluateTraces(template, [itemId], currentEndpointName));
       onClose();
     } catch (error) {
       setError(error as Error);
@@ -175,11 +195,20 @@ const RunJudgeModalImpl = ({
           defaultMessage: 'Cancel',
           description: 'Button text for canceling a judge run',
         })}
-        okText={intl.formatMessage({
-          defaultMessage: 'Run judge',
-          description: 'Button text for running a judge',
-        })}
-        okButtonProps={{ disabled: !selectedJudge || (!currentEndpointName && judgeSelectionMode === 'template') }}
+        okText={
+          selectedJudgeCount > 1
+            ? intl.formatMessage({
+                defaultMessage: 'Run judges',
+                description: 'Button text for running multiple judges',
+              })
+            : intl.formatMessage({
+                defaultMessage: 'Run judge',
+                description: 'Button text for running a judge',
+              })
+        }
+        okButtonProps={{
+          disabled: selectedJudgeCount === 0 || (hasSelectedTemplates && !currentEndpointName),
+        }}
         onOk={handleModalConfirm}
       >
         <div css={{ display: 'flex', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
@@ -259,8 +288,8 @@ const RunJudgeModalImpl = ({
                   <ScorerOption
                     scorer={scorer}
                     key={scorer.name}
-                    onClick={() => setSelectedJudge(scorer)}
-                    selected={isObject(selectedJudge) && selectedJudge?.name === scorer.name}
+                    onClick={() => toggleScorer(scorer)}
+                    selected={selectedScorers.some((s) => s.name === scorer.name)}
                   />
                 ))
               )}
@@ -270,15 +299,15 @@ const RunJudgeModalImpl = ({
           {judgeSelectionMode === 'template' &&
             displayedTemplates?.map((template) => (
               <TemplateOption
-                selected={selectedJudge === template.value}
+                selected={selectedTemplates.includes(template.value)}
                 template={template}
                 key={template.value}
-                onClick={() => setSelectedJudge(template.value)}
+                onClick={() => toggleTemplate(template.value)}
                 scope={scope}
               />
             ))}
         </div>
-        {judgeSelectionMode === 'template' && (
+        {hasSelectedTemplates && (
           <div
             css={{
               display: 'flex',
@@ -328,19 +357,19 @@ const ScorerOption = ({
   const { theme } = useDesignSystemTheme();
   return (
     <div
-      role="radio"
+      role="checkbox"
       aria-checked={selected}
       css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
       onClick={() => onClick(scorer)}
     >
-      <Radio componentId="mlflow.experiment-scorers.traces-view-judge-llm" checked={selected}>
+      <Checkbox componentId="mlflow.experiment-scorers.traces-view-judge-llm" isChecked={selected}>
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{scorer.name}</Typography.Text>
           <Typography.Hint>
             <FormattedMessage defaultMessage="Custom judge" description="Label indicating a custom judge scorer" />
           </Typography.Hint>
         </div>
-      </Radio>
+      </Checkbox>
     </div>
   );
 };
@@ -363,12 +392,12 @@ const TemplateOption = ({
   const { theme } = useDesignSystemTheme();
   return (
     <div
-      role="radio"
+      role="checkbox"
       aria-checked={selected}
       css={{ cursor: 'pointer', height: 48, flexShrink: 0 }}
       onClick={() => onClick(template.value)}
     >
-      <Radio componentId="mlflow.experiment-scorers.traces-view-judge-template" checked={selected}>
+      <Checkbox componentId="mlflow.experiment-scorers.traces-view-judge-template" isChecked={selected}>
         <div css={{ display: 'flex', flexDirection: 'column', marginLeft: theme.spacing.xs }}>
           <Typography.Text css={{ flex: 1 }}>{template.label}</Typography.Text>
           <Typography.Hint>
@@ -385,7 +414,7 @@ const TemplateOption = ({
             )}
           </Typography.Hint>
         </div>
-      </Radio>
+      </Checkbox>
     </div>
   );
 };

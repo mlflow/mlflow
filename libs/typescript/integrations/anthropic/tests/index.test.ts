@@ -2,13 +2,13 @@
  * Tests for MLflow Anthropic integration with MSW mock server
  */
 
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 import Anthropic from '@anthropic-ai/sdk';
 import { tracedAnthropic } from '../src';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { anthropicMockHandlers, createStreamingErrorHandler } from './mockAnthropicServer';
-import { createAuthProvider } from 'mlflow-tracing/src/auth';
+import { createAuthProvider } from '@mlflow/core/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 

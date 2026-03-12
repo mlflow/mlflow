@@ -5,20 +5,21 @@ import { useParams } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { TracesV3Logs } from './experiment-page/components/traces-v3/TracesV3Logs';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+import type { TracesTableColumn } from '@databricks/web-shared/genai-traces-table';
 import {
   ActiveEvaluationContext,
   TRACE_ID_COLUMN_ID,
-  TracesTableColumn,
   TracesTableColumnType,
 } from '@databricks/web-shared/genai-traces-table';
 import { INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID } from '@databricks/web-shared/genai-traces-table/hooks/useTableColumns';
 import { TracesV3DateSelector } from './experiment-page/components/traces-v3/TracesV3DateSelector';
+import type { MonitoringFilters } from '../hooks/useMonitoringFilters';
 import {
-  MonitoringFilters,
   MonitoringFiltersUpdateContext,
   useMonitoringFilters,
   useMonitoringFiltersTimeRange,
 } from '../hooks/useMonitoringFilters';
+import { MonitoringConfigProvider } from '../hooks/useMonitoringConfig';
 
 /**
  * Default columns to be visible when selecting traces.
@@ -162,7 +163,7 @@ const SelectTracesModalImpl = ({
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
           <TracesV3Logs
             disableActions
-            experimentId={experimentId}
+            experimentIds={[experimentId]}
             timeRange={timeRange}
             customDefaultSelectedColumns={customDefaultSelectedColumns}
             // TODO: Move date selector to the toolbar in all callsites permanently
@@ -185,8 +186,10 @@ export const SelectTracesModal = (props: SelectTracesModalProps) => {
     [monitoringFilters, setMonitoringFilters],
   );
   return (
-    <MonitoringFiltersUpdateContext.Provider value={contextValue}>
-      <SelectTracesModalImpl {...props} />
-    </MonitoringFiltersUpdateContext.Provider>
+    <MonitoringConfigProvider>
+      <MonitoringFiltersUpdateContext.Provider value={contextValue}>
+        <SelectTracesModalImpl {...props} />
+      </MonitoringFiltersUpdateContext.Provider>
+    </MonitoringConfigProvider>
   );
 };

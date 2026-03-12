@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mlflow.entities.workspace import Workspace
+from mlflow.entities.workspace import Workspace, WorkspaceDeletionMode
 from mlflow.tracking._workspace.registry import get_workspace_store
 
 
@@ -79,5 +79,9 @@ class WorkspaceProviderClient:
             )
         )
 
-    def delete_workspace(self, name: str) -> None:
-        self.store.delete_workspace(name)
+    def delete_workspace(
+        self,
+        name: str,
+        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.RESTRICT,
+    ) -> None:
+        self.store.delete_workspace(name, mode=mode)

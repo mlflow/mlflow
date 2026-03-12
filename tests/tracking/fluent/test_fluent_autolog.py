@@ -23,7 +23,6 @@ import pyspark
 import pyspark.ml
 import pytest
 import pytorch_lightning
-import setfit
 import sklearn
 import statsmodels
 import tensorflow
@@ -56,8 +55,14 @@ library_to_mlflow_module_without_spark_datasource = {
     pytorch_lightning: mlflow.pytorch,
     lightning: mlflow.pytorch,
     transformers: mlflow.transformers,
-    setfit: mlflow.transformers,
 }
+
+try:
+    import setfit
+
+    library_to_mlflow_module_without_spark_datasource[setfit] = mlflow.transformers
+except ImportError:
+    pass
 
 library_to_mlflow_module_genai = {
     openai: mlflow.openai,
@@ -99,6 +104,9 @@ def reset_global_states():
         except Exception:
             pass
 
+    # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
+    mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
+
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
 
@@ -122,6 +130,8 @@ def reset_global_states():
     mlflow.utils.import_hooks._post_import_hooks.pop("agno", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("strands", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("haystack", None)
+    # setfit may not be in library_to_mlflow_module when incompatible with transformers 5.x
+    mlflow.utils.import_hooks._post_import_hooks.pop("setfit", None)
     # TODO: Remove this line when we stop supporting google.generativeai
     mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 

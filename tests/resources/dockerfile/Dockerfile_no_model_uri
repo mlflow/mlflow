@@ -32,7 +32,7 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 WORKDIR /opt/mlflow
 
 # Install MLflow
-RUN pip install mlflow==${{ MLFLOW_VERSION }}
+RUN pip install ${{ MLFLOW_INSTALL }}
 
 
 

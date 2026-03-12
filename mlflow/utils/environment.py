@@ -21,6 +21,7 @@ from mlflow.environment_variables import (
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
     MLFLOW_LOCK_MODEL_DEPENDENCIES,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
+    MLFLOW_UV_AUTO_DETECT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -41,6 +42,10 @@ from mlflow.utils.requirements_utils import (
     warn_dependency_requirement_mismatches,
 )
 from mlflow.utils.timeout import MlflowTimeoutError, run_with_timeout
+from mlflow.utils.uv_utils import (
+    detect_uv_project,
+    export_uv_requirements,
+)
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -397,9 +402,23 @@ _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE = (
 )
 
 
-def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra_env_vars=None):
+def infer_pip_requirements(
+    model_uri,
+    flavor,
+    fallback=None,
+    timeout=None,
+    extra_env_vars=None,
+    uv_project_dir=None,
+    uv_groups=None,
+    uv_extras=None,
+):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
+
+    If a uv project is detected (contains both uv.lock and pyproject.toml), this function
+    will first attempt to export dependencies via ``uv export``. If that succeeds, those
+    requirements are returned. Otherwise, falls back to inferring dependencies by capturing
+    imported packages during model inference.
 
     Args:
         model_uri: The URI of the model.
@@ -409,11 +428,48 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
         timeout: If specified, the inference operation is bound by the timeout (in seconds).
         extra_env_vars: A dictionary of extra environment variables to pass to the subprocess.
             Default to None.
+        uv_project_dir: Explicit path to a uv project directory. When provided, overrides
+            the ``MLFLOW_UV_AUTO_DETECT`` environment variable and searches the specified
+            directory instead of cwd. Default to None (auto-detect from cwd).
+        uv_groups: Optional list of uv dependency groups to include when exporting
+            requirements. Maps to ``uv export --group <name>``.
+        uv_extras: Optional list of uv extras (optional dependency sets) to include
+            when exporting requirements. Maps to ``uv export --extra <name>``.
 
     Returns:
         A list of inferred pip requirements (e.g. ``["scikit-learn==0.24.2", ...]``).
 
     """
+    # Check for uv project first - if detected, use uv export instead of
+    # inferring model dependencies by capturing imported packages during model inference.
+    # An explicit uv_project_dir overrides the MLFLOW_UV_AUTO_DETECT env var.
+    if uv_project_dir is not None or MLFLOW_UV_AUTO_DETECT.get():
+        if uv_project := detect_uv_project(uv_project_dir):
+            _logger.info(
+                f"Detected uv project at {uv_project.uv_lock.parent}. "
+                "Attempting to export requirements via 'uv export'."
+            )
+            if uv_requirements := export_uv_requirements(
+                uv_project.uv_lock.parent,
+                groups=uv_groups,
+                extras=uv_extras,
+            ):
+                _logger.info(
+                    f"Successfully exported {len(uv_requirements)} requirements from uv project. "
+                    "Skipping package capture based inference."
+                )
+                return uv_requirements
+            else:
+                _logger.warning(
+                    "uv export failed or returned no requirements. "
+                    "Falling back to package capture based inference."
+                )
+        elif uv_groups or uv_extras:
+            _logger.warning(
+                "uv_groups and/or uv_extras were specified but no uv project was detected. "
+                "These parameters will be ignored. Falling back to package capture based inference."
+            )
+
     raise_on_error = MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS.get()
 
     if timeout and is_windows():
@@ -762,11 +818,12 @@ def _deduplicate_requirements(requirements):
         try:
             parsed_req = Requirement(req)
             base_pkg = parsed_req.name
+            key = (base_pkg, str(parsed_req.marker) if parsed_req.marker else "")
 
-            existing_req = deduped_reqs.get(base_pkg)
+            existing_req = deduped_reqs.get(key)
 
             if not existing_req:
-                deduped_reqs[base_pkg] = parsed_req
+                deduped_reqs[key] = parsed_req
             else:
                 # Verify that there are not unresolvable constraints applied if set and combine
                 # if possible
@@ -776,9 +833,10 @@ def _deduplicate_requirements(requirements):
                     and existing_req.specifier != parsed_req.specifier
                 ):
                     _validate_version_constraints([str(existing_req), req])
-                    parsed_req.specifier = ",".join(
-                        [str(existing_req.specifier), str(parsed_req.specifier)]
-                    )
+                    parsed_req.specifier = ",".join([
+                        str(existing_req.specifier),
+                        str(parsed_req.specifier),
+                    ])
 
                 # Preserve existing specifiers
                 if existing_req.specifier and not parsed_req.specifier:
@@ -794,7 +852,7 @@ def _deduplicate_requirements(requirements):
                 elif existing_req.extras and not parsed_req.extras:
                     parsed_req.extras = existing_req.extras
 
-                deduped_reqs[base_pkg] = parsed_req
+                deduped_reqs[key] = parsed_req
 
         except InvalidRequirement:
             # Include non-standard package strings as-is
@@ -918,7 +976,7 @@ def _get_pip_install_mlflow():
     returns "pip install -e {MLFLOW_HOME} 1>&2", otherwise
     "pip install mlflow=={mlflow.__version__} 1>&2".
     """
-    if mlflow_home := os.getenv("MLFLOW_HOME"):  # dev version
+    if mlflow_home := os.environ.get("MLFLOW_HOME"):  # dev version
         return f"pip install -e {mlflow_home} 1>&2"
     else:
         return f"pip install mlflow=={VERSION} 1>&2"

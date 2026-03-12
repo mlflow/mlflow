@@ -196,6 +196,9 @@ def _patched_converse_stream(original, self, *args, **kwargs):
 
     if model_id := kwargs.get("modelId"):
         attributes[SpanAttributeKey.MODEL] = model_id
+        match model_id.split(".", 1):
+            case [provider, _]:
+                attributes[SpanAttributeKey.MODEL_PROVIDER] = provider
 
     span = start_span_no_context(
         name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}",
@@ -231,3 +234,6 @@ def _extract_and_set_model_name(span: LiveSpan, kwargs: dict[str, Any]):
     """Extract model name from kwargs and set it on the span."""
     if model_id := kwargs.get("modelId"):
         span.set_attribute(SpanAttributeKey.MODEL, model_id)
+        match model_id.split(".", 1):
+            case [provider, _]:
+                span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)

@@ -25,6 +25,13 @@ def increase_db_pool_size(monkeypatch):
     return
 
 
+def _create_test_trace(name, inputs, outputs):
+    with mlflow.start_span(name=name) as span:
+        span.set_inputs(inputs)
+        span.set_outputs(outputs)
+    return mlflow.get_trace(span.trace_id)
+
+
 def always_yes(inputs, outputs, expectations, trace):
     return "yes"
 
@@ -36,26 +43,24 @@ class AlwaysYesScorer(Scorer):
 
 @pytest.fixture
 def sample_data():
-    return pd.DataFrame(
-        {
-            "inputs": [
-                {"message": [{"role": "user", "content": "What is Spark??"}]},
-                {
-                    "messages": [
-                        {"role": "user", "content": "How can you minimize data shuffling in Spark?"}
-                    ]
-                },
-            ],
-            "outputs": [
-                {"choices": [{"message": {"content": "actual response for first question"}}]},
-                {"choices": [{"message": {"content": "actual response for second question"}}]},
-            ],
-            "expectations": [
-                {"expected_response": "expected response for first question"},
-                {"expected_response": "expected response for second question"},
-            ],
-        }
-    )
+    return pd.DataFrame({
+        "inputs": [
+            {"message": [{"role": "user", "content": "What is Spark??"}]},
+            {
+                "messages": [
+                    {"role": "user", "content": "How can you minimize data shuffling in Spark?"}
+                ]
+            },
+        ],
+        "outputs": [
+            {"choices": [{"message": {"content": "actual response for first question"}}]},
+            {"choices": [{"message": {"content": "actual response for second question"}}]},
+        ],
+        "expectations": [
+            {"expected_response": "expected response for first question"},
+            {"expected_response": "expected response for second question"},
+        ],
+    })
 
 
 @pytest.mark.parametrize("dummy_scorer", [AlwaysYesScorer(name="always_yes"), scorer(always_yes)])
@@ -126,27 +131,25 @@ def test_trace_passed_to_builtin_scorers_correctly(
         context={"request": "{'question': 'query'}", "response": "answer"},
         assessment_name="english",
     )
-    mock_groundedness.assert_has_calls(
-        [
-            call(
-                request="{'question': 'query'}",
-                response="answer",
-                retrieved_context=[
-                    {"content": "content_1", "doc_uri": "url_1"},
-                    {"content": "content_2", "doc_uri": "url_2"},
-                ],
-                assessment_name="retrieval_groundedness",
-            ),
-            call(
-                request="{'question': 'query'}",
-                response="answer",
-                retrieved_context=[
-                    {"content": "content_3"},
-                ],
-                assessment_name="retrieval_groundedness",
-            ),
-        ]
-    )
+    mock_groundedness.assert_has_calls([
+        call(
+            request="{'question': 'query'}",
+            response="answer",
+            retrieved_context=[
+                {"content": "content_1", "doc_uri": "url_1"},
+                {"content": "content_2", "doc_uri": "url_2"},
+            ],
+            assessment_name="retrieval_groundedness",
+        ),
+        call(
+            request="{'question': 'query'}",
+            response="answer",
+            retrieved_context=[
+                {"content": "content_3"},
+            ],
+            assessment_name="retrieval_groundedness",
+        ),
+    ])
 
 
 def test_trace_passed_to_custom_scorer_correctly(sample_data, is_in_databricks):
@@ -157,13 +160,11 @@ def test_trace_passed_to_custom_scorer_correctly(sample_data, is_in_databricks):
 
     @scorer
     def dummy_scorer(inputs, outputs, expectations, trace) -> float:
-        actual_call_args_list.append(
-            {
-                "inputs": inputs,
-                "outputs": outputs,
-                "expectations": expectations,
-            }
-        )
+        actual_call_args_list.append({
+            "inputs": inputs,
+            "outputs": outputs,
+            "expectations": expectations,
+        })
         return 0.0
 
     mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
@@ -203,13 +204,11 @@ def test_trace_passed_correctly(is_in_databricks):
 
     @scorer
     def dummy_scorer(inputs, outputs, trace):
-        actual_call_args_list.append(
-            {
-                "inputs": inputs,
-                "outputs": outputs,
-                "trace": trace,
-            }
-        )
+        actual_call_args_list.append({
+            "inputs": inputs,
+            "outputs": outputs,
+            "trace": trace,
+        })
         return 0.0
 
     data = [
@@ -366,23 +365,18 @@ def test_custom_scorer_loading_blocked_for_non_databricks_uri():
         Scorer._reconstruct_decorator_scorer(serialized)
 
 
-def test_custom_scorer_loading_blocked_for_databricks_remote_access():
+def test_custom_scorer_loading_allowed_for_databricks_remote_access():
     serialized = SerializedScorer(
-        name="malicious_scorer",
+        name="test_scorer",
         is_session_level_scorer=False,
-        call_source="import os\nos.system('echo hacked')\nreturn True",
+        call_source="return len(outputs) > 0",
         call_signature="(outputs)",
-        original_func_name="malicious_scorer",
+        original_func_name="test_scorer",
     )
 
-    with (
-        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=False),
-        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
-    ):
-        with pytest.raises(
-            mlflow.exceptions.MlflowException, match="via remote access is not supported"
-        ):
-            Scorer._reconstruct_decorator_scorer(serialized)
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        result = Scorer._reconstruct_decorator_scorer(serialized)
+        assert result.name == "test_scorer"
 
 
 def test_custom_scorer_error_message_renders_code_snippet_legibly():
@@ -432,6 +426,84 @@ def complex_scorer(outputs):
     return score"""
 
     assert expected_code.strip() in error_msg
+
+
+def test_session_level_scorer_auto_detected_from_session_param():
+    @scorer
+    def session_scorer(session):
+        return len(session)
+
+    assert session_scorer.is_session_level_scorer is True
+
+
+def test_session_level_scorer_with_expectations():
+    @scorer
+    def session_scorer(session, expectations):
+        return len(session)
+
+    assert session_scorer.is_session_level_scorer is True
+
+
+def test_single_turn_scorer_not_session_level():
+    @scorer
+    def single_turn(inputs, outputs):
+        return True
+
+    assert single_turn.is_session_level_scorer is False
+
+
+def test_session_param_with_single_turn_params_raises():
+    def with_trace(session, trace):
+        pass
+
+    def with_inputs(session, inputs):
+        pass
+
+    def with_outputs(session, outputs):
+        pass
+
+    def with_all(session, inputs, outputs, trace):
+        pass
+
+    for func in [with_trace, with_inputs, with_outputs, with_all]:
+        with pytest.raises(
+            mlflow.exceptions.MlflowException,
+            match="Session-level scorers.*cannot also accept",
+        ):
+            scorer(func)
+
+
+def test_session_level_scorer_serialization_roundtrip(is_in_databricks):
+    @scorer
+    def session_scorer(session):
+        return len(session)
+
+    dumped = session_scorer.model_dump()
+    assert dumped["is_session_level_scorer"] is True
+
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
+        loaded = Scorer.model_validate(dumped)
+        assert loaded.name == "session_scorer"
+        assert loaded.is_session_level_scorer is True
+
+
+def test_session_level_scorer_invocation_with_traces():
+    @scorer
+    def session_scorer(session) -> Feedback:
+        total = len(session)
+        errors = sum(1 for t in session if t.info.state == "ERROR")
+        return Feedback(value=errors == 0, rationale=f"{total} turns, {errors} errors")
+
+    traces = [
+        _create_test_trace("turn_1", {"question": "What is MLflow?"}, "An ML platform."),
+        _create_test_trace("turn_2", {"question": "How do I track?"}, "Use mlflow.log_param()."),
+        _create_test_trace("turn_3", {"question": "Thanks!"}, "You're welcome!"),
+    ]
+
+    result = session_scorer.run(session=traces)
+    assert result.value is True
+    assert "3 turns" in result.rationale
+    assert "0 errors" in result.rationale
 
 
 def test_make_judge_scorer_works_without_databricks_uri():

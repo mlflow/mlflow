@@ -47,7 +47,7 @@ Use CLI tracing to automatically capture your interactive Claude Code CLI conver
 mlflow autolog claude
 
 # Set up tracing in specific directory
-mlflow autolog claude ~/my-project
+mlflow autolog claude -d ~/my-project
 
 # Check tracing status
 mlflow autolog claude --status
@@ -80,7 +80,7 @@ mlflow autolog claude -n "My AI Project"
 
 ```bash
 # Set up tracing in your project
-mlflow autolog claude ~/my-project
+mlflow autolog claude -d ~/my-project
 
 # Navigate to project directory
 cd ~/my-project
@@ -145,9 +145,9 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-#### Claude Tracing with MLflow GenAI Evaluation
+#### Claude Tracing with MLflow Evaluation
 
-You can also use SDK tracing with MLflow's GenAI evaluation framework:
+You can also use SDK tracing with MLflow's evaluation framework:
 
 ```python
 import asyncio
@@ -190,12 +190,10 @@ relevance = make_judge(
 )
 
 # Create evaluation dataset
-eval_data = pd.DataFrame(
-    [
-        {"inputs": {"query": "What is machine learning?"}},
-        {"inputs": {"query": "Explain neural networks"}},
-    ]
-)
+eval_data = pd.DataFrame([
+    {"inputs": {"query": "What is machine learning?"}},
+    {"inputs": {"query": "Explain neural networks"}},
+])
 
 # Run evaluation with automatic tracing
 mlflow.set_experiment("claude_evaluation")
@@ -205,50 +203,9 @@ evaluate(data=eval_data, predict_fn=predict_fn, scorers=[relevance])
 </TabItem>
 </Tabs>
 
-## Token Usage
+## Tracking Token Usage and Cost
 
-MLflow automatically tracks the token usage for each LLM call within Claude Code conversations. The token usage for each LLM call is logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace is available in the `token_usage` field of the trace info object.
-
-```python
-import mlflow
-
-# Get a Claude Code trace by its trace ID
-trace = mlflow.get_trace("<your-trace-id>")
-
-# Print the total token usage
-total_usage = trace.info.token_usage
-if total_usage:
-    print("== Total token usage: ==")
-    print(f"  Input tokens: {total_usage['input_tokens']}")
-    print(f"  Output tokens: {total_usage['output_tokens']}")
-    print(f"  Total tokens: {total_usage['total_tokens']}")
-
-# Print the token usage for each LLM call
-print("\n== Detailed usage for each LLM call: ==")
-for span in trace.data.spans:
-    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
-        print(f"{span.name}:")
-        print(f"  Input tokens: {usage['input_tokens']}")
-        print(f"  Output tokens: {usage['output_tokens']}")
-        print(f"  Total tokens: {usage['total_tokens']}")
-```
-
-```bash
-== Total token usage: ==
-  Input tokens: 1250
-  Output tokens: 340
-  Total tokens: 1590
-
-== Detailed usage for each LLM call: ==
-llm_call_1:
-  Input tokens: 500
-  Output tokens: 120
-  Total tokens: 620
-llm_call_2:
-  Input tokens: 750
-  Output tokens: 220
-  Total tokens: 970
-```
+MLflow automatically tracks token usage and cost for Claude Code conversations. The token usage for each LLM call will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
 
 ## Troubleshooting
 

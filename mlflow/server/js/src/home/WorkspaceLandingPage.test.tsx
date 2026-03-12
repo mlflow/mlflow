@@ -22,10 +22,6 @@ jest.mock('../common/utils/RoutingUtils', () => ({
 }));
 
 // Mock child components to simplify testing
-jest.mock('./components/features', () => ({
-  FeaturesSection: () => <div data-testid="features-section">Features Section</div>,
-}));
-
 jest.mock('./components/DiscoverNews', () => ({
   __esModule: true,
   default: () => <div data-testid="discover-news">Discover News Component</div>,
@@ -80,9 +76,13 @@ describe('WorkspaceLandingPage', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('telemetry-alert')).toBeInTheDocument();
-      expect(screen.getByTestId('features-section')).toBeInTheDocument();
       expect(screen.getByTestId('log-traces-drawer')).toBeInTheDocument();
     });
+  });
+
+  test('does not render features section (demo not available outside workspace)', () => {
+    renderComponent();
+    expect(screen.queryByTestId('features-section')).not.toBeInTheDocument();
   });
 
   test('renders workspaces section', async () => {

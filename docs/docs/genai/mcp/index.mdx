@@ -1,3 +1,8 @@
+---
+title: MLflow MCP Server | MLflow AI Platform
+description: Connect AI assistants and coding tools to MLflow using the Model Context Protocol (MCP). Search traces, analyze performance, log feedback, and more from Claude Code, Codex, Cursor, and Gemini CLI.
+---
+
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
@@ -20,7 +25,7 @@ The MLflow MCP server exposes all MLflow trace management operations through the
 - Manage trace tags and metadata
 - Delete traces and assessments
 
-This integration makes it easy to incorporate MLflow tracing capabilities into AI-powered development workflows, enabling more intelligent analysis and management of your GenAI applications.
+This integration makes it easy to incorporate MLflow tracing capabilities into AI-powered development workflows, enabling more intelligent analysis and management of your LLM applications and AI agents.
 
 ## Prerequisites
 
@@ -80,7 +85,14 @@ Add to your Cursor configuration file (`.cursor/mcp.json`):
   </TabItem>
   <TabItem label="Claude" value="claude">
 
-Add to your Claude `.claude/settings.json`:
+**Option 1 - `claude mcp add` CLI (recommended):**
+
+```bash
+claude mcp add mlflow-mcp -e MLFLOW_TRACKING_URI=<MLFLOW_TRACKING_URI> \
+  -- uv run --with "mlflow[mcp]>=3.5.1" mlflow mcp run
+```
+
+**Option 2 - `.mcp.json` at the project root (shareable via version control):**
 
 ```json
 {
@@ -238,9 +250,46 @@ The MCP server respects standard MLflow environment variables:
 
 - `MLFLOW_TRACKING_URI`: MLflow tracking server URL
 - `MLFLOW_EXPERIMENT_ID`: Default experiment ID
+- `MLFLOW_MCP_TOOLS`: Controls which tool categories are enabled (see below)
 - Authentication variables for cloud providers (AWS, Azure, GCP)
 
 For Databricks environments, ensure you have appropriate authentication configured (personal access tokens, service principals, etc.).
+
+### Tool Categories
+
+The `MLFLOW_MCP_TOOLS` environment variable controls which tools are exposed by the MCP server. This is useful for limiting the number of tools available to your AI assistant, which can improve performance and reduce token usage.
+
+**Supported values:**
+
+| Value             | Description                                    | Tools Included                                 |
+| ----------------- | ---------------------------------------------- | ---------------------------------------------- |
+| `genai` (default) | GenAI-focused tools for tracing and evaluation | `traces`, `scorers`, `experiments`, `runs`     |
+| `ml`              | Traditional ML workflow tools                  | `experiments`, `runs`, `models`, `deployments` |
+| `all`             | All available tools                            | All of the above                               |
+
+You can also specify a comma-separated list of individual tool categories:
+
+```bash
+# Enable only specific categories
+export MLFLOW_MCP_TOOLS="traces,scorers,experiments"
+```
+
+**Example configuration with tool categories:**
+
+```json
+{
+  "mcpServers": {
+    "mlflow-mcp": {
+      "command": "uv",
+      "args": ["run", "--with", "mlflow[mcp]>=3.5.1", "mlflow", "mcp", "run"],
+      "env": {
+        "MLFLOW_TRACKING_URI": "<MLFLOW_TRACKING_URI>",
+        "MLFLOW_MCP_TOOLS": "all"
+      }
+    }
+  }
+}
+```
 
 ## Related Documentation
 
