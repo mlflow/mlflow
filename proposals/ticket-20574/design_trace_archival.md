@@ -45,7 +45,7 @@ Users need the ability to offload span content to a cheaper trace repository (e.
 ### Out of Scope
 
 - **Span-level attribute search on archived traces (JSON attributes):** Once span content is moved to the trace repository, SQL-based filtering that depends on the raw span payload in `spans.content` (e.g., `span.attributes.*`) will not be supported for archived traces. Column-backed span filters that use indexed span metadata (e.g., `span.type`, `span.status`, `span.duration_ns`) will continue to work as long as span rows and these columns are retained in the DB. Trace-level metadata search (timestamp, state, tags, trace metrics) will continue to work.
-- **Automatic re-ingestion from trace repository to DB:** Restoring archived span data back into the database is not in scope. Users who need full, arbitrary span-level search over archived traces should query the OTLP files directly or use an external analytics tool.
+- **Automatic re-ingestion from trace repository to DB:** Restoring archived span data back into the database is not in scope for Phase 1. A future enhancement is planned to support explicit restore of archived traces (see [Future Enhancements: Trace Restore](#trace-restore-from-archive-to-database)).
 
 ## Proposal Sketch
 
@@ -389,6 +389,54 @@ Protobuf binary offers the best combination of size reduction, speed, standards 
 ---
 
 ## Future Enhancements
+
+### Trace Restore (from Archive to Database)
+
+A future enhancement would allow users to restore archived traces back into the database, re-enabling full span-level search (including JSON-based `span.attributes.*` filters) for those traces. This is the inverse of the archival operation and a safe way to undo archival operations.
+
+**CLI:**
+
+```bash
+# Restore a single archived trace back to the database
+mlflow traces restore --trace-id abc123
+
+# Restore all archived traces in an experiment
+mlflow traces restore --experiment-id 42
+
+# Restore archived traces newer than a cutoff (e.g., re-ingest last 7 days of archived data)
+mlflow traces restore --newer-than 7d
+
+# Workspace-scoped restore
+mlflow traces restore --workspace my-workspace --trace-id abc123
+```
+
+**Python API:**
+
+```python
+# Programmatic restore via TracingClient / MlflowClient
+client = mlflow.tracking.MlflowClient()
+count = client.restore_traces(trace_id="abc123")
+count = client.restore_traces(experiment_id="42", newer_than_days=7)
+```
+
+**REST endpoint:** `POST /mlflow/traces/restore-traces` — mirrors the `ArchiveTraces` request structure.
+
+**Restore process:**
+
+1. **Select traces to restore:** Query `trace_info` for traces whose `mlflow.trace.spansLocation` tag is `TRACES_REPO`, filtered by the provided criteria (`trace_id`, `experiment_id`, `newer_than`).
+2. **Download span content:** For each trace, download the `traces.pb` file from the trace repository, deserialize the `TracesData` protobuf into spans.
+3. **Write spans to DB and set tag:** Insert/update `spans.content` and `spans.content_size` in the database, then set the trace tag `mlflow.trace.spansLocation` = `SpansLocation.TRACKING_STORE`.
+4. **Optionally delete the archived file:** A `--cleanup` flag could remove the `traces.pb` file from the trace repository after a successful restore, or it could be retained as a backup.
+
+**Crash recovery:** If the process crashes after step 2 but before step 3, the trace remains `TRACES_REPO` and will be selected again on the next run. The restore re-downloads and re-writes, then completes step 3. The process is crash-safe and idempotent.
+
+**Key considerations:**
+
+- **Database capacity:** Restoring large numbers of traces re-introduces span content into the DB, potentially undoing the storage savings from archival. Users should be aware of the DB size impact.
+- **Partial restore:** Restoring individual traces by ID is the safest approach; bulk restore by experiment or time range should include a `--dry-run` option to preview the number of traces and estimated data size before committing.
+- **Re-archival:** Restored traces return to `TRACKING_STORE` and become eligible for archival again under the normal retention policies.
+
+---
 
 ### Repository Ingestion Mode (`repository`)
 
