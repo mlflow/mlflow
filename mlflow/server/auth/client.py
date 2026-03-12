@@ -432,6 +432,8 @@ class AuthServiceClient:
         """
         Create a permission on an registered model for a user.
 
+        This method is also used for registered prompts by passing the prompt name in ``name``.
+
         Args:
             name: The name of the registered model.
             username: The username.
@@ -457,6 +459,8 @@ class AuthServiceClient:
     def get_registered_model_permission(self, name: str, username: str):
         """
         Get an registered model permission for a user.
+
+        This method is also used for registered prompts by passing the prompt name in ``name``.
 
         Args:
             name: The name of the registered model.
@@ -507,6 +511,8 @@ class AuthServiceClient:
         """
         Update an existing registered model permission for a user.
 
+        This method is also used for registered prompts by passing the prompt name in ``name``.
+
         Args:
             name: The name of the registered model.
             username: The username.
@@ -542,6 +548,8 @@ class AuthServiceClient:
         """
         Delete an existing registered model permission for a user.
 
+        This method is also used for registered prompts by passing the prompt name in ``name``.
+
         Args:
             name: The name of the registered model.
             username: The username.
@@ -573,159 +581,6 @@ class AuthServiceClient:
             "DELETE",
             json={"name": name, "username": username},
         )
-
-    def create_prompt_permission(self, prompt_name: str, username: str, permission: str):
-        """
-        Create a permission on a registered prompt for a user.
-
-        Args:
-            prompt_name: The name of the registered prompt.
-            username: The username.
-            permission: Permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or a permission already exists for this registered prompt user pair,
-                or if the permission is invalid.
-                Does not require ``prompt_name`` to be an existing registered prompt.
-
-        Returns:
-            A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            rmp = client.create_prompt_permission("myregisteredprompt", "newuser", "READ")
-
-            print(f"name: {rmp.name}")
-            print(f"user_id: {rmp.user_id}")
-            print(f"permission: {rmp.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            name: myregisteredprompt
-            user_id: 3
-            permission: READ
-        """
-        return self.create_registered_model_permission(prompt_name, username, permission)
-
-    def get_prompt_permission(self, prompt_name: str, username: str):
-        """
-        Get a registered prompt permission for a user.
-
-        Args:
-            prompt_name: The name of the registered prompt.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this registered prompt user pair. Note that the
-                default permission will still be effective even if no permission exists.
-
-        Returns:
-             A single :py:class:`mlflow.server.auth.entities.RegisteredModelPermission` object.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_prompt_permission("myregisteredprompt", "newuser", "READ")
-            rmp = client.get_prompt_permission("myregisteredprompt", "newuser")
-
-            print(f"name: {rmp.name}")
-            print(f"user_id: {rmp.user_id}")
-            print(f"permission: {rmp.permission}")
-
-        .. code-block:: text
-            :caption: Output
-
-            name: myregisteredprompt
-            user_id: 3
-            permission: READ
-        """
-        return self.get_registered_model_permission(prompt_name, username)
-
-    def update_prompt_permission(self, prompt_name: str, username: str, permission: str):
-        """
-        Update an existing registered prompt permission for a user.
-
-        Args:
-            prompt_name: The name of the registered prompt.
-            username: The username.
-            permission: New permission to grant. Must be one of "READ", "EDIT", "MANAGE" and
-                "NO_PERMISSIONS".
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist, or no permission exists for
-                this registered prompt user pair, or if the permission is invalid.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_prompt_permission("myregisteredprompt", "newuser", "READ")
-            client.update_prompt_permission("myregisteredprompt", "newuser", "EDIT")
-        """
-        self.update_registered_model_permission(prompt_name, username, permission)
-
-    def delete_prompt_permission(self, prompt_name: str, username: str):
-        """
-        Delete an existing registered prompt permission for a user.
-
-        Args:
-            prompt_name: The name of the registered prompt.
-            username: The username.
-
-        Raises:
-            mlflow.exceptions.RestException: if the user does not exist,
-                or no permission exists for this registered prompt user pair,
-                or if the permission is invalid.
-                Note that the default permission will still be effective even
-                after the permission has been deleted.
-
-        .. code-block:: bash
-            :caption: Example
-
-            export MLFLOW_TRACKING_USERNAME=admin
-            export MLFLOW_TRACKING_PASSWORD=password
-
-        .. code-block:: python
-
-            from mlflow.server.auth.client import AuthServiceClient
-
-            client = AuthServiceClient("tracking_uri")
-            client.create_user("newuser", "newpassword")
-            client.create_prompt_permission("myregisteredprompt", "newuser", "READ")
-            client.delete_prompt_permission("myregisteredprompt", "newuser")
-        """
-        self.delete_registered_model_permission(prompt_name, username)
 
     def create_scorer_permission(
         self, experiment_id: str, scorer_name: str, username: str, permission: str

@@ -1588,7 +1588,6 @@ mlflow.server.auth.client.AuthServiceClient.create_gateway_endpoint_permission
 mlflow.server.auth.client.AuthServiceClient.create_gateway_model_definition_permission
 mlflow.server.auth.client.AuthServiceClient.create_gateway_secret_permission
 mlflow.server.auth.client.AuthServiceClient.create_registered_model_permission
-mlflow.server.auth.client.AuthServiceClient.create_prompt_permission
 mlflow.server.auth.client.AuthServiceClient.create_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.create_user
 mlflow.server.auth.client.AuthServiceClient.delete_experiment_permission
@@ -1596,7 +1595,6 @@ mlflow.server.auth.client.AuthServiceClient.delete_gateway_endpoint_permission
 mlflow.server.auth.client.AuthServiceClient.delete_gateway_model_definition_permission
 mlflow.server.auth.client.AuthServiceClient.delete_gateway_secret_permission
 mlflow.server.auth.client.AuthServiceClient.delete_registered_model_permission
-mlflow.server.auth.client.AuthServiceClient.delete_prompt_permission
 mlflow.server.auth.client.AuthServiceClient.delete_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.delete_user
 mlflow.server.auth.client.AuthServiceClient.delete_workspace_permission
@@ -1605,7 +1603,6 @@ mlflow.server.auth.client.AuthServiceClient.get_gateway_endpoint_permission
 mlflow.server.auth.client.AuthServiceClient.get_gateway_model_definition_permission
 mlflow.server.auth.client.AuthServiceClient.get_gateway_secret_permission
 mlflow.server.auth.client.AuthServiceClient.get_registered_model_permission
-mlflow.server.auth.client.AuthServiceClient.get_prompt_permission
 mlflow.server.auth.client.AuthServiceClient.get_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.get_user
 mlflow.server.auth.client.AuthServiceClient.list_user_workspace_permissions
@@ -1616,7 +1613,6 @@ mlflow.server.auth.client.AuthServiceClient.update_gateway_endpoint_permission
 mlflow.server.auth.client.AuthServiceClient.update_gateway_model_definition_permission
 mlflow.server.auth.client.AuthServiceClient.update_gateway_secret_permission
 mlflow.server.auth.client.AuthServiceClient.update_registered_model_permission
-mlflow.server.auth.client.AuthServiceClient.update_prompt_permission
 mlflow.server.auth.client.AuthServiceClient.update_scorer_permission
 mlflow.server.auth.client.AuthServiceClient.update_user_admin
 mlflow.server.auth.client.AuthServiceClient.update_user_password

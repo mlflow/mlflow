@@ -873,6 +873,8 @@ Required Permissions for accessing scorers:
 </table>
 
 MLflow Authentication provides API endpoints to manage users and permissions.
+To manage prompt permissions, use the registered-model permission endpoints with the
+prompt name in the `name` field.
 
 <table>
   <thead>
@@ -1008,46 +1010,6 @@ MLflow Authentication provides API endpoints to manage users and permissions.
       <td>
         <Link to="/api_reference/auth/rest-api.html#delete-registered-model-permission" target="_blank">
           <span>Delete Registered Model Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/registered-models/permissions/delete`</td>
-      <td>`DELETE`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#create-prompt-permission" target="_blank">
-          <span>Create Prompt Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/registered-models/permissions/create`</td>
-      <td>`POST`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#get-prompt-permission" target="_blank">
-          <span>Get Prompt Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/registered-models/permissions/get`</td>
-      <td>`GET`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#update-prompt-permission" target="_blank">
-          <span>Update Prompt Permission</span>
-        </Link>
-      </td>
-      <td>`2.0/mlflow/registered-models/permissions/update`</td>
-      <td>`PATCH`</td>
-      <td>can_manage</td>
-    </tr>
-    <tr>
-      <td>
-        <Link to="/api_reference/auth/rest-api.html#delete-prompt-permission" target="_blank">
-          <span>Delete Prompt Permission</span>
         </Link>
       </td>
       <td>`2.0/mlflow/registered-models/permissions/delete`</td>
@@ -1389,8 +1351,9 @@ auth_client.create_experiment_permission(
 
 #### Granting Prompt Permissions
 
-You can grant permissions on a registered prompt using
-<APILink fn="mlflow.server.auth.client.AuthServiceClient.create_prompt_permission" />.
+Use the registered-model permission APIs with the prompt name in the `name` field.
+For example, use <APILink fn="mlflow.server.auth.client.AuthServiceClient.create_registered_model_permission" />
+to grant prompt permissions.
 
 ```bash title="Example"
 export MLFLOW_TRACKING_USERNAME=admin
@@ -1404,8 +1367,8 @@ tracking_uri = "http://localhost:5000/"
 
 auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
 auth_client.create_user(username="user2", password="pw2")
-auth_client.create_prompt_permission(
-    prompt_name="my-prompt", username="user2", permission="READ"
+auth_client.create_registered_model_permission(
+    name="my-prompt", username="user2", permission="READ"
 )
 ```
 
