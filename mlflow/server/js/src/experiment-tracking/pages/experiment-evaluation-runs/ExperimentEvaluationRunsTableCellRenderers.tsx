@@ -35,6 +35,7 @@ import {
 } from '../../../common/utils/FeatureUtils';
 import { MLFLOW_RUN_IS_ISSUE_DETECTION_TAG } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
+import { RunStatusIcon } from '../../components/RunStatusIcon';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -354,4 +355,17 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
       css={{ cursor: 'pointer' }}
     />
   );
+};
+
+export const StatusCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
+  if ('subRuns' in row.original) {
+    return <div>-</div>;
+  }
+
+  const status = row.original.info.status;
+  if (!status) {
+    return <div>-</div>;
+  }
+
+  return <RunStatusIcon status={status} />;
 };
