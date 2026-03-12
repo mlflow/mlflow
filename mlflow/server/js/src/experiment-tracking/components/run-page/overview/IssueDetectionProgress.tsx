@@ -13,18 +13,34 @@ import { useNavigate, useParams } from '../../../../common/utils/RoutingUtils';
 import { RunPageTabName } from '../../../constants';
 import Routes from '../../../routes';
 import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
-import { useFetchIssueJobStatus, IssueJobStatus, isJobComplete } from '../hooks/useFetchIssueJobStatus';
+import { IssueJobStatus, isJobComplete, type IssueJobResult } from '../hooks/useFetchIssueJobStatus';
 
 export interface IssueDetectionProgressProps {
   /** Callback when cancel button is clicked */
   onCancel?: () => void;
   /** Whether the cancel operation is in progress */
   isCancelling?: boolean;
-  /** Job ID for fetching issue detection job status */
-  jobId?: string;
+  /** Job status from parent */
+  jobStatus?: IssueJobStatus;
+  /** Total traces count */
+  totalTraces?: number;
+  /** Job result data */
+  result?: IssueJobResult;
+  /** Whether job status is loading */
+  isLoadingJobStatus?: boolean;
+  /** Error from job status fetch */
+  jobStatusError?: Error | null;
 }
 
-export const IssueDetectionProgress = ({ onCancel, isCancelling, jobId }: IssueDetectionProgressProps) => {
+export const IssueDetectionProgress = ({
+  onCancel,
+  isCancelling,
+  jobStatus,
+  totalTraces,
+  result,
+  isLoadingJobStatus,
+  jobStatusError,
+}: IssueDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
   const { experimentId, runUuid } = useParams<{ experimentId: string; runUuid: string }>();
@@ -41,21 +57,10 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling, jobId }: IssueD
     }
   };
 
-  const {
-    status: jobStatus,
-    totalTraces,
-    result,
-    isLoading,
-    error,
-  } = useFetchIssueJobStatus({
-    jobId,
-    enabled: !!jobId,
-  });
-
   const isJobSucceeded = jobStatus === IssueJobStatus.SUCCEEDED;
-  const isJobFailed = jobStatus === IssueJobStatus.FAILED || jobStatus === IssueJobStatus.TIMEOUT || !!error;
+  const isJobFailed = jobStatus === IssueJobStatus.FAILED || jobStatus === IssueJobStatus.TIMEOUT || !!jobStatusError;
   const isJobCanceled = jobStatus === IssueJobStatus.CANCELED;
-  const jobComplete = isJobComplete(jobStatus) || !!error;
+  const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
 
   const { issues } = useSearchIssuesQuery({
     experimentId: experimentId ?? '',
@@ -66,11 +71,7 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling, jobId }: IssueD
 
   const identifiedIssues = issues.length;
 
-  if (!jobId) {
-    return null;
-  }
-
-  if (isLoading) {
+  if (isLoadingJobStatus) {
     return (
       <div css={{ marginBottom: theme.spacing.lg }}>
         <Typography.Title level={4} css={{ marginBottom: theme.spacing.sm }}>

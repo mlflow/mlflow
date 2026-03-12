@@ -74,10 +74,8 @@ export const IssueDetectionRunDetailsPage = () => {
         <IssueDetectionRunOverview
           runInfo={runInfo}
           tags={tags}
-          progressProps={{
-            onCancel: handleCancelDetection,
-            jobId: tags[MLFLOW_ISSUE_DETECTION_JOB_ID_TAG]?.value,
-          }}
+          jobId={tags[MLFLOW_ISSUE_DETECTION_JOB_ID_TAG]?.value}
+          onCancel={handleCancelDetection}
         />
       )}
     />

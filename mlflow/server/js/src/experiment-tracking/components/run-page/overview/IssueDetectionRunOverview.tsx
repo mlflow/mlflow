@@ -1,4 +1,3 @@
-import { useDesignSystemTheme } from '@databricks/design-system';
 import { KeyValueProperty, NoneCell } from '@databricks/web-shared/utils';
 import { useIntl } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
@@ -7,7 +6,7 @@ import { DetailsPageLayout } from '../../../../common/components/details-page-la
 import { DetailsOverviewCopyableIdBox } from '../../DetailsOverviewCopyableIdBox';
 import { RunViewStatusBox } from './RunViewStatusBox';
 import { RunViewUserLinkBox } from './RunViewUserLinkBox';
-import { IssueDetectionProgress, type IssueDetectionProgressProps } from './IssueDetectionProgress';
+import { IssueDetectionProgress } from './IssueDetectionProgress';
 import { useFetchIssueJobStatus, isJobComplete } from '../hooks/useFetchIssueJobStatus';
 import Routes from '../../../routes';
 import type { RunInfoEntity } from '../../../types';
@@ -17,15 +16,32 @@ import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 export interface IssueDetectionRunOverviewProps {
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   tags: Record<string, KeyValueEntity>;
-  progressProps: IssueDetectionProgressProps;
+  /** Job ID for fetching issue detection job status */
+  jobId?: string;
+  /** Callback when cancel button is clicked */
+  onCancel?: () => void;
+  /** Whether the cancel operation is in progress */
+  isCancelling?: boolean;
 }
 
-export const IssueDetectionRunOverview = ({ runInfo, tags, progressProps }: IssueDetectionRunOverviewProps) => {
+export const IssueDetectionRunOverview = ({
+  runInfo,
+  tags,
+  jobId,
+  onCancel,
+  isCancelling,
+}: IssueDetectionRunOverviewProps) => {
   const intl = useIntl();
 
-  const { status: jobStatus, error: jobStatusError } = useFetchIssueJobStatus({
-    jobId: progressProps.jobId,
-    enabled: !!progressProps.jobId,
+  const {
+    status: jobStatus,
+    totalTraces,
+    result,
+    isLoading: isLoadingJobStatus,
+    error: jobStatusError,
+  } = useFetchIssueJobStatus({
+    jobId,
+    enabled: !!jobId,
   });
 
   const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
@@ -106,7 +122,15 @@ export const IssueDetectionRunOverview = ({ runInfo, tags, progressProps }: Issu
       usingSidebarLayout
       secondarySections={[detailsSection]}
     >
-      <IssueDetectionProgress {...progressProps} />
+      <IssueDetectionProgress
+        onCancel={onCancel}
+        isCancelling={isCancelling}
+        jobStatus={jobStatus}
+        totalTraces={totalTraces}
+        result={result}
+        isLoadingJobStatus={isLoadingJobStatus}
+        jobStatusError={jobStatusError}
+      />
     </DetailsPageLayout>
   );
 };
