@@ -7887,6 +7887,10 @@
     "defaultMessage": "The relevance_to_query LLM judge determines whether the response is relevant to the input request.",
     "description": "Evaluation results > known type of evaluation result assessment > description of relevance judge."
   },
+  "oH2nPk": {
+    "defaultMessage": "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
+    "description": "Info message when alert action is selected for budget policy"
+  },
   "oHW+ks": {
     "defaultMessage": "Description",
     "description": "Title text for the description section under details tab on the model\n                   view page"
