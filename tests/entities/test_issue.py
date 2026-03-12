@@ -23,18 +23,21 @@ def test_issue_status_enum_values():
     assert IssueStatus.PENDING.value == "pending"
     assert IssueStatus.ACCEPTED.value == "accepted"
     assert IssueStatus.REJECTED.value == "rejected"
+    assert IssueStatus.RESOLVED.value == "resolved"
 
 
 def test_issue_status_enum_string_behavior():
     assert IssueStatus.PENDING == "pending"
     assert IssueStatus.ACCEPTED == "accepted"
     assert IssueStatus.REJECTED == "rejected"
+    assert IssueStatus.RESOLVED == "resolved"
 
 
 def test_issue_status_enum_from_string():
     assert IssueStatus("pending") == IssueStatus.PENDING
     assert IssueStatus("accepted") == IssueStatus.ACCEPTED
     assert IssueStatus("rejected") == IssueStatus.REJECTED
+    assert IssueStatus("resolved") == IssueStatus.RESOLVED
 
 
 def test_issue_status_enum_invalid_value():
@@ -46,6 +49,7 @@ def test_issue_status_enum_str_method():
     assert str(IssueStatus.PENDING) == "pending"
     assert str(IssueStatus.ACCEPTED) == "accepted"
     assert str(IssueStatus.REJECTED) == "rejected"
+    assert str(IssueStatus.RESOLVED) == "resolved"
 
 
 def test_issue_status_enum_isinstance():

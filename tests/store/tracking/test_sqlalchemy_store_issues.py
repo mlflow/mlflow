@@ -189,10 +189,10 @@ def test_update_issue_partial(store):
 
     updated_issue = store.update_issue(
         issue_id=created_issue.issue_id,
-        status=IssueStatus.ACCEPTED,
+        status=IssueStatus.RESOLVED,
     )
 
-    assert updated_issue.status == "accepted"
+    assert updated_issue.status == "resolved"
     assert updated_issue.name == "Test issue"
     assert updated_issue.description == "Test description"
     assert updated_issue.root_causes == ["Initial root cause"]
