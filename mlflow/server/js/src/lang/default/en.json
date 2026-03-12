@@ -642,6 +642,10 @@
     "defaultMessage": "Output tokens",
     "description": "Label for output token usage"
   },
+  "2Im7IU": {
+    "defaultMessage": "Move to pending",
+    "description": "Button to move an issue back to pending status"
+  },
   "2JfWh3": {
     "defaultMessage": "Type prompt content here. Wrap variables with double curly brace e.g. '{{' name '}}'.",
     "description": "A placeholder for the prompt content in the prompt creation modal"
@@ -693,6 +697,10 @@
   "2a/rR8": {
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Manage Tag cancel button"
+  },
+  "2cshW2": {
+    "defaultMessage": "Resolved ({count})",
+    "description": "Issue status filter > Resolved button label"
   },
   "2deqxk": {
     "defaultMessage": "We couldn't find any models matching your search criteria. Try changing your search filters.",
@@ -1788,6 +1796,10 @@
   "9vwPnB": {
     "defaultMessage": "Add chart",
     "description": "Experiment tracking > runs charts > add chart menu"
+  },
+  "9w0l9N": {
+    "defaultMessage": "Reject",
+    "description": "Button to reject an issue"
   },
   "9wWapn": {
     "defaultMessage": "Click 'Add chart' or drag and drop to add charts here.",
@@ -3630,6 +3642,10 @@
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
   },
+  "MjypBt": {
+    "defaultMessage": "Pending ({count})",
+    "description": "Issue status filter > Pending button label"
+  },
   "Mn7Kss": {
     "defaultMessage": "OK",
     "description": "Experiment page > traces table > status label > ok"
@@ -4539,6 +4555,10 @@
   "SrXYrV": {
     "defaultMessage": "Previewing the first {numRows} rows",
     "description": "Title for showing the number of rows in the parsed data preview"
+  },
+  "SrjuS9": {
+    "defaultMessage": "Resolve",
+    "description": "Button to resolve an issue"
   },
   "SuVsDp": {
     "defaultMessage": "Custom code judge feedback",
@@ -7239,6 +7259,10 @@
   "k4F8aJ": {
     "defaultMessage": "Copy issue ID",
     "description": "Tooltip to copy issue ID"
+  },
+  "k5kAB3": {
+    "defaultMessage": "Rejected ({count})",
+    "description": "Issue status filter > Rejected button label"
   },
   "k7itje": {
     "defaultMessage": "Create webhook",
