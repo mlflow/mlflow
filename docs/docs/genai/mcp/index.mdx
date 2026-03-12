@@ -85,14 +85,14 @@ Add to your Cursor configuration file (`.cursor/mcp.json`):
   </TabItem>
   <TabItem label="Claude" value="claude">
 
-**Option 1 — `claude mcp add` CLI (recommended):**
+**Option 1 - `claude mcp add` CLI (recommended):**
 
 ```bash
 claude mcp add --transport stdio --env MLFLOW_TRACKING_URI=<MLFLOW_TRACKING_URI> mlflow-mcp \
   -- uv run --with "mlflow[mcp]>=3.5.1" mlflow mcp run
 ```
 
-**Option 2 — `.mcp.json` at the project root (shareable via version control):**
+**Option 2 - `.mcp.json` at the project root (shareable via version control):**
 
 ```json
 {
