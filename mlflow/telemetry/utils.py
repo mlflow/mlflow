@@ -73,17 +73,17 @@ def _detect_environment() -> str | None:
     from mlflow.telemetry.schemas import Environment
 
     if "KAGGLE_KERNEL_RUN_TYPE" in os.environ:
-        return Environment.KAGGLE
+        return Environment.KAGGLE.value
     if "COLAB_RELEASE_TAG" in os.environ:
-        return Environment.COLAB
+        return Environment.COLAB.value
     if "AZUREML_FRAMEWORK" in os.environ:
-        return Environment.AZURE_ML
+        return Environment.AZURE_ML.value
     if "SAGEMAKER_APP_TYPE" in os.environ:
-        return Environment.SAGEMAKER_STUDIO
+        return Environment.SAGEMAKER_STUDIO.value
     if Path("/opt/ml/metadata/resource-metadata.json").exists():
-        return Environment.SAGEMAKER_NOTEBOOK
+        return Environment.SAGEMAKER_NOTEBOOK.value
     if Path("/.dockerenv").exists():
-        return Environment.DOCKER
+        return Environment.DOCKER.value
     return None
 
 
