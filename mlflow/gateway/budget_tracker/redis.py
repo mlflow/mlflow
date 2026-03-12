@@ -95,18 +95,20 @@ def _policy_set_key() -> str:
 
 
 def _serialize_policy(policy: GatewayBudgetPolicy) -> str:
-    return json.dumps({
-        "budget_policy_id": policy.budget_policy_id,
-        "budget_unit": policy.budget_unit.value,
-        "budget_amount": policy.budget_amount,
-        "duration_unit": policy.duration_unit.value,
-        "duration_value": policy.duration_value,
-        "target_scope": policy.target_scope.value,
-        "budget_action": policy.budget_action.value,
-        "workspace": policy.workspace,
-        "created_at": policy.created_at,
-        "last_updated_at": policy.last_updated_at,
-    })
+    return json.dumps(
+        {
+            "budget_policy_id": policy.budget_policy_id,
+            "budget_unit": policy.budget_unit.value,
+            "budget_amount": policy.budget_amount,
+            "duration_unit": policy.duration_unit.value,
+            "duration_value": policy.duration_value,
+            "target_scope": policy.target_scope.value,
+            "budget_action": policy.budget_action.value,
+            "workspace": policy.workspace,
+            "created_at": policy.created_at,
+            "last_updated_at": policy.last_updated_at,
+        }
+    )
 
 
 def _deserialize_policy(data: str) -> GatewayBudgetPolicy:
@@ -264,7 +266,7 @@ class RedisBudgetTracker(BudgetTracker):
     def should_reject_request(
         self,
         workspace: str | None = None,
-    ) -> tuple[bool, GatewayBudgetPolicy | None]:
+    ) -> tuple[bool, BudgetWindow | None]:
         now = datetime.now(timezone.utc)
 
         policy_ids = self._client.smembers(_policy_set_key())
@@ -285,14 +287,21 @@ class RedisBudgetTracker(BudgetTracker):
             if not stored:
                 continue
 
-            if window_end_str := stored.get("window_end"):
-                window_end = datetime.fromisoformat(window_end_str)
-                if now >= window_end:
-                    continue
+            window_start = datetime.fromisoformat(stored["window_start"])
+            window_end = datetime.fromisoformat(stored["window_end"])
+            if now >= window_end:
+                continue
 
             spend = float(stored.get("cumulative_spend", 0.0))
             if spend >= policy.budget_amount:
-                return True, policy
+                window = BudgetWindow(
+                    policy=policy,
+                    window_start=window_start,
+                    window_end=window_end,
+                    cumulative_spend=spend,
+                    exceeded=stored.get("exceeded", "0") == "1",
+                )
+                return True, window
 
         return False, None
 

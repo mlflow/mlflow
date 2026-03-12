@@ -103,9 +103,9 @@ def test_should_reject_request_reject():
     tracker.refresh_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
 
     tracker.record_cost(150.0)
-    exceeded, policy = tracker.should_reject_request()
+    exceeded, window = tracker.should_reject_request()
     assert exceeded is True
-    assert policy.budget_policy_id == "bp-test"
+    assert window.policy.budget_policy_id == "bp-test"
 
 
 def test_should_reject_request_alert_only():
@@ -113,9 +113,9 @@ def test_should_reject_request_alert_only():
     tracker.refresh_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.ALERT)])
 
     tracker.record_cost(150.0)
-    exceeded, policy = tracker.should_reject_request()
+    exceeded, window = tracker.should_reject_request()
     assert exceeded is False
-    assert policy is None
+    assert window is None
 
 
 def test_should_reject_request_not_yet():
@@ -123,9 +123,9 @@ def test_should_reject_request_not_yet():
     tracker.refresh_policies([_make_policy(budget_amount=100.0, budget_action=BudgetAction.REJECT)])
 
     tracker.record_cost(50.0)
-    exceeded, policy = tracker.should_reject_request()
+    exceeded, window = tracker.should_reject_request()
     assert exceeded is False
-    assert policy is None
+    assert window is None
 
 
 def test_refresh_policies_removes_deleted_policy():
@@ -162,9 +162,9 @@ def test_multiple_policies_independent():
     assert exceeded is False
 
     tracker.record_cost(30.0)
-    exceeded, policy = tracker.should_reject_request()
+    exceeded, window = tracker.should_reject_request()
     assert exceeded is True
-    assert policy.budget_policy_id == "bp-reject"
+    assert window.policy.budget_policy_id == "bp-reject"
 
 
 def test_workspace_scoped_cost_recording():
