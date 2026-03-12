@@ -640,18 +640,27 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-def _load_by_pickle_check():
+def _load_by_pickle_check(is_loading_state_dict: bool):
     if (
         not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
         and not is_in_databricks_runtime()
         and not is_in_databricks_model_serving_environment()
     ):
+        if is_loading_state_dict:
+            raise MlflowException(
+                "Deserializing model using pickle is disallowed, but this state dict is saved "
+                "in pickle format. You can set environment variable "
+                "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing state "
+                "dict using pickle."
+            )
         raise MlflowException(
             "Deserializing model using pickle is disallowed, but this model is saved "
-            "in pickle format. To address this issue, you need to set environment variable "
-            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true', or save the model with "
+            "in pickle format. The recommended way is to save the model with "
             "serialization_format='pt2' like "
-            "`mlflow.pytorch.save_model(model, path, serialization_format='pt2')`."
+            "`mlflow.pytorch.save_model(model, path, serialization_format='pt2')`, "
+            "or you can set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true' to allow deserializing model "
+            "using pickle."
         )
 
 
@@ -709,12 +718,12 @@ def _load_model(path, device=None, **kwargs):
                 )
             pytorch_model = torch.export.load(model_path, **kwargs).module()
         else:
-            _load_by_pickle_check()
+            _load_by_pickle_check(False)
             pytorch_model = torch.load(model_path, **kwargs)
     else:
         try:
             # load the model as an eager model.
-            _load_by_pickle_check()
+            _load_by_pickle_check(False)
             pytorch_model = torch.load(model_path, **kwargs)
         except Exception:
             # If fails, assume the model as a scripted model
@@ -1033,6 +1042,7 @@ def load_state_dict(state_dict_uri, **kwargs):
     """
     import torch
 
+    _load_by_pickle_check(True)
     local_path = _download_artifact_from_uri(artifact_uri=state_dict_uri)
     state_dict_path = os.path.join(local_path, _TORCH_STATE_DICT_FILE_NAME)
     return torch.load(state_dict_path, **kwargs)

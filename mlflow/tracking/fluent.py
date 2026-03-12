@@ -2414,6 +2414,7 @@ def _create_logged_model(
     experiment_id: str | None = None,
     flavor: str | None = None,
     serialization_format: str | None = None,
+    uses_uv: bool = False,
 ) -> LoggedModel:
     """
     Create a new LoggedModel in the ``PENDING`` state.
@@ -2433,6 +2434,8 @@ def _create_logged_model(
                 affect the stored LoggedModel.
         serialization_format: The serialization format of the model, recorded for telemetry and
                               analytics only; it does not affect the stored LoggedModel.
+        uses_uv: Whether the model uses uv dependency management, recorded for telemetry and
+                 analytics only; it does not affect the stored LoggedModel.
 
     Returns:
         A new LoggedModel in the ``PENDING`` state.
@@ -2456,6 +2459,7 @@ def _create_logged_model(
         model_type=model_type,
         flavor=flavor,
         serialization_format=serialization_format,
+        uses_uv=uses_uv,
     )
 
 

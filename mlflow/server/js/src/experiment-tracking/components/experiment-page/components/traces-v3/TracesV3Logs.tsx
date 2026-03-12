@@ -43,6 +43,7 @@ import {
   GenAITracesTableBodySkeleton,
   SIMULATION_GOAL_COLUMN_ID,
   SIMULATION_PERSONA_COLUMN_ID,
+  ISSUES_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 import {
   GenAiTraceTableRowSelectionProvider,
@@ -209,6 +210,7 @@ const TracesV3LogsImpl = React.memo(
         const hasSessionIds = evaluatedTraces.some((t) =>
           Boolean(t.traceInfo?.trace_metadata?.[SESSION_ID_METADATA_KEY]),
         );
+        const hasIssues = evaluatedTraces.some((t) => t.issues && t.issues.length > 0);
         return allColumns.filter(
           (col) =>
             col.type === TracesTableColumnType.ASSESSMENT ||
@@ -222,7 +224,8 @@ const TracesV3LogsImpl = React.memo(
               )) ||
             col.type === TracesTableColumnType.INTERNAL_MONITOR_REQUEST_TIME ||
             (hasSessionIds &&
-              [SESSION_COLUMN_ID, SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID].includes(col.id)),
+              [SESSION_COLUMN_ID, SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID].includes(col.id)) ||
+            (hasIssues && col.id === ISSUES_COLUMN_ID),
         );
       },
       [evaluatedTraces, customDefaultSelectedColumns],

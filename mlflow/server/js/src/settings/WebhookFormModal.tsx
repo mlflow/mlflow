@@ -27,9 +27,11 @@ interface WebhookFormModalProps {
   editingWebhook: Webhook | null;
   onClose: () => void;
   onSaved: () => void;
+  /** If set, only show events matching this entity */
+  eventFilter?: string;
 }
 
-const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved }: WebhookFormModalProps) => {
+const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved, eventFilter }: WebhookFormModalProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -45,6 +47,8 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved }: Webhook
       events: editingWebhook?.events.map((e) => eventKey(e.entity, e.action)) ?? [],
     },
   });
+
+  const displayedEvents = eventFilter ? VALID_EVENTS.filter((e) => e.entity === eventFilter) : VALID_EVENTS;
 
   const formatEventLabel = (entity: string, action: string) => {
     const key = eventKey(entity, action);
@@ -243,7 +247,7 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved }: Webhook
               }}
               render={({ field }) => (
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-                  {VALID_EVENTS.map((event) => {
+                  {displayedEvents.map((event) => {
                     const key = eventKey(event.entity, event.action);
                     return (
                       <Checkbox

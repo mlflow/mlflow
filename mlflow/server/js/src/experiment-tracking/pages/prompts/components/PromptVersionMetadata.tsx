@@ -6,7 +6,12 @@ import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { usePromptRunsInfo } from '../hooks/usePromptRunsInfo';
-import { getModelConfigFromTags, MODEL_CONFIG_FIELD_LABELS, REGISTERED_PROMPT_SOURCE_RUN_IDS } from '../utils';
+import {
+  getModelConfigFromTags,
+  getResponseFormatFromTags,
+  MODEL_CONFIG_FIELD_LABELS,
+  REGISTERED_PROMPT_SOURCE_RUN_IDS,
+} from '../utils';
 import { useCallback, useMemo } from 'react';
 import { PromptVersionRuns } from './PromptVersionRuns';
 import { isUserFacingTag } from '@mlflow/mlflow/src/common/utils/TagUtils';
@@ -205,6 +210,42 @@ export const PromptVersionMetadata = ({
                 />
               )}
             </div>
+          </>
+        );
+      })()}
+      {/* Structured output (response format) section */}
+      {(() => {
+        const responseFormat = getResponseFormatFromTags(registeredPromptVersion?.tags);
+        if (responseFormat === undefined) return null;
+        return (
+          <>
+            <Typography.Text bold>
+              <FormattedMessage
+                defaultMessage="Structured output:"
+                description="Label for structured output schema in the prompt details page"
+              />
+            </Typography.Text>
+            <pre
+              css={{
+                margin: 0,
+                padding: theme.spacing.sm,
+                backgroundColor: theme.colors.backgroundSecondary,
+                borderRadius: theme.borders.borderRadiusSm,
+                fontSize: theme.typography.fontSizeSm,
+                overflow: 'auto',
+                maxHeight: 240,
+              }}
+            >
+              <code>
+                {(() => {
+                  try {
+                    return JSON.stringify(JSON.parse(responseFormat), null, 2);
+                  } catch {
+                    return responseFormat;
+                  }
+                })()}
+              </code>
+            </pre>
           </>
         );
       })()}

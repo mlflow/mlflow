@@ -1,6 +1,13 @@
 name: UI Preview
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - mlflow/server/js/**
+      - .github/workflows/ui-preview.yml
+      - .github/ui-preview/**
   pull_request_target:
     types:
       - opened
@@ -14,7 +21,7 @@ on:
       - .github/ui-preview/**
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'master' }}
   cancel-in-progress: true
 
 defaults:
@@ -27,10 +34,11 @@ env:
 jobs:
   notify:
     if: >-
-      github.event.action != 'closed'
+      github.event_name != 'push'
+      && github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
       && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+      && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     runs-on: ubuntu-slim
     permissions:
       pull-requests: write
@@ -64,10 +72,13 @@ jobs:
 
   build:
     if: >-
-      github.event.action != 'closed'
-      && contains(github.event.pull_request.labels.*.name, 'ui-preview')
-      && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+      github.event_name == 'push'
+      || (
+        github.event.action != 'closed'
+        && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+        && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+        && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -75,9 +86,10 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # Check out the PR head, not the base branch.
-          # Safe because the build job only runs for maintainers/collaborators (author_association check).
-          ref: ${{ github.event.pull_request.head.sha }}
+          # For PRs, check out the PR head (safe because the build job only runs for
+          # maintainers/collaborators (author_association check) or the Copilot bot). For push
+          # events, falls back to github.sha.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
@@ -164,14 +176,15 @@ jobs:
       - name: Create or update app
         id: app
         env:
-          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          APP_DESCRIPTION: ${{ github.event.pull_request.html_url || format('{0}/{1}', github.server_url, github.repository) }}
         run: |
           if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
             echo "App already exists"
           else
             echo "Creating app..."
             databricks apps create \
-              --json "{\"name\": \"$APP_NAME\", \"description\": \"${{ github.event.pull_request.html_url }}\"}" \
+              --json "{\"name\": \"$APP_NAME\", \"description\": \"$APP_DESCRIPTION\"}" \
               --no-wait
             for i in $(seq 1 40); do
               STATE=$(databricks apps get "$APP_NAME" -o json | jq -r '.compute_status.state')
@@ -201,14 +214,21 @@ jobs:
 
       - name: Upload files and deploy
         env:
-          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
-          WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
         run: |
           databricks workspace mkdirs "/Workspace$WORKSPACE_PATH" 2>/dev/null || true
           databricks workspace import-dir /tmp/app-deploy "$WORKSPACE_PATH" --overwrite
           databricks apps deploy "$APP_NAME" --source-code-path "/Workspace$WORKSPACE_PATH"
 
+      - name: Print app URL
+        if: github.event_name == 'push'
+        env:
+          APP_URL: ${{ steps.app.outputs.url }}
+        run: echo "Deployed to $APP_URL" >> $GITHUB_STEP_SUMMARY
+
       - name: Comment on PR
+        if: github.event_name != 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_URL: ${{ steps.app.outputs.url }}
@@ -244,7 +264,8 @@ jobs:
 
   cleanup:
     if: >-
-      github.event.action == 'closed'
+      github.event_name != 'push'
+      && github.event.action == 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
     runs-on: ubuntu-ui-preview
     permissions:

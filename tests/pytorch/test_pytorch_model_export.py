@@ -1059,6 +1059,15 @@ def test_save_state_dict_can_save_nested_state_dict(model_path):
     optim.load_state_dict(loaded_state_dict["optim"])
 
 
+def test_load_state_dict_disallows_pickle_deserialization(model_path, monkeypatch):
+    model = get_sequential_model()
+    mlflow.pytorch.save_state_dict(model.state_dict(), model_path)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.pytorch.load_state_dict(model_path)
+
+
 @pytest.mark.parametrize("not_state_dict", [0, "", get_sequential_model()])
 def test_save_state_dict_throws_for_invalid_object_type(not_state_dict, model_path):
     with pytest.raises(TypeError, match="Invalid object type for `state_dict`"):

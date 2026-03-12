@@ -86,6 +86,14 @@ def test_pmdarima_auto_arima_save_and_load(auto_arima_model, model_path):
     np.testing.assert_array_equal(auto_arima_model.predict(10), loaded_model.predict(10))
 
 
+def test_load_model_disallows_pickle_deserialization(auto_arima_model, model_path, monkeypatch):
+    mlflow.pmdarima.save_model(pmdarima_model=auto_arima_model, path=model_path)
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.pmdarima.load_model(model_uri=model_path)
+
+
 def test_pmdarima_arima_object_save_and_load(auto_arima_object_model, model_path):
     mlflow.pmdarima.save_model(pmdarima_model=auto_arima_object_model, path=model_path)
 

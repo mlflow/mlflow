@@ -23,16 +23,25 @@ export const IssueDetectionRunDetailsPage = () => {
   const customBreadcrumbs = useMemo(() => {
     const experimentName = experiment?.name ?? safeExperimentId;
     return [
-      <Link key="experiments" to={Routes.experimentsObservatoryRoute}>
+      <Link
+        componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_experiments_link"
+        key="experiments"
+        to={Routes.experimentsObservatoryRoute}
+      >
         <FormattedMessage
           defaultMessage="Experiments"
           description="Issue detection run details > Breadcrumb > Experiments"
         />
       </Link>,
-      <Link key="experiment" to={Routes.getExperimentPageRoute(safeExperimentId)}>
+      <Link
+        componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_experiment_link"
+        key="experiment"
+        to={Routes.getExperimentPageRoute(safeExperimentId)}
+      >
         {experimentName}
       </Link>,
       <Link
+        componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_evaluation_runs_link"
         key="evaluation-runs"
         to={Routes.getExperimentPageTabRoute(safeExperimentId, ExperimentPageTabName.EvaluationRuns)}
       >
@@ -58,7 +67,7 @@ export const IssueDetectionRunDetailsPage = () => {
       tabSwitchProps={{
         getBaseRoute: Routes.getIssueDetectionRunDetailsRoute,
         getTabRoute: Routes.getIssueDetectionRunDetailsTabRoute,
-        visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES],
+        visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES, RunPageTabName.ISSUES],
       }}
       onDeleteSuccess={handleDeleteSuccess}
       renderCustomOverview={({ runUuid, runInfo, tags, onRunDataUpdated }) => (

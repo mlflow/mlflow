@@ -32,6 +32,7 @@ from mlflow.entities import (
     GatewayEndpointTag,
     GatewayResourceType,
     InputTag,
+    IssueSeverity,
     IssueStatus,
     Metric,
     Param,
@@ -279,6 +280,7 @@ from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTracki
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
 from mlflow.telemetry import get_telemetry_client
+from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.telemetry.utils import (
     FALLBACK_UI_CONFIG,
@@ -4034,12 +4036,13 @@ def _create_issue():
         "description": request_message.description,
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
-        "severity": request_message.severity or None,
         "created_by": request_message.created_by or None,
     }
 
     if request_message.HasField("status"):
         create_kwargs["status"] = IssueStatus(request_message.status)
+    if request_message.HasField("severity"):
+        create_kwargs["severity"] = IssueSeverity(request_message.severity)
 
     created_issue = _get_tracking_store().create_issue(**create_kwargs)
 
@@ -4061,13 +4064,16 @@ def _update_issue(issue_id):
     )
 
     status = IssueStatus(request_message.status) if request_message.HasField("status") else None
+    severity = (
+        IssueSeverity(request_message.severity) if request_message.HasField("severity") else None
+    )
 
     updated_issue = _get_tracking_store().update_issue(
         issue_id=issue_id,
         status=status,
         name=request_message.name or None,
         description=request_message.description or None,
-        severity=request_message.severity or None,
+        severity=severity,
     )
 
     response_message = UpdateIssue.Response(issue=updated_issue.to_proto())
@@ -6054,6 +6060,7 @@ def post_ui_telemetry_handler():
         if config.get("disable_ui_telemetry", True) or config.get("disable_telemetry", True):
             return jsonify({"status": "disabled"})
 
+        server_installation_id = get_or_create_installation_id()
         records = [
             Record(
                 event_name=event["event_name"],
@@ -6062,6 +6069,7 @@ def post_ui_telemetry_handler():
                 status=Status.SUCCESS,
                 installation_id=event["installation_id"],
                 session_id=event["session_id"],
+                server_installation_id=server_installation_id,
                 duration_ms=0,
             )
             for event in data

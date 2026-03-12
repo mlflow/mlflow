@@ -1,6 +1,7 @@
 import json
 from unittest.mock import MagicMock, patch
 
+from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.genai.discovery.clustering import (
     cluster_by_llm,
     summarize_cluster,
@@ -74,13 +75,11 @@ def test_cluster_by_llm_respects_max_issues():
 def test_summarize_cluster():
     analyses = [
         _ConversationAnalysis(
-            rationale_summary="response generation via LLM",
-            full_rationale="Model hallucinated.",
+            full_rationale="response generation via LLM",
             affected_trace_ids=["t-1"],
         ),
         _ConversationAnalysis(
-            rationale_summary="response generation via LLM",
-            full_rationale="Model made up facts.",
+            full_rationale="response generation via LLM",
             affected_trace_ids=["t-2"],
         ),
     ]
@@ -124,10 +123,10 @@ def test_build_summary_with_issues():
             experiment_id="0",
             name="tool_failure",
             description="Tool calls fail intermittently",
-            status="open",
+            status=IssueStatus.PENDING,
             created_timestamp=0,
             last_updated_timestamp=0,
-            confidence="high",
+            severity=IssueSeverity.HIGH,
             root_causes=["API timeout"],
         ),
     ]

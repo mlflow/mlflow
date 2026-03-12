@@ -18,6 +18,8 @@ from mlflow.config import enable_async_logging
 from mlflow.entities import (
     EvaluationDataset,
     ExperimentTag,
+    IssueSeverity,
+    IssueStatus,
     LoggedModel,
     Run,
     RunInfo,
@@ -2518,6 +2520,44 @@ def test_delete_prompt_version_invalidates_latest_cache(tracking_uri):
     assert latest_prompt_after_delete.template == prompt_v1.template
 
 
+def test_set_prompt_model_config_invalidates_latest_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    cache_ttl_seconds = 60
+    prompt = client.register_prompt(name="test_prompt", template="test")
+    prompt_before_update = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_before_update.model_config is None
+
+    model_config = {"model_name": "gpt-4", "temperature": 0.7}
+    mlflow.genai.set_prompt_model_config(
+        name=prompt.name,
+        version=prompt.version,
+        model_config=model_config,
+    )
+
+    prompt_after_update = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_after_update.model_config == model_config
+
+
+def test_delete_prompt_model_config_invalidates_latest_cache(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    cache_ttl_seconds = 60
+    model_config = {"model_name": "gpt-4", "temperature": 0.7}
+    prompt = client.register_prompt(
+        name="test_prompt",
+        template="test",
+        model_config=model_config,
+    )
+    prompt_before_delete = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_before_delete.model_config == model_config
+
+    mlflow.genai.delete_prompt_model_config(name=prompt.name, version=prompt.version)
+
+    prompt_after_delete = client.load_prompt(prompt.name, cache_ttl_seconds=cache_ttl_seconds)
+    assert prompt_after_delete.model_config is None
+
+
 def test_delete_prompt_version_invalidates_alias_cache(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
@@ -3614,3 +3654,61 @@ def test_mlflow_get_trace_with_sqlalchemy_store(tmp_path: Path) -> None:
 
         mock_get_trace.assert_called_once_with(trace_id)
         mock_batch_get_traces.assert_called_once_with([trace_id])
+
+
+def test_create_issue_basic(tmp_path: Path):
+    tracking_uri = f"sqlite:///{tmp_path}/test.db"
+
+    with _use_tracking_uri(tracking_uri):
+        client = MlflowClient()
+        exp_id = client.create_experiment("test_create_issue")
+        tracing_client = client._tracing_client
+
+        issue = tracing_client._create_issue(
+            experiment_id=exp_id,
+            name="Test issue",
+            description="This is a test issue",
+        )
+
+        assert issue.issue_id.startswith("iss-")
+        assert issue.experiment_id == exp_id
+        assert issue.name == "Test issue"
+        assert issue.description == "This is a test issue"
+        assert issue.status == IssueStatus.PENDING
+        assert issue.severity is None
+        assert issue.root_causes is None
+        assert issue.source_run_id is None
+        assert issue.created_by is None
+        assert issue.created_timestamp > 0
+        assert issue.last_updated_timestamp == issue.created_timestamp
+
+
+def test_create_issue_with_all_fields(tmp_path: Path):
+    tracking_uri = f"sqlite:///{tmp_path}/test.db"
+
+    with _use_tracking_uri(tracking_uri):
+        client = MlflowClient()
+        exp_id = client.create_experiment("test_create_issue_all_fields")
+        tracing_client = client._tracing_client
+        with mlflow.start_run(experiment_id=exp_id) as run:
+            issue = tracing_client._create_issue(
+                experiment_id=exp_id,
+                name="High latency",
+                description="API response times exceed threshold",
+                status=IssueStatus.ACCEPTED,
+                severity=IssueSeverity.HIGH,
+                root_causes=["Database query slow", "Network congestion"],
+                source_run_id=run.info.run_id,
+                created_by="monitoring_system",
+            )
+
+    assert issue.issue_id.startswith("iss-")
+    assert issue.experiment_id == exp_id
+    assert issue.name == "High latency"
+    assert issue.description == "API response times exceed threshold"
+    assert issue.status == IssueStatus.ACCEPTED
+    assert issue.severity == IssueSeverity.HIGH
+    assert issue.root_causes == ["Database query slow", "Network congestion"]
+    assert issue.source_run_id == run.info.run_id
+    assert issue.created_by == "monitoring_system"
+    assert issue.created_timestamp > 0

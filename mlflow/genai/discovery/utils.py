@@ -5,11 +5,18 @@ import threading
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
+import pydantic
+
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
-from mlflow.genai.discovery.constants import LLM_MAX_TOKENS, NUM_RETRIES
-from mlflow.genai.discovery.entities import Issue
+from mlflow.genai.discovery.constants import (
+    LLM_MAX_TOKENS,
+    MAX_EXAMPLE_TRACE_IDS,
+    NUM_RETRIES,
+    TRACE_CONTENT_TRUNCATION,
+)
+from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
 
@@ -83,18 +90,20 @@ def _call_llm(
     messages: list[dict[str, str]],
     *,
     json_mode: bool = False,
+    response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> litellm.ModelResponse:
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
     from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 
+    use_format = response_format or ({"type": "json_object"} if json_mode else None)
     response = _invoke_litellm(
         litellm_model=convert_mlflow_uri_to_litellm(model),
         messages=messages,
         tools=[],
         num_retries=NUM_RETRIES,
-        response_format={"type": "json_object"} if json_mode else None,
-        include_response_format=json_mode,
+        response_format=use_format,
+        include_response_format=use_format is not None,
         inference_params={"max_tokens": LLM_MAX_TOKENS},
     )
     if token_counter is not None:
@@ -113,7 +122,7 @@ def build_summary(issues: list[Issue], total_traces: int) -> str:
     for i, issue in enumerate(issues, 1):
         root_causes = "; ".join(issue.root_causes) if issue.root_causes else "Unknown"
         lines.append(
-            f"### {i}. {issue.name} (severity: {issue.confidence})\n\n"
+            f"### {i}. {issue.name} (severity: {issue.severity})\n\n"
             f"{issue.description}\n\n"
             f"**Root causes:** {root_causes}\n"
         )
@@ -166,3 +175,42 @@ def verify_scorer(
         raise mlflow.exceptions.MlflowException(
             f"Scorer '{scorer.name}' returned null value: {error}"
         )
+
+
+def collect_example_trace_ids(
+    issue: _IdentifiedIssue,
+    analyses: list[_ConversationAnalysis],
+) -> list[str]:
+    trace_ids = []
+    for idx in issue.example_indices:
+        if 0 <= idx < len(analyses):
+            trace_ids.extend(analyses[idx].affected_trace_ids)
+    return trace_ids[:MAX_EXAMPLE_TRACE_IDS]
+
+
+def format_trace_content(trace: Trace) -> str:
+    from mlflow.genai.discovery.extraction import extract_execution_path, extract_span_errors
+
+    parts = []
+    if request := trace.data.request:
+        parts.append(f"Input: {str(request)[:TRACE_CONTENT_TRUNCATION]}")
+    if response := trace.data.response:
+        parts.append(f"Output: {str(response)[:TRACE_CONTENT_TRUNCATION]}")
+    if (exec_path := extract_execution_path(trace)) and exec_path != "(no routing)":
+        parts.append(f"Execution path: {exec_path}")
+    if errors := extract_span_errors(trace):
+        parts.append(f"Errors: {errors}")
+    return "\n".join(parts) if parts else "(trace content not available)"
+
+
+def format_annotation_prompt(issue: Issue, trace_content: str, triage_rationale: str) -> str:
+    return (
+        f"=== ISSUE ===\n"
+        f"Name: {issue.name}\n"
+        f"Description: {issue.description}\n"
+        f"Root causes: {'; '.join(issue.root_causes or [])}\n\n"
+        f"=== TRACE ===\n"
+        f"{trace_content}\n\n"
+        f"=== TRIAGE JUDGE RATIONALE ===\n"
+        f"{triage_rationale or '(not available)'}"
+    )

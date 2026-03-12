@@ -16,24 +16,35 @@ _logger = logging.getLogger(__name__)
 
 def sample_traces(
     sample_size: int,
-    search_kwargs: dict[str, object],
+    search_kwargs: dict[str, object] | None = None,
+    *,
+    traces: list[Trace] | None = None,
 ) -> list[Trace]:
     """
     Randomly sample traces, grouping by session when session IDs exist.
 
-    Fetches a pool of traces, groups them by session (or treats each trace
+    Either fetches a pool via ``search_kwargs`` or samples from a
+    pre-fetched ``traces`` list. Groups by session (or treats each trace
     as its own group when no sessions exist), then randomly selects
     ``sample_size`` groups and returns all traces from those groups.
 
     Args:
         sample_size: Number of groups (sessions or individual traces) to sample.
         search_kwargs: Keyword arguments passed to ``mlflow.search_traces``.
+            Ignored when ``traces`` is provided.
+        traces: Pre-fetched traces to sample from. When provided, skips
+            the ``search_traces`` call.
 
     Returns:
         List of sampled Trace objects.
     """
-    pool_size = sample_size * SAMPLE_POOL_MULTIPLIER
-    pool = mlflow.search_traces(max_results=pool_size, return_type="list", **search_kwargs)
+    if traces is not None:
+        pool = traces
+    else:
+        pool_size = sample_size * SAMPLE_POOL_MULTIPLIER
+        pool = mlflow.search_traces(
+            max_results=pool_size, return_type="list", **(search_kwargs or {})
+        )
     if not pool:
         return []
 

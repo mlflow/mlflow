@@ -11,6 +11,29 @@ import { PenLine, Code, FlaskConical } from "lucide-react";
 
 MLflow Prompt Registry supports defining structured output schemas for your prompts, ensuring that language model responses follow a consistent format and can be validated. This feature is particularly useful for applications that need to parse and process model outputs programmatically.
 
+You can define structured output in two ways: in the **MLflow UI** when creating or editing a prompt (under **Advanced settings** → **Structured output (JSON schema)**), or via the **Python API** using the `response_format` parameter. The schema is stored with the prompt version and displayed on the prompt version detail page.
+
+## JSON format for the UI
+
+In the MLflow UI, enter a **JSON object** that describes the expected response shape. For example, a simple schema with a single string field:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "result": {
+      "type": "string"
+    }
+  },
+  "required": ["result"],
+  "additionalProperties": false
+}
+```
+
+:::tip
+When using providers such as OpenAI with strict structured output, include `"additionalProperties": false` on each object in your schema so the response conforms to the expected shape.
+:::
+
 ## Overview
 
 Structured output allows you to:

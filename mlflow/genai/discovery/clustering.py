@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 import logging
 
+from pydantic import BaseModel as _BaseModel
+
+from mlflow.entities.issue import IssueSeverity
 from mlflow.genai.discovery.constants import (
     CLUSTER_LABELS_PROMPT_TEMPLATE,
     CLUSTER_SUMMARY_SYSTEM_PROMPT,
-    MIN_SEVERITY,
-    severity_gte,
 )
 from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
@@ -16,6 +17,15 @@ from mlflow.genai.discovery.entities import (
 from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
 
 _logger = logging.getLogger(__name__)
+
+
+class _ClusterGroup(_BaseModel):
+    name: str
+    indices: list[int]
+
+
+class _ClusterResponse(_BaseModel):
+    groups: list[_ClusterGroup]
 
 
 def cluster_by_llm(
@@ -51,7 +61,7 @@ def cluster_by_llm(
     response = _call_llm(
         model,
         [{"role": "user", "content": prompt}],
-        json_mode=True,
+        response_format=_ClusterResponse,
         token_counter=token_counter,
     )
     content = (response.choices[0].message.content or "").strip()
@@ -62,16 +72,13 @@ def cluster_by_llm(
             response.choices[0].finish_reason,
         )
         return [[i] for i in range(len(labels))]
-    result = json.loads(content)
-
-    # Normalize response format: accept both {"groups": [...]} and bare list
-    groups = result if isinstance(result, list) else result.get("groups", [])
+    result = _ClusterResponse(**json.loads(content))
 
     # Validate indices and collect groups; orphaned indices become singletons
     clustered_indices: set[int] = set()
     cluster_groups: list[list[int]] = []
-    for group in groups:
-        if indices := [i for i in group["indices"] if 0 <= i < len(labels)]:
+    for group in result.groups:
+        if indices := [i for i in group.indices if 0 <= i < len(labels)]:
             cluster_groups.append(indices)
             clustered_indices.update(indices)
 
@@ -125,22 +132,16 @@ def summarize_cluster(
         parts.append(entry)
     analyses_text = "\n\n".join(parts)
 
-    schema_json = json.dumps(_IdentifiedIssue.model_json_schema(), indent=2)
-    system_prompt = (
-        f"{CLUSTER_SUMMARY_SYSTEM_PROMPT}\n\n"
-        f"Respond with a JSON object matching this schema:\n{schema_json}"
-    )
-
     response = _call_llm(
         model,
         [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": CLUSTER_SUMMARY_SYSTEM_PROMPT},
             {
                 "role": "user",
                 "content": f"Cluster of {len(analysis_indices)} analyses:\n\n{analyses_text}",
             },
         ],
-        json_mode=True,
+        response_format=_IdentifiedIssue,
         token_counter=token_counter,
     )
 
@@ -192,7 +193,7 @@ def recluster_singletons(
         merged_issue = summarize_cluster(
             merged_indices, analyses, model, token_counter=token_counter
         )
-        if severity_gte(merged_issue.severity, MIN_SEVERITY):
+        if merged_issue.severity >= IssueSeverity.LOW:
             result.append(merged_issue)
         else:
             result.extend(singletons[group_idx] for group_idx in group)

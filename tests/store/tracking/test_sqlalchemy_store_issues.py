@@ -1,7 +1,13 @@
+import uuid
+
 import pytest
 
-from mlflow.entities import IssueStatus
+from mlflow.entities import IssueSeverity, IssueStatus, TraceState
+from mlflow.entities.assessment import IssueReference
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.exceptions import MlflowException
+from mlflow.utils.time import get_current_time_millis
 
 DEFAULT_EXPERIMENT_ID = "0"
 
@@ -44,7 +50,7 @@ def test_create_issue_with_all_fields(store):
         name="Token limit exceeded",
         description="Model is hitting token limits frequently",
         status=IssueStatus.ACCEPTED,
-        severity="high",
+        severity=IssueSeverity.HIGH,
         root_causes=["Input prompts are too long", "Context window exceeded"],
         source_run_id=run.info.run_id,
         created_by="user@example.com",
@@ -55,7 +61,7 @@ def test_create_issue_with_all_fields(store):
     assert issue.name == "Token limit exceeded"
     assert issue.description == "Model is hitting token limits frequently"
     assert issue.status == IssueStatus.ACCEPTED
-    assert issue.severity == "high"
+    assert issue.severity == IssueSeverity.HIGH
     assert issue.root_causes == [
         "Input prompts are too long",
         "Context window exceeded",
@@ -103,7 +109,7 @@ def test_get_issue(store):
         name="Low accuracy",
         description="Model accuracy below threshold",
         status=IssueStatus.PENDING,
-        severity="medium",
+        severity=IssueSeverity.MEDIUM,
         root_causes=["Insufficient training data", "Model drift"],
         source_run_id=run.info.run_id,
         created_by="alice@example.com",
@@ -116,7 +122,7 @@ def test_get_issue(store):
     assert retrieved_issue.name == "Low accuracy"
     assert retrieved_issue.description == "Model accuracy below threshold"
     assert retrieved_issue.status == IssueStatus.PENDING
-    assert retrieved_issue.severity == "medium"
+    assert retrieved_issue.severity == IssueSeverity.MEDIUM
     assert retrieved_issue.root_causes == ["Insufficient training data", "Model drift"]
     assert retrieved_issue.source_run_id == run.info.run_id
     assert retrieved_issue.created_by == "alice@example.com"
@@ -138,7 +144,7 @@ def test_update_issue(store):
         description="Original description",
         status=IssueStatus.PENDING,
         root_causes=["Initial root cause"],
-        severity="low",
+        severity=IssueSeverity.LOW,
     )
 
     updated_issue = store.update_issue(
@@ -146,15 +152,15 @@ def test_update_issue(store):
         status=IssueStatus.ACCEPTED,
         name="Updated name",
         description="Updated description",
-        severity="high",
+        severity=IssueSeverity.HIGH,
     )
 
     assert updated_issue.issue_id == created_issue.issue_id
     assert updated_issue.experiment_id == exp_id
-    assert updated_issue.status == "accepted"
+    assert updated_issue.status == IssueStatus.ACCEPTED
     assert updated_issue.name == "Updated name"
     assert updated_issue.description == "Updated description"
-    assert updated_issue.severity == "high"
+    assert updated_issue.severity == IssueSeverity.HIGH
     assert updated_issue.root_causes == ["Initial root cause"]
     assert updated_issue.source_run_id is None
     assert updated_issue.created_by == created_issue.created_by
@@ -162,10 +168,10 @@ def test_update_issue(store):
     assert updated_issue.last_updated_timestamp > created_issue.last_updated_timestamp
 
     retrieved_issue = store.get_issue(created_issue.issue_id)
-    assert retrieved_issue.status == "accepted"
+    assert retrieved_issue.status == IssueStatus.ACCEPTED
     assert retrieved_issue.name == "Updated name"
     assert retrieved_issue.description == "Updated description"
-    assert retrieved_issue.severity == "high"
+    assert retrieved_issue.severity == IssueSeverity.HIGH
     assert retrieved_issue.root_causes == ["Initial root cause"]
     assert retrieved_issue.last_updated_timestamp == updated_issue.last_updated_timestamp
 
@@ -512,3 +518,120 @@ def test_search_issues_invalid_max_results(store):
 
     with pytest.raises(MlflowException, match=r"Invalid value -1 for parameter 'max_results'"):
         store.search_issues(max_results=-1)
+
+
+def test_search_traces_by_issue_id(store):
+    exp_id = store.create_experiment("test")
+
+    # Create traces
+    timestamp_ms = get_current_time_millis()
+    trace1 = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    trace2 = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms + 100,
+            execution_duration=200,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    trace3 = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms + 200,
+            execution_duration=300,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    # Create issues
+    issue1 = store.create_issue(
+        experiment_id=exp_id,
+        name="High latency",
+        description="API calls are slow",
+        status=IssueStatus.PENDING,
+    )
+
+    issue2 = store.create_issue(
+        experiment_id=exp_id,
+        name="Authentication failure",
+        description="Auth errors",
+        status=IssueStatus.PENDING,
+    )
+
+    # Link traces to issues via IssueReference assessments
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue1.issue_id,
+            issue_name=issue1.name,
+            trace_id=trace1.request_id,
+        )
+    )
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue1.issue_id,
+            issue_name=issue1.name,
+            trace_id=trace2.request_id,
+        )
+    )
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue2.issue_id,
+            issue_name=issue2.name,
+            trace_id=trace3.request_id,
+        )
+    )
+
+    # Search traces by issue1 ID
+    traces, _ = store.search_traces(
+        experiment_ids=[exp_id],
+        filter_string=f"issue.id = '{issue1.issue_id}'",
+    )
+
+    # Should return trace1 and trace2
+    assert len(traces) == 2
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1.request_id, trace2.request_id}
+
+    # Search traces by issue2 ID
+    traces, _ = store.search_traces(
+        experiment_ids=[exp_id],
+        filter_string=f"issue.id = '{issue2.issue_id}'",
+    )
+
+    # Should return only trace3
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3.request_id
+
+    # Search for non-existent issue should return no traces
+    traces, _ = store.search_traces(
+        experiment_ids=[exp_id],
+        filter_string="issue.id = 'non-existent-issue'",
+    )
+    assert len(traces) == 0

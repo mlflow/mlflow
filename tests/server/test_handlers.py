@@ -11,6 +11,7 @@ import mlflow
 from mlflow.entities import (
     GatewayBudgetPolicy,
     Issue,
+    IssueSeverity,
     IssueStatus,
     RunStatus,
     ScorerVersion,
@@ -3207,12 +3208,17 @@ def test_post_ui_telemetry_handler_success(
     config = {"disable_ui_telemetry": False, "disable_telemetry": False}
     mock_client = mock.MagicMock()
 
+    server_install_id = "server-install-789"
     with (
         test_app.test_request_context(
             "/ui-telemetry", method="POST", data=request, content_type="application/json"
         ),
         mock.patch("mlflow.server.handlers.fetch_ui_telemetry_config", return_value=config),
         mock.patch("mlflow.server.handlers.get_telemetry_client", return_value=mock_client),
+        mock.patch(
+            "mlflow.server.handlers.get_or_create_installation_id",
+            return_value=server_install_id,
+        ),
     ):
         response = post_ui_telemetry_handler()
 
@@ -3224,8 +3230,18 @@ def test_post_ui_telemetry_handler_success(
         assert response_data["status"] == "success"
         assert mock_client.add_records.call_count == 1
         assert mock_client.add_records.call_args[0][0] == [
-            Record(**event1, duration_ms=0, status=Status.SUCCESS),
-            Record(**event2, duration_ms=0, status=Status.SUCCESS),
+            Record(
+                **event1,
+                duration_ms=0,
+                status=Status.SUCCESS,
+                server_installation_id=server_install_id,
+            ),
+            Record(
+                **event2,
+                duration_ms=0,
+                status=Status.SUCCESS,
+                server_installation_id=server_install_id,
+            ),
         ]
 
 
@@ -4283,7 +4299,7 @@ def test_create_issue_with_all_fields():
     request_message.status = "pending"
     request_message.source_run_id = "run-123"
     request_message.root_causes.extend(["Database query inefficiency", "Network latency"])
-    request_message.severity = "high"
+    request_message.severity = IssueSeverity.HIGH.value
     request_message.created_by = "user@example.com"
 
     issue = Issue(
@@ -4294,7 +4310,7 @@ def test_create_issue_with_all_fields():
         status=IssueStatus.PENDING,
         source_run_id="run-123",
         root_causes=["Database query inefficiency", "Network latency"],
-        severity="high",
+        severity=IssueSeverity.HIGH,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
         created_by="user@example.com",
@@ -4316,7 +4332,7 @@ def test_create_issue_with_all_fields():
         assert call_kwargs["status"] == IssueStatus.PENDING
         assert call_kwargs["source_run_id"] == "run-123"
         assert call_kwargs["root_causes"] == ["Database query inefficiency", "Network latency"]
-        assert call_kwargs["severity"] == "high"
+        assert call_kwargs["severity"] == IssueSeverity.HIGH.value
         assert call_kwargs["created_by"] == "user@example.com"
 
         json_response = json.loads(response.get_data())
@@ -4355,7 +4371,7 @@ def test_create_issue_without_optional_fields():
         call_kwargs = mock_store.return_value.create_issue.call_args[1]
         assert call_kwargs["source_run_id"] is None
         assert call_kwargs["root_causes"] is None
-        assert call_kwargs["severity"] is None
+        assert "severity" not in call_kwargs
 
         json_response = json.loads(response.get_data())
         assert json_response["issue"]["issue_id"] == "iss-456"
@@ -4397,7 +4413,7 @@ def test_get_issue():
         name="Test issue",
         description="Test description",
         status=IssueStatus.ACCEPTED,
-        severity="high",
+        severity=IssueSeverity.HIGH,
         root_causes=["Root cause 1"],
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
@@ -4448,7 +4464,7 @@ def test_update_issue():
         name="Updated issue name",
         description="Updated description",
         status=IssueStatus.ACCEPTED,
-        severity="medium",
+        severity=IssueSeverity.MEDIUM,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567900,
     )
@@ -4467,7 +4483,7 @@ def test_update_issue():
         assert call_kwargs["name"] == "Updated issue name"
         assert call_kwargs["description"] == "Updated description"
         assert call_kwargs["status"] == IssueStatus.ACCEPTED
-        assert call_kwargs["severity"] == "medium"
+        assert call_kwargs["severity"] == IssueSeverity.MEDIUM.value
 
         json_response = json.loads(response.get_data())
         assert json_response["issue"]["issue_id"] == "iss-update-123"

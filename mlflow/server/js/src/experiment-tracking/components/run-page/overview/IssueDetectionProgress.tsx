@@ -46,6 +46,12 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling }: IssueDetectio
     }
   };
 
+  const handleViewIssues = () => {
+    if (experimentId && runUuid) {
+      navigate(Routes.getIssueDetectionRunDetailsTabRoute(experimentId, runUuid, RunPageTabName.ISSUES));
+    }
+  };
+
   // TODO: Replace with actual data from backend
   const totalTraces = 25;
   const scannedTraces = 20;
@@ -108,7 +114,7 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling }: IssueDetectio
           )}
           <Typography.Hint>
             <FormattedMessage
-              defaultMessage="{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, {identifiedIssues} issues identified so far"
+              defaultMessage="{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far"
               description="Issue detection progress > Progress summary"
               values={{
                 scannedTraces,
@@ -118,6 +124,14 @@ export const IssueDetectionProgress = ({ onCancel, isCancelling }: IssueDetectio
                   <Typography.Link
                     componentId="mlflow.traces.issue-detection.view-traces-link"
                     onClick={handleViewTraces}
+                  >
+                    {chunks}
+                  </Typography.Link>
+                ),
+                issuesLink: (chunks: ReactNode) => (
+                  <Typography.Link
+                    componentId="mlflow.traces.issue-detection.view-issues-link"
+                    onClick={handleViewIssues}
                   >
                     {chunks}
                   </Typography.Link>

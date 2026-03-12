@@ -128,6 +128,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/observe-with-traces/multimodal',
+                  label: 'Multimodal Content',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/search-traces',
                   label: 'Search Traces',
                 },
@@ -511,6 +516,11 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'tracing/opentelemetry/export',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/opentelemetry/attribute-mapping',
+              label: 'Attribute Mapping',
             },
           ],
         },
@@ -972,6 +982,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'governance/ai-gateway/usage-tracking',
           label: 'Usage Tracking',
+        },
+        {
+          type: 'doc',
+          id: 'governance/ai-gateway/budget-alerts-limits',
+          label: 'Budget Alerts & Limits',
         },
         {
           type: 'category',

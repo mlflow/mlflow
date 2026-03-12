@@ -7,6 +7,7 @@ import { CreateBudgetPolicyModal } from '../components/budgets/CreateBudgetPolic
 import { EditBudgetPolicyModal } from '../components/budgets/EditBudgetPolicyModal';
 import { DeleteBudgetPolicyModal } from '../components/budgets/DeleteBudgetPolicyModal';
 import { useBudgetsPage } from '../hooks/useBudgetsPage';
+import WebhooksSettings from '../../settings/WebhooksSettings';
 
 const BudgetsPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -56,8 +57,37 @@ const BudgetsPage = () => {
       </div>
 
       {/* Content */}
-      <div css={{ flex: 1, overflow: 'auto', padding: theme.spacing.md }}>
+      <div
+        css={{
+          flex: 1,
+          overflow: 'auto',
+          padding: theme.spacing.md,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.lg,
+        }}
+      >
         <BudgetsList onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} />
+        <WebhooksSettings
+          eventFilter="BUDGET_POLICY"
+          title={
+            <FormattedMessage
+              defaultMessage="Budget alert webhooks"
+              description="Budget webhooks section title on budgets page"
+            />
+          }
+          description={
+            <FormattedMessage
+              defaultMessage="Receive HTTP notifications when a budget policy is exceeded."
+              description="Budget webhooks section description on budgets page"
+            />
+          }
+          componentIds={{
+            createButton: 'mlflow.gateway.budgets.webhooks.create-button',
+            errorAlert: 'mlflow.gateway.budgets.webhooks.error-alert',
+            testResultAlert: 'mlflow.gateway.budgets.webhooks.test-result-alert',
+          }}
+        />
       </div>
 
       {/* Modals */}

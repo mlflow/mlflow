@@ -463,6 +463,10 @@
     "defaultMessage": "User",
     "description": "Label for the user id section"
   },
+  "12WZU6": {
+    "defaultMessage": "Issues",
+    "description": "Run details page > tab selector > issues tab"
+  },
   "13vJft": {
     "defaultMessage": "View Examples",
     "description": "Experiment page > new run modal > prompt examples button"
@@ -758,6 +762,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model view page"
   },
+  "3CWJEU": {
+    "defaultMessage": "Issues",
+    "description": "Column label for issues"
+  },
   "3D2Znf": {
     "defaultMessage": "Filter by {columnNames}",
     "description": "Experiment page > artifact compare view > search input placeholder"
@@ -836,6 +844,10 @@
   "4+RPaz": {
     "defaultMessage": "Delete",
     "description": "Text for delete button on model version view page header"
+  },
+  "40TLJk": {
+    "defaultMessage": "Structured output:",
+    "description": "Label for structured output schema in the prompt details page"
   },
   "40u/J+": {
     "defaultMessage": "Custom code",
@@ -960,6 +972,10 @@
   "4idqpX": {
     "defaultMessage": "Add",
     "description": "Add button text in editable tags table view in MLflow"
+  },
+  "4kSYNV": {
+    "defaultMessage": "No issues found",
+    "description": "Issue detection run details > Issues tab > Empty state title"
   },
   "4ntR9o": {
     "defaultMessage": "Prompt tag set",
@@ -1424,6 +1440,10 @@
   "7pkOrA": {
     "defaultMessage": "Model",
     "description": "Summary model label"
+  },
+  "7ritzC": {
+    "defaultMessage": "Optional. Define a JSON schema for structured LLM responses.",
+    "description": "Hint for the structured output field in the prompt creation modal"
   },
   "7teFL4": {
     "defaultMessage": "Search metric charts",
@@ -2276,6 +2296,10 @@
     "defaultMessage": "Provider",
     "description": "Provider column header"
   },
+  "CwJcIQ": {
+    "defaultMessage": "Receive HTTP notifications when a budget policy is exceeded.",
+    "description": "Budget webhooks section description on budgets page"
+  },
   "CyTYL6": {
     "defaultMessage": "Line chart",
     "description": "Experiment tracking > runs charts > add chart menu > line chart"
@@ -2379,6 +2403,10 @@
   "DmMds0": {
     "defaultMessage": "Model version tag deleted",
     "description": "Webhook event label"
+  },
+  "Dw+Z8L": {
+    "defaultMessage": "Budget exceeded",
+    "description": "Warning icon label for exceeded budget"
   },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
@@ -3666,6 +3694,10 @@
     "defaultMessage": "Detect issues in traces",
     "description": "Aria label for the detect issues button in the traces table toolbar"
   },
+  "NHlNLj": {
+    "defaultMessage": "Description",
+    "description": "Label for issue description section"
+  },
   "NJ1bYP": {
     "defaultMessage": "{fieldName} are identical",
     "description": "Default text in data table where items are identical in the model comparison page"
@@ -4392,6 +4424,10 @@
     "defaultMessage": "Compare",
     "description": "Label for the compare mode on the registered prompt details page"
   },
+  "SJUd4K": {
+    "defaultMessage": "Invalid structured output JSON",
+    "description": "Validation error message for the structured output JSON schema field in the prompt creation modal"
+  },
   "SJk8DQ": {
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for pre-built LLM judge type filter option"
@@ -4775,6 +4811,10 @@
     "defaultMessage": "using Prompt Engineering",
     "description": "String for creating a new run with prompt engineering modal"
   },
+  "UnQIPJ": {
+    "defaultMessage": "Created: {date}",
+    "description": "Issue creation date label"
+  },
   "Uq6/bl": {
     "defaultMessage": "Create prompt",
     "description": "A header for the empty state in the prompts table"
@@ -4851,6 +4891,10 @@
     "defaultMessage": "View model",
     "description": "Label for a button that opens a new tab to view the details of a logged ML model while registering a model version"
   },
+  "VF2V6v": {
+    "defaultMessage": "Issues identified from traces will appear here.",
+    "description": "Issue detection run details > Issues tab > Empty state description"
+  },
   "VGGGB3": {
     "defaultMessage": "This endpoint is currently in use. Deleting it will break connections to the resources listed below.",
     "description": "Warning about resources using this endpoint"
@@ -4898,6 +4942,10 @@
   "VTePPP": {
     "defaultMessage": "Create your first experiment",
     "description": "Home page experiments empty state title"
+  },
+  "VVoQ5V": {
+    "defaultMessage": "Structured output (JSON schema)",
+    "description": "Label for the structured output JSON schema field in the prompt creation modal"
   },
   "VXduJD": {
     "defaultMessage": "The provided value is not valid JSON",
@@ -5700,6 +5748,10 @@
   "aXw0NO": {
     "defaultMessage": "Please select metric",
     "description": "Placeholder text where one can select metrics from the list of available metrics to render on the graph"
+  },
+  "aZ9uZO": {
+    "defaultMessage": "Budget alert webhooks",
+    "description": "Budget webhooks section title on budgets page"
   },
   "aZV8M7": {
     "defaultMessage": "Delete",
@@ -6549,10 +6601,6 @@
     "defaultMessage": "Delete {count, plural, one { # trace } other { # traces }}",
     "description": "Experiment page > traces view controls > Delete traces modal > Delete button"
   },
-  "g734JR": {
-    "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, {identifiedIssues} issues identified so far",
-    "description": "Issue detection progress > Progress summary"
-  },
   "g7b7x/": {
     "defaultMessage": "Test failed with no error message"
   },
@@ -7044,10 +7092,6 @@
     "defaultMessage": "Knowledge retention",
     "description": "LLM template option"
   },
-  "jLHxac": {
-    "defaultMessage": "Coming Soon",
-    "description": "Coming soon label"
-  },
   "jMUqD1": {
     "defaultMessage": "Safety",
     "description": "Evaluation results > known type of evaluation result assessment > safety assessment. Used to indicate if the result is safe in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Safety: moderate\""
@@ -7159,6 +7203,10 @@
   "k3SQ4s": {
     "defaultMessage": "Detect unsatisfactory user experiences and unmet user needs",
     "description": "Issue category description for negative user experiences"
+  },
+  "k4F8aJ": {
+    "defaultMessage": "Copy issue ID",
+    "description": "Tooltip to copy issue ID"
   },
   "k7itje": {
     "defaultMessage": "Create webhook",
@@ -7684,6 +7732,10 @@
     "defaultMessage": "Trace view",
     "description": "Tooltip for traces preview mode toggle in evaluation runs table controls"
   },
+  "nIkC92": {
+    "defaultMessage": "Issue ID copied",
+    "description": "Tooltip after issue ID was copied"
+  },
   "nJxDSh": {
     "defaultMessage": "Inputs",
     "description": "Section title for the inputs of a single chat turn"
@@ -7935,10 +7987,6 @@
     "defaultMessage": "No group by columns selected",
     "description": "Experiment page > artifact compare view > empty state for no group by columns selected > title"
   },
-  "oxHklW": {
-    "defaultMessage": "Rate Limiting",
-    "description": "Section title for rate limiting"
-  },
   "oy2LTl": {
     "defaultMessage": "Filter",
     "description": "Label for the span filters popover in the trace explorer."
@@ -8002,6 +8050,10 @@
   "pU6cxH": {
     "defaultMessage": "Add",
     "description": "Model registry > model version table > aliases column > 'add' button label"
+  },
+  "pU7S10": {
+    "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
+    "description": "Issue detection progress > Progress summary"
   },
   "pVF+2s": {
     "defaultMessage": "Show less",
@@ -8599,6 +8651,10 @@
     "defaultMessage": "Active",
     "description": "Webhook active status"
   },
+  "tFVXU7": {
+    "defaultMessage": "Issue ID",
+    "description": "Label for issue ID in popover"
+  },
   "tGqJL4": {
     "defaultMessage": "Output",
     "description": "Label for the output tokens in the tooltip for the tokens cell."
@@ -8927,6 +8983,10 @@
     "defaultMessage": "The run containing the dataset could not be found.",
     "description": "Error message displayed when the run for the dataset is not found"
   },
+  "vwXBHk": {
+    "defaultMessage": "Rationale",
+    "description": "Label for the rationale of an issue assessment"
+  },
   "vxY1CI": {
     "defaultMessage": "Status",
     "description": "Run page > Overview > Run status section label"
@@ -9006,6 +9066,10 @@
   "wNHR0W": {
     "defaultMessage": "Aliases",
     "description": "Column title text for model version aliases in model version table"
+  },
+  "wOmMb1": {
+    "defaultMessage": "Budget exceeded: {spend} of {limit} spent",
+    "description": "Tooltip shown when current spend exceeds the budget limit"
   },
   "wRV8PN": {
     "defaultMessage": "Settings",
@@ -9485,6 +9549,10 @@
   "zZCBR9": {
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
+  },
+  "zcnCPF": {
+    "defaultMessage": "Issues",
+    "description": "Label for the issues section in the assessments pane"
   },
   "zcuHsG": {
     "defaultMessage": "Go to Endpoints",

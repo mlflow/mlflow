@@ -37,6 +37,7 @@ from mlflow.entities import (
     Experiment,
     Feedback,
     Issue,
+    IssueSeverity,
     IssueStatus,
     Run,
     RunInputs,
@@ -5856,7 +5857,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         name: str,
         description: str,
         status: IssueStatus = IssueStatus.PENDING,
-        severity: str | None = None,
+        severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
         created_by: str | None = None,
@@ -5897,7 +5898,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 name=name,
                 description=description,
                 status=status.value,
-                severity=severity,
+                severity=severity.value if severity else None,
                 root_causes=root_causes_json,
                 source_run_id=source_run_id,
                 created_timestamp=current_time,
@@ -5938,7 +5939,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         status: IssueStatus | None = None,
         name: str | None = None,
         description: str | None = None,
-        severity: str | None = None,
+        severity: IssueSeverity | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -5954,8 +5955,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             The updated Issue entity.
         """
         with self.ManagedSessionMaker() as session:
-            status_str = status.value if status else None
-
             # Fetch the existing issue
             sql_issue = (
                 self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
@@ -5967,14 +5966,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             # Update fields if provided
-            if status_str is not None:
-                sql_issue.status = status_str
+            if status is not None:
+                sql_issue.status = status.value
             if name is not None:
                 sql_issue.name = name
             if description is not None:
                 sql_issue.description = description
             if severity is not None:
-                sql_issue.severity = severity
+                sql_issue.severity = severity.value
 
             # Update last_updated_timestamp
             sql_issue.last_updated_timestamp = get_current_time_millis()
@@ -6516,6 +6515,26 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
         value = sql_statement.get("value")
         comparator = sql_statement.get("comparator").upper()
 
+        # Check if this is an issue filter (stored in assessments table)
+        # Note: Issue filters use the format 'issue.id = "issue-123"', which differs
+        # from assessment filters that use 'feedback/expectation.<key_name> <operator> <value>'.
+        # Issue filters match on issue ID, which is the assessment name instead of value.
+        if SearchTraceUtils.is_issue(key_type, key_name, comparator):
+            # Query assessments table for issue references
+            # IssueReference assessments have assessment_type='issue' and name=issue_id
+            issue_subquery = (
+                session
+                .query(SqlAssessments.trace_id.label("request_id"))
+                .filter(
+                    SqlAssessments.assessment_type == "issue",
+                    SqlAssessments.name == value,
+                )
+                .distinct()
+                .subquery()
+            )
+            span_filters.append(issue_subquery)
+            continue
+
         if SearchTraceUtils.is_attribute(key_type, key_name, comparator):
             if key_name in ("end_time_ms", "end_time"):
                 # end_time = timestamp_ms + execution_time_ms
@@ -6649,6 +6668,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         SqlAssessments.trace_id == SqlTraceInfo.request_id,
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
+                        SqlAssessments.valid == sqlalchemy.true(),
                     )
                     exists_clause = assessment_exists_subquery.exists()
                     attribute_filters.append(
@@ -6666,6 +6686,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     .filter(
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
+                        SqlAssessments.valid == sqlalchemy.true(),
                         value_filter,
                     )
                     .distinct()

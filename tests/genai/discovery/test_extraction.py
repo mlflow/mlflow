@@ -1,9 +1,15 @@
 from unittest import mock
 
+import pytest
+
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.discovery.entities import _ConversationAnalysis
 from mlflow.genai.discovery.extraction import (
+    collect_session_rationales,
+    extract_assessment_rationale,
+    extract_execution_path,
+    extract_execution_paths_for_session,
     extract_failing_traces,
     extract_failure_labels,
     extract_span_errors,
@@ -31,6 +37,37 @@ def test_extract_span_errors_truncation(make_trace):
     assert len(result) <= 10
 
 
+# ---- extract_execution_path ----
+
+
+@pytest.mark.parametrize(
+    ("error_span", "expected_substring"),
+    [
+        (False, "(no routing)"),
+        (True, "tool_call"),
+    ],
+)
+def test_extract_execution_path(make_trace, error_span, expected_substring):
+    trace = make_trace(error_span=error_span)
+    result = extract_execution_path(trace)
+    assert expected_substring in result
+
+
+# ---- extract_execution_paths_for_session ----
+
+
+def test_extract_execution_paths_for_session_deduplicates(make_trace):
+    traces = [make_trace(), make_trace()]
+    result = extract_execution_paths_for_session(traces)
+    assert ";" not in result
+
+
+def test_extract_execution_paths_for_session_combines_paths(make_trace):
+    traces = [make_trace(), make_trace(error_span=True)]
+    result = extract_execution_paths_for_session(traces)
+    assert ";" in result
+
+
 # ---- extract_failure_labels ----
 
 
@@ -51,7 +88,6 @@ def test_extract_failure_labels_empty_analyses():
 def test_extract_failure_labels_single_analysis():
     analyses = [
         _ConversationAnalysis(
-            rationale_summary="The assistant failed to provide weather data",
             full_rationale="The assistant failed to provide weather data",
             affected_trace_ids=["t1"],
             execution_path="weather_tool > api_call",
@@ -74,7 +110,6 @@ def test_extract_failure_labels_single_analysis():
 def test_extract_failure_labels_multi_label():
     analyses = [
         _ConversationAnalysis(
-            rationale_summary="Two problems: auth failed and response was empty",
             full_rationale="Two problems: auth failed and response was empty",
             affected_trace_ids=["t1"],
             execution_path="api_tool",
@@ -182,3 +217,47 @@ def test_extract_failing_traces_no_failures(make_trace):
     failing, rationales = extract_failing_traces(_refetch(traces), "satisfaction")
     assert failing == []
     assert rationales == {}
+
+
+# ---- extract_assessment_rationale ----
+
+
+@pytest.mark.parametrize(
+    ("feedback_name", "query_name", "expected"),
+    [
+        ("scorer_a", "scorer_a", "test rationale"),
+        ("scorer_a", "scorer_b", ""),
+    ],
+)
+def test_extract_assessment_rationale(make_trace, feedback_name, query_name, expected):
+    trace = make_trace()
+    _add_feedback(trace, feedback_name, False, "test rationale")
+    result = extract_assessment_rationale(_refetch([trace])[0], query_name)
+    assert result == expected
+
+
+# ---- collect_session_rationales ----
+
+
+def test_collect_session_rationales_combines_sources(make_trace):
+    trace = make_trace(error_span=True)
+    _add_feedback(trace, "scorer_a", False, "human says bad")
+    trace = _refetch([trace])[0]
+
+    rationale_map = {trace.info.trace_id: "triage rationale"}
+    result = collect_session_rationales([trace], rationale_map, "scorer_a")
+
+    assert "triage rationale" in result
+    assert "[human feedback] human says bad" in result
+    assert "[span errors]" in result
+
+
+def test_collect_session_rationales_deduplicates(make_trace):
+    trace = make_trace()
+    _add_feedback(trace, "scorer_a", False, "same text")
+    trace = _refetch([trace])[0]
+
+    rationale_map = {trace.info.trace_id: "same text"}
+    result = collect_session_rationales([trace], rationale_map, "scorer_a")
+
+    assert result.count("same text") == 1
