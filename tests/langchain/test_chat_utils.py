@@ -187,6 +187,21 @@ def test_convert_lc_message_audio_no_mime_type_raises():
         convert_lc_message_to_chat_message(message)
 
 
+def test_convert_lc_message_audio_unsupported_format_raises():
+    message = HumanMessage(
+        content=[
+            {
+                "type": "audio",
+                "source_type": "base64",
+                "data": "SGVsbG8=",
+                "mime_type": "audio/ogg",
+            },
+        ]
+    )
+    with pytest.raises(MlflowException, match="Unsupported audio format"):
+        convert_lc_message_to_chat_message(message)
+
+
 def test_transform_response_to_chat_format_no_conversion():
     response = ["list_response"]
     assert try_transform_response_to_chat_format(response) == response
