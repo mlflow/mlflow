@@ -257,7 +257,7 @@ export function MlflowSidebar({
       <div css={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         {showSidebar && (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-            <Link to={ExperimentTrackingRoutes.rootRoute}>
+            <Link componentId="mlflow.sidebar.logo_home_link" to={ExperimentTrackingRoutes.rootRoute}>
               <MlflowLogo
                 css={{
                   display: 'block',

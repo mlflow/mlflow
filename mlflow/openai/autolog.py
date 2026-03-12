@@ -22,6 +22,7 @@ from mlflow.tracing.constant import (
     TokenUsageKey,
     TraceMetadataKey,
 )
+from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -241,6 +242,7 @@ def patched_call(original, self, *args, **kwargs):
 
     if config.log_traces:
         span = _start_span(self, kwargs, run_id)
+        _inject_tracing_headers(kwargs, span)
 
     # Execute the original function
     try:
@@ -263,6 +265,7 @@ async def async_patched_call(original, self, *args, **kwargs):
 
     if config.log_traces:
         span = _start_span(self, kwargs, run_id)
+        _inject_tracing_headers(kwargs, span)
 
     # Execute the original function
     try:
@@ -473,6 +476,15 @@ def _is_response_output_item_done_event(chunk: Any) -> bool:
         return isinstance(chunk, ResponseOutputItemDoneEvent)
     except ImportError:
         return False
+
+
+def _inject_tracing_headers(kwargs: dict[str, Any], span: LiveSpan):
+    try:
+        if tracing_headers := _get_tracing_headers_from_span(span):
+            existing = kwargs.get("extra_headers") or {}
+            kwargs["extra_headers"] = tracing_headers | existing
+    except Exception:
+        _logger.debug("Failed to inject tracing headers", exc_info=True)
 
 
 def _end_span_on_exception(span: LiveSpan, e: Exception):

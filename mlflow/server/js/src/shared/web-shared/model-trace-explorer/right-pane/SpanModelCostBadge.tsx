@@ -114,7 +114,7 @@ export const SpanModelCostBadge = ({ activeSpan }: { activeSpan: ModelTraceSpanN
 
   const { modelName, cost } = activeSpan;
 
-  // Don't render anything if there's no model or cost info
+  // Don't render anything if there's no model or cost
   if (!modelName && !cost) {
     return null;
   }

@@ -111,13 +111,11 @@ def get_mlflow_run_params_for_fn_args(fn, args, kwargs, unlogged=None):
     params_to_log.update(kwargs)
     # Add parameters that were not explicitly specified by the caller to the mapping,
     # using their default values
-    params_to_log.update(
-        {
-            param.name: param.default
-            for param in list(relevant_params)[len(args) :]
-            if param.name not in kwargs
-        }
-    )
+    params_to_log.update({
+        param.name: param.default
+        for param in list(relevant_params)[len(args) :]
+        if param.name not in kwargs
+    })
     # Filter out any parameters that should not be logged, as specified by the `unlogged` parameter
     return {key: value for key, value in params_to_log.items() if key not in unlogged}
 
@@ -415,9 +413,9 @@ def autologging_integration(name):
         @autologging_conf_lock
         def autolog(*args, **kwargs):
             config_to_store = dict(default_params)
-            config_to_store.update(
-                {param.name: arg for arg, param in zip(args, param_spec.values())}
-            )
+            config_to_store.update({
+                param.name: arg for arg, param in zip(args, param_spec.values())
+            })
             config_to_store.update(kwargs)
             AUTOLOGGING_INTEGRATIONS[name] = config_to_store
 

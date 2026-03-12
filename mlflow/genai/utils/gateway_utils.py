@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import base64
-import os
 from dataclasses import dataclass
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import get_tracking_uri
+from mlflow.utils.credentials import read_mlflow_creds
 from mlflow.utils.uri import append_to_uri_path, is_http_uri
 
 
@@ -48,10 +48,9 @@ def get_gateway_litellm_config(endpoint_name: str) -> GatewayLiteLLMConfig:
         )
 
     extra_headers = None
-    username = os.environ.get("MLFLOW_TRACKING_USERNAME")
-    password = os.environ.get("MLFLOW_TRACKING_PASSWORD")
-    if username and password:
-        encoded = base64.b64encode(f"{username}:{password}".encode()).decode("ascii")
+    creds = read_mlflow_creds()
+    if creds.username and creds.password:
+        encoded = base64.b64encode(f"{creds.username}:{creds.password}".encode()).decode("ascii")
         extra_headers = {"Authorization": f"Basic {encoded}"}
 
     return GatewayLiteLLMConfig(

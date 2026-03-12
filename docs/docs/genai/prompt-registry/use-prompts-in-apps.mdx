@@ -60,7 +60,8 @@ prompt = mlflow.genai.register_prompt(
 
 question = "What is MLflow?"
 response = (
-    client.chat.completions.create(
+    client.chat.completions
+    .create(
         messages=[{"role": "user", "content": prompt.format(question=question)}],
         model="gpt-4o-mini",
         temperature=0.1,
@@ -84,16 +85,14 @@ from langchain_openai import ChatOpenAI
 prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
 # Create LangChain prompt object
-langchain_prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            # IMPORTANT: Convert prompt template from double to single curly braces format
-            "system",
-            prompt.to_single_brace_format(),
-        ),
-        ("placeholder", "{messages}"),
-    ]
-)
+langchain_prompt = ChatPromptTemplate.from_messages([
+    (
+        # IMPORTANT: Convert prompt template from double to single curly braces format
+        "system",
+        prompt.to_single_brace_format(),
+    ),
+    ("placeholder", "{messages}"),
+])
 
 # Define the LangChain chain
 llm = ChatOpenAI()

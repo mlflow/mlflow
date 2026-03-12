@@ -79,12 +79,10 @@ def iris_df():
 @pytest.fixture(scope="module")
 def iris_signature():
     return ModelSignature(
-        inputs=Schema(
-            [
-                ColSpec(name="sepal length (cm)", type=DataType.double),
-                ColSpec(name="sepal width (cm)", type=DataType.double),
-            ]
-        ),
+        inputs=Schema([
+            ColSpec(name="sepal length (cm)", type=DataType.double),
+            ColSpec(name="sepal width (cm)", type=DataType.double),
+        ]),
         outputs=Schema([ColSpec(type=DataType.long)]),
     )
 
@@ -215,6 +213,16 @@ def test_model_skops_format_trusted_type(sklearn_knn_model, model_path):
         reloaded_model.predict(sklearn_knn_model.inference_data),
         reloaded_pyfunc.predict(sklearn_knn_model.inference_data),
     )
+
+
+def test_log_model_skops_no_pip_requirements_warning(sklearn_logreg_model, recwarn):
+    with mlflow.start_run():
+        mlflow.sklearn.log_model(
+            sklearn_logreg_model.model,
+            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS,
+        )
+    warning_messages = [str(w.message) for w in recwarn]
+    assert not any("Fall back to return" in msg for msg in warning_messages)
 
 
 def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_path):

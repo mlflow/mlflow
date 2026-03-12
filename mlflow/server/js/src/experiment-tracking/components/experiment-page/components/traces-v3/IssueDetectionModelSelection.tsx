@@ -28,17 +28,16 @@ const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
   },
 };
 
-// TODO: add default models for other providers
-const DEFAULT_MODELS_BY_PROVIDER: Record<string, { analysisModel: string; judgeModel: string }> = {
-  openai: { analysisModel: 'gpt-5', judgeModel: 'gpt-5-mini' },
-  anthropic: { analysisModel: 'claude-sonnet-4-20250514', judgeModel: 'claude-haiku-4-20250514' },
-  databricks: { analysisModel: 'databricks-gpt-5', judgeModel: 'databricks-gpt-5-mini' },
+// Default to cheaper models for each provider
+const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
+  openai: 'gpt-5-mini',
+  anthropic: 'claude-haiku-4-20250514',
+  databricks: 'databricks-gpt-5-mini',
 };
 
 export interface ModelSelectionValues {
   provider: string;
-  analysisModel: string;
-  judgeModel: string;
+  model: string;
   apiKeyConfig: ApiKeyConfiguration;
   saveKey: boolean;
 }
@@ -63,8 +62,7 @@ export const IssueDetectionModelSelection = forwardRef<
   const intl = useIntl();
 
   const [provider, setProvider] = useState(DEFAULT_PROVIDER);
-  const [analysisModel, setAnalysisModel] = useState(DEFAULT_MODELS_BY_PROVIDER[DEFAULT_PROVIDER].analysisModel);
-  const [judgeModel, setJudgeModel] = useState(DEFAULT_MODELS_BY_PROVIDER[DEFAULT_PROVIDER].judgeModel);
+  const [model, setModel] = useState(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
   const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(DEFAULT_API_KEY_CONFIG);
   const [saveKey, setSaveKey] = useState(false);
   const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
@@ -88,19 +86,17 @@ export const IssueDetectionModelSelection = forwardRef<
 
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
-    const defaults = DEFAULT_MODELS_BY_PROVIDER[newProvider];
-    setAnalysisModel(defaults?.analysisModel ?? '');
-    setJudgeModel(defaults?.judgeModel ?? '');
+    const defaultModel = DEFAULT_MODEL_BY_PROVIDER[newProvider];
+    setModel(defaultModel ?? '');
     setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
     setSaveKey(false);
-    // Auto-expand advanced settings if provider doesn't have defaults, collapse if it does
-    setIsAdvancedSettingsExpanded(!defaults);
+    // Auto-expand advanced settings if provider doesn't have a default model, collapse if it does
+    setIsAdvancedSettingsExpanded(!defaultModel);
   }, []);
 
   const reset = useCallback(() => {
     setProvider(DEFAULT_PROVIDER);
-    setAnalysisModel(DEFAULT_MODELS_BY_PROVIDER[DEFAULT_PROVIDER].analysisModel);
-    setJudgeModel(DEFAULT_MODELS_BY_PROVIDER[DEFAULT_PROVIDER].judgeModel);
+    setModel(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
     setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
     setSaveKey(false);
     setIsAdvancedSettingsExpanded(false);
@@ -112,7 +108,7 @@ export const IssueDetectionModelSelection = forwardRef<
       : Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
         (!saveKey || !!apiKeyConfig.newSecret.name);
 
-  const isValid = Boolean(provider && analysisModel && judgeModel && isApiKeyValid && selectedTraceIds.length > 0);
+  const isValid = Boolean(provider && model && isApiKeyValid && selectedTraceIds.length > 0);
 
   useEffect(() => {
     onValidityChange(isValid);
@@ -123,15 +119,14 @@ export const IssueDetectionModelSelection = forwardRef<
     () => ({
       getValues: () => ({
         provider,
-        analysisModel,
-        judgeModel,
+        model,
         apiKeyConfig,
         saveKey,
       }),
       isValid,
       reset,
     }),
-    [provider, analysisModel, judgeModel, apiKeyConfig, saveKey, isValid, reset],
+    [provider, model, apiKeyConfig, saveKey, isValid, reset],
   );
 
   return (
@@ -140,13 +135,13 @@ export const IssueDetectionModelSelection = forwardRef<
         <div>
           <Typography.Title level={4} css={{ marginBottom: theme.spacing.xs }}>
             <FormattedMessage
-              defaultMessage="Select Models"
+              defaultMessage="Select Model"
               description="Header for the model selection step in issue detection modal"
             />
           </Typography.Title>
           <Typography.Text color="secondary">
             <FormattedMessage
-              defaultMessage="Configure the LLM provider and models to power issue detection"
+              defaultMessage="Configure the LLM provider and model to power issue detection"
               description="Description for the model selection step"
             />
           </Typography.Text>
@@ -158,29 +153,26 @@ export const IssueDetectionModelSelection = forwardRef<
             componentIdPrefix="mlflow.traces.issue-detection-modal.provider"
             hideLabel
           />
-          {provider && DEFAULT_MODELS_BY_PROVIDER[provider] && (
+          {provider && DEFAULT_MODEL_BY_PROVIDER[provider] && (
             <Typography.Text
               color="secondary"
               css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
             >
               <FormattedMessage
-                defaultMessage="Analysis model: {analysisModel} · Judge model: {judgeModel}"
-                description="Display of default models for selected provider"
-                values={{
-                  analysisModel,
-                  judgeModel,
-                }}
+                defaultMessage="Model: {model}"
+                description="Display of default model for selected provider"
+                values={{ model }}
               />
             </Typography.Text>
           )}
-          {provider && !DEFAULT_MODELS_BY_PROVIDER[provider] && (
+          {provider && !DEFAULT_MODEL_BY_PROVIDER[provider] && (
             <Typography.Text
               color="secondary"
               css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
             >
               <FormattedMessage
-                defaultMessage="Please select models in `Advanced settings` below"
-                description="Message when provider has no default models"
+                defaultMessage="Please select a model in `Advanced settings` below"
+                description="Message when provider has no default model"
               />
             </Typography.Text>
           )}
@@ -284,10 +276,8 @@ export const IssueDetectionModelSelection = forwardRef<
         >
           <IssueDetectionAdvancedSettings
             provider={provider}
-            analysisModel={analysisModel}
-            onAnalysisModelChange={setAnalysisModel}
-            judgeModel={judgeModel}
-            onJudgeModelChange={setJudgeModel}
+            model={model}
+            onModelChange={setModel}
             apiKeyConfig={apiKeyConfig}
             onApiKeyConfigChange={setApiKeyConfig}
             authModes={authModes}

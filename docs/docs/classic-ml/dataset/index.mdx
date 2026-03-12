@@ -70,7 +70,9 @@ import mlflow.data
 import pandas as pd
 
 # Load your data
-dataset_source_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"
+dataset_source_url = (
+    "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/winequality-white.csv"
+)
 raw_data = pd.read_csv(dataset_source_url, delimiter=";")
 
 # Create a Dataset object
@@ -99,20 +101,16 @@ from mlflow.data.http_dataset_source import HTTPDatasetSource
 from mlflow.types import Schema, ColSpec, DataType
 
 # Create a metadata-only dataset for a remote data source
-source = HTTPDatasetSource(
-    url="https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
-)
+source = HTTPDatasetSource(url="https://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz")
 
 # Option 1: Simple metadata dataset
 meta_dataset = MetaDataset(source=source, name="imdb-sentiment-dataset")
 
 # Option 2: With schema information
-schema = Schema(
-    [
-        ColSpec(type=DataType.string, name="text"),
-        ColSpec(type=DataType.integer, name="label"),
-    ]
-)
+schema = Schema([
+    ColSpec(type=DataType.string, name="text"),
+    ColSpec(type=DataType.integer, name="label"),
+])
 
 meta_dataset_with_schema = MetaDataset(
     source=source, name="imdb-sentiment-dataset-with-schema", schema=schema
@@ -145,12 +143,8 @@ data = pd.read_csv("your_dataset.csv")
 X = data.drop("target", axis=1)
 y = data["target"]
 
-X_train, X_temp, y_train, y_temp = train_test_split(
-    X, y, test_size=0.4, random_state=42
-)
-X_val, X_test, y_val, y_test = train_test_split(
-    X_temp, y_temp, test_size=0.5, random_state=42
-)
+X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.4, random_state=42)
+X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
 # Create dataset objects for each split
 train_data = pd.concat([X_train, y_train], axis=1)
@@ -224,13 +218,9 @@ When you create a dataset, MLflow automatically captures rich metadata:
 ```python
 # Access dataset metadata
 print(f"Dataset name: {dataset.name}")  # Defaults to "dataset" if not specified
-print(
-    f"Dataset digest: {dataset.digest}"
-)  # Unique hash identifier (computed automatically)
+print(f"Dataset digest: {dataset.digest}")  # Unique hash identifier (computed automatically)
 print(f"Dataset source: {dataset.source}")  # DatasetSource object
-print(
-    f"Dataset profile: {dataset.profile}"
-)  # Optional: implementation-specific statistics
+print(f"Dataset profile: {dataset.profile}")  # Optional: implementation-specific statistics
 print(f"Dataset schema: {dataset.schema}")  # Optional: implementation-specific schema
 ```
 
@@ -262,24 +252,16 @@ MLflow supports datasets from various sources:
 
 ```python
 # From local file
-local_dataset = mlflow.data.from_pandas(
-    df, source="/path/to/local/file.csv", name="local-data"
-)
+local_dataset = mlflow.data.from_pandas(df, source="/path/to/local/file.csv", name="local-data")
 
 # From cloud storage
-s3_dataset = mlflow.data.from_pandas(
-    df, source="s3://bucket/data.parquet", name="s3-data"
-)
+s3_dataset = mlflow.data.from_pandas(df, source="s3://bucket/data.parquet", name="s3-data")
 
 # From database
-db_dataset = mlflow.data.from_pandas(
-    df, source="postgresql://user:pass@host/db", name="db-data"
-)
+db_dataset = mlflow.data.from_pandas(df, source="postgresql://user:pass@host/db", name="db-data")
 
 # From URL
-url_dataset = mlflow.data.from_pandas(
-    df, source="https://example.com/data.csv", name="web-data"
-)
+url_dataset = mlflow.data.from_pandas(df, source="https://example.com/data.csv", name="web-data")
 ```
 
   </TabItem>
@@ -361,9 +343,7 @@ from sklearn.model_selection import train_test_split
 data = pd.read_csv("classification_data.csv")
 X = data.drop("target", axis=1)
 y = data["target"]
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.3, random_state=42
-)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
 
 model = RandomForestClassifier()
 model.fit(X_train, y_train)
@@ -372,9 +352,7 @@ model.fit(X_train, y_train)
 eval_data = X_test.copy()
 eval_data["target"] = y_test
 
-eval_dataset = mlflow.data.from_pandas(
-    eval_data, targets="target", name="evaluation-set"
-)
+eval_dataset = mlflow.data.from_pandas(eval_data, targets="target", name="evaluation-set")
 
 with mlflow.start_run():
     # Log model
@@ -439,9 +417,7 @@ def compare_model_performance(model_uri, datasets_dict):
                 results[dataset_name] = result.metrics
 
                 # Log dataset metadata
-                mlflow.log_params(
-                    {"dataset_name": dataset_name, "dataset_size": len(dataset.df)}
-                )
+                mlflow.log_params({"dataset_name": dataset_name, "dataset_size": len(dataset.df)})
 
     return results
 
@@ -491,23 +467,19 @@ def create_versioned_dataset(data, version, base_name="customer-data"):
         mlflow.log_input(dataset, context="versioning")
 
         # Log version metadata
-        mlflow.log_params(
-            {
-                "dataset_version": version,
-                "data_size": len(data),
-                "features_count": len(data.columns) - 1,
-                "target_distribution": data["target"].value_counts().to_dict(),
-            }
-        )
+        mlflow.log_params({
+            "dataset_version": version,
+            "data_size": len(data),
+            "features_count": len(data.columns) - 1,
+            "target_distribution": data["target"].value_counts().to_dict(),
+        })
 
         # Log data quality metrics
-        mlflow.log_metrics(
-            {
-                "missing_values_pct": (data.isnull().sum().sum() / data.size) * 100,
-                "duplicate_rows": data.duplicated().sum(),
-                "target_balance": data["target"].std(),
-            }
-        )
+        mlflow.log_metrics({
+            "missing_values_pct": (data.isnull().sum().sum() / data.size) * 100,
+            "duplicate_rows": data.duplicated().sum(),
+            "target_balance": data["target"].std(),
+        })
 
     return dataset
 
@@ -541,13 +513,11 @@ def monitor_dataset_quality(dataset, reference_dataset=None):
     # Numeric column statistics
     numeric_cols = data.select_dtypes(include=["number"]).columns
     for col in numeric_cols:
-        quality_metrics.update(
-            {
-                f"{col}_mean": data[col].mean(),
-                f"{col}_std": data[col].std(),
-                f"{col}_missing_pct": (data[col].isnull().sum() / len(data)) * 100,
-            }
-        )
+        quality_metrics.update({
+            f"{col}_mean": data[col].mean(),
+            f"{col}_std": data[col].std(),
+            f"{col}_missing_pct": (data[col].isnull().sum() / len(data)) * 100,
+        })
 
     with mlflow.start_run(run_name="Data_Quality_Check"):
         mlflow.log_input(dataset, context="quality_monitoring")
@@ -556,9 +526,7 @@ def monitor_dataset_quality(dataset, reference_dataset=None):
         # Compare with reference dataset if provided
         if reference_dataset is not None:
             ref_data = (
-                reference_dataset.df
-                if hasattr(reference_dataset, "df")
-                else reference_dataset
+                reference_dataset.df if hasattr(reference_dataset, "df") else reference_dataset
             )
 
             # Basic drift detection
@@ -567,9 +535,10 @@ def monitor_dataset_quality(dataset, reference_dataset=None):
                 if col in ref_data.columns:
                     mean_diff = abs(data[col].mean() - ref_data[col].mean())
                     std_diff = abs(data[col].std() - ref_data[col].std())
-                    drift_metrics.update(
-                        {f"{col}_mean_drift": mean_diff, f"{col}_std_drift": std_diff}
-                    )
+                    drift_metrics.update({
+                        f"{col}_mean_drift": mean_diff,
+                        f"{col}_std_drift": std_diff,
+                    })
 
             mlflow.log_metrics(drift_metrics)
 
@@ -606,9 +575,7 @@ class DatasetTracker:
             mlflow.log_input(dataset, context=stage)
 
             # Log stage metadata
-            mlflow.log_params(
-                {"pipeline_stage": stage, "dataset_name": dataset_name, **metadata}
-            )
+            mlflow.log_params({"pipeline_stage": stage, "dataset_name": dataset_name, **metadata})
 
             # Automatic quality metrics
             quality_metrics = {
@@ -644,12 +611,8 @@ tracker = DatasetTracker()
 
 # Track at each stage
 raw_dataset = tracker.track_dataset(raw_data, "raw", source="raw_data.csv")
-cleaned_dataset = tracker.track_dataset(
-    cleaned_data, "cleaned", source="cleaned_data.csv"
-)
-features_dataset = tracker.track_dataset(
-    feature_data, "features", source="feature_engineering"
-)
+cleaned_dataset = tracker.track_dataset(cleaned_data, "cleaned", source="cleaned_data.csv")
+features_dataset = tracker.track_dataset(feature_data, "features", source="feature_engineering")
 
 # Compare stages
 tracker.compare_stages("raw", "cleaned")
@@ -683,14 +646,12 @@ def monitor_batch_predictions(batch_data, model_version, date):
         mlflow.log_input(batch_dataset, context="production_batch")
 
         # Log production metadata
-        mlflow.log_params(
-            {
-                "batch_date": date,
-                "model_version": model_version,
-                "batch_size": len(batch_data),
-                "has_ground_truth": "true_label" in batch_data.columns,
-            }
-        )
+        mlflow.log_params({
+            "batch_date": date,
+            "model_version": model_version,
+            "batch_size": len(batch_data),
+            "has_ground_truth": "true_label" in batch_data.columns,
+        })
 
         # Monitor prediction distribution
         if "prediction" in batch_data.columns:
@@ -743,32 +704,25 @@ def track_ab_test_data(control_data, treatment_data, test_name, test_date):
         mlflow.log_input(treatment_dataset, context="ab_test_treatment")
 
         # Log test parameters
-        mlflow.log_params(
-            {
-                "test_name": test_name,
-                "test_date": test_date,
-                "control_size": len(control_data),
-                "treatment_size": len(treatment_data),
-                "total_size": len(control_data) + len(treatment_data),
-            }
-        )
+        mlflow.log_params({
+            "test_name": test_name,
+            "test_date": test_date,
+            "control_size": len(control_data),
+            "treatment_size": len(treatment_data),
+            "total_size": len(control_data) + len(treatment_data),
+        })
 
         # Calculate and log comparison metrics
-        if (
-            "conversion" in control_data.columns
-            and "conversion" in treatment_data.columns
-        ):
+        if "conversion" in control_data.columns and "conversion" in treatment_data.columns:
             control_rate = control_data["conversion"].mean()
             treatment_rate = treatment_data["conversion"].mean()
             lift = (treatment_rate - control_rate) / control_rate * 100
 
-            mlflow.log_metrics(
-                {
-                    "control_conversion_rate": control_rate,
-                    "treatment_conversion_rate": treatment_rate,
-                    "lift_percentage": lift,
-                }
-            )
+            mlflow.log_metrics({
+                "control_conversion_rate": control_rate,
+                "treatment_conversion_rate": treatment_rate,
+                "lift_percentage": lift,
+            })
 
     return control_dataset, treatment_dataset
 

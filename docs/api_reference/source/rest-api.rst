@@ -3247,6 +3247,43 @@ Response Structure
 
 
 
+.. _mlflowMlflowServicelistBudgetWindows:
+
+List Budget Windows
+===================
+
+
++----------------------------------------+-------------+
+|                Endpoint                | HTTP Method |
++========================================+=============+
+| ``3.0/mlflow/gateway/budgets/windows`` | ``GET``     |
++----------------------------------------+-------------+
+
+List budget windows with current spending
+
+
+
+
+.. _mlflowListGatewayBudgetWindowsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+---------------------------------------------------------------+-------------+
+| Field Name |                             Type                              | Description |
++============+===============================================================+=============+
+| windows    | An array of :ref:`mlflowlistgatewaybudgetwindowsbudgetwindow` |             |
++------------+---------------------------------------------------------------+-------------+
+
+===========================
+
+
+
 .. _mlflowModelRegistryServicecreateRegisteredModel:
 
 Create RegisteredModel
@@ -5123,6 +5160,28 @@ BatchGetTraces
 +============+========================+==============================================+
 | trace_ids  | An array of ``STRING`` | ID of the traces to fetch. Must be provided. |
 +------------+------------------------+----------------------------------------------+
+
+.. _mlflowListGatewayBudgetWindowsBudgetWindow:
+
+BudgetWindow
+------------
+
+
+
+
+
+
++------------------+------------+-------------+
+|    Field Name    |    Type    | Description |
++==================+============+=============+
+| budget_policy_id | ``STRING`` |             |
++------------------+------------+-------------+
+| window_start_ms  | ``INT64``  |             |
++------------------+------------+-------------+
+| window_end_ms    | ``INT64``  |             |
++------------------+------------+-------------+
+| current_spend    | ``DOUBLE`` |             |
++------------------+------------+-------------+
 
 .. _mlflowCalculateTraceFilterCorrelation:
 

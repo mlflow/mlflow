@@ -200,11 +200,20 @@ The OpenAI passthrough API exposes the full OpenAI API including Chat Completion
 <TabItem value="curl" label="cURL" default>
 
 ```bash
+# Chat Completions API
 curl -X POST http://localhost:5000/gateway/openai/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "my-endpoint",
     "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# Responses API
+curl -X POST http://localhost:5000/gateway/openai/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-endpoint",
+    "input": "Hello!"
   }'
 ```
 
@@ -219,10 +228,18 @@ client = OpenAI(
     api_key="dummy",  # API key not needed, configured server-side
 )
 
+# Chat Completions API
 response = client.chat.completions.create(
     model="my-endpoint", messages=[{"role": "user", "content": "Hello!"}]
 )
 print(response.choices[0].message.content)
+
+# Responses API
+response = client.responses.create(
+    model="my-endpoint",
+    input="Hello!",
+)
+print(response.output_text)
 ```
 
 </TabItem>

@@ -1765,14 +1765,12 @@ def test_register_scorer_resolves_endpoint_name_to_id(store: SqlAlchemyStore):
     experiment_id = store.create_experiment(f"scorer-endpoint-test-{uuid.uuid4().hex}")
     endpoint = _create_gateway_endpoint(store, "test-endpoint")
 
-    serialized_scorer = json.dumps(
-        {
-            "instructions_judge_pydantic_data": {
-                "model": f"gateway:/{endpoint.name}",
-                "instructions": "Rate the response",
-            }
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Rate the response",
         }
-    )
+    })
 
     scorer = store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
 
@@ -1785,14 +1783,12 @@ def test_register_scorer_resolves_endpoint_name_to_id(store: SqlAlchemyStore):
 def test_register_scorer_with_nonexistent_endpoint_raises(store: SqlAlchemyStore):
     experiment_id = store.create_experiment(f"scorer-nonexistent-endpoint-test-{uuid.uuid4().hex}")
 
-    serialized_scorer = json.dumps(
-        {
-            "instructions_judge_pydantic_data": {
-                "model": "gateway:/nonexistent-endpoint",
-                "instructions": "Rate the response",
-            }
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/nonexistent-endpoint",
+            "instructions": "Rate the response",
         }
-    )
+    })
 
     with pytest.raises(MlflowException, match="not found"):
         store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
@@ -1802,14 +1798,12 @@ def test_get_scorer_resolves_endpoint_id_to_name(store: SqlAlchemyStore):
     experiment_id = store.create_experiment(f"get-scorer-endpoint-test-{uuid.uuid4().hex}")
     endpoint = _create_gateway_endpoint(store, "get-test-endpoint")
 
-    serialized_scorer = json.dumps(
-        {
-            "instructions_judge_pydantic_data": {
-                "model": f"gateway:/{endpoint.name}",
-                "instructions": "Rate the response",
-            }
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Rate the response",
         }
-    )
+    })
 
     store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
 
@@ -1824,14 +1818,12 @@ def test_get_scorer_with_deleted_endpoint_sets_model_to_null(store: SqlAlchemySt
     experiment_id = store.create_experiment(f"deleted-endpoint-scorer-test-{uuid.uuid4().hex}")
     endpoint = _create_gateway_endpoint(store, "to-delete-endpoint")
 
-    serialized_scorer = json.dumps(
-        {
-            "instructions_judge_pydantic_data": {
-                "model": f"gateway:/{endpoint.name}",
-                "instructions": "Rate the response",
-            }
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Rate the response",
         }
-    )
+    })
 
     store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
 
@@ -1853,38 +1845,32 @@ def test_list_scorers_batch_resolves_endpoint_ids(store: SqlAlchemyStore):
     store.register_scorer(
         experiment_id,
         "scorer-1",
-        json.dumps(
-            {
-                "instructions_judge_pydantic_data": {
-                    "model": f"gateway:/{endpoint1.name}",
-                    "instructions": "Rate 1",
-                }
+        json.dumps({
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint1.name}",
+                "instructions": "Rate 1",
             }
-        ),
+        }),
     )
     store.register_scorer(
         experiment_id,
         "scorer-2",
-        json.dumps(
-            {
-                "instructions_judge_pydantic_data": {
-                    "model": f"gateway:/{endpoint2.name}",
-                    "instructions": "Rate 2",
-                }
+        json.dumps({
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint2.name}",
+                "instructions": "Rate 2",
             }
-        ),
+        }),
     )
     store.register_scorer(
         experiment_id,
         "scorer-3",
-        json.dumps(
-            {
-                "instructions_judge_pydantic_data": {
-                    "model": "openai:/gpt-4",
-                    "instructions": "Rate 3",
-                }
+        json.dumps({
+            "instructions_judge_pydantic_data": {
+                "model": "openai:/gpt-4",
+                "instructions": "Rate 3",
             }
-        ),
+        }),
     )
 
     scorers = store.list_scorers(experiment_id)

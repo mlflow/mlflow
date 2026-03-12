@@ -103,10 +103,8 @@ def my_custom_scorer(
         dict[str, Any]
     ],  # App's raw input, a dictionary of input argument names and values
     outputs: Optional[Any],  # App's raw output
-    expectations: Optional[
-        dict[str, Any]
-    ],  # Ground truth, a dictionary of label names and values
-    trace: Optional[mlflow.entities.Trace]  # Complete trace with all spans and metadata
+    expectations: Optional[dict[str, Any]],  # Ground truth, a dictionary of label names and values
+    trace: Optional[mlflow.entities.Trace],  # Complete trace with all spans and metadata
 ) -> Union[int, float, bool, str, Feedback, List[Feedback]]:
     # Your evaluation logic here
     ...
@@ -184,9 +182,7 @@ Multiple feedback objects can be returned as a list. Each feedback should have t
 def comprehensive_check(inputs, outputs):
     return [
         Feedback(name="relevance", value=True, rationale="Directly addresses query"),
-        Feedback(
-            name="tone", value="professional", rationale="Appropriate for audience"
-        ),
+        Feedback(name="tone", value="professional", rationale="Appropriate for audience"),
         Feedback(name="length", value=150, rationale="Word count within limits"),
     ]
 ```
@@ -257,9 +253,7 @@ Open the tabs below to see examples of custom scorers that evaluate the detailed
             all_document_urls.extend([document["doc_uri"] for document in span.outputs])
 
         # Compute the recall
-        true_positives = len(
-            set(all_document_urls) & set(expectations["relevant_document_urls"])
-        )
+        true_positives = len(set(all_document_urls) & set(expectations["relevant_document_urls"]))
         expected_positives = len(expectations["relevant_document_urls"])
         recall = true_positives / expected_positives
         return Feedback(
@@ -376,9 +370,7 @@ def is_valid_response(outputs):
         return Feedback(value=True, rationale="Valid JSON with all required fields")
 
     except json.JSONDecodeError as e:
-        return Feedback(
-            error=e
-        )  # Can pass exception object directly to the error parameter
+        return Feedback(error=e)  # Can pass exception object directly to the error parameter
 ```
 
 The `error` parameter accepts:

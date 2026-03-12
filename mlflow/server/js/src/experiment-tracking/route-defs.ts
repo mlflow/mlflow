@@ -287,6 +287,24 @@ export const getRouteDefs = () => [
     } satisfies RouteHandle,
   },
   {
+    path: RoutePaths.experimentPageTabIssueDetectionRunDetailsWithTab,
+    element: createLazyRouteElement(() => import('./pages/experiment-evaluation-runs/IssueDetectionRunDetailsPage')),
+    pageId: 'mlflow.issue-detection-run-details',
+    handle: {
+      getPageTitle: (params) => `Issue Detection Run ${params['runUuid']}`,
+      getAssistantPrompts: () => ['Summarize this issue detection run.', 'What issues were detected?'],
+    } satisfies RouteHandle,
+  },
+  {
+    path: RoutePaths.experimentPageTabIssueDetectionRunDetails,
+    element: createLazyRouteElement(() => import('./pages/experiment-evaluation-runs/IssueDetectionRunDetailsPage')),
+    pageId: 'mlflow.issue-detection-run-details',
+    handle: {
+      getPageTitle: (params) => `Issue Detection Run ${params['runUuid']}`,
+      getAssistantPrompts: () => ['Summarize this issue detection run.', 'What issues were detected?'],
+    } satisfies RouteHandle,
+  },
+  {
     path: RoutePaths.runPageDirect,
     element: createLazyRouteElement(() => import('./components/DirectRunPage')),
     pageId: PageId.runPageDirect,

@@ -18,64 +18,62 @@ from tests.gateway.tools import MockAsyncResponse
 
 @pytest.fixture
 def client() -> TestClient:
-    config = GatewayConfig(
-        **{
-            "endpoints": [
-                {
-                    "name": "completions-gpt4",
-                    "endpoint_type": "llm/v1/completions",
-                    "model": {
-                        "name": "gpt-4",
-                        "provider": "openai",
-                        "config": {
-                            "openai_api_key": "mykey",
-                            "openai_api_base": "https://api.openai.com/v1",
-                            "openai_api_version": "2023-05-10",
-                            "openai_api_type": "openai",
-                        },
+    config = GatewayConfig(**{
+        "endpoints": [
+            {
+                "name": "completions-gpt4",
+                "endpoint_type": "llm/v1/completions",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "mykey",
+                        "openai_api_base": "https://api.openai.com/v1",
+                        "openai_api_version": "2023-05-10",
+                        "openai_api_type": "openai",
                     },
                 },
-                {
-                    "name": "chat-gpt4",
-                    "endpoint_type": "llm/v1/chat",
-                    "model": {
-                        "name": "gpt-4",
-                        "provider": "openai",
-                        "config": {
-                            "openai_api_key": "MY_API_KEY",
-                        },
+            },
+            {
+                "name": "chat-gpt4",
+                "endpoint_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "MY_API_KEY",
                     },
                 },
-                {
-                    "name": "chat-gpt5",
-                    "endpoint_type": "llm/v1/chat",
-                    "model": {
-                        "name": "gpt-5",
-                        "provider": "openai",
-                        "config": {
-                            "openai_api_key": "MY_API_KEY",
-                        },
+            },
+            {
+                "name": "chat-gpt5",
+                "endpoint_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-5",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "MY_API_KEY",
                     },
                 },
-            ],
-            "routes": [
-                {
-                    "name": "traffic_route1",
-                    "task_type": "llm/v1/chat",
-                    "destinations": [
-                        {
-                            "name": "chat-gpt4",
-                            "traffic_percentage": 80,
-                        },
-                        {
-                            "name": "chat-gpt5",
-                            "traffic_percentage": 20,
-                        },
-                    ],
-                },
-            ],
-        }
-    )
+            },
+        ],
+        "routes": [
+            {
+                "name": "traffic_route1",
+                "task_type": "llm/v1/chat",
+                "destinations": [
+                    {
+                        "name": "chat-gpt4",
+                        "traffic_percentage": 80,
+                    },
+                    {
+                        "name": "chat-gpt5",
+                        "traffic_percentage": 20,
+                    },
+                ],
+            },
+        ],
+    })
     app = create_app_from_config(config)
     return TestClient(app)
 
@@ -181,37 +179,35 @@ def test_get_route_v3(client: TestClient):
 
 
 def test_dynamic_route():
-    config = GatewayConfig(
-        **{
-            "endpoints": [
-                {
-                    "name": "chat",
-                    "endpoint_type": "llm/v1/chat",
-                    "model": {
-                        "name": "gpt-4",
-                        "provider": "openai",
-                        "config": {
-                            "openai_api_key": "mykey",
-                            "openai_api_base": "https://api.openai.com/v1",
-                        },
+    config = GatewayConfig(**{
+        "endpoints": [
+            {
+                "name": "chat",
+                "endpoint_type": "llm/v1/chat",
+                "model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "config": {
+                        "openai_api_key": "mykey",
+                        "openai_api_base": "https://api.openai.com/v1",
                     },
-                    "limit": None,
-                }
-            ],
-            "routes": [
-                {
-                    "name": "traffic_route",
-                    "task_type": "llm/v1/chat",
-                    "destinations": [
-                        {
-                            "name": "chat",
-                            "traffic_percentage": 100,
-                        }
-                    ],
-                }
-            ],
-        }
-    )
+                },
+                "limit": None,
+            }
+        ],
+        "routes": [
+            {
+                "name": "traffic_route",
+                "task_type": "llm/v1/chat",
+                "destinations": [
+                    {
+                        "name": "chat",
+                        "traffic_percentage": 100,
+                    }
+                ],
+            }
+        ],
+    })
     app = create_app_from_config(config)
     client = TestClient(app)
 

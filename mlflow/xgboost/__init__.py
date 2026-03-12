@@ -602,9 +602,9 @@ def autolog(
                 # Sort features and importance values by magnitude during transformation to a
                 # `num_features`-by-`num_classes` matrix
                 features = features[indices]
-                importances_per_class_by_feature = np.array(
-                    [[importance] for importance in importances_per_class_by_feature[indices]]
-                )
+                importances_per_class_by_feature = np.array([
+                    [importance] for importance in importances_per_class_by_feature[indices]
+                ])
                 # In this case, do not include class labels on the feature importance plot because
                 # only one importance value has been provided per feature, rather than an
                 # one importance value for each class per feature

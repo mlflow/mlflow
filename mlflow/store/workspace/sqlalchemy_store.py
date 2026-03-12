@@ -232,7 +232,8 @@ class SqlAlchemyStore(AbstractStore):
             if not hasattr(model, "name"):
                 continue
             overlapping = (
-                session.query(model.name)
+                session
+                .query(model.name)
                 .filter(model.workspace == workspace_name)
                 .filter(
                     model.name.in_(

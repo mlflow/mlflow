@@ -139,51 +139,37 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
           <Typography.Text bold>
             <FormattedMessage defaultMessage="Budget amount (USD)" description="Budget amount label" />
           </Typography.Text>
-          <Input
-            componentId="mlflow.gateway.create-budget-policy-modal.budget-amount"
-            value={formData.budgetAmount}
-            onChange={(e) => handleFieldChange('budgetAmount', e.target.value)}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'e.g., 100.00',
-              description: 'Budget amount placeholder',
-            })}
-            type="number"
-            min={0}
-            step="0.01"
-          />
-        </div>
-
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          <Typography.Text bold>
-            <FormattedMessage defaultMessage="Duration" description="Budget duration label" />
-          </Typography.Text>
-          <SimpleSelect
-            id="create-budget-policy-duration"
-            componentId="mlflow.gateway.create-budget-policy-modal.duration"
-            value={formData.duration}
-            onChange={({ target }) => handleFieldChange('duration', target.value as DurationPreset)}
-          >
-            <SimpleSelectOption value="DAILY">Daily</SimpleSelectOption>
-            <SimpleSelectOption value="WEEKLY">Weekly</SimpleSelectOption>
-            <SimpleSelectOption value="MONTHLY">Monthly</SimpleSelectOption>
-          </SimpleSelect>
+          <div css={{ maxWidth: 200 }}>
+            <Input
+              componentId="mlflow.gateway.create-budget-policy-modal.budget-amount"
+              value={formData.budgetAmount}
+              onChange={(e) => handleFieldChange('budgetAmount', e.target.value)}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'e.g., 100.00',
+                description: 'Budget amount placeholder',
+              })}
+              type="number"
+              min={0}
+              step="0.01"
+            />
+          </div>
         </div>
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
             <Typography.Text bold>
-              <FormattedMessage defaultMessage="On exceeded" description="Budget on exceeded label" />
+              <FormattedMessage defaultMessage="Reset period" description="Budget reset period label" />
             </Typography.Text>
             <Tooltip
-              componentId="mlflow.gateway.create-budget-policy-modal.on-exceeded-tooltip"
+              componentId="mlflow.gateway.create-budget-policy-modal.reset-period-tooltip"
               content={
                 <FormattedMessage
-                  defaultMessage="Alert sends a webhook notification. <link>Learn how to set up webhooks.</link>"
-                  description="Tooltip explaining budget exceeded actions and webhook setup"
+                  defaultMessage="<link>Learn more about budget time windows.</link>"
+                  description="Tooltip with link to budget time windows documentation"
                   values={{
                     link: (chunks: React.ReactNode) => (
                       <a
-                        href="https://mlflow.org/docs/latest/ml/webhooks/"
+                        href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/budget-alerts-limits#time-windows"
                         target="_blank"
                         rel="noopener noreferrer"
                         css={{ color: 'inherit', textDecoration: 'underline' }}
@@ -199,6 +185,22 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
             </Tooltip>
           </div>
           <SimpleSelect
+            id="create-budget-policy-duration"
+            componentId="mlflow.gateway.create-budget-policy-modal.duration"
+            value={formData.duration}
+            onChange={({ target }) => handleFieldChange('duration', target.value as DurationPreset)}
+          >
+            <SimpleSelectOption value="DAILY">Daily</SimpleSelectOption>
+            <SimpleSelectOption value="WEEKLY">Weekly</SimpleSelectOption>
+            <SimpleSelectOption value="MONTHLY">Monthly</SimpleSelectOption>
+          </SimpleSelect>
+        </div>
+
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text bold>
+            <FormattedMessage defaultMessage="On exceeded" description="Budget on exceeded label" />
+          </Typography.Text>
+          <SimpleSelect
             id="create-budget-policy-on-exceeded"
             componentId="mlflow.gateway.create-budget-policy-modal.on-exceeded"
             value={formData.budgetAction}
@@ -207,6 +209,18 @@ export const CreateBudgetPolicyModal = ({ open, onClose, onSuccess }: CreateBudg
             <SimpleSelectOption value="ALERT">Alert</SimpleSelectOption>
             <SimpleSelectOption value="REJECT">Reject requests</SimpleSelectOption>
           </SimpleSelect>
+          {formData.budgetAction === 'ALERT' && (
+            <Alert
+              componentId="mlflow.gateway.create-budget-policy-modal.alert-webhook-info"
+              type="info"
+              closable={false}
+              message={intl.formatMessage({
+                defaultMessage:
+                  "Please ensure you have a webhook configured to receive budget alert events. You can create one in the 'Budget alert webhooks' section on this page.",
+                description: 'Info message when alert action is selected for budget policy',
+              })}
+            />
+          )}
         </div>
       </div>
     </Modal>

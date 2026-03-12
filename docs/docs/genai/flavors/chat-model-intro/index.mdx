@@ -269,9 +269,7 @@ with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         name="ollama_model",
         python_model=code_path,
-        input_example={
-            "messages": [{"role": "user", "content": "Hello, how are you?"}]
-        },
+        input_example={"messages": [{"role": "user", "content": "Hello, how are you?"}]},
     )
 ```
 
@@ -326,13 +324,11 @@ for many of the most commonly-used inference parameters, and we will see how to 
 When using a ChatModel, parameters are passed alongside messages in the input:
 
 ```python
-result = model.predict(
-    {
-        "messages": [{"role": "user", "content": "Write a story"}],
-        "max_tokens": 100,
-        "temperature": 0.7,
-    }
-)
+result = model.predict({
+    "messages": [{"role": "user", "content": "Write a story"}],
+    "max_tokens": 100,
+    "temperature": 0.7,
+})
 ```
 
 You can find the full list of supported parameters <APILink fn="mlflow.types.llm.ChatParams">here</APILink>.
@@ -421,9 +417,7 @@ class OllamaModelWithMetadata(ChatModel):
         return Options(options)
 
     def predict(self, context, messages, params=None):
-        ollama_messages = [
-            {"role": msg.role, "content": msg.content} for msg in messages
-        ]
+        ollama_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
         options = self._prepare_options(params)
 
         # Call Ollama
@@ -461,9 +455,7 @@ with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         name="ollama_model",
         python_model=code_path,
-        input_example={
-            "messages": [{"role": "user", "content": "Hello, how are you?"}]
-        },
+        input_example={"messages": [{"role": "user", "content": "Hello, how are you?"}]},
     )
 
 loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -621,9 +613,7 @@ class OllamaPyfunc(PythonModel):
             messages = model_input.get("messages", [])
 
         options = self._prepare_options(params)
-        ollama_messages = [
-            {"role": msg["role"], "content": msg["content"]} for msg in messages
-        ]
+        ollama_messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
 
         response = self.client.chat(
             model=self.model_name, messages=ollama_messages, options=options
@@ -633,9 +623,7 @@ class OllamaPyfunc(PythonModel):
             choices=[
                 ChatChoice(
                     index=0,
-                    message=ChatMessage(
-                        role="assistant", content=response["message"]["content"]
-                    ),
+                    message=ChatMessage(role="assistant", content=response["message"]["content"]),
                 )
             ],
             model=self.model_name,

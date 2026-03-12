@@ -435,31 +435,25 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         template_variables: dict[str, set[str]],
     ) -> str:
         # Format the current prompts for each module
-        prompts_formatted = "\n\n".join(
-            [
-                f"Prompt name: {name}\nTemplate: {template}"
-                for name, template in current_prompts.items()
-            ]
-        )
+        prompts_formatted = "\n\n".join([
+            f"Prompt name: {name}\nTemplate: {template}"
+            for name, template in current_prompts.items()
+        ])
 
         # Format template variables
-        vars_formatted = "\n".join(
-            [
-                f"- Prompt '{name}': {', '.join(sorted(vars)) if vars else 'none'}"
-                for name, vars in template_variables.items()
-            ]
-        )
+        vars_formatted = "\n".join([
+            f"- Prompt '{name}': {', '.join(sorted(vars)) if vars else 'none'}"
+            for name, vars in template_variables.items()
+        ])
 
         # Add custom guidelines to the meta-prompt if provided
         custom_guidelines = f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
 
         # Format example JSON response with actual prompt names
-        response_format_example = "\n".join(
-            [
-                f'  "{name}": "improved prompt text with variables preserved exactly"'
-                for name in current_prompts.keys()
-            ]
-        )
+        response_format_example = "\n".join([
+            f'  "{name}": "improved prompt text with variables preserved exactly"'
+            for name in current_prompts.keys()
+        ])
 
         return META_PROMPT_TEMPLATE.format(
             current_prompts_formatted=prompts_formatted,
@@ -478,12 +472,10 @@ class MetaPromptOptimizer(BasePromptOptimizer):
     ) -> str:
         """Build few-shot meta-prompt with evaluation feedback."""
         # Format current prompts
-        prompts_formatted = "\n\n".join(
-            [
-                f"Prompt name: {name}\nTemplate: {template}"
-                for name, template in current_prompts.items()
-            ]
-        )
+        prompts_formatted = "\n\n".join([
+            f"Prompt name: {name}\nTemplate: {template}"
+            for name, template in current_prompts.items()
+        ])
 
         if not eval_results:
             raise MlflowException(
@@ -498,23 +490,19 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         examples_formatted = self._format_examples(eval_results)
 
         # Format template variables
-        vars_formatted = "\n".join(
-            [
-                f"- Prompt '{name}': {', '.join(sorted(vars)) if vars else 'none'}"
-                for name, vars in template_variables.items()
-            ]
-        )
+        vars_formatted = "\n".join([
+            f"- Prompt '{name}': {', '.join(sorted(vars)) if vars else 'none'}"
+            for name, vars in template_variables.items()
+        ])
 
         # Add custom guidelines to the meta-prompt if provided
         custom_guidelines = f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
 
         # Format example JSON response with actual prompt names
-        response_format_example = "\n".join(
-            [
-                f'  "{name}": "improved prompt text with variables preserved exactly"'
-                for name in current_prompts.keys()
-            ]
-        )
+        response_format_example = "\n".join([
+            f'  "{name}": "improved prompt text with variables preserved exactly"'
+            for name in current_prompts.keys()
+        ])
 
         # Build evaluation examples section (with or without score)
         if current_score is not None:

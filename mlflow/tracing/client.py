@@ -8,6 +8,7 @@ from typing import Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
+from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
@@ -379,6 +380,19 @@ class TracingClient:
 
         return PagedList(traces, next_token)
 
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+        """
+        Retrieve multiple traces by their IDs.
+
+        Args:
+            trace_ids: List of trace IDs to retrieve.
+            location: Optional location (e.g., "catalog.schema" for UC schema) to search for traces.
+
+        Returns:
+            List of Trace objects.
+        """
+        return self.store.batch_get_traces(trace_ids, location)
+
     def _download_spans_from_batch_get_traces(
         self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
     ) -> list[Trace]:
@@ -747,3 +761,53 @@ class TracingClient:
             raise MlflowException(
                 "Clearing storage location is not supported on non-Databricks backends."
             )
+
+    def _create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue in the tracking store.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status. Defaults to IssueStatus.PENDING if not provided.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        return self.store.create_issue(
+            experiment_id=experiment_id,
+            name=name,
+            description=description,
+            status=status,
+            severity=severity,
+            root_causes=root_causes,
+            source_run_id=source_run_id,
+            created_by=created_by,
+        )
+
+    def _get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        return self.store.get_issue(issue_id)

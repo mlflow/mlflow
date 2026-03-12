@@ -6,6 +6,10 @@ description: Learn how to define structured output schemas for your prompts to e
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { PenLine, Code, FlaskConical } from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import { APILink } from "@site/src/components/APILink";
 
 # Structured Output
 
@@ -27,63 +31,105 @@ Structured output allows you to:
 
 ## Basic Usage
 
-### Using Pydantic Models
+<TabsWrapper>
+<Tabs>
+  <TabItem value="ui" label="UI" default>
+    <div class="flex-column">
+      In the MLflow UI, you can define structured output when creating or editing a prompt:
 
-The most common way to define structured output is using Pydantic models:
+      1. Navigate to the Prompt Registry and open a prompt (or create a new one).
+      2. Expand **Advanced settings**.
+      3. In the **Structured output (JSON schema)** field, enter a JSON object describing the expected response shape.
 
-```python
-import mlflow
-from pydantic import BaseModel
-from typing import List
+      For example, a simple schema with a single string field:
 
-
-class SummaryResponse(BaseModel):
-    summary: str
-    key_points: List[str]
-    word_count: int
-
-
-# Register prompt with structured output
-prompt = mlflow.genai.register_prompt(
-    name="summarization-prompt",
-    template="Summarize the following text in {{ num_sentences }} sentences: {{ text }}",
-    response_format=SummaryResponse,
-    commit_message="Added structured output for summarization",
-    tags={"task": "summarization", "structured": "true"},
-)
-```
-
-### Using JSON Schema
-
-You can also define response formats using JSON schema dictionaries:
-
-```python
-import mlflow
-
-# Define response format as JSON schema
-response_schema = {
-    "type": "object",
-    "properties": {
-        "answer": {"type": "string", "description": "The main answer"},
-        "confidence": {"type": "number", "description": "Confidence score (0-1)"},
-        "sources": {
-            "type": "array",
-            "items": {"type": "string"},
-            "description": "List of source references",
+      ```json
+      {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string",
+            "description": "Summary of the content."
+          }
         },
-    },
-    "required": ["answer", "confidence"],
-}
+        "required": ["summary"],
+        "additionalProperties": false
+      }
+      ```
+      ![Register prompt with structured output](/images/llms/prompt-registry/create-prompt-with-structured-output.png)
 
-# Register prompt with JSON schema
-prompt = mlflow.genai.register_prompt(
-    name="qa-prompt",
-    template="Answer the following question: {{ question }}",
-    response_format=response_schema,
-    commit_message="Added structured output for Q&A",
-    tags={"task": "qa", "structured": "true"},
-)
-```
+      :::tip
+      When using providers such as OpenAI with strict structured output, include `"additionalProperties": false` on each object in your schema so the response conforms to the expected shape.
+      :::
+    </div>
+
+  </TabItem>
+  <TabItem value="python" label="Python">
+    <div class="flex-column">
+      Use the <APILink fn="mlflow.genai.register_prompt" /> function with the `response_format` parameter to define structured output programmatically.
+
+      ### Using Pydantic Models
+
+      The most common way to define structured output is using Pydantic models:
+
+      ```python
+      import mlflow
+      from pydantic import BaseModel
+      from typing import List
+
+
+      class SummaryResponse(BaseModel):
+          summary: str
+          key_points: List[str]
+          word_count: int
+
+
+      # Register prompt with structured output
+      prompt = mlflow.genai.register_prompt(
+          name="summarization-prompt",
+          template="Summarize the following text in {{ num_sentences }} sentences: {{ text }}",
+          response_format=SummaryResponse,
+          commit_message="Added structured output for summarization",
+          tags={"task": "summarization", "structured": "true"},
+      )
+      ```
+
+      ### Using JSON Schema
+
+      You can also define response formats using JSON schema dictionaries:
+
+      ```python
+      import mlflow
+
+      # Define response format as JSON schema
+      response_schema = {
+          "type": "object",
+          "properties": {
+              "answer": {"type": "string", "description": "The main answer"},
+              "confidence": {"type": "number", "description": "Confidence score (0-1)"},
+              "sources": {
+                  "type": "array",
+                  "items": {"type": "string"},
+                  "description": "List of source references",
+              },
+          },
+          "required": ["answer", "confidence"],
+      }
+
+      # Register prompt with JSON schema
+      prompt = mlflow.genai.register_prompt(
+          name="qa-prompt",
+          template="Answer the following question: {{ question }}",
+          response_format=response_schema,
+          commit_message="Added structured output for Q&A",
+          tags={"task": "qa", "structured": "true"},
+      )
+      ```
+    </div>
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Advanced Examples
 
@@ -186,9 +232,7 @@ prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/1")
 # Use with OpenAI's response_format parameter
 response = client.chat.completions.create(
     model="gpt-4.1",
-    messages=[
-        {"role": "user", "content": prompt.format(num_sentences=3, text="Your text")}
-    ],
+    messages=[{"role": "user", "content": prompt.format(num_sentences=3, text="Your text")}],
     response_format=prompt.response_format,  # OpenAI's structured output
 )
 

@@ -25,9 +25,7 @@ mlflow.log_feedback(
     name="user_satisfaction",
     value=True,
     rationale="User indicated response was helpful",
-    source=AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN, source_id="user_123"
-    ),
+    source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user_123"),
 )
 ```
 

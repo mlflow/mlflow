@@ -10,18 +10,16 @@ from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.tracing.helper import get_traces, purge_traces, reset_autolog_state  # noqa: F401
 
-_EVAL_DATA = pd.DataFrame(
-    {
-        "inputs": [
-            "What is MLflow?",
-            "What is Spark?",
-        ],
-        "ground_truth": [
-            "MLflow is an open-source platform to manage the ML lifecycle.",
-            "Spark is a unified analytics engine for big data processing.",
-        ],
-    }
-)
+_EVAL_DATA = pd.DataFrame({
+    "inputs": [
+        "What is MLflow?",
+        "What is Spark?",
+    ],
+    "ground_truth": [
+        "MLflow is an open-source platform to manage the ML lifecycle.",
+        "Spark is a unified analytics engine for big data processing.",
+    ],
+})
 
 
 @pytest.fixture
@@ -49,7 +47,8 @@ def test_openai_evaluate(client, config):
 
     def model(inputs):
         return [
-            client.chat.completions.create(
+            client.chat.completions
+            .create(
                 messages=[{"role": "user", "content": question}],
                 model="gpt-4o-mini",
                 temperature=0.0,
@@ -116,7 +115,8 @@ def test_openai_evaluate_should_not_log_traces_when_disabled(client, globally_di
 
     def model(inputs):
         return [
-            client.chat.completions.create(
+            client.chat.completions
+            .create(
                 messages=[{"role": "user", "content": question}],
                 model="gpt-4o-mini",
                 temperature=0.0,

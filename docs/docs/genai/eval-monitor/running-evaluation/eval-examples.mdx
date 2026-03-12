@@ -14,9 +14,7 @@ from mlflow.genai.scorers import Correctness, Safety
 from my_app import agent  # Your app with tracing
 
 # Load versioned evaluation dataset
-dataset = mlflow.genai.datasets.get_dataset(
-    dataset_id="d-7f2e3a9b8c1d4e5f6a7b8c9d0e1f2a3b"
-)
+dataset = mlflow.genai.datasets.get_dataset(dataset_id="d-7f2e3a9b8c1d4e5f6a7b8c9d0e1f2a3b")
 
 # Run evaluation
 results = mlflow.genai.evaluate(
@@ -45,15 +43,11 @@ eval_data = [
     },
     {
         "inputs": {"question": "How do I track experiments?"},
-        "expectations": {
-            "expected_facts": ["mlflow.start_run()", "log metrics", "log parameters"]
-        },
+        "expectations": {"expected_facts": ["mlflow.start_run()", "log metrics", "log parameters"]},
     },
     {
         "inputs": {"question": "What are MLflow's main components?"},
-        "expectations": {
-            "expected_facts": ["Tracking", "Projects", "Models", "Registry"]
-        },
+        "expectations": {"expected_facts": ["Tracking", "Projects", "Models", "Registry"]},
     },
 ]
 
@@ -78,22 +72,16 @@ from mlflow.genai.scorers import Correctness, Safety
 from my_app import agent  # Your app with tracing
 
 # Create evaluation data as a Pandas DataFrame
-eval_df = pd.DataFrame(
-    [
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "expectations": {
-                "expected_response": "MLflow is an open-source AI engineering platform"
-            },
-        },
-        {
-            "inputs": {"question": "How do I log metrics?"},
-            "expectations": {
-                "expected_response": "Use mlflow.log_metric() to log metrics"
-            },
-        },
-    ]
-)
+eval_df = pd.DataFrame([
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "expectations": {"expected_response": "MLflow is an open-source AI engineering platform"},
+    },
+    {
+        "inputs": {"question": "How do I log metrics?"},
+        "expectations": {"expected_response": "Use mlflow.log_metric() to log metrics"},
+    },
+])
 
 # Run evaluation
 results = mlflow.genai.evaluate(

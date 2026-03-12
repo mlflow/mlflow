@@ -1524,18 +1524,16 @@ def _convert_spec_type_to_spark_type(spec_type):
         return ArrayType(_convert_spec_type_to_spark_type(spec_type.dtype))
 
     if isinstance(spec_type, Object):
-        return StructType(
-            [
-                StructField(
-                    property.name,
-                    _convert_spec_type_to_spark_type(property.dtype),
-                    # we set nullable to True for all properties
-                    # to avoid some errors like java.lang.NullPointerException
-                    # when the signature is not inferred based on correct data.
-                )
-                for property in spec_type.properties
-            ]
-        )
+        return StructType([
+            StructField(
+                property.name,
+                _convert_spec_type_to_spark_type(property.dtype),
+                # we set nullable to True for all properties
+                # to avoid some errors like java.lang.NullPointerException
+                # when the signature is not inferred based on correct data.
+            )
+            for property in spec_type.properties
+        ])
 
     # Map only supports string as key
     if isinstance(spec_type, Map):
@@ -1584,12 +1582,10 @@ def _infer_spark_udf_return_type(model_output_schema):
     if len(model_output_schema.inputs) == 1:
         return _cast_output_spec_to_spark_type(model_output_schema.inputs[0])
 
-    return StructType(
-        [
-            StructField(name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec))
-            for i, spec in enumerate(model_output_schema.inputs)
-        ]
-    )
+    return StructType([
+        StructField(name=spec.name or str(i), dataType=_cast_output_spec_to_spark_type(spec))
+        for i, spec in enumerate(model_output_schema.inputs)
+    ])
 
 
 def _parse_spark_datatype(datatype: str):
@@ -1604,7 +1600,8 @@ def _parse_spark_datatype(datatype: str):
         # returns UnparsedDataType, which is not compatible with signature inference.
         # Note: SparkSession.active only exists for spark >= 3.5.0
         schema = (
-            SparkSession.active()
+            SparkSession
+            .active()
             .range(0)
             .select(udf(lambda x: x, returnType=return_type)("id"))
             .schema
@@ -1760,27 +1757,22 @@ def _convert_struct_values(
                 field_values = _convert_array_values(field_values, field_type)
         elif isinstance(field_type, StructType):
             if is_pandas_df:
-                field_values = pandas.Series(
-                    [
-                        _convert_struct_values(field_value, field_type)
-                        for field_value in field_values
-                    ]
-                )
+                field_values = pandas.Series([
+                    _convert_struct_values(field_value, field_type) for field_value in field_values
+                ])
             else:
                 if isinstance(field_values, pydantic.BaseModel):
                     field_values = field_values.model_dump()
                 field_values = _convert_struct_values(field_values, field_type)
         elif isinstance(field_type, MapType):
             if is_pandas_df:
-                field_values = pandas.Series(
-                    [
-                        {
-                            key: _convert_value_based_on_spark_type(value, field_type.valueType)
-                            for key, value in field_value.items()
-                        }
-                        for field_value in field_values
-                    ]
-                ).astype(object)
+                field_values = pandas.Series([
+                    {
+                        key: _convert_value_based_on_spark_type(value, field_type.valueType)
+                        for key, value in field_value.items()
+                    }
+                    for field_value in field_values
+                ]).astype(object)
             else:
                 field_values = {
                     key: _convert_value_based_on_spark_type(value, field_type.valueType)
@@ -2537,9 +2529,13 @@ e.g., struct<a:int, b:array<int>>.
 
         elem_type = result_type.elementType if isinstance(result_type, ArrayType) else result_type
         if type(elem_type) == IntegerType:
-            result = result.select_dtypes(
-                [np.byte, np.ubyte, np.short, np.ushort, np.int32]
-            ).astype(np.int32)
+            result = result.select_dtypes([
+                np.byte,
+                np.ubyte,
+                np.short,
+                np.ushort,
+                np.int32,
+            ]).astype(np.int32)
 
         elif type(elem_type) == LongType:
             result = result.select_dtypes([np.byte, np.ubyte, np.short, np.ushort, int]).astype(
@@ -2857,6 +2853,8 @@ def save_model(
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
     uv_project_path: str | Path | None = None,
+    uv_groups: list[str] | None = None,
+    uv_extras: list[str] | None = None,
     **kwargs,
 ):
     """
@@ -3051,6 +3049,18 @@ def save_model(
 
             Auto-detection can be disabled by setting the environment variable
             ``MLFLOW_UV_AUTO_DETECT=false``.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        uv_groups: Optional list of uv dependency groups to include when exporting
+            requirements from the uv lockfile. Maps to ``uv export --group <name>``.
+            These are additive with the project's default dependencies.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        uv_extras: Optional list of uv extras (optional dependency sets) to include
+            when exporting requirements from the uv lockfile. Maps to
+            ``uv export --extra <name>``.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -3372,6 +3382,8 @@ def save_model(
             streamable=streamable,
             infer_code_paths=infer_code_paths,
             uv_project_path=uv_project_path,
+            uv_groups=uv_groups,
+            uv_extras=uv_extras,
         )
     elif second_argument_set_specified:
         return mlflow.pyfunc.model._save_model_with_class_artifacts_params(
@@ -3389,6 +3401,8 @@ def save_model(
             model_code_path=model_code_path,
             infer_code_paths=infer_code_paths,
             uv_project_path=uv_project_path,
+            uv_groups=uv_groups,
+            uv_extras=uv_extras,
         )
 
 
@@ -3427,6 +3441,8 @@ def log_model(
     resources: str | list[Resource] | None = None,
     auth_policy: AuthPolicy | None = None,
     uv_project_path: str | Path | None = None,
+    uv_groups: list[str] | None = None,
+    uv_extras: list[str] | None = None,
     prompts: list[str | Prompt] | None = None,
     name=None,
     params: dict[str, Any] | None = None,
@@ -3643,6 +3659,18 @@ def log_model(
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+        uv_groups: Optional list of uv dependency groups to include when exporting
+            requirements from the uv lockfile. Maps to ``uv export --group <name>``.
+            These are additive with the project's default dependencies.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
+        uv_extras: Optional list of uv extras (optional dependency sets) to include
+            when exporting requirements from the uv lockfile. Maps to
+            ``uv export --extra <name>``.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -3680,6 +3708,8 @@ def log_model(
         infer_code_paths=infer_code_paths,
         auth_policy=auth_policy,
         uv_project_path=uv_project_path,
+        uv_groups=uv_groups,
+        uv_extras=uv_extras,
         params=params,
         tags=tags,
         model_type=model_type,
@@ -3719,6 +3749,8 @@ def _save_model_with_loader_module_and_data_path(
     streamable=None,
     infer_code_paths=False,
     uv_project_path=None,
+    uv_groups=None,
+    uv_extras=None,
 ):
     """
     Export model as a generic Python function model.
@@ -3800,6 +3832,8 @@ def _save_model_with_loader_module_and_data_path(
                 fallback=default_reqs,
                 extra_env_vars=extra_env_vars,
                 uv_project_dir=uv_source_dir,
+                uv_groups=uv_groups,
+                uv_extras=uv_extras,
             )
             default_reqs = sorted(set(inferred_reqs).union(default_reqs))
         else:

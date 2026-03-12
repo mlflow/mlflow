@@ -1311,9 +1311,10 @@ def test_parse_search_registered_models_order_by():
     # test that an exception is raised when order_by contains duplicate fields
     msg = "`order_by` contains duplicate fields:"
     with pytest.raises(MlflowException, match=msg):
-        SqlAlchemyStore._parse_search_registered_models_order_by(
-            ["last_updated_timestamp", "last_updated_timestamp"]
-        )
+        SqlAlchemyStore._parse_search_registered_models_order_by([
+            "last_updated_timestamp",
+            "last_updated_timestamp",
+        ])
 
     with pytest.raises(MlflowException, match=msg):
         SqlAlchemyStore._parse_search_registered_models_order_by(["timestamp", "timestamp"])

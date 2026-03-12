@@ -86,6 +86,7 @@ export const MLFLOW_RUN_COLOR_TAG = 'mlflow.runColor';
 export const MLFLOW_RUN_SOURCE_TYPE_TAG = 'mlflow.runSourceType';
 export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 export const MLFLOW_RUN_IS_ISSUE_DETECTION_TAG = 'mlflow.run.isIssueDetection';
+export const MLFLOW_ISSUE_DETECTION_JOB_ID_TAG = 'mlflow.issueDetection.jobId';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
 export const MLFLOW_PROMPT_VERSION_COUNT_TAG = 'PromptVersionCount';
@@ -101,6 +102,7 @@ export const MLFLOW_PROMPT_ENGINEERING_ARTIFACT_NAME = 'eval_results_table.json'
 export enum RunPageTabName {
   OVERVIEW = 'overview',
   TRACES = 'traces',
+  ISSUES = 'issues',
   MODEL_METRIC_CHARTS = 'model-metrics',
   SYSTEM_METRIC_CHARTS = 'system-metrics',
   ARTIFACTS = 'artifacts',

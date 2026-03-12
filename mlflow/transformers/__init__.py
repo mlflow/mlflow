@@ -97,6 +97,7 @@ from mlflow.transformers.signature import (
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils import _truncate_and_ellipsize
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     disable_discrete_autologging,
@@ -401,20 +402,15 @@ def save_model(
             .. code-block:: python
                 :caption: Example
 
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
                 from transformers import pipeline
 
                 en_to_de = pipeline("translation_en_to_de")
 
                 data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
 
                 mlflow.transformers.save_model(
                     transformers_model=en_to_de,
                     path="/path/to/save/model",
-                    signature=signature,
                     input_example=data,
                 )
 
@@ -912,21 +908,16 @@ def log_model(
             .. code-block:: python
                 :caption: Example
 
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
                 from transformers import pipeline
 
                 en_to_de = pipeline("translation_en_to_de")
 
                 data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
 
                 with mlflow.start_run() as run:
                     mlflow.transformers.log_model(
                         transformers_model=en_to_de,
                         name="english_to_german_translator",
-                        signature=signature,
                         input_example=data,
                     )
 
@@ -1737,11 +1728,22 @@ def _is_question_answering_pipeline(pipeline):
         return getattr(pipeline, "task", None) == "question-answering"
 
 
+@deprecated(
+    since="3.11.0",
+    impact="Signatures are now automatically inferred when `input_example` is provided "
+    "to `mlflow.transformers.log_model()` or `mlflow.transformers.save_model()`. "
+    "This method will be removed in a future release.",
+)
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
     as a ``pyfunc`` model without having to incur a write to disk.
+
+    .. deprecated:: 3.11.0
+        Use the ``input_example`` parameter in
+        :func:`mlflow.transformers.log_model()` or :func:`mlflow.transformers.save_model()`
+        instead. Signatures are now automatically inferred when ``input_example`` is provided.
 
     Args:
         pipeline: A ``transformers`` pipeline object. Note that component-level or model-level
@@ -1766,7 +1768,9 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return signature.generate_signature_output(pipeline, data, model_config, params)
+    return signature.generate_signature_output(
+        pipeline, data, model_config=model_config, params=params, flavor_config=flavor_config
+    )
 
 
 class _TransformersWrapper:
@@ -2371,9 +2375,11 @@ class _TransformersWrapper:
         flattened_data = []
         for entry in data:
             for label, score in zip(entry["labels"], entry["scores"]):
-                flattened_data.append(
-                    {"sequence": entry["sequence"], "labels": label, "scores": score}
-                )
+                flattened_data.append({
+                    "sequence": entry["sequence"],
+                    "labels": label,
+                    "scores": score,
+                })
         return pd.DataFrame(flattened_data)
 
     def _strip_input_from_response_in_instruction_pipelines(

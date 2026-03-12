@@ -223,9 +223,7 @@ eval_data = [
 def evaluate_response(response, expected_keywords):
     """Simple keyword-based evaluation."""
     response_lower = response.lower()
-    keyword_matches = sum(
-        1 for keyword in expected_keywords if keyword.lower() in response_lower
-    )
+    keyword_matches = sum(1 for keyword in expected_keywords if keyword.lower() in response_lower)
     coverage_score = keyword_matches / len(expected_keywords)
     response_length = len(response.split())
 
@@ -240,30 +238,24 @@ def evaluate_response(response, expected_keywords):
 evaluation_results = []
 for i, (output, eval_item) in enumerate(zip(outputs, eval_data)):
     metrics = evaluate_response(output, eval_item["expected_keywords"])
-    evaluation_results.append(
-        {
-            "question": eval_item["question"],
-            "response": output,
-            "keyword_coverage": metrics["keyword_coverage"],
-            "response_length": metrics["response_length"],
-            "keyword_matches": metrics["keyword_matches"],
-        }
-    )
+    evaluation_results.append({
+        "question": eval_item["question"],
+        "response": output,
+        "keyword_coverage": metrics["keyword_coverage"],
+        "response_length": metrics["response_length"],
+        "keyword_matches": metrics["keyword_matches"],
+    })
 
     print(
-        f"Question {i+1}: {metrics['keyword_matches']}/{len(eval_item['expected_keywords'])} keywords found"
+        f"Question {i + 1}: {metrics['keyword_matches']}/{len(eval_item['expected_keywords'])} keywords found"
     )
     print(f"Coverage: {metrics['keyword_coverage']:.1%}")
     print(f"Response length: {metrics['response_length']} words\n")
 
 # Log evaluation metrics
 with mlflow.start_run():
-    avg_coverage = sum(r["keyword_coverage"] for r in evaluation_results) / len(
-        evaluation_results
-    )
-    avg_length = sum(r["response_length"] for r in evaluation_results) / len(
-        evaluation_results
-    )
+    avg_coverage = sum(r["keyword_coverage"] for r in evaluation_results) / len(evaluation_results)
+    avg_length = sum(r["response_length"] for r in evaluation_results) / len(evaluation_results)
 
     mlflow.log_metric("avg_keyword_coverage", avg_coverage)
     mlflow.log_metric("avg_response_length", avg_length)

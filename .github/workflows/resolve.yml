@@ -119,8 +119,12 @@ jobs:
         env:
           COMMENT_BODY: ${{ github.event.comment.body }}
         run: |
-          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve\s*||' | xargs)
-          echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
+          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve||')
+          {
+            echo 'prompt<<PROMPT_EOF'
+            echo "$PROMPT"
+            echo 'PROMPT_EOF'
+          } >> "$GITHUB_OUTPUT"
 
   resolve:
     needs: precheck
@@ -161,7 +165,7 @@ jobs:
 
       - name: Install Claude CLI
         run: |
-          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.29
+          curl -fsSL https://claude.ai/install.sh | bash -s 2.1.71
 
       - name: Run Claude resolve command
         id: claude-fix
@@ -176,7 +180,8 @@ jobs:
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
           ARGS=("/resolve")
           [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
-          timeout 10m claude --model claude-opus-4-5-20251101 --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" || true
+          # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
+          timeout 10m claude --model claude-opus-4-6 --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" || true
 
           # Display output in workflow logs (pretty print if valid JSON)
           echo "=== Claude Output ==="

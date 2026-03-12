@@ -18,7 +18,9 @@ HOOK_FIELD_COMMAND = "command"
 ENVIRONMENT_FIELD = "env"
 
 # MLflow environment variable constants
-MLFLOW_HOOK_IDENTIFIER = "mlflow.claude_code.hooks"
+MLFLOW_HOOK_IDENTIFIER = "mlflow autolog claude"
+# Legacy identifier used in older versions (inline python -c commands)
+MLFLOW_LEGACY_HOOK_IDENTIFIER = "mlflow.claude_code.hooks"
 MLFLOW_TRACING_ENABLED = "MLFLOW_CLAUDE_TRACING_ENABLED"
 
 

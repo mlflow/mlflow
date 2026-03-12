@@ -89,22 +89,20 @@ class MlflowArtifactsRepository(HttpArtifactRepository):
             resolved = f"{track_parse.path}/{base_url}/{uri_parse.path}"
         resolved = re.sub(r"//+", "/", resolved)
 
-        resolved_artifacts_uri = urlunparse(
-            (
-                # scheme
-                track_parse.scheme,
-                # netloc
-                uri_parse.netloc or track_parse.netloc,
-                # path
-                resolved,
-                # params
-                "",
-                # query
-                "",
-                # fragment
-                "",
-            )
-        )
+        resolved_artifacts_uri = urlunparse((
+            # scheme
+            track_parse.scheme,
+            # netloc
+            uri_parse.netloc or track_parse.netloc,
+            # path
+            resolved,
+            # params
+            "",
+            # query
+            "",
+            # fragment
+            "",
+        ))
 
         return resolved_artifacts_uri.replace("///", "/").rstrip("/")
 

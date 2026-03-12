@@ -83,7 +83,7 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
 
         Quality assessment is a critical part of building high-quality LLM applications and AI agents, however, it is often time-consuming and requires human expertise. LLMs are powerful tools to automate quality assessment.
 
-        MLflow offers various built-in LLM-as-a-Judge scorers to help automate the process, as well as a flexible toolset to build your own LLM judges with ease.
+        MLflow offers various built-in [LLM-as-a-Judge](https://mlflow.org/llm-evaluation) scorers to help automate the process, as well as a flexible toolset to build your own LLM judges with ease.
 
         [Learn more →](/genai/eval-monitor)
 
@@ -105,7 +105,7 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
 
         Systematically assessing and improving the quality of LLM applications and AI agents is a challenge. MLflow provides a comprehensive set of tools to help you evaluate and enhance the quality of your applications.
 
-        Being the industry's most-trusted open source AI engineering platform for agents and LLM applications, MLflow provides a strong foundation for tracking your evaluation results and effectively collaborating with your team.
+        Being the industry's most-trusted open source [AI engineering platform](https://mlflow.org/genai) for agents and LLM applications, MLflow provides a strong foundation for tracking your evaluation results and effectively collaborating with your team.
 
         [Learn more →](/genai/eval-monitor/quickstart)
 
@@ -125,7 +125,7 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
 
         #### Monitor Applications in Production
 
-        Understanding and optimizing LLM application and AI agent performance is crucial for efficient operations. MLflow Tracing captures key metrics like latency and token usage at each step, as well as various quality metrics, helping you identify bottlenecks, monitor efficiency, and find optimization opportunities.
+        Understanding and optimizing LLM application and AI agent performance is crucial for efficient operations. [MLflow Tracing](https://mlflow.org/llm-tracing) captures key metrics like latency and token usage at each step, as well as various quality metrics, helping you identify bottlenecks, monitor efficiency, and find optimization opportunities.
 
         [Learn more →](/genai/tracing/prod-tracing)
 
@@ -192,9 +192,7 @@ dataset = [
     },
     {
         "inputs": {"question": "Can MLflow create a taco for my lunch?"},
-        "expectations": {
-            "expected_response": "No, unfortunately, MLflow is not a taco maker."
-        },
+        "expectations": {"expected_response": "No, unfortunately, MLflow is not a taco maker."},
     },
 ]
 

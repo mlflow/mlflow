@@ -399,9 +399,9 @@ class Object(BaseType):
             not isinstance(prop, dict) for prop in kwargs["properties"].values()
         ):
             raise MlflowException("Expected properties to be a dictionary of Property JSON")
-        return cls(
-            [Property.from_json_dict(**{name: prop}) for name, prop in kwargs["properties"].items()]
-        )
+        return cls([
+            Property.from_json_dict(**{name: prop}) for name, prop in kwargs["properties"].items()
+        ])
 
     def _merge(self, other: BaseType) -> Object:
         """
@@ -1079,14 +1079,12 @@ class Schema:
             return self.inputs[0].type.to_spark()
         from pyspark.sql.types import StructField, StructType
 
-        return StructType(
-            [
-                StructField(
-                    name=col.name or str(i), dataType=col.type.to_spark(), nullable=not col.required
-                )
-                for i, col in enumerate(self.inputs)
-            ]
-        )
+        return StructType([
+            StructField(
+                name=col.name or str(i), dataType=col.type.to_spark(), nullable=not col.required
+            )
+            for i, col in enumerate(self.inputs)
+        ])
 
     def to_json(self) -> str:
         """Serialize into json string."""

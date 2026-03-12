@@ -62,15 +62,13 @@ def test_langgraph_model_invoke_with_dictionary_params(monkeypatch):
             name="model",
             input_example=(input_example, params),
         )
-    assert model_info.signature.params == ParamSchema(
-        [
-            ParamSpec(
-                "config",
-                Object([Property("configurable", Object([Property("thread_id", "string")]))]),
-                params["config"],
-            )
-        ]
-    )
+    assert model_info.signature.params == ParamSchema([
+        ParamSpec(
+            "config",
+            Object([Property("configurable", Object([Property("thread_id", "string")]))]),
+            params["config"],
+        )
+    ])
     langchain_model = mlflow.langchain.load_model(model_info.model_uri)
     result = langchain_model.invoke(input_example, **params)
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)

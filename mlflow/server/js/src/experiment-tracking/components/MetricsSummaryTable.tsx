@@ -156,7 +156,14 @@ const getMetricValuesByRun = (
     const runName = runDisplayNames[runIdx];
     return {
       runName: runName,
-      runLink: <Link to={Routes.getRunPageRoute(runExperimentIds[runUuid] || '', runUuid)}>{runName}</Link>,
+      runLink: (
+        <Link
+          componentId="mlflow.experiment_tracking.metrics_summary.run_link"
+          to={Routes.getRunPageRoute(runExperimentIds[runUuid] || '', runUuid)}
+        >
+          {runName}
+        </Link>
+      ),
       key: runUuid,
       ...rowData(runUuid, metricKey, latestMetrics, minMetrics, maxMetrics, intl),
     };

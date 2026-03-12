@@ -813,17 +813,11 @@ def test_get_read_credential_infos_handles_pagination(databricks_artifact_repo):
             for a in read_credential_infos
         ]
         assert read_credential_infos == credential_infos_mock_1 + credential_infos_mock_2
-        message_mock.assert_has_calls(
-            [
-                mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"])),
-                mock.call(
-                    GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"], page_token="2")
-                ),
-                mock.call(
-                    GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"], page_token="3")
-                ),
-            ]
-        )
+        message_mock.assert_has_calls([
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"])),
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"], page_token="2")),
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"], page_token="3")),
+        ])
         assert call_endpoint_mock.call_count == 3
 
 
@@ -880,13 +874,11 @@ def test_get_read_credential_infos_respects_max_request_size(databricks_artifact
         )
         assert call_endpoint_mock.call_count == 3
         assert message_mock.call_count == 3
-        message_mock.assert_has_calls(
-            [
-                mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
-                mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_2)),
-                mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_3)),
-            ]
-        )
+        message_mock.assert_has_calls([
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_2)),
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_3)),
+        ])
 
 
 def test_get_write_credential_infos_handles_pagination(databricks_artifact_repo):
@@ -931,17 +923,15 @@ def test_get_write_credential_infos_handles_pagination(databricks_artifact_repo)
             for a in write_credential_infos
         ]
         assert write_credential_infos == credential_infos_mock_1 + credential_infos_mock_2
-        message_mock.assert_has_calls(
-            [
-                mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"])),
-                mock.call(
-                    GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"], page_token="2")
-                ),
-                mock.call(
-                    GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"], page_token="3")
-                ),
-            ]
-        )
+        message_mock.assert_has_calls([
+            mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"])),
+            mock.call(
+                GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"], page_token="2")
+            ),
+            mock.call(
+                GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"], page_token="3")
+            ),
+        ])
         assert call_endpoint_mock.call_count == 3
 
 
@@ -992,13 +982,11 @@ def test_get_write_credential_infos_respects_max_request_size(databricks_artifac
             paths_chunk_1 + paths_chunk_2 + paths_chunk_3
         )
         assert call_endpoint_mock.call_count == message_mock.call_count == 3
-        message_mock.assert_has_calls(
-            [
-                mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
-                mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_2)),
-                mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_3)),
-            ]
-        )
+        message_mock.assert_has_calls([
+            mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
+            mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_2)),
+            mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_3)),
+        ])
 
 
 @pytest.mark.parametrize(

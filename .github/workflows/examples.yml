@@ -53,7 +53,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     strategy:
       fail-fast: false
       matrix:
@@ -117,7 +117,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
