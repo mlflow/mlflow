@@ -3,13 +3,16 @@ import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils
 
 export const SEARCH_ISSUES_QUERY_KEY = 'SEARCH_ISSUES';
 
-export type IssueStatus = 'pending' | 'accepted' | 'rejected';
+export type IssueStatus = 'pending' | 'rejected' | 'resolved';
+
+export type IssueSeverity = 'not_an_issue' | 'low' | 'medium' | 'high';
 
 export interface Issue {
   issue_id: string;
   experiment_id: string;
   name: string;
   description?: string;
+  severity?: IssueSeverity;
   status: IssueStatus;
   source_run_id?: string;
   created_by?: string;
@@ -22,19 +25,31 @@ type SearchIssuesResponse = {
   next_page_token?: string;
 };
 
+const POLLING_INTERVAL_MS = 3000;
+
 export const useSearchIssuesQuery = ({
   experimentId,
   sourceRunId,
+  status,
   enabled = true,
+  pollingEnabled = false,
 }: {
   experimentId: string;
   sourceRunId: string;
+  /** Filter by status. If undefined, returns all statuses. */
+  status?: IssueStatus;
   enabled?: boolean;
+  /** Whether to poll for updates (e.g., while job is running) */
+  pollingEnabled?: boolean;
 }) => {
   const { data, isLoading, isFetching, refetch, error } = useQuery<SearchIssuesResponse, Error>({
-    queryKey: [SEARCH_ISSUES_QUERY_KEY, experimentId, sourceRunId],
+    queryKey: [SEARCH_ISSUES_QUERY_KEY, experimentId, sourceRunId, status],
     queryFn: async () => {
-      const filterString = `source_run_id = '${sourceRunId}'`;
+      const filters = [`source_run_id = '${sourceRunId}'`];
+      if (status) {
+        filters.push(`status = '${status}'`);
+      }
+      const filterString = filters.join(' AND ');
       const requestBody = {
         experiment_id: experimentId,
         filter_string: filterString,
@@ -49,6 +64,7 @@ export const useSearchIssuesQuery = ({
     refetchOnWindowFocus: false,
     retry: false,
     enabled,
+    refetchInterval: pollingEnabled ? POLLING_INTERVAL_MS : false,
   });
 
   return {

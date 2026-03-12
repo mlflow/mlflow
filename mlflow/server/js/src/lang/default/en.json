@@ -67,6 +67,10 @@
     "defaultMessage": "Enter model name...",
     "description": "Placeholder for custom model input"
   },
+  "+WaZ18": {
+    "defaultMessage": "Scanned <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> found",
+    "description": "Issue detection progress > Progress summary when completed"
+  },
   "+Wd9fs": {
     "defaultMessage": "The groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of groundedness judge."
@@ -689,6 +693,10 @@
   "2a/rR8": {
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Manage Tag cancel button"
+  },
+  "2cshW2": {
+    "defaultMessage": "Resolved ({count})",
+    "description": "Issue status filter > Resolved button label"
   },
   "2deqxk": {
     "defaultMessage": "We couldn't find any models matching your search criteria. Try changing your search filters.",
@@ -1785,6 +1793,10 @@
     "defaultMessage": "Add chart",
     "description": "Experiment tracking > runs charts > add chart menu"
   },
+  "9w0l9N": {
+    "defaultMessage": "Reject",
+    "description": "Button to reject an issue"
+  },
   "9wWapn": {
     "defaultMessage": "Click 'Add chart' or drag and drop to add charts here.",
     "description": "Runs compare page > Charts tab > No charts placeholder description"
@@ -2013,6 +2025,10 @@
     "defaultMessage": "{isTraces, select, true {Trace} other {Session}} {index} of {total}",
     "description": "Index of the current trace and total number of traces"
   },
+  "BDnRzZ": {
+    "defaultMessage": "Total cost: {cost}",
+    "description": "Issue detection progress > Total cost in USD"
+  },
   "BEFBcB": {
     "defaultMessage": "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
     "description": "Popover message displayed when the experiment type could not not inferred"
@@ -2071,6 +2087,10 @@
   "Bbm59f": {
     "defaultMessage": "100",
     "description": "Label for 100 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "Bceyd0": {
+    "defaultMessage": "Issue detection summary",
+    "description": "Issue detection summary > Title"
   },
   "Bcr4hl": {
     "defaultMessage": "Fetching traces failed",
@@ -2283,6 +2303,10 @@
   "CpUD2P": {
     "defaultMessage": "Select traces",
     "description": "Button to open trace selection modal"
+  },
+  "Cq6NMs": {
+    "defaultMessage": "Issue detection failed",
+    "description": "Issue detection progress > Step label when failed"
   },
   "CruI7o": {
     "defaultMessage": "Latest version",
@@ -3618,6 +3642,10 @@
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
   },
+  "MjypBt": {
+    "defaultMessage": "Pending ({count})",
+    "description": "Issue status filter > Pending button label"
+  },
   "Mn7Kss": {
     "defaultMessage": "OK",
     "description": "Experiment page > traces table > status label > ok"
@@ -3914,6 +3942,10 @@
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
   },
+  "Ob0aR7": {
+    "defaultMessage": "Reopen",
+    "description": "Button to reopen an issue"
+  },
   "Ob5d+s": {
     "defaultMessage": "System metrics",
     "description": "Run details page > tab selector > System metrics tab"
@@ -4071,6 +4103,10 @@
   "PbhoUk": {
     "defaultMessage": "Track every version of your model to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the machine learning logged models list page"
+  },
+  "PdoaF7": {
+    "defaultMessage": "Model",
+    "description": "Run page > Overview > Model used for issue detection"
   },
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
@@ -4527,6 +4563,10 @@
   "SrXYrV": {
     "defaultMessage": "Previewing the first {numRows} rows",
     "description": "Title for showing the number of rows in the parsed data preview"
+  },
+  "SrjuS9": {
+    "defaultMessage": "Resolve",
+    "description": "Button to resolve an issue"
   },
   "SuVsDp": {
     "defaultMessage": "Custom code judge feedback",
@@ -5321,6 +5361,10 @@
   "Y++w0Q": {
     "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
     "description": "Add new key-value tag modal > Invalid characters or path error"
+  },
+  "Y+bHa1": {
+    "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
+    "description": "Issue detection progress > Progress summary while running"
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -6732,6 +6776,10 @@
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
   },
+  "gt4t2m": {
+    "defaultMessage": "Issue detection completed",
+    "description": "Issue detection progress > Step label when completed"
+  },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
@@ -6827,6 +6875,10 @@
   "hYrjzD": {
     "defaultMessage": "Create",
     "description": "Confirm button text for create workspace modal"
+  },
+  "hZFbZl": {
+    "defaultMessage": "Issue detection canceled",
+    "description": "Issue detection progress > Step label when canceled"
   },
   "hcDB9U": {
     "defaultMessage": "+∞",
@@ -7211,6 +7263,10 @@
   "k4F8aJ": {
     "defaultMessage": "Copy issue ID",
     "description": "Tooltip to copy issue ID"
+  },
+  "k5kAB3": {
+    "defaultMessage": "Rejected ({count})",
+    "description": "Issue status filter > Rejected button label"
   },
   "k7itje": {
     "defaultMessage": "Create webhook",
@@ -8058,10 +8114,6 @@
   "pU6cxH": {
     "defaultMessage": "Add",
     "description": "Model registry > model version table > aliases column > 'add' button label"
-  },
-  "pU7S10": {
-    "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
-    "description": "Issue detection progress > Progress summary"
   },
   "pVF+2s": {
     "defaultMessage": "Show less",
@@ -9295,6 +9347,10 @@
     "defaultMessage": "Copied to clipboard",
     "description": "Success message for the notification"
   },
+  "xhAFcl": {
+    "defaultMessage": "Failed to cancel job: {error}",
+    "description": "Error message when job cancellation fails"
+  },
   "xiFkTH": {
     "defaultMessage": "Use for evaluation",
     "description": "Trace actions dropdown group label"
@@ -9561,6 +9617,10 @@
   "zZCBR9": {
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
+  },
+  "zZlPwp": {
+    "defaultMessage": "Categories",
+    "description": "Run page > Overview > Issue categories being detected"
   },
   "zcnCPF": {
     "defaultMessage": "Issues",

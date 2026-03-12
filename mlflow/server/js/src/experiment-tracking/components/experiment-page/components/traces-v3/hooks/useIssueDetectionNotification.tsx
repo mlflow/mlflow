@@ -4,7 +4,6 @@ import { Notification, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../../routes';
-import { ExperimentPageTabName } from '../../../../../constants';
 
 const NOTIFICATION_DURATION_MS = 10000;
 
@@ -20,12 +19,12 @@ const shrinkProgressAnimation = keyframes`
 export const useIssueDetectionNotification = (experimentId?: string) => {
   const { theme } = useDesignSystemTheme();
   const [isOpen, setIsOpen] = useState(false);
+  const [runId, setRunId] = useState<string | undefined>(undefined);
 
-  const evaluationRunsLink = experimentId
-    ? Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.EvaluationRuns)
-    : undefined;
+  const runPageLink = experimentId && runId ? Routes.getIssueDetectionRunDetailsRoute(experimentId, runId) : undefined;
 
-  const showIssueDetectionNotification = useCallback(() => {
+  const showIssueDetectionNotification = useCallback((newRunId?: string) => {
+    setRunId(newRunId);
     setIsOpen(true);
   }, []);
 
@@ -47,11 +46,8 @@ export const useIssueDetectionNotification = (experimentId?: string) => {
             </Notification.Title>
             <Notification.Description>
               <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                {evaluationRunsLink && (
-                  <Link
-                    componentId="mlflow.experiment_tracking.traces.issue_detection_notification_link"
-                    to={evaluationRunsLink}
-                  >
+                {runPageLink && (
+                  <Link componentId="mlflow.traces.issue_detection_notification_link" to={runPageLink}>
                     <FormattedMessage
                       defaultMessage="View status"
                       description="Link to view issue detection job status"
