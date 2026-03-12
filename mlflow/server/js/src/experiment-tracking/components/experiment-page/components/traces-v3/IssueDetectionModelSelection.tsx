@@ -194,7 +194,7 @@ export const IssueDetectionModelSelection = forwardRef<
               hasExistingSecrets={existingSecrets.length > 0}
             />
             {apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
-              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.md }}>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginTop: -theme.spacing.xs }}>
                 <Tooltip
                   componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
                   content={intl.formatMessage({
@@ -202,13 +202,18 @@ export const IssueDetectionModelSelection = forwardRef<
                     description: 'Tooltip explaining where saved API keys can be found',
                   })}
                 >
-                  <Typography.Text color="secondary">
-                    <FormattedMessage
-                      defaultMessage="This key will be saved for reuse"
-                      description="Text indicating API key will be saved for reuse"
-                    />
-                  </Typography.Text>
+                  <span>
+                    <Typography.Text color="secondary">
+                      <FormattedMessage
+                        defaultMessage="This key will be saved for reuse."
+                        description="Text indicating API key will be saved for reuse"
+                      />
+                    </Typography.Text>
+                  </span>
                 </Tooltip>
+                <Typography.Text color="secondary">
+                  <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
+                </Typography.Text>
                 <Input
                   componentId="mlflow.traces.issue-detection-modal.api-key-name"
                   value={apiKeyConfig.newSecret.name}
