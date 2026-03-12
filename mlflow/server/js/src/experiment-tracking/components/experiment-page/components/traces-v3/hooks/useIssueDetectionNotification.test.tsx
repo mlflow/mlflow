@@ -69,7 +69,7 @@ describe('useIssueDetectionNotification', () => {
     });
   });
 
-  test('notification shows View status link when experimentId is provided', async () => {
+  test('notification shows View status link when experimentId and runId are provided', async () => {
     const { result } = renderHook(() => useIssueDetectionNotification('exp-123'), { wrapper });
 
     const TestComponent = () => <>{result.current.notificationContextHolder}</>;
@@ -80,7 +80,7 @@ describe('useIssueDetectionNotification', () => {
     );
 
     act(() => {
-      result.current.showIssueDetectionNotification();
+      result.current.showIssueDetectionNotification('run-456');
     });
 
     rerender(
@@ -94,11 +94,38 @@ describe('useIssueDetectionNotification', () => {
     });
 
     const link = screen.getByText('View status').closest('a');
-    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/exp-123/evaluation-runs'));
+    expect(link).toHaveAttribute('href', expect.stringContaining('/experiments/exp-123/runs/run-456'));
   });
 
   test('notification does not show View status link when experimentId is not provided', async () => {
     const { result } = renderHook(() => useIssueDetectionNotification(undefined), { wrapper });
+
+    const TestComponent = () => <>{result.current.notificationContextHolder}</>;
+    const { rerender } = renderWithDesignSystem(
+      <MemoryRouter>
+        <TestComponent />
+      </MemoryRouter>,
+    );
+
+    act(() => {
+      result.current.showIssueDetectionNotification('run-456');
+    });
+
+    rerender(
+      <MemoryRouter>
+        <TestComponent />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Issue detection job triggered')).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('View status')).not.toBeInTheDocument();
+  });
+
+  test('notification does not show View status link when runId is not provided', async () => {
+    const { result } = renderHook(() => useIssueDetectionNotification('exp-123'), { wrapper });
 
     const TestComponent = () => <>{result.current.notificationContextHolder}</>;
     const { rerender } = renderWithDesignSystem(
@@ -135,7 +162,7 @@ describe('useIssueDetectionNotification', () => {
     );
 
     act(() => {
-      result.current.showIssueDetectionNotification();
+      result.current.showIssueDetectionNotification('run-789');
     });
 
     rerender(

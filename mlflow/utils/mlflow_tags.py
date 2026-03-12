@@ -39,6 +39,8 @@ MLFLOW_RUN_IS_EVALUATION = "mlflow.run.isEval"
 
 # Indicates that an MLflow run is for issue detection
 MLFLOW_RUN_IS_ISSUE_DETECTION = "mlflow.run.isIssueDetection"
+# The ID of the job that is running issue detection
+MLFLOW_ISSUE_DETECTION_JOB_ID = "mlflow.issueDetection.jobId"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"

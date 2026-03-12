@@ -1,11 +1,22 @@
 import { Button, ChevronDownIcon, ChevronRightIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { IssueReferenceAssessment } from '../ModelTrace.types';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { isEmpty } from 'lodash';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
+import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
+import { RunPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { getIssue } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
+import { SELECTED_ISSUE_ID_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
 
-const IssueItem = ({ issue }: { issue: IssueReferenceAssessment }) => {
+const IssueItem = ({
+  issue,
+  onIssueClick,
+}: {
+  issue: IssueReferenceAssessment;
+  onIssueClick: (issueId: string, issueName: string) => void;
+}) => {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
   const issueName = issue.issue.issue_name || issue.assessment_name;
@@ -33,17 +44,22 @@ const IssueItem = ({ issue }: { issue: IssueReferenceAssessment }) => {
             onClick={() => setExpanded(!expanded)}
           />
         )}
-        <Typography.Text
-          bold
+        <span
           css={{
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
+            cursor: 'pointer',
+            '&:hover': { textDecoration: 'underline' },
           }}
           title={issueName}
+          onClick={(e: React.MouseEvent) => {
+            e.stopPropagation();
+            onIssueClick(issue.assessment_name, issueName);
+          }}
         >
-          {issueName}
-        </Typography.Text>
+          <Typography.Text bold>{issueName}</Typography.Text>
+        </span>
       </div>
       {expanded && issue.rationale && (
         <div
@@ -69,12 +85,28 @@ const IssueItem = ({ issue }: { issue: IssueReferenceAssessment }) => {
 };
 
 export const AssessmentsPaneIssuesSection = ({ issues }: { issues: IssueReferenceAssessment[] }) => {
+  const navigate = useNavigate();
   const sortedIssues = useMemo(
     () => issues.toSorted((left, right) => left.assessment_name.localeCompare(right.assessment_name)),
     [issues],
   );
 
   const { theme } = useDesignSystemTheme();
+
+  const handleIssueClick = useCallback(
+    async (issueId: string, _issueName: string) => {
+      try {
+        const issue = await getIssue(issueId);
+        if (issue.source_run_id && issue.experiment_id) {
+          const url = `${Routes.getIssueDetectionRunDetailsTabRoute(issue.experiment_id, issue.source_run_id, RunPageTabName.ISSUES)}?${SELECTED_ISSUE_ID_PARAM}=${encodeURIComponent(issueId)}`;
+          navigate(url);
+        }
+      } catch (error) {
+        console.error('Failed to fetch issue:', error);
+      }
+    },
+    [navigate],
+  );
 
   if (isEmpty(sortedIssues)) {
     return null;
@@ -101,7 +133,7 @@ export const AssessmentsPaneIssuesSection = ({ issues }: { issues: IssueReferenc
       </div>
       <div css={{ display: 'flex', flexDirection: 'column' }}>
         {sortedIssues.map((issue) => (
-          <IssueItem issue={issue} key={issue.assessment_id} />
+          <IssueItem issue={issue} key={issue.assessment_id} onIssueClick={handleIssueClick} />
         ))}
       </div>
     </>

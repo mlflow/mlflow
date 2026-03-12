@@ -1,15 +1,15 @@
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { useEffect, useRef } from 'react';
+import { Tag, useDesignSystemTheme } from '@databricks/design-system';
 import { KeyValueProperty, NoneCell } from '@databricks/web-shared/utils';
 import { useIntl } from 'react-intl';
-import { Link, useLocation } from '../../../../common/utils/RoutingUtils';
+import { Link } from '../../../../common/utils/RoutingUtils';
 import Utils from '../../../../common/utils/Utils';
 import { DetailsPageLayout } from '../../../../common/components/details-page-layout/DetailsPageLayout';
 import { DetailsOverviewCopyableIdBox } from '../../DetailsOverviewCopyableIdBox';
-import { RunViewDescriptionBox } from './RunViewDescriptionBox';
 import { RunViewStatusBox } from './RunViewStatusBox';
 import { RunViewUserLinkBox } from './RunViewUserLinkBox';
-import { RunViewSourceBox } from './RunViewSourceBox';
 import { IssueDetectionProgress, type IssueDetectionProgressProps } from './IssueDetectionProgress';
+import { useFetchIssueJobStatus, isJobComplete } from '../hooks/useFetchIssueJobStatus';
 import Routes from '../../../routes';
 import type { RunInfoEntity } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
@@ -32,7 +32,29 @@ export const IssueDetectionRunOverview = ({
 }: IssueDetectionRunOverviewProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
-  const { search } = useLocation();
+
+  const { status: jobStatus } = useFetchIssueJobStatus({
+    jobId: progressProps.jobId,
+    enabled: !!progressProps.jobId,
+  });
+
+  const model = tags['model']?.value;
+  const provider = tags['provider']?.value;
+  const categoriesStr = tags['categories']?.value;
+  const categories = categoriesStr ? categoriesStr.split(',').map((c) => c.trim()) : undefined;
+  const totalTraces = tags['total_traces']?.value ? parseInt(tags['total_traces'].value, 10) : undefined;
+
+  const modelDisplay = model && provider ? `${provider}:/${model}` : undefined;
+
+  const jobComplete = isJobComplete(jobStatus);
+  const prevJobCompleteRef = useRef(jobComplete);
+
+  useEffect(() => {
+    if (jobComplete && !prevJobCompleteRef.current) {
+      onRunDataUpdated();
+    }
+    prevJobCompleteRef.current = jobComplete;
+  }, [jobComplete, onRunDataUpdated]);
 
   const detailsSection = {
     id: 'DETAILS',
@@ -56,6 +78,32 @@ export const IssueDetectionRunOverview = ({
           })}
           value={<RunViewUserLinkBox runInfo={runInfo} tags={tags} />}
         />
+        {modelDisplay && (
+          <KeyValueProperty
+            keyValue={intl.formatMessage({
+              defaultMessage: 'Model',
+              description: 'Run page > Overview > Model used for issue detection',
+            })}
+            value={modelDisplay}
+          />
+        )}
+        {categories && categories.length > 0 && (
+          <KeyValueProperty
+            keyValue={intl.formatMessage({
+              defaultMessage: 'Categories',
+              description: 'Run page > Overview > Issue categories being detected',
+            })}
+            value={
+              <div css={{ display: 'flex', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+                {categories.map((category) => (
+                  <Tag key={category} componentId="mlflow.issue-detection.category-tag">
+                    {category}
+                  </Tag>
+                ))}
+              </div>
+            }
+          />
+        )}
         <KeyValueProperty
           keyValue={intl.formatMessage({
             defaultMessage: 'Experiment ID',
@@ -91,30 +139,15 @@ export const IssueDetectionRunOverview = ({
           })}
           value={<DetailsOverviewCopyableIdBox value={runInfo.runUuid ?? ''} />}
         />
-        <KeyValueProperty
-          keyValue={intl.formatMessage({
-            defaultMessage: 'Duration',
-            description: 'Run page > Overview > Run duration section label',
-          })}
-          value={Utils.getDuration(runInfo.startTime, runInfo.endTime)}
-        />
-        <KeyValueProperty
-          keyValue={intl.formatMessage({
-            defaultMessage: 'Source',
-            description: 'Run page > Overview > Run source section label',
-          })}
-          value={
-            <RunViewSourceBox
-              tags={tags}
-              search={search}
-              runUuid={runUuid}
-              css={{
-                paddingTop: theme.spacing.xs,
-                paddingBottom: theme.spacing.xs,
-              }}
-            />
-          }
-        />
+        {jobComplete && (
+          <KeyValueProperty
+            keyValue={intl.formatMessage({
+              defaultMessage: 'Duration',
+              description: 'Run page > Overview > Run duration section label',
+            })}
+            value={Utils.getDuration(runInfo.startTime, runInfo.endTime)}
+          />
+        )}
       </>
     ),
   };
@@ -125,8 +158,7 @@ export const IssueDetectionRunOverview = ({
       usingSidebarLayout
       secondarySections={[detailsSection]}
     >
-      <RunViewDescriptionBox runUuid={runUuid} tags={tags} onDescriptionChanged={onRunDataUpdated} />
-      <IssueDetectionProgress {...progressProps} />
+      <IssueDetectionProgress {...progressProps} totalTraces={totalTraces} />
     </DetailsPageLayout>
   );
 };

@@ -14,6 +14,7 @@ class DiscoverIssuesResult:
     triage_run_id: str
     summary: str
     total_traces_analyzed: int
+    total_cost_usd: float | None = None
 
 
 @dataclass
