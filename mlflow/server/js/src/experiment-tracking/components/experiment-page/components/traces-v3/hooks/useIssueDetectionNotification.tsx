@@ -1,20 +1,10 @@
 import { useCallback, useState } from 'react';
-import { keyframes } from '@emotion/react';
 import { Notification, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
 import Routes from '../../../../../routes';
 
 const NOTIFICATION_DURATION_MS = 10000;
-
-const shrinkProgressAnimation = keyframes`
-  from {
-    width: 100%;
-  }
-  to {
-    width: 0%;
-  }
-`;
 
 export const useIssueDetectionNotification = (experimentId?: string) => {
   const { theme } = useDesignSystemTheme();
@@ -45,36 +35,14 @@ export const useIssueDetectionNotification = (experimentId?: string) => {
               />
             </Notification.Title>
             <Notification.Description>
-              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                {runPageLink && (
-                  <Link componentId="mlflow.traces.issue_detection_notification_link" to={runPageLink}>
-                    <FormattedMessage
-                      defaultMessage="View status"
-                      description="Link to view issue detection job status"
-                    />
-                  </Link>
-                )}
-                <div
-                  css={{
-                    height: 4,
-                    backgroundColor: theme.colors.backgroundSecondary,
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                    marginTop: theme.spacing.xs,
-                  }}
-                >
-                  {isOpen && (
-                    <div
-                      css={{
-                        height: '100%',
-                        backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
-                        borderRadius: 2,
-                        animation: `${shrinkProgressAnimation} ${NOTIFICATION_DURATION_MS}ms linear forwards`,
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
+              {runPageLink && (
+                <Link componentId="mlflow.traces.issue_detection_notification_link" to={runPageLink}>
+                  <FormattedMessage
+                    defaultMessage="View status"
+                    description="Link to view issue detection job status"
+                  />
+                </Link>
+              )}
             </Notification.Description>
           </div>
           <Notification.Close componentId="mlflow.traces.issue-detection-notification.close" />
