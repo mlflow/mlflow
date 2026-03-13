@@ -77,24 +77,20 @@ When [authentication](/self-hosting/security/basic-http-auth) is enabled for the
 
 ## Budget Tracker Strategies
 
-The gateway uses a _budget tracker_ to accumulate spend and evaluate budget policies on every request. Two strategies are available. Choose based on your deployment topology.
-
-| Strategy | State shared across workers | Survives restart | Extra dependencies |
-|---|---|---|---|
-| [`local`](#local) | No | Yes (via trace backfill) | None |
-| [`redis`](#redis) | Yes | Yes | Redis + `pip install redis` |
+The gateway uses a _budget tracker_ to accumulate spend and evaluate budget policies on every request. Two strategies are available: `local` and `redis`.
 
 ### local
 
-The `local` strategy keeps budget windows in the gateway process's own memory, protected by a thread lock for safe concurrent access within a single process.
+**Pros:**
 
-**Description:** Zero-dependency, lowest-latency option. No external services are required. On startup the gateway rehydrates spend from historical trace data, so accumulated totals survive restarts.
+- No external dependencies — runs entirely in-process.
+- Lowest latency; no network round-trips per request.
+- Accumulated spend survives restarts via trace backfill on startup.
 
-**Limitations:**
-- Budget state is **not** shared across multiple gateway processes or replicas. When multiple workers run behind a load balancer, each worker tracks spend independently — the sum across all workers can exceed the configured budget limit.
-- If trace backfill is disabled or trace data is unavailable, spend resets to zero on restart.
+**Cons:**
 
-**Configuration:** No configuration is needed. The `local` strategy is active whenever `MLFLOW_GATEWAY_BUDGET_REDIS_URL` is not set.
+- Budget state is **not** shared across workers or replicas. Each process tracks spend independently, so the total across all workers can exceed the configured limit.
+- If trace backfill is disabled or unavailable, spend resets to zero on restart.
 
 ```bash
 # No extra environment variables required
@@ -103,20 +99,20 @@ mlflow server --host 0.0.0.0 --port 5000
 
 ### redis
 
-The `redis` strategy stores budget windows in Redis, enabling consistent spend tracking across any number of gateway processes or replicas. Atomic Lua scripts guarantee that window initialization and cost accumulation are race-free.
+**Pros:**
 
-**Description:** For multi-instance deployments. All gateway workers share a single source of truth in Redis, so the configured budget limit is enforced globally regardless of how many replicas are running.
+- Budget state is shared across all gateway workers and replicas — the limit is enforced globally.
+- Atomic operations guarantee race-free window initialization and cost accumulation.
 
-**Limitations:**
-- Requires a running Redis instance reachable from all gateway processes.
-- Each request incurs a Redis round-trip (Lua script execution), adding a small amount of latency compared to `local`.
-- The `redis` Python package must be installed: `pip install redis`.
+**Cons:**
 
-**Configuration:** Set `MLFLOW_GATEWAY_BUDGET_REDIS_URL` to activate this strategy.
+- Requires a running Redis instance reachable from every gateway process.
+- Adds a small per-request latency for the Redis round-trip.
+- Requires an additional dependency: `pip install redis`.
 
-| Environment Variable | Default | Description |
-|---|---|---|
-| `MLFLOW_GATEWAY_BUDGET_REDIS_URL` | `None` | Redis connection URL. Setting this variable activates the `redis` strategy. Examples: `redis://localhost:6379/0` (plain), `rediss://host:6380/0` (TLS), `redis://:password@host:6379/0` (auth). |
+| Environment Variable              | Default | Description                                                                                                                                                                                     |
+| --------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MLFLOW_GATEWAY_BUDGET_REDIS_URL` | `None`  | Redis connection URL. Setting this variable activates the `redis` strategy. Examples: `redis://localhost:6379/0` (plain), `rediss://host:6380/0` (TLS), `redis://:password@host:6379/0` (auth). |
 
 ```bash
 export MLFLOW_GATEWAY_BUDGET_REDIS_URL=redis://localhost:6379/0
