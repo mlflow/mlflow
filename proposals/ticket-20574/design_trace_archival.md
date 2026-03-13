@@ -44,7 +44,7 @@ Users need the ability to offload span content to a cheaper trace repository (e.
 ### Out of Scope
 
 - **Span-level attribute search on archived traces (JSON attributes):** Once span content is moved to the trace repository, SQL-based filtering that depends on the raw span payload in `spans.content` (e.g., `span.attributes.*`) will not be supported for archived traces. Column-backed span filters that use indexed span metadata (e.g., `span.type`, `span.status`, `span.duration_ns`) will continue to work as long as span rows and these columns are retained in the DB. Trace-level metadata search (timestamp, state, tags, trace metrics) will continue to work.
-- **Automatic re-ingestion from trace repository to DB:** Restoring archived span data back into the database is not in scope for Phase 1. A future enhancement is planned to support explicit restore of archived traces (see [Future Enhancements: Trace Restore](#trace-restore-from-archive-to-database)).
+- **Restoring archived traces to the database:** Re-ingesting archived span data from the trace repository back into the tracking database is deferred to a future phase. See [Future Enhancements: Trace Restore](#trace-restore-from-archive-to-database) for the planned approach.
 
 ## Proposal Sketch
 
