@@ -131,7 +131,7 @@ export const SecretFormFields = ({
           </FormUI.Label>
           <GatewayInput
             id={`${componentIdPrefix}.name`}
-            componentId="codegen_mlflow_app_src_oss_gateway_components_secrets_SecretFormFields.tsx_134"
+            componentId={`${componentIdPrefix}.name`}
             value={value.name}
             onChange={(e: ChangeEvent<HTMLInputElement>) => handleNameChange(e.target.value)}
             placeholder={formatMessage({
@@ -152,7 +152,7 @@ export const SecretFormFields = ({
           </FormUI.Label>
           <Radio.Group
             name={`${componentIdPrefix}.auth-mode`}
-            componentId="codegen_mlflow_app_src_oss_gateway_components_secrets_SecretFormFields.tsx_155"
+            componentId={`${componentIdPrefix}.auth-mode`}
             value={effectiveAuthMode}
             onChange={(e: RadioChangeEvent) => handleAuthModeChange(e.target.value)}
             disabled={disabled}
@@ -184,7 +184,7 @@ export const SecretFormFields = ({
           {field.fieldType === 'secret' ? (
             <SecretInput
               id={`${componentIdPrefix}.secret.${field.name}`}
-              componentId="codegen_mlflow_app_src_oss_gateway_components_secrets_SecretFormFields.tsx_187"
+              componentId={`${componentIdPrefix}.secret.${field.name}`}
               value={value.secretFields[field.name] ?? ''}
               onChange={(e: ChangeEvent<HTMLInputElement>) => handleSecretFieldChange(field.name, e.target.value)}
               placeholder={field.description}
@@ -194,7 +194,7 @@ export const SecretFormFields = ({
           ) : (
             <GatewayInput
               id={`${componentIdPrefix}.config.${field.name}`}
-              componentId="codegen_mlflow_app_src_oss_gateway_components_secrets_SecretFormFields.tsx_197"
+              componentId={`${componentIdPrefix}.config.${field.name}`}
               value={value.configFields[field.name] ?? ''}
               onChange={(e: ChangeEvent<HTMLInputElement>) => handleConfigFieldChange(field.name, e.target.value)}
               placeholder={field.description}
