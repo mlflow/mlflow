@@ -47,6 +47,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -5199,8 +5200,7 @@ def _create_budget_policy():
         schema={
             "budget_unit": [_assert_required],
             "budget_amount": [_assert_required],
-            "duration_unit": [_assert_required],
-            "duration_value": [_assert_required],
+            "duration": [_assert_required],
             "target_scope": [_assert_required],
             "budget_action": [_assert_required],
             "created_by": [_assert_string],
@@ -5212,10 +5212,16 @@ def _create_budget_policy():
             message=f"Invalid budget_unit: {request_message.budget_unit}",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    duration_unit = BudgetDurationUnit.from_proto(request_message.duration_unit)
+    duration_unit = BudgetDurationUnit.from_proto(request_message.duration.unit)
     if duration_unit is None:
         raise MlflowException(
-            message=f"Invalid duration_unit: {request_message.duration_unit}",
+            message=f"Invalid duration.unit: {request_message.duration.unit}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if request_message.duration.value <= 0:
+        raise MlflowException(
+            message=f"duration.value must be a positive integer, got "
+            f"{request_message.duration.value}",
             error_code=INVALID_PARAMETER_VALUE,
         )
     target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
@@ -5234,8 +5240,7 @@ def _create_budget_policy():
     policy = store.create_budget_policy(
         budget_unit=budget_unit,
         budget_amount=request_message.budget_amount,
-        duration_unit=duration_unit,
-        duration_value=request_message.duration_value,
+        duration=BudgetDuration(unit=duration_unit, value=request_message.duration.value),
         target_scope=target_scope,
         budget_action=budget_action,
         created_by=request_message.created_by or None,
@@ -5282,14 +5287,21 @@ def _update_budget_policy():
                 message=f"Invalid budget_unit: {request_message.budget_unit}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-    duration_unit = None
-    if request_message.HasField("duration_unit"):
-        duration_unit = BudgetDurationUnit.from_proto(request_message.duration_unit)
+    duration = None
+    if request_message.HasField("duration"):
+        duration_unit = BudgetDurationUnit.from_proto(request_message.duration.unit)
         if duration_unit is None:
             raise MlflowException(
-                message=f"Invalid duration_unit: {request_message.duration_unit}",
+                message=f"Invalid duration.unit: {request_message.duration.unit}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if request_message.duration.value <= 0:
+            raise MlflowException(
+                message=f"duration.value must be a positive integer, got "
+                f"{request_message.duration.value}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        duration = BudgetDuration(unit=duration_unit, value=request_message.duration.value)
     target_scope = None
     if request_message.HasField("target_scope"):
         target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
@@ -5313,10 +5325,7 @@ def _update_budget_policy():
         budget_amount=request_message.budget_amount
         if request_message.HasField("budget_amount")
         else None,
-        duration_unit=duration_unit,
-        duration_value=request_message.duration_value
-        if request_message.HasField("duration_value")
-        else None,
+        duration=duration,
         target_scope=target_scope,
         budget_action=budget_action,
         updated_by=request_message.updated_by or None,

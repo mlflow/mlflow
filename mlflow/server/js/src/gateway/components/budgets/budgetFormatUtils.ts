@@ -35,5 +35,5 @@ export function formatOnExceeded(action: BudgetAction): string {
 }
 
 export function formatBudgetPolicySummary(policy: BudgetPolicy): string {
-  return `${formatBudgetAmount(policy.budget_amount, policy.budget_unit)} / ${formatDuration(policy.duration_value, policy.duration_unit)} — ${formatOnExceeded(policy.budget_action)}`;
+  return `${formatBudgetAmount(policy.budget_amount, policy.budget_unit)} / ${formatDuration(policy.duration.value, policy.duration.unit)} — ${formatOnExceeded(policy.budget_action)}`;
 }
