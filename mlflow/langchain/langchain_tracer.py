@@ -307,8 +307,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 case [msg_list]:
                     normalized_inputs = {
                         "messages": [
-                            convert_lc_message_to_chat_message(msg).model_dump()
-                            for msg in msg_list
+                            convert_lc_message_to_chat_message(msg).model_dump() for msg in msg_list
                         ]
                     }
                 case _:
