@@ -106,6 +106,7 @@ export const ModelTraceExplorerDetailView = ({
 
   const {
     selectedWorkflowNode,
+    navigatorNode,
     currentSpanIndex,
     sortedSpans,
     expandedKeys,
@@ -439,7 +440,7 @@ export const ModelTraceExplorerDetailView = ({
             {hasGraph && (
               <>
                 <GraphViewSpanNavigator
-                  selectedWorkflowNode={selectedWorkflowNode}
+                  selectedWorkflowNode={navigatorNode}
                   currentSpanIndex={currentSpanIndex}
                   totalSpans={sortedSpans.length}
                   currentSpan={sortedSpans[currentSpanIndex] ?? null}

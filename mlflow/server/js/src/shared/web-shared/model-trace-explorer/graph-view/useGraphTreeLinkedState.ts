@@ -13,7 +13,10 @@ import type { WorkflowNode } from './GraphView.types';
 export const useGraphTreeLinkedState = (workflowNodes?: WorkflowNode[]) => {
   const { selectedNode, setSelectedNode, topLevelNodes } = useModelTraceExplorerViewState();
 
+  // selectedWorkflowNode tracks which graph node is highlighted (set by both tree sync and graph click)
   const [selectedWorkflowNode, setSelectedWorkflowNode] = useState<WorkflowNode | null>(null);
+  // navigatorNode tracks which node the span navigator displays (set only by explicit graph clicks)
+  const [navigatorNode, setNavigatorNode] = useState<WorkflowNode | null>(null);
   const [currentSpanIndex, setCurrentSpanIndex] = useState(0);
 
   // Flag to prevent circular updates when graph selection triggers tree selection
@@ -54,6 +57,7 @@ export const useGraphTreeLinkedState = (workflowNodes?: WorkflowNode[]) => {
     (node: WorkflowNode | null) => {
       isGraphSelectingRef.current = true;
       setSelectedWorkflowNode(node);
+      setNavigatorNode(node);
       if (node && node.spans.length > 0) {
         setCurrentSpanIndex(0);
         const sorted = [...node.spans].sort((a, b) => a.start - b.start);
@@ -107,6 +111,7 @@ export const useGraphTreeLinkedState = (workflowNodes?: WorkflowNode[]) => {
   return {
     selectedWorkflowNode,
     setSelectedWorkflowNode,
+    navigatorNode,
     currentSpanIndex,
     sortedSpans,
     expandedKeys,

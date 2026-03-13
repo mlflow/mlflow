@@ -212,7 +212,17 @@ interface WorkflowNodeProps {
  */
 export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodeProps) {
   const { theme } = useDesignSystemTheme();
-  const { displayName, nodeType, count, spans, isSelected, isOnHighlightedPath, onViewSpanDetails, nodeWidth, nodeHeight } = data;
+  const {
+    displayName,
+    nodeType,
+    count,
+    spans,
+    isSelected,
+    isOnHighlightedPath,
+    onViewSpanDetails,
+    nodeWidth,
+    nodeHeight,
+  } = data;
 
   const spanType = nodeType as ModelSpanType | undefined;
 
@@ -333,9 +343,7 @@ export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodePro
               width: 24,
               height: 24,
               borderRadius: '50%',
-              backgroundColor: isHighlighted
-                ? theme.colors.actionPrimaryBackgroundDefault
-                : theme.colors.tagDefault,
+              backgroundColor: isHighlighted ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.tagDefault,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

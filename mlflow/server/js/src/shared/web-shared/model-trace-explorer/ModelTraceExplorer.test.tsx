@@ -195,8 +195,8 @@ describe('ModelTraceExplorer', () => {
     spans[1].parent_id = 'new-span';
     rerender(<TestComponent modelTrace={newTrace} />);
 
-    // expect that the new span is rendered
-    expect(await screen.findByText('new-span')).toBeInTheDocument();
+    // expect that the new span is rendered (appears in both tree and graph node)
+    expect((await screen.findAllByText('new-span')).length).toBeGreaterThanOrEqual(1);
 
     // expect that the span selection doesn't change if the previous node is still in the tree
     expect(await screen.findByText('rephrase_chat_to_queue-input')).toBeInTheDocument();
@@ -287,8 +287,8 @@ describe('ModelTraceExplorer', () => {
     // expect that the chat tab is open by default
     expect(await screen.findByTestId('model-trace-explorer-chat-tab')).toBeInTheDocument();
 
-    // click the non-chat span
-    const eventSpan = screen.getByText('events_span');
+    // click the non-chat span (also appears as a graph node)
+    const eventSpan = screen.getAllByText('events_span')[0];
     await userEvent.click(eventSpan);
 
     // expect that the content tab is open

@@ -279,18 +279,17 @@ function applyLayeredLayout(
       const prev = layerNodes[i - 1];
       const current = layerNodes[i];
       const minX = prev.x + prev.width + config.horizontalSpacing;
-      if (current.x < minX) {
-        const delta = minX - current.x;
-        current.x = minX;
+      if (current.x >= minX) continue;
 
-        // Also shift this node's subtree to maintain centering
-        const subtreeIds = getSubtreeIds(current.id, childrenMap);
-        for (const id of subtreeIds) {
-          const descendant = nodeById.get(id);
-          if (descendant) {
-            descendant.x += delta;
-          }
-        }
+      const delta = minX - current.x;
+      current.x = minX;
+
+      // Also shift this node's subtree to maintain centering
+      const subtreeIds = getSubtreeIds(current.id, childrenMap);
+      for (const id of subtreeIds) {
+        const descendant = nodeById.get(id);
+        if (!descendant) continue;
+        descendant.x += delta;
       }
     }
   }
