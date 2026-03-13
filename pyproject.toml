@@ -471,6 +471,7 @@ example-rules = [
 
 # typos
 [tool.typos.default.extend-words]
+aimd = "aimd"                      # additive increase multiplicative decrease
 als = "als"                        # alternating least squares
 mape = "mape"                      # mean absolute percentage error
 fpr = "fpr"                        # false positive rate
