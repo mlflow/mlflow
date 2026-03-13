@@ -1163,6 +1163,11 @@ class SqlIssue(Base):
     *Foreign Key* into ``runs`` table. Nullable for manually created issues.
     When the source run is deleted, this field is set to NULL.
     """
+    categories = Column(Text, nullable=True)
+    """
+    Categories stored as JSON array: `Text`. Nullable if categories are not yet
+    determined.
+    """
     created_timestamp = Column(BigInteger, nullable=False)
     """
     Creation timestamp: `BigInteger` in milliseconds.
@@ -1208,6 +1213,7 @@ class SqlIssue(Base):
             severity=IssueSeverity(self.severity) if self.severity else None,
             root_causes=json.loads(self.root_causes) if self.root_causes else None,
             source_run_id=self.source_run_id,
+            categories=json.loads(self.categories) if self.categories else None,
             created_timestamp=self.created_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
             created_by=self.created_by,

@@ -30,6 +30,7 @@ def test_create_issue_required_fields_only(store):
     assert issue.severity is None
     assert issue.root_causes is None
     assert issue.source_run_id is None
+    assert issue.categories is None
     assert issue.created_by is None
     assert issue.created_timestamp > 0
     assert issue.last_updated_timestamp == issue.created_timestamp
@@ -53,6 +54,7 @@ def test_create_issue_with_all_fields(store):
         severity=IssueSeverity.HIGH,
         root_causes=["Input prompts are too long", "Context window exceeded"],
         source_run_id=run.info.run_id,
+        categories=["hallucination", "context_limit"],
         created_by="user@example.com",
     )
 
@@ -67,6 +69,7 @@ def test_create_issue_with_all_fields(store):
         "Context window exceeded",
     ]
     assert issue.source_run_id == run.info.run_id
+    assert issue.categories == ["hallucination", "context_limit"]
     assert issue.created_by == "user@example.com"
 
 
@@ -112,6 +115,7 @@ def test_get_issue(store):
         severity=IssueSeverity.MEDIUM,
         root_causes=["Insufficient training data", "Model drift"],
         source_run_id=run.info.run_id,
+        categories=["accuracy", "model_drift"],
         created_by="alice@example.com",
     )
 
@@ -125,6 +129,7 @@ def test_get_issue(store):
     assert retrieved_issue.severity == IssueSeverity.MEDIUM
     assert retrieved_issue.root_causes == ["Insufficient training data", "Model drift"]
     assert retrieved_issue.source_run_id == run.info.run_id
+    assert retrieved_issue.categories == ["accuracy", "model_drift"]
     assert retrieved_issue.created_by == "alice@example.com"
     assert retrieved_issue.created_timestamp is not None
     assert retrieved_issue.created_timestamp > 0
