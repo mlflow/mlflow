@@ -223,37 +223,6 @@ mlflow.pyfunc.log_model(
 
 This maps to `uv export --extra gpu --extra serving`.
 
-### Full Example
-
-The following example shows all three parameters used together for a monorepo project that needs specific dependency groups and extras:
-
-```python
-import mlflow
-from pathlib import Path
-
-
-class MyModel(mlflow.pyfunc.PythonModel):
-    def predict(self, context, model_input):
-        import torch
-
-        # ... prediction logic
-        return predictions
-
-
-with mlflow.start_run():
-    mlflow.pyfunc.log_model(
-        python_model=MyModel(),
-        name="model",
-        input_example=input_data,
-        # Point to the uv project in a monorepo
-        uv_project_path=Path("services/ml-service"),
-        # Include the 'ml' dependency group
-        uv_groups=["ml"],
-        # Include the 'gpu' optional extra
-        uv_extras=["gpu"],
-    )
-```
-
 For a complete, runnable example with a uv project (including `pyproject.toml`, `uv.lock`, and a script demonstrating auto-detection, explicit paths, groups, and extras), see the [full example code](https://github.com/mlflow/mlflow/tree/master/examples/uv-dependency-management).
 
 :::tip
