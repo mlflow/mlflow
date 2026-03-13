@@ -4272,6 +4272,10 @@
     "defaultMessage": "Add to evaluation dataset",
     "description": "Add traces to evaluation dataset action"
   },
+  "QevoXx": {
+    "defaultMessage": "Error details",
+    "description": "Issue detection error details > Title"
+  },
   "Qg12xQ": {
     "defaultMessage": "Register prompts",
     "description": "Home page quick action title for registering prompts"

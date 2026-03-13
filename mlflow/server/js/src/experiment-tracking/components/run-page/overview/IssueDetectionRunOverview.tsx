@@ -36,6 +36,7 @@ export const IssueDetectionRunOverview = ({
   const {
     status: jobStatus,
     result,
+    errorMessage: jobErrorMessage,
     isLoading: isLoadingJobStatus,
     error: jobStatusError,
   } = useFetchIssueJobStatus({
@@ -169,6 +170,7 @@ export const IssueDetectionRunOverview = ({
         result={result}
         isLoadingJobStatus={isLoadingJobStatus}
         jobStatusError={jobStatusError}
+        jobErrorMessage={jobErrorMessage}
       />
     </DetailsPageLayout>
   );
