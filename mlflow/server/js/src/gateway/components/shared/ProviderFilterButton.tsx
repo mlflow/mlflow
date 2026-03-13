@@ -58,14 +58,10 @@ export const ProviderFilterButton = ({
   );
 
   return (
-    <Popover.Root
-      componentId="codegen_mlflow_app_src_oss_gateway_components_shared_ProviderFilterButton.tsx_61"
-      open={isOpen}
-      onOpenChange={setIsOpen}
-    >
+    <Popover.Root componentId={`${componentIdPrefix}.filter-popover`} open={isOpen} onOpenChange={setIsOpen}>
       <Popover.Trigger asChild>
         <Button
-          componentId="codegen_mlflow_app_src_oss_gateway_components_shared_ProviderFilterButton.tsx_64"
+          componentId={`${componentIdPrefix}.filter-button`}
           endIcon={<ChevronDownIcon />}
           css={{
             border: hasActiveFilters ? `1px solid ${theme.colors.actionDefaultBorderFocus} !important` : '',
@@ -108,7 +104,7 @@ export const ProviderFilterButton = ({
             sortedProviders.map((provider) => (
               <Checkbox
                 key={provider}
-                componentId="codegen_mlflow_app_src_oss_gateway_components_shared_ProviderFilterButton.tsx_107"
+                componentId={`${componentIdPrefix}.filter.provider.${provider}`}
                 isChecked={filter.providers.includes(provider)}
                 onChange={() => handleProviderToggle(provider)}
               >
