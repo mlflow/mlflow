@@ -113,8 +113,7 @@ def test_invoke_issue_detection_job_success():
             trace_ids=["trace-1", "trace-2"],
             categories=["correctness", "safety"],
             run_id="run-123",
-            provider="openai",
-            model="gpt-4o",
+            model="openai:/gpt-4o",
         )
 
         mock_client.link_traces_to_run.assert_called_once_with(["trace-1", "trace-2"], "run-123")
@@ -153,13 +152,13 @@ def test_invoke_issue_detection_job_with_endpoint():
             trace_ids=["trace-1"],
             categories=["correctness"],
             run_id="run-123",
-            endpoint_name="my-endpoint",
+            model="gateway:/my-endpoint",
         )
 
-        # Verify endpoint_name is used as model name when provided
+        # Verify gateway endpoint format is passed to discover_issues
         mock_discover_issues.assert_called_once()
         call_args = mock_discover_issues.call_args
-        assert call_args.kwargs["model"] == "my-endpoint"
+        assert call_args.kwargs["model"] == "gateway:/my-endpoint"
 
 
 def test_invoke_issue_detection_job_batches_large_trace_list():
@@ -184,8 +183,7 @@ def test_invoke_issue_detection_job_batches_large_trace_list():
             trace_ids=trace_ids,
             categories=["correctness"],
             run_id="run-123",
-            provider="openai",
-            model="gpt-4o",
+            model="openai:/gpt-4o",
         )
 
         # Should batch link_traces_to_run calls (100 traces per call)
@@ -207,8 +205,7 @@ def test_invoke_issue_detection_job_failure_marks_run_failed():
                 trace_ids=["trace-1"],
                 categories=["correctness"],
                 run_id="run-123",
-                provider="openai",
-                model="gpt-4o",
+                model="openai:/gpt-4o",
             )
 
         mock_client.set_terminated.assert_called_once_with(
