@@ -8,6 +8,7 @@ import mlflow.gateway.budget_tracker as _bt_module
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -16,7 +17,7 @@ from mlflow.entities.gateway_budget_policy import (
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.server.gateway_budget import (
-    calculate_existing_cost_for_new_windows,
+    calculate_existing_cost_for_windows,
     check_budget_limit,
     fire_budget_exceeded_webhooks,
     make_budget_on_complete,
@@ -45,8 +46,7 @@ def _make_policy(
         budget_policy_id=budget_policy_id,
         budget_unit=BudgetUnit.USD,
         budget_amount=budget_amount,
-        duration_unit=BudgetDurationUnit.DAYS,
-        duration_value=1,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=budget_action,
         created_at=0,
@@ -283,7 +283,7 @@ def test_maybe_refresh_skips_when_not_needed():
     store.list_budget_policies.assert_not_called()
 
 
-# --- calculate_existing_cost_for_new_windows tests ---
+# --- calculate_existing_cost_for_windows tests ---
 
 
 def test_calculate_existing_cost_on_new_windows():
@@ -293,7 +293,7 @@ def test_calculate_existing_cost_on_new_windows():
     store = MagicMock()
     store.sum_gateway_trace_cost.return_value = 42.0
 
-    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    existing_spend = calculate_existing_cost_for_windows(store, new_windows)
     tracker.backfill_spend(existing_spend)
 
     store.sum_gateway_trace_cost.assert_called_once()
@@ -302,7 +302,7 @@ def test_calculate_existing_cost_on_new_windows():
 
 def test_calculate_existing_cost_skipped_when_no_new_windows():
     store = MagicMock()
-    result = calculate_existing_cost_for_new_windows(store, [])
+    result = calculate_existing_cost_for_windows(store, [])
     assert result == {}
     store.sum_gateway_trace_cost.assert_not_called()
 
@@ -314,7 +314,7 @@ def test_calculate_existing_cost_handles_store_error():
     store = MagicMock()
     store.sum_gateway_trace_cost.side_effect = Exception("DB error")
 
-    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    existing_spend = calculate_existing_cost_for_windows(store, new_windows)
     tracker.backfill_spend(existing_spend)
 
     assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
@@ -327,7 +327,7 @@ def test_calculate_existing_cost_zero_spend_excluded():
     store = MagicMock()
     store.sum_gateway_trace_cost.return_value = 0.0
 
-    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    existing_spend = calculate_existing_cost_for_windows(store, new_windows)
     assert existing_spend == {}
 
     tracker.backfill_spend(existing_spend)
@@ -415,8 +415,7 @@ def test_check_budget_limit_error_message_plural():
         budget_policy_id="bp-plural",
         budget_unit=BudgetUnit.USD,
         budget_amount=200.0,
-        duration_unit=BudgetDurationUnit.MONTHS,
-        duration_value=3,
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=3),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.REJECT,
         created_at=0,
@@ -443,8 +442,7 @@ def test_check_budget_limit_with_workspace():
         budget_policy_id="bp-ws",
         budget_unit=BudgetUnit.USD,
         budget_amount=50.0,
-        duration_unit=BudgetDurationUnit.DAYS,
-        duration_value=1,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=BudgetTargetScope.WORKSPACE,
         budget_action=BudgetAction.REJECT,
         created_at=0,

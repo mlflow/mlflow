@@ -30,7 +30,7 @@ export const DeleteEndpointModal = ({ open, endpoint, bindings, onClose, onSucce
 
   const handleConfirm = async () => {
     if (!endpoint) return;
-    await deleteEndpoint(endpoint.endpoint_id);
+    await deleteEndpoint({ endpointId: endpoint.endpoint_id, modelMappings: endpoint.model_mappings });
     onSuccess?.();
   };
 

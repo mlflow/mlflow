@@ -26,6 +26,7 @@ from mlflow.entities._job import Job as JobEntity
 from mlflow.entities._job_status import JobStatus
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -4195,15 +4196,13 @@ def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(
 def _make_budget_policy(
     budget_policy_id="bp-test",
     budget_amount=100.0,
-    duration_unit=None,
-    duration_value=1,
+    duration=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
         budget_unit=BudgetUnit.USD,
         budget_amount=budget_amount,
-        duration_unit=duration_unit or BudgetDurationUnit.DAYS,
-        duration_value=duration_value,
+        duration=duration or BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
         created_at=0,
@@ -4299,6 +4298,7 @@ def test_create_issue_with_all_fields():
     request_message.status = "pending"
     request_message.source_run_id = "run-123"
     request_message.root_causes.extend(["Database query inefficiency", "Network latency"])
+    request_message.categories.extend(["performance", "database"])
     request_message.severity = IssueSeverity.HIGH.value
     request_message.created_by = "user@example.com"
 
@@ -4310,6 +4310,7 @@ def test_create_issue_with_all_fields():
         status=IssueStatus.PENDING,
         source_run_id="run-123",
         root_causes=["Database query inefficiency", "Network latency"],
+        categories=["performance", "database"],
         severity=IssueSeverity.HIGH,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
@@ -4332,6 +4333,7 @@ def test_create_issue_with_all_fields():
         assert call_kwargs["status"] == IssueStatus.PENDING
         assert call_kwargs["source_run_id"] == "run-123"
         assert call_kwargs["root_causes"] == ["Database query inefficiency", "Network latency"]
+        assert call_kwargs["categories"] == ["performance", "database"]
         assert call_kwargs["severity"] == IssueSeverity.HIGH.value
         assert call_kwargs["created_by"] == "user@example.com"
 
@@ -4341,6 +4343,7 @@ def test_create_issue_with_all_fields():
             "Database query inefficiency",
             "Network latency",
         ]
+        assert json_response["issue"]["categories"] == ["performance", "database"]
 
 
 def test_create_issue_without_optional_fields():
