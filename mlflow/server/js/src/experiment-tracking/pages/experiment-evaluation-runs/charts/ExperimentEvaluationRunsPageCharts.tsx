@@ -36,6 +36,7 @@ const SUPPORTED_CHART_TYPES = [
   RunsChartType.DIFFERENCE,
   RunsChartType.PARALLEL,
   RunsChartType.SCATTER,
+  RunsChartType.HISTOGRAM,
 ];
 
 const ExperimentEvaluationRunsPageChartsImpl = ({
