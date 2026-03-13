@@ -144,7 +144,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
         <br>
         <a href="https://mlflow.org/docs/latest/ml/deployment/"><strong>🚀 Deployment</strong></a>
         <br><br>
-        <div> Tools for seamless model deployment to batch and real-time scoring on platforms like Docker, Kubernetes, Azure ML, and AWS SageMaker.</div><br>
+        <div> Tools for seamless model deployment to batch and real-time scoring on platforms like Docker, Kubernetes, Azure ML, AWS SageMaker, and Modal.</div><br>
         <a href="https://mlflow.org/docs/latest/ml/deployment/">Getting Started →</a>
         <br><br>
     </div>
