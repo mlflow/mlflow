@@ -373,18 +373,20 @@ export interface AddGuardrailRequest {
 }
 
 export interface GuardrailScorerConfig {
-  /** For builtin judges (Safety, Guidelines, etc.) */
+  /** For builtin guardrails (Safety, Guidelines, etc.) */
   builtin_scorer?: string;
   guidelines?: string;
-  /** For registered judges — name, experiment_id, and version to uniquely identify */
+  /** For registered guardrails — name, experiment_id, and version to uniquely identify */
   registered_scorer?: string;
   experiment_id?: string;
   scorer_version?: number;
-  /** For custom judges (make_judge style) */
+  /** For LLM judge guardrails (make_judge style) */
   prompt?: string;
   response_schema?: 'yes_no' | 'chat_request' | 'chat_response';
-  /** Model identifier for custom judges (e.g. "gateway:/my-endpoint" or "openai:/gpt-4.1-mini") */
+  /** Model identifier for LLM judge guardrails (e.g. "gateway:/my-endpoint" or "openai:/gpt-4.1-mini") */
   model?: string;
+  /** For regex guardrails — Python-compatible regex pattern (uses guardrails/regex_match) */
+  regex_pattern?: string;
 }
 
 export interface AddGuardrailResponse {

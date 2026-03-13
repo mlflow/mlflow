@@ -186,7 +186,7 @@ function isRegisteredScorerCompatible(scorer: RegisteredScorer, hook: GuardrailH
 
 // ─── Form types ─────────────────────────────────────────────────────────────
 
-type ScorerSource = 'builtin' | 'registered' | 'custom';
+type ScorerSource = 'builtin' | 'registered' | 'custom' | 'regex' | 'code';
 
 interface FormData {
   scorerName: string;
@@ -198,6 +198,7 @@ interface FormData {
   guidelines: string;
   prompt: string;
   model: string;
+  regexPattern: string;
 }
 
 function makeInitialForm(): FormData {
@@ -211,6 +212,7 @@ function makeInitialForm(): FormData {
     guidelines: '',
     prompt: getDefaultPrompt('PRE', 'VALIDATION'),
     model: '',
+    regexPattern: '',
   };
 }
 
@@ -288,9 +290,11 @@ function SourceTabs({
   const { theme } = useDesignSystemTheme();
 
   const tabs: { key: ScorerSource; label: string }[] = [
-    { key: 'builtin', label: 'Guardrails AI' },
+    { key: 'builtin', label: 'Catalog' },
     { key: 'registered', label: 'Registered' },
-    { key: 'custom', label: 'Custom' },
+    { key: 'custom', label: 'LLM Judge' },
+    { key: 'regex', label: 'Regex' },
+    { key: 'code', label: 'Code' },
   ];
 
   return (
@@ -312,7 +316,7 @@ function SourceTabs({
             flex: 1,
             padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
             border: 'none',
-            borderRight: tab.key !== 'custom' ? `1px solid ${theme.colors.border}` : 'none',
+            borderRight: tab.key !== 'code' ? `1px solid ${theme.colors.border}` : 'none',
             backgroundColor:
               value === tab.key ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.backgroundPrimary,
             color: value === tab.key ? '#fff' : theme.colors.textPrimary,
@@ -506,6 +510,9 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
         config.experiment_id = scorer.experiment_id;
         config.scorer_version = scorer.scorer_version;
       }
+    } else if (formData.scorerSource === 'regex') {
+      config.builtin_scorer = 'regex_match';
+      config.regex_pattern = formData.regexPattern;
     } else {
       config.prompt = formData.prompt;
       config.response_schema =
@@ -563,17 +570,19 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
     if (editingGuardrail) {
       const config = editingGuardrail.config;
       const isBuiltin = BUILTIN_JUDGES.some((j) => j.name === config?.builtin_scorer);
+      const isRegex = config?.builtin_scorer === 'regex_match';
       const isRegistered = !!config?.registered_scorer;
       setFormData({
         scorerName: editingGuardrail.scorer_name,
         hook: editingGuardrail.hook,
         operation: editingGuardrail.operation,
-        scorerSource: isBuiltin ? 'builtin' : isRegistered ? 'registered' : 'custom',
-        builtinJudge: config?.builtin_scorer ?? '',
+        scorerSource: isRegex ? 'regex' : isBuiltin ? 'builtin' : isRegistered ? 'registered' : 'custom',
+        builtinJudge: isRegex ? '' : (config?.builtin_scorer ?? ''),
         registeredScorer: config?.registered_scorer ?? '',
         guidelines: config?.guidelines ?? '',
         prompt: config?.prompt ?? getDefaultPrompt(editingGuardrail.hook, editingGuardrail.operation),
         model: config?.model ?? '',
+        regexPattern: config?.regex_pattern ?? '',
       });
     } else {
       setFormData(makeInitialForm());
@@ -617,6 +626,11 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
           } else if (value === 'custom') {
             next.scorerName = prev.scorerName || '';
             next.prompt = getDefaultPrompt(next.hook, next.operation);
+          } else if (value === 'regex') {
+            next.scorerName = prev.scorerName || '';
+            next.operation = 'VALIDATION'; // regex only supports block
+          } else if (value === 'code') {
+            next.scorerName = '';
           }
         }
         // When hook or operation changes, clear selections that may no longer be compatible
@@ -670,6 +684,9 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
     if (formData.scorerSource === 'custom' && !formData.scorerName.trim()) return false;
     if (formData.scorerSource === 'custom' && !formData.prompt.trim()) return false;
     if (formData.scorerSource === 'registered' && !formData.registeredScorer) return false;
+    if (formData.scorerSource === 'regex' && !formData.scorerName.trim()) return false;
+    if (formData.scorerSource === 'regex' && !formData.regexPattern.trim()) return false;
+    if (formData.scorerSource === 'code') return false; // code tab is guide-only, no submission
     return true;
   }, [formData]);
 
@@ -687,6 +704,9 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
         config.experiment_id = scorer.experiment_id;
         config.scorer_version = scorer.scorer_version;
       }
+    } else if (formData.scorerSource === 'regex') {
+      config.builtin_scorer = 'regex_match';
+      config.regex_pattern = formData.regexPattern;
     } else {
       config.prompt = formData.prompt;
       config.response_schema =
@@ -783,16 +803,16 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
           />
         )}
 
-        {/* Hook and Operation side by side */}
+        {/* Stage and Action side by side */}
         <div css={{ display: 'flex', gap: theme.spacing.md }}>
           <div css={{ flex: 1, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
             <Typography.Text bold>
-              <FormattedMessage defaultMessage="Hook" description="Guardrail hook label" />
+              <FormattedMessage defaultMessage="Stage" description="Guardrail stage label" />
             </Typography.Text>
             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
               <FormattedMessage
                 defaultMessage="When the guardrail runs relative to LLM invocation"
-                description="Hook description"
+                description="Stage description"
               />
             </Typography.Text>
             <SimpleSelect
@@ -808,12 +828,12 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
 
           <div css={{ flex: 1, display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
             <Typography.Text bold>
-              <FormattedMessage defaultMessage="Operation" description="Guardrail operation label" />
+              <FormattedMessage defaultMessage="Action" description="Guardrail action label" />
             </Typography.Text>
             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
               <FormattedMessage
                 defaultMessage="Whether the guardrail blocks or modifies requests"
-                description="Operation description"
+                description="Action description"
               />
             </Typography.Text>
             <SimpleSelect
@@ -822,25 +842,20 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
               value={formData.operation}
               onChange={({ target }) => handleFieldChange('operation', target.value as GuardrailOperation)}
             >
-              <SimpleSelectOption value="VALIDATION">Validation (block)</SimpleSelectOption>
-              <SimpleSelectOption value="MUTATION">Mutation (modify)</SimpleSelectOption>
+              <SimpleSelectOption value="VALIDATION">Block</SimpleSelectOption>
+              <SimpleSelectOption value="MUTATION">Modify</SimpleSelectOption>
             </SimpleSelect>
           </div>
         </div>
 
         {/* Source tabs */}
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-          <Typography.Text bold>
-            <FormattedMessage defaultMessage="Judge source" description="Judge source label" />
-          </Typography.Text>
-          <SourceTabs
-            value={formData.scorerSource}
-            onChange={(v) => handleFieldChange('scorerSource', v)}
-          />
-        </div>
+        <SourceTabs
+          value={formData.scorerSource}
+          onChange={(v) => handleFieldChange('scorerSource', v)}
+        />
 
-        {/* Search bar (shown for builtin and registered) */}
-        {formData.scorerSource !== 'custom' && (
+        {/* Search bar (shown for builtin and registered only) */}
+        {(formData.scorerSource === 'builtin' || formData.scorerSource === 'registered') && (
           <Input
             componentId="mlflow.gateway.guardrail-modal.search"
             value={searchQuery}
@@ -878,12 +893,12 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
                 <Typography.Text color="secondary">
                   {formData.operation === 'MUTATION' ? (
                     <FormattedMessage
-                      defaultMessage="Guardrails AI validators only support validation (yes/no). Switch to Validation operation or use a custom judge for mutation."
+                      defaultMessage="Catalog guardrails only support Block action. Switch to Block or use LLM Judge / Code tab for Modify."
                       description="No builtin guardrails for mutation operation"
                     />
                   ) : (
                     <FormattedMessage
-                      defaultMessage="No matching builtin guardrails found."
+                      defaultMessage="No matching guardrails found."
                       description="No matching builtin guardrails"
                     />
                   )}
@@ -899,7 +914,7 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
             {isLoadingScorers ? (
               <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm, padding: theme.spacing.lg }}>
                 <Spinner size="small" />
-                <FormattedMessage defaultMessage="Loading registered judges..." description="Loading registered judges" />
+                <FormattedMessage defaultMessage="Loading registered guardrails..." description="Loading registered guardrails" />
               </div>
             ) : filteredRegistered.length > 0 ? (
               <div
@@ -945,21 +960,21 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
                 type="warning"
                 message={intl.formatMessage({
                   defaultMessage:
-                    'No registered judges found. Register a judge first using mlflow.genai.scorers.register_scorer() or make_judge().register().',
-                  description: 'No registered judges message',
+                    'No registered guardrails found. Register one first using mlflow.genai.scorers.register_scorer(), or use the Code tab to see how.',
+                  description: 'No registered guardrails message',
                 })}
               />
             )}
           </>
         )}
 
-        {/* ─── Custom judge (make_judge style) ─── */}
+        {/* ─── LLM Judge (make_judge style) ─── */}
         {formData.scorerSource === 'custom' && (
           <>
-            {/* Custom judge name */}
+            {/* Guardrail name */}
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
               <Typography.Text bold>
-                <FormattedMessage defaultMessage="Judge name" description="Custom judge name label" />
+                <FormattedMessage defaultMessage="Guardrail name" description="LLM judge guardrail name label" />
               </Typography.Text>
               <Input
                 componentId="mlflow.gateway.guardrail-modal.custom-name"
@@ -967,7 +982,7 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
                 onChange={(e) => handleFieldChange('scorerName', e.target.value)}
                 placeholder={intl.formatMessage({
                   defaultMessage: 'e.g., pii-filter, toxicity-check',
-                  description: 'Judge name placeholder',
+                  description: 'Guardrail name placeholder',
                 })}
               />
             </div>
@@ -975,12 +990,12 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
             {/* Instructions prompt */}
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
               <Typography.Text bold>
-                <FormattedMessage defaultMessage="Instructions" description="Custom judge instructions label" />
+                <FormattedMessage defaultMessage="Instructions" description="LLM judge instructions label" />
               </Typography.Text>
               <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                 <FormattedMessage
-                  defaultMessage="Judge instructions (like make_judge). Use {variable} to reference the {hookType} data."
-                  description="Custom judge instructions description"
+                  defaultMessage="Instructions for the LLM guardrail. Use {variable} to reference the {hookType} data."
+                  description="LLM judge instructions description"
                   values={{
                     variable: <code>{promptHint}</code>,
                     hookType: formData.hook === 'PRE' ? 'input' : 'output',
@@ -1009,8 +1024,8 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
                   type="info"
                   message={intl.formatMessage({
                     defaultMessage:
-                      'Validation guardrails expect a yes/no response. "no" means the content is rejected.',
-                    description: 'Validation hint for custom judge guardrails',
+                      'Block guardrails expect a yes/no response. "no" means the content is rejected.',
+                    description: 'Block hint for LLM judge guardrails',
                   })}
                 />
               )}
@@ -1020,8 +1035,8 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
                   type="info"
                   message={intl.formatMessage({
                     defaultMessage:
-                      'Mutation guardrails should return the modified content. For pre-invocation, output a ChatRequest. For post-invocation, output a ChatResponse.',
-                    description: 'Mutation hint for custom judge guardrails',
+                      'Modify guardrails should return the modified content. For pre-invocation, output a ChatRequest. For post-invocation, output a ChatResponse.',
+                    description: 'Modify hint for LLM judge guardrails',
                   })}
                 />
               )}
@@ -1033,6 +1048,155 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
               onModelChange={(value) => handleFieldChange('model', value)}
             />
           </>
+        )}
+
+        {/* ─── Regex guardrail ─── */}
+        {formData.scorerSource === 'regex' && (
+          <>
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Guardrail name" description="Regex guardrail name label" />
+              </Typography.Text>
+              <Input
+                componentId="mlflow.gateway.guardrail-modal.regex-name"
+                value={formData.scorerName}
+                onChange={(e) => handleFieldChange('scorerName', e.target.value)}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'e.g., ssn-detector, pii-regex',
+                  description: 'Regex guardrail name placeholder',
+                })}
+              />
+            </div>
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Regex pattern" description="Regex pattern label" />
+              </Typography.Text>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                <FormattedMessage
+                  defaultMessage="Python-compatible regular expression. The guardrail blocks requests where a match is found. Powered by the Guardrails AI regex_match validator."
+                  description="Regex pattern description"
+                />
+              </Typography.Text>
+              <Input
+                componentId="mlflow.gateway.guardrail-modal.regex-pattern"
+                value={formData.regexPattern}
+                onChange={(e) => handleFieldChange('regexPattern', e.target.value)}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'e.g., \\d{3}-\\d{2}-\\d{4}  (SSN pattern)',
+                  description: 'Regex pattern placeholder',
+                })}
+                css={{ fontFamily: 'monospace' }}
+              />
+            </div>
+            <Alert
+              componentId="mlflow.gateway.guardrail-modal.regex-info"
+              type="info"
+              closable={false}
+              message={intl.formatMessage({
+                defaultMessage:
+                  'Common patterns: SSN (\\d{3}-\\d{2}-\\d{4}), email ([\\w.-]+@[\\w.-]+\\.\\w+), credit card (\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4})',
+                description: 'Common regex pattern examples',
+              })}
+            />
+          </>
+        )}
+
+        {/* ─── Code-based guardrail guide ─── */}
+        {formData.scorerSource === 'code' && (
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            <Alert
+              componentId="mlflow.gateway.guardrail-modal.code-info"
+              type="info"
+              closable={false}
+              message={intl.formatMessage({
+                defaultMessage:
+                  'Code-based guardrails let you write arbitrary Python logic — regex, rule engines, external APIs, etc. Register them with mlflow.genai.scorers.register_scorer(), then find them in the Registered tab.',
+                description: 'Code guardrail guide intro',
+              })}
+            />
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Example: block requests containing SSNs" description="Code guardrail example header" />
+              </Typography.Text>
+              <pre
+                css={{
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.borders.borderRadiusMd,
+                  padding: theme.spacing.md,
+                  fontSize: theme.typography.fontSizeSm,
+                  fontFamily: 'monospace',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                  margin: 0,
+                  color: theme.colors.textPrimary,
+                }}
+              >{`import re
+import mlflow
+from mlflow.genai.scorers import Scorer
+
+class SSNDetector(Scorer):
+    name = "ssn-detector"
+
+    def score(self, *, inputs, **kwargs):
+        text = str(inputs)
+        found = bool(re.search(r"\\d{3}-\\d{2}-\\d{4}", text))
+        return mlflow.entities.Assessment(
+            name=self.name,
+            value="no" if found else "yes",  # "no" = block
+            rationale="SSN pattern detected" if found else "No SSN found",
+        )
+
+# Register it once — then find it in the Registered tab
+SSNDetector().register()`}</pre>
+            </div>
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+              <Typography.Text bold>
+                <FormattedMessage defaultMessage="Example: redact PII before sending to LLM (Modify)" description="Code guardrail modify example header" />
+              </Typography.Text>
+              <pre
+                css={{
+                  backgroundColor: theme.colors.backgroundSecondary,
+                  border: `1px solid ${theme.colors.border}`,
+                  borderRadius: theme.borders.borderRadiusMd,
+                  padding: theme.spacing.md,
+                  fontSize: theme.typography.fontSizeSm,
+                  fontFamily: 'monospace',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-all',
+                  margin: 0,
+                  color: theme.colors.textPrimary,
+                }}
+              >{`import re
+import copy
+import mlflow
+from mlflow.genai.scorers import Scorer
+
+class PIIRedactor(Scorer):
+    name = "pii-redactor"
+
+    def score(self, *, inputs, **kwargs):
+        # inputs is a ChatRequest dict — redact and return it
+        modified = copy.deepcopy(inputs)
+        for msg in modified.get("messages", []):
+            msg["content"] = re.sub(
+                r"\\d{3}-\\d{2}-\\d{4}", "[REDACTED-SSN]",
+                str(msg.get("content", ""))
+            )
+        return mlflow.entities.Assessment(
+            name=self.name,
+            value=modified,  # return modified ChatRequest
+        )
+
+PIIRedactor().register()`}</pre>
+            </div>
+            <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+              <FormattedMessage
+                defaultMessage="After registering, refresh the Registered tab to use your guardrail. See the MLflow docs for more scorer examples."
+                description="Code guardrail footer note"
+              />
+            </Typography.Text>
+          </div>
         )}
 
         {/* ─── Test section ─── */}

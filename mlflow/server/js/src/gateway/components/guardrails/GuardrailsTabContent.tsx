@@ -23,7 +23,7 @@ interface GuardrailsTabContentProps {
 
 const OPERATION_LABELS: Record<string, string> = {
   VALIDATION: 'Validation',
-  MUTATION: 'Mutation',
+  MUTATION: 'Modify',
 };
 
 const HOOK_COLORS: Record<string, string> = {
@@ -491,7 +491,7 @@ const GuardrailSection = ({
           >
             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
               <FormattedMessage
-                defaultMessage="Validation (parallel)"
+                defaultMessage="Block (parallel)"
                 description="Validation sub-header in guardrail section"
               />
             </Typography.Text>
@@ -529,8 +529,8 @@ const GuardrailSection = ({
           >
             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
               <FormattedMessage
-                defaultMessage="Mutation (sequential)"
-                description="Mutation sub-header in guardrail section"
+                defaultMessage="Modify (sequential)"
+                description="Modify sub-header in guardrail section"
               />
             </Typography.Text>
           </div>
