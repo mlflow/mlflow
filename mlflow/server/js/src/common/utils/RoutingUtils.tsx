@@ -38,13 +38,11 @@ import {
 import { HashRouter as HashRouterV5, Link as LinkV5, NavLink as NavLinkV5 } from 'react-router-dom';
 import type { ComponentProps } from 'react';
 import React, { useCallback, useMemo } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
   useDesignSystemEventComponentCallbacks,
 } from '@databricks/design-system';
-import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
 
 import {
   prefixRouteWithWorkspace,
