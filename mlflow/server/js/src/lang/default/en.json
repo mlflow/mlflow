@@ -6097,6 +6097,10 @@
     "defaultMessage": "String",
     "description": "String select menu option for assessment data type"
   },
+  "cBlZb0": {
+    "defaultMessage": "Status",
+    "description": "Column header for run status in the evaluation runs table"
+  },
   "cEj56l": {
     "defaultMessage": "Step",
     "description": "Label for the step axis on the runs compare chart"

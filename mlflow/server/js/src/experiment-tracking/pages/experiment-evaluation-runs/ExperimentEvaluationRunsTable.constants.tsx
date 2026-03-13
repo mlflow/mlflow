@@ -7,6 +7,7 @@ import {
   ModelVersionCell,
   RunNameCell,
   SortableHeaderCell,
+  StatusCell,
   VisiblityCell,
 } from './ExperimentEvaluationRunsTableCellRenderers';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -35,6 +36,7 @@ export enum EvalRunsTableColumnId {
   checkbox = 'checkbox',
   visibility = 'visibility',
   runName = 'run_name',
+  status = 'status',
   dataset = 'dataset',
   modelVersion = 'model_version',
   createdAt = 'created_at',
@@ -57,9 +59,10 @@ export const EVAL_RUNS_TABLE_BASE_SELECTION_STATE: { [key: string]: boolean } = 
   [EvalRunsTableColumnId.checkbox]: true,
   [EvalRunsTableColumnId.visibility]: true,
   [EvalRunsTableColumnId.runName]: true,
+  [EvalRunsTableColumnId.status]: true,
   [EvalRunsTableColumnId.createdAt]: true,
   [EvalRunsTableColumnId.dataset]: true,
-  [EvalRunsTableColumnId.modelVersion]: true,
+  [EvalRunsTableColumnId.modelVersion]: false,
 };
 
 export const EVAL_RUNS_COLUMN_LABELS: Record<EvalRunsTableColumnId, MessageDescriptor> = {
@@ -74,6 +77,10 @@ export const EVAL_RUNS_COLUMN_LABELS: Record<EvalRunsTableColumnId, MessageDescr
   [EvalRunsTableColumnId.runName]: defineMessage({
     defaultMessage: 'Run Name',
     description: 'Column header for run name in the evaluation runs table',
+  }),
+  [EvalRunsTableColumnId.status]: defineMessage({
+    defaultMessage: 'Status',
+    description: 'Column header for run status in the evaluation runs table',
   }),
   [EvalRunsTableColumnId.createdAt]: defineMessage({
     defaultMessage: 'Created at',
@@ -143,6 +150,24 @@ export const getExperimentEvalRunsDefaultColumns = (
       meta: {
         styles: {
           minWidth: 100,
+        },
+      },
+    },
+    {
+      id: EvalRunsTableColumnId.status,
+      header: () => <FormattedMessage {...EVAL_RUNS_COLUMN_LABELS[EvalRunsTableColumnId.status]} />,
+      accessorFn: (row) => {
+        if ('subRuns' in row) {
+          return undefined;
+        }
+        return row.info.status;
+      },
+      cell: StatusCell,
+      enableResizing: false,
+      meta: {
+        styles: {
+          minWidth: 60,
+          maxWidth: 80,
         },
       },
     },
