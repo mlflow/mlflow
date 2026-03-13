@@ -53,6 +53,14 @@ To install the MLflow Python package, run the following command:
 pip install mlflow
 ```
 
+## ▶️ Run
+
+```
+mlflow server --port 5000
+```
+
+This will start the server and UI at http://localhost:5000 using SQLite as the backend store (the default).
+
 ## 📦 Core Components
 
 MLflow is **the only platform that provides a unified solution for all your AI/ML needs**, including <a href="https://mlflow.org/llmops">LLMs</a>, Agents, Deep Learning, and traditional machine learning.
