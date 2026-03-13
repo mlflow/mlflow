@@ -120,12 +120,6 @@ The `redis` strategy stores budget windows in Redis, enabling consistent spend t
 | `MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL` | `600` | Seconds between policy re-fetches from the database. Applies to both strategies. Decrease to pick up policy changes faster; increase to reduce database load. |
 
 ```bash
-# Activate Redis strategy
-export MLFLOW_GATEWAY_BUDGET_REDIS_URL=redis://localhost:6379/0
-mlflow server --host 0.0.0.0 --port 5000
-```
-
-```bash
 # Redis strategy with faster policy refresh (30 s)
 export MLFLOW_GATEWAY_BUDGET_REDIS_URL=redis://localhost:6379/0
 export MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL=30
