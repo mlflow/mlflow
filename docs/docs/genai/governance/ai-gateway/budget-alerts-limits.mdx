@@ -117,11 +117,17 @@ The `redis` strategy stores budget windows in Redis, enabling consistent spend t
 | Environment Variable | Default | Description |
 |---|---|---|
 | `MLFLOW_GATEWAY_BUDGET_REDIS_URL` | `None` | Redis connection URL. Setting this variable activates the `redis` strategy. Examples: `redis://localhost:6379/0` (plain), `rediss://host:6380/0` (TLS), `redis://:password@host:6379/0` (auth). |
-| `MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL` | `600` | Seconds between policy re-fetches from the database. Applies to both strategies. Decrease to pick up policy changes faster; increase to reduce database load. |
 
 ```bash
-# Redis strategy with faster policy refresh (30 s)
 export MLFLOW_GATEWAY_BUDGET_REDIS_URL=redis://localhost:6379/0
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+## Policy Refresh Interval
+
+Both strategies periodically re-fetch budget policies from the database. The interval is controlled by `MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL` (default: `600` seconds). Decrease the value to pick up policy changes faster; increase it to reduce database load.
+
+```bash
 export MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL=30
 mlflow server --host 0.0.0.0 --port 5000
 ```
