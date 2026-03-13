@@ -25,6 +25,7 @@ from sqlalchemy.pool import (
 )
 
 from mlflow.environment_variables import (
+    MLFLOW_ALLOW_SCHEMA_MISMATCH,
     MLFLOW_MYSQL_SSL_CA,
     MLFLOW_MYSQL_SSL_CERT,
     MLFLOW_MYSQL_SSL_KEY,
@@ -152,18 +153,94 @@ def _get_latest_schema_revision():
     return heads[0]
 
 
+def _is_schema_behind(current_rev, head_revision):
+    """Check if current_rev is an ancestor of head_revision (i.e., DB is behind code).
+
+    Returns True if current_rev is behind head_revision in the migration chain.
+    Returns False if current_rev is ahead, divergent, or equal.
+    """
+    if current_rev == head_revision:
+        return False
+    config = _get_alembic_config(db_url="")
+    script = ScriptDirectory.from_config(config)
+    try:
+        for rev in script.walk_revisions(base=current_rev, head=head_revision):
+            if rev.revision == current_rev:
+                continue
+            return True
+    except Exception:
+        return False
+    return False
+
+
 def _verify_schema(engine):
     head_revision = _get_latest_schema_revision()
     current_rev = _get_schema_version(engine)
-    if current_rev != head_revision:
-        raise MlflowException(
-            f"Detected out-of-date database schema (found version {current_rev}, "
-            f"but expected {head_revision}). Take a backup of your database, then run "
-            "'mlflow db upgrade <database_uri>' "
-            "to migrate your database to the latest schema. NOTE: schema migration may "
-            "result in database downtime - please consult your database's documentation for "
-            "more detail."
+
+    # Tier 1: Exact match - pass silently
+    if current_rev == head_revision:
+        return
+
+    mismatch_msg = (
+        f"Detected out-of-date database schema (found version {current_rev}, "
+        f"but expected {head_revision}). Take a backup of your database, then run "
+        "'mlflow db upgrade <database_uri>' "
+        "to migrate your database to the latest schema. NOTE: schema migration may "
+        "result in database downtime - please consult your database's documentation for "
+        "more detail."
+    )
+
+    # Tier 2: Explicit override via environment variable
+    if MLFLOW_ALLOW_SCHEMA_MISMATCH.get():
+        _logger.warning(
+            "Schema mismatch detected but MLFLOW_ALLOW_SCHEMA_MISMATCH is set. "
+            "Found version %s, expected %s. Continuing with mismatched schema.",
+            current_rev,
+            head_revision,
         )
+        return
+
+    # Tier 3: Auto-compat when DB is behind and all pending migrations are safe
+    if _is_schema_behind(current_rev, head_revision):
+        try:
+            from mlflow.store.db_migrations.migration_classifier import (
+                MigrationSafety,
+                classify_range,
+            )
+
+            analyses = classify_range(current_rev, head_revision)
+            worst = MigrationSafety.SAFE
+            for a in analyses:
+                if a.safety == MigrationSafety.BREAKING:
+                    worst = MigrationSafety.BREAKING
+                    break
+                if a.safety == MigrationSafety.CAUTIOUS and worst == MigrationSafety.SAFE:
+                    worst = MigrationSafety.CAUTIOUS
+
+            if worst == MigrationSafety.SAFE:
+                _logger.info(
+                    "Database schema is behind (found version %s, expected %s) but all "
+                    "pending migrations are additive/safe. Continuing startup. Run "
+                    "'mlflow db upgrade <database_uri>' to apply pending migrations.",
+                    current_rev,
+                    head_revision,
+                )
+                return
+
+            if worst == MigrationSafety.CAUTIOUS:
+                _logger.warning(
+                    "Database schema is behind (found version %s, expected %s). "
+                    "Some pending migrations require caution. Run "
+                    "'mlflow db upgrade <database_uri>' to apply pending migrations. "
+                    "Set MLFLOW_ALLOW_SCHEMA_MISMATCH=true to bypass this check.",
+                    current_rev,
+                    head_revision,
+                )
+        except Exception as e:
+            _logger.debug("Migration classification failed, falling back to strict check: %s", e)
+
+    # Tier 4: Fail with current error message
+    raise MlflowException(mismatch_msg)
 
 
 def _get_managed_session_maker(SessionMaker, db_type):
