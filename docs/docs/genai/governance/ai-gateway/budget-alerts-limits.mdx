@@ -59,8 +59,6 @@ HTTP/1.1 429 Too Many Requests
 }
 ```
 
-Requests resume automatically when the current time window expires and a new window begins.
-
 ## Time Windows
 
 Budget windows are fixed intervals:
@@ -79,7 +77,7 @@ When [authentication](/self-hosting/security/basic-http-auth) is enabled for the
 
 The gateway uses a _budget tracker_ to accumulate spend and evaluate budget policies on every request. Two strategies are available: `local` and `redis`.
 
-### local
+### Local
 
 **Pros:**
 
@@ -97,7 +95,7 @@ The gateway uses a _budget tracker_ to accumulate spend and evaluate budget poli
 mlflow server --host 0.0.0.0 --port 5000
 ```
 
-### redis
+### Redis
 
 **Pros:**
 
