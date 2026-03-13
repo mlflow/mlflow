@@ -637,6 +637,7 @@ const createGroupParentRow = (
     runUuidsForAggregation: groupRunMetadata.runUuidsForAggregation,
     aggregateFunction: groupRunMetadata.aggregateFunction,
     allRunsHidden: groupRunMetadata.allRunsHidden,
+    aggregatedMetricStatistics: groupRunMetadata.aggregatedMetricStatistics,
   };
 
   return {

@@ -121,6 +121,25 @@ export const RunsMetricsBarPlot = React.memo(
       // Colors corresponding to each run
       const colors = runsData.map((d) => d.color);
 
+      // Build error bars from aggregatedMetricStatistics when available (grouped runs)
+      const hasErrorData = runsData.some((d) => d.groupParentInfo?.aggregatedMetricStatistics?.[metricKey]);
+      const errorX = hasErrorData
+        ? {
+            type: 'data' as const,
+            symmetric: false,
+            array: runsData.map((d) => {
+              const stats = d.groupParentInfo?.aggregatedMetricStatistics?.[metricKey];
+              const barValue = normalizeChartValue(d.metrics[metricKey]?.value);
+              return stats && typeof barValue === 'number' ? stats.max - barValue : 0;
+            }),
+            arrayminus: runsData.map((d) => {
+              const stats = d.groupParentInfo?.aggregatedMetricStatistics?.[metricKey];
+              const barValue = normalizeChartValue(d.metrics[metricKey]?.value);
+              return stats && typeof barValue === 'number' ? barValue - stats.min : 0;
+            }),
+          }
+        : undefined;
+
       return [
         {
           y: ids,
@@ -144,6 +163,7 @@ export const RunsMetricsBarPlot = React.memo(
           marker: {
             color: colors,
           },
+          ...(errorX ? { error_x: errorX } : {}),
         } as Data & { names: string[] },
       ];
     }, [runsData, metricKey, barWidth, useDefaultHoverBox]);
