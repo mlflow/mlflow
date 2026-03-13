@@ -22,6 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { invalidateMlflowSearchTracesCache } from '../hooks/invalidateMlflowSearchTracesCache';
 import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import { isEvaluatingTracesInDetailsViewEnabled } from '../FeatureUtils';
+import { INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE } from '../constants';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -137,7 +138,7 @@ export const AssessmentsPaneFeedbackSection = ({
   sessionId?: string;
 }) => {
   const visibleFeedbacks = useMemo(
-    () => feedbacks.filter((f) => f.assessment_name !== '_issue_discovery_judge'),
+    () => feedbacks.filter((f) => f.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE),
     [feedbacks],
   );
   const groupedFeedbacks = useMemo(() => groupFeedbacks(visibleFeedbacks), [visibleFeedbacks]);

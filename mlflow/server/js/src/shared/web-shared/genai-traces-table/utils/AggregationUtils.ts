@@ -2,7 +2,10 @@ import { first, isNil } from 'lodash';
 
 import type { ThemeType } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
-import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
+import {
+  ASSESSMENT_SESSION_METADATA_KEY,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
+} from '../../model-trace-explorer/constants';
 
 import { getAssessmentValueBarBackgroundColor } from './Colors';
 import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';
@@ -108,7 +111,7 @@ export function getAssessmentInfos(
       ...retrievalAssessmentsByName,
     ]) {
       // Skip internal assessments that are implementation details of the issue discovery pipeline
-      if (assessmentName === '_issue_discovery_judge') {
+      if (assessmentName === INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE) {
         continue;
       }
       assessmentNames.add(assessmentName);

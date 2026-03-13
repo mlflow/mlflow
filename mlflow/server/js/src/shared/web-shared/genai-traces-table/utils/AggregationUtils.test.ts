@@ -9,7 +9,10 @@ import {
   getBarChartData,
   getUniqueValueCountsBySourceId,
 } from './AggregationUtils';
-import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
+import {
+  ASSESSMENT_SESSION_METADATA_KEY,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
+} from '../../model-trace-explorer/constants';
 import type {
   AssessmentAggregates,
   AssessmentDType,
@@ -292,7 +295,9 @@ describe('getAssessmentInfos', () => {
     const currentEvaluationResults = makeTracesFromAssessments([
       {
         responseAssessmentsByName: {
-          _issue_discovery_judge: [{ name: '_issue_discovery_judge', booleanValue: false }],
+          [INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE]: [
+            { name: INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, booleanValue: false },
+          ],
           quality: [{ name: 'quality', booleanValue: true }],
         },
       },
@@ -301,7 +306,7 @@ describe('getAssessmentInfos', () => {
     const result = getAssessmentInfos(intl, currentEvaluationResults, undefined);
 
     const names = result.map((info) => info.name);
-    expect(names).not.toContain('_issue_discovery_judge');
+    expect(names).not.toContain(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE);
     expect(names).toContain('quality');
   });
 
