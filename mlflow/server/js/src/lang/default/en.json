@@ -271,10 +271,6 @@
     "defaultMessage": "Models loading",
     "description": "Label for a loading spinner when table containing models is being loaded"
   },
-  "/j4ziU": {
-    "defaultMessage": "Please select a model in `Advanced settings` below",
-    "description": "Message when provider has no default model"
-  },
   "/k6j6v": {
     "defaultMessage": "Confirm",
     "description": "Evaluation review > assessments > confirm assessment button label"
@@ -1036,10 +1032,6 @@
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
-  },
-  "5FUaKj": {
-    "defaultMessage": "Configure the LLM provider and model to power issue detection",
-    "description": "Description for the model selection step"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -4156,6 +4148,10 @@
     "defaultMessage": "Model configuration",
     "description": "Label for model configuration section"
   },
+  "Pts/gW": {
+    "defaultMessage": "Select endpoint",
+    "description": "Placeholder for endpoint selector"
+  },
   "PuXTcZ": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Workspace landing page title"
@@ -6549,6 +6545,10 @@
     "defaultMessage": "(edited)",
     "description": "Link text in an edited assessment that allows the user to click to see the previous value"
   },
+  "f6q6EM": {
+    "defaultMessage": "Configure the model to power issue detection",
+    "description": "Description for the model selection step"
+  },
   "fBB0xR": {
     "defaultMessage": "Assistant Not Available",
     "description": "Title shown when Assistant is not available for remote servers"
@@ -6999,6 +6999,10 @@
   "i/pJvo": {
     "defaultMessage": "Automatically log traces for AutoGen conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for the AutoGen package using MLflow autologging. This message is followed by a code example."
+  },
+  "i0qHZk": {
+    "defaultMessage": "Configure model directly",
+    "description": "Option to configure model directly instead of using an endpoint"
   },
   "i1Hj20": {
     "defaultMessage": "{count, plural, =1 {1 hour} other {# hours}} ago",
@@ -9597,6 +9601,10 @@
   "z42Rsj": {
     "defaultMessage": "Source run",
     "description": "Label for the column indicating a run being the source of the logged model's metric (i.e. source run). Displayed in the logged model details metrics table."
+  },
+  "z6K3IC": {
+    "defaultMessage": "Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here",
+    "description": "Tooltip suggesting to create an endpoint for reuse"
   },
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
