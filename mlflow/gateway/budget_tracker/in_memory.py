@@ -46,12 +46,8 @@ class InMemoryBudgetTracker(BudgetTracker):
         with self._lock:
             for policy in policies:
                 pid = policy.budget_policy_id
-                window_start = _compute_window_start(
-                    policy.duration_unit, policy.duration_value, now
-                )
-                window_end = _compute_window_end(
-                    policy.duration_unit, policy.duration_value, window_start
-                )
+                window_start = _compute_window_start(policy.duration, now)
+                window_end = _compute_window_end(policy.duration, window_start)
 
                 existing = self._windows.get(pid)
                 if existing and existing.window_start == window_start:
@@ -91,15 +87,9 @@ class InMemoryBudgetTracker(BudgetTracker):
         with self._lock:
             for window in self._windows.values():
                 if now >= window.window_end:
-                    window.window_start = _compute_window_start(
-                        window.policy.duration_unit,
-                        window.policy.duration_value,
-                        now,
-                    )
+                    window.window_start = _compute_window_start(window.policy.duration, now)
                     window.window_end = _compute_window_end(
-                        window.policy.duration_unit,
-                        window.policy.duration_value,
-                        window.window_start,
+                        window.policy.duration, window.window_start
                     )
                     window.cumulative_spend = 0.0
                     window.exceeded = False

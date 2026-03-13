@@ -158,7 +158,7 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
                 </Tooltip>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
-                <Typography.Text>{formatDuration(policy.duration_value, policy.duration_unit)}</Typography.Text>
+                <Typography.Text>{formatDuration(policy.duration.value, policy.duration.unit)}</Typography.Text>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
                 <Typography.Text>{formatOnExceeded(policy.budget_action)}</Typography.Text>

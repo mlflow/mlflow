@@ -22,6 +22,7 @@ from mlflow.entities import (
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -1939,8 +1940,7 @@ def test_gateway_budget_policy_crud_telemetry(
     policy = store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
         budget_amount=100.0,
-        duration_unit=BudgetDurationUnit.DAYS,
-        duration_value=30,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=30),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
         created_by="test-user",

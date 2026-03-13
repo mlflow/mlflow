@@ -65,8 +65,7 @@ describe('CreateBudgetPolicyModal', () => {
     expect(mockMutateAsync).toHaveBeenCalledWith({
       budget_unit: 'USD',
       budget_amount: 100,
-      duration_unit: 'MONTHS',
-      duration_value: 1,
+      duration: { unit: 'MONTHS', value: 1 },
       target_scope: 'GLOBAL',
       budget_action: 'REJECT',
     });
