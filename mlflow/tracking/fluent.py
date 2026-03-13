@@ -250,8 +250,8 @@ def set_experiment(
         if is_newly_created and trace_location is not None:
             raise MlflowException.invalid_parameter_value(
                 f"Experiment '{experiment.name}' (ID: {experiment.experiment_id}) was created "
-                f"but linking to trace location '{trace_location.full_table_prefix}' failed. "
-                "Please delete the experiment before retrying."
+                f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
+                f"{e.message} Please fix the issue and call set_experiment again to retry."
             ) from e
         raise
 
