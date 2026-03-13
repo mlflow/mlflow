@@ -25,7 +25,7 @@ Users need the ability to offload span content to a cheaper trace repository (e.
 
 ## Requirements
 
-- The feature **must** allow users to configure a separate trace repository location for trace span data
+- The feature **must** allow users to configure a separate trace archive repository location for trace span data
   - This configuration **must** be available as both a `mlflow server` CLI option and environment variable
   - This configuration **can** be set globally, but **must** respect per-workspace overrides (stored in the `workspaces` table; see schema changes below)
 - The feature **must** support archiving span content from the DB to the trace repository based on configurable retention policies
