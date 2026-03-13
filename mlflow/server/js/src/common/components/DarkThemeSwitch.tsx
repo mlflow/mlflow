@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { ToggleIconButton } from './ToggleIconButton';
+import { useDarkThemeContext } from '../contexts/DarkThemeContext';
 
 const MoonIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 384 512" css={{ fill: 'currentcolor' }}>
@@ -16,6 +17,9 @@ const SunIcon = () => (
   </svg>
 );
 
+/**
+ * Props-based variant (used in tests and when context is not available).
+ */
 export const DarkThemeSwitch = ({
   isDarkTheme,
   setIsDarkTheme,
@@ -34,3 +38,12 @@ export const DarkThemeSwitch = ({
     }}
   />
 );
+
+/**
+ * Context-based variant that reads theme state from `DarkThemeProvider`.
+ * Suitable for placing in the sidebar or any layout shell.
+ */
+export const DarkThemeSwitchConnected = () => {
+  const { isDarkTheme, setIsDarkTheme } = useDarkThemeContext();
+  return <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />;
+};
