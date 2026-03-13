@@ -16,11 +16,11 @@ export interface IssueJobResult {
   issues?: number;
   summary?: string;
   total_traces_analyzed?: number;
+  total_cost_usd?: number;
 }
 
 export interface FetchIssueJobStatusResponse {
   status: IssueJobStatus;
-  total_traces?: number;
   result?: IssueJobResult;
 }
 
@@ -37,7 +37,6 @@ export const isJobComplete = (status: IssueJobStatus | undefined): boolean => {
 
 export interface UseFetchIssueJobStatusResult {
   status: IssueJobStatus | undefined;
-  totalTraces: number | undefined;
   result: IssueJobResult | undefined;
   isLoading: boolean;
   isFetching: boolean;
@@ -74,7 +73,6 @@ export const useFetchIssueJobStatus = ({
 
   return {
     status: data?.status,
-    totalTraces: data?.total_traces,
     result: data?.result,
     isLoading,
     isFetching,

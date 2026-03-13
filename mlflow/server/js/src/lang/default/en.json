@@ -2029,6 +2029,10 @@
     "defaultMessage": "{isTraces, select, true {Trace} other {Session}} {index} of {total}",
     "description": "Index of the current trace and total number of traces"
   },
+  "BDnRzZ": {
+    "defaultMessage": "Total cost: {cost}",
+    "description": "Issue detection progress > Total cost in USD"
+  },
   "BEFBcB": {
     "defaultMessage": "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
     "description": "Popover message displayed when the experiment type could not not inferred"
@@ -2595,6 +2599,10 @@
   "F9Aau+": {
     "defaultMessage": "Table view",
     "description": "Label for the table view toggle button in the logged model list page"
+  },
+  "FA9oSo": {
+    "defaultMessage": "Judge is running…",
+    "description": "Tooltip shown in assessment cell while a judge is executing on this trace"
   },
   "FAfPOl": {
     "defaultMessage": "Stop Sequences",
@@ -3237,6 +3245,10 @@
   "JwhonN": {
     "defaultMessage": "Authentication method",
     "description": "Label for auth mode selector"
+  },
+  "JxakWy": {
+    "defaultMessage": "Judge \"{label}\" failed: {error}",
+    "description": "Banner message shown when a judge run fails"
   },
   "Jxhb2w": {
     "defaultMessage": "We've automatically detected the experiment type to be ''{kindLabel}''. {isEditable, select, true {You can either confirm or change the type.} other {}}",
@@ -4037,6 +4049,10 @@
     "defaultMessage": "Experiments",
     "description": "Issue detection run details > Breadcrumb > Experiments"
   },
+  "PJNUxu": {
+    "defaultMessage": "Run judges",
+    "description": "Run judges on selected traces action"
+  },
   "PKYh23": {
     "defaultMessage": "Additional runs",
     "description": "Experiment page > grouped runs table > label for group with additional, ungrouped runs"
@@ -4099,6 +4115,10 @@
   "PbhoUk": {
     "defaultMessage": "Track every version of your model to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the machine learning logged models list page"
+  },
+  "PdoaF7": {
+    "defaultMessage": "Model",
+    "description": "Run page > Overview > Model used for issue detection"
   },
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
@@ -4504,10 +4524,6 @@
     "defaultMessage": "Create LLM judge",
     "description": "Title for new LLM judge modal"
   },
-  "SZj964": {
-    "defaultMessage": "Copy S3 URI to clipboard",
-    "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
-  },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
     "description": "Help text explaining model configuration purpose"
@@ -4639,6 +4655,10 @@
   "TSXmaB": {
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"
+  },
+  "TTsPbw": {
+    "defaultMessage": "Open dataset",
+    "description": "Text for the button that navigates to the datasets tab in the experiment run dataset drawer"
   },
   "TWnsnV": {
     "defaultMessage": "Run Name",
@@ -5046,10 +5066,6 @@
   "VrxfuC": {
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
-  },
-  "Vvn8Cb": {
-    "defaultMessage": "Open dataset",
-    "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
   },
   "VwxvII": {
     "defaultMessage": "forecasting",
@@ -6600,6 +6616,10 @@
   "fv7vQf": {
     "defaultMessage": "Rename",
     "description": "Menu item to rename an experiment run"
+  },
+  "fvkoBt": {
+    "defaultMessage": "Running judge \"{label}\"…",
+    "description": "Banner message shown while a judge is running on selected traces"
   },
   "fwp4JP": {
     "defaultMessage": "Datasets used",
@@ -8651,6 +8671,10 @@
     "defaultMessage": "Start Demo",
     "description": "Demo banner launch button"
   },
+  "svzyNI": {
+    "defaultMessage": "Judge \"{label}\" completed successfully.",
+    "description": "Banner message shown when a judge run completes successfully"
+  },
   "sxlGRc": {
     "defaultMessage": "Inputs ({numInputs})",
     "description": "Input section header for schema table in model version page"
@@ -8763,10 +8787,6 @@
     "defaultMessage": "my-api-key",
     "description": "Placeholder for API key name input"
   },
-  "tbAlJg": {
-    "defaultMessage": "Go to external location",
-    "description": "Text for the external location link in the experiment run dataset drawer"
-  },
   "tdmVWN": {
     "defaultMessage": "While deleting an experiment run, an error occurred.",
     "description": "Experiment tracking > delete run modal > error message"
@@ -8838,6 +8858,10 @@
   "uBTAtY": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
+  },
+  "uGgedl": {
+    "defaultMessage": "Copy S3 URI to clipboard",
+    "description": "Text for the S3 URI copy button in the experiment run dataset drawer"
   },
   "uHzRht": {
     "defaultMessage": "Total aggregate scores",
@@ -9590,6 +9614,10 @@
     "defaultMessage": "Learn more.",
     "description": "Link text for learning more about expectations"
   },
+  "zOe0KV": {
+    "defaultMessage": "Run judge on {count} traces",
+    "description": "Title for run judge modal when running on multiple traces"
+  },
   "zRKlAL": {
     "defaultMessage": "Metadata",
     "description": "Label for the metadata section"
@@ -9613,6 +9641,10 @@
   "zZCBR9": {
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
+  },
+  "zZlPwp": {
+    "defaultMessage": "Categories",
+    "description": "Run page > Overview > Issue categories being detected"
   },
   "zcnCPF": {
     "defaultMessage": "Issues",
