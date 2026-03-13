@@ -141,6 +141,49 @@ async def test_get_prompt(client: Client):
     assert "MLflow" in content
 
 
+def test_get_input_schema_repeatable_option():
+    """Click options with multiple=True should produce array schemas."""
+    import click
+
+    from mlflow.mcp.server import get_input_schema
+
+    @click.command()
+    @click.option("--name", type=str, help="A single name")
+    @click.option("--tag", type=str, multiple=True, help="Repeatable tags")
+    def cmd(name, tag):
+        pass
+
+    schema = get_input_schema(cmd.params)
+    # Scalar option should remain a plain string
+    assert schema["properties"]["name"] == {"type": "string", "description": "A single name"}
+    # Repeatable option should be an array of strings
+    assert schema["properties"]["tag"] == {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Repeatable tags",
+        "default": (),
+    }
+
+
+def test_get_input_schema_variadic_argument():
+    """Click arguments with nargs=-1 should produce array schemas."""
+    import click
+
+    from mlflow.mcp.server import get_input_schema
+
+    @click.command()
+    @click.argument("files", nargs=-1)
+    def cmd(files):
+        pass
+
+    schema = get_input_schema(cmd.params)
+    assert schema["properties"]["files"] == {
+        "type": "array",
+        "items": {"type": "string"},
+        "default": (),
+    }
+
+
 def test_fn_wrapper_handles_unset_defaults(monkeypatch):
     import click
 
