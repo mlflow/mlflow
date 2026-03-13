@@ -375,8 +375,14 @@ class TracingClient:
         if location is not None:
             return self.store.batch_get_traces(trace_ids, location)
 
-        # Get trace infos (metadata only) to determine where spans are stored
-        trace_infos = self.store.batch_get_trace_infos(trace_ids)
+        # Get trace infos (metadata only) to determine where spans are stored.
+        # Fall back to store.batch_get_traces directly if the store doesn't
+        # implement batch_get_trace_infos (e.g. RestStore, DatabricksRestStore).
+        try:
+            trace_infos = self.store.batch_get_trace_infos(trace_ids)
+        except MlflowNotImplementedException:
+            return self.store.batch_get_traces(trace_ids, location)
+
         trace_infos_by_location = self._group_trace_infos_by_location(trace_infos)
 
         max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()

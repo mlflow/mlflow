@@ -9,7 +9,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 import mlflow
 from mlflow.entities.span import create_mlflow_span
 from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
@@ -129,6 +129,19 @@ def test_batch_get_traces_with_artifact_repo_traces():
     assert tracking_trace in traces
     assert artifact_trace in traces
     mock_download.assert_called_once_with(artifact_trace_info)
+    mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
+
+
+def test_batch_get_traces_fallback_when_batch_get_trace_infos_not_implemented():
+    mock_store = Mock()
+    mock_store.batch_get_trace_infos.side_effect = MlflowNotImplementedException()
+    mock_store.batch_get_traces.return_value = ["trace1"]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        traces = client.batch_get_traces(["id1"])
+
+    assert traces == ["trace1"]
     mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
 
 
