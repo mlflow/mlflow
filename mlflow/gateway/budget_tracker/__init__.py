@@ -92,8 +92,7 @@ class BudgetTracker(ABC):
         for policies that no longer exist.
 
         Returns:
-            List of newly created windows (cumulative_spend=0) that may need
-            backfilling from historical trace data.
+            Windows that should be synced against authoritative trace data.
         """
 
     @abstractmethod

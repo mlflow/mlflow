@@ -30,23 +30,22 @@ from mlflow.webhooks.types import BudgetPolicyExceededPayload
 _logger = logging.getLogger(__name__)
 
 
-def calculate_existing_cost_for_new_windows(
-    store: SqlAlchemyStore, new_windows: list[BudgetWindow]
+def calculate_existing_cost_for_windows(
+    store: SqlAlchemyStore, windows: list[BudgetWindow]
 ) -> dict[str, float]:
-    """Calculate existing spend for newly created budget windows from trace history.
+    """Calculate spend for budget windows from trace history.
 
-    When a new BudgetWindow is created (server restart or new policy), its
-    cumulative_spend starts at 0. This queries historical trace cost data so
-    that budget tracking survives server restarts.
+    Queries historical trace cost data for each window so that budget tracking
+    accounts for spend across all gateway workers and survives server restarts.
 
     Returns:
         Dict mapping budget_policy_id to historical spend amount.
     """
     result: dict[str, float] = {}
-    if not new_windows:
+    if not windows:
         return result
 
-    for window in new_windows:
+    for window in windows:
         try:
             start_ms = int(window.window_start.timestamp() * 1000)
             end_ms = int(window.window_end.timestamp() * 1000)
@@ -77,8 +76,8 @@ def maybe_refresh_budget_policies(store: SqlAlchemyStore) -> None:
     if tracker.needs_refresh():
         try:
             policies = store.list_budget_policies()
-            new_windows = tracker.refresh_policies(policies)
-            existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+            windows = tracker.refresh_policies(policies)
+            existing_spend = calculate_existing_cost_for_windows(store, windows)
             tracker.backfill_spend(existing_spend)
         except Exception:
             _logger.debug("Failed to refresh budget policies", exc_info=True)

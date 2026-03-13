@@ -364,38 +364,39 @@ def test_all_duration_units_window_consistency(duration_unit):
 # --- refresh_policies return value tests ---
 
 
-def test_refresh_policies_returns_new_windows():
+def test_refresh_policies_returns_all_windows():
     tracker = InMemoryBudgetTracker()
     policy1 = _make_policy(budget_policy_id="bp-1")
     policy2 = _make_policy(budget_policy_id="bp-2")
 
-    new_windows = tracker.refresh_policies([policy1, policy2])
-    assert len(new_windows) == 2
-    ids = {w.policy.budget_policy_id for w in new_windows}
+    windows = tracker.refresh_policies([policy1, policy2])
+    assert len(windows) == 2
+    ids = {w.policy.budget_policy_id for w in windows}
     assert ids == {"bp-1", "bp-2"}
 
 
-def test_refresh_policies_returns_empty_on_reload():
+def test_refresh_policies_returns_all_windows_on_reload():
     tracker = InMemoryBudgetTracker()
     policy = _make_policy()
 
-    new_windows = tracker.refresh_policies([policy])
-    assert len(new_windows) == 1
+    windows = tracker.refresh_policies([policy])
+    assert len(windows) == 1
 
-    # Reload same policy within same window — no new windows
-    new_windows = tracker.refresh_policies([policy])
-    assert new_windows == []
+    # Reload same policy within same window — still returns the existing window
+    windows = tracker.refresh_policies([policy])
+    assert len(windows) == 1
 
 
-def test_refresh_policies_returns_only_new_on_mixed():
+def test_refresh_policies_returns_all_windows_on_mixed():
     tracker = InMemoryBudgetTracker()
     policy1 = _make_policy(budget_policy_id="bp-1")
     tracker.refresh_policies([policy1])
 
     policy2 = _make_policy(budget_policy_id="bp-2")
-    new_windows = tracker.refresh_policies([policy1, policy2])
-    assert len(new_windows) == 1
-    assert new_windows[0].policy.budget_policy_id == "bp-2"
+    windows = tracker.refresh_policies([policy1, policy2])
+    assert len(windows) == 2
+    ids = {w.policy.budget_policy_id for w in windows}
+    assert ids == {"bp-1", "bp-2"}
 
 
 # --- backfill_spend tests ---
@@ -436,6 +437,18 @@ def test_backfill_spend_nonexistent_is_noop():
     tracker.refresh_policies([_make_policy()])
     # Should not raise
     tracker.backfill_spend({"nonexistent-policy": 50.0})
+
+
+def test_backfill_spend_uses_max_to_protect_in_process_spend():
+    # Simulate trace-flush lag: in-process spend is ahead of what DB reports.
+    # backfill_spend must not decrease cumulative_spend below the in-process value.
+    tracker = InMemoryBudgetTracker()
+    tracker.refresh_policies([_make_policy(budget_amount=100.0)])
+    tracker.record_cost(30.0)  # in-process spend = 30
+
+    tracker.backfill_spend({"bp-test": 10.0})  # DB is behind
+    window = tracker._get_window_info("bp-test")
+    assert window.cumulative_spend == 30.0  # in-process value preserved
 
 
 # --- get_all_windows tests ---
