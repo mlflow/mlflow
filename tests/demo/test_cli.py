@@ -14,8 +14,14 @@ from click.testing import CliRunner
 
 import mlflow
 from mlflow.cli import cli
-from mlflow.cli.demo import _check_server_connection, demo
-from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DEMO_PROMPT_PREFIX
+from mlflow.cli.demo import _check_databricks_connection, _check_server_connection, demo
+from mlflow.demo.base import (
+    DEMO_EXPERIMENT_NAME,
+    DEMO_PROMPT_PREFIX,
+    get_demo_experiment_name,
+    resolve_demo_name,
+    set_uc_schema,
+)
 from mlflow.demo.generators.traces import DEMO_VERSION_TAG
 from mlflow.demo.registry import demo_registry
 from mlflow.genai.datasets import search_datasets
@@ -25,8 +31,9 @@ from mlflow.genai.prompts import search_prompts
 @pytest.fixture(autouse=True)
 def disable_quiet_logging(monkeypatch):
     """Prevent CLI from modifying logging state during tests."""
-    demo_module = sys.modules["mlflow.cli.demo"]
-    monkeypatch.setattr(demo_module, "_set_quiet_logging", lambda: None)
+    monkeypatch.setattr(sys.modules["mlflow.cli.demo"], "_set_quiet_logging", lambda: None)
+    get_demo_experiment_name.cache_clear()
+    set_uc_schema(None)
 
 
 def test_demo_command_registered():
@@ -58,7 +65,7 @@ def test_cli_generates_all_registered_features():
     runner = CliRunner()
 
     with mock.patch("mlflow.server._run_server"):
-        result = runner.invoke(demo, ["--no-browser"], input="n\n")
+        result = runner.invoke(demo, ["--no-browser"], input="1\n")
 
     assert result.exit_code == 0
     assert "Generated:" in result.output
@@ -75,7 +82,7 @@ def test_cli_creates_experiment():
     runner = CliRunner()
 
     with mock.patch("mlflow.server._run_server"):
-        result = runner.invoke(demo, ["--no-browser"], input="n\n")
+        result = runner.invoke(demo, ["--no-browser"], input="1\n")
 
     assert result.exit_code == 0
 
@@ -88,7 +95,7 @@ def test_cli_creates_traces():
     runner = CliRunner()
 
     with mock.patch("mlflow.server._run_server"):
-        result = runner.invoke(demo, ["--no-browser"], input="n\n")
+        result = runner.invoke(demo, ["--no-browser"], input="1\n")
 
     assert result.exit_code == 0
 
@@ -108,14 +115,14 @@ def test_cli_creates_evaluation_datasets():
     runner = CliRunner()
 
     with mock.patch("mlflow.server._run_server"):
-        result = runner.invoke(demo, ["--no-browser"], input="n\n")
+        result = runner.invoke(demo, ["--no-browser"], input="1\n")
 
     assert result.exit_code == 0
 
     experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     datasets = search_datasets(
         experiment_ids=[experiment.experiment_id],
-        filter_string="name LIKE 'demo-%'",
+        filter_string="name LIKE 'demo_%'",
         max_results=10,
     )
 
@@ -126,7 +133,7 @@ def test_cli_creates_prompts():
     runner = CliRunner()
 
     with mock.patch("mlflow.server._run_server"):
-        result = runner.invoke(demo, ["--no-browser"], input="n\n")
+        result = runner.invoke(demo, ["--no-browser"], input="1\n")
 
     assert result.exit_code == 0
 
@@ -142,7 +149,7 @@ def test_cli_shows_server_url():
     runner = CliRunner()
 
     with mock.patch("mlflow.server._run_server"):
-        result = runner.invoke(demo, ["--no-browser"], input="n\n")
+        result = runner.invoke(demo, ["--no-browser"], input="1\n")
 
     assert result.exit_code == 0
     assert "MLflow Tracking Server running at:" in result.output
@@ -153,7 +160,7 @@ def test_cli_respects_port_option():
     runner = CliRunner()
 
     with mock.patch("mlflow.server._run_server") as mock_server:
-        result = runner.invoke(demo, ["--no-browser", "--port", "5555"], input="n\n")
+        result = runner.invoke(demo, ["--no-browser", "--port", "5555"], input="1\n")
 
     assert result.exit_code == 0
     assert "http://127.0.0.1:5555" in result.output
@@ -168,7 +175,7 @@ def test_cli_port_in_use_error():
         s.bind(("127.0.0.1", 0))
         bound_port = s.getsockname()[1]
 
-        result = runner.invoke(demo, ["--port", str(bound_port)], input="n\n")
+        result = runner.invoke(demo, ["--port", str(bound_port)], input="1\n")
 
     assert result.exit_code != 0
     assert "already in use" in result.output
@@ -188,3 +195,87 @@ def test_cli_unreachable_server_error():
 def test_check_server_connection_fails_for_bad_url():
     with pytest.raises(click.ClickException, match="Cannot connect to MLflow server"):
         _check_server_connection("http://localhost:59999", max_retries=1, timeout=1)
+
+
+@pytest.mark.parametrize(
+    ("uc_schema", "original", "expected"),
+    [
+        (None, "mlflow-demo.prompts.customer_support", "mlflow-demo.prompts.customer_support"),
+        ("main.default", "mlflow-demo.prompts.customer_support", "main.default.customer_support"),
+    ],
+)
+def test_resolve_demo_name(uc_schema, original, expected):
+    set_uc_schema(uc_schema)
+    assert resolve_demo_name(original) == expected
+
+
+def _demo_mod():
+    return sys.modules["mlflow.cli.demo"]
+
+
+def test_check_databricks_connection_success():
+    mock_creds = mock.MagicMock()
+    mock_creds.host = "https://my-workspace.databricks.com/"
+
+    with mock.patch.object(
+        _demo_mod(), "get_databricks_host_creds", return_value=mock_creds
+    ) as mock_get_creds:
+        result = _check_databricks_connection("databricks")
+
+    assert result == "https://my-workspace.databricks.com"
+    mock_get_creds.assert_called_once_with("databricks")
+
+
+def test_check_databricks_connection_failure():
+    with mock.patch.object(
+        _demo_mod(),
+        "get_databricks_host_creds",
+        side_effect=Exception("No credentials found"),
+    ):
+        with pytest.raises(click.ClickException, match="Cannot connect to Databricks workspace"):
+            _check_databricks_connection("databricks")
+
+
+def test_cli_databricks_with_uc_schema():
+    runner = CliRunner()
+
+    mock_creds = mock.MagicMock()
+    mock_creds.host = "https://my-workspace.databricks.com/"
+
+    with (
+        mock.patch.object(_demo_mod(), "get_databricks_host_creds", return_value=mock_creds),
+        mock.patch.object(_demo_mod(), "is_databricks_uri", return_value=True),
+        mock.patch("mlflow.demo.generate_all_demos", return_value=[]) as mock_gen,
+        mock.patch(
+            "mlflow.demo.base.get_demo_experiment_name",
+            return_value="/Users/test@example.com/MLflow Demo",
+        ),
+        mock.patch(
+            "mlflow.get_experiment_by_name",
+            return_value=mock.MagicMock(experiment_id="123"),
+        ),
+    ):
+        # Provide a UC catalog.schema
+        result = runner.invoke(
+            demo, ["--tracking-uri", "databricks", "--no-browser"], input="main.default\n"
+        )
+
+    assert result.exit_code == 0
+    assert "Connecting to Databricks workspace" in result.output
+    assert "/ml/experiments/123/traces" in result.output
+
+    mock_gen.assert_called_once()
+
+
+def test_cli_databricks_tracking_uri_bad_creds():
+    runner = CliRunner()
+
+    with mock.patch.object(
+        _demo_mod(),
+        "get_databricks_host_creds",
+        side_effect=Exception("No credentials found"),
+    ):
+        result = runner.invoke(demo, ["--tracking-uri", "databricks", "--no-browser"])
+
+    assert result.exit_code != 0
+    assert "Cannot connect to Databricks workspace" in result.output

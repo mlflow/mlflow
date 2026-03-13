@@ -10,6 +10,9 @@ from urllib.parse import urljoin
 
 import click
 
+from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.uri import is_databricks_uri
+
 NOISY_LOGGERS = [
     "alembic",
     "mlflow.store",
@@ -98,6 +101,57 @@ def _check_server_connection(tracking_uri: str, max_retries: int = 3, timeout: i
         ) from None
 
 
+def _check_databricks_connection(tracking_uri: str) -> str:
+    """Validate Databricks credentials and return the workspace host URL.
+
+    Args:
+        tracking_uri: A Databricks tracking URI (e.g., "databricks" or "databricks://profile").
+
+    Returns:
+        The resolved workspace host URL (e.g., "https://my-workspace.databricks.com").
+
+    Raises:
+        click.ClickException: If credentials are missing or invalid.
+    """
+    try:
+        host_creds = get_databricks_host_creds(tracking_uri)
+        return host_creds.host.rstrip("/")
+    except Exception as e:
+        raise click.ClickException(
+            f"Cannot connect to Databricks workspace.\n"
+            f"Error: {e}\n\n"
+            f"Please verify:\n"
+            f"  1. DATABRICKS_HOST and DATABRICKS_TOKEN environment variables are set, or\n"
+            f"  2. A Databricks CLI profile is configured\n\n"
+            f"Example:\n"
+            f"  export DATABRICKS_HOST='https://your-workspace.databricks.com'\n"
+            f"  export DATABRICKS_TOKEN='your-token'\n"
+            f"  mlflow demo --tracking-uri databricks"
+        ) from None
+
+
+def _prompt_for_uc_schema() -> str:
+    """Ask the user for a Unity Catalog catalog.schema.
+
+    Required on Databricks — prompts and datasets are stored as UC objects.
+    """
+    click.echo()
+    click.echo("Demo data on Databricks requires a Unity Catalog schema (catalog.schema).")
+    uc_schema = click.prompt(
+        click.style(
+            "Enter catalog.schema (e.g., main.default)",
+            fg="bright_blue",
+        ),
+    ).strip()
+
+    if "." not in uc_schema or len(uc_schema.split(".")) != 2:
+        raise click.ClickException(
+            f"Invalid Unity Catalog schema format: '{uc_schema}'. "
+            "Expected 'catalog.schema' (e.g., 'main.default')."
+        )
+    return uc_schema
+
+
 @click.command()
 @click.option(
     "--port",
@@ -108,7 +162,7 @@ def _check_server_connection(tracking_uri: str, max_retries: int = 3, timeout: i
 @click.option(
     "--tracking-uri",
     default=None,
-    help="Tracking URI of an existing MLflow server to populate with demo data.",
+    help="Tracking URI of an existing MLflow server or Databricks workspace (e.g., 'databricks').",
 )
 @click.option(
     "--no-browser",
@@ -147,6 +201,7 @@ def demo(
     mlflow demo --no-browser                          # Launch without opening browser
     mlflow demo --port 5001                           # Use custom port
     mlflow demo --tracking-uri http://localhost:5000  # Use existing server
+    mlflow demo --tracking-uri databricks             # Use Databricks workspace
     """
     if tracking_uri is None:
         tracking_uri = _get_tracking_uri_interactive(port)
@@ -161,17 +216,26 @@ def _get_tracking_uri_interactive(port: int | None) -> str | None:
     click.echo()
     click.secho("MLflow Demo Setup", fg="cyan", bold=True)
     click.echo()
+    click.echo("Where would you like to run the demo?")
+    click.echo()
+    click.echo("  1. Start a new local server (default)")
+    click.echo("  2. Connect to an existing MLflow server")
+    click.echo("  3. Connect to a Databricks workspace")
+    click.echo()
 
-    use_existing = click.confirm(
-        click.style("Do you have an MLflow server already running?", fg="bright_blue"),
-        default=False,
+    choice = click.prompt(
+        click.style("Enter your choice", fg="bright_blue"),
+        type=click.IntRange(1, 3),
+        default=1,
     )
 
-    if use_existing:
+    if choice == 2:
         return click.prompt(
             click.style("Enter the tracking server URL", fg="bright_blue"),
             default="http://localhost:5000",
         )
+    elif choice == 3:
+        return "databricks"
     return None
 
 
@@ -179,14 +243,22 @@ def _run_with_existing_server(
     tracking_uri: str, no_browser: bool, debug: bool, refresh: bool
 ) -> None:
     import mlflow
-    from mlflow.demo import generate_all_demos
-    from mlflow.demo.base import DEMO_EXPERIMENT_NAME
+    from mlflow.demo import generate_all_demos, set_uc_schema
+    from mlflow.demo.base import get_demo_experiment_name
 
     click.echo()
-    click.echo(f"Connecting to MLflow server at {tracking_uri}... ", nl=False)
 
-    _check_server_connection(tracking_uri)
-    click.secho("connected!", fg="green")
+    if is_databricks_uri(tracking_uri):
+        click.echo(f"Connecting to Databricks workspace ({tracking_uri})... ", nl=False)
+        host_url = _check_databricks_connection(tracking_uri)
+        click.secho("connected!", fg="green")
+
+        uc_schema = _prompt_for_uc_schema()
+        set_uc_schema(uc_schema)
+    else:
+        click.echo(f"Connecting to MLflow server at {tracking_uri}... ", nl=False)
+        _check_server_connection(tracking_uri)
+        click.secho("connected!", fg="green")
 
     mlflow.set_tracking_uri(tracking_uri)
 
@@ -203,13 +275,20 @@ def _run_with_existing_server(
     else:
         click.echo("  Demo data already exists (skipped generation).")
 
-    experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    demo_name = get_demo_experiment_name()
+    experiment = mlflow.get_experiment_by_name(demo_name)
     if experiment is None:
         raise click.ClickException(
-            f"Demo experiment '{DEMO_EXPERIMENT_NAME}' not found. "
+            f"Demo experiment '{demo_name}' not found. "
             "This should not happen after generating demo data."
         )
-    experiment_url = f"{tracking_uri.rstrip('/')}/#/experiments/{experiment.experiment_id}/overview"
+
+    if is_databricks_uri(tracking_uri):
+        experiment_url = f"{host_url}/ml/experiments/{experiment.experiment_id}/traces"
+    else:
+        experiment_url = (
+            f"{tracking_uri.rstrip('/')}/#/experiments/{experiment.experiment_id}/traces"
+        )
 
     click.echo()
     click.secho(f"View the demo at: {experiment_url}", fg="green", bold=True)
@@ -223,7 +302,7 @@ def _run_with_existing_server(
 def _run_with_new_server(port: int | None, no_browser: bool, debug: bool, refresh: bool) -> None:
     import mlflow
     from mlflow.demo import generate_all_demos
-    from mlflow.demo.base import DEMO_EXPERIMENT_NAME
+    from mlflow.demo.base import get_demo_experiment_name
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
     from mlflow.utils import find_free_port, is_port_available
@@ -265,13 +344,14 @@ def _run_with_new_server(port: int | None, no_browser: bool, debug: bool, refres
     if results:
         click.echo(f"  Generated: {', '.join(r.feature for r in results)}")
 
-    experiment = mlflow.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    demo_name = get_demo_experiment_name()
+    experiment = mlflow.get_experiment_by_name(demo_name)
     if experiment is None:
         raise click.ClickException(
-            f"Demo experiment '{DEMO_EXPERIMENT_NAME}' not found. "
+            f"Demo experiment '{demo_name}' not found. "
             "This should not happen after generating demo data."
         )
-    experiment_url = f"http://127.0.0.1:{port}/#/experiments/{experiment.experiment_id}/overview"
+    experiment_url = f"http://127.0.0.1:{port}/#/experiments/{experiment.experiment_id}/traces"
 
     if not no_browser:
 

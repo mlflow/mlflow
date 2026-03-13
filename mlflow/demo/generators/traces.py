@@ -10,11 +10,12 @@ from typing import Literal
 
 import mlflow
 from mlflow.demo.base import (
-    DEMO_EXPERIMENT_NAME,
     DEMO_PROMPT_PREFIX,
     BaseDemoGenerator,
     DemoFeature,
     DemoResult,
+    get_demo_experiment_name,
+    resolve_demo_name,
 )
 from mlflow.demo.data import (
     AGENT_TRACES,
@@ -128,7 +129,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
 
     def generate(self) -> DemoResult:
         self._restore_experiment_if_deleted()
-        experiment = mlflow.set_experiment(DEMO_EXPERIMENT_NAME)
+        experiment = mlflow.set_experiment(get_demo_experiment_name())
         mlflow.MlflowClient().set_experiment_tag(
             experiment.experiment_id, "mlflow.experimentKind", "genai_development"
         )
@@ -182,7 +183,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
     def _data_exists(self) -> bool:
         store = _get_store()
         try:
-            experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+            experiment = store.get_experiment_by_name(get_demo_experiment_name())
             if experiment is None or experiment.lifecycle_stage != "active":
                 return False
             traces = mlflow.search_traces(
@@ -197,7 +198,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
     def delete_demo(self) -> None:
         store = _get_store()
         try:
-            experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+            experiment = store.get_experiment_by_name(get_demo_experiment_name())
             if experiment is None:
                 return
             client = mlflow.MlflowClient()
@@ -220,7 +221,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         """Restore the demo experiment if it was soft-deleted."""
         store = _get_store()
         try:
-            experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+            experiment = store.get_experiment_by_name(get_demo_experiment_name())
             if experiment is not None and experiment.lifecycle_stage == "deleted":
                 _logger.info("Restoring soft-deleted demo experiment")
                 client = mlflow.MlflowClient()
@@ -402,7 +403,9 @@ class TracesDemoGenerator(BaseDemoGenerator):
         if trace_def.prompt_template is None:
             return None
 
-        full_prompt_name = f"{DEMO_PROMPT_PREFIX}.prompts.{trace_def.prompt_template.prompt_name}"
+        full_prompt_name = resolve_demo_name(
+            f"{DEMO_PROMPT_PREFIX}.prompts.{trace_def.prompt_template.prompt_name}"
+        )
         try:
             client = mlflow.MlflowClient()
             prompt_version_obj = client.get_prompt_version(
@@ -522,17 +525,17 @@ class TracesDemoGenerator(BaseDemoGenerator):
         if "query" not in variables:
             variables["query"] = query
 
-        if prompt_name == "customer-support":
+        if prompt_name == "customer_support":
             variables.setdefault("company_name", "TechCorp")
             variables.setdefault("context", "Customer has been with us for 2 years, premium tier.")
-        elif prompt_name == "document-summarizer":
+        elif prompt_name == "document_summarizer":
             variables.setdefault("max_words", "150")
             variables.setdefault("audience", "technical professionals")
             variables.setdefault(
                 "document",
                 variables.get("query", "Sample document content for summarization."),
             )
-        elif prompt_name == "code-reviewer":
+        elif prompt_name == "code_reviewer":
             variables.setdefault("language", "python")
             variables.setdefault("focus_areas", "security, performance, readability")
             variables.setdefault("severity_levels", "critical, warning, suggestion")

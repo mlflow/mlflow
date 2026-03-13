@@ -10,9 +10,9 @@ from mlflow.entities.model_registry import PromptVersion
 # Prompt Data Definitions
 # =============================================================================
 
-_CUSTOMER_SUPPORT_NAME = f"{DEMO_PROMPT_PREFIX}.prompts.customer-support"
-_DOCUMENT_SUMMARIZER_NAME = f"{DEMO_PROMPT_PREFIX}.prompts.document-summarizer"
-_CODE_REVIEWER_NAME = f"{DEMO_PROMPT_PREFIX}.prompts.code-reviewer"
+_CUSTOMER_SUPPORT_NAME = f"{DEMO_PROMPT_PREFIX}.prompts.customer_support"
+_DOCUMENT_SUMMARIZER_NAME = f"{DEMO_PROMPT_PREFIX}.prompts.document_summarizer"
+_CODE_REVIEWER_NAME = f"{DEMO_PROMPT_PREFIX}.prompts.code_reviewer"
 
 
 @dataclass
@@ -40,7 +40,7 @@ CUSTOMER_SUPPORT_PROMPT = DemoPromptDef(
                 "User query: {{query}}"
             ),
             commit_message="Add tone and style guidance",
-            aliases=["tone-guidance"],
+            aliases=["tone_guidance"],
         ),
         PromptVersion(
             name=_CUSTOMER_SUPPORT_NAME,
@@ -52,7 +52,7 @@ CUSTOMER_SUPPORT_PROMPT = DemoPromptDef(
                 "User query: {{query}}"
             ),
             commit_message="Add company context and conversation history",
-            aliases=["with-context"],
+            aliases=["with_context"],
         ),
         PromptVersion(
             name=_CUSTOMER_SUPPORT_NAME,
@@ -94,7 +94,7 @@ DOCUMENT_SUMMARIZER_PROMPT = DemoPromptDef(
                 "Summarize the following document in {{max_words}} words or less:\n\n{{document}}"
             ),
             commit_message="Add length constraint parameter",
-            aliases=["length-constraint"],
+            aliases=["length_constraint"],
         ),
         PromptVersion(
             name=_DOCUMENT_SUMMARIZER_NAME,
@@ -105,7 +105,7 @@ DOCUMENT_SUMMARIZER_PROMPT = DemoPromptDef(
                 "Document:\n{{document}}"
             ),
             commit_message="Add audience targeting",
-            aliases=["audience-targeting"],
+            aliases=["audience_targeting"],
         ),
         PromptVersion(
             name=_DOCUMENT_SUMMARIZER_NAME,
@@ -161,7 +161,7 @@ CODE_REVIEWER_PROMPT = DemoPromptDef(
                 "```{{language}}\n{{code}}\n```"
             ),
             commit_message="Add specific review categories",
-            aliases=["review-categories"],
+            aliases=["review_categories"],
         ),
         PromptVersion(
             name=_CODE_REVIEWER_NAME,
@@ -175,7 +175,7 @@ CODE_REVIEWER_PROMPT = DemoPromptDef(
                 "```{{language}}\n{{code}}\n```"
             ),
             commit_message="Add severity levels and structured feedback format",
-            aliases=["severity-levels"],
+            aliases=["severity_levels"],
         ),
         PromptVersion(
             name=_CODE_REVIEWER_NAME,
@@ -413,7 +413,7 @@ PROMPT_TRACES: list[DemoTrace] = [
         ),
         trace_type="prompt",
         prompt_template=PromptTemplateValues(
-            prompt_name="customer-support",
+            prompt_name="customer_support",
             template=(
                 "You are a customer support agent for {{company_name}}. "
                 "Help the user with their issue.\n\n"
@@ -446,7 +446,7 @@ PROMPT_TRACES: list[DemoTrace] = [
         ),
         trace_type="prompt",
         prompt_template=PromptTemplateValues(
-            prompt_name="customer-support",
+            prompt_name="customer_support",
             template=(
                 "You are a customer support agent for {{company_name}}. "
                 "Help the user with their issue.\n\n"
@@ -478,7 +478,7 @@ PROMPT_TRACES: list[DemoTrace] = [
         ),
         trace_type="prompt",
         prompt_template=PromptTemplateValues(
-            prompt_name="document-summarizer",
+            prompt_name="document_summarizer",
             template=(
                 "Summarize the following document for a {{audience}} audience. "
                 "Keep the summary under {{max_words}} words.\n\n"
@@ -514,7 +514,7 @@ PROMPT_TRACES: list[DemoTrace] = [
         ),
         trace_type="prompt",
         prompt_template=PromptTemplateValues(
-            prompt_name="document-summarizer",
+            prompt_name="document_summarizer",
             template=(
                 "Summarize the following document for a {{audience}} audience. "
                 "Keep the summary under {{max_words}} words.\n\n"
@@ -554,7 +554,7 @@ PROMPT_TRACES: list[DemoTrace] = [
         ),
         trace_type="prompt",
         prompt_template=PromptTemplateValues(
-            prompt_name="code-reviewer",
+            prompt_name="code_reviewer",
             template=(
                 "Review the following {{language}} code. Identify bugs, performance issues, "
                 "and style problems.\n\n```{{language}}\n{{code}}\n```"
@@ -593,7 +593,7 @@ PROMPT_TRACES: list[DemoTrace] = [
         ),
         trace_type="prompt",
         prompt_template=PromptTemplateValues(
-            prompt_name="code-reviewer",
+            prompt_name="code_reviewer",
             template=(
                 "Review the following {{language}} code. Identify bugs, performance issues, "
                 "and style problems.\n\n```{{language}}\n{{code}}\n```"
