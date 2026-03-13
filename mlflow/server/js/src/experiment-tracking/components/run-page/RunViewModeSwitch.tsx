@@ -101,7 +101,7 @@ export const RunViewModeSwitch = ({
       valueHasNoPii
       css={{
         '& > div:nth-of-type(1)': {
-          marginBottom: removeTabMargin ? 0 : theme.spacing.sm,
+          marginBottom: removeTabMargin ? 0 : undefined,
         },
       }}
     >
