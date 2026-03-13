@@ -32,7 +32,7 @@ class TurnRelevancy(DeepEvalScorer):
 
             from mlflow.genai.scorers.deepeval import TurnRelevancy
 
-            scorer = TurnRelevancy(threshold=0.7)
+            scorer = TurnRelevancy(available_tools = [], threshold=0.7)
             feedback = scorer(traces=[trace1, trace2, trace3])  # List of conversation turns
 
     """
