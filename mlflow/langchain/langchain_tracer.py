@@ -78,6 +78,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
+        # run_id: audio output format from invocation_params (e.g. "wav", "mp3").
+        # Used in on_llm_end to reconstruct audio content blocks for OpenAI audio models.
+        self._run_audio_format: dict[str, str] = {}
 
     def _get_span_by_run_id(self, run_id: UUID) -> LiveSpan | None:
         if span_with_token := self._run_span_mapping.get(str(run_id), None):
@@ -280,6 +283,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 detach_span_from_context(st.token)
 
         self._run_span_mapping = {}
+        self._run_audio_format = {}
 
     def _assign_span_name(self, serialized: dict[str, Any], default_name="unknown") -> str:
         return serialized.get("name", serialized.get("id", [default_name])[-1])
@@ -334,6 +338,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             set_span_chat_tools(span, tools)
 
         self._extract_and_set_model_name(span, kwargs)
+
+        # Stash audio output format so on_llm_end can reconstruct audio content blocks.
+        # OpenAI audio models specify format in the request (invocation_params.audio.format)
+        # but do not echo it back in the response.
+        match kwargs.get("invocation_params", {}):
+            case {"audio": {"format": str(audio_fmt)}}:
+                self._run_audio_format[str(run_id)] = audio_fmt
 
     def on_llm_start(
         self,
@@ -466,9 +477,37 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             match response.generations:
                 case [gen_list]:
                     choices = []
+                    audio_fmt = self._run_audio_format.pop(str(run_id), None)
                     for g in gen_list:
                         if hasattr(g, "message"):
                             msg_dict = convert_lc_message_to_chat_message(g.message).model_dump()
+                            # OpenAI's gpt-4o-audio-preview returns audio responses
+                            # in additional_kwargs["audio"] rather than in the message
+                            # content field. LangChain preserves this structure, so the
+                            # converted content will be empty. Reconstruct the audio as
+                            # an input_audio content block (using the format stashed from
+                            # invocation_params) plus a text block for the transcript.
+                            if not msg_dict.get("content"):
+                                match getattr(g.message, "additional_kwargs", {}):
+                                    case {
+                                        "audio": {
+                                            "transcript": str(transcript),
+                                            "data": str(data),
+                                        }
+                                    } if audio_fmt:
+                                        msg_dict["content"] = [
+                                            {"type": "text", "text": transcript},
+                                            {
+                                                "type": "input_audio",
+                                                "input_audio": {
+                                                    "data": data,
+                                                    "format": audio_fmt,
+                                                },
+                                            },
+                                        ]
+                                    case {"audio": {"transcript": str(transcript)}}:
+                                        # No audio format available; store transcript only
+                                        msg_dict["content"] = transcript
                         else:
                             msg_dict = {"role": "assistant", "content": g.text}
                         choices.append({"message": msg_dict, "finish_reason": None})
@@ -479,9 +518,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     # generation lists into a single choices array, which would lose
                     # the batch boundary. This matches the pre-normalization behavior
                     # so it is non-regressive for callers using batching.
+                    self._run_audio_format.pop(str(run_id), None)
                     normalized_outputs = response
         except Exception as e:
             _logger.debug(f"Failed to normalize chat model outputs: {e}", exc_info=True)
+            self._run_audio_format.pop(str(run_id), None)
             normalized_outputs = response
 
         self._end_span(run_id, llm_span, outputs=normalized_outputs)
@@ -494,6 +535,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         **kwargs: Any,
     ):
         """Handle an error for an LLM run."""
+        self._run_audio_format.pop(str(run_id), None)
         llm_span = self._get_span_by_run_id(run_id)
         llm_span.add_event(SpanEvent.from_exception(error))
         self._end_span(run_id, llm_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))
