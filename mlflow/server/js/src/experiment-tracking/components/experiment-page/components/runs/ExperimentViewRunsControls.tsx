@@ -68,6 +68,7 @@ export const ExperimentViewRunsControls = React.memo(
 
     const isComparingRuns = compareRunsMode !== 'TABLE';
     const isEvaluationMode = compareRunsMode === 'ARTIFACT';
+    const shouldShowColumnSelector = compareRunsMode === 'TABLE' || compareRunsMode === 'CHART';
 
     const { theme } = useDesignSystemTheme();
 
@@ -144,7 +145,7 @@ export const ExperimentViewRunsControls = React.memo(
                   paramKeys={filteredParamKeys}
                 />
 
-                {!isComparingRuns && (
+                {shouldShowColumnSelector && (
                   <ExperimentViewRunsColumnSelector
                     columnSelectorVisible={viewState.columnSelectorVisible}
                     onChangeColumnSelectorVisible={changeColumnSelectorVisible}
