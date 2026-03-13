@@ -107,8 +107,8 @@ export function getAssessmentInfos(
       ...overallAssessmentsByName,
       ...retrievalAssessmentsByName,
     ]) {
-      // Skip internal assessments (names starting with underscore are implementation details)
-      if (assessmentName.startsWith('_')) {
+      // Skip internal assessments that are implementation details of the issue discovery pipeline
+      if (assessmentName === '_issue_discovery_judge') {
         continue;
       }
       assessmentNames.add(assessmentName);

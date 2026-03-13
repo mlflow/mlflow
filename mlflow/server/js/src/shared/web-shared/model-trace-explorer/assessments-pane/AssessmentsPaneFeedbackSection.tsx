@@ -135,7 +135,10 @@ export const AssessmentsPaneFeedbackSection = ({
   traceId: string;
   sessionId?: string;
 }) => {
-  const visibleFeedbacks = useMemo(() => feedbacks.filter((f) => !f.assessment_name.startsWith('_')), [feedbacks]);
+  const visibleFeedbacks = useMemo(
+    () => feedbacks.filter((f) => f.assessment_name !== '_issue_discovery_judge'),
+    [feedbacks],
+  );
   const groupedFeedbacks = useMemo(() => groupFeedbacks(visibleFeedbacks), [visibleFeedbacks]);
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
