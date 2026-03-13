@@ -32,7 +32,13 @@ const IssueTag = ({ issue }: { issue: { id: string; name: string } }) => {
     try {
       const issueData = await getIssue(issue.id);
       if (issueData.source_run_id && issueData.experiment_id) {
-        const url = `${Routes.getIssueDetectionRunDetailsTabRoute(issueData.experiment_id, issueData.source_run_id, RunPageTabName.ISSUES)}?${SELECTED_ISSUE_ID_PARAM}=${encodeURIComponent(issue.id)}`;
+        const baseUrl = Routes.getIssueDetectionRunDetailsTabRoute(
+          issueData.experiment_id,
+          issueData.source_run_id,
+          RunPageTabName.ISSUES,
+        );
+        const params = new URLSearchParams({ [SELECTED_ISSUE_ID_PARAM]: issue.id });
+        const url = `${baseUrl}?${params.toString()}`;
         navigate(url);
       }
     } catch (error) {
@@ -943,8 +949,8 @@ export const traceInfoCellRenderer = (
 
       return (
         <Overflow>
-          {issueList.map((issue, index) => (
-            <IssueTag key={index} issue={issue} />
+          {issueList.map((issue) => (
+            <IssueTag key={issue.id} issue={issue} />
           ))}
         </Overflow>
       );

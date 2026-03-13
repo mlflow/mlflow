@@ -1,12 +1,11 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
-import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import { TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { IssuesTabEmptyState } from './IssuesTabEmptyState';
 import { IssueCard } from './IssueCard';
 import { IssueTracesPanel } from './IssueTracesPanel';
 import { IssueStatusFilter, type IssueStatusFilterValue } from './IssueStatusFilter';
 import { useSearchIssuesQuery, type Issue } from './hooks/useSearchIssuesQuery';
-import { SELECTED_ISSUE_ID_PARAM } from '../../constants';
+import { useSelectedIssueId } from './hooks/useSelectedIssueId';
 
 export interface RunViewIssuesTabProps {
   runUuid: string;
@@ -15,8 +14,6 @@ export interface RunViewIssuesTabProps {
 
 export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProps) => {
   const { theme } = useDesignSystemTheme();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedIssue, setSelectedIssue] = useState<Issue | null>(null);
   const [statusFilter, setStatusFilter] = useState<IssueStatusFilterValue>('pending');
   const issueCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const { issues, isLoading } = useSearchIssuesQuery({
@@ -31,39 +28,37 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
     return issues.filter((issue) => issue.status === statusFilter);
   }, [issues, statusFilter]);
 
-  // Auto-select issue from URL parameter when issues load or URL changes
-  useEffect(() => {
-    const issueIdFromUrl = searchParams.get(SELECTED_ISSUE_ID_PARAM);
-    if (issueIdFromUrl && issues.length > 0 && selectedIssue?.issue_id !== issueIdFromUrl) {
-      const issue = issues.find((i) => i.issue_id === issueIdFromUrl);
-      if (issue) {
-        setSelectedIssue(issue);
-      }
+  // Scroll to the selected issue card
+  const scrollToSelectedIssue = useCallback((issueId: string) => {
+    const cardElement = issueCardRefs.current[issueId];
+    if (cardElement) {
+      cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-  }, [issues, searchParams, selectedIssue?.issue_id]);
+  }, []);
 
-  // Scroll to selected issue when it changes
+  const [selectedIssueId, setSelectedIssueId] = useSelectedIssueId({
+    onSelect: scrollToSelectedIssue,
+  });
+
+  // Auto-select issue from URL parameter when issues load
   useEffect(() => {
-    if (selectedIssue) {
-      const cardElement = issueCardRefs.current[selectedIssue.issue_id];
-      if (cardElement) {
-        cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (selectedIssueId && issues.length > 0) {
+      const issue = issues.find((i) => i.issue_id === selectedIssueId);
+      if (issue) {
+        scrollToSelectedIssue(selectedIssueId);
       }
     }
-  }, [selectedIssue]);
+  }, [selectedIssueId, issues, scrollToSelectedIssue]);
 
   const handleSelect = (issue: Issue) => {
-    const isDeselecting = selectedIssue?.issue_id === issue.issue_id;
-    setSelectedIssue(isDeselecting ? null : issue);
-
-    // Update URL parameter
-    if (isDeselecting) {
-      searchParams.delete(SELECTED_ISSUE_ID_PARAM);
-    } else {
-      searchParams.set(SELECTED_ISSUE_ID_PARAM, issue.issue_id);
-    }
-    setSearchParams(searchParams, { replace: true });
+    const isDeselecting = selectedIssueId === issue.issue_id;
+    setSelectedIssueId(isDeselecting ? undefined : issue.issue_id);
   };
+
+  const selectedIssue = useMemo(
+    () => issues.find((i) => i.issue_id === selectedIssueId) || null,
+    [issues, selectedIssueId],
+  );
 
   if (isLoading) {
     return (
