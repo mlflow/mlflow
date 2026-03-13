@@ -141,6 +141,61 @@ async def test_get_prompt(client: Client):
     assert "MLflow" in content
 
 
+def test_get_input_schema_array_for_multiple_option():
+    import click
+
+    from mlflow.mcp.server import get_input_schema
+
+    @click.command()
+    @click.option("--tag", "tags", multiple=True, type=str, help="Tags to add.")
+    @click.option("--name", type=str, help="A single name.")
+    def cmd(tags, name):
+        pass
+
+    schema = get_input_schema(cmd.params)
+    # --tag is multiple=True, so it should be an array of strings
+    assert schema["properties"]["tags"] == {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Tags to add.",
+    }
+    # --name is a normal scalar option
+    assert schema["properties"]["name"]["type"] == "string"
+
+
+def test_get_input_schema_array_for_variadic_argument():
+    import click
+
+    from mlflow.mcp.server import get_input_schema
+
+    @click.command()
+    @click.argument("files", nargs=-1, type=str)
+    def cmd(files):
+        pass
+
+    schema = get_input_schema(cmd.params)
+    assert schema["properties"]["files"] == {
+        "type": "array",
+        "items": {"type": "string"},
+    }
+
+
+def test_fn_wrapper_converts_list_to_tuple():
+    import click
+
+    from mlflow.mcp.server import fn_wrapper
+
+    @click.command()
+    @click.option("--tag", "tags", multiple=True, type=str)
+    def cmd(tags):
+        click.echo(f"type={type(tags).__name__},len={len(tags)}")
+
+    wrapper = fn_wrapper(cmd)
+    result = wrapper(tags=["a", "b", "c"])
+    assert "type=tuple" in result
+    assert "len=3" in result
+
+
 def test_fn_wrapper_handles_unset_defaults(monkeypatch):
     import click
 
