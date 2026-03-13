@@ -6,9 +6,9 @@ import sys
 
 from mlflow.pyfunc import scoring_server
 from mlflow.pyfunc.model import _log_warning_if_params_not_in_predict_signature
+from mlflow.utils.logging_utils import configure_module_logger
 
-_logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+_logger = configure_module_logger(__name__, logging.INFO)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model-uri")

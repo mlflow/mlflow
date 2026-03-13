@@ -5,6 +5,7 @@ import subprocess
 import sys
 import uuid
 from io import StringIO
+from pathlib import Path
 
 import pytest
 
@@ -215,3 +216,26 @@ assert actual_format == {actual_format!r}, actual_format
             "MLFLOW_CONFIGURE_LOGGING": configure_logging,
         },
     )
+
+
+def test_configure_module_logger_sets_level_without_touching_root_handlers():
+    root_logger = logging.getLogger()
+    original_handlers = list(root_logger.handlers)
+
+    module_logger = logging_utils.configure_module_logger("mlflow.tests.logging.module", logging.ERROR)
+
+    assert module_logger.level == logging.ERROR
+    assert list(root_logger.handlers) == original_handlers
+
+
+@pytest.mark.parametrize(
+    "module_rel_path",
+    [
+        "mlflow/pytorch/_lightning_autolog.py",
+        "mlflow/pyfunc/stdin_server.py",
+    ],
+)
+def test_runtime_modules_avoid_global_basicconfig_calls(module_rel_path):
+    repo_root = Path(__file__).resolve().parents[2]
+    module_source = (repo_root / module_rel_path).read_text(encoding="utf-8")
+    assert "logging.basicConfig(" not in module_source
