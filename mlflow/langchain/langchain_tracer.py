@@ -303,14 +303,18 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         kwargs[SpanAttributeKey.MESSAGE_FORMAT] = "langchain"
 
         try:
-            normalized_inputs = {
-                "messages": [
-                    convert_lc_message_to_chat_message(msg).model_dump()
-                    for msg_list in messages
-                    for msg in msg_list
-                ]
-            }
-        except Exception:
+            if len(messages) == 1:
+                normalized_inputs = {
+                    "messages": [
+                        convert_lc_message_to_chat_message(msg).model_dump()
+                        for msg in messages[0]
+                    ]
+                }
+            else:
+                # Batched invocations are rare; fall back to raw format
+                normalized_inputs = messages
+        except Exception as e:
+            _logger.debug(f"Failed to normalize chat model inputs: {e}", exc_info=True)
             normalized_inputs = messages
 
         span = self._start_span(
@@ -455,16 +459,20 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             _logger.debug(f"Failed to log token usage for LangChain: {e}", exc_info=True)
 
         try:
-            choices = []
-            for gen_list in response.generations:
-                for g in gen_list:
+            if len(response.generations) == 1:
+                choices = []
+                for g in response.generations[0]:
                     if hasattr(g, "message"):
                         msg_dict = convert_lc_message_to_chat_message(g.message).model_dump()
                     else:
                         msg_dict = {"role": "assistant", "content": g.text}
                     choices.append({"message": msg_dict, "finish_reason": None})
-            normalized_outputs = {"choices": choices}
-        except Exception:
+                normalized_outputs = {"choices": choices}
+            else:
+                # Batched invocations are rare; fall back to raw format
+                normalized_outputs = response
+        except Exception as e:
+            _logger.debug(f"Failed to normalize chat model outputs: {e}", exc_info=True)
             normalized_outputs = response
 
         self._end_span(run_id, llm_span, outputs=normalized_outputs)
