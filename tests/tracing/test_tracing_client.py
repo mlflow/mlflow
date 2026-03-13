@@ -59,6 +59,13 @@ def test_batch_get_traces():
 
 def test_batch_get_traces_without_location():
     mock_store = Mock()
+    trace_info = Mock()
+    trace_info.trace_id = "id1"
+    trace_info.trace_location.mlflow_experiment = Mock()
+    trace_info.trace_location.uc_schema = None
+    trace_info.trace_location.uc_table_prefix = None
+    trace_info.tags = {TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE}
+    mock_store.batch_get_trace_infos.return_value = [trace_info]
     mock_store.batch_get_traces.return_value = ["trace1"]
 
     with patch("mlflow.tracing.client._get_store", return_value=mock_store):
@@ -66,6 +73,62 @@ def test_batch_get_traces_without_location():
         traces = client.batch_get_traces(["id1"])
 
     assert traces == ["trace1"]
+    mock_store.batch_get_trace_infos.assert_called_once_with(["id1"])
+    mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
+
+
+def test_batch_get_traces_empty():
+    mock_store = Mock()
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        traces = client.batch_get_traces([])
+
+    assert traces == []
+    mock_store.batch_get_trace_infos.assert_not_called()
+
+
+def test_batch_get_traces_with_artifact_repo_traces():
+    mock_store = Mock()
+
+    # Trace with spans in tracking store
+    tracking_trace_info = Mock()
+    tracking_trace_info.trace_id = "id1"
+    tracking_trace_info.trace_location.mlflow_experiment = Mock()
+    tracking_trace_info.trace_location.uc_schema = None
+    tracking_trace_info.trace_location.uc_table_prefix = None
+    tracking_trace_info.tags = {TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE}
+
+    # Trace with spans in artifact repo (no SPANS_LOCATION tag)
+    artifact_trace_info = Mock()
+    artifact_trace_info.trace_id = "id2"
+    artifact_trace_info.trace_location.mlflow_experiment = Mock()
+    artifact_trace_info.trace_location.uc_schema = None
+    artifact_trace_info.trace_location.uc_table_prefix = None
+    artifact_trace_info.tags = {}
+
+    mock_store.batch_get_trace_infos.return_value = [tracking_trace_info, artifact_trace_info]
+
+    tracking_trace = Mock()
+    tracking_trace.info.trace_id = "id1"
+    mock_store.batch_get_traces.return_value = [tracking_trace]
+
+    artifact_trace = Mock()
+    artifact_trace.info.trace_id = "id2"
+
+    with (
+        patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        patch.object(
+            TracingClient, "_download_spans_from_artifact_repo", return_value=artifact_trace
+        ) as mock_download,
+    ):
+        client = TracingClient()
+        traces = client.batch_get_traces(["id1", "id2"])
+
+    assert len(traces) == 2
+    assert tracking_trace in traces
+    assert artifact_trace in traces
+    mock_download.assert_called_once_with(artifact_trace_info)
     mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
 
 

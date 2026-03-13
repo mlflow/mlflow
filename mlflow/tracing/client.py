@@ -345,30 +345,7 @@ class TracingClient:
 
                 if include_spans:
                     trace_infos_by_location = self._group_trace_infos_by_location(trace_infos)
-                    for (
-                        location,
-                        location_trace_infos,
-                    ) in trace_infos_by_location.items():
-                        if location == SpansLocation.ARTIFACT_REPO:
-                            # download traces from artifact repository if spans are
-                            # stored in the artifact repository
-                            traces.extend(
-                                trace
-                                for trace in executor.map(
-                                    self._download_spans_from_artifact_repo,
-                                    location_trace_infos,
-                                )
-                                if trace
-                            )
-                        else:
-                            # Get full traces with BatchGetTraces, all traces in a single call
-                            # must be located in the same table.
-                            trace_ids = [t.trace_id for t in location_trace_infos]
-                            traces.extend(
-                                self._download_spans_from_batch_get_traces(
-                                    trace_ids, location, executor
-                                )
-                            )
+                    traces.extend(self._load_traces_by_location(trace_infos_by_location, executor))
 
                 else:
                     traces.extend(Trace(t, TraceData(spans=[])) for t in trace_infos)
@@ -391,7 +368,22 @@ class TracingClient:
         Returns:
             List of Trace objects.
         """
-        return self.store.batch_get_traces(trace_ids, location)
+        if not trace_ids:
+            return []
+
+        # If location is provided, this is a UC schema/v4 call - delegate directly
+        if location is not None:
+            return self.store.batch_get_traces(trace_ids, location)
+
+        # Get trace infos (metadata only) to determine where spans are stored
+        trace_infos = self.store.batch_get_trace_infos(trace_ids)
+        trace_infos_by_location = self._group_trace_infos_by_location(trace_infos)
+
+        max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="MlflowTracingBatchGet"
+        ) as executor:
+            return self._load_traces_by_location(trace_infos_by_location, executor)
 
     def _download_spans_from_batch_get_traces(
         self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
@@ -409,6 +401,29 @@ class TracingClient:
         batches = [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
         for minibatch_traces in executor.map(_fetch_minibatch, batches):
             traces.extend(minibatch_traces)
+        return traces
+
+    def _load_traces_by_location(
+        self,
+        trace_infos_by_location: dict[str, list[TraceInfo]],
+        executor: ThreadPoolExecutor,
+    ) -> list[Trace]:
+        traces = []
+        for location, location_trace_infos in trace_infos_by_location.items():
+            if location == SpansLocation.ARTIFACT_REPO:
+                traces.extend(
+                    tr
+                    for tr in executor.map(
+                        self._download_spans_from_artifact_repo,
+                        location_trace_infos,
+                    )
+                    if tr
+                )
+            else:
+                trace_ids = [t.trace_id for t in location_trace_infos]
+                traces.extend(
+                    self._download_spans_from_batch_get_traces(trace_ids, location, executor)
+                )
         return traces
 
     def _download_spans_from_artifact_repo(self, trace_info: TraceInfo) -> Trace | None:
