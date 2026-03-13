@@ -1218,6 +1218,7 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
                 {/* Manual input */}
                 {testInputMode === 'manual' && (
                   <Input.TextArea
+                    componentId="mlflow.guardrails.add-modal.test-manual-input"
                     value={testManualText}
                     onChange={(e) => setTestManualText(e.target.value)}
                     rows={3}

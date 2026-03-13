@@ -455,6 +455,7 @@ export const TestGuardrailModal = ({ open, onClose, guardrail, experimentId }: T
               />
             </Typography.Text>
             <Input.TextArea
+              componentId="mlflow.guardrails.test-modal.manual-input"
               value={manualText}
               onChange={(e) => setManualText(e.target.value)}
               rows={4}
