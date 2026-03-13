@@ -5219,7 +5219,8 @@ def _create_budget_policy():
         )
     if request_message.duration.value <= 0:
         raise MlflowException(
-            message=f"duration.value must be a positive integer, got {request_message.duration.value}",
+            message=f"duration.value must be a positive integer, got "
+            f"{request_message.duration.value}",
             error_code=INVALID_PARAMETER_VALUE,
         )
     target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
@@ -5295,7 +5296,8 @@ def _update_budget_policy():
             )
         if request_message.duration.value <= 0:
             raise MlflowException(
-                message=f"duration.value must be a positive integer, got {request_message.duration.value}",
+                message=f"duration.value must be a positive integer, got "
+                f"{request_message.duration.value}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
         duration = BudgetDuration(unit=duration_unit, value=request_message.duration.value)

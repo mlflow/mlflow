@@ -8,6 +8,7 @@ import mlflow.gateway.budget_tracker as _bt_module
 from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -45,8 +46,7 @@ def _make_policy(
         budget_policy_id=budget_policy_id,
         budget_unit=BudgetUnit.USD,
         budget_amount=budget_amount,
-        duration_unit=BudgetDurationUnit.DAYS,
-        duration_value=1,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=budget_action,
         created_at=0,
