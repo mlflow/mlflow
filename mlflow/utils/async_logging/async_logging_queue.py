@@ -6,7 +6,9 @@ queue based approach.
 import atexit
 import enum
 import logging
+import os
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from queue import Empty, Queue
 from typing import Callable
@@ -16,6 +18,7 @@ from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS,
+    MLFLOW_ASYNC_LOGGING_SHUTDOWN_TIMEOUT,
     MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE,
 )
 from mlflow.utils.async_logging.run_batch import RunBatch
@@ -72,16 +75,120 @@ class AsyncLoggingQueue:
 
         Stops the data processing thread and waits for the queue to be drained. Finally, shuts down
         the thread pools used for data logging and batch processing status check.
+
+        Cleanup is performed with timeout protection to prevent indefinite hangs when threads
+        are blocked on network I/O or other operations. The timeout can be configured via
+        MLFLOW_ASYNC_LOGGING_SHUTDOWN_TIMEOUT environment variable (default: 30 seconds).
         """
+        # Check if queue is active and objects exist before cleanup
+        # This handles edge case where shut_down_async_logging() was called before atexit
+        if not self.is_active() and self.is_idle():
+            _logger.debug("Async logging queue already shut down, skipping cleanup")
+            return
+
+        if not hasattr(self, "_batch_logging_thread") or self._batch_logging_thread is None:
+            _logger.debug("Batch logging thread not initialized, skipping cleanup")
+            return
+
+        # Get timeout from environment variable (registered in environment_variables.py)
+        timeout = MLFLOW_ASYNC_LOGGING_SHUTDOWN_TIMEOUT.get()
+        if timeout <= 0:
+            _logger.warning(
+                "MLFLOW_ASYNC_LOGGING_SHUTDOWN_TIMEOUT must be positive, using default 30.0s"
+            )
+            timeout = 30.0
+
         try:
             # Stop the data processing thread
             self._stop_data_logging_thread_event.set()
-            # Waits till logging queue is drained.
-            self._batch_logging_thread.join()
-            self._batch_logging_worker_threadpool.shutdown(wait=True)
-            self._batch_status_check_threadpool.shutdown(wait=True)
+
+            # Wait for logging thread with timeout
+            _logger.debug(f"Waiting for batch logging thread to finish (timeout: {timeout}s)")
+            self._batch_logging_thread.join(timeout=timeout)
+            if self._batch_logging_thread.is_alive():
+                _logger.warning(
+                    f"Batch logging thread did not finish within {timeout}s timeout. "
+                    f"Some metrics/params/tags may not have been logged. "
+                    f"Increase MLFLOW_ASYNC_LOGGING_SHUTDOWN_TIMEOUT if needed."
+                )
+
+            # Shutdown worker thread pool with timeout
+            if (
+                hasattr(self, "_batch_logging_worker_threadpool")
+                and self._batch_logging_worker_threadpool is not None
+            ):
+                _logger.debug(
+                    f"Shutting down batch logging worker threadpool (timeout: {timeout}s)"
+                )
+                self._shutdown_threadpool_with_timeout(
+                    self._batch_logging_worker_threadpool, "batch logging worker", timeout
+                )
+
+            # Shutdown status check thread pool with timeout
+            if (
+                hasattr(self, "_batch_status_check_threadpool")
+                and self._batch_status_check_threadpool is not None
+            ):
+                _logger.debug(f"Shutting down batch status check threadpool (timeout: {timeout}s)")
+                self._shutdown_threadpool_with_timeout(
+                    self._batch_status_check_threadpool, "batch status check", timeout
+                )
+
+            _logger.debug("Async logging cleanup completed successfully")
+
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
+
+    def _shutdown_threadpool_with_timeout(
+        self, threadpool: ThreadPoolExecutor, name: str, timeout: float
+    ) -> None:
+        """Shutdown a ThreadPoolExecutor with timeout protection.
+
+        ThreadPoolExecutor.shutdown(wait=True) blocks indefinitely if workers
+        are stuck. This method implements timeout logic to prevent hangs.
+
+        Args:
+            threadpool: ThreadPoolExecutor to shutdown
+            name: Descriptive name for logging
+            timeout: Maximum seconds to wait for shutdown
+        """
+        # Signal shutdown (non-blocking)
+        threadpool.shutdown(wait=False)
+
+        # Wait for threads to finish with timeout
+        start_time = time.time()
+
+        # Access private implementation detail defensively; skip targeted join if unavailable.
+        thread_name_prefix = getattr(threadpool, "_thread_name_prefix", None)
+        if thread_name_prefix is None:
+            _logger.debug(
+                "ThreadPoolExecutor does not expose `_thread_name_prefix`; "
+                "skipping targeted thread join for %s threadpool.",
+                name,
+            )
+            return
+
+        threads = [t for t in threading.enumerate() if thread_name_prefix in t.name]
+        for thread in threads:
+            remaining = timeout - (time.time() - start_time)
+            if remaining <= 0:
+                active_threads = [
+                    t
+                    for t in threading.enumerate()
+                    if thread_name_prefix in t.name and t.is_alive()
+                ]
+                _logger.warning(
+                    f"Timeout expired while waiting for {name} threadpool shutdown. "
+                    f"{len(active_threads)} threads still active."
+                )
+                break
+
+            thread.join(timeout=remaining)
+            if thread.is_alive():
+                _logger.warning(
+                    f"Thread {thread.name} in {name} threadpool did not finish "
+                    f"within timeout. Continuing shutdown anyway."
+                )
 
     def end_async_logging(self) -> None:
         with self._lock:
