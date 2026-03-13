@@ -3,17 +3,12 @@ import random
 import numpy as np
 import optuna
 import pytest
-import setfit
 import sklearn.cluster
 import sklearn.datasets
 import torch
 import transformers
 from datasets import load_dataset
 from packaging.version import Version
-from sentence_transformers.losses import CosineSimilarityLoss
-from setfit import SetFitModel, sample_dataset
-from setfit import Trainer as SetFitTrainer
-from setfit import TrainingArguments as SetFitTrainingArguments
 from transformers import (
     DistilBertForSequenceClassification,
     DistilBertTokenizerFast,
@@ -33,6 +28,12 @@ def iris_data():
 
 @pytest.fixture
 def setfit_trainer():
+    import setfit
+    from sentence_transformers.losses import CosineSimilarityLoss
+    from setfit import SetFitModel, sample_dataset
+    from setfit import Trainer as SetFitTrainer
+    from setfit import TrainingArguments as SetFitTrainingArguments
+
     dataset = load_dataset("stanfordnlp/sst2")
 
     train_dataset = sample_dataset(dataset["train"], label_column="label", num_samples=8)
@@ -296,9 +297,11 @@ def test_setfit_does_not_autolog(setfit_trainer):
 
     last_run = mlflow.last_active_run()
     assert not last_run
-    preds = setfit_trainer.model(
-        ["Always carry a towel!", "The hobbits are going to Isengard", "What's tatoes, precious?"]
-    )
+    preds = setfit_trainer.model([
+        "Always carry a towel!",
+        "The hobbits are going to Isengard",
+        "What's tatoes, precious?",
+    ])
     assert len(preds) == 3
 
 
@@ -375,12 +378,10 @@ def test_active_autolog_no_setfit_logging_followed_by_successful_sklearn_autolog
     assert metrics["accuracy"] > 0
 
     # Run inference
-    preds = setfit_trainer.model(
-        [
-            "i loved the new Star Trek show!",
-            "That burger was gross; it tasted like it was made from cat food!",
-        ]
-    )
+    preds = setfit_trainer.model([
+        "i loved the new Star Trek show!",
+        "That burger was gross; it tasted like it was made from cat food!",
+    ])
     assert len(preds) == 2
 
     # Test that autologging works for a simple sklearn model (local disabling functions)
@@ -452,12 +453,10 @@ def test_disabled_sklearn_autologging_does_not_revert_to_enabled_with_setfit(
     assert metrics["accuracy"] > 0
 
     # Run inference
-    preds = setfit_trainer.model(
-        [
-            "i loved the new Star Trek show!",
-            "That burger was gross; it tasted like it was made from cat food!",
-        ]
-    )
+    preds = setfit_trainer.model([
+        "i loved the new Star Trek show!",
+        "That burger was gross; it tasted like it was made from cat food!",
+    ])
     assert len(preds) == 2
 
     # Test that autologging does not log since it is manually disabled above.
@@ -497,9 +496,10 @@ def test_disable_sklearn_autologging_does_not_revert_with_trainer(iris_data, tra
         model=transformers_trainer.model,
         tokenizer=DistilBertTokenizerFast.from_pretrained("distilbert-base-uncased"),
     )
-    preds = pipe(
-        ["Did you hear that guitar solo? Brilliant!", "That band should avoid playing live."]
-    )
+    preds = pipe([
+        "Did you hear that guitar solo? Brilliant!",
+        "That band should avoid playing live.",
+    ])
     assert len(preds) == 2
     assert all(x["score"] > 0 for x in preds)
 

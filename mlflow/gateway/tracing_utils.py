@@ -70,6 +70,7 @@ def _gateway_span_attributes(
 
 _MODEL_SPAN_ATTRIBUTE_KEYS = [
     SpanAttributeKey.CHAT_USAGE,
+    SpanAttributeKey.LLM_COST,
     SpanAttributeKey.MODEL,
     SpanAttributeKey.MODEL_PROVIDER,
 ]
@@ -163,6 +164,7 @@ def maybe_traced_gateway_call(
     output_reducer: Callable[[list[Any]], Any] | None = None,
     request_headers: dict[str, str] | None = None,
     request_type: GatewayRequestType | None = None,
+    on_complete: Callable[[], None] | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a gateway function with tracing.
@@ -175,6 +177,8 @@ def maybe_traced_gateway_call(
         request_headers: HTTP request headers; if they contain a traceparent header,
             a span will also be created under the agent's distributed trace.
         request_type: The type of gateway request (e.g., GatewayRequestType.CHAT).
+        on_complete: A no-arg callback invoked inside the trace context after the
+            provider call completes (in ``finally``).
 
     Returns:
         A traced version of the function.
@@ -209,6 +213,11 @@ def maybe_traced_gateway_call(
                 async for item in func(*args, **kwargs):
                     yield item
             finally:
+                if on_complete:
+                    try:
+                        on_complete()
+                    except Exception:
+                        _logger.debug("on_complete callback failed", exc_info=True)
                 _maybe_create_distributed_span(request_headers, endpoint_config)
 
     elif inspect.iscoroutinefunction(func):
@@ -220,6 +229,11 @@ def maybe_traced_gateway_call(
             try:
                 result = await func(*args, **kwargs)
             finally:
+                if on_complete:
+                    try:
+                        on_complete()
+                    except Exception:
+                        _logger.debug("on_complete callback failed", exc_info=True)
                 _maybe_create_distributed_span(request_headers, endpoint_config)
             return result
 
@@ -232,6 +246,11 @@ def maybe_traced_gateway_call(
             try:
                 result = func(*args, **kwargs)
             finally:
+                if on_complete:
+                    try:
+                        on_complete()
+                    except Exception:
+                        _logger.debug("on_complete callback failed", exc_info=True)
                 _maybe_create_distributed_span(request_headers, endpoint_config)
             return result
 
@@ -300,13 +319,11 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
                 }
                 for tc in state["tool_calls_by_index"].values()
             ]
-        aggregated_choices.append(
-            {
-                "index": choice_index,
-                "message": message,
-                "finish_reason": state["finish_reason"] or "stop",
-            }
-        )
+        aggregated_choices.append({
+            "index": choice_index,
+            "message": message,
+            "finish_reason": state["finish_reason"] or "stop",
+        })
 
     last_chunk = chunks[-1]
     result = {

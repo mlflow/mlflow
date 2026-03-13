@@ -2,6 +2,7 @@ import React from 'react';
 
 import {
   HoverCard,
+  Overflow,
   SpeechBubbleIcon,
   TableCell,
   Tag,
@@ -35,6 +36,7 @@ import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
+  ISSUES_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RESPONSE_COLUMN_ID,
   SESSION_COLUMN_ID,
@@ -50,6 +52,7 @@ import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
 import { escapeCssSpecialCharacters, highlightSearchInText } from '../utils/DisplayUtils';
 import {
   convertFeedbackAssessmentToRunEvalAssessment,
+  getExperimentIdFromTraceLocation,
   getTraceInfoInputs,
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
@@ -72,7 +75,7 @@ interface SessionHeaderCellProps {
   goal?: string;
   persona?: string;
   onChangeEvaluationId?: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
-  experimentId: string;
+  experimentId?: string;
   isComparing?: boolean;
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
@@ -94,7 +97,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   otherTraces,
   goal,
   persona,
-  experimentId,
+  experimentId: experimentIdProp,
   isComparing,
   getRunColor,
   runUuid,
@@ -105,6 +108,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const firstTrace = traces[0];
+  const experimentId = getExperimentIdFromTraceLocation(firstTrace?.trace_location) ?? experimentIdProp;
   const firstOtherTrace = otherTraces?.[0];
 
   // Get run colors - use the passed runUuid/compareToRunUuid props directly for consistency with the comparison header.
@@ -681,6 +685,52 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
       );
     } else {
       cellContent = currentUniqueValueCounts.length > 0 ? renderAssessmentTags(currentUniqueValueCounts) : <NullCell />;
+    }
+  } else if (column.id === ISSUES_COLUMN_ID) {
+    // Issues column - collect all unique issues from all traces in the session
+    const collectUniqueIssues = (tracesList: ModelTraceInfoV3[]): string[] => {
+      const issueSet = new Set<string>();
+      tracesList.forEach((trace) => {
+        trace.assessments?.forEach((assessment) => {
+          if ('issue' in assessment && assessment.issue) {
+            const issueName = assessment.issue.issue_name || assessment.assessment_name;
+            issueSet.add(issueName);
+          }
+        });
+      });
+      return Array.from(issueSet);
+    };
+
+    const currentIssues = traces.length > 0 ? collectUniqueIssues(traces) : [];
+    const otherIssuesCollected = otherTraces && otherTraces.length > 0 ? collectUniqueIssues(otherTraces) : [];
+
+    const renderIssues = (issueList: string[]) => {
+      if (issueList.length === 0) {
+        return <NullCell isComparing={isComparing} />;
+      }
+
+      return (
+        <Overflow>
+          {issueList.map((issueName, index) => (
+            <Tag
+              key={index}
+              componentId="mlflow.genai-traces-table.session-header-issue-tag"
+              color="coral"
+              css={{ width: 'min-content', maxWidth: '100%' }}
+            >
+              {issueName}
+            </Tag>
+          ))}
+        </Overflow>
+      );
+    };
+
+    if (isComparing) {
+      cellContent = (
+        <StackedComponents first={renderIssues(currentIssues)} second={renderIssues(otherIssuesCollected)} />
+      );
+    } else {
+      cellContent = renderIssues(currentIssues);
     }
   } else if (
     column.type === TracesTableColumnType.ASSESSMENT &&

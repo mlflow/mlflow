@@ -29,11 +29,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const isLocalServer = useMemo(() => checkIsLocalServer(), []);
 
   // Panel state - persisted to localStorage
-  // Only open by default on first visit if server is local
   const [isPanelOpen, setIsPanelOpen] = useLocalStorage({
     key: 'mlflow.assistant.panelOpen',
     version: 1,
-    initialValue: isLocalServer,
+    initialValue: false,
   });
 
   // Chat state

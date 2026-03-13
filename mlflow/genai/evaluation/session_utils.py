@@ -129,6 +129,7 @@ def evaluate_session_level_scorers(
                         error_message=str(e),
                         stack_trace=traceback.format_exc(),
                     ),
+                    metadata={TraceMetadataKey.TRACE_SESSION: session_id},
                 )
             ]
 

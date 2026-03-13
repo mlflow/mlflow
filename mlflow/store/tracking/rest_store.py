@@ -15,6 +15,7 @@ from packaging.version import Version
 from mlflow.entities import (
     DatasetInput,
     Experiment,
+    Issue,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -27,6 +28,7 @@ from mlflow.entities import (
     ScorerVersion,
     ViewType,
 )
+from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.exceptions import MlflowNotImplementedException
 
 # Constants for Databricks API disabled decorator
@@ -50,6 +52,12 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.protos.issues_pb2 import (
+    CreateIssue,
+    GetIssue,
+    SearchIssues,
+    UpdateIssue,
+)
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraces,
@@ -139,6 +147,7 @@ from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    _V3_ISSUES_REST_API_PATH_PREFIX,
     _V3_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
@@ -592,7 +601,15 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 _logger.debug(
                     "Server does not support SearchTracesV3 API yet. Falling back to V2 API."
                 )
-                response_proto = self._call_endpoint(SearchTraces, req_body)
+                v2_request = SearchTraces(
+                    experiment_ids=locations,
+                    filter=filter_string,
+                    max_results=max_results,
+                    order_by=order_by,
+                    page_token=page_token,
+                )
+                v2_req_body = message_to_json(v2_request)
+                response_proto = self._call_endpoint(SearchTraces, v2_req_body)
             else:
                 raise
 
@@ -806,6 +823,137 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             req_body,
             endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
         )
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        categories: list[str] | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status. Defaults to IssueStatus.PENDING.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        req_body = message_to_json(
+            CreateIssue(
+                experiment_id=experiment_id,
+                name=name,
+                description=description,
+                status=str(status),
+                severity=str(severity) if severity is not None else None,
+                root_causes=root_causes or [],
+                source_run_id=source_run_id,
+                categories=categories or [],
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(
+            CreateIssue, req_body, endpoint=_V3_ISSUES_REST_API_PATH_PREFIX
+        )
+        return Issue.from_proto(response_proto.issue)
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        req_body = message_to_json(GetIssue(issue_id=issue_id))
+        response_proto = self._call_endpoint(
+            GetIssue, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/{issue_id}"
+        )
+        return Issue.from_proto(response_proto.issue)
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        req_body = message_to_json(
+            UpdateIssue(
+                issue_id=issue_id,
+                status=str(status) if status is not None else None,
+                name=name,
+                description=description,
+                severity=str(severity) if severity is not None else None,
+            )
+        )
+        response_proto = self._call_endpoint(
+            UpdateIssue, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/{issue_id}"
+        )
+        return Issue.from_proto(response_proto.issue)
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        req_body = message_to_json(
+            SearchIssues(
+                experiment_id=experiment_id,
+                filter_string=filter_string,
+                max_results=max_results,
+                page_token=page_token,
+            )
+        )
+        response_proto = self._call_endpoint(
+            SearchIssues, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/search"
+        )
+        issues = [Issue.from_proto(issue_proto) for issue_proto in response_proto.issues]
+        return PagedList(issues, response_proto.next_page_token or None)
 
     def log_metric(self, run_id: str, metric: Metric):
         """

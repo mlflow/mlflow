@@ -4,13 +4,18 @@ description: Add a review comment to a GitHub pull request.
 allowed-tools:
   - Bash(gh api:*)
   - Bash(gh pr view:*)
+  - Bash(uv run skills fetch-diff:*)
 ---
 
 # Add Review Comment
 
 Adds a review comment to a specific line in a GitHub pull request.
 
-## Usage
+## Step 1: Locate the line to comment on
+
+Use the `fetch-diff` skill (optionally piped through `grep`) to locate the line to comment on.
+
+## Step 2: Post the comment
 
 **Single-line comment:**
 

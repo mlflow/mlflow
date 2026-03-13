@@ -336,12 +336,10 @@ class ClassifierEvaluator(BuiltInEvaluator):
             import matplotlib
             import matplotlib.pyplot as plt
 
-            with matplotlib.rc_context(
-                {
-                    "font.size": min(8, math.ceil(50.0 / len(self.label_list))),
-                    "axes.labelsize": 8,
-                }
-            ):
+            with matplotlib.rc_context({
+                "font.size": min(8, math.ceil(50.0 / len(self.label_list))),
+                "axes.labelsize": 8,
+            }):
                 _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0), dpi=175)
                 disp = sk_metrics.ConfusionMatrixDisplay(
                     confusion_matrix=confusion_matrix,

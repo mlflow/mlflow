@@ -13,6 +13,7 @@ from langchain_core.outputs import ChatGenerationChunk
 from langchain_core.outputs.chat_generation import ChatGeneration
 from langchain_core.outputs.generation import Generation
 
+from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import (
     convert_lc_message_to_chat_message,
     parse_token_usage,
@@ -93,6 +94,112 @@ def test_convert_lc_message_to_chat_message(message, expected):
 )
 def test_convert_lc_message_to_chat_message_tool_calls(message, expected):
     assert convert_lc_message_to_chat_message(message) == expected
+
+
+def test_convert_lc_message_to_chat_message_audio_content():
+    message = HumanMessage(
+        content=[
+            {"type": "text", "text": "What is this audio?"},
+            {
+                "type": "audio",
+                "source_type": "base64",
+                "data": "SGVsbG8=",
+                "mime_type": "audio/wav",
+            },
+        ]
+    )
+    result = convert_lc_message_to_chat_message(message)
+    assert result.role == "user"
+    assert len(result.content) == 2
+    assert result.content[0].type == "text"
+    assert result.content[0].text == "What is this audio?"
+    assert result.content[1].type == "input_audio"
+    assert result.content[1].input_audio.data == "SGVsbG8="
+    assert result.content[1].input_audio.format == "wav"
+
+
+def test_convert_lc_message_to_chat_message_audio_mp3():
+    message = HumanMessage(
+        content=[
+            {
+                "type": "audio",
+                "source_type": "base64",
+                "data": "AAAA",
+                "mime_type": "audio/mp3",
+            },
+        ]
+    )
+    result = convert_lc_message_to_chat_message(message)
+    assert result.content[0].type == "input_audio"
+    assert result.content[0].input_audio.data == "AAAA"
+    assert result.content[0].input_audio.format == "mp3"
+
+
+def test_convert_lc_message_to_chat_message_audio_mpeg():
+    message = HumanMessage(
+        content=[
+            {
+                "type": "audio",
+                "source_type": "base64",
+                "data": "AAAA",
+                "mime_type": "audio/mpeg",
+            },
+        ]
+    )
+    result = convert_lc_message_to_chat_message(message)
+    assert result.content[0].type == "input_audio"
+    assert result.content[0].input_audio.data == "AAAA"
+    assert result.content[0].input_audio.format == "mp3"
+
+
+def test_convert_lc_message_to_chat_message_string_content_unchanged():
+    message = HumanMessage(content="just text")
+    result = convert_lc_message_to_chat_message(message)
+    assert result.content == "just text"
+
+
+def test_convert_lc_message_audio_url_source_raises():
+    message = HumanMessage(
+        content=[
+            {
+                "type": "audio",
+                "source_type": "url",
+                "url": "https://example.com/audio.wav",
+                "mime_type": "audio/wav",
+            },
+        ]
+    )
+    with pytest.raises(MlflowException, match="Only base64-encoded audio"):
+        convert_lc_message_to_chat_message(message)
+
+
+def test_convert_lc_message_audio_no_mime_type_raises():
+    message = HumanMessage(
+        content=[
+            {
+                "type": "audio",
+                "source_type": "base64",
+                "data": "SGVsbG8=",
+            },
+        ]
+    )
+    with pytest.raises(MlflowException, match="Only base64-encoded audio"):
+        convert_lc_message_to_chat_message(message)
+
+
+def test_convert_lc_message_audio_unsupported_format_raises():
+    message = HumanMessage(
+        content=[
+            {
+                "type": "audio",
+                "source_type": "base64",
+                "data": "SGVsbG8=",
+                "mime_type": "audio/ogg",
+            },
+        ]
+    )
+    with pytest.raises(MlflowException, match="Unsupported audio format"):
+        convert_lc_message_to_chat_message(message)
 
 
 def test_transform_response_to_chat_format_no_conversion():
@@ -232,6 +339,94 @@ def test_transform_request_json_for_chat_if_necessary_conversion():
                 )
             ),
             {"input_tokens": 5, "output_tokens": 10, "total_tokens": 15},
+        ),
+        # OpenAI usage_metadata with input_token_details (LangChain standardized format)
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={
+                        "input_tokens": 50,
+                        "output_tokens": 20,
+                        "total_tokens": 70,
+                        "input_token_details": {"cache_read": 30, "cache_creation": 0},
+                    },
+                )
+            ),
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "total_tokens": 70,
+                "cache_read_input_tokens": 30,
+                "cache_creation_input_tokens": 0,
+            },
+        ),
+        # OpenAI usage_metadata with both cache_read and cache_creation
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={
+                        "input_tokens": 100,
+                        "output_tokens": 50,
+                        "total_tokens": 150,
+                        "input_token_details": {"cache_read": 25, "cache_creation": 15},
+                    },
+                )
+            ),
+            {
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+                "cache_read_input_tokens": 25,
+                "cache_creation_input_tokens": 15,
+            },
+        ),
+        # Raw OpenAI response_metadata with prompt_tokens_details
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    response_metadata={
+                        "token_usage": {
+                            "prompt_tokens": 50,
+                            "completion_tokens": 20,
+                            "total_tokens": 70,
+                            "prompt_tokens_details": {"cached_tokens": 30},
+                        }
+                    },
+                )
+            ),
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "total_tokens": 70,
+                "cache_read_input_tokens": 30,
+            },
+        ),
+        # Gemini usage_metadata with cached_content_token_count
+        (
+            ChatGeneration(
+                message=AIMessage(
+                    content="foo",
+                    id="123",
+                    usage_metadata={
+                        "input_tokens": 50,
+                        "output_tokens": 20,
+                        "total_tokens": 70,
+                        "cached_content_token_count": 30,
+                    },
+                )
+            ),
+            {
+                "input_tokens": 50,
+                "output_tokens": 20,
+                "total_tokens": 70,
+                "cache_read_input_tokens": 30,
+            },
         ),
         # Legacy completion generation object
         (Generation(text="foo"), None),

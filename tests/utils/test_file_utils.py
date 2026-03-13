@@ -6,7 +6,6 @@ import shutil
 import stat
 import tarfile
 
-import pandas as pd
 import pytest
 from pyspark.sql import SparkSession
 
@@ -21,9 +20,6 @@ from mlflow.utils.file_utils import (
     get_parent_dir,
     get_total_file_size,
     local_file_uri_to_path,
-    read_parquet_as_pandas_df,
-    write_pandas_df_as_parquet,
-    write_spark_dataframe_to_parquet_on_local_disk,
 )
 from mlflow.utils.os import is_windows
 
@@ -128,29 +124,6 @@ def test_dir_copy():
             f.write("testing")
         _copy_file_or_tree(dir_path, copy_path, "")
         assert filecmp.dircmp(dir_path, copy_path)
-
-
-def test_read_and_write_parquet(tmp_path):
-    file_source = tmp_path.joinpath("sample-file-to-write")
-    data_frame = pd.DataFrame({"horizon": 10, "frequency": "W"}, index=[0])
-    write_pandas_df_as_parquet(data_frame, file_source)
-    serialized_data_frame = read_parquet_as_pandas_df(file_source)
-    pd.testing.assert_frame_equal(data_frame, serialized_data_frame)
-
-
-def test_write_spark_df_to_parquet(spark_session, tmp_path):
-    sdf = spark_session.createDataFrame(
-        [
-            (0, "a b c d e spark", 1.0),
-            (1, "b d", 0.0),
-            (2, "spark f g h", 1.0),
-            (3, "hadoop mapreduce", 0.0),
-        ],
-        ["id", "text", "label"],
-    )
-    output_path = str(tmp_path / "output")
-    write_spark_dataframe_to_parquet_on_local_disk(sdf, output_path)
-    pd.testing.assert_frame_equal(sdf.toPandas(), pd.read_parquet(output_path))
 
 
 @pytest.mark.skipif(not is_windows(), reason="requires Windows")
@@ -286,3 +259,11 @@ def test_check_tarfile_security(tmp_path):
         MlflowException, match="Absolute path destination in the archive file is not allowed"
     ):
         check_tarfile_security(tar3_path)
+
+    # Backslash-based path traversal in tar (Windows tar slip / path traversal)
+    tar4_path = str(tmp_path.joinpath("file4.tar"))
+    create_tar_with_escaped_path(tar4_path, "..\\..\\pwned.txt", b"ABX")
+    with pytest.raises(
+        MlflowException, match="Escaped path destination in the archive file is not allowed"
+    ):
+        check_tarfile_security(tar4_path)

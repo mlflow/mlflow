@@ -14,6 +14,7 @@ from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     INTERNAL_ERROR,
     RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
@@ -169,6 +170,40 @@ def test_register_model_prints_uc_model_version_url(monkeypatch):
         mock_eprint.assert_called_with("Created version '1' of model 'name.mlflow.test_model'.")
 
     # Clean up the global variables set by the server
+    mlflow.set_registry_uri(orig_registry_uri)
+
+
+def test_register_model_skips_logged_model_tag_when_not_found(monkeypatch):
+    # When the source logged model doesn't exist (e.g., cross-workspace copy),
+    # register_model should succeed and log a warning instead of raising.
+    orig_registry_uri = mlflow.get_registry_uri()
+    mlflow.set_registry_uri("databricks-uc")
+    model_id = "m-cross-ws"
+    name = "name.mlflow.cross_ws_model"
+    version = "1"
+    with (
+        mock.patch("mlflow.tracking._model_registry.fluent.eprint"),
+        mock.patch("mlflow.tracking._model_registry.fluent.get_workspace_url", return_value=None),
+        mock.patch(
+            "mlflow.MlflowClient.create_registered_model",
+            return_value=RegisteredModel(name),
+        ),
+        mock.patch(
+            "mlflow.MlflowClient._create_model_version",
+            return_value=ModelVersion(name, version, creation_timestamp=123),
+        ),
+        mock.patch(
+            "mlflow.MlflowClient.get_logged_model",
+            side_effect=MlflowException("not found", error_code=RESOURCE_DOES_NOT_EXIST),
+        ) as mock_get_logged_model,
+        mock.patch("mlflow.MlflowClient.set_logged_model_tags") as mock_set_tags,
+    ):
+        # Should not raise even though get_logged_model fails
+        mv = register_model(f"models:/{model_id}", name)
+        assert mv.version == version
+        mock_get_logged_model.assert_called_once()
+        mock_set_tags.assert_not_called()
+
     mlflow.set_registry_uri(orig_registry_uri)
 
 

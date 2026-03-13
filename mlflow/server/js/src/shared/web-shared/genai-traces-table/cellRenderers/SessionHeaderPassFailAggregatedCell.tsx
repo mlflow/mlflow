@@ -135,28 +135,11 @@ export const SessionHeaderPassFailAggregatedCell = ({
       return expandMessage;
     };
 
-    if (onExpandSession) {
+    if (onExpandSession || errorCount > 0) {
       return (
         <Tooltip
-          componentId="mlflow.genai-traces-table.session-header.pass-fail-aggregated"
+          componentId="mlflow.genai-traces-table.session-header.pass-fail-aggregated-tooltip"
           content={getTooltipContent()}
-        >
-          {content}
-        </Tooltip>
-      );
-    }
-
-    if (errorCount > 0) {
-      return (
-        <Tooltip
-          componentId="mlflow.genai-traces-table.session-header.error-count"
-          content={intl.formatMessage(
-            {
-              defaultMessage: '{errorCount, plural, one {# error} other {# errors}}',
-              description: 'Tooltip showing error count',
-            },
-            { errorCount },
-          )}
         >
           {content}
         </Tooltip>

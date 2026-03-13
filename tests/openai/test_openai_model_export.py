@@ -74,14 +74,12 @@ def test_chat_single_variable(tmp_path):
     )
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame(
-        {
-            "x": [
-                "a",
-                "b",
-            ]
-        }
-    )
+    data = pd.DataFrame({
+        "x": [
+            "a",
+            "b",
+        ]
+    })
     expected_output = [
         [{"content": "a", "role": "user"}],
         [{"content": "b", "role": "user"}],
@@ -110,14 +108,12 @@ def test_completion_single_variable(tmp_path):
     )
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame(
-        {
-            "x": [
-                "this is a test",
-                "this is another test",
-            ]
-        }
-    )
+    data = pd.DataFrame({
+        "x": [
+            "this is a test",
+            "this is another test",
+        ]
+    })
     expected_output = ["Say this is a test", "Say this is another test"]
     assert model.predict(data) == expected_output
 
@@ -151,18 +147,16 @@ def test_chat_multiple_variables(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame(
-        {
-            "x": [
-                "a",
-                "b",
-            ],
-            "y": [
-                "c",
-                "d",
-            ],
-        }
-    )
+    data = pd.DataFrame({
+        "x": [
+            "a",
+            "b",
+        ],
+        "y": [
+            "c",
+            "d",
+        ],
+    })
     expected_output = [
         [{"content": "a c", "role": "user"}],
         [{"content": "b d", "role": "user"}],
@@ -193,18 +187,16 @@ def test_chat_role_content(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame(
-        {
-            "role": [
-                "system",
-                "user",
-            ],
-            "content": [
-                "c",
-                "d",
-            ],
-        }
-    )
+    data = pd.DataFrame({
+        "role": [
+            "system",
+            "user",
+        ],
+        "content": [
+            "c",
+            "d",
+        ],
+    })
     expected_output = [
         [{"content": "c", "role": "system"}],
         [{"content": "d", "role": "user"}],
@@ -229,18 +221,16 @@ def test_completion_multiple_variables(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame(
-        {
-            "x": [
-                "a",
-                "b",
-            ],
-            "y": [
-                "c",
-                "d",
-            ],
-        }
-    )
+    data = pd.DataFrame({
+        "x": [
+            "a",
+            "b",
+        ],
+        "y": [
+            "c",
+            "d",
+        ],
+    })
     expected_output = ["Say a and c", "Say b and d"]
     assert model.predict(data) == expected_output
 
@@ -271,18 +261,16 @@ def test_chat_multiple_messages(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame(
-        {
-            "x": [
-                "a",
-                "b",
-            ],
-            "y": [
-                "c",
-                "d",
-            ],
-        }
-    )
+    data = pd.DataFrame({
+        "x": [
+            "a",
+            "b",
+        ],
+        "y": [
+            "c",
+            "d",
+        ],
+    })
     expected_output = [
         [{"content": "a", "role": "user"}, {"content": "c", "role": "user"}],
         [{"content": "b", "role": "user"}, {"content": "d", "role": "user"}],
@@ -312,11 +300,9 @@ def test_chat_no_variables(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame(
-        {
-            "content": ["b", "c"],
-        }
-    )
+    data = pd.DataFrame({
+        "content": ["b", "c"],
+    })
     expected_output = [
         [{"content": "a", "role": "user"}, {"content": "b", "role": "user"}],
         [{"content": "a", "role": "user"}, {"content": "c", "role": "user"}],
@@ -344,14 +330,12 @@ def test_completion_no_variable(tmp_path):
     )
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame(
-        {
-            "x": [
-                "this is a test",
-                "this is another test",
-            ]
-        }
-    )
+    data = pd.DataFrame({
+        "x": [
+            "this is a test",
+            "this is another test",
+        ]
+    })
     expected_output = ["this is a test", "this is another test"]
     assert model.predict(data) == expected_output
 
@@ -383,11 +367,9 @@ def test_chat_no_messages(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame(
-        {
-            "content": ["b", "c"],
-        }
-    )
+    data = pd.DataFrame({
+        "content": ["b", "c"],
+    })
     expected_output = [
         [{"content": "b", "role": "user"}],
         [{"content": "c", "role": "user"}],
@@ -646,14 +628,12 @@ def test_multimodal_messages(tmp_path):
     ]
 
     model = mlflow.pyfunc.load_model(tmp_path)
-    data = pd.DataFrame(
-        {
-            "system_prompt": ["Analyze this image"],
-            "image_base64": [
-                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-            ],
-        }
-    )
+    data = pd.DataFrame({
+        "system_prompt": ["Analyze this image"],
+        "image_base64": [
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+        ],
+    })
 
     expected_output = [
         [

@@ -2,7 +2,10 @@ import { first, isNil } from 'lodash';
 
 import type { ThemeType } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
-import { ASSESSMENT_SESSION_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
+import {
+  ASSESSMENT_SESSION_METADATA_KEY,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
+} from '../../model-trace-explorer/constants';
 
 import { getAssessmentValueBarBackgroundColor } from './Colors';
 import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';
@@ -107,6 +110,10 @@ export function getAssessmentInfos(
       ...overallAssessmentsByName,
       ...retrievalAssessmentsByName,
     ]) {
+      // Skip internal assessments that are implementation details of the issue discovery pipeline
+      if (assessmentName === INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE) {
+        continue;
+      }
       assessmentNames.add(assessmentName);
       // For string values, if we see a value that is not "yes" or "no", we treat it as a string.
       // This is not a great approach, we should probably actually pass the pass-fail dtype information back somehow.

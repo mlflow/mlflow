@@ -19,6 +19,7 @@ import {
   useMonitoringFilters,
   useMonitoringFiltersTimeRange,
 } from '../hooks/useMonitoringFilters';
+import { MonitoringConfigProvider } from '../hooks/useMonitoringConfig';
 
 /**
  * Default columns to be visible when selecting traces.
@@ -162,7 +163,7 @@ const SelectTracesModalImpl = ({
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
           <TracesV3Logs
             disableActions
-            experimentId={experimentId}
+            experimentIds={[experimentId]}
             timeRange={timeRange}
             customDefaultSelectedColumns={customDefaultSelectedColumns}
             // TODO: Move date selector to the toolbar in all callsites permanently
@@ -185,8 +186,10 @@ export const SelectTracesModal = (props: SelectTracesModalProps) => {
     [monitoringFilters, setMonitoringFilters],
   );
   return (
-    <MonitoringFiltersUpdateContext.Provider value={contextValue}>
-      <SelectTracesModalImpl {...props} />
-    </MonitoringFiltersUpdateContext.Provider>
+    <MonitoringConfigProvider>
+      <MonitoringFiltersUpdateContext.Provider value={contextValue}>
+        <SelectTracesModalImpl {...props} />
+      </MonitoringFiltersUpdateContext.Provider>
+    </MonitoringConfigProvider>
   );
 };

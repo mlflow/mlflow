@@ -14,7 +14,7 @@ class User:
         self.env = {}
 
     def _record_env_var(self, key):
-        if key := os.getenv(key):
+        if key := os.environ.get(key):
             self.env[key] = key
 
     def _restore_env_var(self, key):

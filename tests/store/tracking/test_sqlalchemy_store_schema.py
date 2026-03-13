@@ -200,13 +200,11 @@ def test_secrets_and_endpoints_tables(tmp_path, db_url):
             indexes = []
             for _, name, unique, *_ in cursor.fetchall():
                 cursor.execute(f"PRAGMA index_info('{name}')")
-                indexes.append(
-                    {
-                        "name": name,
-                        "unique": bool(unique),
-                        "columns": [row[2] for row in cursor.fetchall()],
-                    }
-                )
+                indexes.append({
+                    "name": name,
+                    "unique": bool(unique),
+                    "columns": [row[2] for row in cursor.fetchall()],
+                })
             return indexes
 
         def _has_unique_index(table_name, columns):
@@ -304,6 +302,18 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
             "name": f"model_def_{seed}",
             "provider": f"provider_{seed}",
             "model_name": f"model_{seed}",
+            "created_at": seed,
+            "last_updated_at": seed,
+            "workspace": workspace,
+        },
+        "budget_policies": {
+            "budget_policy_id": f"bp_{seed}",
+            "budget_unit": "USD",
+            "budget_amount": 100.0,
+            "duration_unit": "DAYS",
+            "duration_value": 30,
+            "target_scope": "GLOBAL",
+            "budget_action": "ALERT",
             "created_at": seed,
             "last_updated_at": seed,
             "workspace": workspace,

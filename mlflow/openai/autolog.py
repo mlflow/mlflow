@@ -22,6 +22,7 @@ from mlflow.tracing.constant import (
     TokenUsageKey,
     TraceMetadataKey,
 )
+from mlflow.tracing.distributed import _get_tracing_headers_from_span
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -38,6 +39,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     log_traces=True,
+    disable_openai_agent_tracer=True,
 ):
     """
     Enables (or disables) and configures autologging from OpenAI to MLflow.
@@ -58,6 +60,8 @@ def autolog(
             autologging.
         log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
             collected during inference. Default to ``True``.
+        disable_openai_agent_tracer: If ``True``, disable the OpenAI Agent SDK tracer. If ``False``,
+            enable the OpenAI Agent SDK tracer. Default to ``True``.
     """
     if Version(importlib.metadata.version("openai")).major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
@@ -86,13 +90,16 @@ def autolog(
 
         from mlflow.openai._agent_tracer import (
             add_mlflow_trace_processor,
+            clear_trace_processors,
             remove_mlflow_trace_processor,
         )
 
-        if log_traces and not disable:
-            add_mlflow_trace_processor()
-        else:
+        if disable or not log_traces:
             remove_mlflow_trace_processor()
+        else:
+            if disable_openai_agent_tracer:
+                clear_trace_processors()
+            add_mlflow_trace_processor()
     except ImportError:
         pass
 
@@ -235,6 +242,7 @@ def patched_call(original, self, *args, **kwargs):
 
     if config.log_traces:
         span = _start_span(self, kwargs, run_id)
+        _inject_tracing_headers(kwargs, span)
 
     # Execute the original function
     try:
@@ -257,6 +265,7 @@ async def async_patched_call(original, self, *args, **kwargs):
 
     if config.log_traces:
         span = _start_span(self, kwargs, run_id)
+        _inject_tracing_headers(kwargs, span)
 
     # Execute the original function
     try:
@@ -467,6 +476,15 @@ def _is_response_output_item_done_event(chunk: Any) -> bool:
         return isinstance(chunk, ResponseOutputItemDoneEvent)
     except ImportError:
         return False
+
+
+def _inject_tracing_headers(kwargs: dict[str, Any], span: LiveSpan):
+    try:
+        if tracing_headers := _get_tracing_headers_from_span(span):
+            existing = kwargs.get("extra_headers") or {}
+            kwargs["extra_headers"] = tracing_headers | existing
+    except Exception:
+        _logger.debug("Failed to inject tracing headers", exc_info=True)
 
 
 def _end_span_on_exception(span: LiveSpan, e: Exception):

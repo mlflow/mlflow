@@ -1,4 +1,4 @@
-import { Link } from '../../../common/utils/RoutingUtils';
+import { Link, useSearchParams } from '../../../common/utils/RoutingUtils';
 import {
   Alert,
   Breadcrumb,
@@ -12,7 +12,7 @@ import {
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { UseFormReturn } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import GatewayRoutes from '../../routes';
 import { LongFormSummary } from '../../../common/components/long-form/LongFormSummary';
 import type { EditEndpointFormData } from '../../hooks/useEditEndpointForm';
@@ -24,6 +24,44 @@ import { EditableEndpointName } from './EditableEndpointName';
 import { GatewayUsageSection } from './GatewayUsageSection';
 import type { Endpoint } from '../../types';
 import { TracesV3Logs } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3Logs';
+import { MonitoringConfigProvider } from '../../../experiment-tracking/hooks/useMonitoringConfig';
+import { useMonitoringFiltersTimeRange } from '../../../experiment-tracking/hooks/useMonitoringFilters';
+import { TracesV3DateSelector } from '../../../experiment-tracking/components/experiment-page/components/traces-v3/TracesV3DateSelector';
+
+const LogsTabContent = ({ experimentId }: { experimentId: string }) => {
+  const { theme } = useDesignSystemTheme();
+  const timeRange = useMonitoringFiltersTimeRange();
+
+  return (
+    <>
+      <div
+        css={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: theme.spacing.sm,
+        }}
+      >
+        <TracesV3DateSelector excludeOptions={['ALL']} />
+        <Link
+          componentId="mlflow.gateway.edit_endpoint.traces_link"
+          to={`/experiments/${experimentId}/traces`}
+          css={{
+            color: theme.colors.actionPrimaryBackgroundDefault,
+            textDecoration: 'none',
+            '&:hover': { textDecoration: 'underline' },
+          }}
+        >
+          <FormattedMessage
+            defaultMessage="Open full trace viewer"
+            description="Link to open the full trace viewer for the endpoint's experiment"
+          />
+        </Link>
+      </div>
+      <TracesV3Logs experimentIds={[experimentId]} disableActions timeRange={timeRange} />
+    </>
+  );
+};
 
 export interface EditEndpointFormRendererProps {
   form: UseFormReturn<EditEndpointFormData>;
@@ -58,12 +96,31 @@ export const EditEndpointFormRenderer = ({
 }: EditEndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('configuration');
+  const VALID_TABS = ['configuration', 'usage', 'traces'] as const;
+  const tabParam = searchParams.get('tab');
+  const activeTab = VALID_TABS.includes(tabParam as (typeof VALID_TABS)[number])
+    ? (tabParam as string)
+    : 'configuration';
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
   const experimentId = form.watch('experimentId');
+
+  // Don't disable tabs that were requested via URL query param
+  const isUsageTabDisabled = !experimentId && activeTab !== 'usage';
+  const isTracesTabDisabled = !experimentId && activeTab !== 'traces';
+
+  const tooltipLinkUrlBuilder = useMemo(() => {
+    if (!endpoint) return undefined;
+    return (_experimentId: string, timestampMs: number, timeIntervalSeconds: number) =>
+      GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id, {
+        tab: 'traces',
+        startTime: new Date(timestampMs).toISOString(),
+        endTime: new Date(timestampMs + timeIntervalSeconds * 1000).toISOString(),
+      });
+  }, [endpoint]);
 
   const totalWeight = trafficSplitModels.reduce((sum, m) => sum + m.weight, 0);
   const isValidTotal = Math.abs(totalWeight - 100) < 0.01;
@@ -98,12 +155,18 @@ export const EditEndpointFormRenderer = ({
       <div css={{ padding: theme.spacing.md }}>
         <Breadcrumb includeTrailingCaret>
           <Breadcrumb.Item>
-            <Link to={GatewayRoutes.gatewayPageRoute}>
+            <Link
+              componentId="mlflow.gateway.edit_endpoint.breadcrumb_gateway_link"
+              to={GatewayRoutes.gatewayPageRoute}
+            >
               <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
             </Link>
           </Breadcrumb.Item>
           <Breadcrumb.Item>
-            <Link to={GatewayRoutes.gatewayPageRoute}>
+            <Link
+              componentId="mlflow.gateway.edit_endpoint.breadcrumb_endpoints_link"
+              to={GatewayRoutes.gatewayPageRoute}
+            >
               <FormattedMessage defaultMessage="Endpoints" description="Breadcrumb link to endpoints list" />
             </Link>
           </Breadcrumb.Item>
@@ -137,8 +200,17 @@ export const EditEndpointFormRenderer = ({
 
       <Tabs.Root
         componentId="mlflow.gateway.endpoint.tabs"
+        valueHasNoPii
         value={activeTab}
-        onValueChange={(value) => setActiveTab(value)}
+        onValueChange={(value) => {
+          setSearchParams(
+            (params) => {
+              params.set('tab', value);
+              return params;
+            },
+            { replace: true },
+          );
+        }}
         css={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}
       >
         <div css={{ paddingLeft: theme.spacing.md, paddingRight: theme.spacing.md }}>
@@ -146,38 +218,42 @@ export const EditEndpointFormRenderer = ({
             <Tabs.Trigger value="configuration">
               <FormattedMessage defaultMessage="Configuration" description="Tab label for endpoint configuration" />
             </Tabs.Trigger>
-            <Tooltip
-              componentId="mlflow.gateway.endpoint.usage-tab-tooltip"
-              content={
-                !experimentId
-                  ? intl.formatMessage({
-                      defaultMessage: 'Enable Usage Tracking in the Configuration tab to view usage metrics',
-                      description:
-                        'Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first',
-                    })
-                  : undefined
-              }
-            >
-              <Tabs.Trigger value="usage" disabled={!experimentId}>
+            {isUsageTabDisabled ? (
+              <Tooltip
+                componentId="mlflow.gateway.endpoint.usage-tab-tooltip"
+                content={intl.formatMessage({
+                  defaultMessage: 'Enable Usage Tracking in the Configuration tab to view usage metrics',
+                  description:
+                    'Tooltip shown on disabled Usage tab explaining that usage tracking must be enabled first',
+                })}
+              >
+                <Tabs.Trigger value="usage" disabled>
+                  <FormattedMessage defaultMessage="Usage" description="Tab label for endpoint usage metrics" />
+                </Tabs.Trigger>
+              </Tooltip>
+            ) : (
+              <Tabs.Trigger value="usage">
                 <FormattedMessage defaultMessage="Usage" description="Tab label for endpoint usage metrics" />
               </Tabs.Trigger>
-            </Tooltip>
-            <Tooltip
-              componentId="mlflow.gateway.endpoint.traces-tab-tooltip"
-              content={
-                !experimentId
-                  ? intl.formatMessage({
-                      defaultMessage: 'Enable Usage Tracking in the Configuration tab to view logs',
-                      description:
-                        'Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first',
-                    })
-                  : undefined
-              }
-            >
-              <Tabs.Trigger value="traces" disabled={!experimentId}>
+            )}
+            {isTracesTabDisabled ? (
+              <Tooltip
+                componentId="mlflow.gateway.endpoint.traces-tab-tooltip"
+                content={intl.formatMessage({
+                  defaultMessage: 'Enable Usage Tracking in the Configuration tab to view logs',
+                  description:
+                    'Tooltip shown on disabled Logs tab explaining that usage tracking must be enabled first',
+                })}
+              >
+                <Tabs.Trigger value="traces" disabled>
+                  <FormattedMessage defaultMessage="Logs" description="Tab label for endpoint logs" />
+                </Tabs.Trigger>
+              </Tooltip>
+            ) : (
+              <Tabs.Trigger value="traces">
                 <FormattedMessage defaultMessage="Logs" description="Tab label for endpoint logs" />
               </Tabs.Trigger>
-            </Tooltip>
+            )}
           </Tabs.List>
         </div>
 
@@ -293,54 +369,20 @@ export const EditEndpointFormRenderer = ({
                     />
                   </div>
                 </div>
-
-                {/* Rate Limiting placeholder */}
-                <div
-                  css={{
-                    padding: theme.spacing.md,
-                    border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    backgroundColor: theme.colors.backgroundPrimary,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                  }}
-                >
-                  <Typography.Text bold>
-                    <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
-                  </Typography.Text>
-                  <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                    <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
-                  </Typography.Text>
-                </div>
               </div>
             </Tabs.Content>
 
             <Tabs.Content value="usage">
-              {experimentId && <GatewayUsageSection experimentId={experimentId} />}
+              {experimentId && (
+                <GatewayUsageSection experimentId={experimentId} tooltipLinkUrlBuilder={tooltipLinkUrlBuilder} />
+              )}
             </Tabs.Content>
 
             <Tabs.Content value="traces" css={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               {experimentId && (
-                <>
-                  <div css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
-                    <Link
-                      to={`/experiments/${experimentId}/traces`}
-                      css={{
-                        color: theme.colors.actionPrimaryBackgroundDefault,
-                        textDecoration: 'none',
-                        '&:hover': { textDecoration: 'underline' },
-                      }}
-                    >
-                      <FormattedMessage
-                        defaultMessage="Open full trace viewer"
-                        description="Link to open the full trace viewer for the endpoint's experiment"
-                      />
-                    </Link>
-                  </div>
-                  <TracesV3Logs experimentId={experimentId} disableActions />
-                </>
+                <MonitoringConfigProvider>
+                  <LogsTabContent experimentId={experimentId} />
+                </MonitoringConfigProvider>
               )}
             </Tabs.Content>
           </div>

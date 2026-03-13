@@ -31,8 +31,10 @@ import { RootAssistantLayout } from './common/components/RootAssistantLayout';
 import {
   extractWorkspaceFromSearchParams,
   getActiveWorkspace,
+  getLastUsedWorkspace,
   isGlobalRoute,
   setActiveWorkspace,
+  setLastUsedWorkspace,
 } from './workspaces/utils/WorkspaceUtils';
 import { useWorkspaces } from './workspaces/hooks/useWorkspaces';
 
@@ -137,6 +139,10 @@ const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean
   useEffect(() => {
     if (!workspacesEnabled) {
       setActiveWorkspace(null);
+      // Clear localStorage so stale workspace values don't leak into
+      // requests (e.g. X-MLFLOW-WORKSPACE header) when the server
+      // no longer supports workspaces.
+      setLastUsedWorkspace(null);
       return;
     }
 
@@ -183,9 +189,15 @@ const WorkspaceRouterSync = ({ workspacesEnabled }: { workspacesEnabled: boolean
       return;
     }
 
-    // No workspace query param on a workspace-scoped route - redirect to selector
-    setActiveWorkspace(null);
-    navigate('/', { replace: true });
+    // No workspace query param or local storage on a workspace-scoped route - redirect to selector
+    const lastUsedWorkspace = getLastUsedWorkspace();
+    if (!lastUsedWorkspace) {
+      setActiveWorkspace(null);
+      navigate('/', { replace: true });
+      return;
+    } else {
+      navigate(location.pathname + '?workspace=' + lastUsedWorkspace, { replace: true });
+    }
   }, [location, navigate, workspacesEnabled, searchParams, workspaces, isLoading]);
 
   return null;

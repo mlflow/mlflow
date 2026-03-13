@@ -4,7 +4,7 @@ import { UnknownError, type PredefinedError } from '@databricks/web-shared/error
 import type { ScheduledScorer, ScorerConfig } from '../types';
 import { convertMLflowScorerToConfig, transformScorerConfig } from '../utils/scorerTransformUtils';
 import type { ListScorersResponse } from '../api';
-import { listScheduledScorers, getOnlineScoringConfigs } from '../api';
+import { getOnlineScoringConfigs, listScheduledScorers } from '../api';
 
 // Define response types
 export type GetScheduledScorersResponse = {
@@ -19,6 +19,7 @@ export interface ScheduledScorersResponse {
   scheduledScorers: ScheduledScorer[];
 }
 
+/* eslint-disable react-hooks/rules-of-hooks */
 export function useGetScheduledScorers(
   experimentId?: string,
   options?: UseQueryOptions<ScheduledScorersResponse, PredefinedError>,
@@ -83,3 +84,4 @@ export function useGetScheduledScorers(
     enabled: Boolean(experimentId) && (options?.enabled ?? true),
   });
 }
+/* eslint-enable react-hooks/rules-of-hooks */

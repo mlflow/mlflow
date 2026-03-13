@@ -1,0 +1,234 @@
+diff --git a/packages/table-core/src/core/row.ts b/packages/table-core/src/core/row.ts
+index 14e96671..a31cb3a7 100644
+--- a/packages/table-core/src/core/row.ts
++++ b/packages/table-core/src/core/row.ts
+@@ -186,15 +186,13 @@ export function getRowProto<TData extends RowData>(table: Table<TData>) {
+     }
+ 
+     proto.getAllCells = memo(
+-      function (this: Row<TData>) {
+-        return [this, table.getAllLeafColumns()]
+-      },
+-      (row, leafColumns) => {
++      () => [table.getAllLeafColumns()],
++      function (this: Row<TData>, leafColumns) {
+         return leafColumns.map(column => {
+-          return createCell(table, row, column, column.id)
++          return createCell(table, this, column, column.id)
+         })
+       },
+-      getMemoOptions(table.options, 'debugRows', 'getAllCells')
++      getMemoOptions(table.options, 'debugRows', 'getAllCells', undefined, true)
+     )
+ 
+     proto._getAllCellsByColumnId = memo(
+@@ -210,7 +208,13 @@ export function getRowProto<TData extends RowData>(table: Table<TData>) {
+           {} as Record<string, Cell<TData, unknown>>
+         )
+       },
+-      getMemoOptions(table.options, 'debugRows', 'getAllCellsByColumnId')
++      getMemoOptions(
++        table.options,
++        'debugRows',
++        'getAllCellsByColumnId',
++        undefined,
++        true
++      )
+     )
+ 
+     rowProtosByTable.set(table, proto)
+diff --git a/packages/table-core/src/features/ColumnPinning.ts b/packages/table-core/src/features/ColumnPinning.ts
+index d3487409..b6f612e9 100644
+--- a/packages/table-core/src/features/ColumnPinning.ts
++++ b/packages/table-core/src/features/ColumnPinning.ts
+@@ -306,7 +306,13 @@ export const ColumnPinning: TableFeature = {
+ 
+           return allCells.filter(d => !leftAndRight.includes(d.column.id))
+         },
+-        getMemoOptions(table.options, 'debugRows', 'getCenterVisibleCells')
++        getMemoOptions(
++          table.options,
++          'debugRows',
++          'getCenterVisibleCells',
++          undefined,
++          true
++        )
+       ),
+ 
+       getLeftVisibleCells: memo(
+@@ -326,7 +332,13 @@ export const ColumnPinning: TableFeature = {
+ 
+           return cells
+         },
+-        getMemoOptions(table.options, 'debugRows', 'getLeftVisibleCells')
++        getMemoOptions(
++          table.options,
++          'debugRows',
++          'getLeftVisibleCells',
++          undefined,
++          true
++        )
+       ),
+ 
+       getRightVisibleCells: memo(
+@@ -346,7 +358,13 @@ export const ColumnPinning: TableFeature = {
+ 
+           return cells
+         },
+-        getMemoOptions(table.options, 'debugRows', 'getRightVisibleCells')
++        getMemoOptions(
++          table.options,
++          'debugRows',
++          'getRightVisibleCells',
++          undefined,
++          true
++        )
+       ),
+     } as RowPinningRow & Row<any>)
+   },
+diff --git a/packages/table-core/src/features/ColumnVisibility.ts b/packages/table-core/src/features/ColumnVisibility.ts
+index ed8f5e90..1dcdf5c6 100644
+--- a/packages/table-core/src/features/ColumnVisibility.ts
++++ b/packages/table-core/src/features/ColumnVisibility.ts
+@@ -287,7 +287,13 @@ export const ColumnVisibility: TableFeature = {
+         cells => {
+           return cells.filter(cell => cell.column.getIsVisible())
+         },
+-        getMemoOptions(table.options, 'debugRows', '_getAllVisibleCells')
++        getMemoOptions(
++          table.options,
++          'debugRows',
++          '_getAllVisibleCells',
++          undefined,
++          true
++        )
+       ),
+ 
+       getVisibleCells: memo(
+@@ -299,7 +305,13 @@ export const ColumnVisibility: TableFeature = {
+           ]
+         },
+         (left, center, right) => [...left, ...center, ...right],
+-        getMemoOptions(table.options, 'debugRows', 'getVisibleCells')
++        getMemoOptions(
++          table.options,
++          'debugRows',
++          'getVisibleCells',
++          undefined,
++          true
++        )
+       ),
+     })
+   },
+diff --git a/packages/table-core/src/utils.ts b/packages/table-core/src/utils.ts
+index 98dad4d4..483632db 100755
+--- a/packages/table-core/src/utils.ts
++++ b/packages/table-core/src/utils.ts
+@@ -133,6 +133,12 @@ export function flattenBy<TNode>(
+   return flat
+ }
+ 
++/**
++ * Global symbol used to store per-instance memo caches on objects.
++ * When `useInstanceCache` is true, the cache is stored at `this[instanceMemoCache][key]`.
++ */
++const instanceMemoCache = Symbol('instanceMemoCache')
++
+ export function memo<TDeps extends readonly any[], TDepArgs, TResult>(
+   getDeps: (depArgs?: TDepArgs) => [...TDeps],
+   fn: (...args: NoInfer<[...TDeps]>) => TResult,
+@@ -140,10 +146,16 @@ export function memo<TDeps extends readonly any[], TDepArgs, TResult>(
+     key: any
+     debug?: () => any
+     onChange?: (result: TResult) => void
++    /**
++     * When true, cache is stored on `this` instead of in the closure.
++     * This enables per-instance memoization when the memo function is on a prototype.
++     */
++    useInstanceCache?: boolean
+   }
+ ): (depArgs?: TDepArgs) => TResult {
+-  let deps: any[] = []
+-  let result: TResult | undefined
++  // Closure-based cache (used when useInstanceCache is false)
++  let closureDeps: any[] = []
++  let closureResult: TResult | undefined
+ 
+   return function (this: any, depArgs) {
+     let depTime: number
+@@ -151,21 +163,43 @@ export function memo<TDeps extends readonly any[], TDepArgs, TResult>(
+ 
+     const newDeps = getDeps.call(this, depArgs)
+ 
++    let cachedDeps: any[]
++    let cachedResult: TResult | undefined
++
++    if (opts.useInstanceCache) {
++      const cache = this[instanceMemoCache]?.[opts.key]
++      cachedDeps = cache?.deps ?? []
++      cachedResult = cache?.result
++    } else {
++      cachedDeps = closureDeps
++      cachedResult = closureResult
++    }
++
+     const depsChanged =
+-      newDeps.length !== deps.length ||
+-      newDeps.some((dep: any, index: number) => deps[index] !== dep)
++      newDeps.length !== cachedDeps.length ||
++      newDeps.some((dep: any, index: number) => cachedDeps[index] !== dep)
+ 
+     if (!depsChanged) {
+-      return result!
++      return cachedResult!
+     }
+ 
+-    deps = newDeps
+-
+     let resultTime: number
+     if (opts.key && opts.debug) resultTime = Date.now()
+ 
+-    result = fn.apply(this, newDeps)
+-    opts?.onChange?.(result)
++    const newResult = fn.apply(this, newDeps)
++
++    // Store new deps and result
++    if (opts.useInstanceCache) {
++      if (!this[instanceMemoCache]) {
++        this[instanceMemoCache] = {}
++      }
++      this[instanceMemoCache][opts.key] = { deps: newDeps, result: newResult }
++    } else {
++      closureDeps = newDeps
++      closureResult = newResult
++    }
++
++    opts?.onChange?.(newResult)
+ 
+     if (opts.key && opts.debug) {
+       if (opts?.debug()) {
+@@ -195,7 +229,7 @@ export function memo<TDeps extends readonly any[], TDepArgs, TResult>(
+       }
+     }
+ 
+-    return result!
++    return newResult!
+   }
+ }
+ 
+@@ -209,11 +243,13 @@ export function getMemoOptions(
+     | 'debugRows'
+     | 'debugHeaders',
+   key: string,
+-  onChange?: (result: any) => void
++  onChange?: (result: any) => void,
++  useInstanceCache?: boolean
+ ) {
+   return {
+     debug: () => tableOptions?.debugAll ?? tableOptions[debugLevel],
+-    key: process.env.NODE_ENV === 'development' && key,
++    key,
+     onChange,
++    useInstanceCache,
+   }
+ }

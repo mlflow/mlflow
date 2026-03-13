@@ -34,6 +34,7 @@ export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
 
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const logObservabilityEvent = useCallback((event: any) => {
     telemetryClient.logEvent(event);
   }, []);

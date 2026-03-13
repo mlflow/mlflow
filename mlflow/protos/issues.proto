@@ -1,0 +1,141 @@
+// Proto definition for MLflow issue detection support.
+// Issues represent quality or operational problems discovered in traces.
+syntax = "proto2";
+
+package mlflow.issues;
+
+import "databricks.proto";
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+
+// Represents an issue discovered in traces.
+message Issue {
+  // Unique identifier for the issue.
+  optional string issue_id = 1;
+
+  // Experiment ID.
+  optional string experiment_id = 2;
+
+  // Short descriptive name for the issue.
+  optional string name = 3;
+
+  // Detailed description of the issue.
+  optional string description = 4;
+
+  // Issue status.
+  optional string status = 5;
+
+  // Severity level indicator.
+  optional string severity = 6;
+
+  // Analysis of the root causes of the issue.
+  repeated string root_causes = 7;
+
+  // MLflow run ID that discovered this issue.
+  optional string source_run_id = 8;
+
+  // Creation timestamp in milliseconds.
+  optional int64 created_timestamp = 9;
+
+  // Last update timestamp in milliseconds.
+  optional int64 last_updated_timestamp = 10;
+
+  // Identifier for who created this issue.
+  optional string created_by = 11;
+
+  // Categories of the issue.
+  repeated string categories = 12;
+}
+
+// Request to create a new issue.
+message CreateIssue {
+  // Experiment ID.
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Short descriptive name for the issue.
+  optional string name = 2 [(validate_required) = true];
+
+  // Detailed description of the issue.
+  optional string description = 3 [(validate_required) = true];
+
+  // Issue status.
+  optional string status = 4;
+
+  // Severity level indicator.
+  optional string severity = 5;
+
+  // Analysis of the root causes of the issue.
+  repeated string root_causes = 6;
+
+  // MLflow run ID that discovered this issue.
+  optional string source_run_id = 7;
+
+  // Identifier for who created this issue.
+  optional string created_by = 8;
+
+  // Categories of the issue.
+  repeated string categories = 9;
+
+  message Response {
+    // The created issue.
+    optional Issue issue = 1;
+  }
+}
+
+// Request to update an existing issue.
+message UpdateIssue {
+  // Issue ID to update.
+  optional string issue_id = 1 [(validate_required) = true];
+
+  // Short descriptive name for the issue.
+  optional string name = 2;
+
+  // Detailed description of the issue.
+  optional string description = 3;
+
+  // Issue status to update.
+  optional string status = 4;
+
+  // Severity level indicator.
+  optional string severity = 5;
+
+  message Response {
+    // The updated issue.
+    optional Issue issue = 1;
+  }
+}
+
+// Request to get an issue by ID.
+message GetIssue {
+  // Issue ID to fetch.
+  optional string issue_id = 1 [(validate_required) = true];
+
+  message Response {
+    // The issue.
+    optional Issue issue = 1;
+  }
+}
+
+// Request to search issues.
+message SearchIssues {
+  // Filter by experiment ID.
+  optional string experiment_id = 1;
+
+  // Filter string for advanced filtering.
+  optional string filter_string = 2;
+
+  // Maximum number of results to return.
+  optional int32 max_results = 3;
+
+  // Page token for pagination.
+  optional string page_token = 4;
+
+  message Response {
+    // List of issues.
+    repeated Issue issues = 1;
+
+    // Token for next page.
+    optional string next_page_token = 2;
+  }
+}

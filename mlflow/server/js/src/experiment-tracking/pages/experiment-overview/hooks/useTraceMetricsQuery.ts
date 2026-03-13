@@ -8,7 +8,7 @@ import {
   type MetricAggregation,
 } from '@databricks/web-shared/model-trace-explorer';
 
-export const TRACE_METRICS_QUERY_KEY = 'traceMetrics';
+const TRACE_METRICS_QUERY_KEY = 'traceMetrics';
 
 /**
  * Query aggregated trace metrics for experiments

@@ -46,7 +46,7 @@ pip install 'mlflow[genai]' openai
   <TabItem value="typescript" label="JS / TS">
 
 ```bash
-npm install mlflow-openai openai
+npm install @mlflow/openai openai
 ```
 
   </TabItem>
@@ -104,7 +104,7 @@ ollama run llama3.2:1b
 
     ```typescript
     import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+    import { tracedOpenAI } from "@mlflow/openai";
 
     // Wrap the OpenAI client and point to Ollama endpoint
     const client = tracedOpenAI(

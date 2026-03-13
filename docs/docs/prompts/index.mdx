@@ -11,14 +11,14 @@ import TabItem from "@theme/TabItem";
 
 ## What is MLflow Prompt Registry?
 
-**MLflow Prompt Registry** is a powerful tool that streamlines prompt engineering and management in your Generative AI (GenAI) applications. It enables you to version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.
+**MLflow Prompt Registry** is a powerful tool that streamlines prompt engineering and management in your LLM applications and AI agents. It enables you to version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.
 
 :::tip Key Features
 
 - **Reusability** - Store and manage prompts in a centralized registry and reuse them across multiple applications.
 - **Version Control** - Track the evolution of your prompts with Git-inspired commit-based versioning and side-by-side comparison of prompt versions with diff highlighting.
 - **Aliasing** - Build robust yet flexible deployment pipelines for prompts using aliases, allowing you to isolate prompt versions from main application code and perform tasks such as A/B testing and roll-backs with ease.
-- **Lineage** - Seamlessly integrate with MLflow's existing features such as model tracking and evaluation for end-to-end GenAI lifecycle management.
+- **Lineage** - Seamlessly integrated with MLflow's Tracing, Evaluation, and Monitoring capabilities for agent observability and quality improvement.
 - **Collaboration** - Share prompts across your organization with a centralized registry, enabling teams to build upon each other's work.
 
 :::
@@ -81,7 +81,7 @@ import TabItem from "@theme/TabItem";
           response_format=SummaryResponse,
           # Optional: Provide a commit message to describe the changes
           commit_message="Initial commit",
-          # Optional: Specify any additional metadata about the prompt version
+          # Optional: Specify tags for this prompt
           tags={
               "author": "author@example.com",
               "task": "summarization",
@@ -183,11 +183,9 @@ import mlflow
 import openai
 
 target_text = """
-MLflow is an open source platform for managing the end-to-end machine learning lifecycle.
-It tackles four primary functions in the ML lifecycle: Tracking experiments, packaging ML
-code for reuse, managing and deploying models, and providing a central model registry.
-MLflow currently offers these functions as four components: MLflow Tracking,
-MLflow Projects, MLflow Models, and MLflow Registry.
+MLflow is the largest open source AI engineering platform. It enables teams of all sizes
+to debug, evaluate, monitor, and optimize production-quality agents and LLM applications,
+while controlling costs and managing access to LLMs and data.
 """
 
 # Load the prompt (latest version)

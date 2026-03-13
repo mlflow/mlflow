@@ -1,5 +1,4 @@
 name: Cross version tests
-run-name: ${{ inputs.uuid }}
 
 on:
   pull_request:
@@ -7,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -38,10 +36,6 @@ on:
         description: "[Optional] Comma-separated string specifying which versions to test (e.g. '1.2.3, 4.5.6'). If unspecified, all versions are tested."
         required: false
         default: ""
-      uuid:
-        description: "[Optional] A unique identifier for this run."
-        required: false
-        default: ""
   schedule:
     # Run this workflow daily at 13:00 UTC
     - cron: "0 13 * * *"
@@ -63,7 +57,7 @@ jobs:
   set-matrix:
     runs-on: ubuntu-slim
     timeout-minutes: 10
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     permissions:
       contents: read
     outputs:
@@ -72,7 +66,7 @@ jobs:
       is_matrix1_empty: ${{ steps.set-matrix.outputs.is_matrix1_empty }}
       is_matrix2_empty: ${{ steps.set-matrix.outputs.is_matrix2_empty }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
@@ -86,6 +80,7 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         id: check-labels
         with:
+          retries: 3
           script: |
             if (context.eventName !== "pull_request") {
               return {
@@ -135,7 +130,7 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.set-matrix.outputs.matrix1) }}
     steps: &test-steps
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
@@ -167,8 +162,7 @@ jobs:
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
           if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
             pip install libs/tracing
-            # litellm is required for cost tracking tests
-            pip install pytest pytest-asyncio pytest-cov litellm
+            pip install pytest pytest-asyncio pytest-cov
           # Other two categories of tests (model/autologging)
           else
             pip install .[extras]

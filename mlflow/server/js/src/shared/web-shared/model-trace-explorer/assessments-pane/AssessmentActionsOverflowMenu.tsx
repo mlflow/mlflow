@@ -1,6 +1,6 @@
 import { PencilIcon, TrashIcon, OverflowIcon, Button, DropdownMenu } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { getUser } from '@databricks/web-shared/global-settings';
+import { getUser } from '../../global-settings/getUser';
 
 import type { Assessment } from '../ModelTrace.types';
 

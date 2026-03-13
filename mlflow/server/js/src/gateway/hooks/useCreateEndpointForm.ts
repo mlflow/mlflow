@@ -100,7 +100,7 @@ export function useCreateEndpointForm({
       let secretId = values.existingSecretId;
 
       if (values.secretMode === 'new') {
-        const authConfig: Record<string, string> = { ...values.newSecret.configFields };
+        const authConfig = { ...values.newSecret.configFields } satisfies Record<string, string>;
         if (values.newSecret.authMode) {
           authConfig['auth_mode'] = values.newSecret.authMode;
         }

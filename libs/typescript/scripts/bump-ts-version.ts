@@ -9,7 +9,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
-// list of packages that contain `mlflow-tracing` in peerDependencies
+// list of packages that contain `@mlflow/core` in peerDependencies
 const INTEGRATION_PACKAGES = ['openai', 'anthropic', 'gemini'];
 
 interface PackageJson {
@@ -71,11 +71,11 @@ function bumpVersion(version: string): void {
     writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
     console.log(`  ✓ Updated version: ${oldVersion} → ${version}`);
 
-    if (packageJson.peerDependencies && 'mlflow-tracing' in packageJson.peerDependencies) {
-      const oldPeerDep = packageJson.peerDependencies['mlflow-tracing'];
-      packageJson.peerDependencies['mlflow-tracing'] = `^${version}`;
+    if (packageJson.peerDependencies && '@mlflow/core' in packageJson.peerDependencies) {
+      const oldPeerDep = packageJson.peerDependencies['@mlflow/core'];
+      packageJson.peerDependencies['@mlflow/core'] = `^${version}`;
       writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n', 'utf-8');
-      console.log(`  ✓ Updated peerDependency mlflow-tracing: ${oldPeerDep} → ^${version}`);
+      console.log(`  ✓ Updated peerDependency @mlflow/core: ${oldPeerDep} → ^${version}`);
     }
   }
 

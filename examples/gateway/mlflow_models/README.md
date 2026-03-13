@@ -178,9 +178,7 @@ Add the entry to the MLflow AI Gateway configuration file. The final file should
 ```python
 from huggingface_hub import snapshot_download
 
-snapshot_location = snapshot_download(
-    repo_id="mosaicml/mpt-7b-instruct", local_dir="mpt-7b"
-)
+snapshot_location = snapshot_download(repo_id="mosaicml/mpt-7b-instruct", local_dir="mpt-7b")
 ```
 
 ### Define the PyFunc model that will be used for the completions endpoint
@@ -283,21 +281,21 @@ from mlflow.models.signature import ModelSignature
 from mlflow.types import DataType, Schema, ColSpec
 
 # Define input and output schema
-input_schema = Schema(
-    [
-        ColSpec(DataType.string, "prompt"),
-        ColSpec(DataType.double, "temperature"),
-        ColSpec(DataType.long, "max_tokens"),
-    ]
-)
+input_schema = Schema([
+    ColSpec(DataType.string, "prompt"),
+    ColSpec(DataType.double, "temperature"),
+    ColSpec(DataType.long, "max_tokens"),
+])
 output_schema = Schema([ColSpec(DataType.string, "candidates")])
 signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
 
 # Define input example
-input_example = pd.DataFrame(
-    {"prompt": ["What is machine learning?"], "temperature": [0.5], "max_tokens": [100]}
-)
+input_example = pd.DataFrame({
+    "prompt": ["What is machine learning?"],
+    "temperature": [0.5],
+    "max_tokens": [100],
+})
 
 with mlflow.start_run():
     mlflow.pyfunc.log_model(

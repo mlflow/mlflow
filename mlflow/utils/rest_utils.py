@@ -51,6 +51,7 @@ _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 _V3_REST_API_PATH_PREFIX = "/api/3.0"
 _V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
+_V3_ISSUES_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/issues"
 _V4_REST_API_PATH_PREFIX = "/api/4.0"
 _V4_TRACE_REST_API_PATH_PREFIX = f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
@@ -208,12 +209,10 @@ def http_request(
             response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
             response.reason = str(e)
             response.encoding = "UTF-8"
-            response._content = json.dumps(
-                {
-                    "error_code": e.error_code,
-                    "message": str(e),
-                }
-            ).encode("UTF-8")
+            response._content = json.dumps({
+                "error_code": e.error_code,
+                "message": str(e),
+            }).encode("UTF-8")
             return response
 
     _validate_max_retries(max_retries)

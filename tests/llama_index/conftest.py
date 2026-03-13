@@ -27,7 +27,7 @@ def model_path(tmp_path):
     model_path = tmp_path.joinpath("model")
     yield model_path
 
-    if os.getenv("GITHUB_ACTIONS") == "true":
+    if os.environ.get("GITHUB_ACTIONS") == "true":
         shutil.rmtree(model_path, ignore_errors=True)
 
 

@@ -27,7 +27,7 @@ import type {
 } from './types';
 import { TracesTableColumnType } from './types';
 import { timeSinceStr } from './utils/DisplayUtils';
-import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 const DEFAULT_ASSESSMENT_CELL_WIDTH_PX = 120;
 const DEFAULT_ASSESSMENTS_CELL_WIDTH_COMPARE_PX = 120;
@@ -133,7 +133,7 @@ export const getColumnConfig = (
     isComparing: boolean;
     theme: ThemeType;
     intl: IntlShape;
-    experimentId: string;
+    experimentId?: string;
     onChangeEvaluationId: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
     onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
   },
@@ -263,13 +263,13 @@ export const getColumnConfig = (
           const { traceIdToTurnMap, searchQuery } = (cell.table?.options?.meta as any) ?? {};
 
           return traceInfoCellRenderer(
-            experimentId,
             isComparing,
             col.id,
             comparisonEntry,
             onChangeEvaluationId,
             intl,
             theme,
+            experimentId,
             onTraceTagsEdit,
             traceIdToTurnMap,
             searchQuery,

@@ -152,12 +152,10 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         schema = json.dumps(self.schema.to_dict()) if self.schema else None
         config = super().to_dict()
-        config.update(
-            {
-                "schema": schema,
-                "profile": json.dumps(self.profile),
-            }
-        )
+        config.update({
+            "schema": schema,
+            "profile": json.dumps(self.profile),
+        })
         return config
 
     @property
@@ -194,13 +192,11 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
             else int(tf.size(self._features).numpy()),
         }
         if self._targets is not None:
-            profile.update(
-                {
-                    "targets_cardinality": int(self._targets.cardinality().numpy())
-                    if isinstance(self._targets, tf.data.Dataset)
-                    else int(tf.size(self._targets).numpy()),
-                }
-            )
+            profile.update({
+                "targets_cardinality": int(self._targets.cardinality().numpy())
+                if isinstance(self._targets, tf.data.Dataset)
+                else int(tf.size(self._targets).numpy()),
+            })
         return profile
 
     @cached_property
@@ -268,14 +264,12 @@ class TensorFlowDataset(Dataset, PyFuncConvertibleDatasetMixin):
                 " are not supported.",
                 INVALID_PARAMETER_VALUE,
             )
-        return _infer_schema(
-            {
-                # MLflow Schemas currently require each tensor to have a name, if more than
-                # one tensor is defined. Accordingly, use the index as the name
-                str(i): data_element
-                for i, data_element in enumerate(numpy_data)
-            }
-        )
+        return _infer_schema({
+            # MLflow Schemas currently require each tensor to have a name, if more than
+            # one tensor is defined. Accordingly, use the index as the name
+            str(i): data_element
+            for i, data_element in enumerate(numpy_data)
+        })
 
     def to_pyfunc(self) -> PyFuncInputsOutputs:
         """

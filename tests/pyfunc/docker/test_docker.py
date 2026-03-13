@@ -31,7 +31,8 @@ def _get_mlflow_install_specifier():
 def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
     actual_dockerfile = actual_dockerfile_path.read_text()
     expected_dockerfile = (
-        expected_dockerfile_path.read_text()
+        expected_dockerfile_path
+        .read_text()
         .replace("${{ MLFLOW_INSTALL }}", _get_mlflow_install_specifier())
         .replace("${{ PYTHON_VERSION }}", PYTHON_VERSION)
     )

@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useDesignSystemTheme, PieChartIcon, type DesignSystemThemeInterface } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Sector } from 'recharts';
+import { PieChart, Pie, ResponsiveContainer, Legend, Sector, Tooltip } from 'recharts';
 import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceCostBreakdownChartData } from '../hooks/useTraceCostBreakdownChartData';
 import { useTraceCostDimension } from '../hooks/useTraceCostDimension';
@@ -14,12 +14,7 @@ import {
   OverviewChartContainer,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import {
-  useChartColors,
-  useLegendHighlight,
-  calculatePieActiveShapeGeometry,
-  type ActiveShapeProps,
-} from '../utils/chartUtils';
+import { useChartColors, useLegendHighlight, type ActiveShapeProps } from '../utils/chartUtils';
 
 // Pie chart sizing constants
 const PIE_INNER_RADIUS = 50;
@@ -27,26 +22,16 @@ const PIE_OUTER_RADIUS = 70;
 const PIE_PADDING_ANGLE = 2;
 
 /**
- * Renders the active (hovered) pie slice with an outer arc and external label.
+ * Renders the active shape for a pie slice with outer arc, connecting line, and labels.
  */
-const createActiveShapeRenderer = (theme: DesignSystemThemeInterface['theme']) => (props: unknown) => {
-  const shapeProps = props as ActiveShapeProps;
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, name, value, percentage } = shapeProps;
-  const { sx, sy, mx, my, ex, ey, textAnchor, cos } = calculatePieActiveShapeGeometry(shapeProps, theme);
+const renderActiveShape = (props: ActiveShapeProps, theme: DesignSystemThemeInterface['theme']) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, name, value, percentage } = props;
+
+  // Label is always centered above the pie — no overflow issues regardless of slice position
+  const labelY = cy - outerRadius - theme.spacing.lg - 4;
 
   return (
     <g>
-      {/* Model name in donut center */}
-      <text
-        x={cx}
-        y={cy}
-        textAnchor="middle"
-        fill={theme.colors.textPrimary}
-        fontSize={theme.typography.fontSizeSm}
-        fontWeight={500}
-      >
-        {name}
-      </text>
       {/* Main pie sector */}
       <Sector
         cx={cx}
@@ -67,59 +52,92 @@ const createActiveShapeRenderer = (theme: DesignSystemThemeInterface['theme']) =
         outerRadius={outerRadius + theme.spacing.sm}
         fill={fill}
       />
-      {/* Connecting line: radial segment -> horizontal segment */}
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
-      {/* Dot at line end */}
-      <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
-      {/* Cost label */}
+      {/* Model name */}
       <text
-        x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
-        y={ey}
-        textAnchor={textAnchor}
-        fill={theme.colors.textSecondary}
+        x={cx}
+        y={labelY}
+        textAnchor="middle"
+        fill={theme.colors.textPrimary}
         fontSize={theme.typography.fontSizeSm}
+        fontWeight={500}
       >
-        {formatCostUSD(value)}
+        {name}
       </text>
-      {/* Percentage label */}
+      {/* Cost and percentage */}
       <text
-        x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
-        y={ey + theme.spacing.md}
-        textAnchor={textAnchor}
+        x={cx}
+        y={labelY + theme.spacing.md}
+        textAnchor="middle"
         fill={theme.colors.textSecondary}
         fontSize={theme.typography.fontSizeSm}
       >
-        {percentage.toFixed(2)}%
+        {formatCostUSD(value)}, {percentage.toFixed(2)}%
       </text>
     </g>
   );
 };
+
+interface ShapeProps extends ActiveShapeProps {
+  isActive: boolean;
+  index: number;
+  fillOpacity?: number;
+}
+
+/**
+ * Creates a shape renderer that shows active styling for:
+ * - Pie slice hover (via Tooltip's isActive)
+ * - Legend hover (via legendActiveIndex)
+ */
+const createShapeRenderer =
+  (theme: DesignSystemThemeInterface['theme'], legendActiveIndex: number | undefined) =>
+  (props: ShapeProps): React.ReactElement => {
+    const isActive = props.isActive || legendActiveIndex === props.index;
+
+    if (isActive) {
+      return renderActiveShape(props, theme);
+    }
+
+    return (
+      <Sector
+        cx={props.cx}
+        cy={props.cy}
+        innerRadius={props.innerRadius}
+        outerRadius={props.outerRadius}
+        startAngle={props.startAngle}
+        endAngle={props.endAngle}
+        fill={props.fill}
+        fillOpacity={props.fillOpacity}
+      />
+    );
+  };
 
 export const TraceCostBreakdownChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
   const { dimension, setDimension } = useTraceCostDimension();
   const { chartData, totalCost, isLoading, error, hasData } = useTraceCostBreakdownChartData(dimension);
   const { getChartColor } = useChartColors();
-  const [activeIndex, setActiveIndex] = useState<number | undefined>(undefined);
   const { getOpacity, handleLegendMouseEnter, handleLegendMouseLeave } = useLegendHighlight();
+  const [legendActiveIndex, setLegendActiveIndex] = useState<number | undefined>(undefined);
 
-  const renderActiveShape = useMemo(() => createActiveShapeRenderer(theme), [theme]);
+  const shapeRenderer = useMemo(() => createShapeRenderer(theme, legendActiveIndex), [theme, legendActiveIndex]);
 
-  const onPieEnter = useCallback((_: unknown, index: number) => {
-    setActiveIndex(index);
-  }, []);
+  // Add fill colors and opacity directly to data
+  const coloredChartData = useMemo(
+    () =>
+      chartData.map((entry, index) => ({
+        ...entry,
+        fill: getChartColor(index),
+        fillOpacity: getOpacity(entry.name),
+      })),
+    [chartData, getChartColor, getOpacity],
+  );
 
-  const onPieLeave = useCallback(() => {
-    setActiveIndex(undefined);
-  }, []);
-
-  // Custom legend handlers that also update activeIndex to show tooltip
   const onLegendMouseEnter = useCallback(
-    (data: { value: string }) => {
+    (data: { value: string | undefined }) => {
       handleLegendMouseEnter(data);
       const index = chartData.findIndex((entry) => entry.name === data.value);
       if (index !== -1) {
-        setActiveIndex(index);
+        setLegendActiveIndex(index);
       }
     },
     [handleLegendMouseEnter, chartData],
@@ -127,7 +145,7 @@ export const TraceCostBreakdownChart: React.FC = () => {
 
   const onLegendMouseLeave = useCallback(() => {
     handleLegendMouseLeave();
-    setActiveIndex(undefined);
+    setLegendActiveIndex(undefined);
   }, [handleLegendMouseLeave]);
 
   const legendFormatter = useCallback(
@@ -178,28 +196,23 @@ export const TraceCostBreakdownChart: React.FC = () => {
         </div>
       </div>
 
-      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
+      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm, overflow: 'visible' }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
+            <PieChart style={{ overflow: 'visible' }}>
               <Pie
-                data={chartData}
+                data={coloredChartData}
                 cx="50%"
-                cy="50%"
+                cy="60%"
                 innerRadius={PIE_INNER_RADIUS}
                 outerRadius={PIE_OUTER_RADIUS}
                 paddingAngle={PIE_PADDING_ANGLE}
                 dataKey="value"
                 nameKey="name"
-                activeIndex={activeIndex}
-                activeShape={renderActiveShape}
-                onMouseEnter={onPieEnter}
-                onMouseLeave={onPieLeave}
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={getChartColor(index)} fillOpacity={getOpacity(entry.name)} />
-                ))}
-              </Pie>
+                shape={shapeRenderer}
+              />
+              {/* Tooltip enables internal active state tracking for pie hover (recharts 3.x) */}
+              <Tooltip content={() => null} cursor={false} />
               <Legend
                 layout="vertical"
                 align="right"

@@ -9,7 +9,6 @@
 import {
   BrowserRouter,
   MemoryRouter,
-  HashRouter,
   matchPath,
   generatePath,
   Route,
@@ -38,7 +37,12 @@ import {
  */
 import { HashRouter as HashRouterV5, Link as LinkV5, NavLink as NavLinkV5 } from 'react-router-dom';
 import type { ComponentProps } from 'react';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  useDesignSystemEventComponentCallbacks,
+} from '@databricks/design-system';
 
 import {
   prefixRouteWithWorkspace,
@@ -135,11 +139,23 @@ const prefixRouteWithWorkspaceForTo = (to: To): To => {
 
 const Link = React.forwardRef<
   HTMLAnchorElement,
-  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean }
+  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
 >(function Link(props, ref) {
-  const { to, disableWorkspacePrefix, ...rest } = props;
+  const { to, disableWorkspacePrefix, componentId, onClick, ...rest } = props;
   const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  return <LinkDirect ref={ref} to={finalTo} {...rest} />;
+  const events = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId,
+    analyticsEvents: events,
+  });
+
+  const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    eventContext?.onClick(e);
+    onClick?.(e);
+  };
+
+  return <LinkDirect ref={ref} to={finalTo} onClick={handleClick} {...rest} />;
 });
 
 const NavLink = React.forwardRef<
@@ -159,7 +175,6 @@ export {
   // React Router V6 API exports
   BrowserRouter,
   MemoryRouter,
-  HashRouter,
   Link,
   NavLink,
   useNavigate,
