@@ -61,7 +61,7 @@ ENV_VAR_TO_ENVIRONMENT_MAP = {
     # Undocumented env var in Kaggle notebooks
     # https://www.kaggle.com/discussions/general/147433
     "KAGGLE_KERNEL_RUN_TYPE": Environment.KAGGLE,
-    # Undocumented env var in Colabe notebooks
+    # Undocumented env var in Colab notebooks
     "COLAB_RELEASE_TAG": Environment.COLAB,
     # Undocumented env var in AzureML notebooks
     "AZUREML_FRAMEWORK": Environment.AZURE_ML,
