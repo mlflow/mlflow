@@ -140,6 +140,7 @@ from mlflow.protos.prompt_optimization_pb2 import (
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
+    BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
@@ -3566,6 +3567,19 @@ def _batch_get_traces() -> Response:
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _batch_get_trace_infos() -> Response:
+    request_message = _get_request_message(
+        BatchGetTraceInfos(),
+        schema={"trace_ids": [_assert_array, _assert_required, _assert_item_type_string]},
+    )
+    trace_infos = _get_tracking_store().batch_get_trace_infos(request_message.trace_ids)
+    response_message = BatchGetTraceInfos.Response()
+    response_message.trace_infos.extend([ti.to_proto() for ti in trace_infos])
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_trace() -> Response:
     """
     A request handler for `GET /mlflow/traces/get` to get a trace with spans for given trace id.
@@ -6505,6 +6519,7 @@ HANDLERS = {
     LinkTracesToRun: _link_traces_to_run,
     LinkPromptsToTrace: _link_prompts_to_trace,
     BatchGetTraces: _batch_get_traces,
+    BatchGetTraceInfos: _batch_get_trace_infos,
     GetTrace: _get_trace,
     QueryTraceMetrics: _query_trace_metrics,
     # Assessment APIs
