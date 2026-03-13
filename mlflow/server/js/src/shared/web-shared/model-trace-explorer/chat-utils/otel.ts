@@ -28,7 +28,7 @@ type OtelToolCallResponsePart = OtelBasePart & {
 type OTelGenAIPart = OtelTextPart | OtelToolCallRequestPart | OtelToolCallResponsePart;
 
 type OtelGenAIMessage = {
-  role: 'system' | 'user' | 'assistant' | 'tool';
+  role: string;
   name?: string;
   parts: OTelGenAIPart[];
 };
@@ -58,7 +58,7 @@ const isSupportedOtelPart = (obj: unknown): obj is OTelGenAIPart => {
 export const isOtelGenAIChatMessage = (obj: unknown): obj is OtelGenAIMessage => {
   if (!isObject(obj)) return false;
   const role = get(obj, 'role');
-  if (!isString(role) || !['system', 'user', 'assistant', 'tool'].includes(role)) return false;
+  if (!isString(role)) return false;
   if (!has(obj, 'parts') || !isArray((obj as any).parts) || (obj as any).parts.length === 0) return false;
   return (obj as any).parts.every(isSupportedOtelPart);
 };
@@ -101,7 +101,7 @@ const normalizeToolCallResponsePart = (part: OtelToolCallResponsePart): ModelTra
 // Convert a single OTEL GenAI message into a single UI message.
 export const normalizeOtelGenAIChatMessage = (obj: OtelGenAIMessage): ModelTraceChatMessage | null => {
   if (!isOtelGenAIChatMessage(obj)) return null;
-  const role: ModelTraceChatMessage['role'] = obj.role as any;
+  const role: ModelTraceChatMessage['role'] = obj.role.toLowerCase() as any;
 
   const contentParts: ModelTraceContentParts[] = [];
   const toolCalls: ModelTraceToolCall[] = [];
