@@ -303,20 +303,21 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         kwargs[SpanAttributeKey.MESSAGE_FORMAT] = "langchain"
 
         try:
-            if len(messages) == 1:
-                normalized_inputs = {
-                    "messages": [
-                        convert_lc_message_to_chat_message(msg).model_dump()
-                        for msg in messages[0]
-                    ]
-                }
-            else:
-                # Batched invocations (len > 1) are rare in autolog usage.
-                # Fall back to the raw nested-list format rather than flattening
-                # multiple conversations into a single messages array, which would
-                # lose the batch boundary. This matches the pre-normalization
-                # behavior so it is non-regressive for callers using batching.
-                normalized_inputs = messages
+            match messages:
+                case [msg_list]:
+                    normalized_inputs = {
+                        "messages": [
+                            convert_lc_message_to_chat_message(msg).model_dump()
+                            for msg in msg_list
+                        ]
+                    }
+                case _:
+                    # Batched invocations (len > 1) are rare in autolog usage.
+                    # Fall back to the raw nested-list format rather than flattening
+                    # multiple conversations into a single messages array, which would
+                    # lose the batch boundary. This matches the pre-normalization
+                    # behavior so it is non-regressive for callers using batching.
+                    normalized_inputs = messages
         except Exception as e:
             _logger.debug(f"Failed to normalize chat model inputs: {e}", exc_info=True)
             normalized_inputs = messages
@@ -463,22 +464,23 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             _logger.debug(f"Failed to log token usage for LangChain: {e}", exc_info=True)
 
         try:
-            if len(response.generations) == 1:
-                choices = []
-                for g in response.generations[0]:
-                    if hasattr(g, "message"):
-                        msg_dict = convert_lc_message_to_chat_message(g.message).model_dump()
-                    else:
-                        msg_dict = {"role": "assistant", "content": g.text}
-                    choices.append({"message": msg_dict, "finish_reason": None})
-                normalized_outputs = {"choices": choices}
-            else:
-                # Batched invocations (len > 1) are rare in autolog usage.
-                # Fall back to the raw LLMResult rather than flattening multiple
-                # generation lists into a single choices array, which would lose
-                # the batch boundary. This matches the pre-normalization behavior
-                # so it is non-regressive for callers using batching.
-                normalized_outputs = response
+            match response.generations:
+                case [gen_list]:
+                    choices = []
+                    for g in gen_list:
+                        if hasattr(g, "message"):
+                            msg_dict = convert_lc_message_to_chat_message(g.message).model_dump()
+                        else:
+                            msg_dict = {"role": "assistant", "content": g.text}
+                        choices.append({"message": msg_dict, "finish_reason": None})
+                    normalized_outputs = {"choices": choices}
+                case _:
+                    # Batched invocations (len > 1) are rare in autolog usage.
+                    # Fall back to the raw LLMResult rather than flattening multiple
+                    # generation lists into a single choices array, which would lose
+                    # the batch boundary. This matches the pre-normalization behavior
+                    # so it is non-regressive for callers using batching.
+                    normalized_outputs = response
         except Exception as e:
             _logger.debug(f"Failed to normalize chat model outputs: {e}", exc_info=True)
             normalized_outputs = response
