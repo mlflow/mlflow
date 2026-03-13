@@ -1650,6 +1650,57 @@ def test_endpoint_config_cache_invalidated_on_secret_update(store: SqlAlchemySto
     assert config2.models[0].secret_value == {"api_key": "sk-new"}
 
 
+def test_endpoint_config_cache_invalidated_on_endpoint_delete(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="cache-del-key", secret_value={"api_key": "sk-del"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="cache-del-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="cache-del-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Populate cache
+    config = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config.endpoint_id == endpoint.endpoint_id
+
+    # Delete endpoint — should invalidate cache
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    # Next call should hit DB and raise since endpoint is gone
+    with pytest.raises(MlflowException, match="not found"):
+        get_endpoint_config(endpoint_name=endpoint.name, store=store)
+
+
+def test_gateway_endpoint_config_roundtrip_fallback_with_none_fields():
+    original = GatewayEndpointConfig(
+        endpoint_id="e-none",
+        endpoint_name="none-fallback-ep",
+        models=[
+            GatewayModelConfig(
+                model_definition_id="md-1",
+                provider="openai",
+                model_name="gpt-4",
+                secret_value={"api_key": "sk-1"},
+            ),
+        ],
+        fallback_config=FallbackConfig(strategy=None, max_attempts=None),
+    )
+    restored = GatewayEndpointConfig.from_dict(original.to_dict())
+    assert restored == original
+
+
 # =============================================================================
 # Endpoint Tag Operations
 # =============================================================================
