@@ -308,6 +308,8 @@ def _exec_job(
         exclusive: If True, only one instance of this job with the same params can run
             at a time. If a list of parameter names, only those parameters are considered
             for exclusivity.
+        extra_envs: Optional dictionary of additional environment variables to set
+            before executing the job.
     """
     from mlflow.server.handlers import _get_job_store
 
