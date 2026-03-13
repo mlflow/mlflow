@@ -687,9 +687,9 @@ class MlflowClient:
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
             tags: A dictionary of tags for the prompt.
-                These tags are stored on the prompt version. For OSS, they are also written to
-                prompt-level metadata, and later ``register_prompt()`` calls can overwrite the
-                same keys at the prompt level. Optional.
+                These tags are stored on the prompt version and written to prompt-level metadata.
+                For OSS, later ``register_prompt()`` calls can overwrite the same keys at the
+                prompt level. Optional.
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
