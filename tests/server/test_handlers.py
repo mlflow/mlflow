@@ -26,6 +26,7 @@ from mlflow.entities._job import Job as JobEntity
 from mlflow.entities._job_status import JobStatus
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -4195,15 +4196,13 @@ def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(
 def _make_budget_policy(
     budget_policy_id="bp-test",
     budget_amount=100.0,
-    duration_unit=None,
-    duration_value=1,
+    duration=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
         budget_unit=BudgetUnit.USD,
         budget_amount=budget_amount,
-        duration_unit=duration_unit or BudgetDurationUnit.DAYS,
-        duration_value=duration_value,
+        duration=duration or BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
         created_at=0,

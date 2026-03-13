@@ -67,6 +67,7 @@ from mlflow.entities import (
 from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -2967,8 +2968,10 @@ class SqlGatewayBudgetPolicy(Base):
             budget_policy_id=self.budget_policy_id,
             budget_unit=BudgetUnit(self.budget_unit),
             budget_amount=self.budget_amount,
-            duration_unit=BudgetDurationUnit(self.duration_unit),
-            duration_value=self.duration_value,
+            duration=BudgetDuration(
+                unit=BudgetDurationUnit(self.duration_unit),
+                value=self.duration_value,
+            ),
             target_scope=BudgetTargetScope(self.target_scope),
             budget_action=BudgetAction(self.budget_action),
             created_at=self.created_at,
