@@ -107,7 +107,9 @@ export const RunViewModeSwitch = ({
     >
       <Tabs.List>
         {visibleTabs.map((tabName) => (
-          <Tabs.Trigger value={tabName}>{TAB_LABELS[tabName]}</Tabs.Trigger>
+          <Tabs.Trigger key={tabName} value={tabName}>
+            {TAB_LABELS[tabName]}
+          </Tabs.Trigger>
         ))}
       </Tabs.List>
     </Tabs.Root>
