@@ -40,7 +40,7 @@ runs:
           exit 1
         fi
         echo "version=$python_version" >> $GITHUB_OUTPUT
-    - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
     - uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7.5.0
