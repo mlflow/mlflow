@@ -18,6 +18,7 @@ from mlflow.telemetry.constant import (
     UI_CONFIG_STAGING_URL,
     UI_CONFIG_URL,
 )
+from mlflow.telemetry.schemas import ENV_VAR_TO_ENVIRONMENT_MAP, Environment
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -70,8 +71,6 @@ def _is_in_databricks() -> bool:
 
 
 def _detect_environment() -> str | None:
-    from mlflow.telemetry.schemas import ENV_VAR_TO_ENVIRONMENT_MAP, Environment
-
     for env_var, environment in ENV_VAR_TO_ENVIRONMENT_MAP.items():
         if env_var in os.environ:
             return environment.value
