@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon, Spacer, Drawer } from '@databricks/design-system';
@@ -309,21 +309,11 @@ const TracesV3LogsImpl = React.memo(
 
     const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
 
-    const { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner, subscribeToScorerFinished } =
-      useRunJudgesOnTracesConfiguration(
-        runJudgeConfiguration.evaluateTraces,
-        runJudgeConfiguration.allEvaluations,
-        runJudgeConfiguration.subscribeToScorerFinished,
-      );
-
-    useEffect(() => {
-      if (!isEvaluatingTracesInDetailsViewEnabled()) {
-        return;
-      }
-      return subscribeToScorerFinished?.(() => {
-        invalidateMlflowSearchTracesCache({ queryClient });
-      });
-    }, [subscribeToScorerFinished, queryClient]);
+    const { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(
+      runJudgeConfiguration.evaluateTraces,
+      runJudgeConfiguration.allEvaluations,
+      runJudgeConfiguration.subscribeToScorerFinished,
+    );
 
     const traceActions: TraceActions = useMemo(() => {
       return {

@@ -4,15 +4,21 @@ import { renderHook, act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useRunJudgesOnTracesConfiguration } from './useRunScorerInTracesViewConfiguration';
 import type { ScorerEvaluation } from '../useEvaluateTracesAsync';
-import type { ModelTraceExplorerRunJudgeConfig } from '@databricks/web-shared/model-trace-explorer';
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
 
 // Wrapper with required providers
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <DesignSystemProvider>
-    <IntlProvider locale="en">{children}</IntlProvider>
-  </DesignSystemProvider>
+  <QueryClientProvider client={queryClient}>
+    <DesignSystemProvider>
+      <IntlProvider locale="en">{children}</IntlProvider>
+    </DesignSystemProvider>
+  </QueryClientProvider>
 );
 
 describe('useRunJudgesOnTracesConfiguration', () => {
@@ -158,20 +164,5 @@ describe('useRunJudgesOnTracesConfiguration', () => {
     // Judge A should be dismissed, Judge B should remain
     expect(queryByText(/Judge A/)).toBeNull();
     expect(getByText(/Judge B/)).toBeDefined();
-  });
-
-  it('should pass subscribeToScorerFinished through', () => {
-    const mockSubscribe = jest.fn();
-    const { result } = renderHook(
-      () =>
-        useRunJudgesOnTracesConfiguration(
-          mockEvaluateTraces,
-          undefined,
-          mockSubscribe as unknown as ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
-        ),
-      { wrapper },
-    );
-
-    expect(result.current.subscribeToScorerFinished).toBe(mockSubscribe);
   });
 });

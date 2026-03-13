@@ -32,6 +32,8 @@ import {
 } from '../../../../gateway/utils/gatewayUtils';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
 import { isEmpty } from 'lodash';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateMlflowSearchTracesCache } from '../../../../shared/web-shared/model-trace-explorer/hooks/invalidateMlflowSearchTracesCache';
 
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
@@ -99,9 +101,10 @@ export const useRunScorerInTracesViewConfiguration = (
 export const useRunJudgesOnTracesConfiguration = (
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void,
   allEvaluations: Record<string, ScorerEvaluation> | undefined,
-  subscribeToScorerFinished: ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
+  subscribeToScorerFinished?: ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
   scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
 ) => {
+  const queryClient = useQueryClient();
   const [pendingTraceIds, setPendingTraceIds] = useState<string[]>([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
@@ -156,7 +159,14 @@ export const useRunJudgesOnTracesConfiguration = (
     [scope, isModalVisible, pendingTraceIds, evaluateTraces, handleClose],
   );
 
-  return { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner, subscribeToScorerFinished };
+  // Invalidate the traces search cache when a scorer finishes
+  useEffect(() => {
+    return subscribeToScorerFinished?.(() => {
+      invalidateMlflowSearchTracesCache({ queryClient });
+    });
+  }, [subscribeToScorerFinished, queryClient]);
+
+  return { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner };
 };
 
 /**
