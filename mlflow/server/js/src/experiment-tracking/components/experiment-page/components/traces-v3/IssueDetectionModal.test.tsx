@@ -85,7 +85,9 @@ describe('IssueDetectionModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockCreateSecret = jest.fn((_request, options) => {
-      (options as { onSuccess?: () => void })?.onSuccess?.();
+      (options as { onSuccess?: (response: { secret: { secret_id: string } }) => void })?.onSuccess?.({
+        secret: { secret_id: 'new-secret-123' },
+      });
     });
     mockResetCreateSecret = jest.fn();
     mockInvokeIssueDetection = jest.fn((_request, options) => {
@@ -222,32 +224,32 @@ describe('IssueDetectionModal', () => {
     expect(submitButton).not.toBeDisabled();
   });
 
-  test('does not show save key checkbox in step 1', () => {
+  test('does not show save key message in step 1', () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
-    expect(screen.queryByText('Save this key for reuse')).not.toBeInTheDocument();
+    expect(screen.queryByText('This key will be saved for reuse.')).not.toBeInTheDocument();
   });
 
-  test('shows save key checkbox when using new key mode in step 2', async () => {
+  test('shows save key message when using new key mode in step 2', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
     await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
 
-    expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
+    expect(screen.getByText('This key will be saved for reuse.')).toBeInTheDocument();
   });
 
-  test('hides save key checkbox when switching to existing key', async () => {
+  test('hides save key message when switching to existing key', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
     await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
-    expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
+    expect(screen.getByText('This key will be saved for reuse.')).toBeInTheDocument();
 
     await userEvent.click(screen.getByTestId('set-existing-key'));
-    expect(screen.queryByText('Save this key for reuse')).not.toBeInTheDocument();
+    expect(screen.queryByText('This key will be saved for reuse.')).not.toBeInTheDocument();
   });
 
   test('calls onClose when cancel button is clicked', async () => {
@@ -287,23 +289,20 @@ describe('IssueDetectionModal', () => {
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-existing-key'));
 
-    expect(screen.queryByText('Save this key for reuse')).not.toBeInTheDocument();
+    expect(screen.queryByText('This key will be saved for reuse.')).not.toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'anthropic');
     await userEvent.click(screen.getByTestId('set-new-key'));
 
-    expect(screen.getByText('Save this key for reuse')).toBeInTheDocument();
+    expect(screen.getByText('This key will be saved for reuse.')).toBeInTheDocument();
   });
 
-  test('shows API key name input when save key is checked', async () => {
+  test('shows API key name input when using new key mode', async () => {
     renderWithDesignSystem(<IssueDetectionModal {...defaultProps} />);
 
     await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
-
-    const saveKeyCheckbox = screen.getByText('Save this key for reuse');
-    await userEvent.click(saveKeyCheckbox);
 
     expect(screen.getByPlaceholderText('API key name')).toBeInTheDocument();
   });
@@ -380,7 +379,7 @@ describe('IssueDetectionModal', () => {
     expect(screen.queryByTestId('select-traces-modal')).not.toBeInTheDocument();
   });
 
-  test('saves secret when save key checkbox is checked and form is submitted with new key', async () => {
+  test('saves secret when form is submitted with new key', async () => {
     const onClose = jest.fn();
 
     renderWithDesignSystem(
@@ -390,7 +389,6 @@ describe('IssueDetectionModal', () => {
     await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
     await userEvent.click(screen.getByTestId('set-new-key'));
-    await userEvent.click(screen.getByText('Save this key for reuse'));
 
     const submitButton = screen.getByText('Run Analysis').closest('button')!;
     await userEvent.click(submitButton);
@@ -406,26 +404,6 @@ describe('IssueDetectionModal', () => {
         expect.any(Object),
       );
     });
-  });
-
-  test('does not save secret when save key checkbox is not checked', async () => {
-    const onClose = jest.fn();
-
-    renderWithDesignSystem(
-      <IssueDetectionModal {...defaultProps} onClose={onClose} initialSelectedTraceIds={['trace-1']} />,
-    );
-
-    await navigateToStep2();
-    await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
-    await userEvent.click(screen.getByTestId('set-new-key'));
-
-    const submitButton = screen.getByText('Run Analysis').closest('button')!;
-    await userEvent.click(submitButton);
-
-    await waitFor(() => {
-      expect(onClose).toHaveBeenCalled();
-    });
-    expect(mockCreateSecret).not.toHaveBeenCalled();
   });
 
   test('does not save secret when using existing key', async () => {
