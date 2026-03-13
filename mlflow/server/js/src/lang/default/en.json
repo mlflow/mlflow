@@ -1133,6 +1133,10 @@
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
   },
+  "5yjgeu": {
+    "defaultMessage": "This key will be saved for reuse.",
+    "description": "Text indicating API key will be saved for reuse"
+  },
   "60b0vW": {
     "defaultMessage": "Always show spans with exceptions, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing spans with exceptions"
@@ -2072,6 +2076,10 @@
   "BU8Jni": {
     "defaultMessage": "Response",
     "description": "Column label for response"
+  },
+  "BWH8UR": {
+    "defaultMessage": "API key name:",
+    "description": "Label for API key name input"
   },
   "BWpQZ7": {
     "defaultMessage": "You have <strong>{unsyncedDataEntriesCount}</strong> unsaved evaluated {unsyncedDataEntriesCount, plural, =1 {value} other {values}}. Click \"Save\" button or press {keyCombination} keys to synchronize the artifact data.",
@@ -6064,10 +6072,6 @@
   "c5AQYh": {
     "defaultMessage": "Compare by",
     "description": "Runs charts > components > charts > DifferenceViewPlot > Compare by column heading"
-  },
-  "c8EovS": {
-    "defaultMessage": "Save this key for reuse",
-    "description": "Checkbox to save API key for reuse"
   },
   "cAKSkQ": {
     "defaultMessage": "Select a cell to display preview",

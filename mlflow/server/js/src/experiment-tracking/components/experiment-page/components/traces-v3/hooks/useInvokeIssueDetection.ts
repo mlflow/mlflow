@@ -8,6 +8,7 @@ interface InvokeIssueDetectionParams {
   categories: IssueCategory[];
   provider: string;
   model: string;
+  secret_id: string;
 }
 
 interface InvokeIssueDetectionResponse {
@@ -26,6 +27,7 @@ export const useInvokeIssueDetection = () => {
           categories: params.categories,
           provider: params.provider,
           model: params.model,
+          secret_id: params.secret_id,
         },
       });
       return response as InvokeIssueDetectionResponse;
