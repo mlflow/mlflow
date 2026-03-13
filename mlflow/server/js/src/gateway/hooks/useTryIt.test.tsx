@@ -84,7 +84,7 @@ describe('useTryIt', () => {
     expect(mockFetchOrFail).toHaveBeenCalledTimes(1);
     expect(result.current.data).toBeUndefined();
     expect(result.current.error).toBeDefined();
-    expect(result.current.error?.message).toBe('The request was invalid.');
+    expect(result.current.error?.message).toBe('400 - The request was invalid.');
     expect(result.current.error?.responseBody).toBe(JSON.stringify(errorBody, null, 2));
   });
 
@@ -110,7 +110,7 @@ describe('useTryIt', () => {
     });
 
     expect(result.current.error).toBeDefined();
-    expect(result.current.error?.message).toBe(errorBody.detail);
+    expect(result.current.error?.message).toBe(`429 - ${errorBody.detail}`);
     expect(result.current.error?.responseBody).toBe(JSON.stringify(errorBody, null, 2));
   });
 
