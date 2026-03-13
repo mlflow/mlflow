@@ -57,9 +57,17 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     required: list[str] = []
     for p in params:
-        schema = {
-            "type": param_type_to_json_schema_type(p.type),
-        }
+        item_type = param_type_to_json_schema_type(p.type)
+        is_repeatable = getattr(p, "multiple", False) or getattr(p, "nargs", 1) == -1
+        if is_repeatable:
+            schema: dict[str, Any] = {
+                "type": "array",
+                "items": {"type": item_type},
+            }
+        else:
+            schema = {
+                "type": item_type,
+            }
         if p.default is not None and (
             # In click >= 8.3.0, the default value is set to `Sentinel.UNSET` when no default is
             # provided. Skip setting the default in this case.
