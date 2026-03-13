@@ -57,9 +57,23 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     required: list[str] = []
     for p in params:
-        schema = {
-            "type": param_type_to_json_schema_type(p.type),
-        }
+        item_type = param_type_to_json_schema_type(p.type)
+
+        # Click params with multiple=True (Options) or nargs=-1 (Arguments)
+        # accept a variable number of values and should be represented as arrays.
+        is_array = (isinstance(p, click.Option) and p.multiple) or (
+            isinstance(p, click.Argument) and p.nargs == -1
+        )
+
+        if is_array:
+            schema: dict[str, Any] = {
+                "type": "array",
+                "items": {"type": item_type},
+            }
+        else:
+            schema = {
+                "type": item_type,
+            }
         if p.default is not None and (
             # In click >= 8.3.0, the default value is set to `Sentinel.UNSET` when no default is
             # provided. Skip setting the default in this case.
@@ -70,7 +84,10 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
         if isinstance(p, click.Option):
             schema["description"] = (p.help or "").strip()
         if isinstance(p.type, click.Choice):
-            schema["enum"] = [str(choice) for choice in p.type.choices]
+            if is_array:
+                schema["items"]["enum"] = [str(choice) for choice in p.type.choices]
+            else:
+                schema["enum"] = [str(choice) for choice in p.type.choices]
         if p.required:
             required.append(p.name)
         properties[p.name] = schema
@@ -99,6 +116,10 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
                         kwargs[param.name] = None
                     else:
                         kwargs[param.name] = param.default
+                # MCP clients send array values as JSON lists, but Click
+                # expects tuples for params with multiple=True or nargs=-1.
+                elif isinstance(kwargs[param.name], list):
+                    kwargs[param.name] = tuple(kwargs[param.name])
             command.callback(**kwargs)  # type: ignore[misc]
         return string_io.getvalue().strip()
 
