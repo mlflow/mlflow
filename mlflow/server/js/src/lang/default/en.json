@@ -4512,10 +4512,6 @@
     "defaultMessage": "Create LLM judge",
     "description": "Title for new LLM judge modal"
   },
-  "SZj964": {
-    "defaultMessage": "Copy S3 URI to clipboard",
-    "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
-  },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
     "description": "Help text explaining model configuration purpose"
@@ -4647,6 +4643,10 @@
   "TSXmaB": {
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"
+  },
+  "TTsPbw": {
+    "defaultMessage": "Open dataset",
+    "description": "Text for the button that navigates to the datasets tab in the experiment run dataset drawer"
   },
   "TWnsnV": {
     "defaultMessage": "Run Name",
@@ -5054,10 +5054,6 @@
   "VrxfuC": {
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
-  },
-  "Vvn8Cb": {
-    "defaultMessage": "Open dataset",
-    "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
   },
   "VwxvII": {
     "defaultMessage": "forecasting",
@@ -8771,10 +8767,6 @@
     "defaultMessage": "my-api-key",
     "description": "Placeholder for API key name input"
   },
-  "tbAlJg": {
-    "defaultMessage": "Go to external location",
-    "description": "Text for the external location link in the experiment run dataset drawer"
-  },
   "tdmVWN": {
     "defaultMessage": "While deleting an experiment run, an error occurred.",
     "description": "Experiment tracking > delete run modal > error message"
@@ -8846,6 +8838,10 @@
   "uBTAtY": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
+  },
+  "uGgedl": {
+    "defaultMessage": "Copy S3 URI to clipboard",
+    "description": "Text for the S3 URI copy button in the experiment run dataset drawer"
   },
   "uHzRht": {
     "defaultMessage": "Total aggregate scores",
