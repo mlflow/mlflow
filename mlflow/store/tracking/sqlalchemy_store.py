@@ -4881,8 +4881,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         trace_info, sql_trace_info.spans, allow_partial=False
                     )
                 except MlflowTracingException:
-                    # Trace data is stored in artifact repo, not tracking store.
-                    # Skip this trace as we can't load spans from here.
+                    _logger.debug(
+                        "Trace %s has spans in artifact repo, skipping in batch_get_traces",
+                        trace_info.trace_id,
+                    )
                     continue
                 if spans:
                     traces.append(Trace(info=trace_info, data=TraceData(spans=spans)))
