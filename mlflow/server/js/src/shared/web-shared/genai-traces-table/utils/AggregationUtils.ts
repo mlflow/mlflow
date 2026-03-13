@@ -107,6 +107,10 @@ export function getAssessmentInfos(
       ...overallAssessmentsByName,
       ...retrievalAssessmentsByName,
     ]) {
+      // Skip internal assessments (names starting with underscore are implementation details)
+      if (assessmentName.startsWith('_')) {
+        continue;
+      }
       assessmentNames.add(assessmentName);
       // For string values, if we see a value that is not "yes" or "no", we treat it as a string.
       // This is not a great approach, we should probably actually pass the pass-fail dtype information back somehow.

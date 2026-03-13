@@ -53,7 +53,6 @@ const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
     }
   });
 
-  // Filter out LLM judge feedback groups
   return Object.entries(aggregated);
 };
 
@@ -136,7 +135,8 @@ export const AssessmentsPaneFeedbackSection = ({
   traceId: string;
   sessionId?: string;
 }) => {
-  const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
+  const visibleFeedbacks = useMemo(() => feedbacks.filter((f) => !f.assessment_name.startsWith('_')), [feedbacks]);
+  const groupedFeedbacks = useMemo(() => groupFeedbacks(visibleFeedbacks), [visibleFeedbacks]);
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
 
@@ -206,7 +206,7 @@ export const AssessmentsPaneFeedbackSection = ({
             defaultMessage="Feedback"
             description="Label for the feedback section in the assessments pane"
           />{' '}
-          {!isEmpty(groupedFeedbacks) && <>({feedbacks?.length})</>}
+          {!isEmpty(groupedFeedbacks) && <>({visibleFeedbacks.length})</>}
         </Typography.Text>
       </div>
 
