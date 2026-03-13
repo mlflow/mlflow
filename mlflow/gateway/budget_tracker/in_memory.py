@@ -35,12 +35,13 @@ class InMemoryBudgetTracker(BudgetTracker):
         for policies that no longer exist.
 
         Returns:
-            List of newly created windows (cumulative_spend=0) that may need
-            backfilling from historical trace data.
+            All current windows. In a multi-worker setup each worker tracks
+            spend independently, so all windows are returned so callers can
+            sync cumulative spend from authoritative trace data on every
+            refresh interval.
         """
         now = datetime.now(timezone.utc)
         new_windows: dict[str, BudgetWindow] = {}
-        fresh_windows: list[BudgetWindow] = []
 
         with self._lock:
             for policy in policies:
@@ -58,18 +59,16 @@ class InMemoryBudgetTracker(BudgetTracker):
                     existing.window_end = window_end
                     new_windows[pid] = existing
                 else:
-                    window = BudgetWindow(
+                    new_windows[pid] = BudgetWindow(
                         policy=policy,
                         window_start=window_start,
                         window_end=window_end,
                     )
-                    new_windows[pid] = window
-                    fresh_windows.append(window)
 
             self._windows = new_windows
             self.mark_refreshed()
 
-        return fresh_windows
+        return list(new_windows.values())
 
     def record_cost(
         self,
@@ -148,14 +147,18 @@ class InMemoryBudgetTracker(BudgetTracker):
         return False, None
 
     def backfill_spend(self, spend_by_policy: dict[str, float]) -> None:
-        """Set cumulative spend on windows from historical data."""
+        """Sync cumulative spend on windows from authoritative trace data.
+
+        Uses max(current, db_value) so that in-process spend recorded since
+        the last trace flush is never lost due to DB write lag.
+        """
         with self._lock:
             for budget_policy_id, spend in spend_by_policy.items():
                 window = self._windows.get(budget_policy_id)
                 if window is None:
                     continue
-                window.cumulative_spend = spend
-                window.exceeded = spend >= window.policy.budget_amount
+                window.cumulative_spend = max(window.cumulative_spend, spend)
+                window.exceeded = window.cumulative_spend >= window.policy.budget_amount
 
     def get_all_windows(self) -> list[BudgetWindow]:
         with self._lock:
