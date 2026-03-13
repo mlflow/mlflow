@@ -57,20 +57,21 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     required: list[str] = []
     for p in params:
-        schema = {
-            "type": param_type_to_json_schema_type(p.type),
-        }
+        is_array_param = getattr(p, "multiple", False) or p.nargs == -1
+        item_schema = {"type": param_type_to_json_schema_type(p.type)}
+        if isinstance(p.type, click.Choice):
+            item_schema["enum"] = [str(choice) for choice in p.type.choices]
+
+        schema = {"type": "array", "items": item_schema} if is_array_param else item_schema
         if p.default is not None and (
             # In click >= 8.3.0, the default value is set to `Sentinel.UNSET` when no default is
             # provided. Skip setting the default in this case.
             # See https://github.com/pallets/click/pull/3030 for more details.
             not isinstance(p.default, str) and repr(p.default) != "Sentinel.UNSET"
         ):
-            schema["default"] = p.default
+            schema["default"] = list(p.default) if is_array_param else p.default
         if isinstance(p, click.Option):
             schema["description"] = (p.help or "").strip()
-        if isinstance(p.type, click.Choice):
-            schema["enum"] = [str(choice) for choice in p.type.choices]
         if p.required:
             required.append(p.name)
         properties[p.name] = schema
@@ -99,6 +100,18 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
                         kwargs[param.name] = None
                     else:
                         kwargs[param.name] = param.default
+
+            # Convert array parameters to the types expected by each command's callback
+            for param in command.params:
+                if (
+                    param.name in kwargs
+                    and (getattr(param, "multiple", False) or param.nargs == -1)
+                    and isinstance(kwargs[param.name], list)
+                ):
+                    kwargs[param.name] = tuple(
+                        param.type.convert(value, param, None) for value in kwargs[param.name]
+                    )
+
             command.callback(**kwargs)  # type: ignore[misc]
         return string_io.getvalue().strip()
 

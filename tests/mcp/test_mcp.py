@@ -8,6 +8,25 @@ from fastmcp.client.transports import StdioTransport
 
 import mlflow
 from mlflow.mcp import server
+from mlflow.models.cli import commands as model_commands
+from mlflow.runs import commands as run_commands
+
+
+def test_get_input_schema_uses_array_schema_for_repeatable_options():
+    link_traces_cmd = run_commands.commands["link-traces"]
+    schema = server.get_input_schema(link_traces_cmd.params)["properties"]["trace_ids"]
+
+    assert schema["type"] == "array"
+    assert schema["items"] == {"type": "string"}
+    assert "description" in schema
+
+
+def test_get_input_schema_uses_array_schema_for_variadic_arguments():
+    update_reqs_cmd = model_commands.commands["update-pip-requirements"]
+    schema = server.get_input_schema(update_reqs_cmd.params)["properties"]["requirement_strings"]
+
+    assert schema["type"] == "array"
+    assert schema["items"] == {"type": "string"}
 
 
 @pytest_asyncio.fixture()
@@ -163,3 +182,20 @@ def test_fn_wrapper_handles_unset_defaults(monkeypatch):
     result = wrapper(foo="hello")
     assert "hello" in result
     assert "None" in result
+
+
+def test_fn_wrapper_converts_repeatable_custom_types(monkeypatch):
+    from mlflow.mcp.server import fn_wrapper
+    from mlflow.models import python_api
+
+    captured = {}
+
+    def fake_predict(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(python_api, "predict", fake_predict)
+
+    wrapper = fn_wrapper(model_commands.commands["predict"])
+    wrapper(model_uri="runs:/123/model", env=["FOO=bar", "BAR=baz"])
+
+    assert captured["extra_envs"] == {"FOO": "bar", "BAR": "baz"}
