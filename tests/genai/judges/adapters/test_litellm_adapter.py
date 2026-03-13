@@ -227,7 +227,7 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded_gateway_pr
             "mlflow.genai.judges.adapters.litellm_adapter._remove_oldest_tool_call_pair"
         ) as mock_truncate,
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri",
+            "mlflow.genai.utils.gateway_utils.get_tracking_uri",
             return_value="http://localhost:5000",
         ),
     ):
@@ -262,7 +262,7 @@ def test_invoke_litellm_and_handle_tools_gateway_context_window_no_tool_calls_to
             return_value=None,  # No tool calls to truncate
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri",
+            "mlflow.genai.utils.gateway_utils.get_tracking_uri",
             return_value="http://localhost:5000",
         ),
     ):
@@ -341,7 +341,7 @@ def test_gateway_provider_integration():
 
     with (
         mock.patch("litellm.completion", return_value=mock_response) as mock_litellm,
-        mock.patch("mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri") as mock_get_uri,
+        mock.patch("mlflow.genai.utils.gateway_utils.get_tracking_uri") as mock_get_uri,
     ):
         mock_get_uri.return_value = "http://localhost:5000"
 
@@ -369,9 +369,7 @@ def test_gateway_provider_requires_http_tracking_uri():
     from mlflow.exceptions import MlflowException
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter.get_tracking_uri", return_value="databricks"
-    ):
+    with mock.patch("mlflow.genai.utils.gateway_utils.get_tracking_uri", return_value="databricks"):
         with pytest.raises(MlflowException, match="Gateway provider requires an HTTP"):
             _invoke_litellm_and_handle_tools(
                 provider="gateway",

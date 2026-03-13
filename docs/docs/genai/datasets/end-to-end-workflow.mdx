@@ -6,7 +6,7 @@ import { Code, Rocket, FileText } from "lucide-react";
 
 # End-to-End Workflow: Evaluation-Driven Development
 
-This guide demonstrates the complete workflow for building and evaluating GenAI applications using MLflow's evaluation-driven development approach.
+This guide demonstrates the complete workflow for building and evaluating LLM applications and AI agents using MLflow's evaluation-driven development approach.
 
 :::note
 **Databricks Users**: To use Evaluation Datasets with Databricks Unity Catalog, MLflow requires the additional installation of the `databricks-agents` package. This package uses Unity Catalog to store datasets. Install it with: `pip install databricks-agents`
@@ -25,7 +25,7 @@ pip install --upgrade 'mlflow[genai]>=3.4' openai
 
 ## Step 1: Build & Trace Your Application
 
-Start with a traced GenAI application. This example shows a customer support bot, but the pattern applies to any LLM application. You can use the <APILink fn="mlflow.trace">mlflow.trace decorator</APILink> for manual instrumentation or <APILink fn="mlflow.openai.autolog">enable automatic tracing for OpenAI</APILink> as shown below.
+Start with a traced LLM application. This example shows a customer support bot, but the pattern applies to any LLM application. You can use the <APILink fn="mlflow.trace">mlflow.trace decorator</APILink> for manual instrumentation or <APILink fn="mlflow.openai.autolog">enable automatic tracing for OpenAI</APILink> as shown below.
 
 ```python
 import mlflow
@@ -106,16 +106,15 @@ Add expectations to your traces to define what you expect as a response coming f
 ```python
 # Search for recent traces (uses current active experiment by default)
 traces = mlflow.search_traces(
-    max_results=10, return_type="list"  # Return list of Trace objects for iteration
+    max_results=10,
+    return_type="list",  # Return list of Trace objects for iteration
 )
 
 # Add expectations to specific traces
 for trace in traces:
     # Get the question from the root span inputs
     root_span = trace.data._get_root_span()
-    question = (
-        root_span.inputs.get("question", "") if root_span and root_span.inputs else ""
-    )
+    question = root_span.inputs.get("question", "") if root_span and root_span.inputs else ""
 
     if "refund" in question.lower():
         mlflow.log_expectation(
@@ -225,9 +224,9 @@ if not low_scores.empty:
     failed_questions = low_scores["inputs.question"].tolist()
 
     # Example improvements based on failure analysis
-    bot.knowledge_base[
-        "refund"
-    ] = "Full refunds available within 30 days with original receipt. Store credit offered after 30 days."
+    bot.knowledge_base["refund"] = (
+        "Full refunds available within 30 days with original receipt. Store credit offered after 30 days."
+    )
     bot.client.temperature = 0.2  # Reduce temperature for more consistent responses
 
     # Re-evaluate with same dataset for comparison
@@ -240,8 +239,7 @@ if not low_scores.empty:
 
     # Compare versions
     improvement = (
-        improved_results.metrics["factual_accuracy/score"]
-        - metrics["factual_accuracy/score"]
+        improved_results.metrics["factual_accuracy/score"] - metrics["factual_accuracy/score"]
     )
 ```
 

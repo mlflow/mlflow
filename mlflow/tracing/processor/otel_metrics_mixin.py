@@ -5,7 +5,6 @@ This mixin allows different span processor implementations to share common metri
 while maintaining their own inheritance hierarchies (BatchSpanProcessor, SimpleSpanProcessor).
 """
 
-import json
 import logging
 from typing import Any
 
@@ -17,7 +16,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import get_experiment_id_for_trace
+from mlflow.tracing.utils import get_experiment_id_for_trace, try_json_loads
 from mlflow.tracing.utils.otlp import _get_otlp_metrics_endpoint, _get_otlp_metrics_protocol
 
 _logger = logging.getLogger(__name__)
@@ -91,12 +90,10 @@ class OtelMetricsMixin:
         if self._duration_histogram is None:
             return
 
-        span_type = span.attributes.get(SpanAttributeKey.SPAN_TYPE, SpanType.UNKNOWN)
-        try:
-            # Span attributes are JSON encoded by default; decode them for metric label readability
-            span_type = json.loads(span_type)
-        except (json.JSONDecodeError, TypeError):
-            pass
+        # Span attributes are JSON encoded by default; decode them for metric label readability
+        span_type = try_json_loads(
+            span.attributes.get(SpanAttributeKey.SPAN_TYPE, SpanType.UNKNOWN)
+        )
 
         attributes = {
             "root": span.parent is None,

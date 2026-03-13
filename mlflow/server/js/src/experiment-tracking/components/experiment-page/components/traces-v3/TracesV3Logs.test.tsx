@@ -3,6 +3,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TracesV3Logs } from './TracesV3Logs';
+
 import { IntlProvider } from '@databricks/i18n';
 import { QueryClient, QueryClientProvider, type UseMutateAsyncFunction } from '@databricks/web-shared/query-client';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -21,9 +22,14 @@ import {
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
+import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { GenericNetworkRequestError } from '@mlflow/mlflow/src/shared/web-shared/errors/PredefinedErrors';
 import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
+
+// Overriding default timeout for OSS tests
+// eslint-disable-next-line no-restricted-syntax
+jest.setTimeout(30000);
 
 // Mock all external dependencies
 jest.mock('@databricks/web-shared/genai-traces-table', () => {
@@ -32,6 +38,8 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => {
   );
   return {
     ...actual,
+    useExperimentVersionsQuery: jest.fn(),
+    useGenAiExperimentRunsForComparison: jest.fn(),
     useMlflowTracesTableMetadata: jest.fn(),
     useSearchMlflowTraces: jest.fn(),
     useSelectedColumns: jest.fn(),
@@ -75,6 +83,10 @@ jest.mock('./TracesV3EmptyState', () => ({
   TracesV3EmptyState: jest.fn(() => null),
 }));
 
+jest.mock('../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal', () => ({
+  ExportTracesToDatasetModal: jest.fn(() => null),
+}));
+
 const renderComponent = (props = {}) => {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -90,7 +102,7 @@ const renderComponent = (props = {}) => {
             <QueryClientProvider client={queryClient}>
               <DesignSystemProvider>
                 <GenAITracesTableProvider isGroupedBySession={false}>
-                  <TracesV3Logs experimentId="test-experiment" endpointName="test-endpoint" {...props} />
+                  <TracesV3Logs experimentIds={['test-experiment']} endpointName="test-endpoint" {...props} />
                 </GenAITracesTableProvider>
               </DesignSystemProvider>
             </QueryClientProvider>
@@ -268,73 +280,6 @@ describe('TracesV3Logs', () => {
       expect(screen.getByText('Fetching traces failed')).toBeInTheDocument();
       expect(screen.getByText('A network error occurred.')).toBeInTheDocument();
     });
-
-    it('should display error in each selector when useMlflowTracesTableMetadata errors', async () => {
-      const mockError = new GenericNetworkRequestError({ status: 500 }, new Error('Failed to fetch metadata'));
-
-      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
-        assessmentInfos: [],
-        allColumns: [],
-        totalCount: 0,
-        isLoading: false,
-        error: mockError,
-        isEmpty: false,
-        tableFilterOptions: { source: [] },
-        evaluatedTraces: [],
-        otherEvaluatedTraces: [],
-      });
-
-      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
-        isInitialTimeFilterLoading: false,
-      });
-
-      jest.mocked(useSearchMlflowTraces).mockReturnValue({
-        data: [],
-        isLoading: false,
-        isFetching: false,
-        error: null,
-      } as any);
-
-      renderComponent();
-      await waitForRoutesToBeRendered();
-
-      // Test error in column selector
-      const columnSelectorButton = screen.getByTestId('column-selector-button');
-      await userEvent.click(columnSelectorButton);
-
-      await waitFor(() => {
-        // Look for the error message in the dropdown
-        const dropdowns = screen.getAllByText('Fetching traces failed');
-        // Should have exactly 2: one in the table and one in the column selector dropdown
-        expect(dropdowns.length).toBe(2);
-      });
-
-      // Close column selector by clicking outside
-      await userEvent.click(document.body);
-
-      // Test error in sort dropdown
-      const sortButton = screen.getByTestId('sort-select-dropdown');
-      await userEvent.click(sortButton);
-
-      await waitFor(() => {
-        const dropdowns = screen.getAllByText('Fetching traces failed');
-        // Should have exactly 2: one in the table and one in the sort dropdown
-        expect(dropdowns.length).toBe(2);
-      });
-
-      // Close sort dropdown by clicking outside
-      await userEvent.click(document.body);
-
-      // Test error in filter dropdown
-      const filterButton = screen.getByRole('button', { name: /filter/i });
-      await userEvent.click(filterButton);
-
-      await waitFor(() => {
-        const dropdowns = screen.getAllByText('Fetching traces failed');
-        // Should have exactly 2: one in the table and one in the filter dropdown
-        expect(dropdowns.length).toBe(2);
-      });
-    });
   });
 
   describe('Loading state combinations', () => {
@@ -403,40 +348,7 @@ describe('TracesV3Logs', () => {
           const filterButton = screen.getByRole('button', { name: /filter/i });
           expect(filterButton).toBeInTheDocument();
 
-          if (uiShowingData.includes('toolbar (selecting a selector shows spinner)')) {
-            // When metadata is loading, clicking the column selector will show loading state in the dialog
-            const columnSelectorButton = screen.getByTestId('column-selector-button');
-            expect(columnSelectorButton).toBeInTheDocument();
-
-            // Click the button to open the dialog
-            await userEvent.click(columnSelectorButton);
-
-            // Verify the dialog shows loading state
-            await waitFor(() => {
-              // The DialogComboboxContent with loading=true should have aria-busy
-              const dialogContent = screen.getByLabelText(/columns options/i);
-              expect(dialogContent).toHaveAttribute('aria-busy', 'true');
-            });
-
-            // Test sort dropdown shows spinner when loading
-            const sortButton = screen.getByTestId('sort-select-dropdown');
-            expect(sortButton).toBeInTheDocument();
-
-            await userEvent.click(sortButton);
-
-            await waitFor(() => {
-              // Sort dropdown should show loading spinner
-              expect(screen.getByTestId('sort-dropdown-loading')).toBeInTheDocument();
-            });
-
-            // Test filter dropdown shows spinner when loading
-            await userEvent.click(filterButton);
-
-            await waitFor(() => {
-              // Filter dropdown should show loading spinner
-              expect(screen.getByTestId('filter-dropdown-loading')).toBeInTheDocument();
-            });
-          } else if (uiShowingData.includes('toolbar')) {
+          if (uiShowingData.includes('toolbar')) {
             // When metadata is not loading, column selector should work normally
             const columnSelectorButton = screen.getByTestId('column-selector-button');
             expect(columnSelectorButton).toBeInTheDocument();
@@ -525,6 +437,72 @@ describe('TracesV3Logs', () => {
           }),
         );
       });
+    });
+  });
+
+  describe('Empty state behavior', () => {
+    beforeEach(() => {
+      jest.mocked(TracesV3EmptyState).mockClear();
+    });
+
+    it('should not show empty state while fetching even if data is empty', async () => {
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: true,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: true,
+        error: null,
+      } as any);
+
+      renderComponent();
+      await waitForRoutesToBeRendered();
+
+      expect(TracesV3EmptyState).not.toHaveBeenCalled();
+    });
+
+    it('should show empty state when not loading and not fetching', async () => {
+      jest.mocked(useMlflowTracesTableMetadata).mockReturnValue({
+        assessmentInfos: [],
+        allColumns: [],
+        totalCount: 0,
+        isLoading: false,
+        error: null,
+        isEmpty: true,
+        tableFilterOptions: { source: [] },
+        evaluatedTraces: [],
+        otherEvaluatedTraces: [],
+      });
+
+      jest.mocked(useSetInitialTimeFilter).mockReturnValue({
+        isInitialTimeFilterLoading: false,
+      });
+
+      jest.mocked(useSearchMlflowTraces).mockReturnValue({
+        data: [],
+        isLoading: false,
+        isFetching: false,
+        error: null,
+      } as any);
+
+      renderComponent();
+      await waitForRoutesToBeRendered();
+
+      expect(TracesV3EmptyState).toHaveBeenCalled();
     });
   });
 });

@@ -334,88 +334,76 @@ def _infer_schema(data: Any) -> Schema:
             # if col exists in item but its value is None, then it is not required
             requiredness[col] = all(item.get(col) is not None for item in data)
 
-        schema = Schema(
-            [
-                ColSpec(_infer_colspec_type(values).dtype, name=name, required=requiredness[name])
-                for name, values in col_data_mapping.items()
-            ]
-        )
+        schema = Schema([
+            ColSpec(_infer_colspec_type(values).dtype, name=name, required=requiredness[name])
+            for name, values in col_data_mapping.items()
+        ])
 
     elif isinstance(data, dict):
         # dictionary of (name -> numpy.ndarray)
         if all(isinstance(values, np.ndarray) for values in data.values()):
-            schema = Schema(
-                [
-                    TensorSpec(
-                        type=clean_tensor_type(ndarray.dtype),
-                        shape=_get_tensor_shape(ndarray),
-                        name=name,
-                    )
-                    for name, ndarray in data.items()
-                ]
-            )
+            schema = Schema([
+                TensorSpec(
+                    type=clean_tensor_type(ndarray.dtype),
+                    shape=_get_tensor_shape(ndarray),
+                    name=name,
+                )
+                for name, ndarray in data.items()
+            ])
         # Dict[str, Union[DataType, List, Dict]]
         else:
             if any(not isinstance(key, str) for key in data):
                 raise MlflowException("The dictionary keys are not all strings.")
-            schema = Schema(
-                [
-                    ColSpec(
-                        _infer_colspec_type(value),
-                        name=name,
-                        required=_infer_required(value),
-                    )
-                    for name, value in data.items()
-                ]
-            )
+            schema = Schema([
+                ColSpec(
+                    _infer_colspec_type(value),
+                    name=name,
+                    required=_infer_required(value),
+                )
+                for name, value in data.items()
+            ])
     # pandas.Series
     elif isinstance(data, pd.Series):
         name = getattr(data, "name", None)
-        schema = Schema(
-            [
-                ColSpec(
-                    type=_infer_pandas_column(data),
-                    name=name,
-                    required=_infer_required(data),
-                )
-            ]
-        )
+        schema = Schema([
+            ColSpec(
+                type=_infer_pandas_column(data),
+                name=name,
+                required=_infer_required(data),
+            )
+        ])
     # pandas.DataFrame
     elif isinstance(data, pd.DataFrame):
-        schema = Schema(
-            [
-                ColSpec(
-                    type=_infer_pandas_column(data[col]),
-                    name=col,
-                    required=_infer_required(data[col]),
-                )
-                for col in data.columns
-            ]
-        )
+        schema = Schema([
+            ColSpec(
+                type=_infer_pandas_column(data[col]),
+                name=col,
+                required=_infer_required(data[col]),
+            )
+            for col in data.columns
+        ])
     # numpy.ndarray
     elif isinstance(data, np.ndarray):
-        schema = Schema(
-            [TensorSpec(type=clean_tensor_type(data.dtype), shape=_get_tensor_shape(data))]
-        )
+        schema = Schema([
+            TensorSpec(type=clean_tensor_type(data.dtype), shape=_get_tensor_shape(data))
+        ])
     # scipy.sparse.csr_matrix/csc_matrix
     elif isinstance(data, (csc_matrix, csr_matrix)):
-        schema = Schema(
-            [TensorSpec(type=clean_tensor_type(data.data.dtype), shape=_get_tensor_shape(data))]
-        )
+        schema = Schema([
+            TensorSpec(type=clean_tensor_type(data.data.dtype), shape=_get_tensor_shape(data))
+        ])
     # pyspark.sql.DataFrame
     elif _is_spark_df(data):
-        schema = Schema(
-            [
-                ColSpec(
-                    type=_infer_spark_type(field.dataType, data, field.name),
-                    name=field.name,
-                    # Avoid setting required field for spark dataframe
-                    # as the default value for spark df nullable is True
-                    # which counterparts to default required=True in ColSpec
-                )
-                for field in data.schema.fields
-            ]
-        )
+        schema = Schema([
+            ColSpec(
+                type=_infer_spark_type(field.dataType, data, field.name),
+                name=field.name,
+                # Avoid setting required field for spark dataframe
+                # as the default value for spark df nullable is True
+                # which counterparts to default required=True in ColSpec
+            )
+            for field in data.schema.fields
+        ])
     elif isinstance(data, list):
         # Assume list as a single column
         # List[DataType]
@@ -601,7 +589,8 @@ def _infer_spark_type(x, data=None, col_name=None) -> DataType:
             )
 
         merged_keys = (
-            data.selectExpr(f"map_keys({col_name}) as keys")
+            data
+            .selectExpr(f"map_keys({col_name}) as keys")
             .agg(collect_list(col("keys")).alias("merged_keys"))
             .head()
             .merged_keys

@@ -12,7 +12,6 @@ from unittest import mock
 
 import aiohttp
 import requests
-import transformers
 import uvicorn
 import yaml
 from sentence_transformers import SentenceTransformer
@@ -146,8 +145,11 @@ class MockAsyncStreamingResponse:
 
 
 class MockHttpClient(mock.Mock):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, mock_response=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._mock_response = mock_response
+        # Create a mock for post that returns the response
+        self.post = mock.Mock(return_value=mock_response)
 
     async def __aenter__(self):
         return self
@@ -157,9 +159,7 @@ class MockHttpClient(mock.Mock):
 
 
 def mock_http_client(mock_response: MockAsyncResponse | MockAsyncStreamingResponse):
-    mock_http_client = MockHttpClient()
-    mock_http_client.post = mock.Mock(return_value=mock_response)
-    return mock_http_client
+    return MockHttpClient(mock_response=mock_response)
 
 
 class UvicornGateway:
@@ -247,32 +247,6 @@ def log_sentence_transformers_model():
         model_info = mlflow.sentence_transformers.log_model(
             model,
             name=artifact_path,
-        )
-        return model_info.model_uri
-
-
-def log_completions_transformers_model():
-    architecture = "distilbert-base-uncased"
-
-    tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
-    model = transformers.AutoModelForMaskedLM.from_pretrained(architecture)
-    pipe = transformers.pipeline(task="fill-mask", model=model, tokenizer=tokenizer)
-
-    inference_params = {"top_k": 1}
-
-    signature = mlflow.models.infer_signature(
-        ["test1 [MASK]", "[MASK] test2"],
-        mlflow.transformers.generate_signature_output(pipe, ["test3 [MASK]"]),
-        inference_params,
-    )
-
-    artifact_path = "mask_model"
-
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            pipe,
-            name=artifact_path,
-            signature=signature,
         )
         return model_info.model_uri
 

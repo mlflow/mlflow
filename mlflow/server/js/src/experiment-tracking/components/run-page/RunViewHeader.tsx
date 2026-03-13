@@ -4,7 +4,7 @@ import { OverflowMenu, PageHeader } from '../../../shared/building_blocks/PageHe
 import Routes, { PageId as ExperimentTrackingPageId } from '../../routes';
 import type { ExperimentEntity } from '../../types';
 import type { KeyValueEntity } from '../../../common/types';
-import { RunViewModeSwitch } from './RunViewModeSwitch';
+import { RunViewModeSwitch, type RunViewModeSwitchProps } from './RunViewModeSwitch';
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import type { UseGetRunQueryResponseExperiment, UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
@@ -15,7 +15,7 @@ import { useNavigate } from '../../../common/utils/RoutingUtils';
 import { RunIcon } from './assets/RunIcon';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { useExperimentKind, isGenAIExperimentKind } from '../../utils/ExperimentKindUtils';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type ReactNode } from 'react';
 import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
 const RunViewHeaderIcon = () => {
   const { theme } = useDesignSystemTheme();
@@ -35,6 +35,26 @@ const RunViewHeaderIcon = () => {
   );
 };
 
+export interface RunViewHeaderProps {
+  hasComparedExperimentsBefore?: boolean;
+  comparedExperimentIds?: string[];
+  runDisplayName: string;
+  runUuid: string;
+  runOutputs?: UseGetRunQueryResponseOutputs | null;
+  runTags: Record<string, KeyValueEntity>;
+  runParams: Record<string, KeyValueEntity>;
+  experiment: ExperimentEntity | UseGetRunQueryResponseExperiment;
+  handleRenameRunClick: () => void;
+  handleDeleteRunClick?: () => void;
+  artifactRootUri?: string;
+  registeredModelVersionSummaries: RunPageModelVersionSummary[];
+  isLoading?: boolean;
+  /** Custom breadcrumbs to display. If provided, overrides default breadcrumb generation. */
+  customBreadcrumbs?: ReactNode[];
+  /** Props to pass to RunViewModeSwitch for custom tab configuration */
+  tabSwitchProps?: Omit<RunViewModeSwitchProps, 'runTags'>;
+}
+
 /**
  * Run details page header component, common for all page view modes
  */
@@ -52,21 +72,9 @@ export const RunViewHeader = ({
   artifactRootUri,
   registeredModelVersionSummaries,
   isLoading,
-}: {
-  hasComparedExperimentsBefore?: boolean;
-  comparedExperimentIds?: string[];
-  runDisplayName: string;
-  runUuid: string;
-  runOutputs?: UseGetRunQueryResponseOutputs | null;
-  runTags: Record<string, KeyValueEntity>;
-  runParams: Record<string, KeyValueEntity>;
-  experiment: ExperimentEntity | UseGetRunQueryResponseExperiment;
-  handleRenameRunClick: () => void;
-  handleDeleteRunClick?: () => void;
-  artifactRootUri?: string;
-  registeredModelVersionSummaries: RunPageModelVersionSummary[];
-  isLoading?: boolean;
-}) => {
+  customBreadcrumbs,
+  tabSwitchProps,
+}: RunViewHeaderProps) => {
   const { theme } = useDesignSystemTheme();
   const experimentKind = useExperimentKind(experiment.tags);
 
@@ -83,10 +91,12 @@ export const RunViewHeader = ({
 
   function getExperimentPageLink() {
     return hasComparedExperimentsBefore && comparedExperimentIds ? (
-      <Link to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}>
+      <Link
+        componentId="mlflow.run_page.header.compare_experiments_link"
+        to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}
+      >
         <FormattedMessage
           defaultMessage="Displaying Runs from {numExperiments} Experiments"
-          // eslint-disable-next-line max-len
           description="Breadcrumb nav item to link to the compare-experiments page on compare runs page"
           values={{
             numExperiments: comparedExperimentIds.length,
@@ -94,16 +104,24 @@ export const RunViewHeader = ({
         />
       </Link>
     ) : (
-      <Link to={experimentPageTabRoute} data-testid="experiment-runs-link">
+      <Link
+        componentId="mlflow.run_page.header.experiment_name_link"
+        to={experimentPageTabRoute}
+        data-testid="experiment-runs-link"
+      >
         {experiment.name}
       </Link>
     );
   }
 
-  const breadcrumbs = [getExperimentPageLink()];
+  const defaultBreadcrumbs = [getExperimentPageLink()];
   if (experiment.experimentId) {
-    breadcrumbs.push(
-      <Link to={experimentPageTabRoute} data-testid="experiment-observatory-link-runs">
+    defaultBreadcrumbs.push(
+      <Link
+        componentId="mlflow.run_page.header.experiment_tab_link"
+        to={experimentPageTabRoute}
+        data-testid="experiment-observatory-link-runs"
+      >
         {shouldRouteToEvaluations ? (
           <FormattedMessage
             defaultMessage="Evaluations"
@@ -119,6 +137,8 @@ export const RunViewHeader = ({
     );
   }
 
+  const breadcrumbs = customBreadcrumbs ?? defaultBreadcrumbs;
+
   const navigate = useNavigate();
 
   const handleCompareClick = useCallback(() => {
@@ -130,8 +150,9 @@ export const RunViewHeader = ({
     navigate(`${evaluationRunsRoute}?${searchParams.toString()}`);
   }, [navigate, experiment.experimentId, runUuid]);
 
+  // Compare button - only enabled when feature flag is on
   const renderCompareButton = () => {
-    if (!shouldRouteToEvaluations || !shouldEnableImprovedEvalRunsComparison()) {
+    if (!shouldEnableImprovedEvalRunsComparison() || !shouldRouteToEvaluations) {
       return null;
     }
     return (
@@ -200,7 +221,7 @@ export const RunViewHeader = ({
           ]}
         />
       </PageHeader>
-      <RunViewModeSwitch runTags={runTags} />
+      <RunViewModeSwitch runTags={runTags} {...tabSwitchProps} />
     </div>
   );
 };

@@ -59,6 +59,7 @@ from mlflow.utils.autologging_utils import (
     resolve_input_example_and_signature,
     safe_patch,
 )
+from mlflow.utils.data_utils import is_polars_dataframe
 from mlflow.utils.databricks_utils import is_in_databricks_runtime as is_in_databricks_runtime
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
@@ -78,6 +79,7 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -86,6 +88,14 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "lightgbm"
 
+# Builtin trusted types for LightGBM sklearn-compatible models serialized with skops.
+# These cover the common LightGBM model classes and their internal dependencies.
+_LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES = {
+    "collections.OrderedDict",
+    "lightgbm.basic.Booster",
+    "lightgbm.sklearn.LGBMClassifier",
+    "lightgbm.sklearn.LGBMRegressor",
+}
 
 _logger = logging.getLogger(__name__)
 
@@ -131,6 +141,8 @@ def save_model(
     metadata=None,
     serialization_format="cloudpickle",
     skops_trusted_types=None,
+    extra_files=None,
+    **kwargs,
 ):
     """
     Save a LightGBM model to a path on the local file system.
@@ -157,6 +169,8 @@ def save_model(
             which can execute arbitrary code during deserialization.
         skops_trusted_types: A list of trusted types when loading model that is saved as
             the "skops" format.
+        extra_files: {{ extra_files }}
+        kwargs: {{ kwargs }}
 
     .. code-block:: python
         :caption: Example
@@ -203,7 +217,12 @@ def save_model(
 
     path = os.path.abspath(path)
     _validate_and_prepare_target_save_path(path)
-    model_data_subpath = "model.lgb" if isinstance(lgb_model, lgb.Booster) else "model.pkl"
+    if isinstance(lgb_model, lgb.Booster):
+        model_data_subpath = "model.lgb"
+    elif serialization_format == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS:
+        model_data_subpath = "model.skops"
+    else:
+        model_data_subpath = "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
@@ -222,10 +241,17 @@ def save_model(
     if metadata is not None:
         mlflow_model.metadata = metadata
 
+    if serialization_format == "skops":
+        skops_trusted_types = list(
+            _LIGHTGBM_SKLEARN_SKOPS_TRUSTED_TYPES.union(skops_trusted_types or set())
+        )
     # Save a LightGBM model
     _save_model(lgb_model, model_data_path, serialization_format, skops_trusted_types)
 
     lgb_model_class = _get_fully_qualified_class_name(lgb_model)
+
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="mlflow.lightgbm",
@@ -242,6 +268,7 @@ def save_model(
         code=code_dir_subpath,
         serialization_format=serialization_format,
         skops_trusted_types=skops_trusted_types,
+        **extra_files_config,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -304,8 +331,9 @@ def _save_model(lgb_model, model_path, serialization_format, skops_trusted_types
             _logger.warning(
                 "Saving the models in the pickle or cloudpickle format requires exercising "
                 "caution because these formats rely on Python's object serialization mechanism, "
-                "which can execute arbitrary code during deserialization."
-                "The recommended safe alternative is the 'skops' format.",
+                "which can execute arbitrary code during deserialization. "
+                "The recommended safe alternative is the 'skops' format. "
+                "For more information, see: https://scikit-learn.org/stable/model_persistence.html",
             )
         _save_sklearn_model(lgb_model, model_path, serialization_format, skops_trusted_types)
 
@@ -323,6 +351,7 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
     tags: dict[str, Any] | None = None,
@@ -354,6 +383,7 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
@@ -400,9 +430,7 @@ def log_model(
         # Log the model
         artifact_path = "model"
         with mlflow.start_run():
-            model_info = mlflow.lightgbm.log_model(
-                model, name=artifact_path, signature=signature
-            )
+            model_info = mlflow.lightgbm.log_model(model, name=artifact_path, signature=signature)
 
         # Fetch the logged model artifacts
         print(f"run_id: {run.info.run_id}")
@@ -433,6 +461,7 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,
@@ -1022,6 +1051,10 @@ def _log_lightgbm_dataset(lgb_dataset, source, context, autologging_client, name
         dataset = from_numpy(features=arr_data, targets=label, source=source, name=name)
     elif isinstance(data, np.ndarray):
         dataset = from_numpy(features=data, targets=label, source=source, name=name)
+    elif is_polars_dataframe(data):
+        from mlflow.data.polars_dataset import from_polars
+
+        dataset = from_polars(df=data, source=source, name=name)
     else:
         _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(data))
         return

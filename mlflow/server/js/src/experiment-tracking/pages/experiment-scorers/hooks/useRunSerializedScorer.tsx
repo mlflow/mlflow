@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import { useEvaluateTraces } from '../useEvaluateTraces';
-import { EvaluateTracesParams, LLM_TEMPLATE, LLMScorer, ScheduledScorer } from '../types';
+import type { EvaluateTracesParams, LLM_TEMPLATE, LLMScorer, ScheduledScorer } from '../types';
 import { ScorerEvaluationScope } from '../constants';
 import { transformScheduledScorer } from '../utils/scorerTransformUtils';
-import { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
+import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 import { isObject } from 'lodash';
 import { useTemplateOptions } from '../llmScorerUtils';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
@@ -14,12 +14,16 @@ import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
 export const useRunSerializedScorer = ({
   experimentId,
   onScorerFinished,
+  scope = ScorerEvaluationScope.TRACES,
 }: {
   experimentId?: string;
   onScorerFinished?: (event: ScorerFinishedEvent) => void;
+  scope?: ScorerEvaluationScope;
 }) => {
-  const [evaluateTracesFn, { latestEvaluation, isLoading, allEvaluations }] = useEvaluateTraces({ onScorerFinished });
-  const { displayMap } = useTemplateOptions();
+  const [evaluateTracesFn, { latestEvaluation, isLoading, allEvaluations, reset }] = useEvaluateTraces({
+    onScorerFinished,
+  });
+  const { displayMap } = useTemplateOptions(scope);
 
   const getEvaluationParams = useCallback(
     (scorerOrTemplate: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string): EvaluateTracesParams => {
@@ -32,7 +36,7 @@ export const useRunSerializedScorer = ({
         itemIds: traceIds,
         locations: [{ mlflow_experiment: { experiment_id: experimentId }, type: 'MLFLOW_EXPERIMENT' as const }],
         experimentId,
-        evaluationScope: ScorerEvaluationScope.TRACES,
+        evaluationScope: scope,
         saveAssessment: true,
       };
       if (isObject(scorerOrTemplate)) {
@@ -57,6 +61,7 @@ export const useRunSerializedScorer = ({
             instructions: instructionsForCustomTemplate,
             model: endpointName,
             is_instructions_judge: true,
+            isSessionLevelScorer: scope === ScorerEvaluationScope.SESSIONS,
           }
         : {
             name: displayMap[scorerOrTemplate],
@@ -64,6 +69,7 @@ export const useRunSerializedScorer = ({
             llmTemplate: scorerOrTemplate,
             model: endpointName,
             is_instructions_judge: false,
+            isSessionLevelScorer: scope === ScorerEvaluationScope.SESSIONS,
           };
 
       // Create backend-compatible scorer config
@@ -75,7 +81,7 @@ export const useRunSerializedScorer = ({
         serializedScorer: scorerConfig.serialized_scorer,
       };
     },
-    [displayMap, experimentId],
+    [displayMap, experimentId, scope],
   );
 
   const evaluateTraces = useCallback(
@@ -92,5 +98,6 @@ export const useRunSerializedScorer = ({
     latestEvaluation,
     isLoading,
     allEvaluations,
+    reset,
   };
 };

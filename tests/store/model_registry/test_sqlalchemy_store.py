@@ -1,5 +1,7 @@
+import shutil
 import time
 import uuid
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -14,9 +16,11 @@ from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
     _MLFLOW_GO_STORE_TESTING,
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_URI,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -31,6 +35,11 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlWebhook,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+from mlflow.store.model_registry.sqlalchemy_workspace_store import (
+    WorkspaceAwareSqlAlchemyStore,
+)
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.helper_functions import random_str
 
@@ -39,14 +48,32 @@ pytestmark = pytest.mark.notrackingurimock
 GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
 
 
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request, monkeypatch, disable_workspace_mode_by_default):
+    """
+    Run every test in this module with workspaces disabled and enabled to cover both code paths.
+    """
+    enabled = request.param
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true" if enabled else "false")
+    if enabled:
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            yield enabled
+    else:
+        yield enabled
+
+
 @pytest.fixture
-def store(db_uri: str):
+def store(tmp_path: Path, cached_db: Path, workspaces_enabled):
+    store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
     if db_uri_env := MLFLOW_TRACKING_URI.get():
-        s = SqlAlchemyStore(db_uri_env)
+        s = store_cls(db_uri_env)
         yield s
         _cleanup_database(s)
     else:
-        s = SqlAlchemyStore(db_uri)
+        db_path = tmp_path / "mlflow.db"
+        shutil.copy(cached_db, db_path)
+        db_uri = f"sqlite:///{db_path}"
+        s = store_cls(db_uri)
         yield s
 
     # Dispose the engine to close all pooled connections
@@ -1284,9 +1311,10 @@ def test_parse_search_registered_models_order_by():
     # test that an exception is raised when order_by contains duplicate fields
     msg = "`order_by` contains duplicate fields:"
     with pytest.raises(MlflowException, match=msg):
-        SqlAlchemyStore._parse_search_registered_models_order_by(
-            ["last_updated_timestamp", "last_updated_timestamp"]
-        )
+        SqlAlchemyStore._parse_search_registered_models_order_by([
+            "last_updated_timestamp",
+            "last_updated_timestamp",
+        ])
 
     with pytest.raises(MlflowException, match=msg):
         SqlAlchemyStore._parse_search_registered_models_order_by(["timestamp", "timestamp"])
@@ -1714,7 +1742,10 @@ def test_delete_model_version_deletes_alias(store):
     store.delete_model_version(model_name, 2)
     model = store.get_registered_model(model_name)
     assert model.aliases == {}
-    with pytest.raises(MlflowException, match=r"Registered model alias test_alias not found."):
+    with pytest.raises(
+        MlflowException,
+        match=r"Registered model alias test_alias not found.",
+    ):
         store.get_model_version_by_alias(model_name, "test_alias")
 
 
@@ -1724,7 +1755,7 @@ def test_delete_model_deletes_alias(store):
     store.delete_registered_model(model_name)
     with pytest.raises(
         MlflowException,
-        match=r"Registered model alias test_alias not found.",
+        match=rf"Registered Model with name={model_name} not found",
     ):
         store.get_model_version_by_alias(model_name, "test_alias")
 
@@ -1916,6 +1947,70 @@ def test_search_prompts_versions(store):
     )
     assert len(mvs) == 1
     assert mvs[0].name == "prompt_2"
+
+
+def test_search_prompt_versions(store):
+    # Create a prompt with 3 versions
+    store.create_registered_model(
+        "my_prompt", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    for i in range(1, 4):
+        store.create_model_version(
+            "my_prompt",
+            str(i),
+            "dummy_source",
+            tags=[
+                ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+                ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=f"Hello {{{{name}}}} v{i}"),
+            ],
+        )
+
+    # Create a different prompt to verify filtering by name
+    store.create_registered_model(
+        "other_prompt", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    store.create_model_version(
+        "other_prompt",
+        "1",
+        "dummy_source",
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value="Other prompt text"),
+        ],
+    )
+
+    # Search all versions of my_prompt
+    results = store.search_prompt_versions("my_prompt")
+    assert len(results) == 3
+    # Should be ordered by version descending
+    assert [pv.version for pv in results] == [3, 2, 1]
+    assert all(pv.name == "my_prompt" for pv in results)
+
+    # Pagination with max_results
+    page1 = store.search_prompt_versions("my_prompt", max_results=2)
+    assert len(page1) == 2
+    assert [pv.version for pv in page1] == [3, 2]
+    assert page1.token is not None
+
+    # Fetch next page
+    page2 = store.search_prompt_versions("my_prompt", max_results=2, page_token=page1.token)
+    assert len(page2) == 1
+    assert page2[0].version == 1
+    assert page2.token is None
+
+    # Search other_prompt returns only its versions
+    results = store.search_prompt_versions("other_prompt")
+    assert len(results) == 1
+    assert results[0].name == "other_prompt"
+
+    # Searching a non-existent prompt raises
+    with pytest.raises(MlflowException, match="not found"):
+        store.search_prompt_versions("nonexistent_prompt")
+
+    # Searching a model (not a prompt) raises
+    store.create_registered_model("a_model")
+    with pytest.raises(MlflowException, match="registered as a model, not a prompt"):
+        store.search_prompt_versions("a_model")
 
 
 def test_create_registered_model_handle_prompt_properly(store):

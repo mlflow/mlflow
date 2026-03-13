@@ -85,7 +85,10 @@ export const ExperimentViewManagementMenu = ({
         experimentName={experiment.name}
         isOpen={showRenameExperimentModal}
         onClose={() => setShowRenameExperimentModal(false)}
-        onExperimentRenamed={invalidateExperimentList}
+        onExperimentRenamed={() => {
+          invalidateExperimentList();
+          refetchExperiment?.();
+        }}
       />
       <DeleteExperimentModal
         experimentId={experiment.experimentId}

@@ -73,9 +73,7 @@ new_records = [
     {
         "inputs": {"question": "How do I reset my password?"},
         "expectations": {
-            "expected_answer": (
-                "Click 'Forgot Password' and follow the email instructions"
-            ),
+            "expected_answer": ("Click 'Forgot Password' and follow the email instructions"),
             "must_include_steps": True,
         },
     },
@@ -114,32 +112,30 @@ Add records from a pandas DataFrame:
 import pandas as pd
 
 # Create DataFrame with structured data (ground truth expectations)
-df = pd.DataFrame(
-    [
-        {
-            "inputs": {
-                "question": "What is MLflow?",
-                "context": "general",
-            },
-            "expectations": {
-                "expected_answer": "MLflow is an open-source platform for ML lifecycle",
-                "must_mention": ["tracking", "experiments"],
-            },
-            "tags": {"priority": "high"},
+df = pd.DataFrame([
+    {
+        "inputs": {
+            "question": "What is MLflow?",
+            "context": "general",
         },
-        {
-            "inputs": {
-                "question": "How to track experiments?",
-                "context": "technical",
-            },
-            "expectations": {
-                "expected_answer": "Use mlflow.start_run() and mlflow.log_params()",
-                "must_mention": ["log_params", "start_run"],
-            },
-            "tags": {"priority": "medium"},
+        "expectations": {
+            "expected_answer": "MLflow is an open-source AI engineering platform",
+            "must_mention": ["tracking", "experiments"],
         },
-    ]
-)
+        "tags": {"priority": "high"},
+    },
+    {
+        "inputs": {
+            "question": "How to track experiments?",
+            "context": "technical",
+        },
+        "expectations": {
+            "expected_answer": "Use mlflow.start_run() and mlflow.log_params()",
+            "must_mention": ["log_params", "start_run"],
+        },
+        "tags": {"priority": "medium"},
+    },
+])
 
 dataset.merge_records(df)
 ```
@@ -232,34 +228,28 @@ The <APILink fn="mlflow.entities.EvaluationDataset.merge_records" text="merge_re
 
 ```python
 # Initial record
-dataset.merge_records(
-    [
-        {
-            "inputs": {"question": "What is MLflow?"},
-            "expectations": {
-                "expected_answer": "MLflow is a platform for ML",
-                "must_mention_tracking": True,
-            },
-        }
-    ]
-)
+dataset.merge_records([
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "expectations": {
+            "expected_answer": "MLflow is a platform for ML",
+            "must_mention_tracking": True,
+        },
+    }
+])
 
 # Update with same inputs but enhanced expectations
-dataset.merge_records(
-    [
-        {
-            "inputs": {"question": "What is MLflow?"},  # Same inputs = update
-            "expectations": {
-                # Updates existing value
-                "expected_answer": (
-                    "MLflow is an open-source platform for managing the ML lifecycle"
-                ),
-                "must_mention_models": True,  # Adds new expectation
-                # Note: "must_mention_tracking": True is preserved
-            },
-        }
-    ]
-)
+dataset.merge_records([
+    {
+        "inputs": {"question": "What is MLflow?"},  # Same inputs = update
+        "expectations": {
+            # Updates existing value
+            "expected_answer": ("MLflow is an open-source AI engineering platform"),
+            "must_mention_models": True,  # Adds new expectation
+            # Note: "must_mention_tracking": True is preserved
+        },
+    }
+])
 
 # Result: One record with merged expectations
 ```
@@ -340,6 +330,31 @@ delete_dataset(dataset_id="d-1a2b3c4d5e6f7890")
 
 :::warning
 Dataset deletion is permanent and cannot be undone. All records will be deleted.
+:::
+
+## Deleting Specific Records from a Dataset
+
+Remove specific records from a dataset using <APILink fn="mlflow.genai.datasets.EvaluationDataset.delete_records" text="delete_records()" />:
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Get the dataset and its records
+dataset = client.get_dataset(dataset_id="d-1a2b3c4d5e6f7890")
+df = dataset.to_df()
+
+# Get record IDs to delete
+record_ids_to_delete = df["dataset_record_id"].tolist()[:2]  # Delete first 2 records
+
+# Delete specific records
+deleted_count = dataset.delete_records(record_ids_to_delete)
+print(f"Deleted {deleted_count} records")
+```
+
+:::note
+Deleting records updates the dataset's profile (record count) automatically.
 :::
 
 ## Working with Dataset Records
@@ -455,7 +470,7 @@ human_curated = [
         "expectations": {
             "expected_answer": "MLflow is an open-source ML platform",
             "must_mention": ["tracking", "models", "deployment"],
-        }
+        },
         # Automatically inferred as HUMAN source
     }
 ]
@@ -636,7 +651,7 @@ datasets = search_datasets(
     icon={BarChart3}
     iconSize={48}
     title="Run Evaluations"
-    description="Use your datasets to systematically evaluate and improve your GenAI applications"
+    description="Use your datasets to systematically evaluate and improve your LLM applications and AI agents"
     href="/genai/eval-monitor"
     linkText="Start evaluating →"
     containerHeight={64}

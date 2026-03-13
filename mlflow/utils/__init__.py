@@ -168,6 +168,25 @@ def find_free_port():
         return s.getsockname()[1]
 
 
+def is_port_available(port: int, host: str = "127.0.0.1") -> bool:
+    """
+    Check if a port is available for binding.
+
+    Args:
+        port: The port number to check.
+        host: The host address to check. Defaults to localhost.
+
+    Returns:
+        True if the port is available, False if it's already in use.
+    """
+    with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
+        try:
+            s.bind((host, port))
+            return True
+        except OSError:
+            return False
+
+
 def check_port_connectivity():
     port = find_free_port()
     try:

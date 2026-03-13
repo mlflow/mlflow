@@ -24,7 +24,7 @@ class Noqa:
         from clint.linter import Position
 
         if match := NOQA_REGEX.match(token.string):
-            rules = set(match.group(1).upper().split(","))
+            rules = {r.strip() for r in match.group(1).upper().split(",")}
             start = Position(token.start[0], token.start[1])
             end = Position(token.end[0], token.end[1])
             return cls(start=start, end=end, rules=rules)

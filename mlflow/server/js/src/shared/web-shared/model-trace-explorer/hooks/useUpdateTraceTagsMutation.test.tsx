@@ -1,22 +1,29 @@
-import { describe, jest, beforeAll, beforeEach, it, expect } from '@jest/globals';
+import { describe, jest, beforeEach, it, expect } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
-import { rest } from 'msw';
-import { setupServer } from 'msw/node';
 
-import { QueryClientProvider, QueryClient } from '@databricks/web-shared/query-client';
+import { QueryClientProvider, QueryClient } from '../../query-client/queryClient';
 
 import { useUpdateTraceTagsMutation } from './useUpdateTraceTagsMutation';
 import { shouldUseTracesV4API } from '../FeatureUtils';
 import type { ModelTraceInfoV3, ModelTraceLocation } from '../ModelTrace.types';
+import { TracesServiceV3, TracesServiceV4 } from '../api';
 
 jest.mock('../FeatureUtils', () => ({
   shouldUseTracesV4API: jest.fn(),
 }));
 
-describe('useUpdateTraceTagsMutation', () => {
-  const server = setupServer();
-  beforeAll(() => server.listen());
+jest.mock('../api', () => ({
+  TracesServiceV3: {
+    setTraceTagV3: jest.fn(),
+    deleteTraceTagV3: jest.fn(),
+  },
+  TracesServiceV4: {
+    setTraceTagV4: jest.fn(),
+    deleteTraceTagV4: jest.fn(),
+  },
+}));
 
+describe('useUpdateTraceTagsMutation', () => {
   const wrapper = ({ children }: { children: React.ReactNode }) => {
     const queryClient = new QueryClient();
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
@@ -49,6 +56,11 @@ describe('useUpdateTraceTagsMutation', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Mock services to resolve successfully by default
+    jest.mocked(TracesServiceV3.setTraceTagV3).mockResolvedValue({});
+    jest.mocked(TracesServiceV3.deleteTraceTagV3).mockResolvedValue({});
+    jest.mocked(TracesServiceV4.setTraceTagV4).mockResolvedValue({});
+    jest.mocked(TracesServiceV4.deleteTraceTagV4).mockResolvedValue({});
   });
 
   describe('when V4 API is enabled', () => {
@@ -70,20 +82,6 @@ describe('useUpdateTraceTagsMutation', () => {
         trace_location: ucSchemaLocation,
       };
 
-      const patchSpy = jest.fn();
-      const deleteSpy = jest.fn();
-
-      server.use(
-        rest.patch('ajax-api/4.0/mlflow/traces/my_catalog.my_schema/trace-456/tags', async (req, res, ctx) => {
-          patchSpy(await req.json());
-          return res(ctx.json({}));
-        }),
-        rest.delete('ajax-api/4.0/mlflow/traces/my_catalog.my_schema/trace-456/tags/:tagKey', async (req, res, ctx) => {
-          deleteSpy(req.params['tagKey']);
-          return res(ctx.json({}));
-        }),
-      );
-
       const { result } = renderHook(() => useUpdateTraceTagsMutation({}), {
         wrapper,
       });
@@ -95,8 +93,20 @@ describe('useUpdateTraceTagsMutation', () => {
       });
 
       await waitFor(() => {
-        expect(patchSpy).toHaveBeenCalledWith({ key: 'tag1', value: 'value1' });
-        expect(deleteSpy).toHaveBeenCalledWith('tag2');
+        expect(TracesServiceV4.setTraceTagV4).toHaveBeenCalledTimes(1);
+        expect(TracesServiceV4.deleteTraceTagV4).toHaveBeenCalledTimes(1);
+        // Check call for new tag
+        expect(TracesServiceV4.setTraceTagV4).toHaveBeenCalledWith({
+          tag: { key: 'tag1', value: 'value1' },
+          traceLocation: ucSchemaLocation,
+          traceId: 'trace-456',
+        });
+        // Check call for deleted tag
+        expect(TracesServiceV4.deleteTraceTagV4).toHaveBeenCalledWith({
+          tagKey: 'tag2',
+          traceLocation: ucSchemaLocation,
+          traceId: 'trace-456',
+        });
       });
     });
   });
@@ -107,19 +117,6 @@ describe('useUpdateTraceTagsMutation', () => {
     });
 
     it('should use V3 endpoints', async () => {
-      const v3TagRequests: { method: string; body?: any; url: string }[] = [];
-
-      server.use(
-        rest.patch('http://localhost/ajax-api/3.0/mlflow/traces/trace-456/tags', async (req, res, ctx) => {
-          v3TagRequests.push({ method: 'PATCH', body: await req.json(), url: req.url.href });
-          return res(ctx.json({}));
-        }),
-        rest.delete('http://localhost/ajax-api/3.0/mlflow/traces/trace-456/tags', async (req, res, ctx) => {
-          v3TagRequests.push({ method: 'DELETE', url: req.url.href });
-          return res(ctx.json({}));
-        }),
-      );
-
       const { result } = renderHook(() => useUpdateTraceTagsMutation({}), {
         wrapper,
       });
@@ -131,20 +128,29 @@ describe('useUpdateTraceTagsMutation', () => {
       });
 
       await waitFor(() => {
-        expect(v3TagRequests).toHaveLength(4);
+        expect(TracesServiceV3.setTraceTagV3).toHaveBeenCalledTimes(2);
+        expect(TracesServiceV3.deleteTraceTagV3).toHaveBeenCalledTimes(2);
       });
 
-      // Verify creation requests
-      const createRequests = v3TagRequests.filter((req) => req.method === 'PATCH');
-      expect(createRequests).toHaveLength(2);
-      expect(createRequests[0].body).toEqual({ key: 'tag1', value: 'value1' });
-      expect(createRequests[1].body).toEqual({ key: 'tag2', value: 'value2' });
+      // Verify calls for new tags
+      expect(TracesServiceV3.setTraceTagV3).toHaveBeenCalledWith({
+        tag: { key: 'tag1', value: 'value1' },
+        traceId: 'trace-456',
+      });
+      expect(TracesServiceV3.setTraceTagV3).toHaveBeenCalledWith({
+        tag: { key: 'tag2', value: 'value2' },
+        traceId: 'trace-456',
+      });
 
-      // Verify deletion requests
-      const deleteRequests = v3TagRequests.filter((req) => req.method === 'DELETE');
-      expect(deleteRequests).toHaveLength(2);
-      expect(deleteRequests[0].url).toContain('key=tag3');
-      expect(deleteRequests[1].url).toContain('key=tag4');
+      // Verify calls for deleted tags
+      expect(TracesServiceV3.deleteTraceTagV3).toHaveBeenCalledWith({
+        tagKey: 'tag3',
+        traceId: 'trace-456',
+      });
+      expect(TracesServiceV3.deleteTraceTagV3).toHaveBeenCalledWith({
+        tagKey: 'tag4',
+        traceId: 'trace-456',
+      });
     });
   });
 
@@ -155,12 +161,6 @@ describe('useUpdateTraceTagsMutation', () => {
 
     it('should call onSuccess callback after successful mutation', async () => {
       const onSuccess = jest.fn();
-
-      server.use(
-        rest.patch('http://localhost/ajax-api/3.0/mlflow/traces/trace-456/tags', async (req, res, ctx) => {
-          return res(ctx.json({}));
-        }),
-      );
 
       const { result } = renderHook(() => useUpdateTraceTagsMutation({ onSuccess }), {
         wrapper,
@@ -173,6 +173,7 @@ describe('useUpdateTraceTagsMutation', () => {
       });
 
       await waitFor(() => {
+        expect(TracesServiceV3.setTraceTagV3).toHaveBeenCalledTimes(1);
         expect(onSuccess).toHaveBeenCalledTimes(1);
       });
     });
@@ -198,18 +199,11 @@ describe('useUpdateTraceTagsMutation', () => {
       await waitFor(() => {
         expect(result.current.isSuccess).toBe(true);
       });
+      expect(TracesServiceV3.setTraceTagV3).not.toHaveBeenCalled();
+      expect(TracesServiceV3.deleteTraceTagV3).not.toHaveBeenCalled();
     });
 
     it('should handle only newTags', async () => {
-      const v3TagRequests: { method: string }[] = [];
-
-      server.use(
-        rest.patch('http://localhost/ajax-api/3.0/mlflow/traces/trace-456/tags', async (req, res, ctx) => {
-          v3TagRequests.push({ method: 'PATCH' });
-          return res(ctx.json({}));
-        }),
-      );
-
       const { result } = renderHook(() => useUpdateTraceTagsMutation({}), {
         wrapper,
       });
@@ -221,21 +215,16 @@ describe('useUpdateTraceTagsMutation', () => {
       });
 
       await waitFor(() => {
-        expect(v3TagRequests).toHaveLength(1);
-        expect(v3TagRequests[0].method).toBe('PATCH');
+        expect(TracesServiceV3.setTraceTagV3).toHaveBeenCalledTimes(1);
+        expect(TracesServiceV3.setTraceTagV3).toHaveBeenCalledWith({
+          tag: { key: 'tag1', value: 'value1' },
+          traceId: 'trace-456',
+        });
+        expect(TracesServiceV3.deleteTraceTagV3).not.toHaveBeenCalled();
       });
     });
 
     it('should handle only deletedTags', async () => {
-      const v3TagRequests: { method: string }[] = [];
-
-      server.use(
-        rest.delete('http://localhost/ajax-api/3.0/mlflow/traces/trace-456/tags', async (req, res, ctx) => {
-          v3TagRequests.push({ method: 'DELETE' });
-          return res(ctx.json({}));
-        }),
-      );
-
       const { result } = renderHook(() => useUpdateTraceTagsMutation({}), {
         wrapper,
       });
@@ -247,8 +236,12 @@ describe('useUpdateTraceTagsMutation', () => {
       });
 
       await waitFor(() => {
-        expect(v3TagRequests).toHaveLength(1);
-        expect(v3TagRequests[0].method).toBe('DELETE');
+        expect(TracesServiceV3.deleteTraceTagV3).toHaveBeenCalledTimes(1);
+        expect(TracesServiceV3.deleteTraceTagV3).toHaveBeenCalledWith({
+          tagKey: 'tag1',
+          traceId: 'trace-456',
+        });
+        expect(TracesServiceV3.setTraceTagV3).not.toHaveBeenCalled();
       });
     });
   });

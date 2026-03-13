@@ -205,6 +205,25 @@ export const normalizePydanticAIChatInput = (obj: unknown): ModelTraceChatMessag
     }
   }
 
+  // Handle InstrumentedModel span inputs which have a `messages` key
+  // containing an array of request/response objects
+  if (isObject(obj) && has(obj, 'messages')) {
+    const messagesArray = (obj as any).messages;
+    if (isArray(messagesArray) && messagesArray.length > 0) {
+      const messages: ModelTraceChatMessage[] = [];
+
+      for (const item of messagesArray) {
+        if (isPydanticAIModelRequest(item)) {
+          messages.push(...normalizeModelRequest(item));
+        } else if (isPydanticAIModelResponse(item)) {
+          messages.push(...normalizeModelResponse(item));
+        }
+      }
+
+      return messages.length > 0 ? messages : null;
+    }
+  }
+
   if (isArray(obj) && obj.length > 0) {
     const messages: ModelTraceChatMessage[] = [];
 

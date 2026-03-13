@@ -8,6 +8,7 @@ import "datasets.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
+import "issues.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
 import "prompt_optimization.proto";
 import "scalapb/scalapb.proto";
@@ -1002,6 +1003,92 @@ service MlflowService {
     };
   }
 
+  // Workspace APIs
+  rpc listWorkspaces(ListWorkspaces) returns (ListWorkspaces.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/workspaces"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "List Workspaces"
+    };
+  }
+
+  rpc createWorkspace(CreateWorkspace) returns (CreateWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/workspaces"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create Workspace"
+    };
+  }
+
+  rpc getWorkspace(GetWorkspace) returns (GetWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/workspaces/{workspace_name}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get Workspace"
+    };
+  }
+
+  rpc updateWorkspace(UpdateWorkspace) returns (UpdateWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/workspaces/{workspace_name}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update Workspace"
+    };
+  }
+
+  rpc deleteWorkspace(DeleteWorkspace) returns (DeleteWorkspace.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/workspaces/{workspace_name}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Workspace"
+    };
+  }
+
   rpc createLoggedModel(CreateLoggedModel) returns (CreateLoggedModel.Response) {
     option (rpc) = {
       endpoints: [
@@ -1237,6 +1324,80 @@ service MlflowService {
       ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "Delete Assessment"
+    };
+  }
+
+  // Issue RPCs
+
+  // Create an issue.
+  rpc createIssue(mlflow.issues.CreateIssue) returns (mlflow.issues.CreateIssue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/issues"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Create an issue"
+    };
+  }
+
+  // Update an existing issue.
+  rpc updateIssue(mlflow.issues.UpdateIssue) returns (mlflow.issues.UpdateIssue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/issues/{issue_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Update an existing issue"
+    };
+  }
+
+  // Get an issue by ID.
+  rpc getIssue(mlflow.issues.GetIssue) returns (mlflow.issues.GetIssue.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/issues/{issue_id}"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Get an issue by ID"
+    };
+  }
+
+  // Search issues.
+  rpc searchIssues(mlflow.issues.SearchIssues) returns (mlflow.issues.SearchIssues.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/issues/search"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Search issues"
     };
   }
 
@@ -1548,6 +1709,29 @@ service MlflowService {
       ]
       visibility: PUBLIC_UNDOCUMENTED
       rpc_doc_title: "Get Evaluation Dataset Records"
+    };
+  }
+
+  // Delete evaluation dataset records
+  rpc deleteDatasetRecords(DeleteDatasetRecords) returns (DeleteDatasetRecords.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/datasets/{dataset_id}/records"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Delete Evaluation Dataset Records"
     };
   }
 
@@ -2000,6 +2184,116 @@ service MlflowService {
       ]
       visibility: PUBLIC
       rpc_doc_title: "Gateway Delete Endpoint Tag"
+    };
+  }
+
+  // ==================== Budget Policy APIs ====================
+
+  // Create a new budget policy
+  rpc createBudgetPolicy(CreateGatewayBudgetPolicy) returns (CreateGatewayBudgetPolicy.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/budgets/create"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Budget Policy"
+    };
+  }
+
+  // Get a budget policy by ID
+  rpc getBudgetPolicy(GetGatewayBudgetPolicy) returns (GetGatewayBudgetPolicy.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/budgets/get"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Budget Policy"
+    };
+  }
+
+  // Update a budget policy
+  rpc updateBudgetPolicy(UpdateGatewayBudgetPolicy) returns (UpdateGatewayBudgetPolicy.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/gateway/budgets/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Budget Policy"
+    };
+  }
+
+  // Delete a budget policy
+  rpc deleteBudgetPolicy(DeleteGatewayBudgetPolicy) returns (DeleteGatewayBudgetPolicy.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/gateway/budgets/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Budget Policy"
+    };
+  }
+
+  // List budget policies
+  rpc listBudgetPolicies(ListGatewayBudgetPolicies) returns (ListGatewayBudgetPolicies.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/budgets/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Budget Policies"
+    };
+  }
+
+  // List budget windows with current spending
+  rpc listBudgetWindows(ListGatewayBudgetWindows) returns (ListGatewayBudgetWindows.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/gateway/budgets/windows"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Budget Windows"
     };
   }
 
@@ -4129,6 +4423,21 @@ message GetDatasetRecords {
   }
 }
 
+message DeleteDatasetRecords {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Dataset ID to delete records from.
+  optional string dataset_id = 1 [(validate_required) = true];
+
+  // List of dataset record IDs to delete.
+  repeated string dataset_record_ids = 2;
+
+  message Response {
+    // Number of records deleted
+    optional int32 deleted_count = 1;
+  }
+}
+
 message AddDatasetToExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -4362,6 +4671,12 @@ message GatewayEndpoint {
   optional RoutingStrategy routing_strategy = 9;
   // Fallback configuration (populated if routing_strategy is FALLBACK)
   optional FallbackConfig fallback_config = 10;
+  // ID of the MLflow experiment where traces for this endpoint are logged
+  optional string experiment_id = 11;
+  // Whether usage tracking is enabled for this endpoint.
+  // When true, an experiment will be auto-created if not provided,
+  // and traces will be logged for endpoint invocations.
+  optional bool usage_tracking = 12;
 }
 
 // Tag associated with an endpoint
@@ -4564,6 +4879,36 @@ enum GatewayModelLinkageType {
   FALLBACK = 2;
 }
 
+// Duration unit for budget policy fixed windows
+enum BudgetDurationUnit {
+  DURATION_UNIT_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  MINUTES = 1;
+  HOURS = 2;
+  DAYS = 3;
+  WEEKS = 4;
+  MONTHS = 5;
+}
+
+// Target scope for a budget policy
+enum BudgetTargetScope {
+  TARGET_SCOPE_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  GLOBAL = 1;
+  WORKSPACE = 2;
+}
+
+// Action to take when a budget is exceeded
+enum BudgetAction {
+  BUDGET_ACTION_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  ALERT = 1;
+  REJECT = 2;
+}
+
+// Budget measurement unit
+enum BudgetUnit {
+  BUDGET_UNIT_UNSPECIFIED = 0 [(enum_value_visibility) = PUBLIC_UNDOCUMENTED];
+  USD = 1;
+}
+
 // Configuration for fallback routing
 message FallbackConfig {
   // The fallback strategy.
@@ -4595,6 +4940,12 @@ message CreateGatewayEndpoint {
   optional RoutingStrategy routing_strategy = 4;
   // Optional fallback configuration (includes strategy, max_attempts)
   optional FallbackConfig fallback_config = 5;
+  // Optional experiment ID for tracing. Only used when usage_tracking is true.
+  // If not provided and usage_tracking is true, an experiment will be auto-created.
+  optional string experiment_id = 6;
+  // Whether to enable usage tracking for this endpoint. Defaults to false.
+  // When true, traces will be logged for endpoint invocations.
+  optional bool usage_tracking = 7;
 
   message Response {
     // The created endpoint with all model mappings
@@ -4626,6 +4977,12 @@ message UpdateGatewayEndpoint {
   optional RoutingStrategy routing_strategy = 5;
   // Optional fallback configuration (includes strategy, max_attempts)
   optional FallbackConfig fallback_config = 6;
+  // Optional experiment ID for tracing. Only used when usage_tracking is true.
+  optional string experiment_id = 7;
+  // Whether to enable usage tracking for this endpoint.
+  // When set to true, traces will be logged for endpoint invocations.
+  // When set to false, usage tracking is disabled and experiment_id is cleared.
+  optional bool usage_tracking = 8;
 
   message Response {
     // The updated endpoint
@@ -4740,6 +5097,105 @@ message DeleteGatewayEndpointTag {
   message Response {}
 }
 
+// ========== Budget Policy API Messages ==========
+
+// Represents a budget policy for the AI Gateway
+message GatewayBudgetPolicy {
+  // Unique identifier for this budget policy
+  optional string budget_policy_id = 1;
+  // Budget measurement unit (e.g. USD)
+  optional BudgetUnit budget_unit = 2;
+  // Budget limit amount
+  optional double budget_amount = 3;
+  // Unit of time window (MINUTES, HOURS, DAYS, WEEKS, MONTHS)
+  optional BudgetDurationUnit duration_unit = 4;
+  // Length of the window in units of duration_unit
+  optional int32 duration_value = 5;
+  // Scope of the budget (GLOBAL or WORKSPACE)
+  optional BudgetTargetScope target_scope = 6;
+  // Action when budget is exceeded
+  optional BudgetAction budget_action = 7;
+  // User ID who created the policy
+  optional string created_by = 8;
+  // Creation timestamp in milliseconds
+  optional int64 created_at = 9;
+  // User ID who last updated the policy
+  optional string last_updated_by = 10;
+  // Last update timestamp in milliseconds
+  optional int64 last_updated_at = 11;
+}
+
+message CreateGatewayBudgetPolicy {
+  optional BudgetUnit budget_unit = 1;
+  optional double budget_amount = 2;
+  optional BudgetDurationUnit duration_unit = 3;
+  optional int32 duration_value = 4;
+  optional BudgetTargetScope target_scope = 5;
+  optional BudgetAction budget_action = 6;
+  optional string created_by = 7;
+
+  message Response {
+    optional GatewayBudgetPolicy budget_policy = 1;
+  }
+}
+
+message GetGatewayBudgetPolicy {
+  optional string budget_policy_id = 1;
+
+  message Response {
+    optional GatewayBudgetPolicy budget_policy = 1;
+  }
+}
+
+message UpdateGatewayBudgetPolicy {
+  optional string budget_policy_id = 1;
+  optional BudgetUnit budget_unit = 2;
+  optional double budget_amount = 3;
+  optional BudgetDurationUnit duration_unit = 4;
+  optional int32 duration_value = 5;
+  optional BudgetTargetScope target_scope = 6;
+  optional BudgetAction budget_action = 7;
+  optional string updated_by = 8;
+
+  message Response {
+    optional GatewayBudgetPolicy budget_policy = 1;
+  }
+}
+
+message DeleteGatewayBudgetPolicy {
+  optional string budget_policy_id = 1;
+
+  message Response {}
+}
+
+message ListGatewayBudgetPolicies {
+  optional int64 max_results = 1;
+
+  optional string page_token = 2;
+
+  message Response {
+    repeated GatewayBudgetPolicy budget_policies = 1;
+
+    optional string next_page_token = 2;
+  }
+}
+
+message ListGatewayBudgetWindows {
+  message BudgetWindow {
+    optional string budget_policy_id = 1;
+
+    optional int64 window_start_ms = 2;
+
+    optional int64 window_end_ms = 3;
+
+    optional double current_spend = 4;
+  }
+
+  message Response {
+    repeated BudgetWindow windows = 1;
+  }
+}
+
 // ========== Secrets Configuration API Messages ==========
 
 message GetSecretsConfig {
@@ -4807,4 +5263,91 @@ message DeletePromptOptimizationJob {
   message Response {
     // Empty response on successful deletion.
   }
+}
+
+// =============================================================================
+// Workspace Management Messages
+// =============================================================================
+
+// Workspace metadata returned by workspace APIs.
+message Workspace {
+  // The unique workspace name.
+  optional string name = 1 [(validate_required) = true];
+
+  // Optional workspace description.
+  optional string description = 2;
+
+  // Optional default artifact root override for this workspace.
+  optional string default_artifact_root = 3;
+}
+
+// List workspaces available to the current principal.
+message ListWorkspaces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {
+    // Collection of workspace records.
+    repeated Workspace workspaces = 1;
+  }
+}
+
+// Create a new workspace.
+message CreateWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Workspace name to create.
+  optional string name = 1 [(validate_required) = true];
+
+  // Optional workspace description.
+  optional string description = 2;
+
+  // Optional default artifact root override to apply at creation time.
+  optional string default_artifact_root = 3;
+
+  message Response {
+    // Metadata describing the created workspace.
+    optional Workspace workspace = 1;
+  }
+}
+
+// Retrieve workspace metadata.
+message GetWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the workspace to fetch.
+  optional string workspace_name = 1 [(validate_required) = true];
+
+  message Response {
+    // Metadata describing the requested workspace.
+    optional Workspace workspace = 1;
+  }
+}
+
+// Update workspace metadata.
+message UpdateWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the workspace to update.
+  optional string workspace_name = 1 [(validate_required) = true];
+
+  // Optional description update.
+  optional string description = 2;
+
+  // Optional default artifact root override update.
+  optional string default_artifact_root = 3;
+
+  message Response {
+    // Metadata describing the updated workspace.
+    optional Workspace workspace = 1;
+  }
+}
+
+// Delete a workspace.
+message DeleteWorkspace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the workspace to delete.
+  optional string workspace_name = 1 [(validate_required) = true];
+
+  message Response {}
 }

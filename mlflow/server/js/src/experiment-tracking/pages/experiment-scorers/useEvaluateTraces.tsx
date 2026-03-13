@@ -22,10 +22,11 @@ import {
   extractExpectations,
   type RetrievalContext,
 } from '../../utils/TraceUtils';
-import { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
+import type { EvaluateChatCompletionsParams, EvaluateTracesParams } from './types';
 import { useGetTraceIdsForEvaluation } from './useGetTracesForEvaluation';
-import { JudgeEvaluationResult } from './useEvaluateTraces.common';
-import { ScorerEvaluation, ScorerFinishedEvent, useEvaluateTracesAsync } from './useEvaluateTracesAsync';
+import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import type { ScorerEvaluation, ScorerFinishedEvent } from './useEvaluateTracesAsync';
+import { useEvaluateTracesAsync } from './useEvaluateTracesAsync';
 import { TrackingJobStatus } from '../../../common/hooks/useGetTrackingServerJobStatus';
 
 /**
@@ -315,7 +316,11 @@ export interface EvaluateTracesState {
   latestEvaluation: JudgeEvaluationResult[] | null;
   isLoading: boolean;
   error: Error | null;
-  reset: () => void;
+  /**
+   * Reset/cancel evaluations. If requestKey is provided, cancels only that evaluation.
+   * Otherwise, cancels all running evaluations.
+   */
+  reset: (requestKey?: string) => void;
   /**
    * Results of all evaluations
    */
@@ -598,7 +603,8 @@ export function useEvaluateTraces({
     [queryClient, getTraceIdsForEvaluation, onScorerFinished],
   );
 
-  const reset = useCallback(() => {
+  // In sync mode, reset just clears state (no job-based cancellation)
+  const reset = useCallback((_requestKey?: string) => {
     setData(null);
     setError(null);
     setIsLoading(false);

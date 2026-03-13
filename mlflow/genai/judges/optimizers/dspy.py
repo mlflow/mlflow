@@ -65,7 +65,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
         Args:
             model: Model to use for DSPy optimization. If None, uses get_default_model().
-            **kwargs: Additional keyword arguments.
+            kwargs: Additional keyword arguments.
         """
         super().__init__(**kwargs)
         self._logger = logging.getLogger(self.__class__.__name__)

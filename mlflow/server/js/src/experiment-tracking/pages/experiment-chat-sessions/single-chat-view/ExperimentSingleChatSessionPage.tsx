@@ -19,11 +19,14 @@ import { TracesV3Toolbar } from '../../../components/experiment-page/components/
 import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import {
   getModelTraceId,
+  isEvaluatingTracesInDetailsViewEnabled,
   isV3ModelTraceInfo,
   ModelTraceExplorer,
   ModelTraceExplorerContextProvider,
   ModelTraceExplorerDrawer,
+  ModelTraceExplorerRunJudgesContextProvider,
   ModelTraceExplorerUpdateTraceContextProvider,
+  ModelTraceExplorerPreferencesProvider,
   shouldEnableAssessmentsInSessions,
   shouldUseTracesV4API,
 } from '@databricks/web-shared/model-trace-explorer';
@@ -44,6 +47,8 @@ import { ExperimentSingleChatSessionMetrics } from './ExperimentSingleChatSessio
 import { useRegisterAssistantContext } from '@mlflow/mlflow/src/assistant';
 import { ExportTracesToDatasetModal } from '../../experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
+import { first } from 'lodash';
+import { useRunScorerInTracesViewConfiguration } from '../../experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 
 const ContextProviders = ({
   children,
@@ -56,14 +61,16 @@ const ContextProviders = ({
   const DrawerComponent = AssistantAwareDrawer;
 
   return (
-    <ModelTraceExplorerContextProvider
-      renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
-      DrawerComponent={DrawerComponent}
-    >
-      <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
-        {children}
-      </ModelTraceExplorerUpdateTraceContextProvider>
-    </ModelTraceExplorerContextProvider>
+    <ModelTraceExplorerPreferencesProvider>
+      <ModelTraceExplorerContextProvider
+        renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
+        DrawerComponent={DrawerComponent}
+      >
+        <ModelTraceExplorerUpdateTraceContextProvider invalidateTraceQuery={invalidateTraceQuery}>
+          {children}
+        </ModelTraceExplorerUpdateTraceContextProvider>
+      </ModelTraceExplorerContextProvider>
+    </ModelTraceExplorerPreferencesProvider>
   );
 };
 
@@ -136,7 +143,8 @@ const ExperimentSingleChatSessionPageImpl = () => {
   }, [selectedTraceIdFromUrl, traces, isLoadingTraceDatas]);
 
   return (
-    <ContextProviders // prettier-ignore
+    <ContextProviders
+      // prettier-ignore
       invalidateTraceQuery={invalidateSingleTraceQuery}
     >
       <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
@@ -179,7 +187,17 @@ const ExperimentSingleChatSessionPageImpl = () => {
               getAssessmentTitle={getAssessmentTitle}
             />
             {shouldEnableAssessmentsInSessions() && (
-              <ExperimentSingleChatSessionScoreResults traces={traces ?? []} sessionId={sessionId} />
+              <ExperimentSingleChatSessionScoreResults
+                traces={traces ?? []}
+                sessionId={sessionId}
+                onRefreshSession={() => {
+                  const rootTrace = first(sortedTraceInfos);
+                  if (rootTrace) {
+                    // The first trace contains the assessments for the session
+                    invalidateSingleTraceQuery(rootTrace.trace_id);
+                  }
+                }}
+              />
             )}
           </div>
         )}
@@ -218,7 +236,13 @@ const ExperimentSingleChatSessionPageImpl = () => {
                 marginBottom: -theme.spacing.lg,
               }}
             >
-              <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />
+              {isEvaluatingTracesInDetailsViewEnabled() ? (
+                <JudgeContextProviderForTrace>
+                  <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />
+                </JudgeContextProviderForTrace>
+              ) : (
+                <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />
+              )}
             </div>
           </ModelTraceExplorerDrawer>
         )}
@@ -235,5 +259,14 @@ const ExperimentSingleChatSessionPage = withErrorBoundary(
     description="Generic error message for uncaught errors when rendering a single chat session in MLflow experiment page"
   />,
 );
+
+const JudgeContextProviderForTrace = ({ children }: { children: React.ReactNode }) => {
+  const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
+  return (
+    <ModelTraceExplorerRunJudgesContextProvider {...runJudgeConfiguration}>
+      {children}
+    </ModelTraceExplorerRunJudgesContextProvider>
+  );
+};
 
 export default ExperimentSingleChatSessionPage;

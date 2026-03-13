@@ -6,16 +6,23 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { ASSESSMENT_PANE_MIN_WIDTH } from './AssessmentsPane.utils';
 import { isEvaluatingTracesInDetailsViewEnabled, shouldUseTracesV4API } from '../FeatureUtils';
-import type { Assessment } from '../ModelTrace.types';
+import type {
+  Assessment,
+  ExpectationAssessment,
+  FeedbackAssessment,
+  IssueReferenceAssessment,
+} from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
 import { AssessmentsPaneExpectationsSection } from './AssessmentsPaneExpectationsSection';
 import { AssessmentsPaneFeedbackSection } from './AssessmentsPaneFeedbackSection';
+import { AssessmentsPaneIssuesSection } from './AssessmentsPaneIssuesSection';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 
 export const AssessmentsPane = ({
   assessments,
   traceId,
+  sessionId,
   activeSpanId,
   className,
   assessmentsTitleOverride,
@@ -24,6 +31,7 @@ export const AssessmentsPane = ({
 }: {
   assessments: Assessment[];
   traceId: string;
+  sessionId?: string;
   activeSpanId?: string;
   className?: string;
   assessmentsTitleOverride?: (count?: number) => JSX.Element;
@@ -44,11 +52,26 @@ export const AssessmentsPane = ({
   }, [assessments, reconstructAssessments, cachedActions]);
 
   const { theme } = useDesignSystemTheme();
-  const { setAssessmentsPaneExpanded, isInComparisonView } = useModelTraceExplorerViewState();
-  const [feedbacks, expectations] = useMemo(
-    () => partition(allAssessments, (assessment) => 'feedback' in assessment),
-    [allAssessments],
-  );
+  const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
+
+  const { feedbacks, expectations, issues } = useMemo(() => {
+    const feedbacks: FeedbackAssessment[] = [];
+    const expectations: ExpectationAssessment[] = [];
+    const issues: IssueReferenceAssessment[] = [];
+
+    for (const assessment of allAssessments) {
+      if ('feedback' in assessment) {
+        feedbacks.push(assessment);
+      } else if ('issue' in assessment) {
+        issues.push(assessment);
+      } else if ('expectation' in assessment) {
+        expectations.push(assessment);
+      }
+    }
+
+    return { feedbacks, expectations, issues };
+  }, [allAssessments]);
+
   const runJudgeConfiguration = useModelTraceExplorerRunJudgesContext();
 
   return (
@@ -57,10 +80,10 @@ export const AssessmentsPane = ({
       css={{
         display: 'flex',
         flexDirection: 'column',
-        ...(isInComparisonView
-          ? { padding: `${theme.spacing.sm} 0`, maxHeight: theme.spacing.lg * 10 }
-          : { padding: theme.spacing.sm, paddingTop: theme.spacing.xs, height: '100%' }),
-        ...(isInComparisonView ? {} : { borderLeft: `1px solid ${theme.colors.border}` }),
+        padding: theme.spacing.sm,
+        paddingTop: theme.spacing.xs,
+        height: '100%',
+        borderLeft: `1px solid ${theme.colors.border}`,
         overflowY: 'auto',
         minWidth: ASSESSMENT_PANE_MIN_WIDTH,
         width: '100%',
@@ -68,25 +91,13 @@ export const AssessmentsPane = ({
       }}
       className={className}
     >
-      <div
-        css={{
-          display: 'flex',
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginTop: theme.spacing.sm,
-          marginBottom: theme.spacing.sm,
-        }}
-      >
-        {!isInComparisonView &&
-          (assessmentsTitleOverride ? (
-            assessmentsTitleOverride()
-          ) : (
-            <Typography.Title level={3} withoutMargins css={{ flexShrink: 0 }}>
-              <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
-            </Typography.Title>
-          ))}
-        {!isInComparisonView && setAssessmentsPaneExpanded && !disableCloseButton && (
+      <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        {assessmentsTitleOverride ? (
+          assessmentsTitleOverride()
+        ) : (
+          <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
+        )}
+        {setAssessmentsPaneExpanded && !disableCloseButton && (
           <Tooltip
             componentId="shared.model-trace-explorer.close-assessments-pane-tooltip"
             content={
@@ -115,9 +126,21 @@ export const AssessmentsPane = ({
         feedbacks={feedbacks}
         activeSpanId={activeSpanId}
         traceId={traceId}
+        sessionId={sessionId}
       />
       <Spacer size="sm" shrinks={false} />
-      <AssessmentsPaneExpectationsSection expectations={expectations} activeSpanId={activeSpanId} traceId={traceId} />
+      <AssessmentsPaneExpectationsSection
+        expectations={expectations}
+        activeSpanId={activeSpanId}
+        traceId={traceId}
+        sessionId={sessionId}
+      />
+      {issues.length > 0 && (
+        <>
+          <Spacer size="sm" shrinks={false} />
+          <AssessmentsPaneIssuesSection issues={issues} />
+        </>
+      )}
     </div>
   );
 };

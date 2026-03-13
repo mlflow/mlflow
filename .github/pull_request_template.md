@@ -2,8 +2,9 @@
 
 ### Related Issues/PRs
 
-<!-- Uncomment 'Resolve' if this PR can close the linked items. -->
-<!-- Resolve --> #xxx
+<!-- 🚨 Choose either "Closes" (auto-close on merge) or "Relates to" (reference only). 🚨 -->
+
+Closes | Relates to #issue_number
 
 ### What changes are proposed in this pull request?
 
@@ -19,17 +20,26 @@
 
 ### Does this PR require documentation update?
 
-- [ ] No. You can skip the rest of this section.
+- [ ] No.
 - [ ] Yes. I've updated:
   - [ ] Examples
   - [ ] API references
   - [ ] Instructions
 
+### Does this PR require updating the [MLflow Skills](https://github.com/mlflow/skills) repository?
+
+<!-- When updating APIs or feature usage, please ensure the MLflow Skills repository reflects those changes. -->
+
+- [ ] No.
+- [ ] Yes. Please link the corresponding PR or explain how you plan to update it.
+
+<!-- Provide the link to the Skills repository PR or a brief explanation of the changes needed. -->
+
 ### Release Notes
 
 #### Is this a user-facing change?
 
-- [ ] No. You can skip the rest of this section.
+- [ ] No.
 - [ ] Yes. Give a description of this change to be included in the release notes for MLflow users.
 
 <!-- Details in 1-2 sentences. You can just refer to another PR with a description if this PR is part of a larger change. -->
@@ -67,21 +77,19 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
 - [ ] `rn/bug-fix` - A user-facing bug fix worth mentioning in the release notes
 - [ ] `rn/documentation` - A user-facing documentation change worth mentioning in the release notes
 
-#### Should this PR be included in the next patch release?
-
-`Yes` should be selected for bug fixes, documentation updates, and other small changes. `No` should be selected for new features and larger changes. If you're unsure about the release classification of this PR, leave this unchecked to let the maintainers decide.
+#### Is this PR a critical bugfix or security fix that should go into the next patch release?
 
 <details>
 <summary>What is a minor/patch release?</summary>
 
 - Minor release: a release that increments the second part of the version number (e.g., 1.2.0 -> 1.3.0).
-  Bug fixes, doc updates and new features usually go into minor releases.
+  Minor releases are expected to contain larger changes, such as new features and improvements. Non-critical bug fixes and doc updates can be included as well. By default, your PR should target the next minor release.
 - Patch release: a release that increments the third part of the version number (e.g., 1.2.0 -> 1.2.1).
-  Bug fixes and doc updates usually go into patch releases.
+  Patch releases are typically only performed when there has been a major regression or bug in the latest release. For the sake of stability, your PR should not be included in a patch release unless it is a critical fix, or if the risk level of your PR is exceedingly low.
 
 </details>
 
 <!-- Do not modify or remove any text inside the parentheses. Keep both checkboxes below. -->
 
-- [ ] Yes (this PR will be cherry-picked and included in the next patch release)
-- [ ] No (this PR will be included in the next minor release)
+- [ ] This PR is critical and needs to be in the next patch release
+- [ ] This PR can wait for the next minor release

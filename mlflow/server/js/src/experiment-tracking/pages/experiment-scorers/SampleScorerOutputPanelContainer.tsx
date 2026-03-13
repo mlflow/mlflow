@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Control } from 'react-hook-form';
-import { useWatch, useFormState, useFormContext } from 'react-hook-form';
+import { useWatch, useFormState } from 'react-hook-form';
 import { useIntl } from '@databricks/i18n';
 import { type ScorerFormData } from './utils/scorerTransformUtils';
 import { useEvaluateTraces } from './useEvaluateTraces';
@@ -10,8 +10,11 @@ import { ASSESSMENT_NAME_TEMPLATE_MAPPING, ScorerEvaluationScope } from './const
 import { LLM_TEMPLATE, isGuidelinesTemplate } from './types';
 import { coerceToEnum } from '../../../shared/web-shared/utils';
 import { useGetSerializedScorerFromForm } from './useGetSerializedScorerFromForm';
-import { JudgeEvaluationResult } from './useEvaluateTraces.common';
-import { isEvaluatingSessionsInScorersEnabled } from '../../../common/utils/FeatureUtils';
+import type { JudgeEvaluationResult } from './useEvaluateTraces.common';
+import {
+  isEvaluatingSessionsInScorersEnabled,
+  isScorerModelSelectionEnabled,
+} from '../../../common/utils/FeatureUtils';
 import { isDirectModel } from '../../../gateway/utils/gatewayUtils';
 
 interface SampleScorerOutputPanelContainerProps {
@@ -19,6 +22,8 @@ interface SampleScorerOutputPanelContainerProps {
   experimentId: string;
   onScorerFinished?: () => void;
   isSessionLevelScorer?: boolean;
+  selectedItemIds: string[];
+  onSelectedItemIdsChange: (itemIds: string[]) => void;
 }
 
 const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContainerProps> = ({
@@ -26,6 +31,8 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   experimentId,
   onScorerFinished,
   isSessionLevelScorer,
+  selectedItemIds,
+  onSelectedItemIdsChange,
 }) => {
   const intl = useIntl();
   const judgeInstructions = useWatch({ control, name: 'instructions' });
@@ -33,14 +40,11 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
   const llmTemplate = useWatch({ control, name: 'llmTemplate' });
   const guidelines = useWatch({ control, name: 'guidelines' });
   const modelValue = useWatch({ control, name: 'model' });
-  const { resetField } = useFormContext<ScorerFormData>();
   const { errors } = useFormState({ control });
   const evaluationScopeFormValue = useWatch({ control, name: 'evaluationScope' });
   const evaluationScope = coerceToEnum(ScorerEvaluationScope, evaluationScopeFormValue, ScorerEvaluationScope.TRACES);
 
   const getSerializedScorerFromForm = useGetSerializedScorerFromForm();
-
-  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
 
   const [evaluateTraces, { latestEvaluation: data, isLoading, error, reset }] = useEvaluateTraces({
     onScorerFinished,
@@ -57,14 +61,6 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
     reset();
     setCurrentTraceIndex(0);
   }, [llmTemplate, reset]);
-
-  // Reset evaluation config when switching evaluation scope
-  useEffect(() => {
-    reset();
-    setSelectedItemIds([]);
-    resetField('instructions');
-    resetField('llmTemplate');
-  }, [evaluationScope, reset, resetField]);
 
   // Handle the "Run scorer" button click
   const handleRunScorer = useCallback(async () => {
@@ -169,7 +165,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
 
   // Determine tooltip message based on why the button is disabled
   const runScorerDisabledReason = useMemo(() => {
-    if (!modelValue) {
+    if (isScorerModelSelectionEnabled() && !modelValue) {
       return intl.formatMessage({
         defaultMessage: 'Please select a model to run the judge',
         description: 'Tooltip message when model is not selected',
@@ -269,7 +265,7 @@ const SampleScorerOutputPanelContainer: React.FC<SampleScorerOutputPanelContaine
       handleNext={handleNext}
       totalTraces={data?.length ?? 0}
       selectedItemIds={selectedItemIds}
-      onSelectedItemIdsChange={setSelectedItemIds}
+      onSelectedItemIdsChange={onSelectedItemIdsChange}
     />
   );
 };

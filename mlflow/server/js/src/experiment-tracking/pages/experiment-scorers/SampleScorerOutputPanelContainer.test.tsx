@@ -3,7 +3,8 @@ import { IntlProvider } from '@databricks/i18n';
 import { FormProvider, useForm } from 'react-hook-form';
 import SampleScorerOutputPanelContainer from './SampleScorerOutputPanelContainer';
 import { useEvaluateTraces } from './useEvaluateTraces';
-import { TraceJudgeEvaluationResult, type JudgeEvaluationResult } from './useEvaluateTraces.common';
+import type { TraceJudgeEvaluationResult } from './useEvaluateTraces.common';
+import { type JudgeEvaluationResult } from './useEvaluateTraces.common';
 import { type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import SampleScorerOutputPanelRenderer from './SampleScorerOutputPanelRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
@@ -49,9 +50,16 @@ function createMockEvalResult(traceId: string): TraceJudgeEvaluationResult {
 interface TestWrapperProps {
   defaultValues?: Partial<ScorerFormData>;
   onScorerFinished?: () => void;
+  selectedItemIds?: string[];
+  onSelectedItemIdsChange?: (itemIds: string[]) => void;
 }
 
-function TestWrapper({ defaultValues, onScorerFinished }: TestWrapperProps) {
+function TestWrapper({
+  defaultValues,
+  onScorerFinished,
+  selectedItemIds = [],
+  onSelectedItemIdsChange = jest.fn(),
+}: TestWrapperProps) {
   const form = useForm<ScorerFormData>({
     defaultValues: {
       name: 'Test Scorer',
@@ -71,6 +79,8 @@ function TestWrapper({ defaultValues, onScorerFinished }: TestWrapperProps) {
           control={form.control}
           experimentId={experimentId}
           onScorerFinished={onScorerFinished}
+          selectedItemIds={selectedItemIds}
+          onSelectedItemIdsChange={onSelectedItemIdsChange}
         />
       </FormProvider>
     </IntlProvider>

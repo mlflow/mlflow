@@ -20,6 +20,7 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.genai.utils.prompts.available_tools_extraction import (
@@ -708,7 +709,9 @@ def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[
 
     for retrieval_span in top_level_retrieval_spans:
         try:
-            contexts = [_parse_chunk(chunk) for chunk in retrieval_span.outputs or []]
+            outputs = retrieval_span.outputs
+            outputs = json.loads(outputs) if isinstance(outputs, str) else outputs
+            contexts = [_parse_chunk(chunk) for chunk in outputs or []]
             retrieved[retrieval_span.span_id] = [c for c in contexts if c is not None]
         except Exception as e:
             _logger.debug(
@@ -772,8 +775,9 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
 def clean_up_extra_traces(
     traces: list[Trace],
     eval_start_time: int,
+    experiment_id: str,
     input_trace_ids: set[str] | None = None,
-) -> list[Trace]:
+) -> None:
     """
     Clean up noisy traces generated outside predict function.
 
@@ -785,14 +789,10 @@ def clean_up_extra_traces(
     Args:
         traces: List of traces to clean up.
         eval_start_time: The start time of the evaluation run.
+        experiment_id: The experiment ID of the evaluation run.
         input_trace_ids: Set of trace IDs that were passed in the input DataFrame.
             These traces should never be deleted.
-
-    Returns:
-        List of traces that are kept after cleaning up extra traces.
     """
-    from mlflow.tracking.fluent import _get_experiment_id
-
     try:
         extra_trace_ids = [
             trace.info.trace_id
@@ -807,9 +807,7 @@ def clean_up_extra_traces(
             # Import MlflowClient locally to avoid issues with tracing-only SDK
             from mlflow.tracking.client import MlflowClient
 
-            MlflowClient().delete_traces(
-                experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
-            )
+            MlflowClient().delete_traces(experiment_id=experiment_id, trace_ids=extra_trace_ids)
             for trace_id in extra_trace_ids:
                 IPythonTraceDisplayHandler.get_instance().traces_to_display.pop(trace_id, None)
         else:
@@ -1120,9 +1118,7 @@ def _try_extract_available_tools_with_llm(
     """
     if model is None:
         if is_databricks_uri(mlflow.get_tracking_uri()):
-            # TODO: Add support for Databricks tool extraction with LLM fallback.
-            _logger.warning("Databricks is not supported for tool extraction with LLM fallback.")
-            return []
+            model = _DATABRICKS_DEFAULT_JUDGE_MODEL
         else:
             model = "openai:/gpt-4.1-mini"
 

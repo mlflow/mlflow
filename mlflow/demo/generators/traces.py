@@ -4,6 +4,7 @@ import hashlib
 import logging
 import random
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -24,6 +25,7 @@ from mlflow.demo.data import (
 )
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
 
@@ -33,7 +35,7 @@ DEMO_TRACE_TYPE_TAG = "mlflow.demo.trace_type"
 _TOTAL_TRACES_PER_VERSION = 17
 
 
-def _get_trace_timestamp(trace_index: int, version: str) -> tuple[int, int]:
+def _get_trace_timestamps(trace_index: int, version: str) -> tuple[int, int]:
     """Get deterministic start and end timestamps for a trace.
 
     Distributes traces over the last 7 days with a deterministic pattern
@@ -75,6 +77,35 @@ def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
+@dataclass(frozen=True)
+class _Model:
+    """Model configuration with name, provider, and pricing."""
+
+    name: str
+    provider: str
+    pricing: tuple[float, float]  # (input $/1M tokens, output $/1M tokens)
+
+
+# Using three distinct models so the cost breakdown chart shows a nice distribution.
+GPT_5_2 = _Model(name="gpt-5.2", provider="openai", pricing=(1.75, 14.00))
+CLAUDE_SONNET_4_5 = _Model(name="claude-sonnet-4-5", provider="anthropic", pricing=(3.00, 15.00))
+GEMINI_3_PRO = _Model(name="gemini-3-pro", provider="google", pricing=(2.00, 12.00))
+
+_DEMO_MODELS = (GPT_5_2, CLAUDE_SONNET_4_5, GEMINI_3_PRO)
+
+
+def _compute_cost(model: _Model, prompt_tokens: int, completion_tokens: int) -> dict[str, float]:
+    """Compute synthetic cost using approximate per-model pricing."""
+    input_rate, output_rate = model.pricing
+    input_cost = prompt_tokens * input_rate / 1_000_000
+    output_cost = completion_tokens * output_rate / 1_000_000
+    return {
+        "input_cost": input_cost,
+        "output_cost": output_cost,
+        "total_cost": input_cost + output_cost,
+    }
+
+
 class TracesDemoGenerator(BaseDemoGenerator):
     """Generates demo traces for the MLflow UI.
 
@@ -96,7 +127,16 @@ class TracesDemoGenerator(BaseDemoGenerator):
     version = 1
 
     def generate(self) -> DemoResult:
+        self._restore_experiment_if_deleted()
         experiment = mlflow.set_experiment(DEMO_EXPERIMENT_NAME)
+        mlflow.MlflowClient().set_experiment_tag(
+            experiment.experiment_id, "mlflow.experimentKind", "genai_development"
+        )
+        mlflow.set_experiment_tag(
+            "mlflow.note.content",
+            "Sample experiment with pre-populated demo data including traces, evaluations, "
+            "and prompts. Explore MLflow's GenAI features with this experiment.",
+        )
 
         v1_trace_ids = self._generate_trace_set("v1")
         v2_trace_ids = self._generate_trace_set("v2")
@@ -106,7 +146,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         return DemoResult(
             feature=self.name,
             entity_ids=all_trace_ids,
-            navigation_url=f"#/experiments/{experiment.experiment_id}/traces",
+            navigation_url=f"#/experiments/{experiment.experiment_id}",
         )
 
     def _generate_trace_set(self, version: Literal["v1", "v2"]) -> list[str]:
@@ -115,19 +155,19 @@ class TracesDemoGenerator(BaseDemoGenerator):
         trace_index = 0
 
         for trace_def in RAG_TRACES:
-            start_ns, end_ns = _get_trace_timestamp(trace_index, version)
+            start_ns, end_ns = _get_trace_timestamps(trace_index, version)
             if trace_id := self._create_rag_trace(trace_def, version, start_ns, end_ns):
                 trace_ids.append(trace_id)
             trace_index += 1
 
         for trace_def in AGENT_TRACES:
-            start_ns, end_ns = _get_trace_timestamp(trace_index, version)
+            start_ns, end_ns = _get_trace_timestamps(trace_index, version)
             if trace_id := self._create_agent_trace(trace_def, version, start_ns, end_ns):
                 trace_ids.append(trace_id)
             trace_index += 1
 
         for idx, trace_def in enumerate(PROMPT_TRACES):
-            start_ns, end_ns = _get_trace_timestamp(trace_index, version)
+            start_ns, end_ns = _get_trace_timestamps(trace_index, version)
             prompt_version_num = str(idx % 2 + 1) if version == "v1" else str(idx % 2 + 3)
             if trace_id := self._create_prompt_trace(
                 trace_def, version, start_ns, end_ns, prompt_version_num
@@ -140,8 +180,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
         return trace_ids
 
     def _data_exists(self) -> bool:
-        from mlflow.tracking._tracking_service.utils import _get_store
-
         store = _get_store()
         try:
             experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
@@ -157,8 +195,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
             return False
 
     def delete_demo(self) -> None:
-        from mlflow.tracking._tracking_service.utils import _get_store
-
         store = _get_store()
         try:
             experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
@@ -180,6 +216,18 @@ class TracesDemoGenerator(BaseDemoGenerator):
         except Exception:
             _logger.debug("Failed to delete demo traces", exc_info=True)
 
+    def _restore_experiment_if_deleted(self) -> None:
+        """Restore the demo experiment if it was soft-deleted."""
+        store = _get_store()
+        try:
+            experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+            if experiment is not None and experiment.lifecycle_stage == "deleted":
+                _logger.info("Restoring soft-deleted demo experiment")
+                client = mlflow.MlflowClient()
+                client.restore_experiment(experiment.experiment_id)
+        except Exception:
+            _logger.debug("Failed to check/restore demo experiment", exc_info=True)
+
     def _get_response(self, trace_def: DemoTrace, version: Literal["v1", "v2"]) -> str:
         """Get the appropriate response based on version."""
         return trace_def.v1_response if version == "v1" else trace_def.v2_response
@@ -193,10 +241,9 @@ class TracesDemoGenerator(BaseDemoGenerator):
     ) -> str | None:
         """Create a RAG pipeline trace: embed -> retrieve -> generate."""
         response = self._get_response(trace_def, version)
-        prompt_tokens = _estimate_tokens(trace_def.query) + 50  # query + system prompt
+        prompt_tokens = _estimate_tokens(trace_def.query) + 50
         completion_tokens = _estimate_tokens(response)
 
-        # Calculate intermediate timestamps
         total_duration = end_ns - start_ns
         embed_end = start_ns + int(total_duration * 0.1)
         retrieve_end = embed_end + int(total_duration * 0.2)
@@ -235,6 +282,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         retrieve.set_outputs({"documents": docs})
         retrieve.end(end_time_ns=retrieve_end)
 
+        model = GPT_5_2
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -245,13 +293,17 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "user", "content": trace_def.query},
                 ],
                 "context": docs,
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -270,7 +322,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
         start_ns: int,
         end_ns: int,
     ) -> str | None:
-        """Create an agent trace with tool calls."""
         response = self._get_response(trace_def, version)
         prompt_tokens = _estimate_tokens(trace_def.query) + 100
         completion_tokens = _estimate_tokens(response)
@@ -300,6 +351,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             tool_span.end(end_time_ns=tool_start + tool_duration // len(trace_def.tools))
             tool_start += tool_duration // len(trace_def.tools) + 1000
 
+        model = CLAUDE_SONNET_4_5
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -310,13 +362,17 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "user", "content": trace_def.query},
                 ],
                 "tool_results": [t.output for t in trace_def.tools],
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -346,7 +402,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
         if trace_def.prompt_template is None:
             return None
 
-        # Fetch the actual prompt version template from the registry
         full_prompt_name = f"{DEMO_PROMPT_PREFIX}.prompts.{trace_def.prompt_template.prompt_name}"
         try:
             client = mlflow.MlflowClient()
@@ -356,17 +411,14 @@ class TracesDemoGenerator(BaseDemoGenerator):
             )
             actual_template = prompt_version_obj.template
         except Exception:
-            # Fall back to the trace definition template if fetch fails
             actual_template = trace_def.prompt_template.template
 
-        # Build variables dict with all possible values for this prompt type
         variables = self._get_prompt_variables(
             trace_def.prompt_template.prompt_name,
             trace_def.query,
             trace_def.prompt_template.variables,
         )
 
-        # Render the actual template
         rendered_prompt = self._render_template(actual_template, variables)
         prompt_tokens = _estimate_tokens(rendered_prompt) + 20
         completion_tokens = _estimate_tokens(response)
@@ -399,6 +451,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         render.set_outputs({"rendered_prompt": rendered_prompt})
         render.end(end_time_ns=render_end)
 
+        model = GEMINI_3_PRO
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -407,14 +460,17 @@ class TracesDemoGenerator(BaseDemoGenerator):
                 "messages": [
                     {"role": "user", "content": rendered_prompt},
                 ],
-                "model": "gpt-4o-mini",
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )
@@ -433,7 +489,6 @@ class TracesDemoGenerator(BaseDemoGenerator):
     def _link_prompt_to_trace(
         self, short_prompt_name: str, trace_id: str, prompt_version: str = "1"
     ) -> None:
-        """Link a registered prompt to a trace for UI display."""
         full_prompt_name = f"{DEMO_PROMPT_PREFIX}.prompts.{short_prompt_name}"
         try:
             client = mlflow.MlflowClient()
@@ -525,7 +580,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             turn_counter += 1
             versioned_session_id = f"{trace_def.session_id}-{version}"
 
-            start_ns, end_ns = _get_trace_timestamp(trace_index, version)
+            start_ns, end_ns = _get_trace_timestamps(trace_index, version)
             if trace_id := self._create_session_turn_trace(
                 trace_def, turn_counter, version, versioned_session_id, start_ns, end_ns
             ):
@@ -578,6 +633,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             tool_span.end(end_time_ns=tool_end)
             tool_start = tool_end + 1000
 
+        model = _DEMO_MODELS[turn % len(_DEMO_MODELS)]
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -587,14 +643,17 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "system", "content": "You are an MLflow assistant."},
                     {"role": "user", "content": trace_def.query},
                 ],
-                "model": "gpt-4o-mini",
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
                     "input_tokens": prompt_tokens,
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
-                }
+                },
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
+                SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
         )

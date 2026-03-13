@@ -1,8 +1,8 @@
-import {
+import type {
   ModelTraceLocationMlflowExperiment,
   ModelTraceLocationUcSchema,
 } from '@databricks/web-shared/model-trace-explorer';
-import { ScorerEvaluationScope } from './constants';
+import type { ScorerEvaluationScope } from './constants';
 
 interface ScheduledScorerBase {
   name: string;
@@ -145,6 +145,11 @@ export interface LLMScorer extends ScheduledScorerBase {
   // rather than builtin_scorer_pydantic_data.
   is_instructions_judge?: boolean;
   outputType?: JudgeOutputTypeSpec;
+  // True if the scorer was optimized with MemAlign (memory-augmented judge)
+  isMemoryAugmented?: boolean;
+  // Raw memory_augmented_judge_data from the serialized scorer, preserved for round-trip serialization.
+  // When saving, the model field inside is updated but the memory structure is kept intact.
+  rawMemoryAugmentedData?: Record<string, unknown>;
 }
 
 export interface CustomCodeScorer extends ScheduledScorerBase {

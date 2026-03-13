@@ -1,13 +1,17 @@
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isNil } from 'lodash';
-import { ParagraphSkeleton, Typography, Empty } from '@databricks/design-system';
+import { ParagraphSkeleton, Typography, Empty, Drawer } from '@databricks/design-system';
 import { type KeyValueEntity } from '../../../common/types';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { useCompareToRunUuid } from './hooks/useCompareToRunUuid';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { FormattedMessage } from 'react-intl';
 import { RunColorPill } from '../experiment-page/components/RunColorPill';
-import { getEvalTabTotalTracesLimit } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { EvaluationRunCompareSelector } from './EvaluationRunCompareSelector';
+import {
+  getEvalTabTotalTracesLimit,
+  shouldEnableImprovedEvalRunsComparison,
+} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
@@ -36,13 +40,16 @@ import {
   createTraceLocationForUCSchema,
   useFetchTraceV4LazyQuery,
   doesTraceSupportV4API,
+  SESSION_COLUMN_ID,
+  SIMULATION_GOAL_COLUMN_ID,
+  SIMULATION_PERSONA_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { useRunLoggedTraceTableArtifacts } from './hooks/useRunLoggedTraceTableArtifacts';
 import { useMarkdownConverter } from '../../../common/utils/MarkdownUtils';
 import { useEditExperimentTraceTags } from '../traces/hooks/useEditExperimentTraceTags';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RunViewEvaluationsTabArtifacts } from './RunViewEvaluationsTabArtifacts';
 import { useGetExperimentRunColor } from '../experiment-page/hooks/useExperimentRunColor';
 import { useQueryClient } from '@databricks/web-shared/query-client';
@@ -54,6 +61,7 @@ import type {
 import {
   isV3ModelTraceInfo,
   ModelTraceExplorerContextProvider,
+  SESSION_ID_METADATA_KEY,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
 import type { UseGetRunQueryResponseExperiment } from '../run-page/hooks/useGetRunQuery';
@@ -87,6 +95,7 @@ const RunViewEvaluationsTabInner = ({
   setCurrentRunUuid,
   showCompareSelector = false,
   showRefreshButton = false,
+  hideCompareSelector = false,
 }: {
   experimentId: string;
   runUuid: string;
@@ -95,16 +104,13 @@ const RunViewEvaluationsTabInner = ({
   showCompareSelector?: boolean;
   compareToRunUuid?: string;
   showRefreshButton?: boolean;
+  hideCompareSelector?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const makeHtmlFromMarkdown = useMarkdownConverter();
   const [compareToRunUuid, setCompareToRunUuid] = useCompareToRunUuid();
   const [isGroupedBySession, setIsGroupedBySession] = useState(false);
-
-  const onToggleSessionGrouping = useCallback(() => {
-    setIsGroupedBySession(!isGroupedBySession);
-  }, [isGroupedBySession]);
 
   const traceLocations = useMemo(() => [createTraceLocationForExperiment(experimentId)], [experimentId]);
   const getTrace = getTraceV3;
@@ -140,9 +146,9 @@ const RunViewEvaluationsTabInner = ({
 
   const defaultSelectedColumns = useCallback(
     (columns: TracesTableColumn[]) => {
-      const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(
-        evaluatedTraces.concat(otherEvaluatedTraces),
-      );
+      const allTraces = evaluatedTraces.concat(otherEvaluatedTraces);
+      const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(allTraces);
+      const hasSessionIds = allTraces.some((t) => Boolean(t.traceInfo?.trace_metadata?.[SESSION_ID_METADATA_KEY]));
 
       return columns.filter(
         (col) =>
@@ -152,7 +158,9 @@ const RunViewEvaluationsTabInner = ({
           (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
           (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
           (col.type === TracesTableColumnType.TRACE_INFO &&
-            [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)),
+            [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, STATE_COLUMN_ID].includes(col.id)) ||
+          (hasSessionIds &&
+            [SESSION_COLUMN_ID, SIMULATION_GOAL_COLUMN_ID, SIMULATION_PERSONA_COLUMN_ID].includes(col.id)),
       );
     },
     [evaluatedTraces, otherEvaluatedTraces],
@@ -196,6 +204,22 @@ const RunViewEvaluationsTabInner = ({
     isQueryDisabled,
   });
 
+  // Handler for toggling session grouping
+  const onToggleSessionGrouping = useCallback(() => {
+    setIsGroupedBySession((prev) => !prev);
+  }, []);
+
+  const hasSetInitialGrouping = useRef(false);
+  useEffect(() => {
+    if (!hasSetInitialGrouping.current && traceInfos && traceInfos.length > 0) {
+      const hasSessionIds = traceInfos.some((trace) => Boolean(trace.trace_metadata?.[SESSION_ID_METADATA_KEY]));
+      if (hasSessionIds) {
+        setIsGroupedBySession(true);
+      }
+      hasSetInitialGrouping.current = true;
+    }
+  }, [traceInfos]);
+
   const countInfo = useMemo(() => {
     return {
       currentCount: traceInfos?.length,
@@ -228,7 +252,6 @@ const RunViewEvaluationsTabInner = ({
   }, [deleteTracesAction, showEditTagsModalForTrace, EditTagsModal]);
 
   const isTableLoading = traceInfosLoading || compareToRunLoading;
-  const displayLoadingOverlay = false;
 
   const selectedRunColor = getRunColor(runUuid);
   const compareToRunColor = compareToRunUuid ? getRunColor(compareToRunUuid) : undefined;
@@ -254,6 +277,22 @@ const RunViewEvaluationsTabInner = ({
         overflowY: 'hidden',
       }}
     >
+      {!shouldEnableImprovedEvalRunsComparison() && !showCompareSelector && !hideCompareSelector && (
+        <div
+          css={{
+            width: '100%',
+            padding: `${theme.spacing.xs}px 0`,
+          }}
+        >
+          <EvaluationRunCompareSelector
+            experimentId={experimentId}
+            currentRunUuid={runUuid}
+            compareToRunUuid={compareToRunUuid}
+            setCompareToRunUuid={setCompareToRunUuid}
+            setCurrentRunUuid={setCurrentRunUuid}
+          />
+        </div>
+      )}
       {showCompareSelector && compareToRunUuid && (
         <div
           css={{
@@ -330,6 +369,7 @@ const RunViewEvaluationsTabInner = ({
                     experimentId={experimentId}
                     currentRunDisplayName={runDisplayName}
                     compareToRunDisplayName={compareToRunDisplayName}
+                    runUuid={runUuid}
                     compareToRunUuid={compareToRunUuid}
                     getTrace={getTrace}
                     getRunColor={getRunColor}
@@ -342,7 +382,7 @@ const RunViewEvaluationsTabInner = ({
                     currentTraceInfoV3={traceInfos || []}
                     compareToTraceInfoV3={compareToRunData}
                     onTraceTagsEdit={showEditTagsModalForTrace}
-                    displayLoadingOverlay={displayLoadingOverlay}
+                    isTableLoading={isTableLoading}
                     isGroupedBySession={isGroupedBySession}
                   />
                 </ContextProviders>
@@ -366,6 +406,7 @@ export const RunViewEvaluationsTab = ({
   setCurrentRunUuid,
   showCompareSelector = false,
   showRefreshButton = false,
+  hideCompareSelector = false,
 }: {
   experimentId: string;
   experiment?: ExperimentEntity | UseGetRunQueryResponseExperiment;
@@ -376,6 +417,7 @@ export const RunViewEvaluationsTab = ({
   setCurrentRunUuid?: (runUuid: string) => void;
   showCompareSelector?: boolean;
   showRefreshButton?: boolean;
+  hideCompareSelector?: boolean;
 }) => {
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
@@ -413,6 +455,7 @@ export const RunViewEvaluationsTab = ({
       setCurrentRunUuid={setCurrentRunUuid}
       showCompareSelector={showCompareSelector}
       showRefreshButton={showRefreshButton}
+      hideCompareSelector={hideCompareSelector}
     />
   );
 };

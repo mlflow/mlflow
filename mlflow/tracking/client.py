@@ -11,9 +11,7 @@ import json
 import logging
 import os
 import posixpath
-import random
 import re
-import string
 import sys
 import tempfile
 import threading
@@ -44,6 +42,8 @@ from mlflow.entities import (
     SpanType,
     Trace,
     ViewType,
+    Workspace,
+    WorkspaceDeletionMode,
 )
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -60,7 +60,6 @@ from mlflow.entities.webhook import (
 from mlflow.environment_variables import (
     MLFLOW_ALIAS_PROMPT_CACHE_TTL_SECONDS,
     MLFLOW_ENABLE_ASYNC_LOGGING,
-    MLFLOW_EXPERIMENT_ID,
     MLFLOW_VERSION_PROMPT_CACHE_TTL_SECONDS,
 )
 from mlflow.exceptions import MlflowException
@@ -118,10 +117,12 @@ from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
+from mlflow.tracking._workspace.client import WorkspaceProviderClient
+from mlflow.tracking._workspace.registry import UnsupportedWorkspaceStoreURIException
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.utils import is_uuid
+from mlflow.utils import is_uuid, workspace_utils
 from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
@@ -213,12 +214,22 @@ _prompt_experiment_link_lock = threading.Lock()
 class MlflowClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
-    MLflow Registry Server that creates and manages registered models and model versions. It's a
-    thin wrapper around TrackingServiceClient and RegistryClient so there is a unified API but we
-    can keep the implementation of the tracking and registry clients independent from each other.
+    MLflow Registry Server that creates and manages registered models and model versions. It also
+    exposes workspace CRUD via the configured workspace provider. It's a thin wrapper around:
+
+    - TrackingServiceClient for tracking operations
+    - WorkspaceProviderClient for workspace operations
+    - ModelRegistryClient for registry operations
+
+    This layered structure provides a unified API while preserving independent implementations.
     """
 
-    def __init__(self, tracking_uri: str | None = None, registry_uri: str | None = None):
+    def __init__(
+        self,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
+        workspace_store_uri: str | None = None,
+    ):
         """
         Args:
             tracking_uri: Address of local or remote tracking server. If not provided, defaults
@@ -228,21 +239,37 @@ class MlflowClient:
             registry_uri: Address of local or remote model registry server. If not provided,
                 defaults to the service set by ``mlflow.tracking.set_registry_uri``. If
                 no such service was set, defaults to the tracking uri of the client.
+            workspace_store_uri: Address of the workspace provider backend. Defaults to the tracking
+                URI when unspecified, but can be pointed at a dedicated workspace store.
         """
         final_tracking_uri = utils._resolve_tracking_uri(tracking_uri)
         self._registry_uri = registry_utils._resolve_registry_uri(registry_uri, tracking_uri)
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
-        self._tracing_client = TracingClient(tracking_uri)
+        self._workspace_store_uri = workspace_utils.resolve_workspace_store_uri(
+            workspace_store_uri, tracking_uri=final_tracking_uri
+        )
+        self._tracing_client = TracingClient(final_tracking_uri)
+        self._workspace_client = None
 
         # `MlflowClient` also references a `ModelRegistryClient` instance that is provided by the
         # `MlflowClient._get_registry_client()` method. This `ModelRegistryClient` is not explicitly
         # defined as an instance variable in the `MlflowClient` constructor; an instance variable
         # is assigned lazily by `MlflowClient._get_registry_client()` and should not be referenced
-        # outside of the `MlflowClient._get_registry_client()` method
+        # outside of the `MlflowClient._get_registry_client()` method. The workspace provider client
+        # follows the same lazy initialization pattern and is only constructed on demand via
+        # `_get_workspace_client()`.
 
     @property
     def tracking_uri(self):
         return self._tracking_client.tracking_uri
+
+    def get_workspace_store_uri(self) -> str:
+        """
+        Return the resolved workspace provider URI. This value is always non-null because
+        `resolve_workspace_store_uri()` falls back to the tracking URI when no workspace URI is
+        explicitly provided.
+        """
+        return self._workspace_store_uri
 
     def _get_registry_client(self):
         """Attempts to create a ModelRegistryClient if one does not already exist.
@@ -280,6 +307,86 @@ class MlflowClient:
         return registry_client
 
     # Tracking API
+
+    def _get_workspace_client(self) -> WorkspaceProviderClient:
+        """
+        Lazily construct and cache the WorkspaceProviderClient used for workspace operations.
+        """
+
+        if self._workspace_client is not None:
+            return self._workspace_client
+
+        try:
+            self._workspace_client = WorkspaceProviderClient(self._workspace_store_uri)
+        except UnsupportedWorkspaceStoreURIException as exc:
+            raise MlflowException(
+                "Workspace operations are not supported by the configured workspace URI "
+                f"'{self._workspace_store_uri}'. Stores with the following URI schemes are "
+                + f"supported: {exc.supported_uri_schemes}. Configure a supported workspace store "
+                + "to use workspace APIs.",
+                error_code=FEATURE_DISABLED,
+            ) from exc
+        return self._workspace_client
+
+    def list_workspaces(self) -> list[Workspace]:
+        """Return the list of workspaces available to the current user."""
+
+        return self._get_workspace_client().list_workspaces()
+
+    def create_workspace(
+        self, name: str, description: str | None = None, default_artifact_root: str | None = None
+    ) -> Workspace:
+        """Create a new workspace.
+
+        Args:
+            name: The workspace name (alphanumeric, hyphens, underscores only).
+            description: Optional description of the workspace.
+            default_artifact_root: Optional artifact root URI; falls back to server default.
+
+        Returns:
+            The newly created workspace.
+        """
+        return self._get_workspace_client().create_workspace(
+            name, description, default_artifact_root=default_artifact_root
+        )
+
+    def get_workspace(self, name: str) -> Workspace:
+        """Return metadata for the specified workspace."""
+
+        return self._get_workspace_client().get_workspace(name)
+
+    def update_workspace(
+        self, name: str, description: str | None = None, default_artifact_root: str | None = None
+    ) -> Workspace:
+        """Update metadata for an existing workspace.
+
+        Args:
+            name: The name of the workspace to update.
+            description: New description, or ``None`` to leave unchanged.
+            default_artifact_root: New artifact root URI, empty string to clear, or ``None``.
+
+        Returns:
+            The updated workspace.
+        """
+        return self._get_workspace_client().update_workspace(
+            name, description, default_artifact_root=default_artifact_root
+        )
+
+    def delete_workspace(self, name: str, mode: str = WorkspaceDeletionMode.RESTRICT) -> None:
+        """Delete an existing workspace.
+
+        Args:
+            name: Name of the workspace to delete.
+            mode: Deletion mode — ``"SET_DEFAULT"``, ``"CASCADE"``, or ``"RESTRICT"``.
+        """
+        try:
+            deletion_mode = WorkspaceDeletionMode(mode)
+        except ValueError:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid deletion mode '{mode}'. "
+                f"Must be one of: {', '.join(m.value for m in WorkspaceDeletionMode)}"
+            )
+        self._get_workspace_client().delete_workspace(name, mode=deletion_mode)
 
     def get_run(self, run_id: str) -> Run:
         """
@@ -657,13 +764,11 @@ class MlflowClient:
             tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT})
             tags.update({PROMPT_TEXT_TAG_KEY: template})
         if response_format:
-            tags.update(
-                {
-                    RESPONSE_FORMAT_TAG_KEY: json.dumps(
-                        PromptVersion.convert_response_format_to_dict(response_format)
-                    ),
-                }
-            )
+            tags.update({
+                RESPONSE_FORMAT_TAG_KEY: json.dumps(
+                    PromptVersion.convert_response_format_to_dict(response_format)
+                ),
+            })
         if model_config:
             # Convert ModelConfig to dict if needed
             if isinstance(model_config, PromptModelConfig):
@@ -696,7 +801,10 @@ class MlflowClient:
 
         prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
-        if experiment_id := MLFLOW_EXPERIMENT_ID.get():
+        # Import here to avoid circular import
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        if experiment_id := _get_experiment_id():
             self._link_prompt_to_experiment(prompt_version, experiment_id)
 
         return prompt_version
@@ -875,7 +983,10 @@ class MlflowClient:
 
             # Link the prompt to the active experiment. This is called only when
             # the prompt is loaded from the registry to avoid performance overhead.
-            if prompt and (experiment_id := MLFLOW_EXPERIMENT_ID.get()):
+            # Import here to avoid circular import
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            if prompt and (experiment_id := _get_experiment_id()):
                 self._link_prompt_to_experiment(prompt, experiment_id)
 
             # Cache the result if cache_ttl_seconds > 0
@@ -1120,8 +1231,7 @@ class MlflowClient:
         """
         self._get_registry_client().set_prompt_version_tag(name, version, key, value)
 
-        # Invalidate cache for this specific version
-        PromptCache.get_instance().delete(name, version=int(version))
+        PromptCache.get_instance().delete_all(name)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1136,8 +1246,7 @@ class MlflowClient:
         """
         self._get_registry_client().delete_prompt_version_tag(name, version, key)
 
-        # Invalidate cache for this specific version
-        PromptCache.get_instance().delete(name, version=int(version))
+        PromptCache.get_instance().delete_all(name)
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
@@ -3119,14 +3228,13 @@ class MlflowClient:
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
             filename_uuid = str(uuid.uuid4())
-            # TODO: reconsider the separator used here since % has special meaning in URL encoding.
-            # See https://github.com/mlflow/mlflow/issues/14136 for more details.
-            # Construct a filename uuid that does not start with hex digits
-            filename_uuid = f"{random.choice(string.ascii_lowercase[6:])}{filename_uuid[1:]}"
+            # Use + as separator instead of % to avoid conflicts with URL encoding.
+            # The frontend supports both + and % delimiters for backwards compatibility.
+            # See https://github.com/mlflow/mlflow/issues/21085 for more details.
             uncompressed_filename = (
-                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
+                f"images/{sanitized_key}+step+{step}+timestamp+{timestamp}+{filename_uuid}"
             )
-            compressed_filename = f"{uncompressed_filename}%compressed"
+            compressed_filename = f"{uncompressed_filename}+compressed"
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
@@ -5659,9 +5767,19 @@ class MlflowClient:
         params: dict[str, str] | None = None,
         model_type: str | None = None,
         flavor: str | None = None,
+        serialization_format: str | None = None,
+        uses_uv: bool = False,
     ) -> LoggedModel:
         return self._tracking_client.create_logged_model(
-            experiment_id, name, source_run_id, tags, params, model_type, flavor
+            experiment_id=experiment_id,
+            name=name,
+            source_run_id=source_run_id,
+            tags=tags,
+            params=params,
+            model_type=model_type,
+            flavor=flavor,
+            serialization_format=serialization_format,
+            uses_uv=uses_uv,
         )
 
     def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
@@ -6043,7 +6161,9 @@ class MlflowClient:
             client.delete_prompt_version("my_prompt", "1")
         """
         registry_client = self._get_registry_client()
-        return registry_client.delete_prompt_version(name, version)
+        registry_client.delete_prompt_version(name, version)
+
+        PromptCache.get_instance().delete_all(name)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -6132,15 +6252,14 @@ class MlflowClient:
         """
         Search prompt versions for a given prompt name.
 
-        This method delegates directly to the store. Only supported in Unity Catalog registries.
-
         Args:
             name: Name of the prompt to search versions for.
             max_results: Maximum number of versions to return.
             page_token: Token for pagination.
 
         Returns:
-            SearchPromptVersionsResponse containing the list of versions.
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`~mlflow.entities.model_registry.PromptVersion` objects.
 
         Example:
 
@@ -6149,9 +6268,9 @@ class MlflowClient:
             from mlflow import MlflowClient
 
             client = MlflowClient()
-            response = client.search_prompt_versions("my_prompt", max_results=10)
-            for version in response.prompt_versions:
-                print(f"Version {version.version}: {version.description}")
+            versions = client.search_prompt_versions("my_prompt", max_results=10)
+            for version in versions:
+                print(f"Version {version.version}: {version.template}")
         """
         registry_client = self._get_registry_client()
         return registry_client.search_prompt_versions(name, max_results, page_token)
@@ -6182,7 +6301,7 @@ class MlflowClient:
             # For Unity Catalog, delete all versions first
             if client.get_registry_uri().startswith("databricks-uc"):
                 versions = client.search_prompt_versions("my_prompt")
-                for version in versions.prompt_versions:
+                for version in versions:
                     client.delete_prompt_version("my_prompt", version.version)
 
             # Then delete the prompt
@@ -6194,16 +6313,9 @@ class MlflowClient:
         registry_uri = self._registry_uri
 
         if is_databricks_unity_catalog_uri(registry_uri):
-            search_response = self.search_prompt_versions(name, max_results=1)
+            versions = self.search_prompt_versions(name, max_results=1)
 
-            # Check if any versions exist
-            has_versions = (
-                hasattr(search_response, "prompt_versions")
-                and search_response.prompt_versions
-                and len(search_response.prompt_versions) > 0
-            )
-
-            if has_versions:
+            if len(versions) > 0:
                 raise MlflowException(
                     f"Cannot delete prompt '{name}' because it still has undeleted versions. "
                     f"Please delete all versions first using delete_prompt_version(), "
@@ -6211,8 +6323,14 @@ class MlflowClient:
                     INVALID_PARAMETER_VALUE,
                 )
 
-        # For non-Unity Catalog registries, or if version check passes, delete the prompt
-        return registry_client.delete_prompt(name)
+        # Acquire lock to wait for any background thread (e.g., from register_prompt)
+        # that may be updating tags on this prompt. This prevents race conditions where
+        # the background thread holds a session open while we try to delete.
+        with _prompt_experiment_link_lock:
+            # For non-Unity Catalog registries, or if version check passes, delete the prompt
+            registry_client.delete_prompt(name)
+            PromptCache.get_instance().delete_all(name)
+            return
 
     @experimental(version="3.4.0")
     @_disable_in_databricks()
@@ -6461,7 +6579,6 @@ class MlflowClient:
         return self._tracking_client.remove_dataset_from_experiments(dataset_id, experiment_ids)
 
     # Webhook APIs
-    @experimental(version="3.3.0")
     def create_webhook(
         self,
         name: str,
@@ -6500,7 +6617,6 @@ class MlflowClient:
             status=status,
         )
 
-    @experimental(version="3.3.0")
     def get_webhook(self, webhook_id: str) -> Webhook:
         """
         Get webhook instance by ID.
@@ -6513,7 +6629,6 @@ class MlflowClient:
         """
         return self._get_registry_client().get_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def list_webhooks(
         self,
         max_results: int | None = None,
@@ -6531,7 +6646,6 @@ class MlflowClient:
         """
         return self._get_registry_client().list_webhooks(max_results, page_token)
 
-    @experimental(version="3.3.0")
     def update_webhook(
         self,
         webhook_id: str,
@@ -6574,7 +6688,6 @@ class MlflowClient:
             status=status,
         )
 
-    @experimental(version="3.3.0")
     def delete_webhook(self, webhook_id: str) -> None:
         """
         Delete a webhook.
@@ -6587,7 +6700,6 @@ class MlflowClient:
         """
         self._get_registry_client().delete_webhook(webhook_id)
 
-    @experimental(version="3.3.0")
     def test_webhook(
         self, webhook_id: str, event: WebhookEventStr | WebhookEvent | None = None
     ) -> WebhookTestResult:

@@ -3,8 +3,8 @@ import { useMemo, useState } from 'react';
 
 import { Spacer, Tag, TableSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl, FormattedMessage } from '@databricks/i18n';
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import type { UseQueryResult } from '@databricks/web-shared/query-client';
+import type { ModelTrace } from '../../model-trace-explorer/ModelTrace.types';
+import type { UseQueryResult } from '../../query-client/queryClient';
 
 import { EvaluationsReviewAssessments } from './EvaluationsReviewAssessments';
 import { EvaluationsReviewListItemIndicator } from './EvaluationsReviewListItemIndicator';

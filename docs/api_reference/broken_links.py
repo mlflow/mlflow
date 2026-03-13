@@ -51,12 +51,10 @@ def main():
 
         def parse_item(self, response):
             if response.status == 404:
-                self.links.add(
-                    (
-                        response.url,
-                        response.request.headers.get("Referer", None).decode("utf-8"),
-                    )
-                )
+                self.links.add((
+                    response.url,
+                    response.request.headers.get("Referer", None).decode("utf-8"),
+                ))
 
     with server(port):
         process = CrawlerProcess(settings={"LOG_LEVEL": "ERROR"})

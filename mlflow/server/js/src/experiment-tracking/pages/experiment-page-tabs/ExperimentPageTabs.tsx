@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Button, PageWrapper, Spacer, ParagraphSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import invariant from 'invariant';
-import { useNavigate, useParams, Outlet, matchPath, useLocation } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams, Outlet, useLocation, matchPath } from '../../../common/utils/RoutingUtils';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useExperimentReduxStoreCompat } from '../../hooks/useExperimentReduxStoreCompat';
 import { ExperimentPageHeaderWithDescription } from '../../components/experiment-page/components/ExperimentPageHeaderWithDescription';
@@ -84,6 +84,7 @@ const ExperimentPageTabsImpl = () => {
 
   // Check if the user landed on the experiment page without a specific tab (sub-route)...
   const { pathname } = useLocation();
+  // With query param-based workspace routing, pathname no longer contains workspace prefix
   const matchedExperimentPageWithoutTab = Boolean(matchPath(RoutePaths.experimentPage, pathname));
   // ...if true, we want to navigate to the appropriate tab based on the experiment kind.
   // However, if experiment kind inference is enabled (no kind tag exists), we should

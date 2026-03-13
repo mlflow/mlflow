@@ -1,6 +1,6 @@
 import { ParagraphSkeleton } from '@databricks/design-system';
-import type { NetworkRequestError } from '@databricks/web-shared/errors';
-import { useQuery } from '@databricks/web-shared/query-client';
+import type { NetworkRequestError } from '../../errors/PredefinedErrors';
+import { useQuery } from '../../query-client/queryClient';
 
 import { ErrorCell } from './ErrorCell';
 import { NullCell } from './NullCell';
@@ -8,9 +8,19 @@ import { getAjaxUrl, makeRequest } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
 
-export const RunName = (props: { experimentId: string; runUuid: string }) => {
+export const RunName = (props: { experimentId?: string; runUuid: string }) => {
   const { experimentId, runUuid } = props;
 
+  // When experimentId is not available, we can't fetch the run name
+  // since the API requires experiment_ids to scope the search.
+  if (!experimentId) {
+    return <NullCell />;
+  }
+
+  return <RunNameInner experimentId={experimentId} runUuid={runUuid} />;
+};
+
+const RunNameInner = ({ experimentId, runUuid }: { experimentId: string; runUuid: string }) => {
   const { data, isLoading, error } = useRunName(experimentId, runUuid);
 
   const runName = data?.runs?.[0]?.info?.run_name;

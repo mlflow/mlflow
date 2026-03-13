@@ -1,17 +1,15 @@
 import { useMemo, useCallback } from 'react';
 import { MetricViewType, AggregationType, TraceMetricKey } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceMetricsQuery } from './useTraceMetricsQuery';
-import {
-  formatTimestampForTraceMetrics,
-  useTimestampValueMap,
-  useChartZoom,
-  ChartZoomState,
-} from '../utils/chartUtils';
+import type { ChartZoomState } from '../utils/chartUtils';
+import { formatTimestampForTraceMetrics, useTimestampValueMap, useChartZoom } from '../utils/chartUtils';
 import { useOverviewChartContext } from '../OverviewChartContext';
 
 export interface RequestsChartDataPoint {
   name: string;
   count: number;
+  /** Raw timestamp in milliseconds for navigation */
+  timestampMs: number;
 }
 
 export interface UseTraceRequestsChartDataResult {
@@ -39,20 +37,22 @@ export interface UseTraceRequestsChartDataResult {
  * @returns Processed chart data, loading state, and error state
  */
 export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
-  const { experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets } = useOverviewChartContext();
+  const { experimentIds, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets, filters } =
+    useOverviewChartContext();
   // Fetch trace count metrics grouped by time bucket
   const {
     data: traceCountData,
     isLoading,
     error,
   } = useTraceMetricsQuery({
-    experimentId,
+    experimentIds,
     startTimeMs,
     endTimeMs,
     viewType: MetricViewType.TRACES,
     metricName: TraceMetricKey.TRACE_COUNT,
     aggregations: [{ aggregation_type: AggregationType.COUNT }],
     timeIntervalSeconds,
+    filters,
   });
 
   const traceCountDataPoints = useMemo(() => traceCountData?.data_points || [], [traceCountData?.data_points]);
@@ -78,6 +78,7 @@ export function useTraceRequestsChartData(): UseTraceRequestsChartDataResult {
     return timeBuckets.map((timestampMs) => ({
       name: formatTimestampForTraceMetrics(timestampMs, timeIntervalSeconds),
       count: countByTimestamp.get(timestampMs) || 0,
+      timestampMs,
     }));
   }, [timeBuckets, countByTimestamp, timeIntervalSeconds]);
 

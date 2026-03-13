@@ -8,6 +8,11 @@ import { rest } from 'msw';
 import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 
+// this test is only relevant when the feature flag is disabled
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  shouldEnableWorkflowBasedNavigation: () => false,
+}));
+
 describe('useInferExperimentKind', () => {
   const server = setupServer();
   beforeEach(() => {

@@ -15,6 +15,7 @@ from packaging.version import Version
 from mlflow.entities import (
     DatasetInput,
     Experiment,
+    Issue,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -27,6 +28,7 @@ from mlflow.entities import (
     ScorerVersion,
     ViewType,
 )
+from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.exceptions import MlflowNotImplementedException
 
 # Constants for Databricks API disabled decorator
@@ -50,6 +52,12 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.protos.issues_pb2 import (
+    CreateIssue,
+    GetIssue,
+    SearchIssues,
+    UpdateIssue,
+)
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraces,
@@ -61,6 +69,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteAssessment,
     DeleteDataset,
+    DeleteDatasetRecords,
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteExperimentTag,
@@ -127,6 +136,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.rest_mixin import RestGatewayStoreMixin
+from mlflow.store.workspace_rest_store_mixin import WorkspaceRestStoreMixin
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.utils.otlp import (
     MLFLOW_EXPERIMENT_ID_HEADER,
@@ -137,6 +147,7 @@ from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    _V3_ISSUES_REST_API_PATH_PREFIX,
     _V3_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
@@ -159,7 +170,7 @@ _logger = logging.getLogger(__name__)
 # RestGatewayStoreMixin provides concrete implementations of those methods. For Python's MRO
 # to correctly resolve the Gateway methods to RestGatewayStoreMixin's implementations,
 # RestGatewayStoreMixin must appear first in the parent class list.
-class RestStore(RestGatewayStoreMixin, AbstractStore):
+class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
     """
     Client for a remote tracking server accessed via REST API calls
 
@@ -219,6 +230,7 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
     ):
         # Route v3 APIs to v3 endpoints, all others to v2 endpoints
         method_to_info = self._V3_METHOD_TO_INFO if api in self._V3_APIS else self._METHOD_TO_INFO
+        self._validate_workspace_support_if_specified()
 
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
@@ -589,7 +601,15 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
                 _logger.debug(
                     "Server does not support SearchTracesV3 API yet. Falling back to V2 API."
                 )
-                response_proto = self._call_endpoint(SearchTraces, req_body)
+                v2_request = SearchTraces(
+                    experiment_ids=locations,
+                    filter=filter_string,
+                    max_results=max_results,
+                    order_by=order_by,
+                    page_token=page_token,
+                )
+                v2_req_body = message_to_json(v2_request)
+                response_proto = self._call_endpoint(SearchTraces, v2_req_body)
             else:
                 raise
 
@@ -803,6 +823,134 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
             req_body,
             endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
         )
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status. Defaults to IssueStatus.PENDING.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        req_body = message_to_json(
+            CreateIssue(
+                experiment_id=experiment_id,
+                name=name,
+                description=description,
+                status=str(status),
+                severity=str(severity) if severity is not None else None,
+                root_causes=root_causes or [],
+                source_run_id=source_run_id,
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(
+            CreateIssue, req_body, endpoint=_V3_ISSUES_REST_API_PATH_PREFIX
+        )
+        return Issue.from_proto(response_proto.issue)
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        req_body = message_to_json(GetIssue(issue_id=issue_id))
+        response_proto = self._call_endpoint(
+            GetIssue, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/{issue_id}"
+        )
+        return Issue.from_proto(response_proto.issue)
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        req_body = message_to_json(
+            UpdateIssue(
+                issue_id=issue_id,
+                status=str(status) if status is not None else None,
+                name=name,
+                description=description,
+                severity=str(severity) if severity is not None else None,
+            )
+        )
+        response_proto = self._call_endpoint(
+            UpdateIssue, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/{issue_id}"
+        )
+        return Issue.from_proto(response_proto.issue)
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        req_body = message_to_json(
+            SearchIssues(
+                experiment_id=experiment_id,
+                filter_string=filter_string,
+                max_results=max_results,
+                page_token=page_token,
+            )
+        )
+        response_proto = self._call_endpoint(
+            SearchIssues, req_body, endpoint=f"{_V3_ISSUES_REST_API_PATH_PREFIX}/search"
+        )
+        issues = [Issue.from_proto(issue_proto) for issue_proto in response_proto.issues]
+        return PagedList(issues, response_proto.next_page_token or None)
 
     def log_metric(self, run_id: str, metric: Metric):
         """
@@ -1720,6 +1868,29 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         }
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
+    def delete_dataset_records(self, dataset_id: str, dataset_record_ids: list[str]) -> int:
+        """
+        Delete records from an evaluation dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            dataset_record_ids: List of record IDs to delete.
+
+        Returns:
+            The number of records deleted.
+        """
+        req = DeleteDatasetRecords(
+            dataset_record_ids=dataset_record_ids,
+        )
+        req_body = message_to_json(req)
+        response_proto = self._call_endpoint(
+            DeleteDatasetRecords,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        )
+        return response_proto.deleted_count
+
+    @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
         Set tags for an evaluation dataset.
@@ -1945,6 +2116,8 @@ class RestStore(RestGatewayStoreMixin, AbstractStore):
         """
         if not spans:
             return []
+
+        self._validate_workspace_support_if_specified()
 
         server_version = self._get_server_version(self.get_host_creds())
         if server_version is None:

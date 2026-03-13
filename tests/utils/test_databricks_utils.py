@@ -22,6 +22,7 @@ from mlflow.utils.databricks_utils import (
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
+    get_databricks_runtime_version,
     get_databricks_workspace_client_config,
     get_dbconnect_udf_sandbox_info,
     get_mlflow_credential_context_by_run_id,
@@ -715,12 +716,16 @@ def test_print_databricks_deployment_job_url():
 
 
 @pytest.mark.parametrize(
-    ("version_str", "expected_is_client", "expected_major", "expected_minor"),
+    ("version_str", "expected_is_client", "expected_major", "expected_minor", "expected_is_gpu"),
     [
-        ("client.2.0", True, 2, 0),
-        ("client.3.1", True, 3, 1),
-        ("13.2", False, 13, 2),
-        ("15.4", False, 15, 4),
+        ("client.2.0", True, 2, 0, False),
+        ("client.3.1", True, 3, 1, False),
+        ("13.2", False, 13, 2, False),
+        ("15.4", False, 15, 4, False),
+        ("client.8.1-gpu", True, 8, 1, True),
+        ("client.10.0-gpu", True, 10, 0, True),
+        ("14.3-gpu", False, 14, 3, True),
+        ("15.1-gpu", False, 15, 1, True),
     ],
 )
 def test_databricks_runtime_version_parse(
@@ -728,18 +733,22 @@ def test_databricks_runtime_version_parse(
     expected_is_client,
     expected_major,
     expected_minor,
+    expected_is_gpu,
 ):
     version = DatabricksRuntimeVersion.parse(version_str)
     assert version.is_client_image == expected_is_client
     assert version.major == expected_major
     assert version.minor == expected_minor
+    assert version.is_gpu_image == expected_is_gpu
 
 
 @pytest.mark.parametrize(
-    ("env_version", "expected_is_client", "expected_major", "expected_minor"),
+    ("env_version", "expected_is_client", "expected_major", "expected_minor", "expected_is_gpu"),
     [
-        ("client.2.0", True, 2, 0),
-        ("13.2", False, 13, 2),
+        ("client.2.0", True, 2, 0, False),
+        ("13.2", False, 13, 2, False),
+        ("client.8.1-gpu", True, 8, 1, True),
+        ("14.3-gpu", False, 14, 3, True),
     ],
 )
 def test_databricks_runtime_version_parse_default(
@@ -748,12 +757,14 @@ def test_databricks_runtime_version_parse_default(
     expected_is_client,
     expected_major,
     expected_minor,
+    expected_is_gpu,
 ):
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", env_version)
     version = DatabricksRuntimeVersion.parse()
     assert version.is_client_image == expected_is_client
     assert version.major == expected_major
     assert version.minor == expected_minor
+    assert version.is_gpu_image == expected_is_gpu
 
 
 def test_databricks_runtime_version_parse_default_no_env(monkeypatch):
@@ -761,8 +772,59 @@ def test_databricks_runtime_version_parse_default_no_env(monkeypatch):
     set.
     """
     monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    monkeypatch.delenv("DATABRICKS_ENV_VERSION", raising=False)
     with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
         DatabricksRuntimeVersion.parse()
+
+
+@pytest.mark.parametrize(
+    ("env_version", "accelerator", "expected"),
+    [
+        ("4", "A10G", "client.4-gpu"),
+        ("4", "NVIDIA H100", "client.4-gpu"),
+        ("4", None, "client.4"),
+    ],
+)
+def test_get_databricks_runtime_version_from_env_version(
+    monkeypatch, env_version, accelerator, expected
+):
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    monkeypatch.setenv("DATABRICKS_ENV_VERSION", env_version)
+    if accelerator:
+        monkeypatch.setenv("DATABRICKS_ACCELERATOR", accelerator)
+    else:
+        monkeypatch.delenv("DATABRICKS_ACCELERATOR", raising=False)
+    assert get_databricks_runtime_version() == expected
+
+
+@pytest.mark.parametrize(
+    ("accelerator", "expected"),
+    [
+        ("A10G", "client.4-gpu"),
+        (None, "client.4"),
+    ],
+)
+def test_databricks_env_version_takes_priority_over_runtime_version(
+    monkeypatch, accelerator, expected
+):
+    monkeypatch.setenv("DATABRICKS_ENV_VERSION", "4")
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.4.1")
+    if accelerator:
+        monkeypatch.setenv("DATABRICKS_ACCELERATOR", accelerator)
+    else:
+        monkeypatch.delenv("DATABRICKS_ACCELERATOR", raising=False)
+    assert get_databricks_runtime_version() == expected
+
+
+def test_databricks_runtime_version_parse_from_env_version(monkeypatch):
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    monkeypatch.setenv("DATABRICKS_ENV_VERSION", "4")
+    monkeypatch.setenv("DATABRICKS_ACCELERATOR", "A10")
+    version = DatabricksRuntimeVersion.parse()
+    assert version.is_client_image is True
+    assert version.major == 4
+    assert version.minor == 0
+    assert version.is_gpu_image is True
 
 
 @pytest.mark.parametrize(

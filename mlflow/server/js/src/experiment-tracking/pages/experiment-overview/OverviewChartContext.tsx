@@ -5,16 +5,25 @@ import React, { createContext, useContext, useMemo } from 'react';
  * This eliminates prop drilling through intermediate components.
  */
 export interface OverviewChartContextValue {
-  experimentId: string;
+  /** Array of experiment IDs to query metrics for */
+  experimentIds: string[];
   startTimeMs?: number;
   endTimeMs?: number;
   /** Time interval in seconds for grouping metrics by time bucket */
   timeIntervalSeconds: number;
   /** Pre-computed array of timestamp (ms) for all time buckets in the range */
   timeBuckets: number[];
+  /** When true, hides "View traces for this period" links in chart tooltips */
+  hideTooltipLinks?: boolean;
+  /** Custom URL builder for tooltip links. Overrides default traces page navigation. */
+  tooltipLinkUrlBuilder?: (experimentId: string, timestampMs: number, timeIntervalSeconds: number) => string;
+  /** Custom link text for tooltip links. Overrides default "View traces for this period" text. */
+  tooltipLinkText?: React.ReactNode;
+  /** Optional filter expressions applied to all chart queries */
+  filters?: string[];
 }
 
-const OverviewChartContext = createContext<OverviewChartContextValue | null>(null);
+export const OverviewChartContext = createContext<OverviewChartContextValue | null>(null);
 
 interface OverviewChartProviderProps extends OverviewChartContextValue {
   children: React.ReactNode;
@@ -26,21 +35,39 @@ interface OverviewChartProviderProps extends OverviewChartContextValue {
  */
 export const OverviewChartProvider: React.FC<OverviewChartProviderProps> = ({
   children,
-  experimentId,
+  experimentIds,
   startTimeMs,
   endTimeMs,
   timeIntervalSeconds,
   timeBuckets,
+  hideTooltipLinks,
+  tooltipLinkUrlBuilder,
+  tooltipLinkText,
+  filters,
 }) => {
   const value = useMemo(
     () => ({
-      experimentId,
+      experimentIds,
       startTimeMs,
       endTimeMs,
       timeIntervalSeconds,
       timeBuckets,
+      hideTooltipLinks,
+      tooltipLinkUrlBuilder,
+      tooltipLinkText,
+      filters,
     }),
-    [experimentId, startTimeMs, endTimeMs, timeIntervalSeconds, timeBuckets],
+    [
+      experimentIds,
+      startTimeMs,
+      endTimeMs,
+      timeIntervalSeconds,
+      timeBuckets,
+      hideTooltipLinks,
+      tooltipLinkUrlBuilder,
+      tooltipLinkText,
+      filters,
+    ],
   );
 
   return <OverviewChartContext.Provider value={value}>{children}</OverviewChartContext.Provider>;

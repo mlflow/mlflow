@@ -13,10 +13,12 @@ from mlflow.demo import generate_all_demos
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DEMO_PROMPT_PREFIX
 from mlflow.demo.data import DEMO_PROMPTS
 from mlflow.demo.generators.evaluation import (
-    DEMO_DATASET_V1_NAME,
-    DEMO_DATASET_V2_NAME,
+    DEMO_DATASET_BASELINE_SESSION_NAME,
+    DEMO_DATASET_IMPROVED_SESSION_NAME,
+    DEMO_DATASET_TRACE_LEVEL_NAME,
     EvaluationDemoGenerator,
 )
+from mlflow.demo.generators.judges import DEMO_JUDGE_PREFIX, JudgesDemoGenerator
 from mlflow.demo.generators.prompts import PromptsDemoGenerator
 from mlflow.demo.generators.traces import (
     DEMO_TRACE_TYPE_TAG,
@@ -26,26 +28,16 @@ from mlflow.demo.generators.traces import (
 from mlflow.demo.registry import demo_registry
 from mlflow.genai.datasets import search_datasets
 from mlflow.genai.prompts import load_prompt, search_prompts
-from mlflow.server import handlers
-from mlflow.server.fastapi_app import app
-from mlflow.server.handlers import initialize_backend_stores
-
-from tests.helper_functions import get_safe_port
-from tests.tracking.integration_test_utils import ServerThread
+from mlflow.genai.scorers.registry import list_scorers
 
 
 @pytest.fixture
-def tracking_server(tmp_path: Path):
-    backend_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
-
-    handlers._tracking_store = None
-    handlers._model_registry_store = None
-    initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
-
-    with ServerThread(app, get_safe_port()) as url:
-        set_tracking_uri(url)
-        yield MlflowClient(url)
-        set_tracking_uri(None)
+def client(db_uri: str, tmp_path: Path):
+    # Point the tracking URI directly at the SQLite database to avoid HTTP
+    # overhead during data generation (3,000+ requests per test run).
+    set_tracking_uri(db_uri)
+    yield MlflowClient(db_uri)
+    set_tracking_uri(None)
 
 
 @pytest.fixture
@@ -72,7 +64,15 @@ def prompts_generator():
     PromptsDemoGenerator.version = original_version
 
 
-def test_generate_all_demos_generates_all_registered(tracking_server):
+@pytest.fixture
+def judges_generator():
+    generator = JudgesDemoGenerator()
+    original_version = generator.version
+    yield generator
+    JudgesDemoGenerator.version = original_version
+
+
+def test_generate_all_demos_generates_all_registered(client):
     results = generate_all_demos()
 
     registered_names = set(demo_registry.list_generators())
@@ -80,7 +80,7 @@ def test_generate_all_demos_generates_all_registered(tracking_server):
     assert generated_names == registered_names
 
 
-def test_generate_all_demos_is_idempotent(tracking_server):
+def test_generate_all_demos_is_idempotent(client):
     results_first = generate_all_demos()
     assert len(results_first) > 0
 
@@ -88,15 +88,15 @@ def test_generate_all_demos_is_idempotent(tracking_server):
     assert len(results_second) == 0
 
 
-def test_generate_all_demos_creates_experiment(tracking_server):
+def test_generate_all_demos_creates_experiment(client):
     generate_all_demos()
 
-    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
     assert experiment is not None
     assert experiment.lifecycle_stage == "active"
 
 
-def test_version_mismatch_triggers_cleanup_and_regeneration(tracking_server, traces_generator):
+def test_version_mismatch_triggers_cleanup_and_regeneration(client, traces_generator):
     result = traces_generator.generate()
     traces_generator.store_version()
     original_entity_count = len(result.entity_ids)
@@ -112,23 +112,23 @@ def test_version_mismatch_triggers_cleanup_and_regeneration(tracking_server, tra
     assert traces_generator.is_generated() is True
 
 
-def test_traces_creates_on_server(tracking_server, traces_generator):
+def test_traces_creates_on_server(client, traces_generator):
     result = traces_generator.generate()
     traces_generator.store_version()
 
-    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=200)
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=200)
 
     assert len(traces) == len(result.entity_ids)
     assert len(traces) == 34
 
 
-def test_traces_have_expected_span_types(tracking_server, traces_generator):
+def test_traces_have_expected_span_types(client, traces_generator):
     traces_generator.generate()
     traces_generator.store_version()
 
-    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=200)
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=200)
 
     all_span_names = {span.name for trace in traces for span in trace.data.spans}
 
@@ -142,12 +142,12 @@ def test_traces_have_expected_span_types(tracking_server, traces_generator):
     assert "render_prompt" in all_span_names
 
 
-def test_traces_session_metadata(tracking_server, traces_generator):
+def test_traces_session_metadata(client, traces_generator):
     traces_generator.generate()
     traces_generator.store_version()
 
-    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=200)
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=200)
 
     session_traces = [t for t in traces if t.info.trace_metadata.get("mlflow.trace.session")]
     assert len(session_traces) == 14
@@ -156,12 +156,12 @@ def test_traces_session_metadata(tracking_server, traces_generator):
     assert len(session_ids) == 6
 
 
-def test_traces_version_metadata(tracking_server, traces_generator):
+def test_traces_version_metadata(client, traces_generator):
     traces_generator.generate()
     traces_generator.store_version()
 
-    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=200)
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=200)
 
     v1_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v1"]
     v2_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_VERSION_TAG) == "v2"]
@@ -170,12 +170,12 @@ def test_traces_version_metadata(tracking_server, traces_generator):
     assert len(v2_traces) == 17
 
 
-def test_traces_type_metadata(tracking_server, traces_generator):
+def test_traces_type_metadata(client, traces_generator):
     traces_generator.generate()
     traces_generator.store_version()
 
-    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    traces = tracking_server.search_traces(locations=[experiment.experiment_id], max_results=200)
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    traces = client.search_traces(locations=[experiment.experiment_id], max_results=200)
 
     rag_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "rag"]
     agent_traces = [t for t in traces if t.info.trace_metadata.get(DEMO_TRACE_TYPE_TAG) == "agent"]
@@ -192,88 +192,101 @@ def test_traces_type_metadata(tracking_server, traces_generator):
     assert len(session_traces) == 14
 
 
-def test_traces_delete_removes_all(tracking_server, traces_generator):
+def test_traces_delete_removes_all(client, traces_generator):
     traces_generator.generate()
     traces_generator.store_version()
 
-    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    traces_before = tracking_server.search_traces(
-        locations=[experiment.experiment_id], max_results=200
-    )
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    traces_before = client.search_traces(locations=[experiment.experiment_id], max_results=200)
     assert len(traces_before) == 34
 
     traces_generator.delete_demo()
 
-    traces_after = tracking_server.search_traces(
-        locations=[experiment.experiment_id], max_results=200
-    )
+    traces_after = client.search_traces(locations=[experiment.experiment_id], max_results=200)
     assert len(traces_after) == 0
 
 
-def test_evaluation_creates_two_datasets(tracking_server, evaluation_generator):
+def test_evaluation_creates_three_datasets(client, evaluation_generator):
     result = evaluation_generator.generate()
     evaluation_generator.store_version()
 
-    assert len(result.entity_ids) == 2  # Two evaluation run IDs
+    assert len(result.entity_ids) == 3  # Three evaluation run IDs
 
-    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
-    v1_datasets = search_datasets(
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    trace_level_datasets = search_datasets(
         experiment_ids=[experiment.experiment_id],
-        filter_string=f"name = '{DEMO_DATASET_V1_NAME}'",
+        filter_string=f"name = '{DEMO_DATASET_TRACE_LEVEL_NAME}'",
         max_results=10,
     )
-    v2_datasets = search_datasets(
+    baseline_session_datasets = search_datasets(
         experiment_ids=[experiment.experiment_id],
-        filter_string=f"name = '{DEMO_DATASET_V2_NAME}'",
+        filter_string=f"name = '{DEMO_DATASET_BASELINE_SESSION_NAME}'",
+        max_results=10,
+    )
+    improved_session_datasets = search_datasets(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"name = '{DEMO_DATASET_IMPROVED_SESSION_NAME}'",
         max_results=10,
     )
 
-    assert len(v1_datasets) == 1
-    assert len(v2_datasets) == 1
-    assert v1_datasets[0].name == DEMO_DATASET_V1_NAME
-    assert v2_datasets[0].name == DEMO_DATASET_V2_NAME
+    assert len(trace_level_datasets) == 1
+    assert len(baseline_session_datasets) == 1
+    assert len(improved_session_datasets) == 1
+    assert trace_level_datasets[0].name == DEMO_DATASET_TRACE_LEVEL_NAME
+    assert baseline_session_datasets[0].name == DEMO_DATASET_BASELINE_SESSION_NAME
+    assert improved_session_datasets[0].name == DEMO_DATASET_IMPROVED_SESSION_NAME
 
 
-def test_evaluation_datasets_have_records(tracking_server, evaluation_generator):
+def test_evaluation_datasets_have_records(client, evaluation_generator):
     evaluation_generator.generate()
     evaluation_generator.store_version()
 
-    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
 
-    v1_datasets = search_datasets(
+    trace_level_datasets = search_datasets(
         experiment_ids=[experiment.experiment_id],
-        filter_string=f"name = '{DEMO_DATASET_V1_NAME}'",
+        filter_string=f"name = '{DEMO_DATASET_TRACE_LEVEL_NAME}'",
         max_results=10,
     )
-    v2_datasets = search_datasets(
+    baseline_session_datasets = search_datasets(
         experiment_ids=[experiment.experiment_id],
-        filter_string=f"name = '{DEMO_DATASET_V2_NAME}'",
+        filter_string=f"name = '{DEMO_DATASET_BASELINE_SESSION_NAME}'",
+        max_results=10,
+    )
+    improved_session_datasets = search_datasets(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"name = '{DEMO_DATASET_IMPROVED_SESSION_NAME}'",
         max_results=10,
     )
 
-    assert len(v1_datasets) == 1
-    assert len(v2_datasets) == 1
+    assert len(trace_level_datasets) == 1
+    assert len(baseline_session_datasets) == 1
+    assert len(improved_session_datasets) == 1
 
-    v1_df = v1_datasets[0].to_df()
-    v2_df = v2_datasets[0].to_df()
+    trace_level_df = trace_level_datasets[0].to_df()
+    baseline_session_df = baseline_session_datasets[0].to_df()
+    improved_session_df = improved_session_datasets[0].to_df()
 
-    # Each dataset has one record per trace (17 traces per version)
-    assert len(v1_df) == 17
-    assert len(v2_df) == 17
+    # Trace-level dataset merges v1 + v2 non-session traces (10 unique queries,
+    # merge_records deduplicates by inputs so v2 records overwrite v1)
+    assert len(trace_level_df) == 10
+    # Session datasets have 7 traces each (v1 and v2)
+    assert len(baseline_session_df) == 7
+    assert len(improved_session_df) == 7
 
 
-def test_evaluation_delete_removes_datasets(tracking_server, evaluation_generator):
+def test_evaluation_delete_removes_datasets(client, evaluation_generator):
     evaluation_generator.generate()
     evaluation_generator.store_version()
 
-    experiment = tracking_server.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
 
     datasets_before = search_datasets(
         experiment_ids=[experiment.experiment_id],
         filter_string="name LIKE 'demo-%'",
         max_results=10,
     )
-    assert len(datasets_before) == 2
+    assert len(datasets_before) == 3
 
     evaluation_generator.delete_demo()
 
@@ -285,7 +298,7 @@ def test_evaluation_delete_removes_datasets(tracking_server, evaluation_generato
     assert len(datasets_after) == 0
 
 
-def test_prompts_creates_on_server(tracking_server, prompts_generator):
+def test_prompts_creates_on_server(client, prompts_generator):
     result = prompts_generator.generate()
     prompts_generator.store_version()
 
@@ -299,7 +312,7 @@ def test_prompts_creates_on_server(tracking_server, prompts_generator):
     assert any("versions:" in e for e in result.entity_ids)
 
 
-def test_prompts_have_multiple_versions(tracking_server, prompts_generator):
+def test_prompts_have_multiple_versions(client, prompts_generator):
     prompts_generator.generate()
     prompts_generator.store_version()
 
@@ -310,7 +323,7 @@ def test_prompts_have_multiple_versions(tracking_server, prompts_generator):
         assert prompt.version == expected_versions
 
 
-def test_prompts_have_production_alias(tracking_server, prompts_generator):
+def test_prompts_have_production_alias(client, prompts_generator):
     prompts_generator.generate()
     prompts_generator.store_version()
 
@@ -321,7 +334,7 @@ def test_prompts_have_production_alias(tracking_server, prompts_generator):
                 assert prompt.version == version_num
 
 
-def test_prompts_delete_removes_all(tracking_server, prompts_generator):
+def test_prompts_delete_removes_all(client, prompts_generator):
     prompts_generator.generate()
     prompts_generator.store_version()
 
@@ -338,3 +351,50 @@ def test_prompts_delete_removes_all(tracking_server, prompts_generator):
         max_results=100,
     )
     assert len(prompts_after) == 0
+
+
+def test_judges_creates_on_server(client, judges_generator):
+    result = judges_generator.generate()
+    judges_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    scorers = list_scorers(experiment_id=experiment.experiment_id)
+    demo_judges = [s for s in scorers if s.name.startswith(DEMO_JUDGE_PREFIX)]
+
+    assert len(demo_judges) == 4
+    assert "judges:4" in result.entity_ids
+
+
+def test_judges_have_expected_names(client, judges_generator):
+    judges_generator.generate()
+    judges_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    scorers = list_scorers(experiment_id=experiment.experiment_id)
+    demo_judges = [s for s in scorers if s.name.startswith(DEMO_JUDGE_PREFIX)]
+
+    judge_names = {s.name for s in demo_judges}
+    expected_names = {
+        f"{DEMO_JUDGE_PREFIX}.relevance",
+        f"{DEMO_JUDGE_PREFIX}.correctness",
+        f"{DEMO_JUDGE_PREFIX}.groundedness",
+        f"{DEMO_JUDGE_PREFIX}.safety",
+    }
+    assert judge_names == expected_names
+
+
+def test_judges_delete_removes_all(client, judges_generator):
+    judges_generator.generate()
+    judges_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+
+    scorers_before = list_scorers(experiment_id=experiment.experiment_id)
+    demo_judges_before = [s for s in scorers_before if s.name.startswith(DEMO_JUDGE_PREFIX)]
+    assert len(demo_judges_before) == 4
+
+    judges_generator.delete_demo()
+
+    scorers_after = list_scorers(experiment_id=experiment.experiment_id)
+    demo_judges_after = [s for s in scorers_after if s.name.startswith(DEMO_JUDGE_PREFIX)]
+    assert len(demo_judges_after) == 0

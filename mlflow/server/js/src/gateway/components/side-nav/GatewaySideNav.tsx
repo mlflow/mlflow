@@ -1,4 +1,12 @@
-import { ChainIcon, KeyIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  ChainIcon,
+  ChartLineIcon,
+  CreditCardIcon,
+  KeyIcon,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
@@ -8,7 +16,13 @@ const SIDE_NAV_COLLAPSED_WIDTH = 32;
 const COLLAPSED_CLASS_NAME = 'gateway-side-nav-collapsed';
 const FULL_WIDTH_CLASS_NAME = 'gateway-side-nav-full-width';
 
-export type GatewayTab = 'endpoints' | 'api-keys';
+export type GatewayTab = 'endpoints' | 'usage' | 'api-keys' | 'budgets';
+
+type GatewaySideNavComponentId =
+  | 'mlflow.gateway.side-nav.endpoints.tooltip'
+  | 'mlflow.gateway.side-nav.api-keys.tooltip'
+  | 'mlflow.gateway.side-nav.usage.tooltip'
+  | 'mlflow.gateway.side-nav.budgets.tooltip';
 
 interface GatewaySideNavProps {
   activeTab: GatewayTab;
@@ -19,18 +33,35 @@ const navItems: Array<{
   label: React.ReactNode;
   icon: React.ReactNode;
   to: string;
+  componentId: GatewaySideNavComponentId;
 }> = [
   {
     tab: 'endpoints',
     label: <FormattedMessage defaultMessage="Endpoints" description="Gateway side nav > Endpoints tab" />,
     icon: <ChainIcon />,
     to: GatewayRoutes.gatewayPageRoute,
+    componentId: 'mlflow.gateway.side-nav.endpoints.tooltip',
+  },
+  {
+    tab: 'usage',
+    label: <FormattedMessage defaultMessage="Usage" description="Gateway side nav > Usage tab" />,
+    icon: <ChartLineIcon />,
+    to: GatewayRoutes.usagePageRoute,
+    componentId: 'mlflow.gateway.side-nav.usage.tooltip',
   },
   {
     tab: 'api-keys',
     label: <FormattedMessage defaultMessage="API Keys" description="Gateway side nav > API Keys tab" />,
     icon: <KeyIcon />,
     to: GatewayRoutes.apiKeysPageRoute,
+    componentId: 'mlflow.gateway.side-nav.api-keys.tooltip',
+  },
+  {
+    tab: 'budgets',
+    label: <FormattedMessage defaultMessage="Budgets" description="Gateway side nav > Budgets tab" />,
+    icon: <CreditCardIcon />,
+    to: GatewayRoutes.budgetsPageRoute,
+    componentId: 'mlflow.gateway.side-nav.budgets.tooltip',
   },
 ];
 
@@ -68,7 +99,7 @@ export const GatewaySideNav = ({ activeTab }: GatewaySideNavProps) => {
         const isActive = activeTab === item.tab;
 
         return (
-          <Link key={item.tab} to={item.to}>
+          <Link componentId="mlflow.gateway.side_nav.tab_link" key={item.tab} to={item.to}>
             <div
               css={{
                 display: 'flex',
@@ -84,12 +115,7 @@ export const GatewaySideNav = ({ activeTab }: GatewaySideNavProps) => {
                 ':hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
               }}
             >
-              <Tooltip
-                componentId={`mlflow.gateway.side-nav.${item.tab}.tooltip`}
-                content={item.label}
-                side="right"
-                delayDuration={0}
-              >
+              <Tooltip componentId={item.componentId} content={item.label} side="right" delayDuration={0}>
                 <span className={COLLAPSED_CLASS_NAME}>{item.icon}</span>
               </Tooltip>
               <span className={FULL_WIDTH_CLASS_NAME}>{item.icon}</span>

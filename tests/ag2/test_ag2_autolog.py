@@ -11,6 +11,7 @@ from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.helper_functions import start_mock_openai_server
 from tests.tracing.helper import get_traces
@@ -70,9 +71,11 @@ def test_enable_disable_autolog(llm_config):
 def test_tracing_agent(llm_config, mock_litellm_cost):
     mlflow.ag2.autolog()
 
-    with mock_user_input(
-        ["What is the capital of Tokyo?", "How long is it take from San Francisco?", "exit"]
-    ):
+    with mock_user_input([
+        "What is the capital of Tokyo?",
+        "How long is it take from San Francisco?",
+        "exit",
+    ]):
         assistant, user_proxy = get_simple_agent(llm_config)
         response = assistant.initiate_chat(user_proxy, message="How can I help you today?")
 
@@ -131,12 +134,13 @@ def test_tracing_agent(llm_config, mock_litellm_cost):
         "total_tokens": 21,
     }
     assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
-    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert llm_span.llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+        assert llm_span.llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
 
     assert llm_span_2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 9,
@@ -144,12 +148,13 @@ def test_tracing_agent(llm_config, mock_litellm_cost):
         "total_tokens": 21,
     }
     assert llm_span_2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
-    # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
-    assert llm_span_2.llm_cost == {
-        "input_cost": 9.0,
-        "output_cost": 24.0,
-        "total_cost": 33.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (9 input tokens * 1.0 + 12 output tokens * 2.0)
+        assert llm_span_2.llm_cost == {
+            "input_cost": 9.0,
+            "output_cost": 24.0,
+            "total_cost": 33.0,
+        }
 
     assert traces[0].info.token_usage == {
         "input_tokens": 18,
@@ -223,8 +228,9 @@ def test_tracing_agent_with_function_calling(llm_config):
     user_proxy = ConversableAgent(
         name="tool_agent",
         llm_config=False,
-        is_termination_msg=lambda msg: msg.get("content") is not None
-        and "TERMINATE" in msg["content"],
+        is_termination_msg=lambda msg: (
+            msg.get("content") is not None and "TERMINATE" in msg["content"]
+        ),
         human_input_mode="NEVER",
     )
     assistant.register_for_llm(name="sum", description="A simple sum calculator")(sum)
@@ -311,9 +317,11 @@ def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
     # Test if the duration calculation for LLM completion is robust to timezone changes.
     mlflow.ag2.autolog()
 
-    with mock_user_input(
-        ["What is the capital of Tokyo?", "How long is it take from San Francisco?", "exit"]
-    ):
+    with mock_user_input([
+        "What is the capital of Tokyo?",
+        "How long is it take from San Francisco?",
+        "exit",
+    ]):
         assistant, user_proxy = get_simple_agent(llm_config)
         assistant.initiate_chat(user_proxy, message="How can I help you today?")
 

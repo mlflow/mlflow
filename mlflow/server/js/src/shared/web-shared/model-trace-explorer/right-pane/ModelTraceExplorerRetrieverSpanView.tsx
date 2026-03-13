@@ -5,8 +5,8 @@ import { Tag, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerRetrieverDocument } from './ModelTraceExplorerRetrieverDocument';
-import type { ModelTraceSpanNode, RetrieverDocument, SearchMatch } from '../ModelTrace.types';
-import { createListFromObject } from '../ModelTraceExplorer.utils';
+import type { FeedbackAssessment, ModelTraceSpanNode, RetrieverDocument, SearchMatch } from '../ModelTrace.types';
+import { buildDocumentRelevanceAssessmentMap, createListFromObject } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { ModelTraceExplorerRenderModeToggle } from '../ModelTraceExplorerRenderModeToggle';
@@ -27,6 +27,10 @@ export function ModelTraceExplorerRetrieverSpanView({
   const inputList = useMemo(() => createListFromObject(activeSpan.inputs), [activeSpan]);
 
   const outputs = activeSpan.outputs as RetrieverDocument[];
+  const documentRelevanceMap = useMemo(
+    () => buildDocumentRelevanceAssessmentMap(activeSpan.assessments ?? []),
+    [activeSpan.assessments],
+  );
 
   const containsInputs = inputList.length > 0;
 
@@ -108,6 +112,7 @@ export function ModelTraceExplorerRetrieverSpanView({
                   key={idx}
                   text={document.page_content}
                   metadata={document.metadata}
+                  relevanceAssessment={documentRelevanceMap.get(idx) as FeedbackAssessment | undefined}
                 />
               </div>
             ))}

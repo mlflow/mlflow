@@ -4,6 +4,7 @@
  * Implicit context like experimentId and currentPage is passed to the assistant but not displayed.
  */
 
+import type { TagColors } from '@databricks/design-system';
 import {
   DatabaseIcon,
   ForkHorizontalIcon,
@@ -12,7 +13,6 @@ import {
   SparkleDoubleIcon,
   SpeechBubbleIcon,
   Tag,
-  TagColors,
   TextBoxIcon,
   Tooltip,
   useDesignSystemTheme,

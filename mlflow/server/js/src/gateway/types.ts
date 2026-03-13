@@ -141,6 +141,8 @@ export interface Endpoint {
     strategy: string;
     max_attempts: number;
   };
+  experiment_id?: string;
+  usage_tracking?: boolean;
 }
 
 export interface CreateEndpointRequest {
@@ -152,6 +154,8 @@ export interface CreateEndpointRequest {
     strategy: string;
     max_attempts: number;
   };
+  usage_tracking?: boolean;
+  experiment_id?: string;
 }
 
 export interface CreateEndpointResponse {
@@ -172,6 +176,8 @@ export interface UpdateEndpointRequest {
     max_attempts: number;
   };
   model_configs?: GatewayEndpointModelConfig[];
+  usage_tracking?: boolean;
+  experiment_id?: string;
 }
 
 export interface UpdateEndpointResponse {
@@ -263,4 +269,81 @@ export interface ListEndpointBindingsResponse {
 export interface SecretsConfigResponse {
   secrets_available: boolean;
   using_default_passphrase: boolean;
+}
+
+export interface UserInfo {
+  id: number;
+  username: string;
+}
+
+export interface ListUsersResponse {
+  users: UserInfo[];
+}
+
+// Budget Policy types
+export type BudgetUnit = 'USD';
+export type DurationUnit = 'MINUTES' | 'HOURS' | 'DAYS' | 'WEEKS' | 'MONTHS';
+export type TargetScope = 'GLOBAL' | 'WORKSPACE';
+export type BudgetAction = 'ALERT' | 'REJECT';
+
+export interface BudgetPolicy {
+  budget_policy_id: string;
+  budget_unit: BudgetUnit;
+  budget_amount: number;
+  duration_unit: DurationUnit;
+  duration_value: number;
+  target_scope: TargetScope;
+  budget_action: BudgetAction;
+  created_at: number;
+  last_updated_at: number;
+  created_by?: string | null;
+  last_updated_by?: string | null;
+  workspace?: string | null;
+}
+
+export interface CreateBudgetPolicyRequest {
+  budget_unit: BudgetUnit;
+  budget_amount: number;
+  duration_unit: DurationUnit;
+  duration_value: number;
+  target_scope: TargetScope;
+  budget_action: BudgetAction;
+}
+
+export interface CreateBudgetPolicyResponse {
+  budget_policy: BudgetPolicy;
+}
+
+export interface GetBudgetPolicyResponse {
+  budget_policy: BudgetPolicy;
+}
+
+export interface UpdateBudgetPolicyRequest {
+  budget_policy_id: string;
+  budget_unit?: BudgetUnit;
+  budget_amount?: number;
+  duration_unit?: DurationUnit;
+  duration_value?: number;
+  target_scope?: TargetScope;
+  budget_action?: BudgetAction;
+}
+
+export interface UpdateBudgetPolicyResponse {
+  budget_policy: BudgetPolicy;
+}
+
+export interface ListBudgetPoliciesResponse {
+  budget_policies: BudgetPolicy[];
+  next_page_token?: string;
+}
+
+export interface BudgetPolicyWindow {
+  budget_policy_id: string;
+  window_start_ms: number;
+  window_end_ms: number;
+  current_spend: number;
+}
+
+export interface ListBudgetWindowsResponse {
+  windows: BudgetPolicyWindow[];
 }

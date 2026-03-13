@@ -8,7 +8,8 @@ import type { ScheduledScorer, LLMScorer, CustomCodeScorer } from './types';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
-import { ScorerFormData, outputTypeSpecToFormData } from './utils/scorerTransformUtils';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
+import { outputTypeSpecToFormData } from './utils/scorerTransformUtils';
 import { ScorerEvaluationScope } from './constants';
 
 export const getTypeDisplayName = (scorer: ScheduledScorer, intl: IntlShape): string => {
@@ -19,6 +20,12 @@ export const getTypeDisplayName = (scorer: ScheduledScorer, intl: IntlShape): st
     });
   }
   if (scorer.type === 'llm') {
+    if ((scorer as LLMScorer).isMemoryAugmented) {
+      return intl.formatMessage({
+        defaultMessage: 'LLM-as-a-judge (Optimized)',
+        description: 'Label for memory-augmented LLM scorer type',
+      });
+    }
     return intl.formatMessage({
       defaultMessage: 'LLM-as-a-judge',
       description: 'Label for LLM scorer type',
@@ -100,6 +107,7 @@ export const getFormValuesFromScorer = (scorer: ScheduledScorer): LLMScorerFormD
     model,
     disableMonitoring: scorer.disableMonitoring,
     isInstructionsJudge: scorer.type === 'llm' ? (scorer as LLMScorer).is_instructions_judge : undefined,
+    isMemoryAugmented: scorer.type === 'llm' ? (scorer as LLMScorer).isMemoryAugmented : undefined,
     evaluationScope: scorer.isSessionLevelScorer ? ScorerEvaluationScope.SESSIONS : ScorerEvaluationScope.TRACES,
     ...outputTypeFormFields,
   };

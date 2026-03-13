@@ -10,6 +10,7 @@ MLflow Authentication provides Python and REST API for managing users and permis
 
 - <APILink fn="mlflow.server.auth">MLflow Authentication Python API</APILink>
 - <Link to="/api_reference/auth/rest-api.html" target="_blank"><span>MLflow Authentication REST API</span></Link>
+- <Link to="/self-hosting/workspaces/permissions">Workspace Permissions</Link>
 
 ![](/images/auth_signup_form.png)
 
@@ -18,7 +19,7 @@ MLflow Authentication provides Python and REST API for managing users and permis
 First, install all dependencies required for the basic auth app:
 
 ```bash
-pip install mlflow[auth]
+pip install 'mlflow[auth]'
 ```
 
 :::note
@@ -108,7 +109,8 @@ The available permissions are:
 
 The default permission for all users is `READ`. It can be changed in the [configuration](#configuration) file.
 
-Permissions can be granted on individual resources for each user.
+Permissions can be granted on individual resources for each user. For workspace-wide access
+controls, see [Workspace Permissions](/self-hosting/workspaces/permissions).
 Supported resources include `Experiment`, `Registered Model`, and `Scorer`.
 To access an API endpoint, an user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
@@ -358,6 +360,61 @@ Required Permissions for accessing experiments:
   </tbody>
 </table>
 
+Required Permissions for accessing prompt optimization jobs:
+
+:::note
+Prompt optimization jobs inherit permissions from their parent experiment. When you create a job within an experiment, the job's permissions are determined by your permissions on that experiment.
+:::
+
+<table>
+  <thead>
+    <tr>
+      <th>API</th>
+      <th>Endpoint</th>
+      <th>Method</th>
+      <th>Required permission</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Create Prompt Optimization Job</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs`</td>
+      <td>`POST`</td>
+      <td>can_update (on experiment)</td>
+    </tr>
+    <tr>
+      <td>Get Prompt Optimization Job</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs/{job_id}`</td>
+      <td>`GET`</td>
+      <td>can_read</td>
+    </tr>
+    <tr>
+      <td>Search Prompt Optimization Jobs</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs/search`</td>
+      <td>`POST`</td>
+      <td>can_read (on experiment)</td>
+    </tr>
+    <tr>
+      <td>Search Prompt Optimization Jobs</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs/search`</td>
+      <td>`GET`</td>
+      <td>can_read (on experiment)</td>
+    </tr>
+    <tr>
+      <td>Cancel Prompt Optimization Job</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs/{job_id}/cancel`</td>
+      <td>`POST`</td>
+      <td>can_update</td>
+    </tr>
+    <tr>
+      <td>Delete Prompt Optimization Job</td>
+      <td>`3.0/mlflow/prompt-optimization/jobs/{job_id}`</td>
+      <td>`DELETE`</td>
+      <td>can_delete</td>
+    </tr>
+  </tbody>
+</table>
+
 Required Permissions for accessing registered models:
 
 <table>
@@ -558,7 +615,7 @@ Required Permissions for accessing registered models:
       </td>
       <td>`2.0/mlflow/model-versions/search`</td>
       <td>`GET`</td>
-      <td>None</td>
+      <td>None (results filtered by parent model permission)</td>
     </tr>
     <tr>
       <td>
@@ -1077,6 +1134,42 @@ MLflow Authentication provides API endpoints to manage users and permissions.
       <td>`DELETE`</td>
       <td>can_manage</td>
     </tr>
+    <tr>
+      <td>Create Webhook</td>
+      <td>`2.0/mlflow/webhooks`</td>
+      <td>`POST`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>List Webhooks</td>
+      <td>`2.0/mlflow/webhooks`</td>
+      <td>`GET`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>Get Webhook</td>
+      <td>`2.0/mlflow/webhooks/&lt;webhook_id&gt;`</td>
+      <td>`GET`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>Update Webhook</td>
+      <td>`2.0/mlflow/webhooks/&lt;webhook_id&gt;`</td>
+      <td>`PATCH`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>Delete Webhook</td>
+      <td>`2.0/mlflow/webhooks/&lt;webhook_id&gt;`</td>
+      <td>`DELETE`</td>
+      <td>Only admin</td>
+    </tr>
+    <tr>
+      <td>Test Webhook</td>
+      <td>`2.0/mlflow/webhooks/&lt;webhook_id&gt;/test`</td>
+      <td>`POST`</td>
+      <td>Only admin</td>
+    </tr>
   </tbody>
 </table>
 
@@ -1162,7 +1255,7 @@ on that experiment, so that the creator can grant or revoke other users' access 
       </td>
       <td>`2.0/mlflow/model-versions/search`</td>
       <td>`GET`</td>
-      <td>Only returns registered models which the user has `READ` permission on.</td>
+      <td>Only returns model versions whose parent registered model the user has `READ` permission on.</td>
     </tr>
   </tbody>
 </table>
@@ -1228,6 +1321,7 @@ auth_client.update_user_admin(username="user1", is_admin=True)
 
 MLflow provides <Link to="/api_reference/auth/rest-api.html#create-user" target="_blank">REST APIs</Link>
 and a client class <APILink fn="mlflow.server.auth.client.AuthServiceClient">`AuthServiceClient`</APILink> to manage users and permissions.
+For workspace-scoped permissions, see <Link to="/self-hosting/workspaces/permissions">Workspace Permissions</Link>.
 To instantiate `AuthServiceClient`, it is recommended that you use <APILink fn="mlflow.server.get_app_client" />.
 
 ```bash title="Example"
@@ -1375,6 +1469,10 @@ Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
       <td>Default permission on all resources</td>
     </tr>
     <tr>
+      <td>`grant_default_workspace_access`</td>
+      <td>When workspaces are enabled: if `false`, the `default` workspace ignores `default_permission` and new users need explicit workspace ACLs; if `true`, the `default` workspace inherits `default_permission` for all users (pre-workspaces behavior).</td>
+    </tr>
+    <tr>
       <td>`database_uri`</td>
       <td>Database location to store permission and user data</td>
     </tr>
@@ -1401,8 +1499,7 @@ if you want to use another authentication method than HTTP basic auth. The value
 specifies `module_name:function_name`. The function has the following signature:
 
 ```python
-def authenticate_request() -> Union[Authorization, Response]:
-    ...
+def authenticate_request() -> Union[Authorization, Response]: ...
 ```
 
 The function should return a `werkzeug.datastructures.Authorization` object if

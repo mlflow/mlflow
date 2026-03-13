@@ -7,6 +7,7 @@ import type { ExperimentPageTabName } from './constants';
  */
 export enum PageId {
   home = 'mlflow.home',
+  workspacesPage = 'mlflow.workspaces',
   settingsPage = 'mlflow.settings',
   promptsPage = 'mlflow.prompts',
   promptDetailsPage = 'mlflow.prompts.details',
@@ -68,6 +69,12 @@ export class RoutePaths {
   }
   static get experimentPageTabEvaluationRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs');
+  }
+  static get experimentPageTabIssueDetectionRunDetails() {
+    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid');
+  }
+  static get experimentPageTabIssueDetectionRunDetailsWithTab() {
+    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid/*');
   }
   static get experimentPageTabDatasets() {
     return createMLflowRoutePath('/experiments/:experimentId/datasets');
@@ -223,6 +230,14 @@ class Routes {
     });
   }
 
+  static getIssueDetectionRunDetailsRoute(experimentId: string, runUuid: string) {
+    return generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid });
+  }
+
+  static getIssueDetectionRunDetailsTabRoute(experimentId: string, runUuid: string, tabName: string) {
+    return `${generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid })}/${tabName}`;
+  }
+
   /**
    * Get route to the metric plot page
    * @param runUuids - Array of string run IDs to plot
@@ -304,6 +319,7 @@ class Routes {
    * Routes for prompts management.
    * Featured exclusively in open source MLflow.
    */
+
   static get promptsPageRoute() {
     return RoutePaths.promptsPage;
   }

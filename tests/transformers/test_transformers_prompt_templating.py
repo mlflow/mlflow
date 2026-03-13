@@ -41,10 +41,8 @@ UNSUPPORTED_PIPELINES = [
     "depth-estimation",
     "video-classification",
     "mask-generation",
+    "image-to-image",
 ]
-
-if Version(transformers.__version__) >= Version("4.34.1"):
-    UNSUPPORTED_PIPELINES.append("image-to-image")
 
 
 @pytest.fixture(scope="session")

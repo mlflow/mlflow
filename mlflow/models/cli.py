@@ -2,6 +2,7 @@ import logging
 
 import click
 
+from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.models import python_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.models.model import update_model_requirements
@@ -22,6 +23,7 @@ def commands():
 
 
 @commands.command("serve")
+@mlflow_mcp(tool_name="serve_model")
 @cli_args.MODEL_URI
 @cli_args.PORT
 @cli_args.HOST
@@ -116,6 +118,7 @@ class KeyValueType(click.ParamType):
 
 
 @commands.command("predict")
+@mlflow_mcp(tool_name="predict_with_model")
 @cli_args.MODEL_URI
 @click.option(
     "--input-path", "-i", default=None, help="CSV containing pandas DataFrame to predict against."
@@ -179,6 +182,7 @@ def predict(
 
 
 @commands.command("prepare-env")
+@mlflow_mcp(tool_name="prepare_model_env")
 @cli_args.MODEL_URI
 @cli_args.ENV_MANAGER
 @cli_args.INSTALL_MLFLOW
@@ -198,6 +202,7 @@ def prepare_env(
 
 
 @commands.command("generate-dockerfile")
+@mlflow_mcp(tool_name="generate_model_dockerfile")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option(
     "--output-directory",
@@ -249,6 +254,7 @@ def generate_dockerfile(
 
 
 @commands.command("build-docker")
+@mlflow_mcp(tool_name="build_model_docker")
 @cli_args.MODEL_URI_BUILD_DOCKER
 @click.option("--name", "-n", default="mlflow-pyfunc-servable", help="Name to use for built image")
 @cli_args.ENV_MANAGER
@@ -312,6 +318,7 @@ def build_docker(**kwargs):
 
 
 @commands.command("update-pip-requirements")
+@mlflow_mcp(tool_name="update_model_pip_requirements")
 @cli_args.MODEL_URI
 @click.argument("operation", type=click.Choice(["add", "remove"]))
 @click.argument("requirement_strings", type=str, nargs=-1)

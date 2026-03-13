@@ -65,7 +65,7 @@ For production deployments or custom backend configurations, see <ins>[Backend S
 
 ### Docker Compose
 
-The MLflow repository includes a ready-to-run Compose project under `docker-compose/` that provisions MLflow, PostgreSQL, and MinIO.
+The MLflow repository includes a ready-to-run Compose project under `docker-compose/` that provisions MLflow, PostgreSQL, and [RustFS](https://github.com/rustfs/rustfs).
 
 ```bash
 git clone https://github.com/mlflow/mlflow.git
@@ -101,6 +101,10 @@ MLflow, at a high level, consists of the following components:
 Each component is designed to be pluggable, so you can customize it to meet your needs. For example, you can start with a single host mode with SQLite backend and local file system for storing artifacts. To scale up, you can switch backend store to PostgreSQL cluster and point artifact store to cloud storage such as S3, GCS, or Azure Blob Storage.
 
 To learn more about the architecture and available backend options, see [Architecture](./architecture/overview).
+
+## Workspaces
+
+MLflow supports [workspaces](/self-hosting/workspaces) to organize experiments, registered models, prompts, and artifacts on a shared MLflow instance. Workspaces add logical separation and workspace-level permissions so teams can collaborate without running separate servers. Workspaces are opt-in and require a SQL database backend.
 
 ## Access Control & Security
 

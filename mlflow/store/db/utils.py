@@ -67,6 +67,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
+from mlflow.store.workspace.dbmodels.models import SqlWorkspace
 
 _logger = logging.getLogger(__name__)
 
@@ -106,6 +107,7 @@ def _all_tables_exist(engine):
         SqlScorer.__tablename__,
         SqlScorerVersion.__tablename__,
         SqlJob.__tablename__,
+        SqlWorkspace.__tablename__,
     }
     actual_tables = {
         t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
@@ -437,5 +439,16 @@ def create_sqlalchemy_engine(db_uri):
                     )
 
             dbapi_conn.create_aggregate("percentile", 2, PercentileAggregate)
+
+    # SQLAlchemy's MSSQL dialect calls the base fetch_clause() which generates
+    # "FETCH FIRST n ROWS ONLY" but SQL Server requires "FETCH NEXT n ROWS ONLY".
+    # Register an event listener to rewrite the generated SQL before execution.
+    if db_uri.startswith("mssql"):
+
+        @event.listens_for(engine, "before_cursor_execute", retval=True)
+        def _fix_mssql_fetch_syntax(conn, cursor, statement, parameters, context, executemany):
+            if " FETCH FIRST " in statement:
+                statement = statement.replace(" FETCH FIRST ", " FETCH NEXT ")
+            return statement, parameters
 
     return engine

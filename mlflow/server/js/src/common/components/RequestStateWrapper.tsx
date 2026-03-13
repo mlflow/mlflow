@@ -22,7 +22,6 @@ type RequestStateWrapperProps = {
   requests: any[];
   requestIds?: string[];
   requestIdsWith404sToIgnore?: string[];
-  description?: any; // TODO: PropTypes.oneOf(Object.values(LoadingDescription))
   permissionDeniedView?: React.ReactNode;
   suppressErrorThrow?: boolean;
   customRequestErrorHandlerFn?: (

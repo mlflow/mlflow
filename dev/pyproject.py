@@ -337,7 +337,6 @@ def build(package_type: PackageType) -> None:
                     # Required by the mlflow.projects module, when running projects against
                     # a remote Kubernetes cluster
                     "kubernetes",
-                    "virtualenv",
                     # Required for exporting metrics from the MLflow server to Prometheus
                     # as part of the MLflow server monitoring add-on
                     "prometheus-flask-exporter",
@@ -365,9 +364,15 @@ def build(package_type: PackageType) -> None:
                 "genai": genai_requirements,
                 # click 8.3.0 causes MLflow MCP server to fail: https://github.com/mlflow/mlflow/issues/18747
                 "mcp": ["fastmcp<3,>=2.0.0", "click!=8.3.0"],
+                "azure": [
+                    # Required to log artifacts and models to Azure Blob Storage
+                    "azure-storage-blob>=12",
+                    "azure-identity>=1.6.1",
+                ],
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "jfrog": ["mlflow-jfrog-plugin"],
+                "kubernetes": ["kubernetes"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
             }

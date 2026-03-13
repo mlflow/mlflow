@@ -46,7 +46,7 @@ pip install 'mlflow[genai]' openai
   <TabItem value="typescript" label="JS / TS">
 
 ```bash
-npm install mlflow-openai openai
+npm install @mlflow/openai openai
 ```
 
   </TabItem>
@@ -104,7 +104,7 @@ ollama run llama3.2:1b
 
     ```typescript
     import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+    import { tracedOpenAI } from "@mlflow/openai";
 
     // Wrap the OpenAI client and point to Ollama endpoint
     const client = tracedOpenAI(
@@ -158,10 +158,13 @@ MLflow supports tracing for streaming and async Ollama APIs. Visit the [OpenAI T
 
 To control the tracing behavior more precisely, MLflow provides [Manual Tracing SDK](/genai/tracing/app-instrumentation/manual-tracing) to create spans for your custom code. Manual tracing can be used in conjunction with auto-tracing to create a custom trace while keeping the auto-tracing convenience. For more details, please refer to the [Combine with Manual Tracing](/genai/tracing/integrations/listing/openai#combine-with-manual-tracing) section in the OpenAI Tracing documentation.
 
-## Token usage
+## Tracking Token Usage and Cost
 
-MLflow >= 3.2.0 supports token usage tracking for Ollama models through the OpenAI SDK integration. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
-available in the `token_usage` field of the trace info object. See the [Token Usage](/genai/tracing/integrations/listing/openai#token-usage) documentation for more details.
+MLflow automatically tracks token usage and cost for Ollama models through the OpenAI SDK integration. The token usage for each LLM call will be logged in each Trace/Span and the aggregated cost and time trend are displayed in the built-in dashboard. See the [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) documentation for details on accessing this information programmatically.
+
+:::note
+Cost may not be available for many local Ollama models as pricing data is not available.
+:::
 
 ## Disable auto-tracing
 

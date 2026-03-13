@@ -1,7 +1,17 @@
+from __future__ import annotations
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.entities.trace_location import UnityCatalog
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import ExperimentTag as ProtoExperimentTag
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
+)
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class Experiment(_MlflowObject):
@@ -20,6 +30,8 @@ class Experiment(_MlflowObject):
         tags=None,
         creation_time=None,
         last_update_time=None,
+        workspace=None,
+        trace_location=None,
     ):
         super().__init__()
         self._experiment_id = experiment_id
@@ -29,6 +41,8 @@ class Experiment(_MlflowObject):
         self._tags = {tag.key: tag.value for tag in (tags or [])}
         self._creation_time = creation_time
         self._last_update_time = last_update_time
+        self._workspace = resolve_entity_workspace_name(workspace)
+        self._trace_location = trace_location
 
     @property
     def experiment_id(self):
@@ -75,6 +89,43 @@ class Experiment(_MlflowObject):
     def _set_last_update_time(self, last_update_time):
         self._last_update_time = last_update_time
 
+    @property
+    def trace_location(self) -> UnityCatalog | None:
+        """Trace storage location, if configured."""
+        if self._trace_location is None:
+            self._trace_location = self._resolve_trace_location_from_tags()
+        return self._trace_location
+
+    @trace_location.setter
+    def trace_location(self, trace_location):
+        self._trace_location = trace_location
+
+    def _resolve_trace_location_from_tags(self) -> UnityCatalog | None:
+        destination_path = self._tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
+        if not destination_path:
+            return None
+
+        match destination_path.split("."):
+            case [catalog, schema, table_prefix]:
+                location = UnityCatalog(catalog, schema, table_prefix)
+                location._otel_spans_table_name = self._tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE
+                )
+                location._otel_logs_table_name = self._tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE
+                )
+                location._annotations_table_name = self._tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE
+                )
+                return location
+            case _:
+                return None
+
+    @property
+    def workspace(self):
+        """Workspace that owns the experiment, if known."""
+        return self._workspace
+
     @classmethod
     def from_proto(cls, proto):
         experiment = cls(
@@ -88,6 +139,7 @@ class Experiment(_MlflowObject):
             # `last_update_time` if they are non-zero.
             creation_time=proto.creation_time or None,
             last_update_time=proto.last_update_time or None,
+            workspace=None,
         )
         for proto_tag in proto.tags:
             experiment._add_tag(ExperimentTag.from_proto(proto_tag))
@@ -103,7 +155,7 @@ class Experiment(_MlflowObject):
             experiment.creation_time = self.creation_time
         if self.last_update_time:
             experiment.last_update_time = self.last_update_time
-        experiment.tags.extend(
-            [ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()]
-        )
+        experiment.tags.extend([
+            ProtoExperimentTag(key=key, value=val) for key, val in self._tags.items()
+        ])
         return experiment

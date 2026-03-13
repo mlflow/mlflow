@@ -42,6 +42,7 @@ from mlflow.utils.environment import (
 from mlflow.utils.file_utils import get_total_file_size, write_to
 from mlflow.utils.model_utils import (
     _add_code_from_conf_to_system_path,
+    _copy_extra_files,
     _get_flavor_configuration,
     _validate_and_copy_code_paths,
     _validate_and_prepare_target_save_path,
@@ -101,6 +102,7 @@ def save_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
 ):
     """
     Save a Prophet model to a path on the local file system.
@@ -135,6 +137,7 @@ def save_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
     """
     import prophet
 
@@ -171,9 +174,12 @@ def save_model(
         code=code_dir_subpath,
         **model_bin_kwargs,
     )
+    extra_files_config = _copy_extra_files(extra_files, path)
+
     flavor_conf = {
         _MODEL_TYPE_KEY: pr_model.__class__.__name__,
         **model_bin_kwargs,
+        **extra_files_config,
     }
     mlflow_model.add_flavor(
         FLAVOR_NAME,
@@ -228,12 +234,14 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    extra_files=None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
     tags: dict[str, Any] | None = None,
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    **kwargs,
 ):
     """
     Logs a Prophet model as an MLflow artifact for the current run.
@@ -274,12 +282,14 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        extra_files: {{ extra_files }}
         name: {{ name }}
         params: {{ params }}
         tags: {{ tags }}
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        kwargs: Extra arguments to pass to :py:func:`mlflow.models.Model.log`.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -299,11 +309,13 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        extra_files=extra_files,
         params=params,
         tags=tags,
         model_type=model_type,
         step=step,
         model_id=model_id,
+        **kwargs,
     )
 
 

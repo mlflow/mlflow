@@ -17,7 +17,7 @@ export const useCheckMultiturnDatasets = ({ datasetIds }: { datasetIds: string[]
 
         const response = await fetchAPI(
           getAjaxUrl(`ajax-api/3.0/mlflow/datasets/${datasetId}/records?${queryParams.toString()}`),
-          'GET',
+          { method: 'GET' },
         ).catch(() => null);
         if (!response) return false;
 

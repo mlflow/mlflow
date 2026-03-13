@@ -109,21 +109,21 @@ const config: Config = {
           type: 'custom-docsDropdown',
           label: 'Documentation',
           items: [
-            // Classic ML docs
-            {
-              type: 'docSidebar',
-              sidebarId: 'classicMLSidebar',
-              label: 'ML Docs',
-              docsPluginId: 'classic-ml',
-              className: 'ml-docs-link',
-            },
             // GenAI docs
             {
               type: 'docSidebar',
               sidebarId: 'genAISidebar',
-              label: 'GenAI Docs',
+              label: 'LLMs & Agents',
               docsPluginId: 'genai',
               className: 'genai-docs-link',
+            },
+            // Classic ML docs
+            {
+              type: 'docSidebar',
+              sidebarId: 'classicMLSidebar',
+              label: 'Machine Learning',
+              docsPluginId: 'classic-ml',
+              className: 'ml-docs-link',
             },
           ],
         },
@@ -298,6 +298,11 @@ const config: Config = {
             to: '/',
             from: ['/new-features'],
           },
+          // Redirect webhooks from classic-ml to self-hosting
+          {
+            to: '/self-hosting/webhooks',
+            from: ['/ml/webhooks'],
+          },
           // Redirect to the new self-hosting guide
           {
             to: '/self-hosting/architecture/tracking-server',
@@ -338,6 +343,10 @@ const config: Config = {
               '/getting-started/community-edition',
               '/ml/getting-started/databricks-trial',
             ],
+          },
+          {
+            to: '/genai/tracing/quickstart',
+            from: ['/genai/getting-started'],
           },
           // Redirect deleted data-model pages to GenAI main page
           {
@@ -510,6 +519,13 @@ const config: Config = {
             to: '/genai',
             from: ['/tracing/tutorials'],
           },
+          {
+            to: '/genai/eval-monitor/scorers/llm-judge/custom-judges/',
+            from: [
+              '/genai/eval-monitor/scorers/llm-judge/make-judge/',
+              '/genai/eval-monitor/scorers/llm-judge/agentic-overview/',
+            ],
+          },
 
           // Tracing Redirects
           {
@@ -639,7 +655,7 @@ const config: Config = {
             ],
           },
           {
-            to: '/genai/eval-monitor/scorers/llm-judge/agentic-overview',
+            to: '/genai/eval-monitor/scorers/llm-judge/custom-judges',
             from: [
               '/genai/eval-monitor/scorers/llm-judge/trace-analysis',
               '/genai/eval-monitor/scorers/llm-judge/agent-behavior-patterns',

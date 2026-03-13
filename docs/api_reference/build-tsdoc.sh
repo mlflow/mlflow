@@ -52,16 +52,16 @@ rm -rf "$DOCS_OUTPUT_BASE"
 # Create output directory
 mkdir -p "$DOCS_OUTPUT_BASE"
 
-# Build documentation for mlflow-tracing
+# Build documentation for @mlflow/core
 build_tsdoc \
     "$TYPESCRIPT_BASE/core" \
-    "mlflow-tracing" \
-    "$(pwd)/$DOCS_OUTPUT_BASE/mlflow-tracing"
+    "@mlflow/core" \
+    "$(pwd)/$DOCS_OUTPUT_BASE/mlflow-core"
 
-# Build documentation for mlflow-openai
+# Build documentation for @mlflow/openai
 build_tsdoc \
     "$TYPESCRIPT_BASE/integrations/openai" \
-    "mlflow-openai" \
+    "@mlflow/openai" \
     "$(pwd)/$DOCS_OUTPUT_BASE/mlflow-openai"
 
 # Copy the HTML template to create index.html

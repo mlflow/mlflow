@@ -1,4 +1,4 @@
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import {
   isSessionLevelAssessment,
   ModelTraceExplorerUpdateTraceContextProvider,
@@ -6,25 +6,27 @@ import {
   isV3ModelTraceInfo,
   type ModelTrace,
   AssessmentsPane,
+  ModelTraceExplorerRunJudgesContextProvider,
 } from '@databricks/web-shared/model-trace-explorer';
-import { first, last } from 'lodash';
-import { useMemo } from 'react';
+import { first } from 'lodash';
+import { useEffect, useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { ResizableBox } from 'react-resizable';
+import { isEvaluatingTracesInDetailsViewEnabled } from '../../../../shared/web-shared/model-trace-explorer/FeatureUtils';
+import { useRunScorerInTracesViewConfiguration } from '../../experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
+import { ScorerEvaluationScope } from '../../experiment-scorers/constants';
 
 const initialWidth = 300;
 const maxWidth = 600;
 
-const getAssessmentsPaneComponent = () => {
-  return AssessmentsPane;
-};
-
 export const ExperimentSingleChatSessionScoreResults = ({
   traces,
   sessionId,
+  onRefreshSession,
 }: {
   traces: ModelTrace[];
   sessionId: string;
+  onRefreshSession?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -41,13 +43,26 @@ export const ExperimentSingleChatSessionScoreResults = ({
     [firstTraceInfoInSession],
   );
 
-  const AssessmentsPaneComponent = getAssessmentsPaneComponent();
-
   const traceUpdateContext = useModelTraceExplorerUpdateTraceContext();
 
   if (!firstTraceInfoInSession) {
     return null;
   }
+
+  const assessmentPaneElement = (
+    <AssessmentsPane
+      assessments={sessionAssessments}
+      traceId={firstTraceInfoInSession.trace_id}
+      css={{
+        paddingLeft: 0,
+        border: 0,
+      }}
+      assessmentsTitleOverride={AssessmentsTitleOverride}
+      disableCloseButton
+      enableRunScorer={isEvaluatingTracesInDetailsViewEnabled()}
+      sessionId={sessionId}
+    />
+  );
 
   return (
     <div
@@ -97,16 +112,13 @@ export const ExperimentSingleChatSessionScoreResults = ({
           modelTraceInfo={firstTraceInfoInSession}
           chatSessionId={sessionId}
         >
-          <AssessmentsPaneComponent
-            assessments={sessionAssessments}
-            traceId={firstTraceInfoInSession.trace_id}
-            css={{
-              paddingLeft: 0,
-              border: 0,
-            }}
-            assessmentsTitleOverride={AssessmentsTitleOverride}
-            disableCloseButton
-          />
+          {isEvaluatingTracesInDetailsViewEnabled() ? (
+            <RunJudgeContextProvider onRefreshSession={onRefreshSession} sessionId={sessionId}>
+              {assessmentPaneElement}
+            </RunJudgeContextProvider>
+          ) : (
+            assessmentPaneElement
+          )}
         </ModelTraceExplorerUpdateTraceContextProvider>
       </ResizableBox>
     </div>
@@ -114,9 +126,37 @@ export const ExperimentSingleChatSessionScoreResults = ({
 };
 
 const AssessmentsTitleOverride = (count?: number) => (
-  <FormattedMessage
-    defaultMessage="Session scorers{count, plural, =0 {} other { (#)}}"
-    values={{ count: count ?? 0 }}
-    description="Section title in a side panel that displays session-level scorers"
-  />
+  <Typography.Title level={3} withoutMargins css={{ flexShrink: 0 }}>
+    <FormattedMessage
+      defaultMessage="Session assessments{count, plural, =0 {} other { (#)}}"
+      values={{ count: count ?? 0 }}
+      description="Section title in a side panel that displays session-level assessments"
+    />
+  </Typography.Title>
 );
+
+const RunJudgeContextProvider = ({
+  children,
+  onRefreshSession,
+  sessionId,
+}: {
+  children: React.ReactNode;
+  onRefreshSession?: () => void;
+  sessionId: string;
+}) => {
+  const runJudgesConfiguration = useRunScorerInTracesViewConfiguration(ScorerEvaluationScope.SESSIONS);
+
+  useEffect(() => {
+    return runJudgesConfiguration.subscribeToScorerFinished?.((event) => {
+      if (event.results?.some((result) => 'sessionId' in result && result.sessionId === sessionId)) {
+        onRefreshSession?.();
+      }
+    });
+  }, [runJudgesConfiguration, sessionId, onRefreshSession]);
+
+  return (
+    <ModelTraceExplorerRunJudgesContextProvider {...runJudgesConfiguration}>
+      {children}
+    </ModelTraceExplorerRunJudgesContextProvider>
+  );
+};

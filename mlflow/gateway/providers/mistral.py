@@ -201,8 +201,8 @@ class MistralProvider(BaseProvider):
     NAME = "Mistral"
     CONFIG_TYPE = MistralConfig
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         if config.model.config is None or not isinstance(config.model.config, MistralConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.mistral_config: MistralConfig = config.model.config
@@ -233,7 +233,7 @@ class MistralProvider(BaseProvider):
             payload=payload,
         )
 
-    async def completions(
+    async def _completions(
         self, payload: completions_schema.RequestPayload
     ) -> completions_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
@@ -246,7 +246,7 @@ class MistralProvider(BaseProvider):
         )
         return MistralAdapter.model_to_completions(resp, self.config)
 
-    async def chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
+    async def _chat(self, payload: chat_schema.RequestPayload) -> chat_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -257,7 +257,7 @@ class MistralProvider(BaseProvider):
         )
         return MistralAdapter.model_to_chat(resp, self.config)
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat_schema.RequestPayload
     ) -> AsyncIterable[chat_schema.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -284,7 +284,7 @@ class MistralProvider(BaseProvider):
             resp = json.loads(data)
             yield MistralAdapter.model_to_chat_streaming(resp, self.config)
 
-    async def embeddings(
+    async def _embeddings(
         self, payload: embeddings_schema.RequestPayload
     ) -> embeddings_schema.ResponsePayload:
         from fastapi.encoders import jsonable_encoder

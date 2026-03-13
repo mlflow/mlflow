@@ -22,7 +22,7 @@ Combining [MLflow Prompt Registry](/genai/prompt-registry) with [MLflow LLM Eval
 First install MLflow and OpenAI SDK. If you use different LLM providers, install the corresponding SDK instead.
 
 ```bash
-pip install 'mlflow[genai]>=2.21.0' openai -qU
+pip install 'mlflow[genai]>=3.0.0' openai -qU
 ```
 
 Also set OpenAI API key (or any other LLM providers e.g. Anthropic).
@@ -54,7 +54,7 @@ os.environ["OPENAI_API_KEY"] = getpass("Enter your OpenAI API key: ")
   </TabItem>
   <TabItem value="python" label="Python" default>
     <div class="flex-column">
-      To create a new prompt using the Python API, use <APILink fn="mlflow.register_prompt" /> API:
+      To create a new prompt using the Python API, use <APILink fn="mlflow.genai.register_prompt" /> API:
 
       ```python
       import mlflow

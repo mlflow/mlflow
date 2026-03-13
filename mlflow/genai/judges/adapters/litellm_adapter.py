@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.environment_variables import MLFLOW_GATEWAY_URI, MLFLOW_JUDGE_MAX_ITERATIONS
+from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
@@ -37,10 +37,9 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
 )
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracing.constant import AssessmentMetadataKey
-from mlflow.tracking import get_tracking_uri
-from mlflow.utils.uri import append_to_uri_path, is_http_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -134,6 +133,7 @@ def _invoke_litellm(
     inference_params: dict[str, Any] | None = None,
     api_base: str | None = None,
     api_key: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> "litellm.ModelResponse":
     """
     Invoke litellm completion with retry support.
@@ -179,6 +179,8 @@ def _invoke_litellm(
         kwargs["api_base"] = api_base
     if api_key is not None:
         kwargs["api_key"] = api_key
+    if extra_headers is not None:
+        kwargs["extra_headers"] = extra_headers
 
     if include_response_format:
         # LiteLLM supports passing Pydantic models directly for response_format
@@ -235,35 +237,16 @@ def _invoke_litellm_and_handle_tools(
 
     # Construct model URI and gateway params
     if provider == "gateway":
-        # MLFLOW_GATEWAY_URI takes precedence over tracking URI for gateway routing.
-        # This is needed for async job workers: the job infrastructure passes the HTTP
-        # tracking URI (e.g., http://127.0.0.1:5000) to workers, but _get_tracking_store()
-        # overwrites MLFLOW_TRACKING_URI with the backend store URI (e.g., sqlite://).
-        # Job workers set MLFLOW_GATEWAY_URI to preserve the HTTP URI for gateway calls.
-        tracking_uri = MLFLOW_GATEWAY_URI.get() or get_tracking_uri()
-
-        # Validate that tracking URI is a valid HTTP(S) URL for gateway
-        if not is_http_uri(tracking_uri):
-            raise MlflowException(
-                f"Gateway provider requires an HTTP(S) tracking URI, but got: '{tracking_uri}'. "
-                "The gateway provider routes requests through the MLflow tracking server. "
-                "Please set MLFLOW_TRACKING_URI to a valid HTTP(S) URL "
-                "(e.g., 'http://localhost:5000' or 'https://your-mlflow-server.com')."
-            )
-
-        api_base = append_to_uri_path(tracking_uri, "gateway/mlflow/v1/")
-
-        # Use openai/ prefix for LiteLLM to use OpenAI-compatible format.
-        # LiteLLM strips the prefix, so gateway receives model_name as the endpoint.
-        model = f"openai/{model_name}"
-        # LiteLLM requires api_key to be set when using custom api_base, otherwise it
-        # raises AuthenticationError looking for OPENAI_API_KEY env var. Gateway handles
-        # auth in the server layer, so we pass a dummy value to satisfy LiteLLM.
-        api_key = "mlflow-gateway-auth"
+        config = get_gateway_litellm_config(model_name)
+        api_base = config.api_base
+        api_key = config.api_key
+        extra_headers = config.extra_headers
+        model = config.model
     else:
         model = f"{provider}/{model_name}"
         api_base = None
         api_key = None
+        extra_headers = None
 
     tools = []
     if trace is not None:
@@ -308,6 +291,7 @@ def _invoke_litellm_and_handle_tools(
                     inference_params=inference_params,
                     api_base=api_base,
                     api_key=api_key,
+                    extra_headers=extra_headers,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 error_str = str(e).lower()
@@ -572,7 +556,14 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                     f"Failed to parse response from judge model. Response: {output.response}"
                 ) from e
 
-            metadata = {AssessmentMetadataKey.JUDGE_COST: output.cost} if output.cost else None
+            metadata = {}
+            if output.cost:
+                metadata[AssessmentMetadataKey.JUDGE_COST] = output.cost
+            if output.num_prompt_tokens:
+                metadata[AssessmentMetadataKey.JUDGE_INPUT_TOKENS] = output.num_prompt_tokens
+            if output.num_completion_tokens:
+                metadata[AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS] = output.num_completion_tokens
+            metadata = metadata or None
 
             if "error" in response_dict:
                 raise MlflowException(

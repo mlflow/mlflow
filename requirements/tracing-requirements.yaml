@@ -11,13 +11,13 @@ protobuf:
 
 packaging:
   pip_release: packaging
-  max_major_version: 25
+  max_major_version: 26
 
 # Required for tracing
 cachetools:
   pip_release: cachetools
   minimum: "5.0.0"
-  max_major_version: 6
+  max_major_version: 7
 
 # 1.9.0 is the minimum supported version as NoOpTracer was introduced in 1.9.0
 opentelemetry-api:

@@ -437,12 +437,10 @@ def test_make_genai_metric_multiple():
             ),
             {},
             pd.Series(["What is MLflow?", "What is Spark?"]),
-            pd.Series(
-                [
-                    mlflow_ground_truth,
-                    apache_spark_ground_truth,
-                ]
-            ),
+            pd.Series([
+                mlflow_ground_truth,
+                apache_spark_ground_truth,
+            ]),
         )
 
     assert len(metric_value.scores) == 2
@@ -945,13 +943,11 @@ def test_relevance_metric():
     relevance_metric = relevance(model="gateway:/gpt-4o-mini", examples=[])
 
     input = "What is MLflow?"
-    pd.DataFrame(
-        {
-            "input": [input],
-            "prediction": [mlflow_prediction],
-            "context": [mlflow_ground_truth],
-        }
-    )
+    pd.DataFrame({
+        "input": [input],
+        "prediction": [mlflow_prediction],
+        "context": [mlflow_ground_truth],
+    })
 
     with mock.patch.object(
         model_utils,

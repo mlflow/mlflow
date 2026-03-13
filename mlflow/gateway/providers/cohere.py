@@ -326,8 +326,8 @@ class CohereProvider(BaseProvider):
     NAME = "Cohere"
     CONFIG_TYPE = CohereConfig
 
-    def __init__(self, config: EndpointConfig) -> None:
-        super().__init__(config)
+    def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
+        super().__init__(config, enable_tracing=enable_tracing)
         warnings.warn(
             "Cohere provider is deprecated and will be removed in a future MLflow version.",
             category=FutureWarning,
@@ -375,7 +375,7 @@ class CohereProvider(BaseProvider):
             payload=payload,
         )
 
-    async def chat_stream(
+    async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -398,7 +398,7 @@ class CohereProvider(BaseProvider):
                 continue
             yield CohereAdapter.model_to_chat_streaming(resp, self.config)
 
-    async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -412,7 +412,7 @@ class CohereProvider(BaseProvider):
         )
         return CohereAdapter.model_to_chat(resp, self.config)
 
-    async def completions_stream(
+    async def _completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
         from fastapi.encoders import jsonable_encoder
@@ -433,7 +433,9 @@ class CohereProvider(BaseProvider):
             resp = json.loads(chunk)
             yield CohereAdapter.model_to_completions_streaming(resp, self.config)
 
-    async def completions(self, payload: completions.RequestPayload) -> completions.ResponsePayload:
+    async def _completions(
+        self, payload: completions.RequestPayload
+    ) -> completions.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)
@@ -447,7 +449,7 @@ class CohereProvider(BaseProvider):
         )
         return CohereAdapter.model_to_completions(resp, self.config)
 
-    async def embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload = jsonable_encoder(payload, exclude_none=True)

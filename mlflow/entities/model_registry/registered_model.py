@@ -9,6 +9,7 @@ from mlflow.entities.model_registry.registered_model_tag import RegisteredModelT
 from mlflow.protos.model_registry_pb2 import RegisteredModel as ProtoRegisteredModel
 from mlflow.protos.model_registry_pb2 import RegisteredModelAlias as ProtoRegisteredModelAlias
 from mlflow.protos.model_registry_pb2 import RegisteredModelTag as ProtoRegisteredModelTag
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
 class RegisteredModel(_ModelRegistryEntity):
@@ -27,6 +28,7 @@ class RegisteredModel(_ModelRegistryEntity):
         aliases=None,
         deployment_job_id=None,
         deployment_job_state=None,
+        workspace: str | None = None,
     ):
         # Constructor is called only from within the system by various backend stores.
         super().__init__()
@@ -39,6 +41,7 @@ class RegisteredModel(_ModelRegistryEntity):
         self._aliases = {alias.alias: alias.version for alias in (aliases or [])}
         self._deployment_job_id = deployment_job_id
         self._deployment_job_state = deployment_job_state
+        self._workspace = resolve_entity_workspace_name(workspace)
 
     @property
     def name(self):
@@ -100,6 +103,11 @@ class RegisteredModel(_ModelRegistryEntity):
         """Dictionary of aliases (string) -> version for the current registered model."""
         return self._aliases
 
+    @property
+    def workspace(self) -> str:
+        """Workspace name for the registered model."""
+        return self._workspace
+
     @classmethod
     def _properties(cls):
         # aggregate with base class properties since cls.__dict__ does not do it automatically
@@ -158,22 +166,20 @@ class RegisteredModel(_ModelRegistryEntity):
         if self.description:
             rmd.description = self.description
         if self.latest_versions is not None:
-            rmd.latest_versions.extend(
-                [model_version.to_proto() for model_version in self.latest_versions]
-            )
+            rmd.latest_versions.extend([
+                model_version.to_proto() for model_version in self.latest_versions
+            ])
         if self.deployment_job_id:
             rmd.deployment_job_id = self.deployment_job_id
         if self.deployment_job_state:
             rmd.deployment_job_state = RegisteredModelDeploymentJobState.from_string(
                 self.deployment_job_state
             )
-        rmd.tags.extend(
-            [ProtoRegisteredModelTag(key=key, value=value) for key, value in self._tags.items()]
-        )
-        rmd.aliases.extend(
-            [
-                ProtoRegisteredModelAlias(alias=alias, version=str(version))
-                for alias, version in self._aliases.items()
-            ]
-        )
+        rmd.tags.extend([
+            ProtoRegisteredModelTag(key=key, value=value) for key, value in self._tags.items()
+        ])
+        rmd.aliases.extend([
+            ProtoRegisteredModelAlias(alias=alias, version=str(version))
+            for alias, version in self._aliases.items()
+        ])
         return rmd

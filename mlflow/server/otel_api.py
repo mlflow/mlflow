@@ -10,9 +10,11 @@ The actual span ingestion logic would need to properly convert incoming OTel for
 to MLflow spans, which requires more complex conversion logic.
 """
 
+import json
 from collections import defaultdict
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from google.protobuf.message import DecodeError
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
     ExportTraceServiceRequest,
@@ -20,6 +22,7 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
 )
 
 from mlflow.entities.span import Span
+from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
@@ -138,13 +141,18 @@ async def export_traces(
                     # to avoid emitting warnings for unsupported stores
                     detail=f"REST OTLP span logging is not supported by {store_name}",
                 )
+            except MlflowException as e:
+                return JSONResponse(
+                    status_code=e.get_http_status_code(),
+                    content=json.loads(e.serialize_as_json()),
+                )
             except Exception as e:
                 errors[trace_id] = e
 
         if errors:
-            error_msg = "\n".join(
-                [f"Trace {trace_id}: {error}" for trace_id, error in errors.items()]
-            )
+            error_msg = "\n".join([
+                f"Trace {trace_id}: {error}" for trace_id, error in errors.items()
+            ])
             raise HTTPException(
                 status_code=422,
                 detail=f"Failed to log OpenTelemetry spans: {error_msg}",

@@ -14,6 +14,8 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create an assessment value data point (for time series)
 const createAssessmentDataPoint = (timeBucket: string, avgValue: number) => ({
@@ -46,7 +48,7 @@ describe('TraceAssessmentChart', () => {
 
   // Context props reused across tests
   const defaultContextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -78,20 +80,22 @@ describe('TraceAssessmentChart', () => {
     const contextProps = { ...defaultContextProps, ...contextOverrides };
     const queryClient = createQueryClient();
     return renderWithIntl(
-      <QueryClientProvider client={queryClient}>
-        <DesignSystemProvider>
-          <OverviewChartProvider {...contextProps}>
-            <TraceAssessmentChart {...defaultProps} {...componentProps} />
-          </OverviewChartProvider>
-        </DesignSystemProvider>
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={queryClient}>
+          <DesignSystemProvider>
+            <OverviewChartProvider {...contextProps}>
+              <TraceAssessmentChart {...defaultProps} {...componentProps} />
+            </OverviewChartProvider>
+          </DesignSystemProvider>
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
   };
 
   // Helper to setup MSW handler for the trace metrics endpoint
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
@@ -100,7 +104,7 @@ describe('TraceAssessmentChart', () => {
   // Helper to setup MSW handler that returns different responses based on metric_name
   const setupTraceMetricsHandlerWithDistribution = (timeSeriesData: any[], distributionData: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
         if (body.metric_name === AssessmentMetricKey.ASSESSMENT_COUNT) {
           return res(ctx.json({ data_points: distributionData }));
@@ -119,7 +123,7 @@ describe('TraceAssessmentChart', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -134,7 +138,7 @@ describe('TraceAssessmentChart', () => {
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
         }),
       );
@@ -279,7 +283,7 @@ describe('TraceAssessmentChart', () => {
       let capturedTimeSeriesRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           // Only capture the time series request (ASSESSMENT_VALUE metric)
           if (body.metric_name === AssessmentMetricKey.ASSESSMENT_VALUE) {
@@ -365,7 +369,7 @@ describe('TraceAssessmentChart', () => {
         expect(barChart).toBeInTheDocument();
         // Should show individual values, not bucketed
         expect(barChart).toHaveAttribute('data-count', '5');
-        expect(barChart).toHaveAttribute('data-labels', '1,2,3,4,5');
+        expect(barChart).toHaveAttribute('data-labels', '5,4,3,2,1');
       });
     });
 
@@ -423,7 +427,7 @@ describe('TraceAssessmentChart', () => {
         expect(barChart).toBeInTheDocument();
         // Should show individual values
         expect(barChart).toHaveAttribute('data-count', '2');
-        expect(barChart).toHaveAttribute('data-labels', 'false,true');
+        expect(barChart).toHaveAttribute('data-labels', 'true,false');
       });
     });
 
@@ -443,7 +447,7 @@ describe('TraceAssessmentChart', () => {
         expect(barChart).toBeInTheDocument();
         // Should show individual values sorted alphabetically
         expect(barChart).toHaveAttribute('data-count', '3');
-        expect(barChart).toHaveAttribute('data-labels', 'error,fail,pass');
+        expect(barChart).toHaveAttribute('data-labels', 'pass,fail,error');
       });
     });
 

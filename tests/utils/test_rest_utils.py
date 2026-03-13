@@ -32,6 +32,8 @@ from mlflow.utils.rest_utils import (
     http_request,
     http_request_safe,
 )
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 from tests import helper_functions
 
@@ -65,12 +67,10 @@ def test_call_endpoints():
         host_only = MlflowHostCreds("http://my-host")
         endpoints = [("/my/endpoint", "POST"), ("/my/endpoint", "GET")]
         resp = call_endpoints(host_only, endpoints, "", response_proto)
-        mock_call_endpoint.assert_has_calls(
-            [
-                mock.call(host_only, endpoint, method, "", response_proto, None)
-                for endpoint, method in endpoints
-            ]
-        )
+        mock_call_endpoint.assert_has_calls([
+            mock.call(host_only, endpoint, method, "", response_proto, None)
+            for endpoint, method in endpoints
+        ])
         assert resp is None
 
 
@@ -104,6 +104,28 @@ def test_http_request_hostonly():
             headers=DefaultRequestHeaderProvider().request_headers(),
             timeout=120,
         )
+
+
+def test_http_request_includes_workspace_header_for_mlflow_routes():
+    host_only = MlflowHostCreds("http://my-host")
+    response = mock.MagicMock()
+    response.status_code = 200
+    with WorkspaceContext("team-a"):
+        with mock.patch("requests.Session.request", return_value=response) as mock_request:
+            http_request(host_only, "/api/2.0/mlflow/runs/search", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert headers[WORKSPACE_HEADER_NAME] == "team-a"
+
+
+def test_http_request_omits_workspace_header_for_workspace_admin_routes():
+    host_only = MlflowHostCreds("http://my-host")
+    response = mock.MagicMock()
+    response.status_code = 200
+    with WorkspaceContext("team-a"):
+        with mock.patch("requests.Session.request", return_value=response) as mock_request:
+            http_request(host_only, "/api/3.0/mlflow/workspaces/team-a", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert WORKSPACE_HEADER_NAME not in headers
 
 
 def test_http_request_cleans_hostname():
@@ -572,11 +594,18 @@ def test_http_request_max_retries(monkeypatch):
     host_creds = MlflowHostCreds("http://example.com")
 
     with mock.patch("requests.Session.request") as mock_request:
+        # Value exceeding limit should raise
         with pytest.raises(MlflowException, match="The configured max_retries"):
             http_request(host_creds, "/endpoint", "GET", max_retries=16)
         mock_request.assert_not_called()
+
+        # Value equal to limit should succeed (boundary case)
+        http_request(host_creds, "/endpoint", "GET", max_retries=15)
+        assert mock_request.call_count == 1
+
+        # Value below limit should succeed
         http_request(host_creds, "/endpoint", "GET", max_retries=3)
-        mock_request.assert_called_once()
+        assert mock_request.call_count == 2
 
 
 def test_http_request_backoff_factor(monkeypatch):
@@ -584,11 +613,18 @@ def test_http_request_backoff_factor(monkeypatch):
     host_creds = MlflowHostCreds("http://example.com")
 
     with mock.patch("requests.Session.request") as mock_request:
+        # Value exceeding limit should raise
         with pytest.raises(MlflowException, match="The configured backoff_factor"):
             http_request(host_creds, "/endpoint", "GET", backoff_factor=250)
         mock_request.assert_not_called()
+
+        # Value equal to limit should succeed (boundary case)
+        http_request(host_creds, "/endpoint", "GET", backoff_factor=200)
+        assert mock_request.call_count == 1
+
+        # Value below limit should succeed
         http_request(host_creds, "/endpoint", "GET", backoff_factor=10)
-        mock_request.assert_called_once()
+        assert mock_request.call_count == 2
 
 
 def test_http_request_negative_max_retries():

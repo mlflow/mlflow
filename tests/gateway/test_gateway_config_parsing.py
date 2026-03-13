@@ -77,6 +77,8 @@ def test_assemble_uri_path(paths, expected):
 
 
 def test_api_key_parsing_env(tmp_path, monkeypatch):
+    # Env-var resolution requires the flag to be enabled
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV", "true")
     monkeypatch.setenv("KEY_AS_ENV", "my_key")
 
     assert _resolve_api_key_from_input("$KEY_AS_ENV") == "my_key"
@@ -88,6 +90,9 @@ def test_api_key_parsing_env(tmp_path, monkeypatch):
 
     assert _resolve_api_key_from_input(string_key) == string_key
 
+    # File-based resolution requires the flag to be enabled
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
+
     conf_path = tmp_path.joinpath("mykey.conf")
     file_key = "Here is my key that sits safely in a file"
 
@@ -96,11 +101,20 @@ def test_api_key_parsing_env(tmp_path, monkeypatch):
     assert _resolve_api_key_from_input(str(conf_path)) == file_key
 
 
+def test_api_key_env_resolution_blocked_without_flag(monkeypatch):
+    monkeypatch.setenv("KEY_AS_ENV", "my_key")
+    monkeypatch.delenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV", raising=False)
+
+    # Without the flag, $-prefixed values are returned as literal strings
+    assert _resolve_api_key_from_input("$KEY_AS_ENV") == "$KEY_AS_ENV"
+
+
 def test_api_key_input_exceeding_maximum_filename_length():
     assert _resolve_api_key_from_input("a" * 256) == "a" * 256
 
 
-def test_api_key_parsing_file(tmp_path):
+def test_api_key_parsing_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", "true")
     key_path = tmp_path.joinpath("api.key")
     config = {
         "endpoints": [
@@ -184,7 +198,7 @@ def test_convert_route_config_to_routes_payload(basic_config_dict, tmp_path):
     routes = [r.to_endpoint() for r in loaded.endpoints]
 
     for config in loaded.endpoints:
-        route = [x for x in routes if x.name == config.name][0]
+        route = next(x for x in routes if x.name == config.name)
         assert route.endpoint_type == config.endpoint_type
         assert route.model.name == config.model.name
         assert route.model.provider == config.model.provider

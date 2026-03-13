@@ -1,4 +1,4 @@
-import { ClockIcon, Tag, TokenIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { ClockIcon, Tag, TokenIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { ExperimentSingleChatMetrics } from './useExperimentSingleChatMetrics';
 
 import { FormattedMessage } from '@databricks/i18n';
@@ -56,6 +56,74 @@ export const ExperimentSingleChatSessionMetrics = ({
               description="Display format for latency value in seconds in chat session metrics"
               values={{ latency: chatSessionMetrics.sessionLatency?.toFixed(4) }}
             />
+          </Tag>
+        </div>
+      )}
+      {chatSessionMetrics.goal && (
+        <div
+          css={{
+            display: 'flex',
+            gap: theme.spacing.xs,
+          }}
+        >
+          <Typography.Text color="secondary">
+            <FormattedMessage
+              defaultMessage="Goal"
+              description="Label for the simulation goal metadata in chat session metrics"
+            />
+          </Typography.Text>
+          <Tag componentId="mlflow.experiment.chat-session.metrics.goal-tag">
+            <Tooltip
+              componentId="mlflow.experiment.chat-session.metrics.goal-tooltip"
+              content={chatSessionMetrics.goal}
+            >
+              <span
+                css={{
+                  maxWidth: 200,
+                  display: 'inline-block',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  verticalAlign: 'bottom',
+                }}
+              >
+                {chatSessionMetrics.goal}
+              </span>
+            </Tooltip>
+          </Tag>
+        </div>
+      )}
+      {chatSessionMetrics.persona && (
+        <div
+          css={{
+            display: 'flex',
+            gap: theme.spacing.xs,
+          }}
+        >
+          <Typography.Text color="secondary">
+            <FormattedMessage
+              defaultMessage="Persona"
+              description="Label for the simulation persona metadata in chat session metrics"
+            />
+          </Typography.Text>
+          <Tag componentId="mlflow.experiment.chat-session.metrics.persona-tag">
+            <Tooltip
+              componentId="mlflow.experiment.chat-session.metrics.persona-tooltip"
+              content={chatSessionMetrics.persona}
+            >
+              <span
+                css={{
+                  maxWidth: 200,
+                  display: 'inline-block',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  verticalAlign: 'bottom',
+                }}
+              >
+                {chatSessionMetrics.persona}
+              </span>
+            </Tooltip>
           </Tag>
         </div>
       )}

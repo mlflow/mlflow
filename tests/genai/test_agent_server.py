@@ -1,5 +1,5 @@
 import contextvars
-from typing import AsyncGenerator
+from typing import Any, AsyncGenerator
 from unittest.mock import AsyncMock, Mock, patch
 
 import httpx
@@ -61,7 +61,7 @@ async def responses_stream(
     )
 
 
-async def arbitrary_invoke(request: dict) -> dict:
+async def arbitrary_invoke(request: dict[str, Any]) -> dict[str, Any]:
     return {
         "response": "Hello from ArbitraryDictAgent!",
         "arbitrary_field": "custom_value",
@@ -69,7 +69,7 @@ async def arbitrary_invoke(request: dict) -> dict:
     }
 
 
-async def arbitrary_stream(request: dict) -> AsyncGenerator[dict, None]:
+async def arbitrary_stream(request: dict[str, Any]) -> AsyncGenerator[dict[str, Any], None]:
     yield {"type": "custom_event", "data": "First chunk"}
     yield {"type": "custom_event", "data": "Second chunk", "final": True}
 

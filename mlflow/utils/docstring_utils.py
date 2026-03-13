@@ -162,11 +162,10 @@ def format_docstring(param_docs):
 
 
 # `{{ ... }}` represents a placeholder.
-LOG_MODEL_PARAM_DOCS = ParamDocs(
-    {
-        "name": "Model name.",
-        "conda_env": (
-            """Either a dictionary representation of a Conda environment or the path to a conda
+LOG_MODEL_PARAM_DOCS = ParamDocs({
+    "name": "Model name.",
+    "conda_env": (
+        """Either a dictionary representation of a Conda environment or the path to a conda
 environment yaml file. If provided, this describes the environment this model should be run in.
 At a minimum, it should specify the dependencies contained in `get_default_conda_env()`.
 If ``None``, a conda environment with pip requirements inferred by
@@ -188,9 +187,9 @@ The following is an *example* dictionary representation of a conda environment::
             },
         ],
     }"""
-        ),
-        "pip_requirements": (
-            """Either an iterable of pip requirement strings
+    ),
+    "pip_requirements": (
+        """Either an iterable of pip requirement strings
 (e.g. ``["{{ package_name }}", "-r requirements.txt", "-c constraints.txt"]``) or the string path to
 a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this
 describes the environment this model should be run in. If ``None``, a default list of requirements
@@ -199,9 +198,9 @@ If the requirement inference fails, it falls back to using `get_default_pip_requ
 Both requirements and constraints are automatically parsed and written to ``requirements.txt`` and
 ``constraints.txt`` files, respectively, and stored as part of the model. Requirements are also
 written to the ``pip`` section of the model's conda environment (``conda.yaml``) file."""
-        ),
-        "extra_pip_requirements": (
-            """Either an iterable of pip
+    ),
+    "extra_pip_requirements": (
+        """Either an iterable of pip
 requirement strings
 (e.g. ``["pandas", "-r requirements.txt", "-c constraints.txt"]``) or the string path to
 a pip requirements file on the local filesystem (e.g. ``"requirements.txt"``). If provided, this
@@ -220,9 +219,9 @@ section of the model's conda environment (``conda.yaml``) file.
 
 `This example <https://github.com/mlflow/mlflow/blob/master/examples/pip_requirements/pip_requirements.py>`_ demonstrates how to specify pip requirements using
 ``pip_requirements`` and ``extra_pip_requirements``."""  # noqa: E501
-        ),
-        "signature": (
-            """an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
+    ),
+    "signature": (
+        """an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
 class that describes the model's inputs and outputs. If not specified but an
 ``input_example`` is supplied, a signature will be automatically inferred
 based on the supplied input example and model. To disable automatic signature
@@ -241,21 +240,19 @@ dataset, for example:
     predictions = ...  # compute model predictions
     signature = infer_signature(train, predictions)
 """
-        ),
-        "metadata": (
-            "Custom metadata dictionary passed to the model and stored in the MLmodel file."
-        ),
-        "input_example": (
-            """one or several instances of valid model input. The input example is used
+    ),
+    "metadata": ("Custom metadata dictionary passed to the model and stored in the MLmodel file."),
+    "input_example": (
+        """one or several instances of valid model input. The input example is used
 as a hint of what data to feed the model. It will be converted to a Pandas
 DataFrame and then serialized to json using the Pandas split-oriented
 format, or a numpy array where the example will be serialized to json
 by converting it to a list. Bytes are base64-encoded. When the ``signature`` parameter is
 ``None``, the input example is used to infer a model signature.
 """
-        ),
-        "prompt_template": (
-            """A string that, if provided, will be used to format the user's input prior
+    ),
+    "prompt_template": (
+        """A string that, if provided, will be used to format the user's input prior
 to inference. The string should contain a single placeholder, ``{prompt}``, which will be
 replaced with the user's input. For example: ``"Answer the following question. Q: {prompt} A:"``.
 
@@ -300,9 +297,9 @@ use it via the ``python_function`` (pyfunc) flavor:
     # is applied internally before calling the underlying transformers pipeline.
     loaded_model.predict("What is experiment tracking?")
 """
-        ),
-        "code_paths": (
-            """A list of local filesystem paths to Python file dependencies (or directories
+    ),
+    "code_paths": (
+        """A list of local filesystem paths to Python file dependencies (or directories
 containing file dependencies). These files are *prepended* to the system path when the model
 is loaded. Files declared as dependencies for a given model should have relative
 imports declared from a common root path if multiple files are defined with import dependencies
@@ -312,10 +309,23 @@ For a detailed explanation of ``code_paths`` functionality, recommended usage pa
 limitations, see the
 `code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
 """
-        ),
-        # Only pyfunc flavor supports `infer_code_paths`.
-        "code_paths_pyfunc": (
-            """A list of local filesystem paths to Python file dependencies (or directories
+    ),
+    "extra_files": (
+        """A list containing the paths to corresponding extra files, if ``None``, no
+extra files are added to the model. Remote URIs are resolved to absolute filesystem
+paths. For example, consider the following ``extra_files`` list:
+
+.. code-block:: python
+
+    extra_files = ["s3://my-bucket/path/to/my_file1", "/local-path/to/my_file2"]
+
+In this case, the ``"my_file1"`` extra file is downloaded from S3.
+Model paths will be ["extra_files/my_file1", "extra_files/my_file2"] in the model directory.
+"""
+    ),
+    # Only pyfunc flavor supports `infer_code_paths`.
+    "code_paths_pyfunc": (
+        """A list of local filesystem paths to Python file dependencies (or directories
 containing file dependencies). These files are *prepended* to the system path when the model
 is loaded. Files declared as dependencies for a given model should have relative
 imports declared from a common root path if multiple files are defined with import dependencies
@@ -328,9 +338,9 @@ For a detailed explanation of ``code_paths`` functionality, recommended usage pa
 limitations, see the
 `code_paths usage guide <https://mlflow.org/docs/latest/model/dependencies.html?highlight=code_paths#saving-extra-code-with-an-mlflow-model>`_.
 """
-        ),
-        "infer_code_paths": (
-            """If set to ``True``, MLflow automatically infers model code paths. The inferred
+    ),
+    "infer_code_paths": (
+        """If set to ``True``, MLflow automatically infers model code paths. The inferred
             code path files only include necessary python module files. Only python code files
             under current working directory are automatically inferable. Default value is
             ``False``.
@@ -352,9 +362,9 @@ limitations, see the
 
 .. Note:: Experimental: This parameter may change or be removed in a future release without warning.
 """
-        ),
-        "save_pretrained": (
-            """If set to ``False``, MLflow will not save the Transformer model weight files,
+    ),
+    "save_pretrained": (
+        """If set to ``False``, MLflow will not save the Transformer model weight files,
 instead only saving the reference to the HuggingFace Hub model repository and its commit hash.
 This is useful when you load the pretrained model from HuggingFace Hub and want to log or save
 it to MLflow without modifying the model weights. In such case, specifying this flag to
@@ -389,9 +399,9 @@ usage.
     base model weights are not saved but the reference to the HuggingFace repository and
     its commit hash are logged instead.
 """
-        ),
-        "auth_policy": (
-            """Specifies the authentication policy for the model, which includes two key components.
+    ),
+    "auth_policy": (
+        """Specifies the authentication policy for the model, which includes two key components.
             Note that only one of `auth_policy` or `resources` should be defined.
 
                 - **System Auth Policy**: A list of resources required to serve this model.
@@ -401,13 +411,13 @@ usage.
     .. Note::
         Experimental: This parameter may change or be removed in a future release without warning.
             """
-        ),
-        "params": "A dictionary of parameters to log with the model.",
-        "tags": "A dictionary of tags to log with the model.",
-        "model_type": "The type of the model.",
-        "step": "The step at which to log the model outputs and metrics",
-        "model_id": "The ID of the model.",
-        "prompts": """\
+    ),
+    "params": "A dictionary of parameters to log with the model.",
+    "tags": "A dictionary of tags to log with the model.",
+    "model_type": "The type of the model.",
+    "step": "The step at which to log the model outputs and metrics",
+    "model_id": "The ID of the model.",
+    "prompts": """\
 A list of prompt URIs registered in the MLflow Prompt Registry, to be associated with the model.
 Each prompt URI should be in the form ``prompt:/<name>/<version>``. The prompts should be
 registered in the MLflow Prompt Registry before being associated with the model.
@@ -439,8 +449,7 @@ navigate to the model as well.
     # Load the prompt
     prompt = mlflow.genai.load_prompt(model_info.prompts[0])
 """,
-    }
-)
+})
 
 
 def get_module_min_and_max_supported_ranges(flavor_name):

@@ -5,6 +5,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { Controller, useFormContext } from 'react-hook-form';
 import { ProviderSelect } from '../create-endpoint';
 import { ModelSelect } from '../create-endpoint/ModelSelect';
+import { UsageTrackingConfigurator } from '../edit-endpoint/UsageTrackingConfigurator';
 import { ApiKeyConfigurator } from '../model-configuration/components/ApiKeyConfigurator';
 import { useApiKeyConfiguration } from '../model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration, SecretMode } from '../model-configuration/types';
@@ -69,7 +70,7 @@ export const EndpointFormRenderer = ({
   onSubmit,
   onCancel,
   onNameBlur,
-  componentIdPrefix = `mlflow.gateway.${mode}-endpoint`,
+  componentIdPrefix = `mlflow.gateway.endpoint`,
   embedded = false,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
@@ -127,7 +128,7 @@ export const EndpointFormRenderer = ({
       {error && (
         <div css={{ padding: embedded ? 0 : `0 ${theme.spacing.md}px` }}>
           <Alert
-            componentId={`${componentIdPrefix}.error`}
+            componentId="codegen_mlflow_app_src_oss_gateway_components_endpoint-form_EndpointFormRenderer.tsx_130"
             closable={false}
             message={errorMessage}
             type="error"
@@ -176,7 +177,7 @@ export const EndpointFormRenderer = ({
                 <div>
                   <GatewayInput
                     id={`${componentIdPrefix}.name`}
-                    componentId={`${componentIdPrefix}.name`}
+                    componentId="codegen_mlflow_app_src_oss_gateway_components_endpoint-form_EndpointFormRenderer.tsx_179"
                     {...field}
                     onChange={(e) => {
                       field.onChange(e);
@@ -198,6 +199,29 @@ export const EndpointFormRenderer = ({
               )}
             />
           </LongFormSection>
+
+          {/* Usage Tracking Section (only in create mode) */}
+          {mode === 'create' && (
+            <LongFormSection
+              titleWidth={LONG_FORM_TITLE_WIDTH}
+              title={intl.formatMessage({
+                defaultMessage: 'Usage Tracking',
+                description: 'Section title for usage tracking configuration',
+              })}
+            >
+              <Controller
+                control={form.control}
+                name="usageTracking"
+                render={({ field }) => (
+                  <UsageTrackingConfigurator
+                    value={field.value}
+                    onChange={field.onChange}
+                    componentIdPrefix="mlflow.gateway.create-endpoint.usage-tracking"
+                  />
+                )}
+              />
+            </LongFormSection>
+          )}
 
           {/* Model Section */}
           <LongFormSection
@@ -351,12 +375,18 @@ export const EndpointFormRenderer = ({
           flexShrink: 0,
         }}
       >
-        <Button componentId={`${componentIdPrefix}.cancel`} onClick={onCancel}>
+        <Button
+          componentId="codegen_mlflow_app_src_oss_gateway_components_endpoint-form_EndpointFormRenderer.tsx_354"
+          onClick={onCancel}
+        >
           <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
         </Button>
-        <Tooltip componentId={`${componentIdPrefix}.submit-tooltip`} content={buttonTooltip}>
+        <Tooltip
+          componentId="codegen_mlflow_app_src_oss_gateway_components_endpoint-form_EndpointFormRenderer.tsx_357"
+          content={buttonTooltip}
+        >
           <Button
-            componentId={`${componentIdPrefix}.submit`}
+            componentId="codegen_mlflow_app_src_oss_gateway_components_endpoint-form_EndpointFormRenderer.tsx_359"
             type="primary"
             onClick={form.handleSubmit(onSubmit)}
             loading={isSubmitting}

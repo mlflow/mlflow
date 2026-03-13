@@ -1,11 +1,17 @@
 import { getTraceTokenUsage, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { last } from 'lodash';
+import {
+  SIMULATION_GOAL_KEY,
+  SIMULATION_PERSONA_KEY,
+} from '@mlflow/mlflow/src/shared/web-shared/genai-traces-table/utils/SessionGroupingUtils';
+import { first, last } from 'lodash';
 import { useMemo } from 'react';
 
 type TraceTokenUsage = ReturnType<typeof getTraceTokenUsage>;
 export interface ExperimentSingleChatMetrics {
   sessionTokens: TraceTokenUsage;
   sessionLatency: number | undefined;
+  goal?: string;
+  persona?: string;
   perTurnMetrics?: {
     tokens: TraceTokenUsage;
     latency: string | undefined;
@@ -15,6 +21,8 @@ export interface ExperimentSingleChatMetrics {
 const emptyMetrics: ExperimentSingleChatMetrics = {
   sessionTokens: { input_tokens: 0, output_tokens: 0 },
   sessionLatency: 0,
+  goal: undefined,
+  persona: undefined,
   perTurnMetrics: [],
 };
 
@@ -29,6 +37,10 @@ export const useExperimentSingleChatMetrics = ({
       return emptyMetrics;
     }
     const sessionTokens = getTraceTokenUsage(lastTurn);
+
+    const firstTurn = first(traceInfos);
+    const goal = firstTurn?.trace_metadata?.[SIMULATION_GOAL_KEY];
+    const persona = firstTurn?.trace_metadata?.[SIMULATION_PERSONA_KEY];
     const { sessionLatency, perTurnMetrics } =
       traceInfos?.reduce<{
         sessionLatency: number;
@@ -59,6 +71,8 @@ export const useExperimentSingleChatMetrics = ({
     return {
       sessionTokens,
       sessionLatency,
+      goal,
+      persona,
       perTurnMetrics,
     };
   }, [traceInfos]);

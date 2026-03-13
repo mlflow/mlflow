@@ -19,16 +19,46 @@ import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Alert, CursorPagination, Spacer as DuBoisSpacer, Spacer, Typography } from '@databricks/design-system';
-import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
+import {
+  Alert,
+  CursorPagination,
+  ModelsIcon,
+  Spacer as DuBoisSpacer,
+  Spacer,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
+import { shouldShowModelsNextUI, shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
 import { ModelListFilters } from './model-list/ModelListFilters';
 import { ModelListTable } from './model-list/ModelListTable';
-import { PageContainer } from '../../common/components/PageContainer';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
+import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/WorkspaceUtils';
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
+
+const ModelListPageTitle = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+      <span
+        css={{
+          display: 'flex',
+          borderRadius: theme.borders.borderRadiusSm,
+          backgroundColor: theme.colors.backgroundSecondary,
+          padding: theme.spacing.sm,
+        }}
+      >
+        <ModelsIcon />
+      </span>
+      <FormattedMessage
+        defaultMessage="Registered Models"
+        description="Header for displaying models in the model registry"
+      />
+    </span>
+  );
+};
 
 type ModelListViewImplProps = {
   models: any[];
@@ -154,45 +184,26 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
       // prettier-ignore
       Boolean(searchInput);
 
-    const title = (
-      <FormattedMessage
-        defaultMessage="Registered Models"
-        description="Header for displaying models in the model registry"
-      />
-    );
-    return (
-      <PageContainer data-testid="ModelListView-container" usesFullHeight>
-        <div>
-          <PageHeader title={title} spacerSize="xs">
-            <CreateModelButton />
-          </PageHeader>
-          {/* TODO[SHIP-6202]: Move the description to the Header prop 'description' once it's been added */}
-          <Typography.Hint>
-            {ModelListViewImpl.getLearnMoreDisplayString()}{' '}
-            <FormattedMessage
-              defaultMessage="<link>Learn more</link>"
-              description="Learn more link on the model list page with cloud-specific link"
-              values={{
-                link: (chunks) => (
-                  <Typography.Link
-                    componentId="codegen_mlflow_app_src_model-registry_components_modellistview.tsx_244"
-                    href={ModelListViewImpl.getLearnMoreLinkUrl()}
-                    openInNewTab
-                  >
-                    {chunks}
-                  </Typography.Link>
-                ),
-              }}
-            />
-          </Typography.Hint>
-          <Spacer />
+    // Check if showing empty state (no models, no filters, not loading, no error)
+    const isEmptyState = !loading && !error && !models.length && !isFiltered;
+    // Only show creation buttons when: workspaces are disabled OR a workspace is selected
+    const workspacesEnabled = shouldEnableWorkspaces();
+    const searchParams = new URLSearchParams(window.location.search);
+    const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
+    const showCreationButtons = !isEmptyState && (!workspacesEnabled || workspaceFromUrl !== null);
 
-          <ModelListFilters
-            searchFilter={this.props.searchInput}
-            onSearchFilterChange={(value) => this.handleSearch(null, value)}
-            isFiltered={isFiltered}
-          />
-        </div>
+    return (
+      <>
+        <Spacer shrinks={false} />
+        <PageHeader title={<ModelListPageTitle />} spacerSize="xs">
+          {showCreationButtons && <CreateModelButton />}
+        </PageHeader>
+        <Spacer />
+        <ModelListFilters
+          searchFilter={this.props.searchInput}
+          onSearchFilterChange={(value) => this.handleSearch(null, value)}
+          isFiltered={isFiltered}
+        />
         <ModelListTable
           modelsData={models}
           onSortChange={this.unifiedTableSortChange}
@@ -224,23 +235,9 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
           }
           isFiltered={isFiltered}
         />
-      </PageContainer>
+      </>
     );
   }
 }
 
 export const ModelListView = withNextModelsUIContext(injectIntl<'intl', ModelListViewImplProps>(ModelListViewImpl));
-
-const styles = {
-  nameSearchBox: {
-    width: '446px',
-  },
-  searchFlexBar: {
-    marginBottom: '24px',
-  },
-  questionMark: {
-    marginLeft: 4,
-    cursor: 'pointer',
-    color: '#888',
-  },
-};

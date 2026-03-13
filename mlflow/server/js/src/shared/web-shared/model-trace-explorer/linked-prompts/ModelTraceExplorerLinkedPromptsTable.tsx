@@ -15,8 +15,8 @@ import {
   SearchIcon,
 } from '@databricks/design-system';
 import { useIntl, FormattedMessage } from '@databricks/i18n';
-import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
-import { CodeSnippet } from '@databricks/web-shared/snippet';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '../../react-table/useReactTable';
+import { CodeSnippet } from '../../snippet/CodeSnippet';
 
 import { Link, generatePath } from '../RoutingUtils';
 
@@ -53,7 +53,9 @@ question("MLflow")`;
 const PromptNameCellRenderer: ColumnDef<LinkedPromptsRow>['cell'] = ({ row }) => {
   const { experimentId, name, version } = row.original ?? {};
 
-  const baseRoute = generatePath('/ml/experiments/:experimentId/prompts/:promptName', {
+  // no /ml/ prefix for OSS
+  const path = '/experiments/:experimentId/prompts/:promptName';
+  const baseRoute = generatePath(path, {
     experimentId,
     promptName: name,
   });

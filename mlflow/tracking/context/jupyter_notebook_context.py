@@ -154,7 +154,7 @@ def _get_sessions_notebook(server: dict[str, Any], kernel_id: str) -> str | None
         The notebook path if found, None otherwise.
     """
     url = server.get("url", "").rstrip("/")
-    token = server.get("token") or os.getenv("JUPYTERHUB_API_TOKEN", "")
+    token = server.get("token") or os.environ.get("JUPYTERHUB_API_TOKEN", "")
 
     sessions_url = f"{url}/api/sessions"
     if token:

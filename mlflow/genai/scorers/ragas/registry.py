@@ -123,6 +123,11 @@ def get_metric_class(metric_name: str):
         raise MlflowException.invalid_parameter_value(
             "RAGAS metrics require the 'ragas' package. Please install it with: pip install ragas"
         ) from e
+    except AttributeError:
+        raise MlflowException.invalid_parameter_value(
+            f"Unknown RAGAS metric: '{metric_name}'. Could not find class '{class_name}' "
+            f"in module '{module_path}'."
+        )
 
 
 def is_agentic_or_multiturn_metric(metric_name: str) -> bool:
@@ -146,9 +151,7 @@ def requires_args_from_placeholders(metric_name: str) -> bool:
 
 
 def _get_config(metric_name: str) -> MetricConfig:
-    if metric_name not in _METRIC_REGISTRY:
-        available_metrics = ", ".join(sorted(_METRIC_REGISTRY.keys()))
-        raise MlflowException.invalid_parameter_value(
-            f"Unknown metric: '{metric_name}'. Available metrics: {available_metrics}"
-        )
-    return _METRIC_REGISTRY[metric_name]
+    if metric_name in _METRIC_REGISTRY:
+        return _METRIC_REGISTRY[metric_name]
+    # Return default config for unknown metrics - dynamic import will be attempted
+    return MetricConfig(f"ragas.metrics.collections.{metric_name}")

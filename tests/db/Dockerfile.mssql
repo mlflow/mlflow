@@ -1,7 +1,7 @@
 # MSSQL tools are only available for amd64 architecture
 # GitHub Actions runners use amd64, but local development might use ARM (Apple Silicon)
 # The --platform flag ensures consistent behavior across environments
-FROM --platform=linux/amd64 python:3.10
+FROM --platform=linux/amd64 python:3.11
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 

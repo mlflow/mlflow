@@ -14,6 +14,7 @@ import {
 import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a count data point (grouped by tool name and status)
 const createCountDataPoint = (toolName: string, status: string, count: number) => ({
@@ -42,7 +43,7 @@ describe('ToolPerformanceSummary', () => {
   const timeBuckets = [startTimeMs, startTimeMs + 3600000, endTimeMs];
 
   const contextProps = {
-    experimentId: testExperimentId,
+    experimentIds: [testExperimentId],
     startTimeMs,
     endTimeMs,
     timeIntervalSeconds,
@@ -76,7 +77,7 @@ describe('ToolPerformanceSummary', () => {
   // Handler returns different responses based on metric_name in request body
   const setupTraceMetricsHandler = (countDataPoints: any[], latencyDataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
         if (body.metric_name === SpanMetricKey.SPAN_COUNT) {
           return res(ctx.json({ data_points: countDataPoints }));
@@ -98,7 +99,7 @@ describe('ToolPerformanceSummary', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -113,7 +114,7 @@ describe('ToolPerformanceSummary', () => {
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error: 'API Error' }));
         }),
       );

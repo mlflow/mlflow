@@ -22,7 +22,7 @@ The design of the prompt registry is inspired by version control systems like Gi
 
 :::tip Why not use Git?
 
-Hard-coding prompt text in source code is indeed a common practice, but it has several limitations. A GenAI application or project often contains multiple prompts for different components/tasks, as well as all software artifacts. Tracking the change of a single prompt with a monotonic Git tree is challenging.
+Hard-coding prompt text in source code is indeed a common practice, but it has several limitations. An LLM application or AI agent project often contains multiple prompts for different components/tasks, as well as all software artifacts. Tracking the change of a single prompt with a monotonic Git tree is challenging.
 
 :::
 
@@ -38,7 +38,7 @@ MLflow Prompt Registry UI provides a side-by-side comparison of prompt versions,
 
 Alias is a strong mechanism to managing prompt versions in production systems, without hardcoding version numbers in the application code. You can create an alias for a specific version of a prompt using either the MLflow UI or Python API.
 
-The common use case for aliases is to build a robust **deployment pipeline** for your GenAI applications. For example, you can
+The common use case for aliases is to build a robust **deployment pipeline** for your LLM applications and AI agents. For example, you can
 set a stage name such as `beta`, `staging`, `production`, etc., to refer to the version used in that environment. By switching the alias to a different version, you can easily maintain multiple prompt versions for different environments and perform tasks such as
 roll-back A/B testing.
 
@@ -63,7 +63,7 @@ roll-back A/B testing.
     <div class="flex-column">
       ```python
       # Set a production alias for a specific version
-      mlflow.set_prompt_alias("summarization-prompt", alias="production", version=2)
+      mlflow.genai.set_prompt_alias("summarization-prompt", alias="production", version=2)
       ```
     </div>
   </TabItem>
@@ -76,7 +76,7 @@ Attached aliases can be viewed in the prompt list page. You can click the pencil
 To load a prompt using an alias, use the `prompts:/<prompt_name>@<alias>` format as the prompt URI:
 
 ```python
-prompt = mlflow.load_prompt("prompts:/summarization-prompt@production")
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@production")
 ```
 
 ### Reserved `@latest` alias
@@ -84,5 +84,5 @@ prompt = mlflow.load_prompt("prompts:/summarization-prompt@production")
 The `@latest` alias is a reserved alias name and MLflow will automatically find the latest available version of the prompt. This is useful when you want to dynamically load the latest version of a prompt without updating the application code.
 
 ```python
-prompt = mlflow.load_prompt("prompts:/summarization-prompt@latest")
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@latest")
 ```

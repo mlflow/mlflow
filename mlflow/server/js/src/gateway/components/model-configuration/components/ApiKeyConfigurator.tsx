@@ -152,7 +152,7 @@ export function ApiKeyConfigurator({
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <Radio.Group
-        componentId={`${componentIdPrefix}.mode`}
+        componentId="codegen_mlflow_app_src_oss_gateway_components_model-configuration_components_ApiKeyConfigurator.tsx_142"
         name={`${componentIdPrefix}.mode`}
         value={value.mode}
         onChange={(e) => handleModeChange(e.target.value as 'new' | 'existing')}
@@ -266,7 +266,7 @@ function NewSecretForm({
         </FormUI.Label>
         <GatewayInput
           id={`${componentIdPrefix}.name`}
-          componentId={`${componentIdPrefix}.name`}
+          componentId="codegen_mlflow_app_src_oss_gateway_components_model-configuration_components_ApiKeyConfigurator.tsx_256"
           value={value.name}
           onChange={(e) => onNameChange(e.target.value)}
           placeholder={formatMessage({
@@ -295,7 +295,7 @@ function NewSecretForm({
           </FormUI.Label>
           <Radio.Group
             name={`${componentIdPrefix}.auth-mode`}
-            componentId={`${componentIdPrefix}.auth-mode`}
+            componentId="codegen_mlflow_app_src_oss_gateway_components_model-configuration_components_ApiKeyConfigurator.tsx_285"
             value={value.authMode || defaultAuthMode}
             onChange={(e) => onAuthModeChange(e.target.value)}
             disabled={disabled}
@@ -327,7 +327,7 @@ function NewSecretForm({
           {field.fieldType === 'secret' ? (
             <SecretInput
               id={`${componentIdPrefix}.secret.${field.name}`}
-              componentId={`${componentIdPrefix}.secret.${field.name}`}
+              componentId="codegen_mlflow_app_src_oss_gateway_components_model-configuration_components_ApiKeyConfigurator.tsx_317"
               value={value.secretFields[field.name] ?? ''}
               onChange={(e) => onSecretFieldChange(field.name, e.target.value)}
               placeholder={field.description}
@@ -337,7 +337,7 @@ function NewSecretForm({
           ) : (
             <GatewayInput
               id={`${componentIdPrefix}.config.${field.name}`}
-              componentId={`${componentIdPrefix}.config.${field.name}`}
+              componentId="codegen_mlflow_app_src_oss_gateway_components_model-configuration_components_ApiKeyConfigurator.tsx_327"
               value={value.configFields[field.name] ?? ''}
               onChange={(e) => onConfigFieldChange(field.name, e.target.value)}
               placeholder={field.description}

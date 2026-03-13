@@ -1,19 +1,14 @@
 import importlib
 
 import pytest
-import transformers
-from packaging.version import Version
 
 import mlflow
 from mlflow.models import Model
 from mlflow.transformers.peft import get_peft_base_model, is_peft_model
 
 SKIP_IF_PEFT_NOT_AVAILABLE = pytest.mark.skipif(
-    (
-        importlib.util.find_spec("peft") is None
-        or Version(transformers.__version__) <= Version("4.25.1")
-    ),
-    reason="PEFT is not installed or Transformer version is too old",
+    importlib.util.find_spec("peft") is None,
+    reason="PEFT is not installed",
 )
 pytestmark = SKIP_IF_PEFT_NOT_AVAILABLE
 

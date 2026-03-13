@@ -18,6 +18,9 @@ from mlflow.entities import (
     GatewayModelLinkageType,
     GatewayResourceType,
     InputTag,
+    Issue,
+    IssueSeverity,
+    IssueStatus,
     LifecycleStage,
     LoggedModelParameter,
     Metric,
@@ -58,7 +61,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.models import Model
-from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
@@ -72,6 +75,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteDataset,
+    DeleteDatasetRecords,
     DeleteDatasetTag,
     DeleteExperiment,
     DeleteGatewayEndpoint,
@@ -115,6 +119,8 @@ from mlflow.protos.service_pb2 import (
     SearchEvaluationDatasets,
     SearchExperiments,
     SearchRuns,
+    SearchTraces,
+    SearchTracesV3,
     SetDatasetTags,
     SetExperimentTag,
     SetTag,
@@ -125,6 +131,12 @@ from mlflow.protos.service_pb2 import (
     UpdateGatewayModelDefinition,
     UpdateGatewaySecret,
     UpsertDatasetRecords,
+)
+from mlflow.protos.service_pb2 import (
+    FallbackConfig as ProtoFallbackConfig,
+)
+from mlflow.protos.service_pb2 import (
+    GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
@@ -138,12 +150,38 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
+    _V3_ISSUES_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     get_logged_model_endpoint,
 )
+from mlflow.utils.workspace_context import WorkspaceContext, get_request_workspace
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.tracing.helper import create_mock_otel_span
+
+
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request):
+    """
+    Run every test in this module with workspaces disabled and enabled to cover both code paths.
+    """
+
+    # Ensure server version cache doesn't leak between parameter variants
+    RestStore._get_server_version.cache_clear()
+
+    enabled = request.param
+    if enabled:
+        with (
+            WorkspaceContext(DEFAULT_WORKSPACE_NAME),
+            mock.patch(
+                "mlflow.store.workspace_rest_store_mixin.WorkspaceRestStoreMixin.supports_workspaces",
+                return_value=True,
+            ),
+        ):
+            yield enabled
+    else:
+        yield enabled
 
 
 class MyCoolException(Exception):
@@ -167,10 +205,13 @@ def test_successful_http_request():
         # Filter out None arguments
         assert args == ("POST", "https://hello/api/2.0/mlflow/experiments/search")
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        headers = DefaultRequestHeaderProvider().request_headers()
+        if workspace := get_request_workspace():
+            headers["X-MLFLOW-WORKSPACE"] = workspace
         assert kwargs == {
             "allow_redirects": True,
             "json": {"view_type": "ACTIVE_ONLY"},
-            "headers": DefaultRequestHeaderProvider().request_headers(),
+            "headers": headers,
             "verify": True,
             "timeout": 120,
         }
@@ -492,9 +533,9 @@ def test_get_experiment_by_name():
             artifact_location="/abc",
             lifecycle_stage=LifecycleStage.ACTIVE,
         )
-        response.text = json.dumps(
-            {"experiment": json.loads(message_to_json(experiment.to_proto()))}
-        )
+        response.text = json.dumps({
+            "experiment": json.loads(message_to_json(experiment.to_proto()))
+        })
         mock_http.return_value = response
         result = store.get_experiment_by_name("abc")
         expected_message0 = GetExperimentByName(experiment_name="abc")
@@ -656,19 +697,17 @@ def test_deprecated_start_trace_v2():
     )
     response = mock.MagicMock()
     response.status_code = 200
-    response.text = json.dumps(
-        {
-            "trace_info": {
-                "request_id": request_id,
-                "experiment_id": experiment_id,
-                "timestamp_ms": timestamp_ms,
-                "execution_time_ms": None,
-                "status": 0,  # Running
-                "request_metadata": [{"key": k, "value": str(v)} for k, v in metadata.items()],
-                "tags": [{"key": k, "value": str(v)} for k, v in tags.items()],
-            }
+    response.text = json.dumps({
+        "trace_info": {
+            "request_id": request_id,
+            "experiment_id": experiment_id,
+            "timestamp_ms": timestamp_ms,
+            "execution_time_ms": None,
+            "status": 0,  # Running
+            "request_metadata": [{"key": k, "value": str(v)} for k, v in metadata.items()],
+            "tags": [{"key": k, "value": str(v)} for k, v in tags.items()],
         }
-    )
+    })
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         res = store.deprecated_start_trace_v2(
             experiment_id=experiment_id,
@@ -744,19 +783,17 @@ def test_deprecated_end_trace_v2():
     )
     response = mock.MagicMock()
     response.status_code = 200
-    response.text = json.dumps(
-        {
-            "trace_info": {
-                "request_id": request_id,
-                "experiment_id": experiment_id,
-                "timestamp_ms": timestamp_ms,
-                "execution_time_ms": 12345,
-                "status": 1,  # OK
-                "request_metadata": [{"key": k, "value": v} for k, v in metadata.items()],
-                "tags": [{"key": k, "value": v} for k, v in tags.items()],
-            }
+    response.text = json.dumps({
+        "trace_info": {
+            "request_id": request_id,
+            "experiment_id": experiment_id,
+            "timestamp_ms": timestamp_ms,
+            "execution_time_ms": 12345,
+            "status": 1,  # OK
+            "request_metadata": [{"key": k, "value": v} for k, v in metadata.items()],
+            "tags": [{"key": k, "value": v} for k, v in tags.items()],
         }
-    )
+    })
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         res = store.deprecated_end_trace_v2(
@@ -791,25 +828,23 @@ def test_search_traces():
     response.status_code = 200
 
     # Format the response
-    response.text = json.dumps(
-        {
-            "traces": [
-                {
-                    "trace_id": "tr-1234",
-                    "trace_location": {
-                        "type": "MLFLOW_EXPERIMENT",
-                        "mlflow_experiment": {"experiment_id": "1234"},
-                    },
-                    "request_time": "1970-01-01T00:00:00.123Z",
-                    "execution_duration_ms": 456,
-                    "state": "OK",
-                    "trace_metadata": {"key": "value"},
-                    "tags": {"k": "v"},
-                }
-            ],
-            "next_page_token": "token",
-        }
-    )
+    response.text = json.dumps({
+        "traces": [
+            {
+                "trace_id": "tr-1234",
+                "trace_location": {
+                    "type": "MLFLOW_EXPERIMENT",
+                    "mlflow_experiment": {"experiment_id": "1234"},
+                },
+                "request_time": "1970-01-01T00:00:00.123Z",
+                "execution_duration_ms": 456,
+                "state": "OK",
+                "trace_metadata": {"key": "value"},
+                "tags": {"k": "v"},
+            }
+        ],
+        "next_page_token": "token",
+    })
 
     # Parameters for search_traces
     experiment_ids = ["1234"]
@@ -875,6 +910,49 @@ def test_search_traces_errors():
         store.search_traces(model_id="model_id")
 
 
+def test_search_traces_v3_endpoint_not_found_falls_back_to_v2():
+    store = RestStore(lambda: MlflowHostCreds("https://hello"))
+
+    v2_response = mock.MagicMock()
+    v2_response.traces = []
+    v2_response.next_page_token = ""
+
+    endpoint_not_found = MlflowException("Not found", error_code=ENDPOINT_NOT_FOUND)
+
+    with mock.patch.object(
+        store, "_call_endpoint", side_effect=[endpoint_not_found, v2_response]
+    ) as mock_endpoint:
+        trace_infos, token = store._search_traces(
+            locations=["123", "456"],
+            filter_string="state = 'OK'",
+            max_results=10,
+            order_by=["request_time DESC"],
+            page_token="abc",
+        )
+
+    assert mock_endpoint.call_count == 2
+
+    # First call must target the V3 endpoint
+    v3_call = mock_endpoint.call_args_list[0]
+    assert v3_call.args[0] is SearchTracesV3
+
+    # Second call must use the V2 body with experiment_ids, not locations
+    v2_call = mock_endpoint.call_args_list[1]
+    assert v2_call.args[0] is SearchTraces
+
+    v2_body = json.loads(v2_call.args[1])
+    assert v2_body == {
+        "experiment_ids": ["123", "456"],
+        "filter": "state = 'OK'",
+        "max_results": 10,
+        "order_by": ["request_time DESC"],
+        "page_token": "abc",
+    }
+
+    assert trace_infos == []
+    assert token is None
+
+
 def test_get_artifact_uri_for_trace_compatibility():
     from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
 
@@ -936,9 +1014,10 @@ def test_delete_traces(delete_traces_kwargs):
     request = DeleteTraces(**delete_traces_kwargs)
     response.text = json.dumps({"traces_deleted": 1})
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        if "request_ids" in delete_traces_kwargs:
-            delete_traces_kwargs["trace_ids"] = delete_traces_kwargs.pop("request_ids")
-        res = store.delete_traces(**delete_traces_kwargs)
+        call_kwargs = delete_traces_kwargs.copy()
+        if "request_ids" in call_kwargs:
+            call_kwargs["trace_ids"] = call_kwargs.pop("request_ids")
+        res = store.delete_traces(**call_kwargs)
         _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
         assert res == 1
 
@@ -1007,26 +1086,24 @@ def test_log_assessment_feedback(is_databricks):
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
-    response.text = json.dumps(
-        {
-            "assessment": {
-                "assessment_id": "1234",
-                "assessment_name": "assessment_name",
-                "trace_id": "tr-1234",
-                "source": {
-                    "source_type": "LLM_JUDGE",
-                    "source_id": "gpt-4o-mini",
-                },
-                "create_time": "2025-02-20T05:47:23Z",
-                "last_update_time": "2025-02-20T05:47:23Z",
-                "feedback": {"value": True},
-                "rationale": "rationale",
-                "metadata": {"model": "gpt-4o-mini"},
-                "error": None,
-                "span_id": None,
-            }
+    response.text = json.dumps({
+        "assessment": {
+            "assessment_id": "1234",
+            "assessment_name": "assessment_name",
+            "trace_id": "tr-1234",
+            "source": {
+                "source_type": "LLM_JUDGE",
+                "source_id": "gpt-4o-mini",
+            },
+            "create_time": "2025-02-20T05:47:23Z",
+            "last_update_time": "2025-02-20T05:47:23Z",
+            "feedback": {"value": True},
+            "rationale": "rationale",
+            "metadata": {"model": "gpt-4o-mini"},
+            "error": None,
+            "span_id": None,
         }
-    )
+    })
 
     feedback = Feedback(
         trace_id="tr-1234",
@@ -1065,29 +1142,27 @@ def test_log_assessment_expectation(is_databricks):
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
-    response.text = json.dumps(
-        {
-            "assessment": {
-                "assessment_id": "1234",
-                "assessment_name": "assessment_name",
-                "trace_id": "tr-1234",
-                "source": {
-                    "source_type": "HUMAN",
-                    "source_id": "me",
-                },
-                "create_time": "2025-02-20T05:47:23Z",
-                "last_update_time": "2025-02-20T05:47:23Z",
-                "expectation": {
-                    "serialized_value": {
-                        "value": '{"key1": "value1", "key2": "value2"}',
-                        "serialization_format": "JSON_FORMAT",
-                    }
-                },
-                "error": None,
-                "span_id": None,
-            }
+    response.text = json.dumps({
+        "assessment": {
+            "assessment_id": "1234",
+            "assessment_name": "assessment_name",
+            "trace_id": "tr-1234",
+            "source": {
+                "source_type": "HUMAN",
+                "source_id": "me",
+            },
+            "create_time": "2025-02-20T05:47:23Z",
+            "last_update_time": "2025-02-20T05:47:23Z",
+            "expectation": {
+                "serialized_value": {
+                    "value": '{"key1": "value1", "key2": "value2"}',
+                    "serialization_format": "JSON_FORMAT",
+                }
+            },
+            "error": None,
+            "span_id": None,
         }
-    )
+    })
 
     expectation = Expectation(
         trace_id="tr-1234",
@@ -1166,26 +1241,24 @@ def test_update_assessment(updates, expected_request_json, is_databricks):
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
-    response.text = json.dumps(
-        {
-            "assessment": {
-                "assessment_id": "1234",
-                "assessment_name": "assessment_name",
-                "trace_id": "tr-1234",
-                "source": {
-                    "source_type": "LLM_JUDGE",
-                    "source_id": "gpt-4o-mini",
-                },
-                "create_time": "2025-02-20T05:47:23Z",
-                "last_update_time": "2025-02-25T01:23:45Z",
-                "feedback": {"value": True},
-                "rationale": "rationale",
-                "metadata": {"model": "gpt-4o-mini"},
-                "error": None,
-                "span_id": None,
-            }
+    response.text = json.dumps({
+        "assessment": {
+            "assessment_id": "1234",
+            "assessment_name": "assessment_name",
+            "trace_id": "tr-1234",
+            "source": {
+                "source_type": "LLM_JUDGE",
+                "source_id": "gpt-4o-mini",
+            },
+            "create_time": "2025-02-20T05:47:23Z",
+            "last_update_time": "2025-02-25T01:23:45Z",
+            "feedback": {"value": True},
+            "rationale": "rationale",
+            "metadata": {"model": "gpt-4o-mini"},
+            "error": None,
+            "span_id": None,
         }
-    )
+    })
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         res = store.update_assessment(
@@ -1211,26 +1284,24 @@ def test_get_assessment(is_databricks):
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
-    response.text = json.dumps(
-        {
-            "assessment": {
-                "assessment_id": "1234",
-                "assessment_name": "assessment_name",
-                "trace_id": "tr-1234",
-                "source": {
-                    "source_type": "LLM_JUDGE",
-                    "source_id": "gpt-4o-mini",
-                },
-                "create_time": "2025-02-20T05:47:23Z",
-                "last_update_time": "2025-02-25T01:23:45Z",
-                "feedback": {"value": "test value"},
-                "rationale": "rationale",
-                "metadata": {"model": "gpt-4o-mini"},
-                "error": None,
-                "span_id": None,
-            }
+    response.text = json.dumps({
+        "assessment": {
+            "assessment_id": "1234",
+            "assessment_name": "assessment_name",
+            "trace_id": "tr-1234",
+            "source": {
+                "source_type": "LLM_JUDGE",
+                "source_id": "gpt-4o-mini",
+            },
+            "create_time": "2025-02-20T05:47:23Z",
+            "last_update_time": "2025-02-25T01:23:45Z",
+            "feedback": {"value": "test value"},
+            "rationale": "rationale",
+            "metadata": {"model": "gpt-4o-mini"},
+            "error": None,
+            "span_id": None,
         }
-    )
+    })
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         res = store.get_assessment(trace_id="tr-1234", assessment_id="1234")
@@ -1870,6 +1941,57 @@ def test_upsert_evaluation_dataset_records():
         )
 
 
+def test_delete_evaluation_dataset_records():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    record_ids = ["dr-record1", "dr-record2"]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = DeleteDatasetRecords.Response()
+        response.deleted_count = 2
+        mock_call.return_value = response
+
+        result = store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=record_ids,
+        )
+
+        assert result == 2
+
+        req = DeleteDatasetRecords(
+            dataset_record_ids=record_ids,
+        )
+        expected_json = message_to_json(req)
+
+        mock_call.assert_called_once_with(
+            DeleteDatasetRecords,
+            expected_json,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/records",
+        )
+
+
+def test_delete_evaluation_dataset_records_empty():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    dataset_id = "d-1234567890abcdef1234567890abcdef"
+    record_ids = ["dr-nonexistent"]
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = DeleteDatasetRecords.Response()
+        response.deleted_count = 0
+        mock_call.return_value = response
+
+        result = store.delete_dataset_records(
+            dataset_id=dataset_id,
+            dataset_record_ids=record_ids,
+        )
+
+        assert result == 0
+
+
 def test_get_evaluation_dataset_experiment_ids():
     creds = MlflowHostCreds("https://test-server")
     store = RestStore(lambda: creds)
@@ -2214,32 +2336,30 @@ def test_load_dataset_records_pagination():
         mock_record2.source_id = "trace-2"
         mock_record2.created_time = 1609459201
 
-        mock_response.records = json.dumps(
-            [
-                {
-                    "dataset_id": dataset_id,
-                    "dataset_record_id": "r-001",
-                    "inputs": {"q": "Question 1"},
-                    "expectations": {"a": "Answer 1"},
-                    "tags": {},
-                    "source_type": "TRACE",
-                    "source_id": "trace-1",
-                    "created_time": 1609459200,
-                    "last_update_time": 1609459200,
-                },
-                {
-                    "dataset_id": dataset_id,
-                    "dataset_record_id": "r-002",
-                    "inputs": {"q": "Question 2"},
-                    "expectations": {"a": "Answer 2"},
-                    "tags": {},
-                    "source_type": "TRACE",
-                    "source_id": "trace-2",
-                    "created_time": 1609459201,
-                    "last_update_time": 1609459201,
-                },
-            ]
-        )
+        mock_response.records = json.dumps([
+            {
+                "dataset_id": dataset_id,
+                "dataset_record_id": "r-001",
+                "inputs": {"q": "Question 1"},
+                "expectations": {"a": "Answer 1"},
+                "tags": {},
+                "source_type": "TRACE",
+                "source_id": "trace-1",
+                "created_time": 1609459200,
+                "last_update_time": 1609459200,
+            },
+            {
+                "dataset_id": dataset_id,
+                "dataset_record_id": "r-002",
+                "inputs": {"q": "Question 2"},
+                "expectations": {"a": "Answer 2"},
+                "tags": {},
+                "source_type": "TRACE",
+                "source_id": "trace-2",
+                "created_time": 1609459201,
+                "last_update_time": 1609459201,
+            },
+        ])
         mock_response.next_page_token = "token_page2"
         mock_call_endpoint.return_value = mock_response
 
@@ -2259,21 +2379,19 @@ def test_load_dataset_records_pagination():
         )
 
         mock_call_endpoint.reset_mock()
-        mock_response.records = json.dumps(
-            [
-                {
-                    "dataset_id": dataset_id,
-                    "dataset_record_id": "r-003",
-                    "inputs": {"q": "Question 3"},
-                    "expectations": {"a": "Answer 3"},
-                    "tags": {},
-                    "source_type": "TRACE",
-                    "source_id": "trace-3",
-                    "created_time": 1609459202,
-                    "last_update_time": 1609459202,
-                }
-            ]
-        )
+        mock_response.records = json.dumps([
+            {
+                "dataset_id": dataset_id,
+                "dataset_record_id": "r-003",
+                "inputs": {"q": "Question 3"},
+                "expectations": {"a": "Answer 3"},
+                "tags": {},
+                "source_type": "TRACE",
+                "source_id": "trace-3",
+                "created_time": 1609459202,
+                "last_update_time": 1609459202,
+            }
+        ])
         mock_response.next_page_token = ""
 
         records, next_token = store._load_dataset_records(
@@ -2380,9 +2498,11 @@ def test_evaluation_dataset_created_by_and_updated_by():
         set_tags_response.dataset.created_by = "user1"
         set_tags_response.dataset.last_updated_by = "user1"
         set_tags_response.dataset.digest = "abc123"
-        set_tags_response.dataset.tags = json.dumps(
-            {"mlflow.user": "user3", "environment": "staging", "version": "2.0"}
-        )
+        set_tags_response.dataset.tags = json.dumps({
+            "mlflow.user": "user3",
+            "environment": "staging",
+            "version": "2.0",
+        })
 
         mock_call.return_value = set_tags_response
 
@@ -3139,14 +3259,8 @@ def test_create_gateway_endpoint():
                 strategy=FallbackStrategy.SEQUENTIAL,
                 max_attempts=2,
             ),
+            usage_tracking=True,
         )
-        from mlflow.protos.service_pb2 import (
-            FallbackConfig as ProtoFallbackConfig,
-        )
-        from mlflow.protos.service_pb2 import (
-            GatewayEndpointModelConfig as ProtoGatewayEndpointModelConfig,
-        )
-
         body = message_to_json(
             CreateGatewayEndpoint(
                 name="my-endpoint",
@@ -3174,6 +3288,7 @@ def test_create_gateway_endpoint():
                     strategy=FallbackStrategy.SEQUENTIAL.to_proto(),
                     max_attempts=2,
                 ),
+                usage_tracking=True,
             )
         )
         _verify_requests(mock_http, creds, "gateway/endpoints/create", "POST", body, use_v3=True)
@@ -3503,23 +3618,21 @@ def test_query_trace_metrics():
     response.status_code = 200
 
     # Format the response
-    response.text = json.dumps(
-        {
-            "data_points": [
-                {
-                    "metric_name": "latency",
-                    "dimensions": {"span_name": "chat", "status": "OK"},
-                    "values": {"AVG": 123.45, "COUNT": 10.0},
-                },
-                {
-                    "metric_name": "latency",
-                    "dimensions": {"span_name": "embeddings", "status": "OK"},
-                    "values": {"AVG": 50.0, "COUNT": 5.0},
-                },
-            ],
-            "next_page_token": "next_token",
-        }
-    )
+    response.text = json.dumps({
+        "data_points": [
+            {
+                "metric_name": "latency",
+                "dimensions": {"span_name": "chat", "status": "OK"},
+                "values": {"AVG": 123.45, "COUNT": 10.0},
+            },
+            {
+                "metric_name": "latency",
+                "dimensions": {"span_name": "embeddings", "status": "OK"},
+                "values": {"AVG": 50.0, "COUNT": 5.0},
+            },
+        ],
+        "next_page_token": "next_token",
+    })
 
     # Parameters for query_trace_metrics
     experiment_ids = ["1234", "5678"]
@@ -3574,3 +3687,218 @@ def test_query_trace_metrics():
 
     # Verify pagination token
     assert result.token == "next_token"
+
+
+def test_create_issue():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "issue": {
+            "issue_id": "issue-123",
+            "experiment_id": "exp-456",
+            "name": "Test Issue",
+            "description": "Test description",
+            "status": "pending",
+            "severity": "high",
+            "root_causes": ["cause1", "cause2"],
+            "source_run_id": "run-789",
+            "created_timestamp": 1234567890000,
+            "last_updated_timestamp": 1234567890000,
+            "created_by": "test_user",
+        }
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        issue = store.create_issue(
+            experiment_id="exp-456",
+            name="Test Issue",
+            description="Test description",
+            status=IssueStatus.PENDING,
+            severity=IssueSeverity.HIGH,
+            root_causes=["cause1", "cause2"],
+            source_run_id="run-789",
+            created_by="test_user",
+        )
+
+    expected_request_json = json.dumps({
+        "experiment_id": "exp-456",
+        "name": "Test Issue",
+        "description": "Test description",
+        "status": "pending",
+        "severity": "high",
+        "root_causes": ["cause1", "cause2"],
+        "source_run_id": "run-789",
+        "created_by": "test_user",
+    })
+    _verify_requests(mock_http, creds, "issues", "POST", expected_request_json, use_v3=True)
+
+    assert isinstance(issue, Issue)
+    assert issue.issue_id == "issue-123"
+    assert issue.experiment_id == "exp-456"
+    assert issue.name == "Test Issue"
+    assert issue.description == "Test description"
+    assert issue.status == IssueStatus.PENDING
+    assert issue.severity == IssueSeverity.HIGH
+    assert issue.root_causes == ["cause1", "cause2"]
+    assert issue.source_run_id == "run-789"
+    assert issue.created_by == "test_user"
+
+
+def test_get_issue():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "issue": {
+            "issue_id": "issue-123",
+            "experiment_id": "exp-456",
+            "name": "Test Issue",
+            "description": "Test description",
+            "status": "resolved",
+            "severity": "medium",
+            "root_causes": ["cause1"],
+            "source_run_id": "run-789",
+            "created_timestamp": 1234567890000,
+            "last_updated_timestamp": 1234567900000,
+            "created_by": "test_user",
+        }
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        issue = store.get_issue(issue_id="issue-123")
+
+    # The proto endpoint uses a template path, so we need to verify with params instead of json
+    call_args = mock_http.call_args[1]
+    assert call_args["endpoint"] == f"{_V3_ISSUES_REST_API_PATH_PREFIX}/issue-123"
+    assert call_args["method"] == "GET"
+    assert call_args["params"] == {"issue_id": "issue-123"}
+
+    assert isinstance(issue, Issue)
+    assert issue.issue_id == "issue-123"
+    assert issue.experiment_id == "exp-456"
+    assert issue.name == "Test Issue"
+    assert issue.status == IssueStatus.RESOLVED
+    assert issue.severity == IssueSeverity.MEDIUM
+
+
+def test_update_issue():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "issue": {
+            "issue_id": "issue-123",
+            "experiment_id": "exp-456",
+            "name": "Updated Issue",
+            "description": "Updated description",
+            "status": "rejected",
+            "severity": "low",
+            "root_causes": ["updated_cause"],
+            "source_run_id": "run-789",
+            "created_timestamp": 1234567890000,
+            "last_updated_timestamp": 1234567910000,
+            "created_by": "test_user",
+        }
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        issue = store.update_issue(
+            issue_id="issue-123",
+            status=IssueStatus.REJECTED,
+            name="Updated Issue",
+            description="Updated description",
+            severity=IssueSeverity.LOW,
+        )
+
+    # The proto endpoint uses a template path
+    call_args = mock_http.call_args[1]
+    assert call_args["endpoint"] == f"{_V3_ISSUES_REST_API_PATH_PREFIX}/issue-123"
+    assert call_args["method"] == "PATCH"
+
+    # Verify the JSON body contains the issue_id and update fields
+    json_body = call_args["json"]
+    assert json_body["issue_id"] == "issue-123"
+    assert json_body["status"] == "rejected"
+    assert json_body["name"] == "Updated Issue"
+    assert json_body["description"] == "Updated description"
+    assert json_body["severity"] == "low"
+
+    assert isinstance(issue, Issue)
+    assert issue.issue_id == "issue-123"
+    assert issue.name == "Updated Issue"
+    assert issue.description == "Updated description"
+    assert issue.status == IssueStatus.REJECTED
+    assert issue.severity == IssueSeverity.LOW
+
+
+def test_search_issues():
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({
+        "issues": [
+            {
+                "issue_id": "issue-123",
+                "experiment_id": "exp-456",
+                "name": "Issue 1",
+                "description": "Description 1",
+                "status": "pending",
+                "severity": "high",
+                "root_causes": [],
+                "source_run_id": None,
+                "created_timestamp": 1234567890000,
+                "last_updated_timestamp": 1234567890000,
+                "created_by": "user1",
+            },
+            {
+                "issue_id": "issue-124",
+                "experiment_id": "exp-456",
+                "name": "Issue 2",
+                "description": "Description 2",
+                "status": "resolved",
+                "severity": "medium",
+                "root_causes": ["cause"],
+                "source_run_id": "run-123",
+                "created_timestamp": 1234567900000,
+                "last_updated_timestamp": 1234567900000,
+                "created_by": "user2",
+            },
+        ],
+        "next_page_token": "next_token_456",
+    })
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        result = store.search_issues(
+            experiment_id="exp-456",
+            filter_string="severity = 'high'",
+            max_results=100,
+            page_token="page_token_123",
+        )
+
+    expected_request_json = json.dumps({
+        "experiment_id": "exp-456",
+        "filter_string": "severity = 'high'",
+        "max_results": 100,
+        "page_token": "page_token_123",
+    })
+    _verify_requests(mock_http, creds, "issues/search", "POST", expected_request_json, use_v3=True)
+
+    assert len(result) == 2
+    assert isinstance(result[0], Issue)
+    assert result[0].issue_id == "issue-123"
+    assert result[0].name == "Issue 1"
+    assert result[0].status == IssueStatus.PENDING
+    assert result[0].severity == IssueSeverity.HIGH
+
+    assert isinstance(result[1], Issue)
+    assert result[1].issue_id == "issue-124"
+    assert result[1].name == "Issue 2"
+    assert result[1].status == IssueStatus.RESOLVED
+    assert result[1].severity == IssueSeverity.MEDIUM
+
+    assert result.token == "next_token_456"

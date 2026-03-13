@@ -12,12 +12,10 @@ def test_completions_request():
     completions.RequestPayload(**{"prompt": "", "extra": "extra", "temperature": 2.0})
 
     with pytest.raises(pydantic.ValidationError, match="less than or equal to 2"):
-        completions.RequestPayload(
-            **{
-                "messages": [{"role": "user", "content": "content"}],
-                "temperature": 3.0,
-            }
-        )
+        completions.RequestPayload(**{
+            "messages": [{"role": "user", "content": "content"}],
+            "temperature": 3.0,
+        })
 
     with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
         completions.RequestPayload(**{"extra": "extra"})
@@ -81,3 +79,57 @@ def test_completions_response():
 
     with pytest.raises(pydantic.ValidationError, match=r"(?i)field required"):
         completions.ResponsePayload(**{"usage": {}})
+
+
+def test_completions_stream_response():
+    # Test stream response without usage
+    completions.StreamResponsePayload(
+        id="completions-stream-id-1",
+        object="text_completion_chunk",
+        created=int(time.time()),
+        model="gpt-4",
+        choices=[
+            completions.StreamChoice(
+                index=0,
+                text="text",
+                finish_reason=None,
+            )
+        ],
+    )
+
+    # Test stream response with usage (final chunk)
+    completions.StreamResponsePayload(
+        id="completions-stream-id-2",
+        object="text_completion_chunk",
+        created=int(time.time()),
+        model="gpt-4",
+        choices=[
+            completions.StreamChoice(
+                index=0,
+                text="",
+                finish_reason="stop",
+            )
+        ],
+        usage=completions.CompletionsUsage(
+            prompt_tokens=10,
+            completion_tokens=20,
+            total_tokens=30,
+        ),
+    )
+
+    # Test stream response with None usage (explicit)
+    response = completions.StreamResponsePayload(
+        id="completions-stream-id-3",
+        object="text_completion_chunk",
+        created=int(time.time()),
+        model="gpt-4",
+        choices=[
+            completions.StreamChoice(
+                index=0,
+                text="chunk",
+                finish_reason=None,
+            )
+        ],
+        usage=None,
+    )
+    assert response.usage is None

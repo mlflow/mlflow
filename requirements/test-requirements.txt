@@ -42,3 +42,7 @@ gepa
 testcontainers
 # required for testing cost tracking
 litellm
+# required for testing Redis budget tracker
+fakeredis[lua]
+# required for testing claude_code tracing
+claude-agent-sdk

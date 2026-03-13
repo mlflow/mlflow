@@ -143,9 +143,9 @@ def test_display_deduplicates_traces(monkeypatch):
 
     assert mock_display.call_count == 1
     assert mock_display.call_args[0][0] == {
-        "application/databricks.mlflow.trace": json.dumps(
-            [json.loads(t._serialize_for_mimebundle()) for t in expected]
-        ),
+        "application/databricks.mlflow.trace": json.dumps([
+            json.loads(t._serialize_for_mimebundle()) for t in expected
+        ]),
         "text/plain": repr(expected),
     }
 
@@ -248,6 +248,30 @@ def test_mimebundle_in_oss():
     assert trace._repr_mimebundle_() == {
         "text/plain": repr(trace),
     }
+
+
+def test_notebook_trace_renderer_base_url_override(monkeypatch):
+    trace = create_trace("a")
+    mlflow.set_tracking_uri("http://mlflow:5000")
+    monkeypatch.setenv("MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL", "http://localhost:5000")
+
+    html = get_notebook_iframe_html([trace])
+    assert "http://localhost:5000/static-files/lib/notebook-trace-renderer/index.html" in html
+    assert "http://mlflow:5000/static-files/lib/notebook-trace-renderer/index.html" not in html
+
+
+def test_notebook_iframe_includes_workspace_query_param(monkeypatch):
+    trace = create_trace("a")
+    mlflow.set_tracking_uri("http://localhost:5000")
+
+    # Without workspace set, the query string should not contain workspace
+    html = get_notebook_iframe_html([trace])
+    assert "workspace=" not in html
+
+    # With workspace set, the query string should contain workspace
+    monkeypatch.setenv("MLFLOW_WORKSPACE", "my-workspace")
+    html = get_notebook_iframe_html([trace])
+    assert "workspace=my-workspace" in html
 
 
 def test_display_in_oss(monkeypatch):

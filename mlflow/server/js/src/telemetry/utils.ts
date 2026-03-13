@@ -1,7 +1,10 @@
 import { has, isObject } from 'lodash';
-import { DesignSystemObservabilityEvent } from './types';
+import type { DesignSystemObservabilityEvent } from './types';
+import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
 
 export const TELEMETRY_ENABLED_STORAGE_VERSION = 1;
+
+export const TELEMETRY_ENABLE_DEV_LOGGING_STORAGE_KEY = 'mlflow.settings.telemetry.enable-dev-logging';
 
 export const TELEMETRY_ENABLED_STORAGE_KEY = 'mlflow.settings.telemetry.enabled';
 
@@ -24,4 +27,8 @@ export const isDesignSystemEvent = (event: any): event is DesignSystemObservabil
     has(event, 'eventType') &&
     typeof event.eventType === 'string'
   );
+};
+
+export const isTelemetryDevLoggingEnabled = (): boolean => {
+  return getLocalStorageItem(TELEMETRY_ENABLE_DEV_LOGGING_STORAGE_KEY, 1, false);
 };

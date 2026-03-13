@@ -20,6 +20,8 @@ import {
   EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   EvalRunsTableKeyedColumnPrefix,
 } from './ExperimentEvaluationRunsTable.constants';
+import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
+import { useQueryClient } from '@databricks/web-shared/query-client';
 import { FormattedMessage } from 'react-intl';
 import { useSelectedRunUuid } from '../../components/evaluations/hooks/useSelectedRunUuid';
 import { useCompareToRunUuid } from '../../components/evaluations/hooks/useCompareToRunUuid';
@@ -40,7 +42,10 @@ import { ExperimentEvaluationRunsPageCharts } from './charts/ExperimentEvaluatio
 import { ExperimentEvaluationRunsRowVisibilityProvider } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
-import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
+import {
+  shouldEnableImprovedEvalRunsComparison,
+  shouldShowEvalRunsIssuesPanel,
+} from '../../../common/utils/FeatureUtils';
 
 const DEFAULT_VISIBLE_METRIC_COLUMNS = 5;
 
@@ -61,11 +66,21 @@ const ExperimentEvaluationRunsPageImpl = () => {
     EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   );
 
-  const [groupBy, setGroupBy] = useState<RunsGroupByConfig | null>({
-    aggregateFunction: RunGroupingAggregateFunction.Average,
-    groupByKeys: [{ mode: RunGroupingMode.Dataset, groupByData: 'dataset' }],
-  });
+  const queryClient = useQueryClient();
+  const enableImprovedComparison = shouldEnableImprovedEvalRunsComparison();
+  const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
+
+  // When flag is enabled, default to grouping by dataset
+  const [groupBy, setGroupBy] = useState<RunsGroupByConfig | null>(
+    enableImprovedComparison
+      ? {
+          aggregateFunction: RunGroupingAggregateFunction.Average,
+          groupByKeys: [{ mode: RunGroupingMode.Dataset, groupByData: 'dataset' }],
+        }
+      : null,
+  );
   const [isComparisonMode, setIsComparisonMode] = useState(false);
+  const [isViewingSelectedRun, setIsViewingSelectedRun] = useState(false);
   const { viewMode, setViewMode } = useExperimentEvaluationRunsPageMode();
 
   const [selectedRunUuid, setSelectedRunUuid] = useSelectedRunUuid();
@@ -91,7 +106,24 @@ const ExperimentEvaluationRunsPageImpl = () => {
     filter: searchFilter,
   });
 
+  const refetchAll = useCallback(() => {
+    refetch();
+    invalidateMlflowSearchTracesCache({ queryClient });
+  }, [refetch, queryClient]);
+
   const runUuids = useMemo(() => runs?.map((run) => run.info.runUuid) ?? [], [runs]);
+
+  // ORIGINAL BEHAVIOR (flag OFF): Auto-select first run when no run is selected or selected run is out of scope
+  // This ensures the split view always has a run to display
+  // Skip this when showIssuesPanelFlag is ON (we don't want to auto-select)
+  if (
+    !enableImprovedComparison &&
+    !showIssuesPanelFlag &&
+    runs?.length &&
+    (!selectedRunUuid || !runUuids.includes(selectedRunUuid))
+  ) {
+    setSelectedRunUuid(runs[0].info.runUuid);
+  }
 
   // Get selected run UUIDs from checkbox selection
   const selectedRunUuidsFromCheckbox = useMemo(
@@ -102,33 +134,46 @@ const ExperimentEvaluationRunsPageImpl = () => {
     [rowSelection],
   );
 
-  // On mount, if URL has selectedRunUuid (and optionally compareToRunUuid), initialize rowSelection and enter comparison mode
-  // Initialize with BOTH URL params to prevent compareToRunUuid from being stripped
-  // Only enabled when comparison feature flag is on
+  // On mount, if URL has selectedRunUuid (and optionally compareToRunUuid), initialize rowSelection
+  // Only enter comparison mode if BOTH params are present (indicating an active comparison)
+  // If only selectedRunUuid is present, just pre-select the checkbox but stay in full-page list view
+  // Only enabled when feature flag is on or issues panel flag is on
   const hasInitializedFromUrl = useRef(false);
-  const isComparisonEnabled = shouldEnableImprovedEvalRunsComparison();
   useEffect(() => {
-    if (!isComparisonEnabled) {
+    if (!enableImprovedComparison && !showIssuesPanelFlag) {
       return;
     }
-    if (!hasInitializedFromUrl.current && selectedRunUuid && runs?.length) {
-      if (runUuids.includes(selectedRunUuid)) {
-        hasInitializedFromUrl.current = true;
-        const initialSelection: RowSelectionState = { [selectedRunUuid]: true };
-        // Also include compareToRunUuid if present in URL
-        if (compareToRunUuid && runUuids.includes(compareToRunUuid)) {
-          initialSelection[compareToRunUuid] = true;
-        }
-        setRowSelection(initialSelection);
+    // Only run initialization once when runs are loaded
+    if (hasInitializedFromUrl.current || !runs?.length) {
+      return;
+    }
+    hasInitializedFromUrl.current = true;
+
+    // If URL has selectedRunUuid, initialize rowSelection
+    if (selectedRunUuid && runUuids.includes(selectedRunUuid)) {
+      const initialSelection: RowSelectionState = { [selectedRunUuid]: true };
+      // Also include compareToRunUuid if present in URL
+      if (compareToRunUuid && runUuids.includes(compareToRunUuid)) {
+        initialSelection[compareToRunUuid] = true;
+        // Only enter comparison mode if BOTH runs are in URL (active comparison)
         setIsComparisonMode(true);
       }
+      setRowSelection(initialSelection);
     }
-  }, [isComparisonEnabled, selectedRunUuid, compareToRunUuid, runs, runUuids, setIsComparisonMode]);
+  }, [
+    enableImprovedComparison,
+    showIssuesPanelFlag,
+    selectedRunUuid,
+    compareToRunUuid,
+    runs,
+    runUuids,
+    setIsComparisonMode,
+  ]);
 
   // Sync URL params from checkbox selection when in comparison mode (as useEffect to avoid render-time state updates)
-  // Only enabled when comparison feature flag is on
+  // Only enabled when feature flag is on or issues panel flag is on
   useEffect(() => {
-    if (!isComparisonEnabled) {
+    if (!enableImprovedComparison && !showIssuesPanelFlag) {
       return;
     }
     // Skip syncing if we haven't finished initializing yet
@@ -162,7 +207,8 @@ const ExperimentEvaluationRunsPageImpl = () => {
       }
     }
   }, [
-    isComparisonEnabled,
+    enableImprovedComparison,
+    showIssuesPanelFlag,
     isComparisonMode,
     selectedRunUuidsFromCheckbox,
     selectedRunUuid,
@@ -216,7 +262,10 @@ const ExperimentEvaluationRunsPageImpl = () => {
   // to the default state to avoid displaying columns that don't exist
   if (columnDifference.length > 0) {
     const metricColumns = uniqueColumns.filter((col) => col.startsWith(EvalRunsTableKeyedColumnPrefix.METRIC + '.'));
-    const defaultEnabledMetrics = new Set(metricColumns.slice(0, DEFAULT_VISIBLE_METRIC_COLUMNS));
+    // When flag is ON, limit default visible metrics to 5; when OFF, show all (original behavior)
+    const defaultEnabledMetrics = enableImprovedComparison
+      ? new Set(metricColumns.slice(0, DEFAULT_VISIBLE_METRIC_COLUMNS))
+      : new Set(metricColumns);
 
     setSelectedColumns({
       ...EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
@@ -285,7 +334,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
   const renderTableControls = () => (
     <ExperimentEvaluationRunsTableControls
       runs={runs ?? []}
-      refetchRuns={refetch}
+      refetchRuns={refetchAll}
       isFetching={isFetching || isLoading}
       searchRunsError={error}
       searchFilter={searchFilter}
@@ -303,6 +352,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
       compareToRunUuid={compareToRunUuid}
       isComparisonMode={isComparisonMode}
       setIsComparisonMode={setIsComparisonMode}
+      enableImprovedComparison={enableImprovedComparison}
     />
   );
 
@@ -312,11 +362,17 @@ const ExperimentEvaluationRunsPageImpl = () => {
       uniqueColumns={uniqueColumns}
       selectedColumns={selectedColumns}
       selectedRunUuid={
-        isComparisonMode && viewMode === ExperimentEvaluationRunsPageMode.TRACES ? selectedRunUuid : undefined
+        enableImprovedComparison && isComparisonMode && viewMode === ExperimentEvaluationRunsPageMode.TRACES
+          ? selectedRunUuid
+          : undefined
       }
       setSelectedRunUuid={(runUuid: string) => {
         setSelectedRunUuid(runUuid);
         setCompareToRunUuid(undefined);
+        // When flag is ON, also set isViewingSelectedRun to show the split view
+        if (showIssuesPanelFlag) {
+          setIsViewingSelectedRun(true);
+        }
       }}
       isLoading={isLoading}
       hasNextPage={hasNextPage ?? false}
@@ -327,6 +383,8 @@ const ExperimentEvaluationRunsPageImpl = () => {
       viewMode={viewMode}
       onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget)}
       ref={tableContainerRef}
+      isGrouped={Boolean(groupBy?.groupByKeys?.length)}
+      enableImprovedComparison={enableImprovedComparison}
     />
   );
 
@@ -375,8 +433,14 @@ const ExperimentEvaluationRunsPageImpl = () => {
     </div>
   );
 
-  // Full-page list view (default, non-comparison mode)
-  if (!isComparisonMode) {
+  // Full-page list view (non-comparison mode, but not when viewing charts)
+  // When flag is OFF, NEVER show full-page list view - always show split view (original behavior)
+  // When flag is ON, show full-page list view when not in comparison mode and not in charts mode
+  const shouldShowFullPageView =
+    (enableImprovedComparison || (showIssuesPanelFlag && !isViewingSelectedRun)) &&
+    !isComparisonMode &&
+    viewMode !== ExperimentEvaluationRunsPageMode.CHARTS;
+  if (shouldShowFullPageView) {
     return (
       <ExperimentEvaluationRunsRowVisibilityProvider>
         <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '0px' }}>
@@ -419,9 +483,13 @@ const ExperimentEvaluationRunsPageImpl = () => {
           minConstraints={[250, 0]}
           handle={
             <ExperimentViewRunsTableResizerHandle
-              runListHidden={runListHidden}
-              updateRunListHidden={(value) => {
-                setRunListHidden(!runListHidden);
+              runListHidden={isViewingSelectedRun ? true : runListHidden}
+              updateRunListHidden={() => {
+                if (isViewingSelectedRun) {
+                  setIsViewingSelectedRun(false);
+                } else {
+                  setRunListHidden(!runListHidden);
+                }
               }}
             />
           }
@@ -460,7 +528,19 @@ const ExperimentEvaluationRunsPageImpl = () => {
             overflowY: 'scroll',
           }}
         >
-          {selectedRunUuid ? (
+          {viewMode === ExperimentEvaluationRunsPageMode.CHARTS ? (
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                flex: 1,
+                minHeight: '0px',
+                paddingLeft: theme.spacing.sm,
+              }}
+            >
+              <ExperimentEvaluationRunsPageCharts runs={runs} experimentId={experimentId} />
+            </div>
+          ) : selectedRunUuid ? (
             <div
               css={{
                 display: 'flex',

@@ -1,7 +1,7 @@
+import contextlib
 import json
 import math
 import os
-import pathlib
 import random
 import re
 import shutil
@@ -52,6 +52,7 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_URI,
 )
 from mlflow.exceptions import MlflowException
@@ -92,16 +93,24 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlOnlineScoringConfig,
     SqlParam,
     SqlRun,
+    SqlScorer,
+    SqlScorerVersion,
     SqlSpan,
+    SqlSpanMetrics,
     SqlTag,
     SqlTraceInfo,
     SqlTraceMetadata,
     SqlTraceMetrics,
     SqlTraceTag,
 )
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
+from mlflow.store.tracking.sqlalchemy_store import (
+    SqlAlchemyStore,
+    _get_orderby_clauses,
+)
+from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    CostKey,
     SpanAttributeKey,
     SpansLocation,
     TraceMetadataKey,
@@ -131,6 +140,8 @@ from mlflow.utils.validation import (
     MAX_INPUT_TAG_VALUE_SIZE,
     MAX_TAG_VAL_LENGTH,
 )
+from mlflow.utils.workspace_context import WorkspaceContext
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 from tests.integration.utils import invoke_cli_runner
 from tests.store.tracking.test_file_store import assert_dataset_inputs_equal
@@ -141,6 +152,20 @@ ARTIFACT_URI = "artifact_folder"
 pytestmark = pytest.mark.notrackingurimock
 
 IS_MSSQL = MLFLOW_TRACKING_URI.get() and MLFLOW_TRACKING_URI.get().startswith("mssql+pyodbc")
+
+
+@pytest.fixture(autouse=True, params=[False, True], ids=["workspace-disabled", "workspace-enabled"])
+def workspaces_enabled(request, monkeypatch, disable_workspace_mode_by_default):
+    """
+    Run every test in this module with workspaces disabled and enabled to cover both code paths.
+    """
+    enabled = request.param
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true" if enabled else "false")
+    if enabled:
+        with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+            yield enabled
+    else:
+        yield enabled
 
 
 # Helper functions for span tests
@@ -304,6 +329,20 @@ def test_fail_on_multiple_drivers():
 
 
 @pytest.fixture
+def store(tmp_path: Path, db_uri: str, workspaces_enabled: bool) -> SqlAlchemyStore:
+    store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
+    artifact_uri = tmp_path / "artifacts"
+    artifact_uri.mkdir(exist_ok=True)
+    if db_uri_env := MLFLOW_TRACKING_URI.get():
+        s = store_cls(db_uri_env, artifact_uri.as_uri())
+        yield s
+        _cleanup_database(s)
+    else:
+        s = store_cls(db_uri, artifact_uri.as_uri())
+        yield s
+
+
+@pytest.fixture
 def store_and_trace_info(store):
     exp_id = store.create_experiment("test")
     timestamp_ms = get_current_time_millis()
@@ -367,6 +406,9 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlEntityAssociation,
             SqlEvaluationDataset,
             SqlExperimentTag,
+            SqlOnlineScoringConfig,
+            SqlScorerVersion,
+            SqlScorer,
             SqlExperiment,
         ):
             session.query(model).delete()
@@ -374,6 +416,10 @@ def _cleanup_database(store: SqlAlchemyStore):
         # Reset experiment_id to start at 1
         if reset_experiment_id := _get_query_to_reset_experiment_id(store):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
+
+        # Recreate the default experiment (id=0) so that tests using the global registry
+        # cache (e.g., mlflow.start_run()) can still find it after cleanup.
+        store._create_default_experiment(session)
 
 
 def _create_experiments(store: SqlAlchemyStore, names) -> str | list[str]:
@@ -407,6 +453,12 @@ def _run_factory(store: SqlAlchemyStore, config=None):
         config["experiment_id"] = _create_experiments(store, "test exp")
 
     return store.create_run(**config)
+
+
+def _clear_in_memory_engine():
+    engine = SqlAlchemyStore._engine_map.pop("sqlite:///:memory:", None)
+    if engine is not None:
+        engine.dispose()
 
 
 # Tests for Search API
@@ -497,7 +549,8 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
     if MLFLOW_TRACKING_URI.get():
         with store.ManagedSessionMaker() as session:
             default_exp = (
-                session.query(SqlExperiment)
+                session
+                .query(SqlExperiment)
                 .filter(SqlExperiment.experiment_id == store.DEFAULT_EXPERIMENT_ID)
                 .first()
             )
@@ -506,14 +559,53 @@ def test_default_experiment_lifecycle(store: SqlAlchemyStore, tmp_path):
                 session.commit()
 
 
+def test_single_tenant_store_detects_workspace_scoped_experiments(
+    tmp_path, db_uri, workspaces_enabled
+):
+    if workspaces_enabled:
+        pytest.skip("Single-tenant startup guard only applies when workspaces are disabled.")
+    artifact_dir = tmp_path / "artifacts"
+    artifact_dir.mkdir()
+    store = SqlAlchemyStore(db_uri, artifact_dir.as_uri())
+    exp_id = store.create_experiment("tenant-exp")
+    with store.ManagedSessionMaker() as session:
+        session.query(SqlExperiment).filter(SqlExperiment.experiment_id == exp_id).update({
+            SqlExperiment.workspace: "another-workspace"
+        })
+        session.commit()
+    store._dispose_engine()
+    with pytest.raises(MlflowException, match="non-default workspaces"):
+        SqlAlchemyStore(db_uri, artifact_dir.as_uri())
+
+
+def test_artifact_path_segments_for_local():
+    if is_windows():
+        uri = "file:///C:/mlruns/workspaces/default"
+        native_path = r"C:\mlruns\workspaces\default"
+        expected = ["mlruns", "workspaces", "default"]
+    else:
+        uri = "file:///mlruns/workspaces/default"
+        native_path = "/mlruns/workspaces/default"
+        expected = ["mlruns", "workspaces", "default"]
+
+    segments = SqlAlchemyStore._artifact_path_segments(uri)
+    assert segments == expected
+
+    segments_native = SqlAlchemyStore._artifact_path_segments(native_path)
+    assert segments_native == expected
+
+
 def test_raise_duplicate_experiments(store: SqlAlchemyStore):
     with pytest.raises(Exception, match=r"Experiment\(name=.+\) already exists"):
         _create_experiments(store, ["test", "test"])
 
 
 def test_duplicate_experiment_with_artifact_location_returns_resource_already_exists(
-    store: SqlAlchemyStore, tmp_path: Path
+    store: SqlAlchemyStore, tmp_path: Path, workspaces_enabled
 ):
+    if workspaces_enabled:
+        pytest.skip("Custom artifact locations are not supported when workspaces are enabled.")
+
     exp_name = "test_duplicate_with_artifact_location"
     artifact_location = str(tmp_path / "test_artifacts")
 
@@ -748,6 +840,120 @@ def test_search_experiments_filter_by_tag(store: SqlAlchemyStore):
     assert len(experiments) == 0
 
 
+def test_search_experiments_filter_by_tag_is_null(store: SqlAlchemyStore):
+    experiments = [
+        ("exp1", [ExperimentTag("key1", "value"), ExperimentTag("key2", "value")]),
+        ("exp2", [ExperimentTag("key1", "value")]),
+        ("exp3", []),
+    ]
+    for name, tags in experiments:
+        time.sleep(0.001)
+        store.create_experiment(name, tags=tags)
+
+    # IS NOT NULL: experiments that have key1
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL")
+    assert [e.name for e in results] == ["exp2", "exp1"]
+
+    # IS NULL: experiments that don't have key2 (includes Default)
+    results = store.search_experiments(filter_string="tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp3", "exp2", "Default"]
+
+    # Combined IS NOT NULL and IS NULL
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Combined with value filter
+    results = store.search_experiments(filter_string="tag.key1 = 'value' AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Error: IS NULL on attribute
+    with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported for tags"):
+        store.search_experiments(filter_string="name IS NULL")
+
+
+def test_search_runs_filter_by_tag_and_param_is_null(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "test_search_runs_is_null")
+
+    # run1: has tag1, tag2, param1, param2
+    run1 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=1))
+    store.set_tag(run1.info.run_id, RunTag("tag1", "value1"))
+    store.set_tag(run1.info.run_id, RunTag("tag2", "value2"))
+    store.log_param(run1.info.run_id, Param("param1", "val1"))
+    store.log_param(run1.info.run_id, Param("param2", "val2"))
+
+    # run2: has tag1, param1 only
+    run2 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=2))
+    store.set_tag(run2.info.run_id, RunTag("tag1", "value1"))
+    store.log_param(run2.info.run_id, Param("param1", "val1"))
+
+    # run3: no extra tags or params
+    run3 = _run_factory(store, dict(_get_run_configs(exp_id), start_time=3))
+
+    # IS NOT NULL for tags - runs that have tag1
+    result = store.search_runs(
+        [exp_id],
+        filter_string="tags.tag1 IS NOT NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run1.info.run_id, run2.info.run_id}
+
+    # IS NULL for tags - runs missing tag2
+    result = store.search_runs(
+        [exp_id],
+        filter_string="tags.tag2 IS NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run2.info.run_id, run3.info.run_id}
+
+    # IS NOT NULL for params - runs that have param1
+    result = store.search_runs(
+        [exp_id],
+        filter_string="params.param1 IS NOT NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run1.info.run_id, run2.info.run_id}
+
+    # IS NULL for params - runs missing param2
+    result = store.search_runs(
+        [exp_id],
+        filter_string="params.param2 IS NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run2.info.run_id, run3.info.run_id}
+
+    # Combined: tag IS NOT NULL AND param IS NULL
+    result = store.search_runs(
+        [exp_id],
+        filter_string="tags.tag1 IS NOT NULL AND params.param2 IS NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run2.info.run_id}
+
+    # Combined: IS NULL with value filter
+    result = store.search_runs(
+        [exp_id],
+        filter_string="tags.tag1 = 'value1' AND tags.tag2 IS NULL",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+    assert {r.info.run_id for r in result} == {run2.info.run_id}
+
+    # Error: IS NULL on metric
+    with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported"):
+        store.search_runs(
+            [exp_id],
+            filter_string="metrics.acc IS NULL",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+
+    # Error: IS NULL on attribute
+    with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported"):
+        store.search_runs(
+            [exp_id],
+            filter_string="attributes.status IS NULL",
+            run_view_type=ViewType.ACTIVE_ONLY,
+        )
+
+
 def test_search_experiments_filter_by_attribute_and_tag(store: SqlAlchemyStore):
     store.create_experiment("exp1", tags=[ExperimentTag("a", "1"), ExperimentTag("b", "2")])
     store.create_experiment("exp2", tags=[ExperimentTag("a", "3"), ExperimentTag("b", "4")])
@@ -888,10 +1094,11 @@ def test_create_experiments(store: SqlAlchemyStore):
         store.create_experiment(name="x" * (MAX_EXPERIMENT_NAME_LENGTH + 1))
 
 
-def test_create_experiment_with_tags_works_correctly(store: SqlAlchemyStore):
+def test_create_experiment_with_tags_works_correctly(store: SqlAlchemyStore, workspaces_enabled):
+    artifact_location = None if workspaces_enabled else "some location"
     experiment_id = store.create_experiment(
         name="test exp",
-        artifact_location="some location",
+        artifact_location=artifact_location,
         tags=[ExperimentTag("key1", "val1"), ExperimentTag("key2", "val2")],
     )
     experiment = store.get_experiment(experiment_id)
@@ -1234,36 +1441,41 @@ def test_log_metric_concurrent_logging_succeeds(store: SqlAlchemyStore):
     run2 = _run_factory(store, run_config)
 
     def log_metrics(run):
-        for metric_val in range(100):
-            store.log_metric(
-                run.info.run_id,
-                Metric("metric_key", metric_val, get_current_time_millis(), 0),
-            )
-        for batch_idx in range(5):
-            store.log_batch(
-                run.info.run_id,
-                metrics=[
-                    Metric(
-                        f"metric_batch_{batch_idx}",
-                        (batch_idx * 100) + val_offset,
-                        get_current_time_millis(),
-                        0,
-                    )
-                    for val_offset in range(100)
-                ],
-                params=[],
-                tags=[],
-            )
-        for metric_val in range(100):
-            store.log_metric(
-                run.info.run_id,
-                Metric("metric_key", metric_val, get_current_time_millis(), 0),
-            )
+        context_manager = (
+            WorkspaceContext(DEFAULT_WORKSPACE_NAME)
+            if isinstance(store, WorkspaceAwareSqlAlchemyStore)
+            else contextlib.nullcontext()
+        )
+        with context_manager:
+            for metric_val in range(100):
+                store.log_metric(
+                    run.info.run_id,
+                    Metric("metric_key", metric_val, get_current_time_millis(), 0),
+                )
+            for batch_idx in range(5):
+                store.log_batch(
+                    run.info.run_id,
+                    metrics=[
+                        Metric(
+                            f"metric_batch_{batch_idx}",
+                            (batch_idx * 100) + val_offset,
+                            get_current_time_millis(),
+                            0,
+                        )
+                        for val_offset in range(100)
+                    ],
+                    params=[],
+                    tags=[],
+                )
+            for metric_val in range(100):
+                store.log_metric(
+                    run.info.run_id,
+                    Metric("metric_key", metric_val, get_current_time_millis(), 0),
+                )
         return "success"
 
     log_metrics_futures = []
     with ThreadPoolExecutor(max_workers=4) as executor:
-        # Log metrics to two runs across four threads
         log_metrics_futures = [
             executor.submit(log_metrics, run) for run in [run1, run2, run1, run2]
         ]
@@ -2238,12 +2450,17 @@ def test_search_metrics(store: SqlAlchemyStore):
     assert _search_runs(store, experiment_id, filter_string) == [r2]
 
 
-def test_search_attrs(store: SqlAlchemyStore, tmp_path):
+def test_search_attrs(store: SqlAlchemyStore):
     e1 = _create_experiments(store, "search_attributes_1")
     r1 = _run_factory(store, _get_run_configs(experiment_id=e1)).info.run_id
 
     e2 = _create_experiments(store, "search_attrs_2")
     r2 = _run_factory(store, _get_run_configs(experiment_id=e2)).info.run_id
+    run1_artifact_uri = store.get_run(r1).info.artifact_uri
+    uppercase_run1_artifact_uri = run1_artifact_uri.upper()
+    mismatched_artifact_uri = run1_artifact_uri.replace(f"/{e1}/", f"/{e2}/", 1)
+    if mismatched_artifact_uri == run1_artifact_uri:
+        mismatched_artifact_uri = f"{run1_artifact_uri}/unexpected"
 
     filter_string = ""
     assert sorted(
@@ -2280,25 +2497,18 @@ def test_search_attrs(store: SqlAlchemyStore, tmp_path):
     filter_string = "attribute.status = 'KILLED'"
     assert _search_runs(store, [e1, e2], filter_string) == []
 
-    expected_artifact_uri = (
-        pathlib.Path.cwd().joinpath(tmp_path, "artifacts", e1, r1, "artifacts").as_uri()
-    )
-    filter_string = f"attr.artifact_uri = '{expected_artifact_uri}'"
+    filter_string = f"attr.artifact_uri = '{run1_artifact_uri}'"
     assert _search_runs(store, [e1, e2], filter_string) == [r1]
 
-    filter_string = (
-        f"attr.artifact_uri = '{tmp_path}/artifacts/{e1.upper()}/{r1.upper()}/artifacts'"
-    )
+    filter_string = f"attr.artifact_uri = '{uppercase_run1_artifact_uri}'"
     assert _search_runs(store, [e1, e2], filter_string) == []
 
-    filter_string = (
-        f"attr.artifact_uri != '{tmp_path}/artifacts/{e1.upper()}/{r1.upper()}/artifacts'"
-    )
+    filter_string = f"attr.artifact_uri != '{uppercase_run1_artifact_uri}'"
     assert sorted(
         [r1, r2],
     ) == sorted(_search_runs(store, [e1, e2], filter_string))
 
-    filter_string = f"attr.artifact_uri = '{tmp_path}/artifacts/{e2}/{r1}/artifacts'"
+    filter_string = f"attr.artifact_uri = '{mismatched_artifact_uri}'"
     assert _search_runs(store, [e1, e2], filter_string) == []
 
     filter_string = "attribute.artifact_uri = 'random_artifact_path'"
@@ -2431,9 +2641,9 @@ def test_search_with_deterministic_max_results(store: SqlAlchemyStore):
     exp = _create_experiments(store, "test_search_with_deterministic_max_results")
     # Create 10 runs with the same start_time.
     # Sort based on run_id
-    runs = sorted(
-        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)]
-    )
+    runs = sorted([
+        _run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)
+    ])
     for n in [1, 2, 4, 8, 10, 20]:
         assert runs[: min(10, n)] == _search_runs(store, exp, max_results=n)
 
@@ -2441,9 +2651,9 @@ def test_search_with_deterministic_max_results(store: SqlAlchemyStore):
 def test_search_runs_pagination(store: SqlAlchemyStore):
     exp = _create_experiments(store, "test_search_runs_pagination")
     # test returned token behavior
-    runs = sorted(
-        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)]
-    )
+    runs = sorted([
+        _run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)
+    ])
     result = store.search_runs([exp], None, ViewType.ALL, max_results=4)
     assert [r.info.run_id for r in result] == runs[0:4]
     assert result.token is not None
@@ -2452,6 +2662,40 @@ def test_search_runs_pagination(store: SqlAlchemyStore):
     assert result.token is not None
     result = store.search_runs([exp], None, ViewType.ALL, max_results=4, page_token=result.token)
     assert [r.info.run_id for r in result] == runs[8:]
+    assert result.token is None
+
+
+def test_search_runs_pagination_last_page_exact(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "test_search_runs_pagination_last_page_exact")
+    # Create exactly 8 runs (2 pages of 4 runs each)
+    runs = sorted([
+        _run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(8)
+    ])
+
+    # First page: should return 4 runs and a token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4)
+    assert [r.info.run_id for r in result] == runs[0:4]
+    assert result.token is not None
+
+    # Second page: should return exactly 4 runs (last page) with NO token
+    # This is the key test case - with optimistic pagination, this would incorrectly
+    # return a token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=4, page_token=result.token)
+    assert [r.info.run_id for r in result] == runs[4:8]
+    assert result.token is None
+
+
+def test_search_runs_pagination_with_max_results_none(store: SqlAlchemyStore):
+    exp = _create_experiments(store, "test_search_runs_pagination_with_max_results_none")
+    # Create 5 runs
+    runs = sorted([
+        _run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for _ in range(5)
+    ])
+
+    # Call search_runs with max_results=None - should return all runs with no token
+    result = store.search_runs([exp], None, ViewType.ALL, max_results=None)
+    assert len(result) == 5
+    assert [r.info.run_id for r in result] == runs
     assert result.token is None
 
 
@@ -3209,6 +3453,51 @@ def test_log_batch_same_metrics_repeated_multiple_reqs(store: SqlAlchemyStore):
     _verify_logged(store, run.info.run_id, params=[], metrics=[metric0, metric1], tags=[])
 
 
+def test_log_batch_duplicate_metrics_across_key_batches(store: SqlAlchemyStore):
+    """Test that duplicate metric detection works correctly when metric keys span multiple
+    batches (batches of 100 keys). Previously, _insert_metrics was called inside the
+    per-batch loop, causing metrics from unqueried batches to be inserted prematurely,
+    which could raise an unhandled IntegrityError.
+    See https://github.com/mlflow/mlflow/issues/19144
+    """
+    run = _run_factory(store)
+    # Create >100 unique metric keys so they span multiple key batches
+    num_keys = 150
+    metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    # Log the metrics once
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+    # Log the same metrics again (all duplicates) — this should not raise
+    store.log_batch(run.info.run_id, params=[], metrics=metrics, tags=[])
+    _verify_logged(store, run.info.run_id, params=[], metrics=metrics, tags=[])
+
+
+def test_log_batch_duplicate_metrics_mixed_with_new_across_key_batches(store: SqlAlchemyStore):
+    # Test logging a mix of duplicate and new metrics when keys span multiple batches.
+    run = _run_factory(store)
+    num_keys = 150
+    # Log initial metrics
+    initial_metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    store.log_batch(run.info.run_id, params=[], metrics=initial_metrics, tags=[])
+    # Log a mix: some duplicates from the initial batch + some new metrics
+    duplicate_metrics = [
+        Metric(key=f"metric-{i}", value=float(i), timestamp=1, step=0) for i in range(num_keys)
+    ]
+    new_metrics = [
+        Metric(key=f"metric-{i}", value=float(i + num_keys), timestamp=2, step=1)
+        for i in range(num_keys)
+    ]
+    mixed_metrics = duplicate_metrics + new_metrics
+    store.log_batch(run.info.run_id, params=[], metrics=mixed_metrics, tags=[])
+    _verify_logged(
+        store, run.info.run_id, params=[], metrics=initial_metrics + new_metrics, tags=[]
+    )
+
+
 def test_log_batch_null_metrics(store: SqlAlchemyStore):
     run = _run_factory(store)
 
@@ -3339,7 +3628,8 @@ def get_ordered_runs(store, order_clauses, experiment_id):
 
 
 def _generate_large_data(store, nb_runs=1000):
-    experiment_id = store.create_experiment("test_experiment")
+    experiment_name = f"test_experiment_{uuid.uuid4().hex}"
+    experiment_id = store.create_experiment(experiment_name)
 
     current_run = 0
 
@@ -3384,16 +3674,14 @@ def _generate_large_data(store, nb_runs=1000):
                 "run_uuid": run_id,
             }
             params_list.append(param)
-        latest_metrics_list.append(
-            {
-                "key": "mkey_0",
-                "value": current_run,
-                "timestamp": 100 * 2,
-                "step": 100 * 3,
-                "is_nan": False,
-                "run_uuid": run_id,
-            }
-        )
+        latest_metrics_list.append({
+            "key": "mkey_0",
+            "value": current_run,
+            "timestamp": 100 * 2,
+            "step": 100 * 3,
+            "is_nan": False,
+            "run_uuid": run_id,
+        })
         current_run += 1
 
     # Bulk insert all data in a single transaction
@@ -3510,6 +3798,118 @@ def test_get_metric_history_on_non_existent_metric_key(store: SqlAlchemyStore):
     run_id = run.info.run_id
     metrics = store.get_metric_history(run_id, "test_metric")
     assert metrics == []
+
+
+def test_get_metric_history_bulk_interval(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    # Log 100 metric values at steps 0..99
+    for i in range(100):
+        store.log_metric(
+            run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i), timestamp=1000 + i, step=i
+            ).to_mlflow_entity(),
+        )
+
+    # Request downsampled to 10 results
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=10,
+        start_step=None,
+        end_step=None,
+    )
+
+    # Should return roughly 10 sampled entries (plus min/max boundaries)
+    assert len(result) <= 12
+    assert len(result) >= 10
+
+    # All results should have the correct run_id and metric key
+    for m in result:
+        assert m.run_id == run_id
+        assert m.key == metric_key
+
+    # Min and max steps should be preserved
+    returned_steps = {m.step for m in result}
+    assert 0 in returned_steps
+    assert 99 in returned_steps
+
+
+def test_get_metric_history_bulk_interval_no_metrics(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run.info.run_id],
+        metric_key="nonexistent",
+        max_results=10,
+        start_step=None,
+        end_step=None,
+    )
+    assert result == []
+
+
+def test_get_metric_history_bulk_interval_multiple_runs(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "test_bulk_interval_multi")
+    run1 = _run_factory(store, config=_get_run_configs(experiment_id=exp_id))
+    run2 = _run_factory(store, config=_get_run_configs(experiment_id=exp_id))
+
+    metric_key = "shared_metric"
+    for i in range(50):
+        store.log_metric(
+            run1.info.run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i), timestamp=1000 + i, step=i
+            ).to_mlflow_entity(),
+        )
+        store.log_metric(
+            run2.info.run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i * 2), timestamp=2000 + i, step=i
+            ).to_mlflow_entity(),
+        )
+
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run1.info.run_id, run2.info.run_id],
+        metric_key=metric_key,
+        max_results=10,
+        start_step=None,
+        end_step=None,
+    )
+
+    # Should have results from both runs
+    run_ids_in_result = {m.run_id for m in result}
+    assert run1.info.run_id in run_ids_in_result
+    assert run2.info.run_id in run_ids_in_result
+
+
+def test_get_metric_history_bulk_interval_with_step_range(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    for i in range(100):
+        store.log_metric(
+            run_id,
+            models.SqlMetric(
+                key=metric_key, value=float(i), timestamp=1000 + i, step=i
+            ).to_mlflow_entity(),
+        )
+
+    result = store.get_metric_history_bulk_interval(
+        run_ids=[run_id],
+        metric_key=metric_key,
+        max_results=320,
+        start_step=20,
+        end_step=30,
+    )
+
+    returned_steps = {m.step for m in result}
+    # All returned steps should be within the requested range
+    assert all(20 <= s <= 30 for s in returned_steps)
+    # Should contain all steps in range since max_results > range size
+    assert returned_steps == set(range(20, 31))
 
 
 def test_insert_large_text_in_dataset_table(store: SqlAlchemyStore):
@@ -4080,9 +4480,10 @@ def test_log_inputs_with_duplicates_in_single_request(store: SqlAlchemyStore):
     experiment_id = _create_experiments(store, "test exp")
     run1 = _run_factory(store, config=_get_run_configs(experiment_id, start_time=1))
 
+    dataset_digest = uuid.uuid4().hex
     dataset1 = entities.Dataset(
         name="name1",
-        digest="digest1",
+        digest=dataset_digest,
         source_type="st1",
         source="source1",
         schema="schema1",
@@ -4106,9 +4507,13 @@ def test_log_inputs_with_duplicates_in_single_request(store: SqlAlchemyStore):
     )
 
 
-def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(monkeypatch):
+def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(
+    monkeypatch, workspaces_enabled
+):
     monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "SingletonThreadPool")
-    store = SqlAlchemyStore("sqlite:///:memory:", ARTIFACT_URI)
+    _clear_in_memory_engine()
+    store_cls = WorkspaceAwareSqlAlchemyStore if workspaces_enabled else SqlAlchemyStore
+    store = store_cls("sqlite:///:memory:", ARTIFACT_URI)
     experiment_id = store.create_experiment(name="exp1")
     run = store.create_run(
         experiment_id=experiment_id,
@@ -4126,6 +4531,8 @@ def test_sqlalchemy_store_behaves_as_expected_with_inmemory_sqlite_db(monkeypatc
     assert fetched_run.info.run_id == run_id
     assert metric.key in fetched_run.data.metrics
     assert param.key in fetched_run.data.params
+    store._dispose_engine()
+    _clear_in_memory_engine()
 
 
 def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_deleted(
@@ -4137,7 +4544,7 @@ def test_sqlalchemy_store_can_be_initialized_when_default_experiment_has_been_de
     SqlAlchemyStore(tmp_sqlite_uri, ARTIFACT_URI)
 
 
-def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_path):
+def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_path, db_uri):
     """
     Verify that SqlAlchemyStore does NOT create the artifact root directory during initialization.
 
@@ -4147,24 +4554,22 @@ def test_sqlalchemy_store_does_not_create_artifact_root_directory_on_init(tmp_pa
 
     See: https://github.com/mlflow/mlflow/issues/19658
     """
-    db_path = tmp_path / "mlflow.db"
     artifact_root = tmp_path / "artifacts"
 
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", str(artifact_root))
+    store = SqlAlchemyStore(db_uri, str(artifact_root))
 
     assert not artifact_root.exists()
 
     store._dispose_engine()
 
 
-def test_sqlalchemy_store_creates_artifact_directory_on_log_artifact(tmp_path):
+def test_sqlalchemy_store_creates_artifact_directory_on_log_artifact(tmp_path, db_uri):
     from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
     from mlflow.utils.file_utils import path_to_local_file_uri
 
-    db_path = tmp_path / "mlflow.db"
     artifact_root = tmp_path / "artifacts"
 
-    store = SqlAlchemyStore(f"sqlite:///{db_path}", path_to_local_file_uri(str(artifact_root)))
+    store = SqlAlchemyStore(db_uri, path_to_local_file_uri(str(artifact_root)))
     exp_id = store.create_experiment("test")
     run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="run")
 
@@ -4300,8 +4705,9 @@ def _assert_create_experiment_appends_to_artifact_uri_path_correctly(
         exp_id = store.create_experiment(name="exp")
         exp = store.get_experiment(exp_id)
 
-        if hasattr(store, "__del__"):
-            store.__del__()
+        # Dispose the engine to close all connections and allow the temp directory to be removed
+        # on Windows, where open file handles prevent file deletion.
+        store._dispose_engine()
 
         cwd = Path.cwd().as_posix()
         drive = Path.cwd().drive
@@ -4414,8 +4820,9 @@ def _assert_create_run_appends_to_artifact_uri_path_correctly(
             run_name="name",
         )
 
-        if hasattr(store, "__del__"):
-            store.__del__()
+        # Dispose the engine to close all connections and allow the temp directory to be removed
+        # on Windows, where open file handles prevent file deletion.
+        store._dispose_engine()
 
         cwd = Path.cwd().as_posix()
         drive = Path.cwd().drive
@@ -5422,6 +5829,71 @@ def test_search_traces_with_combined_span_filters(store: SqlAlchemyStore):
     assert traces[0].request_id == trace1_id
 
 
+def test_search_traces_combined_span_filters_match_same_span(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_same_span_filter")
+
+    trace1_id = "trace1"
+    _create_trace(store, trace1_id, exp_id)
+
+    span1a = create_test_span_with_content(
+        trace1_id,
+        name="search_web",
+        span_id=111,
+        span_type="TOOL",
+        status=trace_api.StatusCode.ERROR,
+        custom_attributes={"query": "test"},
+    )
+    span1b = create_test_span_with_content(
+        trace1_id,
+        name="other_tool",
+        span_id=112,
+        span_type="TOOL",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"data": "value"},
+    )
+
+    trace2_id = "trace2"
+    _create_trace(store, trace2_id, exp_id)
+
+    span2 = create_test_span_with_content(
+        trace2_id,
+        name="search_web",
+        span_id=222,
+        span_type="TOOL",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"query": "test2"},
+    )
+
+    store.log_spans(exp_id, [span1a, span1b])
+    store.log_spans(exp_id, [span2])
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "search_web" AND span.status = "OK"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "search_web" AND span.status = "ERROR"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name = "other_tool" AND span.status = "OK"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "search_web"')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.status = "OK"')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+
 def test_search_traces_span_filters_with_no_results(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_no_results")
 
@@ -5847,6 +6319,123 @@ def test_search_traces_with_feedback_like_filters(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string='feedback.comment LIKE "%okay%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace2_id
+
+
+def test_search_traces_with_assessment_is_null_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_assessment_null_filters")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+    trace5_id = "trace5"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+    _create_trace(store, trace5_id, exp_id)
+
+    feedback1 = Feedback(
+        trace_id=trace1_id,
+        name="quality",
+        value="good",
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    )
+    feedback2 = Feedback(
+        trace_id=trace2_id,
+        name="quality",
+        value="bad",
+        source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
+    )
+
+    expectation1 = Expectation(
+        trace_id=trace4_id,
+        name="score",
+        value=85,
+        source=AssessmentSource(source_type="CODE", source_id="scorer"),
+    )
+
+    store.create_assessment(feedback1)
+    store.create_assessment(feedback2)
+    store.create_assessment(expectation1)
+
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.quality IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.quality IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id, trace5_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="expectation.score IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace4_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="expectation.score IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id, trace5_id}
+
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='feedback.quality IS NOT NULL AND feedback.quality = "good"',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+
+def test_search_traces_with_feedback_filters_excludes_invalid_assessments(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment("test_feedback_filters_excludes_invalid")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+
+    # trace1: overridden from "no" to "yes" - only "yes" is valid
+    original_feedback = Feedback(
+        trace_id=trace1_id,
+        name="correctness",
+        value="no",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+    )
+    created_original = store.create_assessment(original_feedback)
+
+    override_feedback = Feedback(
+        trace_id=trace1_id,
+        name="correctness",
+        value="yes",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+        overrides=created_original.assessment_id,
+    )
+    store.create_assessment(override_feedback)
+
+    # trace2: "no" assessment, never overridden
+    feedback2 = Feedback(
+        trace_id=trace2_id,
+        name="correctness",
+        value="no",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+    )
+    store.create_assessment(feedback2)
+
+    # Filtering by "yes" should return only trace1 (current valid assessment)
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.correctness = "yes"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Filtering by "no" should return only trace2 (trace1's "no" is invalid/overridden)
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.correctness = "no"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # IS NOT NULL should return both (both have a valid assessment)
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.correctness IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
 
 
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
@@ -6391,6 +6980,58 @@ def test_search_traces_with_metadata_is_not_null_filter(store: SqlAlchemyStore):
 
     traces, _ = store.search_traces(
         [exp_id], filter_string='metadata.region IS NOT NULL AND metadata.env = "production"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+
+def test_search_traces_with_tag_is_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_tag_is_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, tags={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, tags={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, tags={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.region IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.env IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='tag.region IS NULL AND tag.env = "staging"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id}
+
+
+def test_search_traces_with_tag_is_not_null_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_tag_is_not_null")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, tags={"env": "production", "region": "us"})
+    _create_trace(store, trace2_id, exp_id, tags={"env": "staging"})
+    _create_trace(store, trace3_id, exp_id, tags={})
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.region IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="tag.env IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='tag.region IS NOT NULL AND tag.env = "production"'
     )
     trace_ids = {t.request_id for t in traces}
     assert trace_ids == {trace1_id}
@@ -7194,15 +7835,11 @@ def test_search_traces_with_span_attributute_backticks(store: SqlAlchemyStore):
     store.log_spans(exp_id, [span1])
     store.log_spans(exp_id, [span2])
 
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='span.attributes.`mlflow.spanInputs` ILIKE "%test1%"'
-    )
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%test1%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace_info_1.trace_id
 
-    traces, _ = store.search_traces(
-        [exp_id], filter_string='span.attributes.`mlflow.spanInputs` ILIKE "%test2%"'
-    )
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text ILIKE "%test2%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace_info_2.trace_id
 
@@ -7452,7 +8089,8 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
     # Verify the span was saved to the database
     with store.ManagedSessionMaker() as session:
         saved_span = (
-            session.query(SqlSpan)
+            session
+            .query(SqlSpan)
             .filter(SqlSpan.trace_id == trace_info.trace_id, SqlSpan.span_id == span.span_id)
             .first()
         )
@@ -7682,7 +8320,8 @@ async def test_log_spans_concurrent_trace_creation(store: SqlAlchemyStore, is_as
         assert trace.experiment_id == int(experiment_id)
 
         saved_span = (
-            session.query(SqlSpan)
+            session
+            .query(SqlSpan)
             .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
             .one()
         )
@@ -8094,7 +8733,8 @@ def test_log_model_metrics_use_run_experiment_id(store: SqlAlchemyStore):
 
     with store.ManagedSessionMaker() as session:
         logged_metrics = (
-            session.query(SqlLoggedModelMetric)
+            session
+            .query(SqlLoggedModelMetric)
             .filter(SqlLoggedModelMetric.model_id == model.model_id)
             .all()
         )
@@ -8939,7 +9579,7 @@ def test_create_and_get_assessment(store_and_trace_info):
 def test_get_assessment_errors(store_and_trace_info):
     store, trace_info = store_and_trace_info
 
-    with pytest.raises(MlflowException, match=r"Trace with request_id 'fake_trace' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with (ID|request_id) 'fake_trace' not found"):
         store.get_assessment("fake_trace", "fake_assessment")
 
     with pytest.raises(
@@ -9096,7 +9736,7 @@ def test_update_assessment_type_validation(store_and_trace_info):
 def test_update_assessment_errors(store_and_trace_info):
     store, trace_info = store_and_trace_info
 
-    with pytest.raises(MlflowException, match=r"Trace with request_id 'fake_trace' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with (ID|request_id) 'fake_trace' not found"):
         store.update_assessment(
             trace_id="fake_trace", assessment_id="fake_assessment", rationale="This should fail"
         )
@@ -9326,6 +9966,76 @@ def test_assessment_with_error(store_and_trace_info):
     assert retrieved_feedback.error.stack_trace is not None
     assert "ValueError: Test error message" in retrieved_feedback.error.stack_trace
     assert created_feedback.error.stack_trace == retrieved_feedback.error.stack_trace
+
+
+def test_start_trace_with_assessments_missing_trace_id(store):
+    """
+    Regression test for NOT NULL constraint on assessments.trace_id during trace export.
+
+    During normal trace export (MlflowV3SpanExporter), two things happen:
+
+    1. log_spans() is called incrementally as each span completes. Internally this calls
+       start_trace(), creating the trace row in the DB.
+    2. When the root span finishes, _log_trace() calls start_trace() again with the full
+       TraceInfo — including any assessments attached to the trace.
+
+    Because the trace row already exists from step 1, the second start_trace() hits an
+    IntegrityError and falls back to session.merge(). Assessments created standalone
+    (e.g. returned by custom metric functions) have trace_id=None by design. Without
+    backfilling trace_id before the merge, SQLAlchemy updates the assessment row with
+    trace_id=NULL, violating the NOT NULL constraint on assessments.trace_id.
+    """
+    exp_id = store.create_experiment("test_assessment_trace_id")
+    timestamp_ms = get_current_time_millis()
+    trace_id = f"tr-{uuid.uuid4()}"
+
+    # Step 1: log_spans() creates the trace row as spans are exported incrementally.
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"cr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    # Assessment with trace_id=None, as returned by custom metric functions.
+    assessment = Feedback(
+        name="test_feedback",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN, source_id="user1"),
+        trace_id=None,
+        value="good",
+    )
+
+    # Step 2: _log_trace() calls start_trace() with the full TraceInfo (including
+    # assessments) after the root span finishes. The trace already exists from step 1,
+    # so this hits the IntegrityError -> session.merge() path. Before the fix, this
+    # raised sqlite3.IntegrityError because assessment.trace_id was None.
+    result = store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"cr-{uuid.uuid4()}",
+            request_preview="request",
+            response_preview="response",
+            assessments=[assessment],
+        ),
+    )
+
+    assert len(result.assessments) == 1
+    assert result.assessments[0].trace_id == trace_id
+    assert result.assessments[0].name == "test_feedback"
 
 
 def test_dataset_crud_operations(store):
@@ -9896,6 +10606,60 @@ def test_dataset_upsert_comprehensive(store):
     empty_result = store.upsert_dataset_records(created_dataset.dataset_id, [])
     assert empty_result["inserted"] == 0
     assert empty_result["updated"] == 0
+
+
+def test_dataset_delete_records(store):
+    test_prefix = "test_delete_records_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    records = [
+        {
+            "inputs": {"id": 1, "question": "What is MLflow?"},
+            "expectations": {"answer": "ML platform"},
+        },
+        {
+            "inputs": {"id": 2, "question": "What is Python?"},
+            "expectations": {"answer": "Programming language"},
+        },
+        {
+            "inputs": {"id": 3, "question": "What is Docker?"},
+            "expectations": {"answer": "Container platform"},
+        },
+    ]
+    store.upsert_dataset_records(dataset.dataset_id, records)
+
+    loaded_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(loaded_records) == 3
+
+    record_ids = [r.dataset_record_id for r in loaded_records]
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, [record_ids[0]])
+    assert deleted_count == 1
+
+    remaining_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(remaining_records) == 2
+
+    updated_dataset = store.get_dataset(dataset.dataset_id)
+    profile = json.loads(updated_dataset.profile)
+    assert profile["num_records"] == 2
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, [record_ids[1], record_ids[2]])
+    assert deleted_count == 2
+
+    final_records, _ = store._load_dataset_records(dataset.dataset_id)
+    assert len(final_records) == 0
+
+
+def test_dataset_delete_records_idempotent(store):
+    test_prefix = "test_delete_idempotent_"
+    exp_ids = _create_experiments(store, [f"{test_prefix}exp"])
+
+    dataset = store.create_dataset(name=f"{test_prefix}dataset", experiment_ids=exp_ids)
+
+    deleted_count = store.delete_dataset_records(dataset.dataset_id, ["nonexistent-record-id"])
+    assert deleted_count == 0
 
 
 def test_dataset_associations_and_lazy_loading(store):
@@ -10948,9 +11712,9 @@ def test_upsert_online_scoring_config_overwrites(store: SqlAlchemyStore):
 
 def test_upsert_online_scoring_config_rejects_non_gateway_model(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_online_config_non_gateway")
-    non_gateway_scorer = json.dumps(
-        {"instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}}
-    )
+    non_gateway_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {"model": "openai:/gpt-4"}
+    })
     store.register_scorer(experiment_id, "scorer", non_gateway_scorer)
 
     with pytest.raises(MlflowException, match="does not use a gateway model"):
@@ -10967,25 +11731,23 @@ def test_upsert_online_scoring_config_rejects_scorer_requiring_expectations(
     experiment_id = store.create_experiment("test_online_config_expectations")
 
     # Complete serialized scorer with {{ expectations }} template variable
-    expectations_scorer = json.dumps(
-        {
-            "name": "expectations_scorer",
-            "description": None,
-            "aggregations": [],
-            "is_session_level_scorer": False,
-            "mlflow_version": "3.0.0",
-            "serialization_version": 1,
-            "instructions_judge_pydantic_data": {
-                "model": "gateway:/my-endpoint",
-                "instructions": "Compare {{ outputs }} against {{ expectations }}",
-            },
-            "builtin_scorer_class": None,
-            "builtin_scorer_pydantic_data": None,
-            "call_source": None,
-            "call_signature": None,
-            "original_func_name": None,
-        }
-    )
+    expectations_scorer = json.dumps({
+        "name": "expectations_scorer",
+        "description": None,
+        "aggregations": [],
+        "is_session_level_scorer": False,
+        "mlflow_version": "3.0.0",
+        "serialization_version": 1,
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/my-endpoint",
+            "instructions": "Compare {{ outputs }} against {{ expectations }}",
+        },
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+    })
 
     with mock.patch.object(store, "get_gateway_endpoint", return_value=_mock_gateway_endpoint()):
         store.register_scorer(experiment_id, "expectations_scorer", expectations_scorer)
@@ -11192,7 +11954,8 @@ def test_scorer_deletion_cascades_to_online_configs(store: SqlAlchemyStore):
 
     with store.ManagedSessionMaker() as session:
         assert (
-            session.query(SqlOnlineScoringConfig)
+            session
+            .query(SqlOnlineScoringConfig)
             .filter_by(online_scoring_config_id=config_id)
             .count()
             == 1
@@ -11202,7 +11965,8 @@ def test_scorer_deletion_cascades_to_online_configs(store: SqlAlchemyStore):
 
     with store.ManagedSessionMaker() as session:
         assert (
-            session.query(SqlOnlineScoringConfig)
+            session
+            .query(SqlOnlineScoringConfig)
             .filter_by(online_scoring_config_id=config_id)
             .count()
             == 0
@@ -11249,7 +12013,7 @@ def test_dataset_experiment_associations(store):
         with pytest.raises(MlflowException, match="not found"):
             store.add_dataset_to_experiments(dataset_id="d-nonexistent", experiment_ids=[exp1])
 
-        with pytest.raises(MlflowException, match="not found"):
+        with pytest.raises(MlflowException, match=r"No Experiment with id="):
             store.add_dataset_to_experiments(
                 dataset_id=dataset.dataset_id, experiment_ids=["999999"]
             )
@@ -11924,11 +12688,9 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
             execution_duration=100,
             state=TraceState.OK,
             trace_metadata={
-                TraceMetadataKey.SIZE_STATS: json.dumps(
-                    {
-                        TraceSizeStatsKey.NUM_SPANS: 2,
-                    }
-                ),
+                TraceMetadataKey.SIZE_STATS: json.dumps({
+                    TraceSizeStatsKey.NUM_SPANS: 2,
+                }),
             },
         )
     )
@@ -11980,13 +12742,11 @@ def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
 
     otel_span._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
 
     span = create_mlflow_span(otel_span, trace_id, "LLM")
@@ -12024,13 +12784,11 @@ def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> N
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
     span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
     store.log_spans(experiment_id, [span1])
@@ -12052,13 +12810,11 @@ def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> N
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 200,
-                "output_tokens": 75,
-                "total_tokens": 275,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 200,
+            "output_tokens": 75,
+            "total_tokens": 275,
+        }),
     }
     span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -12069,6 +12825,106 @@ def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> N
     assert trace.info.token_usage["input_tokens"] == 300
     assert trace.info.token_usage["output_tokens"] == 125
     assert trace.info.token_usage["total_tokens"] == 425
+
+
+def test_log_spans_cost(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_cost")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            "input_cost": 0.01,
+            "output_cost": 0.02,
+            "total_cost": 0.03,
+        }),
+    }
+
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    # verify cost is stored in the trace info
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.cost == {
+        "input_cost": 0.01,
+        "output_cost": 0.02,
+        "total_cost": 0.03,
+    }
+
+    # verify loaded trace has same cost
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.cost is not None
+    assert trace.info.cost["input_cost"] == 0.01
+    assert trace.info.cost["output_cost"] == 0.02
+    assert trace.info.cost["total_cost"] == 0.03
+
+
+def test_log_spans_update_cost_incrementally(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_update_cost")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="first_llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            "input_cost": 0.01,
+            "output_cost": 0.02,
+            "total_cost": 0.03,
+        }),
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
+    store.log_spans(experiment_id, [span1])
+
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.cost["input_cost"] == 0.01
+    assert trace.info.cost["output_cost"] == 0.02
+    assert trace.info.cost["total_cost"] == 0.03
+
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="second_llm_call",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            "input_cost": 0.005,
+            "output_cost": 0.01,
+            "total_cost": 0.015,
+        }),
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
+    store.log_spans(experiment_id, [span2])
+
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.cost["input_cost"] == 0.015
+    assert trace.info.cost["output_cost"] == 0.03
+    assert trace.info.cost["total_cost"] == 0.045
 
 
 def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
@@ -12085,13 +12941,11 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id_1, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
     span1 = create_mlflow_span(otel_span1, trace_id_1, "LLM")
     store.log_spans(experiment_id, [span1])
@@ -12107,13 +12961,11 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id_2, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 200,
-                "output_tokens": 100,
-                "total_tokens": 300,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 200,
+            "output_tokens": 100,
+            "total_tokens": 300,
+        }),
     }
     span2 = create_mlflow_span(otel_span2, trace_id_2, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -12265,20 +13117,19 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
         execution_duration=100,
         state=TraceStatus.OK,
         trace_metadata={
-            TraceMetadataKey.TOKEN_USAGE: json.dumps(
-                {
-                    "input_tokens": 100,
-                    "output_tokens": 50,
-                    "total_tokens": 150,
-                }
-            )
+            TraceMetadataKey.TOKEN_USAGE: json.dumps({
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+            })
         },
     )
     store.start_trace(trace_info)
 
     with store.ManagedSessionMaker() as session:
         metrics = (
-            session.query(SqlTraceMetrics)
+            session
+            .query(SqlTraceMetrics)
             .filter(SqlTraceMetrics.request_id == trace_id)
             .order_by(SqlTraceMetrics.key)
             .all()
@@ -12290,6 +13141,65 @@ def test_start_trace_creates_trace_metrics(store: SqlAlchemyStore) -> None:
             "output_tokens": 50,
             "total_tokens": 150,
         }
+
+
+def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_metrics")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        state=TraceStatus.OK,
+    )
+    store.start_trace(trace_info)
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        }),
+        SpanAttributeKey.MODEL: json.dumps("gpt-4-turbo"),
+        SpanAttributeKey.MODEL_PROVIDER: json.dumps("openai"),
+    }
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    with store.ManagedSessionMaker() as session:
+        metrics = (
+            session
+            .query(SqlSpanMetrics)
+            .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
+            .order_by(SqlSpanMetrics.key)
+            .all()
+        )
+        metrics_by_key = {metric.key: metric.value for metric in metrics}
+        assert metrics_by_key == {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        }
+
+        # Check that dimension_attributes is stored on the span
+        sql_span = (
+            session
+            .query(SqlSpan)
+            .filter(SqlSpan.trace_id == trace_id, SqlSpan.span_id == span.span_id)
+            .one()
+        )
+        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL] == "gpt-4-turbo"
+        assert sql_span.dimension_attributes[SpanAttributeKey.MODEL_PROVIDER] == "openai"
 
 
 def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -> None:
@@ -12306,20 +13216,19 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
     span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
     store.log_spans(experiment_id, [span1])
 
     with store.ManagedSessionMaker() as session:
         metrics = (
-            session.query(SqlTraceMetrics)
+            session
+            .query(SqlTraceMetrics)
             .filter(SqlTraceMetrics.request_id == trace_id)
             .order_by(SqlTraceMetrics.key)
             .all()
@@ -12342,20 +13251,19 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 200,
-                "output_tokens": 75,
-                "total_tokens": 275,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 200,
+            "output_tokens": 75,
+            "total_tokens": 275,
+        }),
     }
     span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
     store.log_spans(experiment_id, [span2])
 
     with store.ManagedSessionMaker() as session:
         metrics = (
-            session.query(SqlTraceMetrics)
+            session
+            .query(SqlTraceMetrics)
             .filter(SqlTraceMetrics.request_id == trace_id)
             .order_by(SqlTraceMetrics.key)
             .all()
@@ -12365,6 +13273,80 @@ def test_log_spans_updates_trace_metrics_incrementally(store: SqlAlchemyStore) -
             "input_tokens": 300,
             "output_tokens": 125,
             "total_tokens": 425,
+        }
+
+
+def test_log_spans_stores_span_metrics_per_span(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_metrics_per_span")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=get_current_time_millis(),
+        state=TraceStatus.OK,
+    )
+    store.start_trace(trace_info)
+
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="first_llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            CostKey.INPUT_COST: 0.001,
+            CostKey.OUTPUT_COST: 0.002,
+            CostKey.TOTAL_COST: 0.003,
+        }),
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
+
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="second_llm_call",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.LLM_COST: json.dumps({
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        }),
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
+
+    store.log_spans(experiment_id, [span1, span2])
+
+    with store.ManagedSessionMaker() as session:
+        all_metrics = (
+            session
+            .query(SqlSpanMetrics)
+            .filter(SqlSpanMetrics.trace_id == trace_id)
+            .order_by(SqlSpanMetrics.span_id, SqlSpanMetrics.key)
+            .all()
+        )
+
+        span1_metrics = {m.key: m.value for m in all_metrics if m.span_id == span1.span_id}
+        assert span1_metrics == {
+            CostKey.INPUT_COST: 0.001,
+            CostKey.OUTPUT_COST: 0.002,
+            CostKey.TOTAL_COST: 0.003,
+        }
+
+        span2_metrics = {m.key: m.value for m in all_metrics if m.span_id == span2.span_id}
+        assert span2_metrics == {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
         }
 
 
@@ -12502,6 +13484,44 @@ def test_log_spans_then_start_trace_preserves_tag(store: SqlAlchemyStore):
     assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
 
 
+def test_log_spans_then_start_trace_preserves_preview(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_preview_preserved")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    span = create_test_span(
+        trace_id=trace_id,
+        name="llm_call",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+        attributes={
+            "input.value": '{"messages": [{"role": "user", "content": "Hello"}]}',
+            "output.value": '{"choices": [{"message": {"role": "assistant", "content": "Hi"}}]}',
+            "openinference.span.kind": "LLM",
+        },
+    )
+    store.log_spans(experiment_id, [span])
+
+    trace_info_for_start = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+        tags={"custom_tag": "value"},
+        trace_metadata={"source": "test"},
+    )
+    store.start_trace(trace_info_for_start)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.request_preview is not None
+    assert trace_info.response_preview is not None
+    assert "Hello" in trace_info.request_preview
+    assert "Hi" in trace_info.response_preview
+
+
 @pytest.mark.skipif(
     mlflow.get_tracking_uri().startswith("mysql"),
     reason="MySQL does not support concurrent log_spans calls for now",
@@ -12524,27 +13544,29 @@ def test_concurrent_log_spans_spans_location_tag(store: SqlAlchemyStore):
         store.log_spans(experiment_id, [span])
         return span_id
 
-    # Launch multiple concurrent log_spans calls
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(log_span_worker, i) for i in range(111, 116)]
+    # Simulate client-side workspace selection and ensure it propagates to worker threads.
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        # Launch multiple concurrent log_spans calls
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [executor.submit(log_span_worker, i) for i in range(111, 116)]
 
-        # Wait for all to complete
-        results = [future.result() for future in futures]
+            # Wait for all to complete
+            results = [future.result() for future in futures]
 
-    # All workers should complete successfully
-    assert len(results) == 5
-    assert set(results) == {111, 112, 113, 114, 115}
+        # All workers should complete successfully
+        assert len(results) == 5
+        assert set(results) == {111, 112, 113, 114, 115}
 
-    # Verify the SPANS_LOCATION tag was created correctly
-    trace_info = store.get_trace_info(trace_id)
-    assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
+        # Verify the SPANS_LOCATION tag was created correctly
+        trace_info = store.get_trace_info(trace_id)
+        assert trace_info.tags[TraceTagKey.SPANS_LOCATION] == SpansLocation.TRACKING_STORE.value
 
-    # Verify all spans were logged
-    trace = store.get_trace(trace_id)
-    assert len(trace.data.spans) == 5
-    span_names = {span.name for span in trace.data.spans}
-    expected_names = {f"concurrent_span_{i}" for i in range(111, 116)}
-    assert span_names == expected_names
+        # Verify all spans were logged
+        trace = store.get_trace(trace_id)
+        assert len(trace.data.spans) == 5
+        span_names = {span.name for span in trace.data.spans}
+        expected_names = {f"concurrent_span_{i}" for i in range(111, 116)}
+        assert span_names == expected_names
 
 
 @pytest.mark.parametrize("allow_partial", [True, False])
@@ -12572,11 +13594,9 @@ def test_get_trace_with_partial_trace(store: SqlAlchemyStore, allow_partial: boo
             execution_duration=100,
             state=TraceState.OK,
             trace_metadata={
-                TraceMetadataKey.SIZE_STATS: json.dumps(
-                    {
-                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
-                    }
-                ),
+                TraceMetadataKey.SIZE_STATS: json.dumps({
+                    TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                }),
             },
         )
     )
@@ -12627,11 +13647,9 @@ def test_get_trace_with_complete_trace(store: SqlAlchemyStore, allow_partial: bo
             execution_duration=100,
             state=TraceState.OK,
             trace_metadata={
-                TraceMetadataKey.SIZE_STATS: json.dumps(
-                    {
-                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
-                    }
-                ),
+                TraceMetadataKey.SIZE_STATS: json.dumps({
+                    TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                }),
             },
         )
     )

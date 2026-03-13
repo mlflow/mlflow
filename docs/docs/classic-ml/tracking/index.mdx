@@ -1,6 +1,8 @@
 ---
 sidebar_label: Overview
 sidebar_position: 0
+title: ML Experiment Tracking | MLflow AI Platform
+description: Log parameters, metrics, and artifacts for ML experiments. Compare runs, visualize results, and reproduce models.
 ---
 
 import { PageCard, CardGroup } from "@site/src/components/Card";
@@ -137,9 +139,7 @@ For example, the following code snippet search for runs that has the best valida
 ```python
 client = mlflow.tracking.MlflowClient()
 experiment_id = "0"
-best_run = client.search_runs(
-    experiment_id, order_by=["metrics.val_loss ASC"], max_results=1
-)[0]
+best_run = client.search_runs(experiment_id, order_by=["metrics.val_loss ASC"], max_results=1)[0]
 print(best_run.info)
 # {'run_id': '...', 'metrics': {'val_loss': 0.123}, ...}
 ```
@@ -308,7 +308,7 @@ where 'model_id' is the unique identifier assigned to the logged model. This rep
 and provides more direct model referencing.
 
 If the model is registered in the [MLflow Model Registry](/ml/model-registry),
-you can also refer the the model through a model URI of format: `models:/<model-name>/<model-version>`,
+you can also refer to the model through a model URI of format: `models:/<model-name>/<model-version>`,
 see [MLflow Model Registry](/ml/model-registry) for details.
 
 #### [MLflow Tracking Server](/self-hosting/architecture/tracking-server) (Optional) \{#tracking_server}

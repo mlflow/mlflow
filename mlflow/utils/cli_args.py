@@ -101,7 +101,7 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- virtualenv: use virtualenv (and pyenv for Python version management)
+- virtualenv: use venv (and pyenv for Python version management)
 - uv: use uv
 - conda: use conda
 
@@ -116,7 +116,7 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- virtualenv: use virtualenv (and pyenv for Python version management)
+- virtualenv: use venv (and pyenv for Python version management)
 - uv: use uv
 - conda: use conda
 
@@ -136,7 +136,7 @@ environment manager. The following values are supported:
 
 \b
 - local: use the local environment
-- virtualenv: use virtualenv (and pyenv for Python version management)
+- virtualenv: use venv (and pyenv for Python version management)
 - uv: use uv
 - conda: use conda
 

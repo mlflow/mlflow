@@ -83,6 +83,18 @@ def _setup_job_runner(
         handlers._job_store = None
 
 
+def wait_for_process_exit(pid: int, timeout: float = 5) -> None:
+    """Poll until a process is no longer alive, or fail the test."""
+    from mlflow.server.jobs.utils import is_process_alive
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not is_process_alive(pid):
+            return
+        time.sleep(0.1)
+    pytest.fail(f"Process {pid} still alive after {timeout}s")
+
+
 def wait_job_finalize(job_id, timeout=60):
     beg_time = time.time()
     while time.time() - beg_time <= timeout:

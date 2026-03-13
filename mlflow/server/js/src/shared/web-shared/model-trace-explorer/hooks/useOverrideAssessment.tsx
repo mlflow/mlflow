@@ -1,8 +1,8 @@
 import { isObject, omit } from 'lodash';
 
 import { useIntl } from '@databricks/i18n';
-import { getUser } from '@databricks/web-shared/global-settings';
-import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
+import { getUser } from '../../global-settings/getUser';
+import { useMutation, useQueryClient } from '../../query-client/queryClient';
 
 import { invalidateMlflowSearchTracesCache } from './invalidateMlflowSearchTracesCache';
 import { useTraceCachedActions } from './useTraceCachedActions';
