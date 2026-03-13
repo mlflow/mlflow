@@ -7,6 +7,7 @@ import stat
 import tarfile
 
 import pytest
+from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -24,6 +25,12 @@ from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_int
 from tests.projects.utils import TEST_PROJECT_DIR
+
+
+@pytest.fixture(scope="module")
+def spark_session():
+    with SparkSession.builder.master("local[*]").getOrCreate() as session:
+        yield session
 
 
 def test_mkdir(tmp_path):
