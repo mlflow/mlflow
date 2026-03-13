@@ -59,11 +59,25 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
     }
 
     if (runUuids.length === 1) {
-      return <Link to={Routes.getRunPageRoute(experimentIds[0], runUuids[0])}>{runNames[0]}</Link>;
+      return (
+        <Link
+          componentId="mlflow.experiment_tracking.metric_view.run_link"
+          to={Routes.getRunPageRoute(experimentIds[0], runUuids[0])}
+        >
+          {runNames[0]}
+        </Link>
+      );
     }
 
     const text = this.getCompareRunsPageText(runUuids.length, experimentIds.length);
-    return <Link to={Routes.getCompareRunPageRoute(runUuids, experimentIds)}>{text}</Link>;
+    return (
+      <Link
+        componentId="mlflow.experiment_tracking.metric_view.compare_runs_link"
+        to={Routes.getCompareRunPageRoute(runUuids, experimentIds)}
+      >
+        {text}
+      </Link>
+    );
   }
 
   getCompareExperimentsPageLinkText(numExperiments: any) {
@@ -81,15 +95,36 @@ export class MetricViewImpl extends Component<MetricViewImplProps> {
 
     if (hasComparedExperimentsBefore && comparedExperimentIds) {
       const text = this.getCompareExperimentsPageLinkText(comparedExperimentIds.length);
-      return <Link to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}>{text}</Link>;
+      return (
+        <Link
+          componentId="mlflow.experiment_tracking.metric_view.compare_experiments_link"
+          to={Routes.getCompareExperimentsPageRoute(comparedExperimentIds)}
+        >
+          {text}
+        </Link>
+      );
     }
 
     if (this.hasMultipleExperiments()) {
       const text = this.getCompareExperimentsPageLinkText(experimentIds.length);
-      return <Link to={Routes.getCompareExperimentsPageRoute(experimentIds)}>{text}</Link>;
+      return (
+        <Link
+          componentId="mlflow.experiment_tracking.metric_view.multiple_experiments_link"
+          to={Routes.getCompareExperimentsPageRoute(experimentIds)}
+        >
+          {text}
+        </Link>
+      );
     }
 
-    return <Link to={Routes.getExperimentPageRoute(experimentIds[0])}>{experiments[0].name}</Link>;
+    return (
+      <Link
+        componentId="mlflow.experiment_tracking.metric_view.experiment_link"
+        to={Routes.getExperimentPageRoute(experimentIds[0])}
+      >
+        {experiments[0].name}
+      </Link>
+    );
   }
 
   render() {

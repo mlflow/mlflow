@@ -38,7 +38,7 @@ jobs:
       && github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
       && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+      && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     runs-on: ubuntu-slim
     permissions:
       pull-requests: write
@@ -77,7 +77,7 @@ jobs:
         github.event.action != 'closed'
         && contains(github.event.pull_request.labels.*.name, 'ui-preview')
         && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
-        && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+        && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
       )
     runs-on: ubuntu-latest
     permissions:
@@ -86,10 +86,9 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # For PRs, check out the PR head (safe because the build job only runs for
-          # maintainers/collaborators via the author_association check). For push
-          # events, falls back to github.sha.
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          # For PRs, check out the merge ref so the preview reflects what the UI
+          # will look like after merge. For push events, falls back to github.sha.
+          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
 
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node

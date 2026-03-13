@@ -237,7 +237,11 @@ function CompareRunMetricTableHeaderCell({
         textAlign: 'left',
       }}
     >
-      <Link to={metricPageRoute} title="Plot chart">
+      <Link
+        componentId="mlflow.experiment_tracking.compare_runs.metric_chart_link"
+        to={metricPageRoute}
+        title="Plot chart"
+      >
         {metricRowKey}
         <i className="fa fa-chart-line" css={{ paddingLeft: '6px' }} />
       </Link>

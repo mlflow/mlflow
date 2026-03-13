@@ -148,7 +148,14 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
           return (
             <TableRow key={policy.budget_policy_id}>
               <TableCell css={{ flex: 1 }}>
-                <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
+                <Tooltip
+                  componentId="mlflow.gateway.budgets-list.budget-amount-tooltip"
+                  content={formatBudgetAmount(policy.budget_amount, policy.budget_unit, 6)}
+                >
+                  <span>
+                    <Typography.Text>{formatBudgetAmount(policy.budget_amount, policy.budget_unit)}</Typography.Text>
+                  </span>
+                </Tooltip>
               </TableCell>
               <TableCell css={{ flex: 1 }}>
                 <Typography.Text>{formatDuration(policy.duration_value, policy.duration_unit)}</Typography.Text>
@@ -172,13 +179,15 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
                       timeStyle: 'short',
                     })}
                   >
-                    <Typography.Text>
-                      {formatDate(window.window_end_ms, {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      })}
-                    </Typography.Text>
+                    <span>
+                      <Typography.Text>
+                        {formatDate(window.window_end_ms, {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </Typography.Text>
+                    </span>
                   </Tooltip>
                 ) : (
                   <Typography.Text color="secondary">—</Typography.Text>
@@ -189,37 +198,42 @@ export const BudgetsList = ({ onEditClick, onDeleteClick }: BudgetsListProps) =>
                   (() => {
                     const isBudgetExceeded = window.current_spend >= policy.budget_amount;
                     return (
-                      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-                        <Typography.Text color={isBudgetExceeded ? 'error' : undefined}>
-                          {formatBudgetAmount(window.current_spend, policy.budget_unit)}
-                        </Typography.Text>
-                        {isBudgetExceeded && (
-                          <Tooltip
-                            componentId="mlflow.gateway.budgets-list.budget-exceeded-tooltip"
-                            content={formatMessage(
-                              {
-                                defaultMessage: 'Budget exceeded: {spend} of {limit} spent',
-                                description: 'Tooltip shown when current spend exceeds the budget limit',
-                              },
-                              {
-                                spend: formatBudgetAmount(window.current_spend, policy.budget_unit),
-                                limit: formatBudgetAmount(policy.budget_amount, policy.budget_unit),
-                              },
-                            )}
-                          >
-                            <WarningFillIcon
-                              aria-label={formatMessage({
-                                defaultMessage: 'Budget exceeded',
-                                description: 'Warning icon label for exceeded budget',
-                              })}
-                              css={{
-                                fontSize: theme.typography.fontSizeSm,
-                                color: theme.colors.textValidationDanger,
-                              }}
-                            />
-                          </Tooltip>
-                        )}
-                      </div>
+                      <Tooltip
+                        componentId="mlflow.gateway.budgets-list.current-spend-tooltip"
+                        content={formatBudgetAmount(window.current_spend, policy.budget_unit, 6)}
+                      >
+                        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                          <Typography.Text color={isBudgetExceeded ? 'error' : undefined}>
+                            {formatBudgetAmount(window.current_spend, policy.budget_unit)}
+                          </Typography.Text>
+                          {isBudgetExceeded && (
+                            <Tooltip
+                              componentId="mlflow.gateway.budgets-list.budget-exceeded-tooltip"
+                              content={formatMessage(
+                                {
+                                  defaultMessage: 'Budget exceeded: {spend} of {limit} spent',
+                                  description: 'Tooltip shown when current spend exceeds the budget limit',
+                                },
+                                {
+                                  spend: formatBudgetAmount(window.current_spend, policy.budget_unit, 6),
+                                  limit: formatBudgetAmount(policy.budget_amount, policy.budget_unit, 6),
+                                },
+                              )}
+                            >
+                              <WarningFillIcon
+                                aria-label={formatMessage({
+                                  defaultMessage: 'Budget exceeded',
+                                  description: 'Warning icon label for exceeded budget',
+                                })}
+                                css={{
+                                  fontSize: theme.typography.fontSizeSm,
+                                  color: theme.colors.textValidationDanger,
+                                }}
+                              />
+                            </Tooltip>
+                          )}
+                        </div>
+                      </Tooltip>
                     );
                   })()
                 ) : (

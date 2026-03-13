@@ -87,6 +87,21 @@ MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = "mlflow.experiment.primaryMetric.name"
 MLFLOW_EXPERIMENT_PRIMARY_METRIC_GREATER_IS_BETTER = (
     "mlflow.experiment.primaryMetric.greaterIsBetter"
 )
+MLFLOW_EXPERIMENT_DATABRICKS_TELEMETRY_DESTINATION_ID = (
+    "mlflow.experiment.databricksTelemetryDestinationId"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH = (
+    "mlflow.experiment.databricksTraceDestinationPath"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE = (
+    "mlflow.experiment.databricksTraceSpanStorageTable"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE = (
+    "mlflow.experiment.databricksTraceLogStorageTable"
+)
+MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE = (
+    "mlflow.experiment.databricksTraceAnnotationsTable"
+)
 
 # For automatic model checkpointing
 LATEST_CHECKPOINT_ARTIFACT_TAG_KEY = "mlflow.latest_checkpoint_artifact"

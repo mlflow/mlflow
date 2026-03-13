@@ -25,7 +25,7 @@ from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
-from mlflow.exceptions import MlflowException, RestException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException, RestException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
 from mlflow.protos.databricks_tracing_pb2 import (
@@ -371,14 +371,11 @@ def test_delete_trace_tag(monkeypatch):
             trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
             key=request.key,
         )
-        expected_json = {
-            "sql_warehouse_id": sql_warehouse_id,
-        }
         mock_http.assert_called_once_with(
             host_creds=creds,
-            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/{request.key}",
+            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/{request.key}?sql_warehouse_id={sql_warehouse_id}",
             method="DELETE",
-            json=expected_json,
+            json=None,
         )
         assert res is None
 
@@ -400,15 +397,12 @@ def test_delete_trace_tag_with_special_characters(monkeypatch):
             trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
             key=key_with_slash,
         )
-        expected_json = {
-            "sql_warehouse_id": sql_warehouse_id,
-        }
         # Verify that the key is URL-encoded in the endpoint (/ becomes %2F)
         mock_http.assert_called_once_with(
             host_creds=creds,
-            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/foo%2Fbar",
+            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/foo%2Fbar?sql_warehouse_id={sql_warehouse_id}",
             method="DELETE",
-            json=expected_json,
+            json=None,
         )
         assert res is None
 
@@ -2007,3 +2001,48 @@ def test_search_datasets_exact_match_no_offset():
         assert parsed.offset == 0  # No offset needed for exact match
 
         mock_http.assert_called_once()
+
+
+def test_create_issue_not_implemented():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with pytest.raises(
+        MlflowNotImplementedException, match="Issue management is not supported in Databricks"
+    ):
+        store.create_issue(
+            experiment_id="exp-123",
+            name="Test Issue",
+            description="Test description",
+            status="pending",
+        )
+
+
+def test_get_issue_not_implemented():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with pytest.raises(
+        MlflowNotImplementedException, match="Issue management is not supported in Databricks"
+    ):
+        store.get_issue(issue_id="issue-123")
+
+
+def test_update_issue_not_implemented():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with pytest.raises(
+        MlflowNotImplementedException, match="Issue management is not supported in Databricks"
+    ):
+        store.update_issue(issue_id="issue-123", status="resolved")
+
+
+def test_search_issues_not_implemented():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with pytest.raises(
+        MlflowNotImplementedException, match="Issue management is not supported in Databricks"
+    ):
+        store.search_issues(experiment_id="exp-123")

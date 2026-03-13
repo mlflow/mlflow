@@ -178,10 +178,8 @@ def build_satisfaction_instructions(
             "\nIMPORTANT: to prove that a goal was not achieved or was achieved poorly, "
             "you must either:\n"
             " - (1) cite concrete evidence based on the *user's* subsequent messages!\n"
-            " - (2) be extremely certain that the assistant's behavior is\n"
-            "       *blatantly* problematic and be prepared to explain why.\n"
-            "       If the issue is subtle or open to interpretation,\n"
-            "       then you should conclude that goals were achieved efficiently.\n"
+            " - (2) identify a clear failure in the assistant's behavior and explain why "
+            "it is problematic.\n"
         ),
     )
     return preamble + body + _format_categories(categories)

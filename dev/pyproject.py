@@ -64,6 +64,12 @@ Additional dependencies can be installed to leverage the full feature set of MLf
 - To use SQL-based metadata storage, install `sqlalchemy`, `alembic`, and `sqlparse`.
 - To use serving-based features, install `flask` and `pandas`.
 
+**Note:** When using `mlflow-skinny`, set the tracking URI to your remote MLflow server:
+
+```bash
+export MLFLOW_TRACKING_URI="http://your-mlflow-server:5000"
+```
+
 ---
 
 <br>
@@ -364,6 +370,11 @@ def build(package_type: PackageType) -> None:
                 "genai": genai_requirements,
                 # click 8.3.0 causes MLflow MCP server to fail: https://github.com/mlflow/mlflow/issues/18747
                 "mcp": ["fastmcp<3,>=2.0.0", "click!=8.3.0"],
+                "azure": [
+                    # Required to log artifacts and models to Azure Blob Storage
+                    "azure-storage-blob>=12",
+                    "azure-identity>=1.6.1",
+                ],
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "jfrog": ["mlflow-jfrog-plugin"],

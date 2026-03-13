@@ -1525,6 +1525,8 @@ def test_should_keep_trace_deletes_non_input_traces_after_eval_start():
 
 
 def test_clean_up_extra_traces_preserves_input_traces():
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+
     with mlflow.start_span(name="input_trace_1") as span1:
         span1.set_inputs({"question": "test1"})
         span1.set_outputs({"answer": "answer1"})
@@ -1540,12 +1542,32 @@ def test_clean_up_extra_traces_preserves_input_traces():
     input_trace_ids = {trace1.info.trace_id, trace2.info.trace_id}
     all_traces = [trace1, trace2]
 
-    clean_up_extra_traces(all_traces, eval_start_time, input_trace_ids)
+    clean_up_extra_traces(all_traces, eval_start_time, experiment_id, input_trace_ids)
 
     remaining_traces = get_traces()
     remaining_trace_ids = {t.info.trace_id for t in remaining_traces}
     assert trace1.info.trace_id in remaining_trace_ids
     assert trace2.info.trace_id in remaining_trace_ids
+
+
+def test_clean_up_extra_traces_uses_correct_experiment_id():
+    exp_1 = mlflow.set_experiment("cleanup_test_experiment").experiment_id
+    with mlflow.start_span(name="input_trace") as span1:
+        span1.set_inputs({"question": "test"})
+        span1.set_outputs({"answer": "answer"})
+    input_trace = mlflow.get_trace(span1.trace_id)
+
+    with mlflow.start_span(name="extra_trace") as span2:
+        span2.set_inputs({"question": "extra"})
+        span2.set_outputs({"answer": "extra_answer"})
+    extra_trace = mlflow.get_trace(span2.trace_id)
+
+    mlflow.set_experiment("cleanup_test_experiment_2")
+    clean_up_extra_traces([input_trace, extra_trace], 0, exp_1, {input_trace.info.trace_id})
+
+    remaining_traces = mlflow.search_traces(locations=[exp_1], return_type="list")
+    assert len(remaining_traces) == 1
+    assert remaining_traces[0].info.trace_id == input_trace.info.trace_id
 
 
 def test_evaluate_with_trace_column_preserves_traces():
