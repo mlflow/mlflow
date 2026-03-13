@@ -4161,7 +4161,7 @@ def _invoke_issue_detection_handler():
         )
 
     # Fetch credentials required for executing the job
-    credentials = _fetch_provider_credentials(provider, secret_id)
+    credentials = _fetch_provider_credentials(provider, secret_id) if secret_id else None
 
     # Create the run upfront so we can return run_id immediately
     run = mlflow.start_run(
