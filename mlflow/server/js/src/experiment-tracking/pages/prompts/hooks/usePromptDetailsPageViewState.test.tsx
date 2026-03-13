@@ -1,6 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { usePromptDetailsPageViewState } from './usePromptDetailsPageViewState';
-import { PromptVersionsTableMode } from '../utils';
+import { PromptVersionsTableMode, PROMPT_COMPARED_VERSION_QUERY_PARAM, PROMPT_VIEW_MODE_QUERY_PARAM } from '../utils';
 import type { RegisteredPromptDetailsResponse, RegisteredPromptVersion } from '../types';
 import { act, renderHook, type RenderHookOptions } from '@testing-library/react';
 import { testRoute, TestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
@@ -71,5 +71,31 @@ describe('usePromptDetailsPageViewState', () => {
       result.current.setComparedVersion('4');
     });
     expect(result.current.viewState.comparedVersion).toBe('4');
+  });
+
+  it('should restore view mode from URL params', () => {
+    const { result } = renderHookWithRouter(() => usePromptDetailsPageViewState(mockPromptDetailsData), {
+      initialEntries: [`/?${PROMPT_VIEW_MODE_QUERY_PARAM}=compare&${PROMPT_COMPARED_VERSION_QUERY_PARAM}=2`],
+    });
+    expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.COMPARE);
+    expect(result.current.viewState.comparedVersion).toBe('2');
+  });
+
+  it('should fall back to preview mode for invalid mode param', () => {
+    const { result } = renderHookWithRouter(() => usePromptDetailsPageViewState(), {
+      initialEntries: [`/?${PROMPT_VIEW_MODE_QUERY_PARAM}=invalid`],
+    });
+    expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.PREVIEW);
+  });
+
+  it('should clear compared version when switching to preview mode', () => {
+    const { result } = renderHookWithRouter(() => usePromptDetailsPageViewState(mockPromptDetailsData), {
+      initialEntries: [`/?${PROMPT_VIEW_MODE_QUERY_PARAM}=compare&${PROMPT_COMPARED_VERSION_QUERY_PARAM}=2`],
+    });
+    act(() => {
+      result.current.setPreviewMode({ version: '1' });
+    });
+    expect(result.current.viewState.mode).toBe(PromptVersionsTableMode.PREVIEW);
+    expect(result.current.viewState.comparedVersion).toBeUndefined();
   });
 });
