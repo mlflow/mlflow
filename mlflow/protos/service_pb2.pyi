@@ -884,6 +884,17 @@ class BatchGetTraces(_message.Message):
     trace_ids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, trace_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
+class BatchGetTraceInfos(_message.Message):
+    __slots__ = ("trace_ids",)
+    class Response(_message.Message):
+        __slots__ = ("trace_infos",)
+        TRACE_INFOS_FIELD_NUMBER: _ClassVar[int]
+        trace_infos: _containers.RepeatedCompositeFieldContainer[TraceInfoV3]
+        def __init__(self, trace_infos: _Optional[_Iterable[_Union[TraceInfoV3, _Mapping]]] = ...) -> None: ...
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, trace_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class GetTrace(_message.Message):
     __slots__ = ("trace_id", "allow_partial")
     class Response(_message.Message):
