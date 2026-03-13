@@ -53,6 +53,7 @@ const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
     }
   });
 
+  // Filter out LLM judge feedback groups
   return Object.entries(aggregated);
 };
 
