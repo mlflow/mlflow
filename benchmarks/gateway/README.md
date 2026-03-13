@@ -7,6 +7,9 @@ Benchmark suite for measuring the latency overhead and scalability of the MLflow
 ## Table of Contents
 
 - [Architecture](#architecture)
+- [Request Lifecycle: Direct vs MLflow vs LiteLLM](#request-lifecycle-direct-vs-mlflow-vs-litellm)
+- [MLflow and LiteLLM: Library vs Proxy](#mlflow-and-litellm-library-vs-proxy)
+- [Measurement Methodology](#measurement-methodology)
 - [File Inventory](#file-inventory)
 - [Key Implementation Details](#key-implementation-details)
 - [Quick Start](#quick-start)
@@ -39,6 +42,191 @@ Benchmark suite for measuring the latency overhead and scalability of the MLflow
 ```
 
 Both proxies run on the same machine, same number of workers, hitting the same fake backend. The benchmark client uses `aiohttp` with connection pooling (matching LiteLLM's own `benchmark_mock.py` methodology).
+
+---
+
+## Request Lifecycle: Direct vs MLflow vs LiteLLM
+
+To understand what the benchmark measures, it helps to compare the request lifecycle across three scenarios: calling the provider directly, going through the MLflow AI Gateway, and going through LiteLLM Proxy.
+
+### 1. Direct to provider (baseline — not benchmarked)
+
+```
+Client ──HTTP──▶ OpenAI API ──HTTP──▶ Client
+         (1 round-trip)
+```
+
+Steps: DNS + TLS handshake + send request + provider inference + receive response. This is the minimum latency for any LLM call. The gateway cannot reduce this.
+
+### 2. Through MLflow AI Gateway
+
+```
+Client ──HTTP──▶ MLflow Server ──HTTP──▶ Provider ──HTTP──▶ Client
+                 │                       ▲
+                 │  (server-side steps)  │
+                 ▼                       │
+          ┌──────────────┐               │
+          │ 1. Budget check (in-memory)  │
+          │ 2. Config resolution (DB)  ◀─┤ 3-5 SQL queries
+          │ 3. Secret decrypt (cached)   │
+          │ 4. Provider instantiation    │
+          │ 5. Tracing (if enabled)      │
+          │ 6. litellm.acompletion()  ───┘  ◀── calls upstream provider
+          │ 7. Budget callback           │
+          └──────────────┘
+```
+
+**7 server-side steps** per request. Steps 2 (config resolution) and 5 (tracing) are the dominant bottlenecks — see [Bottleneck isolation](#bottleneck-isolation-config-cache--usage-tracking). When both are eliminated, steps 1/3/4/6/7 add only ~10ms of overhead (see [zero-delay results](#preliminary-results)).
+
+### 3. Through LiteLLM Proxy
+
+```
+Client ──HTTP──▶ LiteLLM Proxy ──HTTP──▶ Provider ──HTTP──▶ Client
+                 │                        ▲
+                 │  (server-side steps)   │
+                 ▼                        │
+          ┌──────────────┐                │
+          │ 1. Route lookup (in-memory)   │
+          │ 2. Auth check                 │
+          │ 3. httpx / aiohttp call  ─────┘  ◀── calls upstream provider
+          │ 4. Spend tracking callback    │
+          └──────────────┘
+```
+
+**4 server-side steps** per request. Config is loaded from YAML at startup and kept in memory — no per-request DB queries. When spend tracking is DB-backed (PostgreSQL mode), step 4 involves async DB writes.
+
+### Side-by-side step comparison
+
+| Step                   | MLflow AI Gateway                             | LiteLLM Proxy                         |
+| ---------------------- | --------------------------------------------- | ------------------------------------- |
+| Config lookup          | **3-5 SQL queries per request** (uncached)    | In-memory (loaded from YAML at start) |
+| Secret/auth access     | AES-256-GCM decrypt (60s cache)               | Read from YAML config (no encryption) |
+| Provider instantiation | Created fresh per request                     | Reused from startup                   |
+| Upstream HTTP call     | `litellm.acompletion()` via aiohttp           | `httpx` / `aiohttp`                   |
+| Usage/spend tracking   | `mlflow.trace()` spans + async DB persistence | Spend callbacks + optional async DB   |
+| Budget/rate limiting   | In-memory with periodic DB refresh            | In-memory with DB persistence         |
+
+The key architectural difference: MLflow treats the database as the source of truth for endpoint config and resolves it on every request. LiteLLM treats YAML as the source of truth and loads it once at startup. This is why MLflow is slower by default (3-5 extra SQL queries per request), but equally fast or faster when the config is cached.
+
+---
+
+## MLflow and LiteLLM: Library vs Proxy
+
+The name "LiteLLM" appears in two different roles in this benchmark, which can be confusing:
+
+```
+┌──────────────────────────────────────────────────────┐
+│  MLflow AI Gateway (the server being benchmarked)    │
+│                                                      │
+│  gateway_api.py                                      │
+│       │                                              │
+│       ▼                                              │
+│  LiteLLMProvider                                     │
+│       │                                              │
+│       ▼                                              │
+│  litellm.acompletion()  ◀── LiteLLM the LIBRARY     │
+│       │                     (Python package)         │
+│       ▼                                              │
+│  HTTP call to upstream provider                      │
+└──────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────┐
+│  LiteLLM Proxy (the server being compared against)   │
+│                                                      │
+│  litellm --config litellm_config.yaml                │
+│       │                     ◀── LiteLLM the SERVER   │
+│       ▼                         (CLI proxy process)  │
+│  Route request to configured model                   │
+│       │                                              │
+│       ▼                                              │
+│  HTTP call to upstream provider                      │
+└──────────────────────────────────────────────────────┘
+```
+
+### LiteLLM the library (used inside MLflow)
+
+MLflow uses `litellm` as a **Python client library** for provider abstraction. The `LiteLLMProvider` class in `mlflow/gateway/providers/litellm.py` calls functions like `litellm.acompletion()`, `litellm.aembedding()`, and `litellm.aresponses()` to normalize request/response formats across providers (OpenAI, Anthropic, Gemini, etc.). This is a lightweight in-process function call — no server, no HTTP, no proxy overhead.
+
+### LiteLLM the proxy (benchmarked as competitor)
+
+The benchmark scripts start `litellm --config litellm_config.yaml` as a **standalone proxy server** process (gunicorn + uvicorn workers). This is a separate product — an HTTP proxy that routes requests to LLM providers, with its own config, auth, spend tracking, and rate limiting.
+
+### Why can MLflow be faster despite using litellm internally?
+
+Because the bottlenecks are **not** in the litellm library call itself. They are in the server-side steps that happen _before_ litellm is called:
+
+| Component                    | Overhead     | Where it happens              |
+| ---------------------------- | ------------ | ----------------------------- |
+| `litellm.acompletion()` call | ~1-2ms       | Both MLflow and LiteLLM Proxy |
+| Config resolution (DB)       | **50-200ms** | MLflow only (uncached)        |
+| Usage tracking / tracing     | **10-50ms**  | MLflow only (when enabled)    |
+| Core proxy routing + HTTP    | ~5-10ms      | Both (similar)                |
+
+When the two MLflow-specific bottlenecks are removed (config cached + tracing disabled), the remaining code path is faster than LiteLLM Proxy because MLflow's `aiohttp`-based upstream call has less overhead than LiteLLM Proxy's full request pipeline (middleware, callbacks, response transformation, logging).
+
+---
+
+## Measurement Methodology
+
+### What is measured
+
+Latency is measured **client-side** using `time.perf_counter()` (high-resolution monotonic clock) in the benchmark client (`benchmark_compare.py`):
+
+```
+           measured latency
+    ◀──────────────────────────────▶
+    │                              │
+ t_start                        t_end
+    │                              │
+    ▼                              ▼
+  POST request sent ─────▶ response body fully read
+```
+
+Each measurement includes: client-side serialization, network round-trip (loopback in local benchmarks), full server processing, and response deserialization. Only HTTP 200 responses are counted; failures are tracked separately.
+
+### Connection pooling
+
+The benchmark client uses `aiohttp.TCPConnector` with HTTP keep-alive (`force_close=False`), matching how production clients typically maintain persistent connections. This means the TCP handshake cost is amortized across requests after the warmup phase.
+
+### Warmup phase
+
+Before each timed run, `min(50, n_requests)` warmup requests are sent and discarded. This ensures connection pools are established, server caches are populated, and worker processes are initialized before measurement begins.
+
+### What is NOT included (vs real-world deployments)
+
+The benchmark runs everything on `127.0.0.1` (loopback), which eliminates several real-world costs:
+
+| Factor                        | In benchmark                               | In production                 | Impact on results                                         |
+| ----------------------------- | ------------------------------------------ | ----------------------------- | --------------------------------------------------------- |
+| **Network latency**           | ~0ms (loopback)                            | 1-100ms per hop               | Adds to all latency numbers equally                       |
+| **TLS/SSL handshake**         | None (plain HTTP)                          | ~5-20ms per new connection    | Adds to first-request latency                             |
+| **DNS resolution**            | None (IP literal)                          | ~1-5ms (cached), ~50ms (cold) | Negligible with connection reuse                          |
+| **Provider inference time**   | Fixed fake delay                           | Variable (50ms-60s+)          | Dominates real latency; proxy overhead becomes negligible |
+| **Client-to-proxy network**   | ~0ms (loopback)                            | 1-50ms                        | Adds to client-measured latency                           |
+| **Proxy-to-provider network** | ~0ms (loopback)                            | 10-200ms                      | Adds to server processing time                            |
+| **TLS to provider**           | None                                       | ~10-30ms                      | Adds to upstream call time                                |
+| **Authentication**            | Disabled (`--disable-security-middleware`) | Token validation, RBAC        | Adds ~1-5ms per request                                   |
+
+### What the benchmark isolates
+
+By controlling for network and provider latency, the benchmark measures **pure proxy overhead** — the extra time added by each gateway on top of the upstream provider call. The `FAKE_RESPONSE_DELAY_MS` parameter (default: 50ms) simulates a realistic provider response time.
+
+```
+measured latency = proxy overhead + fake delay + loopback RTT (~0ms)
+                   ▲                ▲
+                   │                └── controlled via FAKE_RESPONSE_DELAY_MS
+                   └── this is what we're comparing
+```
+
+Setting `FAKE_RESPONSE_DELAY_MS=0` isolates the proxy overhead entirely. In the [zero-delay results](#preliminary-results), MLflow adds ~10ms and LiteLLM adds ~41ms of pure proxy overhead.
+
+### Perspective: does proxy overhead matter in production?
+
+With a real provider adding 200-2000ms of inference time, a 10-50ms proxy overhead is 0.5-5% of total latency — often negligible. The benchmark is useful for:
+
+1. **Identifying bottlenecks** (config resolution, tracing) that could compound at scale
+2. **Comparing architectures** under controlled conditions
+3. **Validating optimizations** (e.g., config caching gives 3.4x throughput improvement)
 
 ---
 
