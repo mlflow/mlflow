@@ -126,18 +126,19 @@ def get_current_time_ns() -> int:
     return int(datetime.now().timestamp() * NANOSECONDS_PER_S)
 
 
-def generate_session_id(workspace_roots: list[str] | None) -> str:
-    """Generate a session ID based on workspace roots.
+def generate_session_id(conversation_id: str) -> str:
+    """Generate a session ID from the conversation ID.
+
+    Each Cursor chat window has a unique conversation_id that persists
+    across close/reopen, so it naturally maps to an MLflow session.
 
     Args:
-        workspace_roots: List of workspace root paths
+        conversation_id: Unique conversation identifier from Cursor
 
     Returns:
         Session ID string
     """
-    if workspace_roots and len(workspace_roots) > 0:
-        return Path(workspace_roots[0]).name
-    return "cursor-session"
+    return conversation_id or "cursor-session"
 
 
 def generate_trace_name(prompt: str | None, model: str | None) -> str:
@@ -259,7 +260,6 @@ def create_trace_from_events(
 
     # Extract metadata from first event
     model = first_event.get("model", "unknown")
-    workspace_roots = first_event.get("workspace_roots", [])
     user_email = first_event.get("user_email")
     cursor_version = first_event.get("cursor_version")
 
@@ -311,7 +311,7 @@ def create_trace_from_events(
                 in_memory_trace.info.response_preview = final_response[:MAX_PREVIEW_LENGTH]
             in_memory_trace.info.trace_metadata = {
                 **in_memory_trace.info.trace_metadata,
-                TraceMetadataKey.TRACE_SESSION: generate_session_id(workspace_roots),
+                TraceMetadataKey.TRACE_SESSION: generate_session_id(conversation_id),
                 TraceMetadataKey.TRACE_USER: user_email or os.environ.get("USER", ""),
                 "mlflow.trace.working_directory": os.getcwd(),
                 "cursor.conversation_id": conversation_id,
