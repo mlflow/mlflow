@@ -199,6 +199,18 @@ MLflow Tracing gives you complete visibility into your agents and LLM applicatio
   />
 </TilesGrid>
 
+## How tracing starts
+
+MLflow tracing does **not** require an explicit `enable()` call to start recording traces.
+
+Tracing starts automatically when you:
+- Use an MLflow auto-tracing integration (for example `mlflow.openai.autolog()`)
+- Decorate a function with `@mlflow.trace`
+
+When the first traced operation runs, MLflow automatically creates a trace
+and records spans under it.
+
+
 ## One-line Auto Tracing Integrations
 
 MLflow Tracing is integrated with various LLM and AI agent frameworks, such as OpenAI, LangChain, DSPy, Vercel AI, and provides one-line automatic tracing experience for each library (and combinations of them!):
