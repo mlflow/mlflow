@@ -244,8 +244,6 @@ def _exec_job_in_subproc(
     with subprocess.Popen(
         job_cmd,
         env=job_env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
     ) as popen:
         _logger.info(f"[DEBUG] Subprocess started for job {job_id}, pid={popen.pid}")
         beg_time = time.time()
@@ -269,12 +267,9 @@ def _exec_job_in_subproc(
                     job_store.mark_job_timed_out(job_id)
                     return None
 
-        stdout_data = popen.stdout.read().decode(errors="replace") if popen.stdout else ""
-        stderr_data = popen.stderr.read().decode(errors="replace") if popen.stderr else ""
         _logger.info(
             f"[DEBUG] Subprocess for job {job_id} exited with code {popen.returncode}, "
-            f"elapsed={time.time() - beg_time:.1f}s, "
-            f"stdout={stdout_data[:500]!r}, stderr={stderr_data[:500]!r}"
+            f"elapsed={time.time() - beg_time:.1f}s"
         )
 
         if popen.returncode == 0:
