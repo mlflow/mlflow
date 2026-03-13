@@ -800,6 +800,25 @@ service MlflowService {
     };
   }
 
+  // Batch get trace metadata (TraceInfoV3) without loading span data.
+  // Uses POST to avoid URL length limits with many trace IDs.
+  rpc batchGetTraceInfos(BatchGetTraceInfos) returns (BatchGetTraceInfos.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/batchGetInfos"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Batch Get Trace Infos"
+    };
+  }
+
   // DEPRECATED. Use searchTracesV3 instead.
   rpc searchTraces(SearchTraces) returns (SearchTraces.Response) {
     option (rpc) = {
@@ -3423,6 +3442,18 @@ message BatchGetTraces {
   message Response {
     // The fetched trace information.
     repeated Trace traces = 1;
+  }
+}
+
+message BatchGetTraceInfos {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // IDs of the traces to fetch. Must be provided.
+  repeated string trace_ids = 1;
+
+  message Response {
+    // The fetched trace metadata.
+    repeated TraceInfoV3 trace_infos = 1;
   }
 }
 
