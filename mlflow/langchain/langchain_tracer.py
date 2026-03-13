@@ -342,8 +342,8 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # Stash audio output format so on_llm_end can reconstruct audio content blocks.
         # OpenAI audio models specify format in the request (invocation_params.audio.format)
         # but do not echo it back in the response.
-        match kwargs.get("invocation_params", {}):
-            case {"audio": {"format": str(audio_fmt)}}:
+        match kwargs:
+            case {"invocation_params": {"audio": {"format": str(audio_fmt)}}}:
                 self._run_audio_format[str(run_id)] = audio_fmt
 
     def on_llm_start(
