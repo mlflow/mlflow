@@ -311,7 +311,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     ]
                 }
             else:
-                # Batched invocations are rare; fall back to raw format
+                # Batched invocations (len > 1) are rare in autolog usage.
+                # Fall back to the raw nested-list format rather than flattening
+                # multiple conversations into a single messages array, which would
+                # lose the batch boundary. This matches the pre-normalization
+                # behavior so it is non-regressive for callers using batching.
                 normalized_inputs = messages
         except Exception as e:
             _logger.debug(f"Failed to normalize chat model inputs: {e}", exc_info=True)
@@ -469,7 +473,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                     choices.append({"message": msg_dict, "finish_reason": None})
                 normalized_outputs = {"choices": choices}
             else:
-                # Batched invocations are rare; fall back to raw format
+                # Batched invocations (len > 1) are rare in autolog usage.
+                # Fall back to the raw LLMResult rather than flattening multiple
+                # generation lists into a single choices array, which would lose
+                # the batch boundary. This matches the pre-normalization behavior
+                # so it is non-regressive for callers using batching.
                 normalized_outputs = response
         except Exception as e:
             _logger.debug(f"Failed to normalize chat model outputs: {e}", exc_info=True)
