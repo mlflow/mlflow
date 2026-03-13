@@ -52,7 +52,7 @@ class SqlRegisteredModel(Base):
 
     last_updated_time = Column(BigInteger, nullable=True, default=None)
 
-    description = Column(String(5000), nullable=True)
+    description = Column(Text, nullable=True)
 
     __table_args__ = (PrimaryKeyConstraint("workspace", "name", name="registered_model_pk"),)
 
@@ -112,7 +112,7 @@ class SqlModelVersion(Base):
 
     last_updated_time = Column(BigInteger, nullable=True, default=None)
 
-    description = Column(String(5000), nullable=True)
+    description = Column(Text, nullable=True)
 
     user_id = Column(String(256), nullable=True, default=None)
 
