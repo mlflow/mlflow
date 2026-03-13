@@ -308,7 +308,6 @@ def test_convert_message_audio_transcript_fallback():
 
 
 def test_convert_message_audio_no_override():
-    """When content is present, the audio transcript should not replace it."""
     msg = {
         "role": "assistant",
         "content": "I have text.",
@@ -327,7 +326,6 @@ def test_convert_message_audio_no_override():
 
 
 def test_convert_message_no_audio_no_content():
-    """When content is null and no audio field exists, parts should be empty."""
     msg = {"role": "assistant", "content": None}
     result = _convert_message(msg)
     assert result == {"role": "assistant", "parts": []}

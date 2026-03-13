@@ -367,8 +367,6 @@ def test_chat_model_autolog_openai_audio_transcript_fallback():
 
 
 def test_chat_model_autolog_openai_audio_transcript_no_override():
-    """When content is already populated, the audio transcript should NOT override it."""
-
     class AudioModelWithContent(BaseChatModel):
         def _generate(self, messages, stop=None, run_manager=None, **kwargs):
             ai_msg = AIMessage(
