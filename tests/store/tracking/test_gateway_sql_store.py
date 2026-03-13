@@ -1701,6 +1701,40 @@ def test_gateway_endpoint_config_roundtrip_fallback_with_none_fields():
     assert restored == original
 
 
+def test_endpoint_config_cache_workspace_isolation(store: SqlAlchemyStore, workspaces_enabled):
+    if not workspaces_enabled:
+        pytest.skip("workspace isolation only relevant when workspaces enabled")
+
+    secret = store.create_gateway_secret(
+        secret_name="ws-iso-key", secret_value={"api_key": "sk-ws"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="ws-iso-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="ws-iso-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Populate cache in current workspace
+    config = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config.endpoint_id == endpoint.endpoint_id
+
+    # Switch to a different workspace — same endpoint name should NOT be served from cache
+    with WorkspaceContext(f"other-workspace-{uuid.uuid4().hex}"):
+        with pytest.raises(MlflowException, match="not found"):
+            get_endpoint_config(endpoint_name=endpoint.name, store=store)
+
+
 # =============================================================================
 # Endpoint Tag Operations
 # =============================================================================
