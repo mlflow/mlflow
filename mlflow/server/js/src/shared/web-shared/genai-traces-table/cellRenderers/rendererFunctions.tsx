@@ -24,6 +24,7 @@ import { GenAITracesTableContext } from '../GenAITracesTableContext';
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
 import { RunName } from './RunName';
+import { Link, generatePath } from '../utils/RoutingUtils';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { SourceCellRenderer } from './Source/SourceRenderer';
 import { StackedComponents } from './StackedComponents';
@@ -483,7 +484,7 @@ export const traceInfoCellRenderer = (
               componentId="mlflow.experiment-evaluation-monitoring.trace-info-hover-request-time"
               content={date.toLocaleString(navigator.language, { timeZoneName: 'short' })}
             >
-              <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {formatDateTime(date, intl, {
                   year: 'numeric',
                   month: '2-digit',
@@ -506,9 +507,7 @@ export const traceInfoCellRenderer = (
               componentId="mlflow.experiment-evaluation-monitoring.trace-info-hover-other-request-time"
               content={otherDate.toLocaleString(navigator.language, { timeZoneName: 'short' })}
             >
-              <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {timeSinceStr(otherDate)}
-              </span>
+              <span css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{timeSinceStr(otherDate)}</span>
             </Tooltip>
           ) : (
             <NullCell isComparing={isComparing} />
@@ -692,7 +691,7 @@ export const traceInfoCellRenderer = (
               title={value}
             >
               <UserIcon css={{ color: theme.colors.textSecondary, fontSize: 16 }} />
-              <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+              <span css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{value}</span>
             </span>
           ) : (
             <NullCell isComparing={isComparing} />
@@ -710,7 +709,7 @@ export const traceInfoCellRenderer = (
               title={otherValue}
             >
               <UserIcon css={{ color: theme.colors.textSecondary, fontSize: 16 }} />
-              <span css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{otherValue}</span>
+              <span css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{otherValue}</span>
             </span>
           ) : (
             <NullCell isComparing={isComparing} />
@@ -870,7 +869,7 @@ export const traceInfoCellRenderer = (
       <StackedComponents
         first={
           displayValue ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={value}>
               {displayValue}
             </div>
           ) : (
@@ -880,7 +879,7 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (displayOtherValue ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherValue}>
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={otherValue}>
               {displayOtherValue}
             </div>
           ) : (
@@ -937,7 +936,7 @@ export const traceInfoCellRenderer = (
       <StackedComponents
         first={
           value ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={value}>
               {value}
             </div>
           ) : (
@@ -947,7 +946,7 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherValue}>
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={otherValue}>
               {otherValue}
             </div>
           ) : (
@@ -981,7 +980,7 @@ export const traceInfoCellRenderer = (
       <StackedComponents
         first={
           !isNil(value) ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={value}>
               {value}
             </div>
           ) : (
@@ -991,7 +990,7 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (!isNil(otherValue) ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherValue}>
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={otherValue}>
               {otherValue}
             </div>
           ) : (
@@ -1001,14 +1000,29 @@ export const traceInfoCellRenderer = (
       />
     );
   } else if (colId === LINKED_PROMPTS_COLUMN_ID) {
-    const formatPrompts = (promptsJson: string | undefined) => {
+    const PROMPT_VERSION_QUERY_PARAM = 'promptVersion';
+    const PROMPT_PATH = '/experiments/:experimentId/prompts/:promptName';
+
+    const formatPrompts = (promptsJson: string | undefined, traceExperimentId: string | undefined) => {
       if (!promptsJson) return null;
       try {
         const prompts = JSON.parse(promptsJson);
         if (Array.isArray(prompts) && prompts.length > 0) {
-          return prompts
-            .map((prompt: { name: string; version: string }) => `${prompt.name}/${prompt.version}`)
-            .join(', ');
+          return prompts.map((prompt: { name: string; version: string }, index: number) => {
+            const label = `${prompt.name}/${prompt.version}`;
+            if (traceExperimentId) {
+              const basePath = generatePath(PROMPT_PATH, { experimentId: traceExperimentId, promptName: prompt.name });
+              const url = prompt.version
+                ? `${basePath}?${new URLSearchParams({ [PROMPT_VERSION_QUERY_PARAM]: prompt.version }).toString()}`
+                : basePath;
+              return (
+                <div key={index}>
+                  <Link to={url}>{label}</Link>
+                </div>
+              );
+            }
+            return <div key={index}>{label}</div>;
+          });
         }
       } catch (e) {
         // Invalid JSON, return as-is
@@ -1019,26 +1033,24 @@ export const traceInfoCellRenderer = (
 
     const currentPrompts = currentTraceInfo?.tags?.['mlflow.linkedPrompts'];
     const otherPrompts = otherTraceInfo?.tags?.['mlflow.linkedPrompts'];
-    const formattedCurrent = formatPrompts(currentPrompts);
-    const formattedOther = formatPrompts(otherPrompts);
+    const currentExperimentId = getExperimentIdFromTraceLocation(currentTraceInfo?.trace_location) ?? experimentId;
+    const otherExperimentId = getExperimentIdFromTraceLocation(otherTraceInfo?.trace_location) ?? experimentId;
+    const formattedCurrentPrompts = formatPrompts(currentPrompts, currentExperimentId);
+    const formattedOtherPrompts = formatPrompts(otherPrompts, otherExperimentId);
 
     return (
       <StackedComponents
         first={
-          formattedCurrent ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={formattedCurrent}>
-              {formattedCurrent}
-            </div>
+          formattedCurrentPrompts ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{formattedCurrentPrompts}</div>
           ) : (
             <NullCell isComparing={isComparing} />
           )
         }
         second={
           isComparing &&
-          (formattedOther ? (
-            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={formattedOther}>
-              {formattedOther}
-            </div>
+          (formattedOtherPrompts ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{formattedOtherPrompts}</div>
           ) : (
             <NullCell isComparing={isComparing} />
           ))
@@ -1057,7 +1069,7 @@ export const traceInfoCellRenderer = (
     <StackedComponents
       first={
         value ? (
-          <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>
+          <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={value}>
             {value}
           </div>
         ) : (
@@ -1067,7 +1079,7 @@ export const traceInfoCellRenderer = (
       second={
         isComparing &&
         (otherValue ? (
-          <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherValue}>
+          <div css={{ overflow: 'hidden', textOverflow: 'ellipsis' }} title={otherValue}>
             {otherValue}
           </div>
         ) : (
