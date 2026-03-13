@@ -294,8 +294,10 @@ def get_workspace_client(
 
     if use_secret_scope_token:
         kwargs = {"host": host, "token": token}
-    else:
+    elif databricks_auth_profile:
         kwargs = {"profile": databricks_auth_profile}
+    else:
+        kwargs = {}
     if timeout is not None:
         kwargs["http_timeout_seconds"] = timeout
     config = Config(
