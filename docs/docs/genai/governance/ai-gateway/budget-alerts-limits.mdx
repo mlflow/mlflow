@@ -69,8 +69,61 @@ Budget windows are fixed intervals:
 - **Weekly** — resets every 7 days on Sundays
 - **Monthly** — resets on the 1st of each month
 
-Accumulated spend resets to zero at the start of each new window. Budget tracking is in-memory and resets on server restart.
+Accumulated spend resets to zero at the start of each new window.
 
 ## Authorization
 
 When [authentication](/self-hosting/security/basic-http-auth) is enabled for the tracking server, only admin users can create, update, or delete budget policies.
+
+## Budget Tracker Selection
+
+MLflow AI Gateway supports two budget tracker backends. Choose based on your deployment topology.
+
+### In-Memory Tracker (default)
+
+The in-memory tracker is the default and requires no additional infrastructure. It stores all budget windows in the gateway process's memory and uses a thread lock for safe concurrent access.
+
+**Use when:**
+- Running a single gateway process (e.g., `mlflow server` on one machine)
+- You want zero-dependency simplicity
+
+**Trade-offs:**
+- Budget state is not shared across multiple gateway processes or instances. Running multiple gateway workers behind a load-balancer will cause each worker to track spend independently, which can allow total spend to exceed the configured limit.
+- On server restart, in-memory state is lost. MLflow automatically backfills spend from historical trace data when the server starts, so budget tracking resumes from the correct accumulated total for the current window.
+
+No extra configuration is required; the in-memory tracker is used whenever `MLFLOW_GATEWAY_BUDGET_REDIS_URL` is not set.
+
+### Redis Tracker
+
+The Redis tracker stores budget windows in Redis, enabling consistent budget enforcement across any number of gateway processes or instances. Atomic Lua scripts guarantee that window initialization and cost accumulation are race-free.
+
+**Use when:**
+- Running multiple gateway workers or replicas (e.g., gunicorn with multiple workers, Kubernetes pods)
+- You need budget state to survive process restarts without backfill latency
+
+**Trade-offs:**
+- Requires a running Redis instance accessible from all gateway processes.
+- Each `record_cost` call makes a Redis round-trip (Lua script execution), adding a small amount of latency compared to the in-memory tracker.
+- Install the `redis` Python package: `pip install redis`.
+
+**Configuration:**
+
+| Environment Variable | Default | Description |
+|---|---|---|
+| `MLFLOW_GATEWAY_BUDGET_REDIS_URL` | `None` (in-memory) | Redis connection URL. Setting this variable switches the tracker to Redis. Example: `redis://localhost:6379/0`. For TLS: `rediss://...`. For Redis with a password: `redis://:password@host:6379/0`. |
+| `MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL` | `600` | How often, in seconds, the gateway re-fetches budget policies from the database. Applies to both the in-memory and Redis trackers. Decrease this value if you need policy changes (creates, updates, deletes) to take effect more quickly; increase it to reduce database load. |
+
+**Example — start the gateway with Redis:**
+
+```bash
+export MLFLOW_GATEWAY_BUDGET_REDIS_URL=redis://localhost:6379/0
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+**Example — faster policy refresh (30 s) with Redis:**
+
+```bash
+export MLFLOW_GATEWAY_BUDGET_REDIS_URL=redis://localhost:6379/0
+export MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL=30
+mlflow server --host 0.0.0.0 --port 5000
+```
