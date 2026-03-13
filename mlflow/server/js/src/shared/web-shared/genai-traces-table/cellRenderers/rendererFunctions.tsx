@@ -1017,7 +1017,9 @@ export const traceInfoCellRenderer = (
                 : basePath;
               return (
                 <div key={index}>
-                  <Link to={url}>{label}</Link>
+                  <Link componentId="mlflow.genai-traces-table.prompt_link" to={url}>
+                    {label}
+                  </Link>
                 </div>
               );
             }
