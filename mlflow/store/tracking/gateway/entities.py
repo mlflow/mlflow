@@ -3,6 +3,7 @@ from typing import Any
 
 from mlflow.entities.gateway_endpoint import (
     FallbackConfig,
+    FallbackStrategy,
     GatewayModelLinkageType,
     RoutingStrategy,
 )
@@ -41,6 +42,31 @@ class GatewayModelConfig:
     linkage_type: GatewayModelLinkageType = GatewayModelLinkageType.PRIMARY
     fallback_order: int | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "model_definition_id": self.model_definition_id,
+            "provider": self.provider,
+            "model_name": self.model_name,
+            "secret_value": self.secret_value,
+            "auth_config": self.auth_config,
+            "weight": self.weight,
+            "linkage_type": self.linkage_type.value,
+            "fallback_order": self.fallback_order,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "GatewayModelConfig":
+        return cls(
+            model_definition_id=data["model_definition_id"],
+            provider=data["provider"],
+            model_name=data["model_name"],
+            secret_value=data["secret_value"],
+            auth_config=data["auth_config"],
+            weight=data["weight"],
+            linkage_type=GatewayModelLinkageType(data["linkage_type"]),
+            fallback_order=data["fallback_order"],
+        )
+
 
 @dataclass
 class GatewayEndpointConfig:
@@ -66,3 +92,41 @@ class GatewayEndpointConfig:
     routing_strategy: RoutingStrategy | None = None
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        fallback = None
+        if self.fallback_config is not None:
+            fallback = {
+                "strategy": self.fallback_config.strategy.value
+                if self.fallback_config.strategy
+                else None,
+                "max_attempts": self.fallback_config.max_attempts,
+            }
+        return {
+            "endpoint_id": self.endpoint_id,
+            "endpoint_name": self.endpoint_name,
+            "models": [m.to_dict() for m in self.models],
+            "routing_strategy": self.routing_strategy.value if self.routing_strategy else None,
+            "fallback_config": fallback,
+            "experiment_id": self.experiment_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "GatewayEndpointConfig":
+        fallback = None
+        if data.get("fallback_config") is not None:
+            fc = data["fallback_config"]
+            fallback = FallbackConfig(
+                strategy=FallbackStrategy(fc["strategy"]) if fc.get("strategy") else None,
+                max_attempts=fc.get("max_attempts"),
+            )
+        return cls(
+            endpoint_id=data["endpoint_id"],
+            endpoint_name=data["endpoint_name"],
+            models=[GatewayModelConfig.from_dict(m) for m in data.get("models", [])],
+            routing_strategy=RoutingStrategy(data["routing_strategy"])
+            if data.get("routing_strategy")
+            else None,
+            fallback_config=fallback,
+            experiment_id=data.get("experiment_id"),
+        )

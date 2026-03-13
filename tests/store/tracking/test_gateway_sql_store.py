@@ -1,6 +1,7 @@
 import json
 import uuid
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -43,6 +44,7 @@ from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
     get_resource_endpoint_configs,
 )
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -1504,6 +1506,148 @@ def test_get_gateway_endpoint_config_experiment_id_is_string(store: SqlAlchemySt
     # Verify experiment_id is a string (not an integer from SQLAlchemy)
     assert config.experiment_id is not None
     assert isinstance(config.experiment_id, str)
+
+
+# =============================================================================
+# Serialization & Caching Tests
+# =============================================================================
+
+
+def test_gateway_model_config_roundtrip():
+    original = GatewayModelConfig(
+        model_definition_id="md-123",
+        provider="openai",
+        model_name="gpt-4",
+        secret_value={"api_key": "sk-test"},
+        auth_config={"region": "us-east-1"},
+        weight=0.7,
+        linkage_type=GatewayModelLinkageType.FALLBACK,
+        fallback_order=2,
+    )
+    restored = GatewayModelConfig.from_dict(original.to_dict())
+    assert restored == original
+
+
+def test_gateway_endpoint_config_roundtrip_with_fallback():
+    original = GatewayEndpointConfig(
+        endpoint_id="e-abc",
+        endpoint_name="my-ep",
+        models=[
+            GatewayModelConfig(
+                model_definition_id="md-1",
+                provider="openai",
+                model_name="gpt-4",
+                secret_value={"api_key": "sk-1"},
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+            ),
+            GatewayModelConfig(
+                model_definition_id="md-2",
+                provider="anthropic",
+                model_name="claude-3",
+                secret_value={"api_key": "sk-2"},
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                fallback_order=0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=3,
+        ),
+        experiment_id="42",
+    )
+    restored = GatewayEndpointConfig.from_dict(original.to_dict())
+    assert restored == original
+
+
+def test_gateway_endpoint_config_roundtrip_no_fallback():
+    original = GatewayEndpointConfig(
+        endpoint_id="e-xyz",
+        endpoint_name="simple-ep",
+        models=[
+            GatewayModelConfig(
+                model_definition_id="md-1",
+                provider="openai",
+                model_name="gpt-4",
+                secret_value={"api_key": "sk-1"},
+            ),
+        ],
+    )
+    restored = GatewayEndpointConfig.from_dict(original.to_dict())
+    assert restored == original
+
+
+def test_endpoint_config_cache_hit_skips_db(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="cache-hit-key", secret_value={"api_key": "sk-cache"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="cache-hit-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="cache-hit-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # First call populates the cache
+    config1 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config1.endpoint_name == endpoint.name
+
+    # Second call should hit the cache and not open a new DB session
+    original_session_maker = store.ManagedSessionMaker
+    with mock.patch.object(
+        store, "ManagedSessionMaker", wraps=original_session_maker
+    ) as mock_session:
+        config2 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+        mock_session.assert_not_called()
+
+    assert config2.endpoint_name == config1.endpoint_name
+    assert config2.models[0].secret_value == config1.models[0].secret_value
+
+
+def test_endpoint_config_cache_invalidated_on_secret_update(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="cache-inv-key", secret_value={"api_key": "sk-old"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="cache-inv-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="cache-inv-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Populate cache
+    config1 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config1.models[0].secret_value == {"api_key": "sk-old"}
+
+    # Update secret — should invalidate cache
+    store.update_gateway_secret(
+        secret_id=secret.secret_id,
+        secret_value={"api_key": "sk-new"},
+    )
+
+    # Next call should fetch fresh data from DB
+    config2 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config2.models[0].secret_value == {"api_key": "sk-new"}
 
 
 # =============================================================================
