@@ -4718,8 +4718,7 @@ def test_invoke_issue_detection_handler_success(monkeypatch):
         assert call_kwargs["params"]["experiment_id"] == "exp-123"
         assert call_kwargs["params"]["trace_ids"] == ["trace-1", "trace-2"]
         assert call_kwargs["params"]["categories"] == ["correctness", "safety"]
-        assert call_kwargs["params"]["provider"] == "openai"
-        assert call_kwargs["params"]["model"] == "gpt-4o"
+        assert call_kwargs["params"]["model"] == "openai:/gpt-4o"
         assert call_kwargs["extra_envs"] == {"OPENAI_API_KEY": "test-key"}
 
 
@@ -4774,7 +4773,7 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch):
         assert json_response["run_id"] == "run-456"
 
         call_kwargs = mock_submit_job.call_args.kwargs
-        assert call_kwargs["params"]["endpoint_name"] == "my-endpoint"
+        assert call_kwargs["params"]["model"] == "gateway:/my-endpoint"
 
 
 def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):

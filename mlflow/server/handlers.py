@@ -4164,13 +4164,13 @@ def _invoke_issue_detection_handler():
     credentials = _fetch_provider_credentials(provider, secret_id) if secret_id else None
 
     # Create the run upfront so we can return run_id immediately
+    model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
     run = mlflow.start_run(
         experiment_id=experiment_id,
         tags={
             MLFLOW_RUN_IS_ISSUE_DETECTION: "true",
             "categories": ",".join(categories),
-            "provider": provider,
-            "model": model,
+            "model": model_name,
             "total_traces": len(trace_ids),
         },
     )
@@ -4183,9 +4183,7 @@ def _invoke_issue_detection_handler():
             "trace_ids": trace_ids,
             "categories": categories,
             "run_id": run_id,
-            "provider": provider,
-            "model": model,
-            "endpoint_name": endpoint_name,
+            "model": model_name,
         },
         extra_envs=credentials,
     )

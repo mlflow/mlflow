@@ -66,9 +66,7 @@ def invoke_issue_detection_job(
     trace_ids: list[str],
     categories: list[str],
     run_id: str,
-    provider: str | None = None,
     model: str | None = None,
-    endpoint_name: str | None = None,
 ):
     """
     Job function to run issue detection on traces.
@@ -82,11 +80,10 @@ def invoke_issue_detection_job(
             batch = trace_ids[i : i + 100]
             client.link_traces_to_run(batch, run_id)
         traces = client._tracing_client.batch_get_traces(trace_ids)
-        model_name = endpoint_name or f"{provider}:/{model}"
         result = discover_issues(
             experiment_id=experiment_id,
             traces=traces,
-            model=model_name,
+            model=model,
             run_id=run_id,
             categories=categories,
         )
