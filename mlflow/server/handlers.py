@@ -32,6 +32,7 @@ from mlflow.entities import (
     GatewayEndpointTag,
     GatewayResourceType,
     InputTag,
+    IssueSeverity,
     IssueStatus,
     Metric,
     Param,
@@ -4035,12 +4036,13 @@ def _create_issue():
         "description": request_message.description,
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
-        "severity": request_message.severity or None,
         "created_by": request_message.created_by or None,
     }
 
     if request_message.HasField("status"):
         create_kwargs["status"] = IssueStatus(request_message.status)
+    if request_message.HasField("severity"):
+        create_kwargs["severity"] = IssueSeverity(request_message.severity)
 
     created_issue = _get_tracking_store().create_issue(**create_kwargs)
 
@@ -4062,13 +4064,16 @@ def _update_issue(issue_id):
     )
 
     status = IssueStatus(request_message.status) if request_message.HasField("status") else None
+    severity = (
+        IssueSeverity(request_message.severity) if request_message.HasField("severity") else None
+    )
 
     updated_issue = _get_tracking_store().update_issue(
         issue_id=issue_id,
         status=status,
         name=request_message.name or None,
         description=request_message.description or None,
-        severity=request_message.severity or None,
+        severity=severity,
     )
 
     response_message = UpdateIssue.Response(issue=updated_issue.to_proto())

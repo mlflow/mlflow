@@ -686,9 +686,10 @@ class MlflowClient:
 
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
-            tags: A dictionary of tags associated with the **prompt version**.
-                This is useful for storing version-specific information, such as the author of
-                the changes. Optional.
+            tags: A dictionary of tags for the prompt.
+                These tags are stored on the prompt version and written to prompt-level metadata.
+                For OSS, later ``register_prompt()`` calls can overwrite the same keys at the
+                prompt level. Optional.
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
@@ -5768,6 +5769,7 @@ class MlflowClient:
         model_type: str | None = None,
         flavor: str | None = None,
         serialization_format: str | None = None,
+        uses_uv: bool = False,
     ) -> LoggedModel:
         return self._tracking_client.create_logged_model(
             experiment_id=experiment_id,
@@ -5778,6 +5780,7 @@ class MlflowClient:
             model_type=model_type,
             flavor=flavor,
             serialization_format=serialization_format,
+            uses_uv=uses_uv,
         )
 
     def log_model_params(self, model_id: str, params: dict[str, str]) -> None:

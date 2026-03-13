@@ -8,6 +8,7 @@ from mlflow.entities import (
     DatasetInput,
     DatasetRecord,
     Issue,
+    IssueSeverity,
     IssueStatus,
     LoggedModel,
     LoggedModelInput,
@@ -607,7 +608,7 @@ class AbstractStore(GatewayStoreMixin):
         name: str,
         description: str,
         status: IssueStatus = IssueStatus.PENDING,
-        severity: str | None = None,
+        severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
         created_by: str | None = None,
@@ -648,7 +649,7 @@ class AbstractStore(GatewayStoreMixin):
         status: IssueStatus | None = None,
         name: str | None = None,
         description: str | None = None,
-        severity: str | None = None,
+        severity: IssueSeverity | None = None,
     ) -> Issue:
         """
         Update an existing issue.

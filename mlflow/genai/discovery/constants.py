@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from enum import Enum
+from mlflow.entities.issue import IssueSeverity
 
 # Number of sessions (or individual traces) to sample for triage by default
 DEFAULT_TRIAGE_SAMPLE_SIZE = 100
@@ -17,25 +17,6 @@ LLM_MAX_TOKENS = 8192
 # Text truncation limits
 RATIONALE_TRUNCATION_LIMIT = 800
 TRACE_CONTENT_TRUNCATION = 1000
-
-
-class SeverityLevel(str, Enum):
-    NOT_AN_ISSUE = "not_an_issue"
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
-SEVERITY_ORDER = {level.value: i for i, level in enumerate(SeverityLevel)}
-MIN_SEVERITY = "low"
-
-
-def severity_gte(a: str, b: str) -> bool:
-    return SEVERITY_ORDER.get(a, -1) >= SEVERITY_ORDER.get(b, 0)
-
-
-def severity_max(a: str, b: str) -> str:
-    return a if SEVERITY_ORDER.get(a, 0) >= SEVERITY_ORDER.get(b, 0) else b
 
 
 DEFAULT_MODEL = "openai:/gpt-5-mini"
@@ -197,10 +178,8 @@ def build_satisfaction_instructions(
             "\nIMPORTANT: to prove that a goal was not achieved or was achieved poorly, "
             "you must either:\n"
             " - (1) cite concrete evidence based on the *user's* subsequent messages!\n"
-            " - (2) be extremely certain that the assistant's behavior is\n"
-            "       *blatantly* problematic and be prepared to explain why.\n"
-            "       If the issue is subtle or open to interpretation,\n"
-            "       then you should conclude that goals were achieved efficiently.\n"
+            " - (2) identify a clear failure in the assistant's behavior and explain why "
+            "it is problematic.\n"
         ),
     )
     return preamble + body + _format_categories(categories)
@@ -256,7 +235,7 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "tool may be returning stale cached results', 'the system prompt does not instruct "
     "the agent to respect user constraints'). Be specific but note these are hypotheses "
     "based on observed symptoms.\n"
-    f"- A severity level from: {', '.join(level.value for level in SeverityLevel)}. "
+    f"- A severity level from: {', '.join(str(level) for level in IssueSeverity)}. "
     "Use medium or high only if the analyses clearly share the same failure "
     "pattern. Use not_an_issue if they do NOT belong together or represent no real issue."
 )

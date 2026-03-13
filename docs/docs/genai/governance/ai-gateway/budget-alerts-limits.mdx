@@ -59,8 +59,6 @@ HTTP/1.1 429 Too Many Requests
 }
 ```
 
-Requests resume automatically when the current time window expires and a new window begins.
-
 ## Time Windows
 
 Budget windows are fixed intervals:
@@ -69,8 +67,61 @@ Budget windows are fixed intervals:
 - **Weekly** — resets every 7 days on Sundays
 - **Monthly** — resets on the 1st of each month
 
-Accumulated spend resets to zero at the start of each new window. Budget tracking is in-memory and resets on server restart.
+Accumulated spend resets to zero at the start of each new window.
 
 ## Authorization
 
 When [authentication](/self-hosting/security/basic-http-auth) is enabled for the tracking server, only admin users can create, update, or delete budget policies.
+
+## Budget Tracker Strategies
+
+The gateway uses a _budget tracker_ to accumulate spend and evaluate budget policies on every request. Two strategies are available: `local` and `redis`.
+
+### Local
+
+**Pros:**
+
+- No external dependencies — runs entirely in-process.
+- Lowest latency; no network round-trips per request.
+- Accumulated spend survives restarts via trace backfill on startup.
+
+**Cons:**
+
+- Budget state is **not** shared across workers or replicas. Each process tracks spend independently, so the total across all workers can exceed the configured limit.
+- If trace backfill is disabled or unavailable, spend resets to zero on restart.
+
+```bash
+# No extra environment variables required
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+### Redis
+
+**Pros:**
+
+- Budget state is shared across all gateway workers and replicas — the limit is enforced globally.
+- Atomic operations guarantee race-free window initialization and cost accumulation.
+
+**Cons:**
+
+- Requires a running Redis instance reachable from every gateway process.
+- Adds a small per-request latency for the Redis round-trip.
+- Requires an additional dependency: `pip install redis`.
+
+| Environment Variable              | Default | Description                                                                                                                                                                                     |
+| --------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MLFLOW_GATEWAY_BUDGET_REDIS_URL` | `None`  | Redis connection URL. Setting this variable activates the `redis` strategy. Examples: `redis://localhost:6379/0` (plain), `rediss://host:6380/0` (TLS), `redis://:password@host:6379/0` (auth). |
+
+```bash
+export MLFLOW_GATEWAY_BUDGET_REDIS_URL=redis://localhost:6379/0
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+## Policy Refresh Interval
+
+Both strategies periodically re-fetch budget policies from the database. The interval is controlled by `MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL` (default: `600` seconds). Decrease the value to pick up policy changes faster; increase it to reduce database load.
+
+```bash
+export MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL=30
+mlflow server --host 0.0.0.0 --port 5000
+```

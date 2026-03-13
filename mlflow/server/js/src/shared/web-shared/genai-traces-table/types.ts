@@ -149,6 +149,11 @@ export interface TraceActions {
     showEditTagsModalForTrace: (trace: ModelTraceInfoV3) => void;
     EditTagsModal: React.ReactNode;
   };
+
+  runJudgesAction?: {
+    showRunJudgesModal: (traceIds: string[]) => void;
+    RunJudgesModal: React.ReactNode;
+  };
 }
 
 // @deprecated, use TableFilter instead

@@ -5,11 +5,10 @@ import logging
 
 from pydantic import BaseModel as _BaseModel
 
+from mlflow.entities.issue import IssueSeverity
 from mlflow.genai.discovery.constants import (
     CLUSTER_LABELS_PROMPT_TEMPLATE,
     CLUSTER_SUMMARY_SYSTEM_PROMPT,
-    MIN_SEVERITY,
-    severity_gte,
 )
 from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
@@ -194,7 +193,7 @@ def recluster_singletons(
         merged_issue = summarize_cluster(
             merged_indices, analyses, model, token_counter=token_counter
         )
-        if severity_gte(merged_issue.severity, MIN_SEVERITY):
+        if merged_issue.severity >= IssueSeverity.LOW:
             result.append(merged_issue)
         else:
             result.extend(singletons[group_idx] for group_idx in group)

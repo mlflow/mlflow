@@ -17,7 +17,10 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetTargetScope,
     GatewayBudgetPolicy,
 )
-from mlflow.environment_variables import MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL
+from mlflow.environment_variables import (
+    MLFLOW_GATEWAY_BUDGET_REDIS_URL,
+    MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL,
+)
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _EPOCH = datetime.fromtimestamp(0, tz=timezone.utc)
@@ -35,9 +38,14 @@ def get_budget_tracker() -> BudgetTracker:
     if _budget_tracker is None:
         with _tracker_lock:
             if _budget_tracker is None:
-                from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+                if redis_url := MLFLOW_GATEWAY_BUDGET_REDIS_URL.get():
+                    from mlflow.gateway.budget_tracker.redis import RedisBudgetTracker
 
-                _budget_tracker = InMemoryBudgetTracker()
+                    _budget_tracker = RedisBudgetTracker(_redis_url=redis_url)
+                else:
+                    from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+
+                    _budget_tracker = InMemoryBudgetTracker()
     return _budget_tracker
 
 
@@ -60,7 +68,7 @@ class BudgetTracker(ABC):
     in memory, Redis, or other backends.
     """
 
-    _last_refresh_time: float = 0.0
+    _last_refresh_time: float = float("-inf")
 
     def needs_refresh(self) -> bool:
         """Check whether policies should be re-fetched from the database."""
@@ -74,7 +82,7 @@ class BudgetTracker(ABC):
 
     def invalidate(self) -> None:
         """Reset the refresh timer so the next needs_refresh() call returns True."""
-        self._last_refresh_time = 0.0
+        self._last_refresh_time = float("-inf")
 
     @abstractmethod
     def refresh_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
@@ -84,8 +92,7 @@ class BudgetTracker(ABC):
         for policies that no longer exist.
 
         Returns:
-            List of newly created windows (cumulative_spend=0) that may need
-            backfilling from historical trace data.
+            Windows that should be synced against authoritative trace data.
         """
 
     @abstractmethod

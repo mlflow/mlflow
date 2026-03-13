@@ -1,8 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { Link, useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import { RunPage } from '../../components/run-page/RunPage';
-import { ExperimentPageTabName, RunPageTabName } from '../../constants';
+import { ExperimentPageTabName, RunPageTabName, MLFLOW_ISSUE_DETECTION_JOB_ID_TAG } from '../../constants';
 import Routes from '../../routes';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { IssueDetectionRunOverview } from '../../components/run-page/overview/IssueDetectionRunOverview';
@@ -23,16 +23,25 @@ export const IssueDetectionRunDetailsPage = () => {
   const customBreadcrumbs = useMemo(() => {
     const experimentName = experiment?.name ?? safeExperimentId;
     return [
-      <Link key="experiments" to={Routes.experimentsObservatoryRoute}>
+      <Link
+        componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_experiments_link"
+        key="experiments"
+        to={Routes.experimentsObservatoryRoute}
+      >
         <FormattedMessage
           defaultMessage="Experiments"
           description="Issue detection run details > Breadcrumb > Experiments"
         />
       </Link>,
-      <Link key="experiment" to={Routes.getExperimentPageRoute(safeExperimentId)}>
+      <Link
+        componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_experiment_link"
+        key="experiment"
+        to={Routes.getExperimentPageRoute(safeExperimentId)}
+      >
         {experimentName}
       </Link>,
       <Link
+        componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_evaluation_runs_link"
         key="evaluation-runs"
         to={Routes.getExperimentPageTabRoute(safeExperimentId, ExperimentPageTabName.EvaluationRuns)}
       >
@@ -48,10 +57,6 @@ export const IssueDetectionRunDetailsPage = () => {
     navigate(Routes.getExperimentPageTabRoute(expId, ExperimentPageTabName.EvaluationRuns));
   };
 
-  const handleCancelDetection = useCallback(() => {
-    // TODO: Implement cancel detection logic
-  }, []);
-
   return (
     <RunPage
       customBreadcrumbs={customBreadcrumbs}
@@ -61,15 +66,12 @@ export const IssueDetectionRunDetailsPage = () => {
         visibleTabs: [RunPageTabName.OVERVIEW, RunPageTabName.TRACES, RunPageTabName.ISSUES],
       }}
       onDeleteSuccess={handleDeleteSuccess}
-      renderCustomOverview={({ runUuid, runInfo, tags, onRunDataUpdated }) => (
+      hideTracesCompareSelector
+      renderCustomOverview={({ runInfo, tags }) => (
         <IssueDetectionRunOverview
-          runUuid={runUuid}
           runInfo={runInfo}
           tags={tags}
-          onRunDataUpdated={onRunDataUpdated}
-          progressProps={{
-            onCancel: handleCancelDetection,
-          }}
+          jobId={tags[MLFLOW_ISSUE_DETECTION_JOB_ID_TAG]?.value}
         />
       )}
     />

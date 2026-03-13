@@ -8,7 +8,7 @@ from typing import Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
-from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
@@ -379,6 +379,19 @@ class TracingClient:
                 next_max_results = max_results - len(traces)
 
         return PagedList(traces, next_token)
+
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+        """
+        Retrieve multiple traces by their IDs.
+
+        Args:
+            trace_ids: List of trace IDs to retrieve.
+            location: Optional location (e.g., "catalog.schema" for UC schema) to search for traces.
+
+        Returns:
+            List of Trace objects.
+        """
+        return self.store.batch_get_traces(trace_ids, location)
 
     def _download_spans_from_batch_get_traces(
         self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
@@ -755,7 +768,7 @@ class TracingClient:
         name: str,
         description: str,
         status: IssueStatus = IssueStatus.PENDING,
-        severity: str | None = None,
+        severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
         created_by: str | None = None,

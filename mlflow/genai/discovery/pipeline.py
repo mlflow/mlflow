@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.issue import IssueSeverity
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE,
@@ -23,13 +24,9 @@ from mlflow.genai.discovery.clustering import (
 from mlflow.genai.discovery.constants import (
     DEFAULT_MODEL,
     DEFAULT_SCORER_NAME,
-    MIN_SEVERITY,
     NO_ISSUE_KEYWORD,
-    SEVERITY_ORDER,
     TRACE_ANNOTATION_SYSTEM_PROMPT,
     build_satisfaction_instructions,
-    severity_gte,
-    severity_max,
 )
 from mlflow.genai.discovery.entities import (
     DiscoverIssuesResult,
@@ -260,7 +257,7 @@ def _resplit_incoherent_clusters(
     """
     resplit_groups: list[list[int]] = []
     for group, issue in zip(cluster_groups, summaries):
-        if not severity_gte(issue.severity, MIN_SEVERITY) and len(group) > 1:
+        if issue.severity < IssueSeverity.LOW and len(group) > 1:
             _logger.debug(
                 "Re-splitting incoherent cluster '%s' (severity=%s, %d members)",
                 issue.name,
@@ -285,14 +282,14 @@ def _resplit_incoherent_clusters(
         kept = [
             issue
             for group, issue in zip(cluster_groups, summaries)
-            if severity_gte(issue.severity, MIN_SEVERITY) or len(group) <= 1
+            if issue.severity >= IssueSeverity.LOW or len(group) <= 1
         ]
         summaries = kept + resplit_summaries
 
     return [
         issue
         for issue in summaries
-        if severity_gte(issue.severity, MIN_SEVERITY) and not _is_non_issue(issue)
+        if issue.severity >= IssueSeverity.LOW and not _is_non_issue(issue)
     ]
 
 
@@ -304,7 +301,7 @@ def _dedup_issues_by_name(issues: list[_IdentifiedIssue]) -> list[_IdentifiedIss
         if key in seen_names:
             existing = deduped[seen_names[key]]
             existing.example_indices = list(set(existing.example_indices + issue.example_indices))
-            existing.severity = severity_max(existing.severity, issue.severity)
+            existing.severity = max(existing.severity, issue.severity)
         else:
             seen_names[key] = len(deduped)
             deduped.append(issue)
@@ -416,7 +413,7 @@ def _build_issues(
         issue_trace_ids[issue_id] = example_ids
 
     issues.sort(
-        key=lambda i: SEVERITY_ORDER.get(i.severity, 0),
+        key=lambda i: i.severity,
         reverse=True,
     )
     return issues, issue_trace_ids

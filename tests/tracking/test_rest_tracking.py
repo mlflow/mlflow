@@ -38,6 +38,7 @@ from mlflow.entities import (
     GatewayModelLinkageType,
     GatewayResourceType,
     InputTag,
+    IssueSeverity,
     IssueStatus,
     Metric,
     Param,
@@ -5149,7 +5150,7 @@ def test_create_issue_with_all_fields(mlflow_client, store_type):
             "status": IssueStatus.PENDING.value,
             "source_run_id": run.info.run_id,
             "root_causes": ["Database query inefficiency", "Network latency"],
-            "severity": "high",
+            "severity": IssueSeverity.HIGH.value,
             "created_by": "test-user",
         },
     )
@@ -5163,7 +5164,7 @@ def test_create_issue_with_all_fields(mlflow_client, store_type):
     assert issue["status"] == IssueStatus.PENDING.value
     assert issue["source_run_id"] == run.info.run_id
     assert issue["root_causes"] == ["Database query inefficiency", "Network latency"]
-    assert issue["severity"] == "high"
+    assert issue["severity"] == IssueSeverity.HIGH.value
     assert issue["created_by"] == "test-user"
     assert "issue_id" in issue
     assert "created_timestamp" in issue
@@ -5204,13 +5205,13 @@ def test_create_issue_with_required_fields(mlflow_client, store_type):
             "experiment_id": experiment_id,
             "name": "Issue with required fields only",
             "description": "Testing issue creation with required fields",
-            "status": IssueStatus.ACCEPTED.value,
+            "status": IssueStatus.RESOLVED.value,
         },
     )
     assert response.status_code == 200
     data = response.json()
     issue = data["issue"]
-    assert issue["status"] == IssueStatus.ACCEPTED.value
+    assert issue["status"] == IssueStatus.RESOLVED.value
     assert "issue_id" in issue
     assert "created_timestamp" in issue
     assert "last_updated_timestamp" in issue
@@ -5243,7 +5244,7 @@ def test_get_issue(mlflow_client, store_type):
             "experiment_id": experiment_id,
             "name": "Test issue",
             "description": "Test description",
-            "severity": "medium",
+            "severity": IssueSeverity.MEDIUM.value,
         },
     )
     issue_id = create_response.json()["issue"]["issue_id"]
@@ -5254,7 +5255,7 @@ def test_get_issue(mlflow_client, store_type):
     issue = data["issue"]
     assert issue["issue_id"] == issue_id
     assert issue["name"] == "Test issue"
-    assert issue["severity"] == "medium"
+    assert issue["severity"] == IssueSeverity.MEDIUM.value
 
 
 def test_get_issue_not_found(mlflow_client, store_type):
@@ -5288,8 +5289,8 @@ def test_update_issue(mlflow_client, store_type):
             "issue_id": issue_id,
             "name": "Updated name",
             "description": "Updated description",
-            "status": IssueStatus.ACCEPTED.value,
-            "severity": "high",
+            "status": IssueStatus.RESOLVED.value,
+            "severity": IssueSeverity.HIGH.value,
         },
     )
     assert update_response.status_code == 200
@@ -5298,8 +5299,8 @@ def test_update_issue(mlflow_client, store_type):
     assert issue["issue_id"] == issue_id
     assert issue["name"] == "Updated name"
     assert issue["description"] == "Updated description"
-    assert issue["status"] == IssueStatus.ACCEPTED.value
-    assert issue["severity"] == "high"
+    assert issue["status"] == IssueStatus.RESOLVED.value
+    assert issue["severity"] == IssueSeverity.HIGH.value
 
 
 def test_search_issues_no_filters(mlflow_client, store_type):
@@ -5385,18 +5386,18 @@ def test_search_issues_by_status(mlflow_client, store_type):
             "experiment_id": experiment_id,
             "name": "Confirmed issue",
             "description": "Description",
-            "status": IssueStatus.ACCEPTED.value,
+            "status": IssueStatus.RESOLVED.value,
         },
     )
 
     search_response = requests.post(
         f"{mlflow_client.tracking_uri}/api/3.0/mlflow/issues/search",
-        json={"experiment_id": experiment_id, "filter_string": "status = 'accepted'"},
+        json={"experiment_id": experiment_id, "filter_string": "status = 'resolved'"},
     )
     assert search_response.status_code == 200
     data = search_response.json()
     issues = data["issues"]
-    assert all(issue["status"] == IssueStatus.ACCEPTED.value for issue in issues)
+    assert all(issue["status"] == IssueStatus.RESOLVED.value for issue in issues)
     assert any(issue["name"] == "Confirmed issue" for issue in issues)
 
 

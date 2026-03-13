@@ -44,6 +44,7 @@ const LogsTabContent = ({ experimentId }: { experimentId: string }) => {
       >
         <TracesV3DateSelector excludeOptions={['ALL']} />
         <Link
+          componentId="mlflow.gateway.edit_endpoint.traces_link"
           to={`/experiments/${experimentId}/traces`}
           css={{
             color: theme.colors.actionPrimaryBackgroundDefault,
@@ -154,12 +155,18 @@ export const EditEndpointFormRenderer = ({
       <div css={{ padding: theme.spacing.md }}>
         <Breadcrumb includeTrailingCaret>
           <Breadcrumb.Item>
-            <Link to={GatewayRoutes.gatewayPageRoute}>
+            <Link
+              componentId="mlflow.gateway.edit_endpoint.breadcrumb_gateway_link"
+              to={GatewayRoutes.gatewayPageRoute}
+            >
               <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
             </Link>
           </Breadcrumb.Item>
           <Breadcrumb.Item>
-            <Link to={GatewayRoutes.gatewayPageRoute}>
+            <Link
+              componentId="mlflow.gateway.edit_endpoint.breadcrumb_endpoints_link"
+              to={GatewayRoutes.gatewayPageRoute}
+            >
               <FormattedMessage defaultMessage="Endpoints" description="Breadcrumb link to endpoints list" />
             </Link>
           </Breadcrumb.Item>
@@ -361,27 +368,6 @@ export const EditEndpointFormRenderer = ({
                       )}
                     />
                   </div>
-                </div>
-
-                {/* Rate Limiting placeholder */}
-                <div
-                  css={{
-                    padding: theme.spacing.md,
-                    border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    backgroundColor: theme.colors.backgroundPrimary,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                  }}
-                >
-                  <Typography.Text bold>
-                    <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
-                  </Typography.Text>
-                  <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                    <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
-                  </Typography.Text>
                 </div>
               </div>
             </Tabs.Content>
