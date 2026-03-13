@@ -16,7 +16,7 @@ from langchain_core.callbacks.base import (
     BaseCallbackManager,
 )
 from langchain_core.callbacks.manager import CallbackManagerForLLMRun
-from langchain_core.language_models.chat_models import SimpleChatModel
+from langchain_core.language_models.chat_models import BaseChatModel, SimpleChatModel
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
@@ -25,6 +25,7 @@ from langchain_core.messages import (
     ToolMessage,
 )
 from langchain_core.output_parsers import StrOutputParser
+from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_core.prompts import PromptTemplate
 from langchain_core.prompts.chat import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
@@ -193,14 +194,94 @@ def test_chat_model_autolog():
     span = traces[0].data.spans[0]
     assert span.name == "ChatOpenAI"
     assert span.span_type == "CHAT_MODEL"
-    for msg, expected in zip(span.inputs[0], messages, strict=True):
-        assert msg["type"] == expected.type
+    _LC_TYPE_TO_ROLE = {"human": "user", "ai": "assistant", "system": "system", "tool": "tool"}
+    for msg, expected in zip(span.inputs["messages"], messages, strict=True):
+        assert msg["role"] == _LC_TYPE_TO_ROLE[expected.type]
         assert msg["content"] == expected.content
-    assert span.outputs["generations"][0][0]["message"]["content"] == response.content
+    assert span.outputs["choices"][0]["message"]["content"] == response.content
     assert span.get_attribute("invocation_params")["model"] == "gpt-4o-mini"
     assert span.get_attribute("invocation_params")["temperature"] == 0.9
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
     assert span.model_name == "gpt-4o-mini"
+
+
+@pytest.mark.parametrize(
+    ("mime_type", "expected_format"),
+    [
+        ("audio/wav", "wav"),
+        ("audio/mpeg", "mp3"),
+    ],
+)
+def test_chat_model_autolog_audio_input_normalization(mime_type, expected_format):
+    audio_b64 = "SGVsbG8="
+
+    class AudioInputModel(BaseChatModel):
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            return ChatResult(generations=[ChatGeneration(message=AIMessage(content="heard it"))])
+
+        @property
+        def _llm_type(self):
+            return "audio-input-model"
+
+    mlflow.langchain.autolog()
+    model = AudioInputModel()
+    model.invoke([
+        HumanMessage(
+            content=[
+                {"type": "text", "text": "What is this?"},
+                {
+                    "type": "audio",
+                    "source_type": "base64",
+                    "data": audio_b64,
+                    "mime_type": mime_type,
+                },
+            ]
+        )
+    ])
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = next(s for s in trace.data.spans if s.span_type == "CHAT_MODEL")
+
+    msgs = span.inputs["messages"]
+    audio_block = msgs[0]["content"][1]
+    assert audio_block["type"] == "input_audio"
+    assert audio_block["input_audio"]["format"] == expected_format
+    assert audio_block["input_audio"]["data"] == audio_b64
+
+
+def test_chat_model_autolog_audio_output_normalization():
+    audio_b64 = "SGVsbG8="
+
+    class AudioOutputModel(BaseChatModel):
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            ai_msg = AIMessage(
+                content=[
+                    {"type": "text", "text": "Here is audio."},
+                    {
+                        "type": "audio",
+                        "source_type": "base64",
+                        "data": audio_b64,
+                        "mime_type": "audio/wav",
+                    },
+                ]
+            )
+            return ChatResult(generations=[ChatGeneration(message=ai_msg)])
+
+        @property
+        def _llm_type(self):
+            return "audio-output-model"
+
+    mlflow.langchain.autolog()
+    model = AudioOutputModel()
+    model.invoke([("human", "Give me audio")])
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = next(s for s in trace.data.spans if s.span_type == "CHAT_MODEL")
+
+    audio_block = span.outputs["choices"][0]["message"]["content"][1]
+    assert audio_block["type"] == "input_audio"
+    assert audio_block["input_audio"]["format"] == "wav"
+    assert audio_block["input_audio"]["data"] == audio_b64
 
 
 def test_chat_model_bind_tool_autolog():
@@ -909,8 +990,8 @@ def test_langchain_auto_tracing_in_serving_runnable(model_info):
     root_span_id = root_span.span_id
     child_span = spans[2]
     assert child_span.parent_id == root_span_id
-    assert child_span.inputs[0][0]["content"] == "What is MLflow?"
-    assert child_span.outputs["generations"][0][0]["text"] == expected_output
+    assert child_span.inputs["messages"][0]["content"] == "What is MLflow?"
+    assert child_span.outputs["choices"][0]["message"]["content"] == expected_output
     assert child_span.span_type == "CHAT_MODEL"
 
 

@@ -113,7 +113,7 @@ def test_llm_success():
     assert llm_span.end_time_ns is not None
     assert llm_span.status == SpanStatus(SpanStatusCode.OK)
     assert llm_span.inputs == ["test prompt"]
-    assert llm_span.outputs["generations"][0][0]["text"] == "generated text"
+    assert llm_span.outputs["choices"][0]["message"]["content"] == "generated text"
     assert llm_span.events[0].name == "new_token"
 
     _validate_trace_json_serialization(trace)
@@ -186,8 +186,11 @@ def test_chat_model():
     assert chat_model_span.name == "test_chat_model"
     assert chat_model_span.span_type == "CHAT_MODEL"
     assert chat_model_span.status.status_code == SpanStatusCode.OK
-    assert chat_model_span.inputs == [[msg.model_dump() for msg in input_messages]]
-    assert chat_model_span.outputs["generations"][0][0]["text"] == "generated text"
+    assert chat_model_span.inputs["messages"][0]["role"] == "system"
+    assert chat_model_span.inputs["messages"][0]["content"] == "system prompt"
+    assert chat_model_span.inputs["messages"][1]["role"] == "user"
+    assert chat_model_span.inputs["messages"][1]["content"] == "test prompt"
+    assert chat_model_span.outputs["choices"][0]["message"]["content"] == "generated text"
 
 
 def test_chat_model_with_tool():
@@ -427,7 +430,7 @@ def test_multiple_components():
     for i in range(2):
         llm_span = trace.data.spans[1 + i * 2]
         assert llm_span.inputs == [f"test prompt {i}"]
-        assert llm_span.outputs["generations"][0][0]["text"] == f"generated text {i}"
+        assert llm_span.outputs["choices"][0]["message"]["content"] == f"generated text {i}"
         retriever_span = trace.data.spans[2 + i * 2]
         assert retriever_span.inputs == f"test query {i}"
         assert (
