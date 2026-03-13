@@ -686,9 +686,10 @@ class MlflowClient:
 
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
-            tags: A dictionary of tags associated with the **prompt version**.
-                This is useful for storing version-specific information, such as the author of
-                the changes. Optional.
+            tags: A dictionary of tags for the prompt.
+                These tags are stored on the prompt version. For OSS, they are also written to
+                prompt-level metadata, and later ``register_prompt()`` calls can overwrite the
+                same keys at the prompt level. Optional.
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
@@ -730,13 +731,13 @@ class MlflowClient:
         # OSS approach using RegisteredModel with special tags
         is_new_prompt = False
         rm = None
+        tags = tags or {}
         try:
             rm = registry_client.get_registered_model(name)
         except MlflowException:
-            # Create a new prompt (model) entry. User-supplied `tags` are version-scoped and
-            # should not be persisted as prompt-level metadata.
+            # Create a new prompt (model) entry
             registry_client.create_registered_model(
-                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true"}
+                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true", **tags}
             )
             is_new_prompt = True
 
@@ -748,6 +749,11 @@ class MlflowClient:
                 "name for the prompt.",
                 INVALID_PARAMETER_VALUE,
             )
+
+        # Update the prompt tags
+        if not is_new_prompt:
+            for key, value in tags.items():
+                registry_client.set_registered_model_tag(name, key, value)
 
         # Version metadata is represented as ModelVersion tags in the registry
         tags = tags or {}

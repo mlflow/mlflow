@@ -83,7 +83,7 @@ def test_crud_prompts(tmp_path):
 
     client = MlflowClient()
     prompt_entity = client.get_prompt("prompt_1")
-    assert prompt_entity.tags == {"_mlflow_experiment_ids": ",0,"}
+    assert prompt_entity.tags == {"model": "my-model", "_mlflow_experiment_ids": ",0,"}
 
     mlflow.genai.register_prompt(
         name="prompt_1",
