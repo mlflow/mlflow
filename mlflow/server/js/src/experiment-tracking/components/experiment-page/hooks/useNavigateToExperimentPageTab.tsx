@@ -1,11 +1,12 @@
 import { useEffect, useMemo } from 'react';
-import { useNavigate } from '../../../../common/utils/RoutingUtils';
+import { useNavigate, useSearchParams } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { ExperimentKind, ExperimentPageTabName } from '../../../constants';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
 import { useExperimentKind } from '../../../utils/ExperimentKindUtils';
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { shouldEnableExperimentOverviewTab } from '../../../../common/utils/FeatureUtils';
+import { WorkflowType } from '../../../../common/contexts/WorkflowTypeContext';
 import { useIsFileStore } from '../../../hooks/useServerInfo';
 
 /**
@@ -19,6 +20,9 @@ export const useNavigateToExperimentPageTab = ({
   experimentId: string;
 }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const workflowTypeParam = searchParams.get('workflowType');
+  const workspaceParam = searchParams.get('workspace');
   const isFileStore = useIsFileStore();
 
   const { data: experiment, loading: loadingExperiment } = useGetExperimentQuery({
@@ -63,8 +67,18 @@ export const useNavigateToExperimentPageTab = ({
           : ExperimentPageTabName.Traces;
     }
 
-    navigate(Routes.getExperimentPageTabRoute(experimentId, targetTab), { replace: true });
-  }, [navigate, experimentId, enabled, experimentKind, isFileStore]);
+    const workflowType =
+      workflowTypeParam ??
+      (experimentKind === ExperimentKind.GENAI_DEVELOPMENT ? WorkflowType.GENAI : WorkflowType.MACHINE_LEARNING);
+    const queryParams = new URLSearchParams();
+    queryParams.set('workflowType', workflowType);
+    if (workspaceParam) {
+      queryParams.set('workspace', workspaceParam);
+    }
+    navigate(`${Routes.getExperimentPageTabRoute(experimentId, targetTab)}?${queryParams.toString()}`, {
+      replace: true,
+    });
+  }, [navigate, experimentId, enabled, experimentKind, isFileStore, workflowTypeParam, workspaceParam]);
 
   return {
     isEnabled: enabled,

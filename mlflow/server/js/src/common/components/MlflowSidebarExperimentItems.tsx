@@ -16,7 +16,7 @@ import { ExperimentPageTabName } from '../../experiment-tracking/constants';
 import { FormattedMessage } from 'react-intl';
 import {
   isTracesRelatedTab,
-  getTimeRangeQueryString,
+  getPreservedQueryString,
 } from '../../experiment-tracking/pages/experiment-page-tabs/side-nav/utils';
 import { Fragment } from 'react';
 
@@ -101,7 +101,7 @@ export const MlflowSidebarExperimentItems = ({
                 key={item.componentId}
                 to={{
                   pathname: ExperimentTrackingRoutes.getExperimentPageTabRoute(experimentId ?? '', item.tabName),
-                  search: preserveQueryParams ? search : getTimeRangeQueryString(search),
+                  search: preserveQueryParams ? search : getPreservedQueryString(search),
                 }}
                 componentId={item.componentId}
                 isActive={isActive}

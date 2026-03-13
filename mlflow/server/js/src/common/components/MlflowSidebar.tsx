@@ -94,6 +94,7 @@ export function MlflowSidebar({
   // WorkflowType context is always available, but UI is guarded by feature flag
   const { workflowType, setWorkflowType } = useWorkflowType();
   const { experimentId } = useParams();
+
   const logTelemetryEvent = useLogTelemetryEvent();
   const toggleSidebar = useCallback(() => {
     setShowSidebar(!showSidebar);
@@ -103,9 +104,11 @@ export function MlflowSidebar({
   // stays visible when navigating away from experiment pages
   const lastSelectedExperimentIdRef = useRef<string | null>(null);
 
-  // Update the ref when we're inside an experiment
+  // Update the ref when we're inside an experiment, clear it when navigating away
   if (experimentId && isInsideExperiment(location)) {
     lastSelectedExperimentIdRef.current = experimentId;
+  } else if (!isInsideExperiment(location)) {
+    lastSelectedExperimentIdRef.current = null;
   }
 
   // Callback to clear the persisted experiment ID (used by back button)
