@@ -326,9 +326,14 @@ export const RunsChartsTooltipBody = ({
       </div>
 
       {description && (
-        <Typography.Text size="sm" color="secondary" css={styles.description} title={description}>
+        <Typography.Paragraph
+          color="secondary"
+          withoutMargins
+          css={styles.description}
+          ellipsis={{ rows: 2, tooltip: description }}
+        >
           {description}
-        </Typography.Text>
+        </Typography.Paragraph>
       )}
 
       <ValuesBox
@@ -420,11 +425,6 @@ const styles = {
   },
   description: {
     marginBottom: 12,
-    display: '-webkit-box',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    WebkitBoxOrient: 'vertical' as const,
-    WebkitLineClamp: 2,
     wordBreak: 'break-word' as const,
   },
   value: {
