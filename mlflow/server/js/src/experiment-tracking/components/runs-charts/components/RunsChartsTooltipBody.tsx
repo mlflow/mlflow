@@ -326,14 +326,15 @@ export const RunsChartsTooltipBody = ({
       </div>
 
       {description && (
-        <Typography.Paragraph
-          color="secondary"
-          withoutMargins
-          css={styles.description}
-          ellipsis={{ rows: 2, tooltip: description }}
-        >
-          {description}
-        </Typography.Paragraph>
+        <div css={styles.description}>
+          <Typography.Paragraph
+            color="secondary"
+            withoutMargins
+            ellipsis={{ rows: 2, tooltip: description }}
+          >
+            {description}
+          </Typography.Paragraph>
+        </div>
       )}
 
       <ValuesBox
