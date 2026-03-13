@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -102,8 +103,8 @@ def _serialize_policy(policy: GatewayBudgetPolicy) -> str:
         "budget_policy_id": policy.budget_policy_id,
         "budget_unit": policy.budget_unit.value,
         "budget_amount": policy.budget_amount,
-        "duration_unit": policy.duration_unit.value,
-        "duration_value": policy.duration_value,
+        "duration_unit": policy.duration.unit.value,
+        "duration_value": policy.duration.value,
         "target_scope": policy.target_scope.value,
         "budget_action": policy.budget_action.value,
         "workspace": policy.workspace,
@@ -118,8 +119,10 @@ def _deserialize_policy(data: str) -> GatewayBudgetPolicy:
         budget_policy_id=d["budget_policy_id"],
         budget_unit=BudgetUnit(d["budget_unit"]),
         budget_amount=d["budget_amount"],
-        duration_unit=BudgetDurationUnit(d["duration_unit"]),
-        duration_value=d["duration_value"],
+        duration=BudgetDuration(
+            unit=BudgetDurationUnit(d["duration_unit"]),
+            value=d["duration_value"],
+        ),
         target_scope=BudgetTargetScope(d["target_scope"]),
         budget_action=BudgetAction(d["budget_action"]),
         workspace=d.get("workspace"),
@@ -166,8 +169,8 @@ class RedisBudgetTracker(BudgetTracker):
         pid = policy.budget_policy_id
         wkey = _window_key(pid)
 
-        window_start = _compute_window_start(policy.duration_unit, policy.duration_value, now)
-        window_end = _compute_window_end(policy.duration_unit, policy.duration_value, window_start)
+        window_start = _compute_window_start(policy.duration, now)
+        window_end = _compute_window_end(policy.duration, window_start)
 
         # Keep the key for 1 hour past window_end so late-arriving requests
         # can still read/update the window before it expires from Redis.

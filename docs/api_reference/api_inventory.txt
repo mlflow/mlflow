@@ -327,6 +327,9 @@ mlflow.entities.AssessmentSourceType.from_proto
 mlflow.entities.BudgetAction
 mlflow.entities.BudgetAction.from_proto
 mlflow.entities.BudgetAction.to_proto
+mlflow.entities.BudgetDuration
+mlflow.entities.BudgetDuration.from_proto
+mlflow.entities.BudgetDuration.to_proto
 mlflow.entities.BudgetDurationUnit
 mlflow.entities.BudgetDurationUnit.from_proto
 mlflow.entities.BudgetDurationUnit.to_proto
@@ -627,6 +630,7 @@ mlflow.entities.experiment.Experiment
 mlflow.entities.experiment_tag.ExperimentTag
 mlflow.entities.file_info.FileInfo
 mlflow.entities.gateway_budget_policy.BudgetAction
+mlflow.entities.gateway_budget_policy.BudgetDuration
 mlflow.entities.gateway_budget_policy.BudgetDurationUnit
 mlflow.entities.gateway_budget_policy.BudgetTargetScope
 mlflow.entities.gateway_budget_policy.BudgetUnit
