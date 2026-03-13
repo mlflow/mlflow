@@ -288,6 +288,23 @@ describe('getAssessmentInfos', () => {
     );
   });
 
+  it('should exclude _issue_discovery_judge from assessment infos', () => {
+    const currentEvaluationResults = makeTracesFromAssessments([
+      {
+        responseAssessmentsByName: {
+          _issue_discovery_judge: [{ name: '_issue_discovery_judge', booleanValue: false }],
+          quality: [{ name: 'quality', booleanValue: true }],
+        },
+      },
+    ]);
+
+    const result = getAssessmentInfos(intl, currentEvaluationResults, undefined);
+
+    const names = result.map((info) => info.name);
+    expect(names).not.toContain('_issue_discovery_judge');
+    expect(names).toContain('quality');
+  });
+
   it('should exclude overall assessment if it has no valid values', () => {
     const currentEvaluationResults = makeTracesFromAssessments([
       { overallAssessments: [{ name: 'overall_assessment', stringValue: null }] },
