@@ -191,7 +191,12 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
         </div>
       )}
       {judgeTraceHref && (
-        <Link to={judgeTraceHref} target="_blank" rel="noreferrer">
+        <Link
+          componentId="mlflow.model_trace_explorer.feedback_item.judge_trace_link"
+          to={judgeTraceHref}
+          target="_blank"
+          rel="noreferrer"
+        >
           <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
             <FormattedMessage
               defaultMessage="View trace"
