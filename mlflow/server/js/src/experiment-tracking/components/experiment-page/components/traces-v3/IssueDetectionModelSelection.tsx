@@ -56,7 +56,13 @@ export const IssueDetectionModelSelection = forwardRef<
 
   const [provider, setProvider] = useState(DEFAULT_PROVIDER);
   const [model, setModel] = useState(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
-  const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(DEFAULT_API_KEY_CONFIG);
+  const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(() => ({
+    ...DEFAULT_API_KEY_CONFIG,
+    newSecret: {
+      ...DEFAULT_API_KEY_CONFIG.newSecret,
+      name: generateRandomName(DEFAULT_PROVIDER),
+    },
+  }));
   const [saveKey] = useState(true);
   const [isAdvancedSettingsExpanded, setIsAdvancedSettingsExpanded] = useState(false);
 
@@ -77,25 +83,17 @@ export const IssueDetectionModelSelection = forwardRef<
     }
   }, [provider, existingSecrets.length]);
 
-  // Generate a random default name when user starts entering a new API key
-  useEffect(() => {
-    if (
-      apiKeyConfig.mode === 'new' &&
-      Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
-      !apiKeyConfig.newSecret.name
-    ) {
-      setApiKeyConfig((prev) => ({
-        ...prev,
-        newSecret: { ...prev.newSecret, name: generateRandomName(provider) },
-      }));
-    }
-  }, [apiKeyConfig.mode, apiKeyConfig.newSecret.secretFields, apiKeyConfig.newSecret.name, provider]);
-
   const handleProviderChange = useCallback((newProvider: string) => {
     setProvider(newProvider);
     const defaultModel = DEFAULT_MODEL_BY_PROVIDER[newProvider];
     setModel(defaultModel ?? '');
-    setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
+    setApiKeyConfig({
+      ...DEFAULT_API_KEY_CONFIG,
+      newSecret: {
+        ...DEFAULT_API_KEY_CONFIG.newSecret,
+        name: generateRandomName(newProvider),
+      },
+    });
     // Auto-expand advanced settings if provider doesn't have a default model, collapse if it does
     setIsAdvancedSettingsExpanded(!defaultModel);
   }, []);
@@ -103,7 +101,13 @@ export const IssueDetectionModelSelection = forwardRef<
   const reset = useCallback(() => {
     setProvider(DEFAULT_PROVIDER);
     setModel(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
-    setApiKeyConfig(DEFAULT_API_KEY_CONFIG);
+    setApiKeyConfig({
+      ...DEFAULT_API_KEY_CONFIG,
+      newSecret: {
+        ...DEFAULT_API_KEY_CONFIG.newSecret,
+        name: generateRandomName(DEFAULT_PROVIDER),
+      },
+    });
     setIsAdvancedSettingsExpanded(false);
   }, []);
 
