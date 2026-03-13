@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
 import type { UpdateExperimentViewStateFn } from '../../../../types';
-import { useRunSortOptions } from '../../hooks/useRunSortOptions';
 import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsControlsActions } from './ExperimentViewRunsControlsActions';
@@ -17,6 +16,7 @@ import { ExperimentViewRunsGroupBySelector } from './ExperimentViewRunsGroupBySe
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { ExperimentViewRunsSortSelectorV2 } from './ExperimentViewRunsSortSelectorV2';
+import { shouldShowRunsBulkActions } from '../../utils/experimentPage.view-state-utils';
 
 type ExperimentViewRunsControlsProps = {
   viewState: ExperimentPageViewState;
@@ -80,13 +80,7 @@ export const ExperimentViewRunsControls = React.memo(
       [filteredMetricKeys, filteredParamKeys, filteredTagKeys, runsData],
     );
 
-    const sortOptions = useRunSortOptions(filteredMetricKeys, filteredParamKeys);
-
-    const selectedRunsCount = Object.values(viewState.runsSelected).filter(Boolean).length;
-    const canRestoreRuns = selectedRunsCount > 0;
-    const canRenameRuns = selectedRunsCount === 1;
-    const canCompareRuns = selectedRunsCount > 1;
-    const showActionButtons = canCompareRuns || canRenameRuns || canRestoreRuns;
+    const showActionButtons = shouldShowRunsBulkActions(viewState.runsSelected, viewState.columnSelectorVisible);
 
     const showGroupBySelector = !isEvaluationMode;
 
