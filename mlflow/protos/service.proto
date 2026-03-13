@@ -5118,26 +5118,26 @@ message GatewayBudgetPolicy {
   // Fixed time window (unit + length pair)
   optional BudgetDuration duration = 4;
   // Scope of the budget (GLOBAL or WORKSPACE)
-  optional BudgetTargetScope target_scope = 6;
+  optional BudgetTargetScope target_scope = 5;
   // Action when budget is exceeded
-  optional BudgetAction budget_action = 7;
+  optional BudgetAction budget_action = 6;
   // User ID who created the policy
-  optional string created_by = 8;
+  optional string created_by = 7;
   // Creation timestamp in milliseconds
-  optional int64 created_at = 9;
+  optional int64 created_at = 8;
   // User ID who last updated the policy
-  optional string last_updated_by = 10;
+  optional string last_updated_by = 9;
   // Last update timestamp in milliseconds
-  optional int64 last_updated_at = 11;
+  optional int64 last_updated_at = 10;
 }
 
 message CreateGatewayBudgetPolicy {
   optional BudgetUnit budget_unit = 1;
   optional double budget_amount = 2;
   optional BudgetDuration duration = 3;
-  optional BudgetTargetScope target_scope = 5;
-  optional BudgetAction budget_action = 6;
-  optional string created_by = 7;
+  optional BudgetTargetScope target_scope = 4;
+  optional BudgetAction budget_action = 5;
+  optional string created_by = 6;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;
@@ -5157,9 +5157,9 @@ message UpdateGatewayBudgetPolicy {
   optional BudgetUnit budget_unit = 2;
   optional double budget_amount = 3;
   optional BudgetDuration duration = 4;
-  optional BudgetTargetScope target_scope = 6;
-  optional BudgetAction budget_action = 7;
-  optional string updated_by = 8;
+  optional BudgetTargetScope target_scope = 5;
+  optional BudgetAction budget_action = 6;
+  optional string updated_by = 7;
 
   message Response {
     optional GatewayBudgetPolicy budget_policy = 1;
