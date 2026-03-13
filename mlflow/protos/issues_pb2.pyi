@@ -7,7 +7,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class Issue(_message.Message):
-    __slots__ = ("issue_id", "experiment_id", "name", "description", "status", "severity", "root_causes", "source_run_id", "created_timestamp", "last_updated_timestamp", "created_by")
+    __slots__ = ("issue_id", "experiment_id", "name", "description", "status", "severity", "root_causes", "source_run_id", "created_timestamp", "last_updated_timestamp", "created_by", "categories")
     ISSUE_ID_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -19,6 +19,7 @@ class Issue(_message.Message):
     CREATED_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_TIMESTAMP_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    CATEGORIES_FIELD_NUMBER: _ClassVar[int]
     issue_id: str
     experiment_id: str
     name: str
@@ -30,10 +31,11 @@ class Issue(_message.Message):
     created_timestamp: int
     last_updated_timestamp: int
     created_by: str
-    def __init__(self, issue_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., status: _Optional[str] = ..., severity: _Optional[str] = ..., root_causes: _Optional[_Iterable[str]] = ..., source_run_id: _Optional[str] = ..., created_timestamp: _Optional[int] = ..., last_updated_timestamp: _Optional[int] = ..., created_by: _Optional[str] = ...) -> None: ...
+    categories: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, issue_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., status: _Optional[str] = ..., severity: _Optional[str] = ..., root_causes: _Optional[_Iterable[str]] = ..., source_run_id: _Optional[str] = ..., created_timestamp: _Optional[int] = ..., last_updated_timestamp: _Optional[int] = ..., created_by: _Optional[str] = ..., categories: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class CreateIssue(_message.Message):
-    __slots__ = ("experiment_id", "name", "description", "status", "severity", "root_causes", "source_run_id", "created_by")
+    __slots__ = ("experiment_id", "name", "description", "status", "severity", "root_causes", "source_run_id", "created_by", "categories")
     class Response(_message.Message):
         __slots__ = ("issue",)
         ISSUE_FIELD_NUMBER: _ClassVar[int]
@@ -47,6 +49,7 @@ class CreateIssue(_message.Message):
     ROOT_CAUSES_FIELD_NUMBER: _ClassVar[int]
     SOURCE_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    CATEGORIES_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
     name: str
     description: str
@@ -55,7 +58,8 @@ class CreateIssue(_message.Message):
     root_causes: _containers.RepeatedScalarFieldContainer[str]
     source_run_id: str
     created_by: str
-    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., status: _Optional[str] = ..., severity: _Optional[str] = ..., root_causes: _Optional[_Iterable[str]] = ..., source_run_id: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
+    categories: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., status: _Optional[str] = ..., severity: _Optional[str] = ..., root_causes: _Optional[_Iterable[str]] = ..., source_run_id: _Optional[str] = ..., created_by: _Optional[str] = ..., categories: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class UpdateIssue(_message.Message):
     __slots__ = ("issue_id", "name", "description", "status", "severity")

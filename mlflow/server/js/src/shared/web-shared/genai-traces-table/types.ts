@@ -149,6 +149,11 @@ export interface TraceActions {
     showEditTagsModalForTrace: (trace: ModelTraceInfoV3) => void;
     EditTagsModal: React.ReactNode;
   };
+
+  runJudgesAction?: {
+    showRunJudgesModal: (traceIds: string[]) => void;
+    RunJudgesModal: React.ReactNode;
+  };
 }
 
 // @deprecated, use TableFilter instead
@@ -265,8 +270,8 @@ export type RunEvaluationTracesDataEntry = {
   metrics: Record<string, RunEvaluationResultMetric>;
   retrievalChunks?: RunEvaluationTracesRetrievalChunk[];
 
-  // Issue names associated with this trace
-  issues?: string[];
+  // Issues associated with this trace (id and name)
+  issues?: { id: string; name: string }[];
 
   // NOTE(nsthorat): We will slowly migrate to this type.
   traceInfo?: ModelTraceInfoV3;

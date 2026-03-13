@@ -4036,6 +4036,7 @@ def _create_issue():
         "description": request_message.description,
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
+        "categories": list(request_message.categories) or None,
         "created_by": request_message.created_by or None,
     }
 

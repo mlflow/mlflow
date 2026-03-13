@@ -15,6 +15,10 @@
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
   },
+  "+2J6oE": {
+    "defaultMessage": "Medium",
+    "description": "Issue severity tag label for medium severity"
+  },
   "+33ShX": {
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
@@ -66,6 +70,10 @@
   "+WPAn1": {
     "defaultMessage": "Enter model name...",
     "description": "Placeholder for custom model input"
+  },
+  "+WaZ18": {
+    "defaultMessage": "Scanned <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> found",
+    "description": "Issue detection progress > Progress summary when completed"
   },
   "+Wd9fs": {
     "defaultMessage": "The groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
@@ -638,6 +646,10 @@
     "defaultMessage": "Output tokens",
     "description": "Label for output token usage"
   },
+  "2Im7IU": {
+    "defaultMessage": "Move to pending",
+    "description": "Button to move an issue back to pending status"
+  },
   "2JfWh3": {
     "defaultMessage": "Type prompt content here. Wrap variables with double curly brace e.g. '{{' name '}}'.",
     "description": "A placeholder for the prompt content in the prompt creation modal"
@@ -689,6 +701,10 @@
   "2a/rR8": {
     "defaultMessage": "Cancel",
     "description": "Key-value tag editor modal > Manage Tag cancel button"
+  },
+  "2cshW2": {
+    "defaultMessage": "Resolved ({count})",
+    "description": "Issue status filter > Resolved button label"
   },
   "2deqxk": {
     "defaultMessage": "We couldn't find any models matching your search criteria. Try changing your search filters.",
@@ -1116,6 +1132,10 @@
   "5yWkFd": {
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
+  },
+  "5yjgeu": {
+    "defaultMessage": "This key will be saved for reuse.",
+    "description": "Text indicating API key will be saved for reuse"
   },
   "60b0vW": {
     "defaultMessage": "Always show spans with exceptions, regardless of filter conditions",
@@ -1785,6 +1805,10 @@
     "defaultMessage": "Add chart",
     "description": "Experiment tracking > runs charts > add chart menu"
   },
+  "9w0l9N": {
+    "defaultMessage": "Reject",
+    "description": "Button to reject an issue"
+  },
   "9wWapn": {
     "defaultMessage": "Click 'Add chart' or drag and drop to add charts here.",
     "description": "Runs compare page > Charts tab > No charts placeholder description"
@@ -2013,6 +2037,10 @@
     "defaultMessage": "{isTraces, select, true {Trace} other {Session}} {index} of {total}",
     "description": "Index of the current trace and total number of traces"
   },
+  "BDnRzZ": {
+    "defaultMessage": "Total cost: {cost}",
+    "description": "Issue detection progress > Total cost in USD"
+  },
   "BEFBcB": {
     "defaultMessage": "We support multiple experiment types, each with its own set of features. Please select the type you'd like to use. You can change this later if needed.",
     "description": "Popover message displayed when the experiment type could not not inferred"
@@ -2049,6 +2077,10 @@
     "defaultMessage": "Response",
     "description": "Column label for response"
   },
+  "BWH8UR": {
+    "defaultMessage": "API key name:",
+    "description": "Label for API key name input"
+  },
   "BWpQZ7": {
     "defaultMessage": "You have <strong>{unsyncedDataEntriesCount}</strong> unsaved evaluated {unsyncedDataEntriesCount, plural, =1 {value} other {values}}. Click \"Save\" button or press {keyCombination} keys to synchronize the artifact data.",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > pending changes indicator"
@@ -2071,6 +2103,10 @@
   "Bbm59f": {
     "defaultMessage": "100",
     "description": "Label for 100 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "Bceyd0": {
+    "defaultMessage": "Issue detection summary",
+    "description": "Issue detection summary > Title"
   },
   "Bcr4hl": {
     "defaultMessage": "Fetching traces failed",
@@ -2283,6 +2319,10 @@
   "CpUD2P": {
     "defaultMessage": "Select traces",
     "description": "Button to open trace selection modal"
+  },
+  "Cq6NMs": {
+    "defaultMessage": "Issue detection failed",
+    "description": "Issue detection progress > Step label when failed"
   },
   "CruI7o": {
     "defaultMessage": "Latest version",
@@ -2572,6 +2612,10 @@
     "defaultMessage": "Table view",
     "description": "Label for the table view toggle button in the logged model list page"
   },
+  "FA9oSo": {
+    "defaultMessage": "Judge is running…",
+    "description": "Tooltip shown in assessment cell while a judge is executing on this trace"
+  },
   "FAfPOl": {
     "defaultMessage": "Stop Sequences",
     "description": "Experiment page > prompt lab > stop parameter label"
@@ -2675,6 +2719,10 @@
   "FpjDSq": {
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
+  },
+  "Ft2NsS": {
+    "defaultMessage": "High",
+    "description": "Issue severity tag label for high severity"
   },
   "FxQYyX": {
     "defaultMessage": "Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems.",
@@ -3214,6 +3262,10 @@
     "defaultMessage": "Authentication method",
     "description": "Label for auth mode selector"
   },
+  "JxakWy": {
+    "defaultMessage": "Judge \"{label}\" failed: {error}",
+    "description": "Banner message shown when a judge run fails"
+  },
   "Jxhb2w": {
     "defaultMessage": "We've automatically detected the experiment type to be ''{kindLabel}''. {isEditable, select, true {You can either confirm or change the type.} other {}}",
     "description": "Popover message for inferred experiment kind"
@@ -3618,6 +3670,10 @@
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
   },
+  "MjypBt": {
+    "defaultMessage": "Pending ({count})",
+    "description": "Issue status filter > Pending button label"
+  },
   "Mn7Kss": {
     "defaultMessage": "OK",
     "description": "Experiment page > traces table > status label > ok"
@@ -4009,6 +4065,10 @@
     "defaultMessage": "Experiments",
     "description": "Issue detection run details > Breadcrumb > Experiments"
   },
+  "PJNUxu": {
+    "defaultMessage": "Run judges",
+    "description": "Run judges on selected traces action"
+  },
   "PKYh23": {
     "defaultMessage": "Additional runs",
     "description": "Experiment page > grouped runs table > label for group with additional, ungrouped runs"
@@ -4072,6 +4132,10 @@
     "defaultMessage": "Track every version of your model to understand how quality changes over time. {learnMoreLink}",
     "description": "Empty state description displayed when no models are logged in the machine learning logged models list page"
   },
+  "PdoaF7": {
+    "defaultMessage": "Model",
+    "description": "Run page > Overview > Model used for issue detection"
+  },
   "PewjIJ": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments focused on generative AI model development"
@@ -4111,6 +4175,10 @@
   "Q0i5xG": {
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
+  },
+  "Q0tqO9": {
+    "defaultMessage": "Not an issue",
+    "description": "Issue severity tag label for not an issue"
   },
   "Q5CR/y": {
     "defaultMessage": "Create a new key if a different name is needed.",
@@ -4203,6 +4271,10 @@
   "QcEYpD": {
     "defaultMessage": "Add to evaluation dataset",
     "description": "Add traces to evaluation dataset action"
+  },
+  "QevoXx": {
+    "defaultMessage": "Error details",
+    "description": "Issue detection error details > Title"
   },
   "Qg12xQ": {
     "defaultMessage": "Register prompts",
@@ -4476,10 +4548,6 @@
     "defaultMessage": "Create LLM judge",
     "description": "Title for new LLM judge modal"
   },
-  "SZj964": {
-    "defaultMessage": "Copy S3 URI to clipboard",
-    "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
-  },
   "Sb+wLa": {
     "defaultMessage": "Model configuration stores the LLM settings associated with this prompt.",
     "description": "Help text explaining model configuration purpose"
@@ -4527,6 +4595,10 @@
   "SrXYrV": {
     "defaultMessage": "Previewing the first {numRows} rows",
     "description": "Title for showing the number of rows in the parsed data preview"
+  },
+  "SrjuS9": {
+    "defaultMessage": "Resolve",
+    "description": "Button to resolve an issue"
   },
   "SuVsDp": {
     "defaultMessage": "Custom code judge feedback",
@@ -4607,6 +4679,10 @@
   "TSXmaB": {
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"
+  },
+  "TTsPbw": {
+    "defaultMessage": "Open dataset",
+    "description": "Text for the button that navigates to the datasets tab in the experiment run dataset drawer"
   },
   "TWnsnV": {
     "defaultMessage": "Run Name",
@@ -5015,9 +5091,9 @@
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
   },
-  "Vvn8Cb": {
-    "defaultMessage": "Open dataset",
-    "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
+  "Vvs+79": {
+    "defaultMessage": "Low",
+    "description": "Issue severity tag label for low severity"
   },
   "VwxvII": {
     "defaultMessage": "forecasting",
@@ -5179,6 +5255,10 @@
     "defaultMessage": "Error",
     "description": "Title for error fallback component in experiment datasets UI"
   },
+  "Wum+Hu": {
+    "defaultMessage": "<link>Learn more about budget time windows.</link>",
+    "description": "Tooltip with link to budget time windows documentation"
+  },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
@@ -5321,6 +5401,10 @@
   "Y++w0Q": {
     "defaultMessage": "Tag key may only contain alphanumeric characters, underscores (_), dashes (-), periods (.), spaces ( ), colons (:) and slashes (/). Key must not start with '/'.",
     "description": "Add new key-value tag modal > Invalid characters or path error"
+  },
+  "Y+bHa1": {
+    "defaultMessage": "Scanning <tracesLink>{totalTraces} traces</tracesLink>, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
+    "description": "Issue detection progress > Progress summary while running"
   },
   "Y1eg9D": {
     "defaultMessage": "In progress",
@@ -5533,6 +5617,10 @@
   "ZO8PZt": {
     "defaultMessage": "{count, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Time duration in minutes"
+  },
+  "ZOV936": {
+    "defaultMessage": "Resolved",
+    "description": "Issue status tag label for resolved issues"
   },
   "ZOsiNc": {
     "defaultMessage": "just now",
@@ -5989,10 +6077,6 @@
     "defaultMessage": "Compare by",
     "description": "Runs charts > components > charts > DifferenceViewPlot > Compare by column heading"
   },
-  "c8EovS": {
-    "defaultMessage": "Save this key for reuse",
-    "description": "Checkbox to save API key for reuse"
-  },
   "cAKSkQ": {
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > table view > preview sidebar > nothing selected"
@@ -6012,6 +6096,10 @@
   "cBSSLp": {
     "defaultMessage": "String",
     "description": "String select menu option for assessment data type"
+  },
+  "cBlZb0": {
+    "defaultMessage": "Status",
+    "description": "Column header for run status in the evaluation runs table"
   },
   "cEj56l": {
     "defaultMessage": "Step",
@@ -6152,6 +6240,10 @@
   "d1Ou4x": {
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
+  },
+  "d34yzQ": {
+    "defaultMessage": "Rejected",
+    "description": "Issue status tag label for rejected issues"
   },
   "d44IPd": {
     "defaultMessage": "Reopen review",
@@ -6561,6 +6653,10 @@
     "defaultMessage": "Rename",
     "description": "Menu item to rename an experiment run"
   },
+  "fvkoBt": {
+    "defaultMessage": "Running judge \"{label}\"…",
+    "description": "Banner message shown while a judge is running on selected traces"
+  },
   "fwp4JP": {
     "defaultMessage": "Datasets used",
     "description": "Run page > Overview > Run datasets section label"
@@ -6732,6 +6828,10 @@
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
   },
+  "gt4t2m": {
+    "defaultMessage": "Issue detection completed",
+    "description": "Issue detection progress > Step label when completed"
+  },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
@@ -6827,6 +6927,10 @@
   "hYrjzD": {
     "defaultMessage": "Create",
     "description": "Confirm button text for create workspace modal"
+  },
+  "hZFbZl": {
+    "defaultMessage": "Issue detection canceled",
+    "description": "Issue detection progress > Step label when canceled"
   },
   "hcDB9U": {
     "defaultMessage": "+∞",
@@ -7211,6 +7315,10 @@
   "k4F8aJ": {
     "defaultMessage": "Copy issue ID",
     "description": "Tooltip to copy issue ID"
+  },
+  "k5kAB3": {
+    "defaultMessage": "Rejected ({count})",
+    "description": "Issue status filter > Rejected button label"
   },
   "k7itje": {
     "defaultMessage": "Create webhook",
@@ -8059,10 +8167,6 @@
     "defaultMessage": "Add",
     "description": "Model registry > model version table > aliases column > 'add' button label"
   },
-  "pU7S10": {
-    "defaultMessage": "{scannedTraces} of <tracesLink>{totalTraces} traces</tracesLink> scanned, <issuesLink>{identifiedIssues} issues</issuesLink> identified so far",
-    "description": "Issue detection progress > Progress summary"
-  },
   "pVF+2s": {
     "defaultMessage": "Show less",
     "description": "Label for a link that shows less tags when clicked"
@@ -8603,6 +8707,10 @@
     "defaultMessage": "Start Demo",
     "description": "Demo banner launch button"
   },
+  "svzyNI": {
+    "defaultMessage": "Judge \"{label}\" completed successfully.",
+    "description": "Banner message shown when a judge run completes successfully"
+  },
   "sxlGRc": {
     "defaultMessage": "Inputs ({numInputs})",
     "description": "Input section header for schema table in model version page"
@@ -8715,10 +8823,6 @@
     "defaultMessage": "my-api-key",
     "description": "Placeholder for API key name input"
   },
-  "tbAlJg": {
-    "defaultMessage": "Go to external location",
-    "description": "Text for the external location link in the experiment run dataset drawer"
-  },
   "tdmVWN": {
     "defaultMessage": "While deleting an experiment run, an error occurred.",
     "description": "Experiment tracking > delete run modal > error message"
@@ -8791,6 +8895,10 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt template input label"
   },
+  "uGgedl": {
+    "defaultMessage": "Copy S3 URI to clipboard",
+    "description": "Text for the S3 URI copy button in the experiment run dataset drawer"
+  },
   "uHzRht": {
     "defaultMessage": "Total aggregate scores",
     "description": "Label for assessment score distribution chart"
@@ -8834,6 +8942,10 @@
   "ubeHow": {
     "defaultMessage": "Input",
     "description": "Column header for the input in the runs table on the logged model details page"
+  },
+  "ue/dsm": {
+    "defaultMessage": "Pending",
+    "description": "Issue status tag label for pending issues"
   },
   "ufamzi": {
     "defaultMessage": "Comparing {runs} MLflow Runs",
@@ -9295,6 +9407,10 @@
     "defaultMessage": "Copied to clipboard",
     "description": "Success message for the notification"
   },
+  "xhAFcl": {
+    "defaultMessage": "Failed to cancel job: {error}",
+    "description": "Error message when job cancellation fails"
+  },
   "xiFkTH": {
     "defaultMessage": "Use for evaluation",
     "description": "Trace actions dropdown group label"
@@ -9538,6 +9654,10 @@
     "defaultMessage": "Learn more.",
     "description": "Link text for learning more about expectations"
   },
+  "zOe0KV": {
+    "defaultMessage": "Run judge on {count} traces",
+    "description": "Title for run judge modal when running on multiple traces"
+  },
   "zRKlAL": {
     "defaultMessage": "Metadata",
     "description": "Label for the metadata section"
@@ -9561,6 +9681,10 @@
   "zZCBR9": {
     "defaultMessage": "Metrics",
     "description": "Header for metric columns in the evaluation runs table column configuration"
+  },
+  "zZlPwp": {
+    "defaultMessage": "Categories",
+    "description": "Run page > Overview > Issue categories being detected"
   },
   "zcnCPF": {
     "defaultMessage": "Issues",

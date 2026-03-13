@@ -3704,6 +3704,7 @@ def test_create_issue():
             "severity": "high",
             "root_causes": ["cause1", "cause2"],
             "source_run_id": "run-789",
+            "categories": ["hallucination", "tool_error"],
             "created_timestamp": 1234567890000,
             "last_updated_timestamp": 1234567890000,
             "created_by": "test_user",
@@ -3719,6 +3720,7 @@ def test_create_issue():
             severity=IssueSeverity.HIGH,
             root_causes=["cause1", "cause2"],
             source_run_id="run-789",
+            categories=["hallucination", "tool_error"],
             created_by="test_user",
         )
 
@@ -3730,6 +3732,7 @@ def test_create_issue():
         "severity": "high",
         "root_causes": ["cause1", "cause2"],
         "source_run_id": "run-789",
+        "categories": ["hallucination", "tool_error"],
         "created_by": "test_user",
     })
     _verify_requests(mock_http, creds, "issues", "POST", expected_request_json, use_v3=True)
@@ -3743,6 +3746,7 @@ def test_create_issue():
     assert issue.severity == IssueSeverity.HIGH
     assert issue.root_causes == ["cause1", "cause2"]
     assert issue.source_run_id == "run-789"
+    assert issue.categories == ["hallucination", "tool_error"]
     assert issue.created_by == "test_user"
 
 
@@ -3757,7 +3761,7 @@ def test_get_issue():
             "experiment_id": "exp-456",
             "name": "Test Issue",
             "description": "Test description",
-            "status": "accepted",
+            "status": "resolved",
             "severity": "medium",
             "root_causes": ["cause1"],
             "source_run_id": "run-789",
@@ -3780,7 +3784,7 @@ def test_get_issue():
     assert issue.issue_id == "issue-123"
     assert issue.experiment_id == "exp-456"
     assert issue.name == "Test Issue"
-    assert issue.status == IssueStatus.ACCEPTED
+    assert issue.status == IssueStatus.RESOLVED
     assert issue.severity == IssueSeverity.MEDIUM
 
 
@@ -3860,7 +3864,7 @@ def test_search_issues():
                 "experiment_id": "exp-456",
                 "name": "Issue 2",
                 "description": "Description 2",
-                "status": "accepted",
+                "status": "resolved",
                 "severity": "medium",
                 "root_causes": ["cause"],
                 "source_run_id": "run-123",
@@ -3898,7 +3902,7 @@ def test_search_issues():
     assert isinstance(result[1], Issue)
     assert result[1].issue_id == "issue-124"
     assert result[1].name == "Issue 2"
-    assert result[1].status == IssueStatus.ACCEPTED
+    assert result[1].status == IssueStatus.RESOLVED
     assert result[1].severity == IssueSeverity.MEDIUM
 
     assert result.token == "next_token_456"

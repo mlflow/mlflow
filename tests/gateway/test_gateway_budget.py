@@ -16,7 +16,7 @@ from mlflow.entities.gateway_budget_policy import (
 from mlflow.gateway.budget_tracker import get_budget_tracker
 from mlflow.gateway.tracing_utils import maybe_traced_gateway_call
 from mlflow.server.gateway_budget import (
-    calculate_existing_cost_for_new_windows,
+    calculate_existing_cost_for_windows,
     check_budget_limit,
     fire_budget_exceeded_webhooks,
     make_budget_on_complete,
@@ -283,7 +283,7 @@ def test_maybe_refresh_skips_when_not_needed():
     store.list_budget_policies.assert_not_called()
 
 
-# --- calculate_existing_cost_for_new_windows tests ---
+# --- calculate_existing_cost_for_windows tests ---
 
 
 def test_calculate_existing_cost_on_new_windows():
@@ -293,7 +293,7 @@ def test_calculate_existing_cost_on_new_windows():
     store = MagicMock()
     store.sum_gateway_trace_cost.return_value = 42.0
 
-    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    existing_spend = calculate_existing_cost_for_windows(store, new_windows)
     tracker.backfill_spend(existing_spend)
 
     store.sum_gateway_trace_cost.assert_called_once()
@@ -302,7 +302,7 @@ def test_calculate_existing_cost_on_new_windows():
 
 def test_calculate_existing_cost_skipped_when_no_new_windows():
     store = MagicMock()
-    result = calculate_existing_cost_for_new_windows(store, [])
+    result = calculate_existing_cost_for_windows(store, [])
     assert result == {}
     store.sum_gateway_trace_cost.assert_not_called()
 
@@ -314,7 +314,7 @@ def test_calculate_existing_cost_handles_store_error():
     store = MagicMock()
     store.sum_gateway_trace_cost.side_effect = Exception("DB error")
 
-    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    existing_spend = calculate_existing_cost_for_windows(store, new_windows)
     tracker.backfill_spend(existing_spend)
 
     assert tracker._get_window_info("bp-test").cumulative_spend == 0.0
@@ -327,7 +327,7 @@ def test_calculate_existing_cost_zero_spend_excluded():
     store = MagicMock()
     store.sum_gateway_trace_cost.return_value = 0.0
 
-    existing_spend = calculate_existing_cost_for_new_windows(store, new_windows)
+    existing_spend = calculate_existing_cost_for_windows(store, new_windows)
     assert existing_spend == {}
 
     tracker.backfill_spend(existing_spend)

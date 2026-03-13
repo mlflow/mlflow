@@ -328,6 +328,47 @@ public final class Issues {
      */
     com.google.protobuf.ByteString
         getCreatedByBytes();
+
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 12;</code>
+     * @return A list containing the categories.
+     */
+    java.util.List<java.lang.String>
+        getCategoriesList();
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 12;</code>
+     * @return The count of categories.
+     */
+    int getCategoriesCount();
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 12;</code>
+     * @param index The index of the element to return.
+     * @return The categories at the given index.
+     */
+    java.lang.String getCategories(int index);
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 12;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the categories at the given index.
+     */
+    com.google.protobuf.ByteString
+        getCategoriesBytes(int index);
   }
   /**
    * <pre>
@@ -355,6 +396,7 @@ public final class Issues {
       rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       sourceRunId_ = "";
       createdBy_ = "";
+      categories_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
@@ -455,6 +497,15 @@ public final class Issues {
               createdBy_ = bs;
               break;
             }
+            case 98: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000800) != 0)) {
+                categories_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000800;
+              }
+              categories_.add(bs);
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -472,6 +523,9 @@ public final class Issues {
       } finally {
         if (((mutable_bitField0_ & 0x00000040) != 0)) {
           rootCauses_ = rootCauses_.getUnmodifiableView();
+        }
+        if (((mutable_bitField0_ & 0x00000800) != 0)) {
+          categories_ = categories_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -1076,6 +1130,57 @@ public final class Issues {
       }
     }
 
+    public static final int CATEGORIES_FIELD_NUMBER = 12;
+    private com.google.protobuf.LazyStringList categories_;
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 12;</code>
+     * @return A list containing the categories.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getCategoriesList() {
+      return categories_;
+    }
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 12;</code>
+     * @return The count of categories.
+     */
+    public int getCategoriesCount() {
+      return categories_.size();
+    }
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 12;</code>
+     * @param index The index of the element to return.
+     * @return The categories at the given index.
+     */
+    public java.lang.String getCategories(int index) {
+      return categories_.get(index);
+    }
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 12;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the categories at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getCategoriesBytes(int index) {
+      return categories_.getByteString(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -1122,6 +1227,9 @@ public final class Issues {
       }
       if (((bitField0_ & 0x00000200) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 11, createdBy_);
+      }
+      for (int i = 0; i < categories_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 12, categories_.getRaw(i));
       }
       unknownFields.writeTo(output);
     }
@@ -1171,6 +1279,14 @@ public final class Issues {
       }
       if (((bitField0_ & 0x00000200) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(11, createdBy_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < categories_.size(); i++) {
+          dataSize += computeStringSizeNoTag(categories_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getCategoriesList().size();
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -1239,6 +1355,8 @@ public final class Issues {
         if (!getCreatedBy()
             .equals(other.getCreatedBy())) return false;
       }
+      if (!getCategoriesList()
+          .equals(other.getCategoriesList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -1295,6 +1413,10 @@ public final class Issues {
       if (hasCreatedBy()) {
         hash = (37 * hash) + CREATED_BY_FIELD_NUMBER;
         hash = (53 * hash) + getCreatedBy().hashCode();
+      }
+      if (getCategoriesCount() > 0) {
+        hash = (37 * hash) + CATEGORIES_FIELD_NUMBER;
+        hash = (53 * hash) + getCategoriesList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -1455,6 +1577,8 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000200);
         createdBy_ = "";
         bitField0_ = (bitField0_ & ~0x00000400);
+        categories_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000800);
         return this;
       }
 
@@ -1528,6 +1652,11 @@ public final class Issues {
           to_bitField0_ |= 0x00000200;
         }
         result.createdBy_ = createdBy_;
+        if (((bitField0_ & 0x00000800) != 0)) {
+          categories_ = categories_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000800);
+        }
+        result.categories_ = categories_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -1631,6 +1760,16 @@ public final class Issues {
         if (other.hasCreatedBy()) {
           bitField0_ |= 0x00000400;
           createdBy_ = other.createdBy_;
+          onChanged();
+        }
+        if (!other.categories_.isEmpty()) {
+          if (categories_.isEmpty()) {
+            categories_ = other.categories_;
+            bitField0_ = (bitField0_ & ~0x00000800);
+          } else {
+            ensureCategoriesIsMutable();
+            categories_.addAll(other.categories_);
+          }
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -2781,6 +2920,151 @@ public final class Issues {
         onChanged();
         return this;
       }
+
+      private com.google.protobuf.LazyStringList categories_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureCategoriesIsMutable() {
+        if (!((bitField0_ & 0x00000800) != 0)) {
+          categories_ = new com.google.protobuf.LazyStringArrayList(categories_);
+          bitField0_ |= 0x00000800;
+         }
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 12;</code>
+       * @return A list containing the categories.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getCategoriesList() {
+        return categories_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 12;</code>
+       * @return The count of categories.
+       */
+      public int getCategoriesCount() {
+        return categories_.size();
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 12;</code>
+       * @param index The index of the element to return.
+       * @return The categories at the given index.
+       */
+      public java.lang.String getCategories(int index) {
+        return categories_.get(index);
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 12;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the categories at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getCategoriesBytes(int index) {
+        return categories_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 12;</code>
+       * @param index The index to set the value at.
+       * @param value The categories to set.
+       * @return This builder for chaining.
+       */
+      public Builder setCategories(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureCategoriesIsMutable();
+        categories_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 12;</code>
+       * @param value The categories to add.
+       * @return This builder for chaining.
+       */
+      public Builder addCategories(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureCategoriesIsMutable();
+        categories_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 12;</code>
+       * @param values The categories to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllCategories(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureCategoriesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, categories_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 12;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearCategories() {
+        categories_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000800);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 12;</code>
+       * @param value The bytes of the categories to add.
+       * @return This builder for chaining.
+       */
+      public Builder addCategoriesBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureCategoriesIsMutable();
+        categories_.add(value);
+        onChanged();
+        return this;
+      }
       @java.lang.Override
       public final Builder setUnknownFields(
           final com.google.protobuf.UnknownFieldSet unknownFields) {
@@ -3081,6 +3365,47 @@ public final class Issues {
      */
     com.google.protobuf.ByteString
         getCreatedByBytes();
+
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 9;</code>
+     * @return A list containing the categories.
+     */
+    java.util.List<java.lang.String>
+        getCategoriesList();
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 9;</code>
+     * @return The count of categories.
+     */
+    int getCategoriesCount();
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 9;</code>
+     * @param index The index of the element to return.
+     * @return The categories at the given index.
+     */
+    java.lang.String getCategories(int index);
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 9;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the categories at the given index.
+     */
+    com.google.protobuf.ByteString
+        getCategoriesBytes(int index);
   }
   /**
    * <pre>
@@ -3107,6 +3432,7 @@ public final class Issues {
       rootCauses_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       sourceRunId_ = "";
       createdBy_ = "";
+      categories_ = com.google.protobuf.LazyStringArrayList.EMPTY;
     }
 
     @java.lang.Override
@@ -3191,6 +3517,15 @@ public final class Issues {
               createdBy_ = bs;
               break;
             }
+            case 74: {
+              com.google.protobuf.ByteString bs = input.readBytes();
+              if (!((mutable_bitField0_ & 0x00000100) != 0)) {
+                categories_ = new com.google.protobuf.LazyStringArrayList();
+                mutable_bitField0_ |= 0x00000100;
+              }
+              categories_.add(bs);
+              break;
+            }
             default: {
               if (!parseUnknownField(
                   input, unknownFields, extensionRegistry, tag)) {
@@ -3208,6 +3543,9 @@ public final class Issues {
       } finally {
         if (((mutable_bitField0_ & 0x00000020) != 0)) {
           rootCauses_ = rootCauses_.getUnmodifiableView();
+        }
+        if (((mutable_bitField0_ & 0x00000100) != 0)) {
+          categories_ = categories_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -4390,6 +4728,57 @@ public final class Issues {
       }
     }
 
+    public static final int CATEGORIES_FIELD_NUMBER = 9;
+    private com.google.protobuf.LazyStringList categories_;
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 9;</code>
+     * @return A list containing the categories.
+     */
+    public com.google.protobuf.ProtocolStringList
+        getCategoriesList() {
+      return categories_;
+    }
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 9;</code>
+     * @return The count of categories.
+     */
+    public int getCategoriesCount() {
+      return categories_.size();
+    }
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 9;</code>
+     * @param index The index of the element to return.
+     * @return The categories at the given index.
+     */
+    public java.lang.String getCategories(int index) {
+      return categories_.get(index);
+    }
+    /**
+     * <pre>
+     * Categories of the issue.
+     * </pre>
+     *
+     * <code>repeated string categories = 9;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the categories at the given index.
+     */
+    public com.google.protobuf.ByteString
+        getCategoriesBytes(int index) {
+      return categories_.getByteString(index);
+    }
+
     private byte memoizedIsInitialized = -1;
     @java.lang.Override
     public final boolean isInitialized() {
@@ -4428,6 +4817,9 @@ public final class Issues {
       if (((bitField0_ & 0x00000040) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 8, createdBy_);
       }
+      for (int i = 0; i < categories_.size(); i++) {
+        com.google.protobuf.GeneratedMessageV3.writeString(output, 9, categories_.getRaw(i));
+      }
       unknownFields.writeTo(output);
     }
 
@@ -4465,6 +4857,14 @@ public final class Issues {
       }
       if (((bitField0_ & 0x00000040) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(8, createdBy_);
+      }
+      {
+        int dataSize = 0;
+        for (int i = 0; i < categories_.size(); i++) {
+          dataSize += computeStringSizeNoTag(categories_.getRaw(i));
+        }
+        size += dataSize;
+        size += 1 * getCategoriesList().size();
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -4518,6 +4918,8 @@ public final class Issues {
         if (!getCreatedBy()
             .equals(other.getCreatedBy())) return false;
       }
+      if (!getCategoriesList()
+          .equals(other.getCategoriesList())) return false;
       if (!unknownFields.equals(other.unknownFields)) return false;
       return true;
     }
@@ -4560,6 +4962,10 @@ public final class Issues {
       if (hasCreatedBy()) {
         hash = (37 * hash) + CREATED_BY_FIELD_NUMBER;
         hash = (53 * hash) + getCreatedBy().hashCode();
+      }
+      if (getCategoriesCount() > 0) {
+        hash = (37 * hash) + CATEGORIES_FIELD_NUMBER;
+        hash = (53 * hash) + getCategoriesList().hashCode();
       }
       hash = (29 * hash) + unknownFields.hashCode();
       memoizedHashCode = hash;
@@ -4714,6 +5120,8 @@ public final class Issues {
         bitField0_ = (bitField0_ & ~0x00000040);
         createdBy_ = "";
         bitField0_ = (bitField0_ & ~0x00000080);
+        categories_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000100);
         return this;
       }
 
@@ -4775,6 +5183,11 @@ public final class Issues {
           to_bitField0_ |= 0x00000040;
         }
         result.createdBy_ = createdBy_;
+        if (((bitField0_ & 0x00000100) != 0)) {
+          categories_ = categories_.getUnmodifiableView();
+          bitField0_ = (bitField0_ & ~0x00000100);
+        }
+        result.categories_ = categories_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -4867,6 +5280,16 @@ public final class Issues {
         if (other.hasCreatedBy()) {
           bitField0_ |= 0x00000080;
           createdBy_ = other.createdBy_;
+          onChanged();
+        }
+        if (!other.categories_.isEmpty()) {
+          if (categories_.isEmpty()) {
+            categories_ = other.categories_;
+            bitField0_ = (bitField0_ & ~0x00000100);
+          } else {
+            ensureCategoriesIsMutable();
+            categories_.addAll(other.categories_);
+          }
           onChanged();
         }
         this.mergeUnknownFields(other.unknownFields);
@@ -5796,6 +6219,151 @@ public final class Issues {
   }
   bitField0_ |= 0x00000080;
         createdBy_ = value;
+        onChanged();
+        return this;
+      }
+
+      private com.google.protobuf.LazyStringList categories_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private void ensureCategoriesIsMutable() {
+        if (!((bitField0_ & 0x00000100) != 0)) {
+          categories_ = new com.google.protobuf.LazyStringArrayList(categories_);
+          bitField0_ |= 0x00000100;
+         }
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 9;</code>
+       * @return A list containing the categories.
+       */
+      public com.google.protobuf.ProtocolStringList
+          getCategoriesList() {
+        return categories_.getUnmodifiableView();
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 9;</code>
+       * @return The count of categories.
+       */
+      public int getCategoriesCount() {
+        return categories_.size();
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 9;</code>
+       * @param index The index of the element to return.
+       * @return The categories at the given index.
+       */
+      public java.lang.String getCategories(int index) {
+        return categories_.get(index);
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 9;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the categories at the given index.
+       */
+      public com.google.protobuf.ByteString
+          getCategoriesBytes(int index) {
+        return categories_.getByteString(index);
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 9;</code>
+       * @param index The index to set the value at.
+       * @param value The categories to set.
+       * @return This builder for chaining.
+       */
+      public Builder setCategories(
+          int index, java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureCategoriesIsMutable();
+        categories_.set(index, value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 9;</code>
+       * @param value The categories to add.
+       * @return This builder for chaining.
+       */
+      public Builder addCategories(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureCategoriesIsMutable();
+        categories_.add(value);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 9;</code>
+       * @param values The categories to add.
+       * @return This builder for chaining.
+       */
+      public Builder addAllCategories(
+          java.lang.Iterable<java.lang.String> values) {
+        ensureCategoriesIsMutable();
+        com.google.protobuf.AbstractMessageLite.Builder.addAll(
+            values, categories_);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 9;</code>
+       * @return This builder for chaining.
+       */
+      public Builder clearCategories() {
+        categories_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        bitField0_ = (bitField0_ & ~0x00000100);
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       * Categories of the issue.
+       * </pre>
+       *
+       * <code>repeated string categories = 9;</code>
+       * @param value The bytes of the categories to add.
+       * @return This builder for chaining.
+       */
+      public Builder addCategoriesBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  ensureCategoriesIsMutable();
+        categories_.add(value);
         onChanged();
         return this;
       }
@@ -11926,17 +12494,18 @@ public final class Issues {
   static {
     java.lang.String[] descriptorData = {
       "\n\014issues.proto\022\rmlflow.issues\032\020databrick" +
-      "s.proto\"\360\001\n\005Issue\022\020\n\010issue_id\030\001 \001(\t\022\025\n\re" +
+      "s.proto\"\204\002\n\005Issue\022\020\n\010issue_id\030\001 \001(\t\022\025\n\re" +
       "xperiment_id\030\002 \001(\t\022\014\n\004name\030\003 \001(\t\022\023\n\013desc" +
       "ription\030\004 \001(\t\022\016\n\006status\030\005 \001(\t\022\020\n\010severit" +
       "y\030\006 \001(\t\022\023\n\013root_causes\030\007 \003(\t\022\025\n\rsource_r" +
       "un_id\030\010 \001(\t\022\031\n\021created_timestamp\030\t \001(\003\022\036" +
       "\n\026last_updated_timestamp\030\n \001(\003\022\022\n\ncreate" +
-      "d_by\030\013 \001(\t\"\354\001\n\013CreateIssue\022\033\n\rexperiment" +
-      "_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004name\030\002 \001(\tB\004\370\206\031\001\022\031\n\013d" +
-      "escription\030\003 \001(\tB\004\370\206\031\001\022\016\n\006status\030\004 \001(\t\022\020" +
-      "\n\010severity\030\005 \001(\t\022\023\n\013root_causes\030\006 \003(\t\022\025\n" +
-      "\rsource_run_id\030\007 \001(\t\022\022\n\ncreated_by\030\010 \001(\t" +
+      "d_by\030\013 \001(\t\022\022\n\ncategories\030\014 \003(\t\"\200\002\n\013Creat" +
+      "eIssue\022\033\n\rexperiment_id\030\001 \001(\tB\004\370\206\031\001\022\022\n\004n" +
+      "ame\030\002 \001(\tB\004\370\206\031\001\022\031\n\013description\030\003 \001(\tB\004\370\206" +
+      "\031\001\022\016\n\006status\030\004 \001(\t\022\020\n\010severity\030\005 \001(\t\022\023\n\013" +
+      "root_causes\030\006 \003(\t\022\025\n\rsource_run_id\030\007 \001(\t" +
+      "\022\022\n\ncreated_by\030\010 \001(\t\022\022\n\ncategories\030\t \003(\t" +
       "\032/\n\010Response\022#\n\005issue\030\001 \001(\0132\024.mlflow.iss" +
       "ues.Issue\"\233\001\n\013UpdateIssue\022\026\n\010issue_id\030\001 " +
       "\001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\023\n\013description\030\003" +
@@ -11961,13 +12530,13 @@ public final class Issues {
     internal_static_mlflow_issues_Issue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_Issue_descriptor,
-        new java.lang.String[] { "IssueId", "ExperimentId", "Name", "Description", "Status", "Severity", "RootCauses", "SourceRunId", "CreatedTimestamp", "LastUpdatedTimestamp", "CreatedBy", });
+        new java.lang.String[] { "IssueId", "ExperimentId", "Name", "Description", "Status", "Severity", "RootCauses", "SourceRunId", "CreatedTimestamp", "LastUpdatedTimestamp", "CreatedBy", "Categories", });
     internal_static_mlflow_issues_CreateIssue_descriptor =
       getDescriptor().getMessageTypes().get(1);
     internal_static_mlflow_issues_CreateIssue_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_issues_CreateIssue_descriptor,
-        new java.lang.String[] { "ExperimentId", "Name", "Description", "Status", "Severity", "RootCauses", "SourceRunId", "CreatedBy", });
+        new java.lang.String[] { "ExperimentId", "Name", "Description", "Status", "Severity", "RootCauses", "SourceRunId", "CreatedBy", "Categories", });
     internal_static_mlflow_issues_CreateIssue_Response_descriptor =
       internal_static_mlflow_issues_CreateIssue_descriptor.getNestedTypes().get(0);
     internal_static_mlflow_issues_CreateIssue_Response_fieldAccessorTable = new

@@ -83,6 +83,37 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'category',
+              label: 'View & Manage Traces',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/dashboard',
+                  label: 'Dashboard (Overview)',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/ui',
+                  label: 'View Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/search-traces',
+                  label: 'Search Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/delete-traces',
+                  label: 'Delete Traces',
+                },
+                {
+                  type: 'doc',
+                  id: 'tracing/observe-with-traces/multimodal',
+                  label: 'Multimodal Content',
+                },
+              ],
+            },
+            {
+              type: 'category',
               label: 'Enhance Your Traces',
               items: [
                 {
@@ -114,32 +145,6 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'tracing/track-environments-context/index',
                   label: 'Track Application Versions',
-                },
-              ],
-            },
-            {
-              type: 'category',
-              label: 'View & Manage Traces',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'tracing/observe-with-traces/ui',
-                  label: 'View Traces in the UI',
-                },
-                {
-                  type: 'doc',
-                  id: 'tracing/observe-with-traces/multimodal',
-                  label: 'Multimodal Content',
-                },
-                {
-                  type: 'doc',
-                  id: 'tracing/search-traces',
-                  label: 'Search Traces',
-                },
-                {
-                  type: 'doc',
-                  id: 'tracing/observe-with-traces/delete-traces',
-                  label: 'Delete Traces',
                 },
               ],
             },

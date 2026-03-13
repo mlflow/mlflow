@@ -5947,6 +5947,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
+        categories: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
         """
@@ -5960,6 +5961,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
 
         Returns:
@@ -5975,8 +5977,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Get current timestamp
             current_time = get_current_time_millis()
 
-            # Serialize root_causes to JSON
+            # Serialize root_causes and categories to JSON
             root_causes_json = json.dumps(root_causes) if root_causes else None
+            categories_json = json.dumps(categories) if categories else None
 
             # Create SqlIssue record
             sql_issue = SqlIssue(
@@ -5988,6 +5991,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 severity=severity.value if severity else None,
                 root_causes=root_causes_json,
                 source_run_id=source_run_id,
+                categories=categories_json,
                 created_timestamp=current_time,
                 last_updated_timestamp=current_time,
                 created_by=created_by,
@@ -6085,9 +6089,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 Supported filters: status, source_run_id
                 Supported comparators: =, !=
                 Examples:
-                    - "status = 'accepted'"
+                    - "status = 'resolved'"
                     - "source_run_id = 'run123'"
-                    - "status = 'draft' AND source_run_id != 'run456'"
+                    - "status = 'pending' AND source_run_id != 'run456'"
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
 
@@ -6113,7 +6117,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 query = query.filter(*filter_clauses)
 
+            # IssueSeverity enum is ordered from lowest to highest severity
+            severity_priorities = {severity.value: severity._rank for severity in IssueSeverity}
+            severity_order = case(
+                severity_priorities,
+                value=SqlIssue.severity,
+                else_=-1,
+            )
             query = query.order_by(
+                severity_order.desc(),
                 SqlIssue.created_timestamp.desc(),
                 SqlIssue.issue_id.desc(),
             )

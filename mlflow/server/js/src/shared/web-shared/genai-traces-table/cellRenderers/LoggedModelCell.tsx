@@ -102,6 +102,7 @@ const LoggedModelComponent = (props: { experimentId?: string; modelId: string; i
       >
         {experimentId ? (
           <Link
+            componentId="mlflow.genai-traces-table.logged_model_cell.model_link"
             to={MlflowUtils.getLoggedModelPageRoute(experimentId, modelId)}
             target="_blank"
             css={{

@@ -386,11 +386,11 @@ class DatabricksTracingRestStore(RestStore):
         """
         location, trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
-            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
             encoded_key = quote(key, safe="")
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{encoded_key}"
-            req_body = message_to_json(DeleteTraceTag(sql_warehouse_id=sql_warehouse_id))
-            self._call_endpoint(DeleteTraceTag, req_body, endpoint=endpoint)
+            endpoint = self._append_sql_warehouse_id_param(
+                f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{encoded_key}"
+            )
+            self._call_endpoint(DeleteTraceTag, endpoint=endpoint)
             return
         return super().delete_trace_tag(trace_id, key)
 
@@ -1094,6 +1094,7 @@ class DatabricksTracingRestStore(RestStore):
         severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
+        categories: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
         """
@@ -1107,6 +1108,7 @@ class DatabricksTracingRestStore(RestStore):
             severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
 
         Returns:
