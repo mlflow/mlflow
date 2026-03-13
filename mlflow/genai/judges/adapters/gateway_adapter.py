@@ -18,9 +18,9 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
 )
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
-# "endpoints" is a special case for Databricks model serving endpoints.
+# "endpoints" is a special case for MLflow deployment endpoints (e.g. Databricks model serving).
 _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
 
@@ -29,6 +29,8 @@ def _invoke_via_gateway(
     provider: str,
     prompt: str,
     inference_params: dict[str, Any] | None = None,
+    base_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> str:
     """
     Invoke the judge model via native AI Gateway adapters.
@@ -39,6 +41,9 @@ def _invoke_via_gateway(
         prompt: The prompt to evaluate.
         inference_params: Optional dictionary of inference parameters to pass to the
             model (e.g., temperature, top_p, max_tokens).
+        base_url: Optional base URL to route requests through.
+        extra_headers: Optional dictionary of additional HTTP headers to include
+            in requests to the LLM provider.
 
     Returns:
         The JSON response string from the model.
@@ -59,6 +64,8 @@ def _invoke_via_gateway(
         model_uri=model_uri,
         payload=prompt,
         eval_parameters=inference_params,
+        extra_headers=extra_headers,
+        proxy_url=base_url,
         endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
     )
 
@@ -91,11 +98,24 @@ class GatewayAdapter(BaseJudgeAdapter):
                 "Please install LiteLLM with `pip install litellm` to use structured output.",
             )
 
+        # base_url and extra_headers are not supported for deployment endpoints
+        if input_params.model_provider == "endpoints" and (
+            input_params.base_url is not None or input_params.extra_headers is not None
+        ):
+            raise MlflowException(
+                "base_url and extra_headers are not supported for deployment "
+                "endpoints (endpoints:/...). The endpoint URL is determined by the "
+                "deployment target configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         response = _invoke_via_gateway(
             input_params.model_uri,
             input_params.model_provider,
             input_params.prompt,
             input_params.inference_params,
+            input_params.base_url,
+            input_params.extra_headers,
         )
 
         cleaned_response = _strip_markdown_code_blocks(response)

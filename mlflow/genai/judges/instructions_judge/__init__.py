@@ -2,6 +2,7 @@ import json
 import logging
 from dataclasses import asdict
 from typing import Any, Literal
+from urllib.parse import urlparse, urlunparse
 
 import pydantic
 from pydantic import PrivateAttr
@@ -86,6 +87,8 @@ class InstructionsJudge(Judge):
     _generate_rationale_first: bool = PrivateAttr(default=False)
     _include_tool_calls_in_conversation: bool = PrivateAttr(default=False)
     _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
+    _base_url: str | None = PrivateAttr(default=None)
+    _extra_headers: dict[str, str] | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -97,6 +100,8 @@ class InstructionsJudge(Judge):
         generate_rationale_first: bool = False,
         include_tool_calls_in_conversation: bool = False,
         inference_params: dict[str, Any] | None = None,
+        base_url: str | None = None,
+        extra_headers: dict[str, str] | None = None,
         **kwargs,
     ):
         """
@@ -117,6 +122,13 @@ class InstructionsJudge(Judge):
             inference_params: Optional dictionary of inference parameters to pass to the
                            model (e.g., temperature, top_p, max_tokens). These parameters
                            allow fine-grained control over the model's behavior.
+            base_url: Optional base URL to route requests through. When specified, all
+                           requests to the LLM provider will be routed through this URL.
+                           Useful for enterprise environments requiring LLM access through
+                           internal gateways or security proxies.
+            extra_headers: Optional dictionary of additional HTTP headers to include in
+                           requests to the LLM provider. Can be used for authentication,
+                           tracking, or other custom requirements.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -138,6 +150,8 @@ class InstructionsJudge(Judge):
         self._generate_rationale_first = generate_rationale_first
         self._include_tool_calls_in_conversation = include_tool_calls_in_conversation
         self._inference_params = inference_params
+        self._base_url = base_url
+        self._extra_headers = extra_headers
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -545,6 +559,8 @@ class InstructionsJudge(Judge):
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
             inference_params=self._inference_params,
+            base_url=self._base_url,
+            extra_headers=self._extra_headers,
         )
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
@@ -606,10 +622,22 @@ class InstructionsJudge(Judge):
         inference_params_str = (
             f", inference_params={self._inference_params}" if self._inference_params else ""
         )
+        if self._base_url:
+            parsed = urlparse(self._base_url)
+            port_str = f":{parsed.port}" if parsed.port else ""
+            safe_netloc = f"{parsed.hostname}{port_str}"
+            safe_url = urlunparse((parsed.scheme, safe_netloc, parsed.path, "", "", ""))
+            base_url_str = f", base_url='{safe_url}'"
+        else:
+            base_url_str = ""
+        extra_headers_str = (
+            f", extra_headers={list(self._extra_headers.keys())}" if self._extra_headers else ""
+        )
         return (
             f"InstructionsJudge(name='{self.name}', model='{self._model}', "
             f"instructions='{instructions_preview}', "
-            f"template_variables={sorted(self.template_variables)}{inference_params_str})"
+            f"template_variables={sorted(self.template_variables)}"
+            f"{inference_params_str}{base_url_str}{extra_headers_str})"
         )
 
     @staticmethod
