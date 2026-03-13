@@ -6,6 +6,7 @@ from mlflow.genai.discovery.clustering import (
     cluster_by_llm,
     summarize_cluster,
 )
+from mlflow.genai.discovery.constants import build_cluster_summary_prompt
 from mlflow.genai.discovery.entities import (
     Issue,
     _ConversationAnalysis,
@@ -94,15 +95,18 @@ def test_summarize_cluster():
                     "root_cause": "Model confabulation",
                     "example_indices": [],
                     "severity": "high",
+                    "categories": [],
                 })
             )
         )
     ]
 
-    with patch("litellm.completion", return_value=mock_response) as mock_completion:
+    with patch(
+        "mlflow.genai.discovery.clustering._call_llm", return_value=mock_response
+    ) as mock_call:
         result = summarize_cluster([0, 1], analyses, "openai:/gpt-5")
 
-    mock_completion.assert_called_once()
+    mock_call.assert_called_once()
     assert result.name == "hallucination"
     assert result.example_indices == [0, 1]
 
@@ -133,3 +137,94 @@ def test_build_summary_with_issues():
     summary = build_summary(issues, 100)
     assert "tool_failure" in summary
     assert "API timeout" in summary
+
+
+def test_summarize_cluster_filters_invalid_categories():
+    analyses = [
+        _ConversationAnalysis(
+            full_rationale="[hallucination] agent made up facts",
+            affected_trace_ids=["t-1"],
+        ),
+        _ConversationAnalysis(
+            full_rationale="[tool_error] tool call failed",
+            affected_trace_ids=["t-2"],
+        ),
+    ]
+
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps({
+                    "name": "Issue: Multiple problems",
+                    "description": "Various issues detected",
+                    "root_cause": "Multiple root causes",
+                    "example_indices": [],
+                    "severity": "high",
+                    "categories": ["hallucination", "invalid_cat", "tool_error", "another_invalid"],
+                })
+            )
+        )
+    ]
+
+    valid_categories = ["hallucination", "tool_error", "latency"]
+
+    with patch(
+        "mlflow.genai.discovery.clustering._call_llm", return_value=mock_response
+    ) as mock_call:
+        result = summarize_cluster([0, 1], analyses, "openai:/gpt-5", categories=valid_categories)
+
+    mock_call.assert_called_once()
+    assert set(result.categories) == {"hallucination", "tool_error"}
+    assert "invalid_cat" not in result.categories
+    assert "another_invalid" not in result.categories
+
+
+def test_summarize_cluster_no_category_filtering_when_none():
+    analyses = [
+        _ConversationAnalysis(
+            full_rationale="some issue",
+            affected_trace_ids=["t-1"],
+        ),
+    ]
+
+    mock_response = MagicMock()
+    mock_response.choices = [
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps({
+                    "name": "Issue: Test",
+                    "description": "Test issue",
+                    "root_cause": "Test cause",
+                    "example_indices": [],
+                    "severity": "medium",
+                    "categories": ["any_category", "another_category"],
+                })
+            )
+        )
+    ]
+
+    with patch(
+        "mlflow.genai.discovery.clustering._call_llm", return_value=mock_response
+    ) as mock_call:
+        result = summarize_cluster([0], analyses, "openai:/gpt-5", categories=None)
+
+    mock_call.assert_called_once()
+    assert set(result.categories) == {"any_category", "another_category"}
+
+
+def test_build_cluster_summary_prompt_with_categories():
+    categories = ["hallucination", "tool_error", "latency"]
+    prompt = build_cluster_summary_prompt(categories=categories)
+
+    assert "hallucination" in prompt
+    assert "tool_error" in prompt
+    assert "latency" in prompt
+    assert "ONLY include categories from this list" in prompt
+
+
+def test_build_cluster_summary_prompt_without_categories():
+    prompt = build_cluster_summary_prompt(categories=None)
+
+    assert "Extract any category tags" in prompt
+    assert "ONLY include categories from this list" not in prompt
