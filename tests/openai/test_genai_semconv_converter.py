@@ -287,9 +287,6 @@ def test_convert_content_multimodal(content_item, expected):
 
 
 def test_convert_message_audio_transcript_fallback():
-    """OpenAI's gpt-4o-audio-preview returns audio in a separate 'audio' field
-    with content=null. Verify _convert_message falls back to the transcript.
-    """
     msg = {
         "role": "assistant",
         "content": None,

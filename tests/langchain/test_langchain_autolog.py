@@ -285,10 +285,6 @@ def test_chat_model_autolog_audio_output_normalization():
 
 
 def test_chat_model_autolog_openai_audio_output_with_format():
-    """When invocation_params includes audio.format, the output should contain
-    both the transcript as text and the audio data as an input_audio block.
-    """
-
     audio_b64 = "SGVsbG8="
 
     class OpenAIAudioModelWithFormat(BaseChatModel):
@@ -333,9 +329,6 @@ def test_chat_model_autolog_openai_audio_output_with_format():
 
 
 def test_chat_model_autolog_openai_audio_transcript_fallback():
-    """OpenAI's gpt-4o-audio-preview returns audio in additional_kwargs["audio"]
-    with an empty content field. Without audio format info, fall back to transcript only.
-    """
 
     class OpenAIAudioModel(BaseChatModel):
         def _generate(self, messages, stop=None, run_manager=None, **kwargs):
