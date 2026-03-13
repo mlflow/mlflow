@@ -375,8 +375,8 @@ export const GuardrailsTabContent = ({ endpointName, experimentId }: GuardrailsT
             <FlowStep label="Response" active={false} />
           </div>
 
-          {/* Pre-invocation guardrails */}
-          {preGuardrails.length > 0 && (
+          {/* Pre/Post guardrails side by side */}
+          <div css={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: theme.spacing.md }}>
             <GuardrailSection
               title="Pre-invocation"
               count={preGuardrails.length}
@@ -389,10 +389,6 @@ export const GuardrailsTabContent = ({ endpointName, experimentId }: GuardrailsT
               removingId={removingId}
               isReordering={isReordering}
             />
-          )}
-
-          {/* Post-invocation guardrails */}
-          {postGuardrails.length > 0 && (
             <GuardrailSection
               title="Post-invocation"
               count={postGuardrails.length}
@@ -405,7 +401,7 @@ export const GuardrailsTabContent = ({ endpointName, experimentId }: GuardrailsT
               removingId={removingId}
               isReordering={isReordering}
             />
-          )}
+          </div>
         </>
       )}
 
@@ -475,6 +471,14 @@ const GuardrailSection = ({
           {count} {count === 1 ? 'guardrail' : 'guardrails'}
         </Typography.Text>
       </div>
+
+      {guardrails.length === 0 && (
+        <div css={{ padding: theme.spacing.md }}>
+          <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+            <FormattedMessage defaultMessage="No guardrails configured." description="Empty guardrail section" />
+          </Typography.Text>
+        </div>
+      )}
 
       {/* Validation guardrails — run in parallel, no ordering */}
       {validationGuardrails.length > 0 && (

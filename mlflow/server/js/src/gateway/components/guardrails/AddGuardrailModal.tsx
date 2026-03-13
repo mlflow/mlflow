@@ -278,23 +278,20 @@ function GuardrailCard({
   );
 }
 
-// ─── Source tab buttons ─────────────────────────────────────────────────────
+// ─── Top-level tab buttons: Catalog | Create New ────────────────────────────
 
-function SourceTabs({
-  value,
-  onChange,
-}: {
-  value: ScorerSource;
-  onChange: (v: ScorerSource) => void;
-}) {
+type TopTab = 'catalog' | 'create-new';
+
+function topTabFromSource(source: ScorerSource): TopTab {
+  return source === 'custom' || source === 'code' ? 'create-new' : 'catalog';
+}
+
+function TopTabs({ value, onChange }: { value: TopTab; onChange: (v: TopTab) => void }) {
   const { theme } = useDesignSystemTheme();
 
-  const tabs: { key: ScorerSource; label: string }[] = [
-    { key: 'builtin', label: 'Catalog' },
-    { key: 'registered', label: 'Registered' },
-    { key: 'custom', label: 'LLM Judge' },
-    { key: 'regex', label: 'Regex' },
-    { key: 'code', label: 'Code' },
+  const tabs: { key: TopTab; label: string }[] = [
+    { key: 'catalog', label: 'Catalog' },
+    { key: 'create-new', label: 'Create New' },
   ];
 
   return (
@@ -316,7 +313,7 @@ function SourceTabs({
             flex: 1,
             padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
             border: 'none',
-            borderRight: tab.key !== 'code' ? `1px solid ${theme.colors.border}` : 'none',
+            borderRight: tab.key !== 'create-new' ? `1px solid ${theme.colors.border}` : 'none',
             backgroundColor:
               value === tab.key ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.backgroundPrimary,
             color: value === tab.key ? '#fff' : theme.colors.textPrimary,
@@ -335,6 +332,37 @@ function SourceTabs({
           {tab.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+// ─── Create-New type selector cards ─────────────────────────────────────────
+
+function CreateNewTypeSelector({
+  value,
+  onChange,
+}: {
+  value: 'custom' | 'code';
+  onChange: (v: 'custom' | 'code') => void;
+}) {
+  const { theme } = useDesignSystemTheme();
+
+  return (
+    <div css={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: theme.spacing.sm }}>
+      <GuardrailCard
+        icon={<span css={{ fontSize: 20 }}>{'🤖'}</span>}
+        label="LLM Judge"
+        description="Write natural-language instructions. An LLM evaluates requests or responses against them."
+        selected={value === 'custom'}
+        onClick={() => onChange('custom')}
+      />
+      <GuardrailCard
+        icon={<span css={{ fontSize: 20 }}>{'</>'}</span>}
+        label="Code-based"
+        description="Write arbitrary Python logic — regex, rule engines, external APIs, etc."
+        selected={value === 'code'}
+        onClick={() => onChange('code')}
+      />
     </div>
   );
 }
@@ -451,7 +479,7 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
 
   // ─── Test state ──────────────────────────────────────────────────────────
   const [showTest, setShowTest] = useState(false);
-  const [testInputMode, setTestInputMode] = useState<'trace' | 'manual'>(experimentId ? 'trace' : 'manual');
+  const [testInputMode, setTestInputMode] = useState<'trace' | 'manual'>('manual');
   const [testManualText, setTestManualText] = useState('');
   const [traces, setTraces] = useState<TraceEntry[]>([]);
   const [tracesLoading, setTracesLoading] = useState(false);
@@ -511,7 +539,7 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
         config.scorer_version = scorer.scorer_version;
       }
     } else if (formData.scorerSource === 'regex') {
-      config.builtin_scorer = 'regex_match';
+      config.builtin_scorer = 'RegexMatch';
       config.regex_pattern = formData.regexPattern;
     } else {
       config.prompt = formData.prompt;
@@ -570,7 +598,7 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
     if (editingGuardrail) {
       const config = editingGuardrail.config;
       const isBuiltin = BUILTIN_JUDGES.some((j) => j.name === config?.builtin_scorer);
-      const isRegex = config?.builtin_scorer === 'regex_match';
+      const isRegex = config?.builtin_scorer === 'RegexMatch';
       const isRegistered = !!config?.registered_scorer;
       setFormData({
         scorerName: editingGuardrail.scorer_name,
@@ -593,7 +621,7 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
     setTestError(null);
     setSelectedTraceId(null);
     setTestManualText('');
-    setTestInputMode(experimentId ? 'trace' : 'manual');
+    setTestInputMode('manual');
   }, [open, editingGuardrail, experimentId]);
 
   const resetMutation = useCallback(() => {
@@ -617,6 +645,15 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
         }
         if (field === 'registeredScorer' && prev.scorerSource === 'registered') {
           next.scorerName = String(value);
+        }
+        if (field === 'regexPattern') {
+          // Auto-generate a scorer name from the pattern (slug-ify it)
+          const slug = String(value)
+            .replace(/[^a-zA-Z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .toLowerCase()
+            .slice(0, 40) || 'regex-guardrail';
+          next.scorerName = slug;
         }
         if (field === 'scorerSource') {
           if (value === 'builtin') {
@@ -705,7 +742,7 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
         config.scorer_version = scorer.scorer_version;
       }
     } else if (formData.scorerSource === 'regex') {
-      config.builtin_scorer = 'regex_match';
+      config.builtin_scorer = 'RegexMatch';
       config.regex_pattern = formData.regexPattern;
     } else {
       config.prompt = formData.prompt;
@@ -848,276 +885,258 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
           </div>
         </div>
 
-        {/* Source tabs */}
-        <SourceTabs
-          value={formData.scorerSource}
-          onChange={(v) => handleFieldChange('scorerSource', v)}
+        {/* ─── Top-level tabs: Catalog | Create New ─── */}
+        <TopTabs
+          value={topTabFromSource(formData.scorerSource)}
+          onChange={(tab) => {
+            if (tab === 'catalog') handleFieldChange('scorerSource', 'builtin');
+            else handleFieldChange('scorerSource', 'custom');
+          }}
         />
 
-        {/* Search bar (shown for builtin and registered only) */}
-        {(formData.scorerSource === 'builtin' || formData.scorerSource === 'registered') && (
-          <Input
-            componentId="mlflow.gateway.guardrail-modal.search"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={intl.formatMessage({
-              defaultMessage: 'Search guardrails...',
-              description: 'Search guardrails placeholder',
-            })}
-            allowClear
-          />
-        )}
+        {/* ─── CATALOG: Guardrails AI + Regex + Registered ─── */}
+        {topTabFromSource(formData.scorerSource) === 'catalog' && (
+          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+            {/* Search */}
+            <Input
+              componentId="mlflow.gateway.guardrail-modal.search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={intl.formatMessage({
+                defaultMessage: 'Search guardrails...',
+                description: 'Search guardrails placeholder',
+              })}
+              allowClear
+            />
 
-        {/* ─── Builtin judge cards ─── */}
-        {formData.scorerSource === 'builtin' && (
-          <div
-            css={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: theme.spacing.sm,
-            }}
-          >
-            {filteredBuiltins.map((j) => (
-              <GuardrailCard
-                key={j.name}
-                icon={<span css={{ fontSize: 20, lineHeight: 1 }}>{j.emoji}</span>}
-                label={j.label}
-                description={j.description}
-                selected={formData.builtinJudge === j.name}
-                tag={<span css={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><GuardrailsAIIcon size={14} /> GUARDRAILS AI</span>}
-                onClick={() => handleFieldChange('builtinJudge', j.name)}
-              />
-            ))}
-            {filteredBuiltins.length === 0 && (
-              <div css={{ gridColumn: '1 / -1', padding: theme.spacing.md, textAlign: 'center' }}>
-                <Typography.Text color="secondary">
-                  {formData.operation === 'MUTATION' ? (
-                    <FormattedMessage
-                      defaultMessage="Catalog guardrails only support Block action. Switch to Block or use LLM Judge / Code tab for Modify."
-                      description="No builtin guardrails for mutation operation"
+            {/* Builtin section */}
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                <Typography.Text bold css={{ fontSize: theme.typography.fontSizeSm }}>
+                  Builtin
+                </Typography.Text>
+              </div>
+              {formData.operation === 'MUTATION' ? (
+                <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                  <FormattedMessage
+                    defaultMessage="Catalog guardrails only support Block action. Switch to Block or use Create New for Modify."
+                    description="No catalog guardrails for modify"
+                  />
+                </Typography.Text>
+              ) : (
+                <div css={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: theme.spacing.sm }}>
+                  {/* Builtin judge cards */}
+                  {filteredBuiltins.map((j) => (
+                    <GuardrailCard
+                      key={j.name}
+                      icon={<span css={{ fontSize: 20, lineHeight: 1 }}>{j.emoji}</span>}
+                      label={j.label}
+                      description={j.description}
+                      selected={formData.scorerSource === 'builtin' && formData.builtinJudge === j.name}
+                      tag={<span css={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><GuardrailsAIIcon size={14} /> BUILTIN</span>}
+                      onClick={() => {
+                        handleFieldChange('scorerSource', 'builtin');
+                        handleFieldChange('builtinJudge', j.name);
+                      }}
                     />
-                  ) : (
-                    <FormattedMessage
-                      defaultMessage="No matching guardrails found."
-                      description="No matching builtin guardrails"
+                  ))}
+                  {/* Regex card — part of Guardrails AI catalog */}
+                  {(!searchQuery.trim() || 'regex match'.includes(searchQuery.toLowerCase())) && (
+                    <GuardrailCard
+                      icon={<span css={{ fontSize: 20, lineHeight: 1 }}>{'🔍'}</span>}
+                      label="Regex Match"
+                      description="Block requests or responses matching a regular expression pattern (e.g. SSNs, emails, credit cards)"
+                      selected={formData.scorerSource === 'regex'}
+                      tag={<span css={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><GuardrailsAIIcon size={14} /> BUILTIN</span>}
+                      onClick={() => handleFieldChange('scorerSource', 'regex')}
                     />
                   )}
+                  {filteredBuiltins.length === 0 && searchQuery.trim() && (
+                    <div css={{ gridColumn: '1 / -1', padding: theme.spacing.sm }}>
+                      <Typography.Text color="secondary">
+                        <FormattedMessage defaultMessage="No matching guardrails found." description="No matching builtin guardrails" />
+                      </Typography.Text>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Regex config — shown inline when regex card is selected */}
+            {formData.scorerSource === 'regex' && (
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: theme.spacing.sm,
+                  padding: theme.spacing.md,
+                  border: `1px solid ${theme.colors.actionPrimaryBackgroundDefault}`,
+                  borderRadius: theme.borders.borderRadiusMd,
+                  backgroundColor: `${theme.colors.actionPrimaryBackgroundDefault}06`,
+                }}
+              >
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text bold css={{ fontSize: theme.typography.fontSizeSm }}>
+                    <FormattedMessage defaultMessage="Pattern" description="Regex pattern label" />
+                  </Typography.Text>
+                  <Input
+                    componentId="mlflow.gateway.guardrail-modal.regex-pattern"
+                    value={formData.regexPattern}
+                    onChange={(e) => handleFieldChange('regexPattern', e.target.value)}
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'e.g., \\d{3}-\\d{2}-\\d{4}  (SSN)',
+                      description: 'Regex pattern placeholder',
+                    })}
+                    css={{ fontFamily: 'monospace' }}
+                  />
+                </div>
+                <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                  Common patterns: SSN <code>\d{'{3}'}-\d{'{2}'}-\d{'{4}'}</code> · email <code>[\w.-]+@[\w.-]+\.\w+</code> · credit card <code>\d{'{4}'}[\s-]?\d{'{4}'}[\s-]?\d{'{4}'}[\s-]?\d{'{4}'}</code>
                 </Typography.Text>
               </div>
             )}
+
+            {/* Registered section */}
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, borderTop: `1px solid ${theme.colors.border}`, paddingTop: theme.spacing.sm }}>
+                <span css={{ fontSize: 14 }}>⚙️</span>
+                <Typography.Text bold css={{ fontSize: theme.typography.fontSizeSm }}>
+                  Registered
+                </Typography.Text>
+              </div>
+              {isLoadingScorers ? (
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                  <Spinner size="small" />
+                  <FormattedMessage defaultMessage="Loading registered guardrails..." description="Loading registered guardrails" />
+                </div>
+              ) : filteredRegistered.length > 0 ? (
+                <div css={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: theme.spacing.sm }}>
+                  {filteredRegistered.map((s) => (
+                    <GuardrailCard
+                      key={s.scorer_name}
+                      icon={<span css={{ fontSize: 20, lineHeight: 1 }}>{'⚙️'}</span>}
+                      label={s.scorer_name}
+                      description={`v${s.scorer_version} · experiment ${s.experiment_id}`}
+                      selected={formData.scorerSource === 'registered' && formData.registeredScorer === s.scorer_name}
+                      tag="REGISTERED"
+                      onClick={() => {
+                        handleFieldChange('scorerSource', 'registered');
+                        handleFieldChange('registeredScorer', s.scorer_name);
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : registeredScorers && registeredScorers.length > 0 ? (
+                <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                  {formData.hook === 'PRE'
+                    ? "No registered guardrails compatible with pre-invocation. They need '{{inputs}}' in their instructions."
+                    : "No registered guardrails compatible with post-invocation. They need '{{outputs}}' in their instructions."}
+                </Typography.Text>
+              ) : (
+                <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                  No registered guardrails yet. Use <strong>Create New → Code-based</strong> to write and register one.
+                </Typography.Text>
+              )}
+            </div>
           </div>
         )}
 
-        {/* ─── Registered judge cards ─── */}
-        {formData.scorerSource === 'registered' && (
-          <>
-            {isLoadingScorers ? (
-              <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: theme.spacing.sm, padding: theme.spacing.lg }}>
-                <Spinner size="small" />
-                <FormattedMessage defaultMessage="Loading registered guardrails..." description="Loading registered guardrails" />
-              </div>
-            ) : filteredRegistered.length > 0 ? (
-              <div
-                css={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: theme.spacing.sm,
-                }}
-              >
-                {filteredRegistered.map((s) => (
-                  <GuardrailCard
-                    key={s.scorer_name}
-                    icon={<span css={{ fontSize: 20, lineHeight: 1 }}>{'\u{2699}'}</span>}
-                    label={s.scorer_name}
-                    description={`v${s.scorer_version} \u00B7 experiment ${s.experiment_id}`}
-                    selected={formData.registeredScorer === s.scorer_name}
-                    tag="REGISTERED"
-                    onClick={() => handleFieldChange('registeredScorer', s.scorer_name)}
-                  />
-                ))}
-              </div>
-            ) : registeredScorers && registeredScorers.length > 0 ? (
-              <Alert
-                componentId="mlflow.gateway.guardrail-modal.no-compatible-registered"
-                type="info"
-                message={
-                  formData.hook === 'PRE'
-                    ? intl.formatMessage({
-                        defaultMessage:
-                          "No registered judges compatible with pre-invocation hook. Judges need '{{inputs}}' in their instructions.",
-                        description: 'No compatible registered judges for PRE hook',
-                      })
-                    : intl.formatMessage({
-                        defaultMessage:
-                          "No registered judges compatible with post-invocation hook. Judges need '{{outputs}}' in their instructions.",
-                        description: 'No compatible registered judges for POST hook',
-                      })
-                }
-              />
-            ) : (
-              <Alert
-                componentId="mlflow.gateway.guardrail-modal.no-registered"
-                type="warning"
-                message={intl.formatMessage({
-                  defaultMessage:
-                    'No registered guardrails found. Register one first using mlflow.genai.scorers.register_scorer(), or use the Code tab to see how.',
-                  description: 'No registered guardrails message',
-                })}
-              />
-            )}
-          </>
-        )}
-
-        {/* ─── LLM Judge (make_judge style) ─── */}
-        {formData.scorerSource === 'custom' && (
-          <>
-            {/* Guardrail name */}
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              <Typography.Text bold>
-                <FormattedMessage defaultMessage="Guardrail name" description="LLM judge guardrail name label" />
-              </Typography.Text>
-              <Input
-                componentId="mlflow.gateway.guardrail-modal.custom-name"
-                value={formData.scorerName}
-                onChange={(e) => handleFieldChange('scorerName', e.target.value)}
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'e.g., pii-filter, toxicity-check',
-                  description: 'Guardrail name placeholder',
-                })}
-              />
-            </div>
-
-            {/* Instructions prompt */}
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              <Typography.Text bold>
-                <FormattedMessage defaultMessage="Instructions" description="LLM judge instructions label" />
-              </Typography.Text>
-              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                <FormattedMessage
-                  defaultMessage="Instructions for the LLM guardrail. Use {variable} to reference the {hookType} data."
-                  description="LLM judge instructions description"
-                  values={{
-                    variable: <code>{promptHint}</code>,
-                    hookType: formData.hook === 'PRE' ? 'input' : 'output',
-                  }}
-                />
-              </Typography.Text>
-              <textarea
-                value={formData.prompt}
-                onChange={(e) => handleFieldChange('prompt', e.target.value)}
-                rows={6}
-                css={{
-                  width: '100%',
-                  padding: theme.spacing.sm,
-                  borderRadius: theme.borders.borderRadiusMd,
-                  border: `1px solid ${theme.colors.border}`,
-                  fontFamily: 'monospace',
-                  fontSize: theme.typography.fontSizeSm,
-                  resize: 'vertical',
-                  backgroundColor: theme.colors.backgroundPrimary,
-                  color: theme.colors.textPrimary,
-                }}
-              />
-              {formData.operation === 'VALIDATION' && (
-                <Alert
-                  componentId="mlflow.gateway.guardrail-modal.validation-hint"
-                  type="info"
-                  message={intl.formatMessage({
-                    defaultMessage:
-                      'Block guardrails expect a yes/no response. "no" means the content is rejected.',
-                    description: 'Block hint for LLM judge guardrails',
-                  })}
-                />
-              )}
-              {formData.operation === 'MUTATION' && (
-                <Alert
-                  componentId="mlflow.gateway.guardrail-modal.mutation-hint"
-                  type="info"
-                  message={intl.formatMessage({
-                    defaultMessage:
-                      'Modify guardrails should return the modified content. For pre-invocation, output a ChatRequest. For post-invocation, output a ChatResponse.',
-                    description: 'Modify hint for LLM judge guardrails',
-                  })}
-                />
-              )}
-            </div>
-
-            {/* Model / endpoint selection */}
-            <ModelSelector
-              model={formData.model}
-              onModelChange={(value) => handleFieldChange('model', value)}
-            />
-          </>
-        )}
-
-        {/* ─── Regex guardrail ─── */}
-        {formData.scorerSource === 'regex' && (
-          <>
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              <Typography.Text bold>
-                <FormattedMessage defaultMessage="Guardrail name" description="Regex guardrail name label" />
-              </Typography.Text>
-              <Input
-                componentId="mlflow.gateway.guardrail-modal.regex-name"
-                value={formData.scorerName}
-                onChange={(e) => handleFieldChange('scorerName', e.target.value)}
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'e.g., ssn-detector, pii-regex',
-                  description: 'Regex guardrail name placeholder',
-                })}
-              />
-            </div>
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              <Typography.Text bold>
-                <FormattedMessage defaultMessage="Regex pattern" description="Regex pattern label" />
-              </Typography.Text>
-              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                <FormattedMessage
-                  defaultMessage="Python-compatible regular expression. The guardrail blocks requests where a match is found. Powered by the Guardrails AI regex_match validator."
-                  description="Regex pattern description"
-                />
-              </Typography.Text>
-              <Input
-                componentId="mlflow.gateway.guardrail-modal.regex-pattern"
-                value={formData.regexPattern}
-                onChange={(e) => handleFieldChange('regexPattern', e.target.value)}
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'e.g., \\d{3}-\\d{2}-\\d{4}  (SSN pattern)',
-                  description: 'Regex pattern placeholder',
-                })}
-                css={{ fontFamily: 'monospace' }}
-              />
-            </div>
-            <Alert
-              componentId="mlflow.gateway.guardrail-modal.regex-info"
-              type="info"
-              closable={false}
-              message={intl.formatMessage({
-                defaultMessage:
-                  'Common patterns: SSN (\\d{3}-\\d{2}-\\d{4}), email ([\\w.-]+@[\\w.-]+\\.\\w+), credit card (\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4})',
-                description: 'Common regex pattern examples',
-              })}
-            />
-          </>
-        )}
-
-        {/* ─── Code-based guardrail guide ─── */}
-        {formData.scorerSource === 'code' && (
+        {/* ─── CREATE NEW: LLM Judge or Code-based ─── */}
+        {topTabFromSource(formData.scorerSource) === 'create-new' && (
           <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-            <Alert
-              componentId="mlflow.gateway.guardrail-modal.code-info"
-              type="info"
-              closable={false}
-              message={intl.formatMessage({
-                defaultMessage:
-                  'Code-based guardrails let you write arbitrary Python logic — regex, rule engines, external APIs, etc. Register them with mlflow.genai.scorers.register_scorer(), then find them in the Registered tab.',
-                description: 'Code guardrail guide intro',
-              })}
+            <CreateNewTypeSelector
+              value={formData.scorerSource === 'code' ? 'code' : 'custom'}
+              onChange={(v) => handleFieldChange('scorerSource', v)}
             />
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-              <Typography.Text bold>
-                <FormattedMessage defaultMessage="Example: block requests containing SSNs" description="Code guardrail example header" />
-              </Typography.Text>
+
+            {/* ─── LLM Judge form ─── */}
+            {formData.scorerSource === 'custom' && (
+              <>
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text bold>
+                    <FormattedMessage defaultMessage="Guardrail name" description="LLM judge guardrail name label" />
+                  </Typography.Text>
+                  <Input
+                    componentId="mlflow.gateway.guardrail-modal.custom-name"
+                    value={formData.scorerName}
+                    onChange={(e) => handleFieldChange('scorerName', e.target.value)}
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'e.g., pii-filter, toxicity-check',
+                      description: 'Guardrail name placeholder',
+                    })}
+                  />
+                </div>
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text bold>
+                    <FormattedMessage defaultMessage="Instructions" description="LLM judge instructions label" />
+                  </Typography.Text>
+                  <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                    <FormattedMessage
+                      defaultMessage="Instructions for the LLM guardrail. Use {variable} to reference the {hookType} data."
+                      description="LLM judge instructions description"
+                      values={{
+                        variable: <code>{promptHint}</code>,
+                        hookType: formData.hook === 'PRE' ? 'input' : 'output',
+                      }}
+                    />
+                  </Typography.Text>
+                  <textarea
+                    value={formData.prompt}
+                    onChange={(e) => handleFieldChange('prompt', e.target.value)}
+                    rows={6}
+                    css={{
+                      width: '100%',
+                      padding: theme.spacing.sm,
+                      borderRadius: theme.borders.borderRadiusMd,
+                      border: `1px solid ${theme.colors.border}`,
+                      fontFamily: 'monospace',
+                      fontSize: theme.typography.fontSizeSm,
+                      resize: 'vertical',
+                      backgroundColor: theme.colors.backgroundPrimary,
+                      color: theme.colors.textPrimary,
+                    }}
+                  />
+                  {formData.operation === 'VALIDATION' && (
+                    <Alert
+                      componentId="mlflow.gateway.guardrail-modal.validation-hint"
+                      type="info"
+                      message={intl.formatMessage({
+                        defaultMessage: 'Block guardrails expect a yes/no response. "no" means the content is rejected.',
+                        description: 'Block hint for LLM judge guardrails',
+                      })}
+                    />
+                  )}
+                  {formData.operation === 'MUTATION' && (
+                    <Alert
+                      componentId="mlflow.gateway.guardrail-modal.mutation-hint"
+                      type="info"
+                      message={intl.formatMessage({
+                        defaultMessage: 'Modify guardrails should return the modified content. For pre-invocation, output a ChatRequest. For post-invocation, output a ChatResponse.',
+                        description: 'Modify hint for LLM judge guardrails',
+                      })}
+                    />
+                  )}
+                </div>
+                <ModelSelector
+                  model={formData.model}
+                  onModelChange={(value) => handleFieldChange('model', value)}
+                />
+              </>
+            )}
+
+            {/* ─── Code-based guide ─── */}
+            {formData.scorerSource === 'code' && (
+              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                <Alert
+                  componentId="mlflow.gateway.guardrail-modal.code-info"
+                  type="info"
+                  closable={false}
+                  message="Write a Python class, register it with mlflow.genai.scorers.register_scorer(), then find it in Catalog → Registered."
+                />
+                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                  <Typography.Text bold>
+                    <FormattedMessage defaultMessage="Example: block requests containing SSNs" description="Code guardrail example header" />
+                  </Typography.Text>
               <pre
                 css={{
                   backgroundColor: theme.colors.backgroundSecondary,
@@ -1132,23 +1151,15 @@ export const GuardrailModal = ({ open, onClose, onSuccess, endpointName, editing
                   color: theme.colors.textPrimary,
                 }}
               >{`import re
-import mlflow
-from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers import scorer
 
-class SSNDetector(Scorer):
-    name = "ssn-detector"
-
-    def score(self, *, inputs, **kwargs):
-        text = str(inputs)
-        found = bool(re.search(r"\\d{3}-\\d{2}-\\d{4}", text))
-        return mlflow.entities.Assessment(
-            name=self.name,
-            value="no" if found else "yes",  # "no" = block
-            rationale="SSN pattern detected" if found else "No SSN found",
-        )
+@scorer
+def ssn_detector(inputs) -> bool:
+    """Returns False (block) when an SSN pattern is found."""
+    return not bool(re.search(r"\\d{3}-\\d{2}-\\d{4}", str(inputs)))
 
 # Register it once — then find it in the Registered tab
-SSNDetector().register()`}</pre>
+ssn_detector.register()`}</pre>
             </div>
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
               <Typography.Text bold>
@@ -1169,26 +1180,21 @@ SSNDetector().register()`}</pre>
                 }}
               >{`import re
 import copy
-import mlflow
-from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers import scorer
 
-class PIIRedactor(Scorer):
-    name = "pii-redactor"
-
-    def score(self, *, inputs, **kwargs):
-        # inputs is a ChatRequest dict — redact and return it
-        modified = copy.deepcopy(inputs)
-        for msg in modified.get("messages", []):
-            msg["content"] = re.sub(
-                r"\\d{3}-\\d{2}-\\d{4}", "[REDACTED-SSN]",
-                str(msg.get("content", ""))
-            )
-        return mlflow.entities.Assessment(
-            name=self.name,
-            value=modified,  # return modified ChatRequest
+@scorer
+def pii_redactor(inputs):
+    """Redacts SSNs from the request before sending to the LLM."""
+    modified = copy.deepcopy(inputs)
+    for msg in modified.get("messages", []):
+        msg["content"] = re.sub(
+            r"\\d{3}-\\d{2}-\\d{4}", "[REDACTED]",
+            str(msg.get("content", ""))
         )
+    return modified  # return modified ChatRequest
 
-PIIRedactor().register()`}</pre>
+# Register it once — then find it in the Registered tab
+pii_redactor.register()`}</pre>
             </div>
             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
               <FormattedMessage
@@ -1196,6 +1202,8 @@ PIIRedactor().register()`}</pre>
                 description="Code guardrail footer note"
               />
             </Typography.Text>
+          </div>
+        )}
           </div>
         )}
 
@@ -1251,20 +1259,20 @@ PIIRedactor().register()`}</pre>
                 {experimentId && (
                   <div css={{ display: 'flex', gap: theme.spacing.xs }}>
                     <Button
-                      componentId="mlflow.gateway.guardrail-modal.test-mode-trace"
-                      type={testInputMode === 'trace' ? 'primary' : undefined}
-                      size="small"
-                      onClick={() => setTestInputMode('trace')}
-                    >
-                      <FormattedMessage defaultMessage="Pick from traces" description="Tab to pick a trace" />
-                    </Button>
-                    <Button
                       componentId="mlflow.gateway.guardrail-modal.test-mode-manual"
                       type={testInputMode === 'manual' ? 'primary' : undefined}
                       size="small"
                       onClick={() => setTestInputMode('manual')}
                     >
                       <FormattedMessage defaultMessage="Manual input" description="Tab for manual text input" />
+                    </Button>
+                    <Button
+                      componentId="mlflow.gateway.guardrail-modal.test-mode-trace"
+                      type={testInputMode === 'trace' ? 'primary' : undefined}
+                      size="small"
+                      onClick={() => setTestInputMode('trace')}
+                    >
+                      <FormattedMessage defaultMessage="Pick from traces" description="Tab to pick a trace" />
                     </Button>
                   </div>
                 )}

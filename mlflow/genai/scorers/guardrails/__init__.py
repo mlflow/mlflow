@@ -322,6 +322,32 @@ class GibberishText(GuardrailsScorer):
     validator_name: ClassVar[str] = "GibberishText"
 
 
+@experimental(version="3.10.0")
+class RegexMatch(GuardrailsScorer):
+    """
+    Blocks text matching a regular expression pattern using Guardrails AI.
+
+    Uses ``hub://guardrails/regex_match`` to validate that text does not
+    contain (or does contain, depending on configuration) the given pattern.
+
+    Args:
+        regex: The regular expression pattern to match against.
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.guardrails import RegexMatch
+
+            scorer = RegexMatch(regex=r"\\d{3}-\\d{2}-\\d{4}")
+            feedback = scorer(outputs="Contact SSN 123-45-6789")
+    """
+
+    validator_name: ClassVar[str] = "RegexMatch"
+
+    def __init__(self, regex: str, **kwargs: Any):
+        super().__init__(validator_name="RegexMatch", regex=regex, **kwargs)
+
+
 __all__ = [
     "GuardrailsScorer",
     "get_scorer",
@@ -331,4 +357,5 @@ __all__ = [
     "DetectPII",
     "SecretsPresent",
     "GibberishText",
+    "RegexMatch",
 ]

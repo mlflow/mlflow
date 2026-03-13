@@ -400,6 +400,10 @@ def _run_scorer_inner(
     # Run a GuardrailsScorer builtin (these are NLP-based, don't use templates,
     # so always pass as outputs — the text is just analyzed directly)
     if "builtin_scorer" in config:
+        # RegexMatch is handled natively: guardrails-grhub-regex-match v0.0.0 has a
+        # circular-import bug (imports guardrails.validator_base during hub init).
+        if config["builtin_scorer"] == "RegexMatch":
+            return _run_regex_scorer(config.get("regex_pattern", ""), text)
         return _run_builtin_scorer(config["builtin_scorer"], text, is_mutation)
 
     # Run a registered scorer (including custom judges that were registered on add)
@@ -436,12 +440,28 @@ def _run_scorer_inner(
     return {"score": "yes", "rationale": "Default pass (no config)"}
 
 
-def _run_builtin_scorer(builtin_name: str, text: str, is_mutation: bool = False) -> dict:
+def _run_regex_scorer(pattern: str, text: str) -> dict:
+    """Run regex match natively — blocks when the pattern is found in the text."""
+    import re
+
+    if not pattern:
+        return {"score": "yes", "rationale": "No regex pattern configured"}
+    try:
+        found = bool(re.search(pattern, text))
+        return {
+            "score": "no" if found else "yes",
+            "rationale": f"Pattern '{pattern}' {'matched — content blocked' if found else 'did not match'}",
+        }
+    except re.error as e:
+        return {"score": "yes", "rationale": f"Invalid regex pattern: {e}"}
+
+
+def _run_builtin_scorer(builtin_name: str, text: str, is_mutation: bool = False, **kwargs) -> dict:
     """Run a GuardrailsScorer builtin (ToxicLanguage, DetectPII, etc.)."""
     try:
         from mlflow.genai.scorers.guardrails import get_scorer
 
-        scorer = get_scorer(builtin_name)
+        scorer = get_scorer(builtin_name, **kwargs)
         feedback = scorer(outputs=text)
 
         raw_value = feedback.value
