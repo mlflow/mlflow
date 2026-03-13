@@ -388,12 +388,10 @@ def test_conversation_simulator_rejects_invalid_context_types(test_cases, expect
 
 
 def test_conversation_simulator_accepts_dataframe_with_missing_context_values():
-    test_cases_df = pd.DataFrame(
-        [
-            {"goal": "Debug an error", "context": {"user_id": "U001"}},
-            {"goal": "Learn about MLflow"},
-        ]
-    )
+    test_cases_df = pd.DataFrame([
+        {"goal": "Debug an error", "context": {"user_id": "U001"}},
+        {"goal": "Learn about MLflow"},
+    ])
 
     simulator = ConversationSimulator(
         test_cases=test_cases_df,

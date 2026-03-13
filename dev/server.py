@@ -19,21 +19,19 @@ def main() -> None:
     gateway_port = random_port()
     gateway_host = "localhost"
     with (
-        subprocess.Popen(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "gateway",
-                "start",
-                "--config-path",
-                "examples/gateway/openai/config.yaml",
-                "--host",
-                gateway_host,
-                "--port",
-                str(gateway_port),
-            ]
-        ) as gateway,
+        subprocess.Popen([
+            sys.executable,
+            "-m",
+            "mlflow",
+            "gateway",
+            "start",
+            "--config-path",
+            "examples/gateway/openai/config.yaml",
+            "--host",
+            gateway_host,
+            "--port",
+            str(gateway_port),
+        ]) as gateway,
         subprocess.Popen(
             [
                 sys.executable,

@@ -133,6 +133,7 @@ def _invoke_litellm(
     inference_params: dict[str, Any] | None = None,
     api_base: str | None = None,
     api_key: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> "litellm.ModelResponse":
     """
     Invoke litellm completion with retry support.
@@ -178,6 +179,8 @@ def _invoke_litellm(
         kwargs["api_base"] = api_base
     if api_key is not None:
         kwargs["api_key"] = api_key
+    if extra_headers is not None:
+        kwargs["extra_headers"] = extra_headers
 
     if include_response_format:
         # LiteLLM supports passing Pydantic models directly for response_format
@@ -237,11 +240,13 @@ def _invoke_litellm_and_handle_tools(
         config = get_gateway_litellm_config(model_name)
         api_base = config.api_base
         api_key = config.api_key
+        extra_headers = config.extra_headers
         model = config.model
     else:
         model = f"{provider}/{model_name}"
         api_base = None
         api_key = None
+        extra_headers = None
 
     tools = []
     if trace is not None:
@@ -286,6 +291,7 @@ def _invoke_litellm_and_handle_tools(
                     inference_params=inference_params,
                     api_base=api_base,
                     api_key=api_key,
+                    extra_headers=extra_headers,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 error_str = str(e).lower()

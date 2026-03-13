@@ -27,19 +27,17 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._responses = iter(
-            [
-                AIMessage(
-                    content="",
-                    tool_calls=[ToolCall(name="uc_tool_format", args={}, id="123")],
-                ),
-                AIMessage(
-                    content="",
-                    tool_calls=[ToolCall(name="lc_tool_format", args={}, id="456")],
-                ),
-                AIMessage(content="Successfully generated", id="789"),
-            ]
-        )
+        self._responses = iter([
+            AIMessage(
+                content="",
+                tool_calls=[ToolCall(name="uc_tool_format", args={}, id="123")],
+            ),
+            AIMessage(
+                content="",
+                tool_calls=[ToolCall(name="lc_tool_format", args={}, id="456")],
+            ),
+            AIMessage(content="Successfully generated", id="789"),
+        ])
 
     def _generate(self, *args, **kwargs):
         return ChatResult(generations=[ChatGeneration(message=next(self._responses))])
@@ -48,13 +46,11 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
 @tool
 def uc_tool_format() -> str:
     """Returns uc tool format"""
-    return json.dumps(
-        {
-            "format": "SCALAR",
-            "value": '{"content":"hi","attachments":{"a":"b"},"custom_outputs":{"c":"d"}}',
-            "truncated": False,
-        }
-    )
+    return json.dumps({
+        "format": "SCALAR",
+        "value": '{"content":"hi","attachments":{"a":"b"},"custom_outputs":{"c":"d"}}',
+        "truncated": False,
+    })
 
 
 @tool

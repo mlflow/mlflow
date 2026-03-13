@@ -12,10 +12,11 @@ import {
   SortUnsortedIcon,
   VisibleIcon,
   VisibleOffIcon,
+  SparkleIcon,
 } from '@databricks/design-system';
 import type { ColumnDef, HeaderContext } from '@tanstack/react-table';
 import { DatasetSourceTypes, RunEntity } from '../../types';
-import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Link, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
@@ -28,8 +29,13 @@ import { FormattedMessage } from 'react-intl';
 import type { RunEntityOrGroupData } from './ExperimentEvaluationRunsPage.utils';
 import { useExperimentEvaluationRunsRowVisibility } from './hooks/useExperimentEvaluationRunsRowVisibility';
 import { RunPageTabName } from '../../constants';
-import { shouldEnableImprovedEvalRunsComparison } from '../../../common/utils/FeatureUtils';
+import {
+  shouldEnableImprovedEvalRunsComparison,
+  shouldShowEvalRunsIssuesPanel,
+} from '../../../common/utils/FeatureUtils';
+import { MLFLOW_RUN_IS_ISSUE_DETECTION_TAG } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
+import { RunStatusIcon } from '../../components/RunStatusIcon';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -63,24 +69,53 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const { theme } = useDesignSystemTheme();
   const saveRunColor = useSaveExperimentRunColor();
   const getRunColor = useGetExperimentRunColor();
+  const navigate = useNavigate();
 
   if ('subRuns' in row.original) {
     return <div>-</div>;
   }
 
   const runUuid = row.original.info.runUuid;
+  const experimentId = row.original.info.experimentId;
+  const tags = row.original.data?.tags ?? [];
+  const isIssueDetectionRun = tags.some((tag) => tag.key === MLFLOW_RUN_IS_ISSUE_DETECTION_TAG);
+  const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // When flag is ON and clicking on an issue detection run, navigate to the issue detection run details page
+    if (isIssueDetectionRun && showIssuesPanelFlag) {
+      navigate(Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid));
+      return;
+    }
+    // Otherwise follow old behavior - open the right-side panel
+    (meta as any).setSelectedRunUuid?.(runUuid);
+  };
 
   return (
     <div
       css={{ overflow: 'hidden', display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}
-      onClick={() => {
-        (meta as any).setSelectedRunUuid?.(runUuid);
-      }}
+      onClick={handleClick}
+      onMouseDown={(e) => e.stopPropagation()}
     >
-      <RunColorPill
-        color={getRunColor(runUuid)}
-        onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
-      />
+      {isIssueDetectionRun && showIssuesPanelFlag ? (
+        <Tooltip
+          content={
+            <FormattedMessage
+              defaultMessage="Issue detection run"
+              description="Tooltip for the AI icon indicating this is an issue detection run"
+            />
+          }
+          componentId="mlflow.eval-runs.issue-detection-run-icon-tooltip"
+        >
+          <SparkleIcon color="ai" css={{ flexShrink: 0, fontSize: 14, marginLeft: -1, marginRight: -1 }} />
+        </Tooltip>
+      ) : (
+        <RunColorPill
+          color={getRunColor(runUuid)}
+          onChangeColor={(colorValue) => saveRunColor({ runUuid, colorValue })}
+        />
+      )}
       <Typography.Link
         css={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', flexShrink: 1 }}
         componentId="mlflow.eval-runs.run-name-cell"
@@ -101,6 +136,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
           }}
         >
           <Link
+            componentId="mlflow.experiment_tracking.evaluation_runs.run_link"
             target="_blank"
             rel="noreferrer"
             to={Routes.getRunPageTabRoute(row.original.info.experimentId, runUuid, RunPageTabName.EVALUATIONS)}
@@ -218,6 +254,7 @@ export const ModelVersionCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row 
         css={{ maxWidth: '100%', marginRight: 0, cursor: 'pointer' }}
       >
         <Link
+          componentId="mlflow.experiment_tracking.evaluation_runs.model_version_link"
           to={Routes.getExperimentLoggedModelDetailsPageRoute(row.original.info.experimentId, modelId)}
           target="_blank"
           css={{ maxWidth: '100%' }}
@@ -318,4 +355,17 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
       css={{ cursor: 'pointer' }}
     />
   );
+};
+
+export const StatusCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
+  if ('subRuns' in row.original) {
+    return <div>-</div>;
+  }
+
+  const status = row.original.info.status;
+  if (!status) {
+    return <div>-</div>;
+  }
+
+  return <RunStatusIcon status={status} />;
 };

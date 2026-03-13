@@ -104,7 +104,7 @@ For Databricks, use the following command:
 
   if (messages.length > 0) {
     const body =
-      `@${user.login} Thank you for the contribution! Could you fix the following issue(s)?\n\n` +
+      `@${user.login} Thank you for the contribution! Could you fix the following issue(s)? Otherwise, this PR may be automatically closed.\n\n` +
       messages.join("\n\n");
     await github.rest.issues.createComment({
       owner,

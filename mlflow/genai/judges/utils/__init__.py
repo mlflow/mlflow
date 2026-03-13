@@ -23,6 +23,7 @@ from mlflow.genai.judges.utils.prompt_utils import (
     DatabricksLLMJudgePrompts,
     add_output_format_instructions,
     format_prompt,
+    format_type,
 )
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.utils.uri import is_databricks_uri
@@ -143,6 +144,7 @@ __all__ = [
     "get_chat_completions_with_structured_output",
     # Prompt utils
     "DatabricksLLMJudgePrompts",
+    "format_type",
     "format_prompt",
     "add_output_format_instructions",
 ]

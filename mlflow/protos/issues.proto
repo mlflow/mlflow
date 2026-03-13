@@ -26,8 +26,8 @@ message Issue {
   // Issue status.
   optional string status = 5;
 
-  // Confidence level indicator.
-  optional string confidence = 6;
+  // Severity level indicator.
+  optional string severity = 6;
 
   // Analysis of the root causes of the issue.
   repeated string root_causes = 7;
@@ -43,6 +43,9 @@ message Issue {
 
   // Identifier for who created this issue.
   optional string created_by = 11;
+
+  // Categories of the issue.
+  repeated string categories = 12;
 }
 
 // Request to create a new issue.
@@ -59,8 +62,8 @@ message CreateIssue {
   // Issue status.
   optional string status = 4;
 
-  // Confidence level indicator.
-  optional string confidence = 5;
+  // Severity level indicator.
+  optional string severity = 5;
 
   // Analysis of the root causes of the issue.
   repeated string root_causes = 6;
@@ -68,11 +71,11 @@ message CreateIssue {
   // MLflow run ID that discovered this issue.
   optional string source_run_id = 7;
 
-  // List of trace IDs associated with this issue.
-  repeated string trace_ids = 8;
-
   // Identifier for who created this issue.
-  optional string created_by = 9;
+  optional string created_by = 8;
+
+  // Categories of the issue.
+  repeated string categories = 9;
 
   message Response {
     // The created issue.
@@ -94,8 +97,8 @@ message UpdateIssue {
   // Issue status to update.
   optional string status = 4;
 
-  // Confidence level indicator.
-  optional string confidence = 5;
+  // Severity level indicator.
+  optional string severity = 5;
 
   message Response {
     // The updated issue.

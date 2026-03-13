@@ -169,12 +169,7 @@ match some_str.split("."):
 ```python
 # Bad
 def f(data):
-    return (
-        data.get("data", {})
-        .get("repository", {})
-        .get("pullRequest", {})
-        .get("nodes", [])
-    )
+    return data.get("data", {}).get("repository", {}).get("pullRequest", {}).get("nodes", [])
 
 
 # Good

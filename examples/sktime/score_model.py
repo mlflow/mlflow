@@ -17,16 +17,14 @@ url = f"http://{host}:5000/invocations"
 # details read the MLflow deployment API reference.
 # (https://mlflow.org/docs/latest/models.html#deploy-mlflow-models)
 X_test_list = X_test.to_numpy().tolist()
-predict_conf = pd.DataFrame(
-    [
-        {
-            "fh": [1, 2, 3, 4],
-            "predict_method": "predict_interval",
-            "coverage": [0.9, 0.95],
-            "X": X_test_list,
-        }
-    ]
-)
+predict_conf = pd.DataFrame([
+    {
+        "fh": [1, 2, 3, 4],
+        "predict_method": "predict_interval",
+        "coverage": [0.9, 0.95],
+        "X": X_test_list,
+    }
+])
 
 # Create dictionary with pandas DataFrame in the split orientation
 json_data = {"dataframe_split": predict_conf.to_dict(orient="split")}

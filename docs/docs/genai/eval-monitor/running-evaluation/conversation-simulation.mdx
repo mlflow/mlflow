@@ -110,9 +110,7 @@ test_cases = [
             "Start by asking about model versioning without mentioning any specific tools",
             "Do not ask about deployment until the assistant brings it up",
         ],
-        "context": {
-            "user_id": "beginner_123"
-        },  # user_id is passed to predict_fn via kwargs
+        "context": {"user_id": "beginner_123"},  # user_id is passed to predict_fn via kwargs
     },
 ]
 
@@ -266,13 +264,11 @@ You can also use a DataFrame:
 ```python
 import pandas as pd
 
-df = pd.DataFrame(
-    [
-        {"goal": "Learn about experiment tracking"},
-        {"goal": "Debug deployment issue", "persona": "Senior engineer"},
-        {"goal": "Set up CI/CD pipeline"},
-    ]
-)
+df = pd.DataFrame([
+    {"goal": "Learn about experiment tracking"},
+    {"goal": "Debug deployment issue", "persona": "Senior engineer"},
+    {"goal": "Set up CI/CD pipeline"},
+])
 
 simulator = ConversationSimulator(test_cases=df)
 ```
@@ -317,12 +313,10 @@ from mlflow.genai.datasets import create_dataset, get_dataset
 
 # Create and populate a dataset
 dataset = create_dataset(name="conversation_test_cases")
-dataset.merge_records(
-    [
-        {"inputs": {"goal": "Learn about experiment tracking"}},
-        {"inputs": {"goal": "Debug deployment issue", "persona": "Senior engineer"}},
-    ]
-)
+dataset.merge_records([
+    {"inputs": {"goal": "Learn about experiment tracking"}},
+    {"inputs": {"goal": "Debug deployment issue", "persona": "Senior engineer"}},
+])
 
 # Use the dataset with the simulator
 dataset = get_dataset(name="conversation_test_cases")
@@ -416,7 +410,9 @@ def predict_fn(input: list[dict], **kwargs):
     state["turn_count"] += 1
 
     # Your agent logic here - can use state for context
-    system_message = f"You are a helpful assistant. This is turn {state['turn_count']} of the conversation."
+    system_message = (
+        f"You are a helpful assistant. This is turn {state['turn_count']} of the conversation."
+    )
     messages = [{"role": "system", "content": system_message}] + input
 
     response = client.chat.completions.create(

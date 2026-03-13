@@ -719,6 +719,16 @@ def test_delete_jobs_skips_non_finalized_even_with_job_ids(tmp_path: Path):
         store.get_job(succeeded_job.job_id)
 
 
+@job(name="env_var_reader_fun", max_workers=1)
+def env_var_reader_fun(env_var_name: str):
+    return os.environ.get(env_var_name)
+
+
+@job(name="multiple_env_vars_fun", max_workers=1)
+def multiple_env_vars_fun(env_var_names: list[str]):
+    return {name: os.environ.get(name) for name in env_var_names}
+
+
 @job(name="exclusive_sleep_fun", max_workers=2, exclusive=True)
 def exclusive_sleep_fun(sleep_secs: int, experiment_id: str, tmp_dir: str):
     pid_file = Path(tmp_dir) / f"pid_{experiment_id}"
@@ -779,3 +789,42 @@ def test_exclusive_job_allows_different_params(monkeypatch, tmp_path: Path):
         # Both jobs should succeed since they have different params
         assert get_job(job1_id).status == JobStatus.SUCCEEDED
         assert get_job(job2_id).status == JobStatus.SUCCEEDED
+
+
+def test_submit_job_with_extra_envs(monkeypatch, tmp_path):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["tests.server.jobs.test_jobs.multiple_env_vars_fun"],
+        allowed_job_names=["multiple_env_vars_fun"],
+    ):
+        job_id = submit_job(
+            multiple_env_vars_fun,
+            {"env_var_names": ["VAR1", "VAR2", "VAR3"]},
+            extra_envs={"VAR1": "value1", "VAR2": "value2", "VAR3": "value3"},
+        ).job_id
+        wait_job_finalize(job_id)
+
+        job = get_job(job_id)
+        assert job.status == JobStatus.SUCCEEDED
+        assert job.parsed_result == {"VAR1": "value1", "VAR2": "value2", "VAR3": "value3"}
+    for name in ["VAR1", "VAR2", "VAR3"]:
+        assert os.environ.get(name) is None
+
+
+def test_submit_job_without_extra_envs(monkeypatch, tmp_path):
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["tests.server.jobs.test_jobs.env_var_reader_fun"],
+        allowed_job_names=["env_var_reader_fun"],
+    ):
+        job_id = submit_job(
+            env_var_reader_fun,
+            {"env_var_name": "NONEXISTENT_VAR"},
+        ).job_id
+        wait_job_finalize(job_id)
+
+        job = get_job(job_id)
+        assert job.status == JobStatus.SUCCEEDED
+        assert job.parsed_result is None

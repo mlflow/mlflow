@@ -19,7 +19,6 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
-import uuid
 from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -221,39 +220,6 @@ def make_containing_dirs(path):
         os.makedirs(dir_name)
 
 
-def read_parquet_as_pandas_df(data_parquet_path: str):
-    """Deserialize and load the specified parquet file as a Pandas DataFrame.
-
-    Args:
-        data_parquet_path: String, path object (implementing os.PathLike[str]),
-            or file-like object implementing a binary read() function. The string
-            could be a URL. Valid URL schemes include http, ftp, s3, gs, and file.
-            For file URLs, a host is expected. A local file could
-            be: file://localhost/path/to/table.parquet. A file URL can also be a path to a
-            directory that contains multiple partitioned parquet files. Pyarrow
-            support paths to directories as well as file URLs. A directory
-            path could be: file://localhost/path/to/tables or s3://bucket/partition_dir.
-
-    Returns:
-        pandas dataframe
-    """
-    import pandas as pd
-
-    return pd.read_parquet(data_parquet_path, engine="pyarrow")
-
-
-def write_pandas_df_as_parquet(df, data_parquet_path: str):
-    """Write a DataFrame to the binary parquet format.
-
-    Args:
-        df: pandas data frame.
-        data_parquet_path: String, path object (implementing os.PathLike[str]),
-            or file-like object implementing a binary write() function.
-
-    """
-    df.to_parquet(data_parquet_path, engine="pyarrow")
-
-
 class TempDir:
     def __init__(self, chdr=False, remove_on_exit=True):
         self._dir = None
@@ -328,22 +294,6 @@ def get_file_info(path, rel_path):
         return FileInfo(rel_path, True, None)
     else:
         return FileInfo(rel_path, False, os.path.getsize(path))
-
-
-def get_relative_path(root_path, target_path):
-    """Remove root path common prefix and return part of `path` relative to `root_path`.
-
-    Args:
-        root_path: Root path.
-        target_path: Desired path for common prefix removal.
-
-    Returns:
-        Path relative to root_path.
-    """
-    if len(root_path) > len(target_path):
-        raise Exception(f"Root path '{root_path}' longer than target path '{target_path}'")
-    common_prefix = os.path.commonprefix([root_path, target_path])
-    return os.path.relpath(target_path, common_prefix)
 
 
 def mv(target, new_parent):
@@ -518,18 +468,6 @@ def get_local_path_or_none(path_or_uri):
         return local_file_uri_to_path(path_or_uri)
     else:
         return None
-
-
-def yield_file_in_chunks(file, chunk_size=100000000):
-    """
-    Generator to chunk-ify the inputted file based on the chunk-size.
-    """
-    with open(file, "rb") as f:
-        while True:
-            if chunk := f.read(chunk_size):
-                yield chunk
-            else:
-                break
 
 
 def download_file_using_http_uri(http_uri, download_path, chunk_size=100000000, headers=None):
@@ -800,25 +738,6 @@ def get_or_create_nfs_tmp_dir():
     return tmp_nfs_dir
 
 
-def write_spark_dataframe_to_parquet_on_local_disk(spark_df, output_path):
-    """Write spark dataframe in parquet format to local disk.
-
-    Args:
-        spark_df: Spark dataframe.
-        output_path: Path to write the data to.
-
-    """
-    from mlflow.utils.databricks_utils import is_in_databricks_runtime
-
-    if is_in_databricks_runtime():
-        dbfs_path = os.path.join(".mlflow", "cache", str(uuid.uuid4()))
-        spark_df.coalesce(1).write.format("parquet").save(dbfs_path)
-        shutil.copytree("/dbfs/" + dbfs_path, output_path)
-        shutil.rmtree("/dbfs/" + dbfs_path)
-    else:
-        spark_df.coalesce(1).write.format("parquet").save(output_path)
-
-
 def shutil_copytree_without_file_permissions(src_dir, dst_dir):
     """
     Copies the directory src_dir into dst_dir, without preserving filesystem permissions
@@ -898,21 +817,6 @@ def remove_on_error(path: os.PathLike, onerror=None):
             f"Failed to remove {path}" if os.path.exists(path) else f"Successfully removed {path}"
         )
         raise
-
-
-@contextmanager
-def chdir(path: str) -> None:
-    """Temporarily change the current working directory to the specified path.
-
-    Args:
-        path: The path to use as the temporary working directory.
-    """
-    cwd = os.getcwd()
-    try:
-        os.chdir(path)
-        yield
-    finally:
-        os.chdir(cwd)
 
 
 def get_total_file_size(path: str | pathlib.Path) -> int | None:

@@ -2,7 +2,7 @@ name: issue-warning
 
 on:
   issues:
-    types: [opened]
+    types: [opened, edited]
 
 defaults:
   run:
@@ -23,8 +23,19 @@ jobs:
           ISSUE_BODY: ${{ github.event.issue.body }}
           REPO: ${{ github.repository }}
         run: |
-          body="> [!WARNING]
-          > Please submit a PR only if the issue has the \`ready\` label, has no assignee, and no duplicate PR exists. PRs not meeting these requirements may be automatically closed.
+          if echo "$ISSUE_BODY" | grep -qF '<!-- issue-warning -->'; then
+            echo "Warning already present, skipping."
+            exit 0
+          fi
+
+          body="<!-- issue-warning -->
+          > [!WARNING]
+          > Before submitting a PR, please make sure that:
+          > - A maintainer has triaged this issue and applied the \`ready\` label
+          > - This issue has no assignee
+          > - No duplicate PR exists
+          >
+          > PRs not meeting these requirements may be automatically closed.
 
           ${ISSUE_BODY}"
 

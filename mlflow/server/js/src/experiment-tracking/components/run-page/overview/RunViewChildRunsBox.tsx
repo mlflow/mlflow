@@ -92,7 +92,12 @@ export const RunViewChildRunsBox = ({ runUuid, experimentId }: { runUuid: string
         >
           {childRuns.map((info, index) => (
             <Typography.Text key={info.runUuid} css={{ whiteSpace: 'nowrap' }}>
-              <Link to={Routes.getRunPageRoute(info.experimentId, info.runUuid)}>{info.runName}</Link>
+              <Link
+                componentId="mlflow.run_page.overview.child_run_link"
+                to={Routes.getRunPageRoute(info.experimentId, info.runUuid)}
+              >
+                {info.runName}
+              </Link>
               {index < childRuns.length - 1 && ','}
             </Typography.Text>
           ))}

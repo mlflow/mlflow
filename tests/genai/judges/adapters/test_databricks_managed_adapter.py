@@ -33,9 +33,10 @@ def mock_trace():
 @pytest.fixture
 def mock_databricks_rag_eval():
     mock_rag_client = mock.MagicMock()
-    mock_rag_client.get_chat_completions_result.return_value = AttrDict(
-        {"output": "test response", "error_message": None}
-    )
+    mock_rag_client.get_chat_completions_result.return_value = AttrDict({
+        "output": "test response",
+        "error_message": None,
+    })
 
     mock_context = mock.MagicMock()
     mock_context.get_context.return_value.build_managed_rag_client.return_value = mock_rag_client
@@ -193,22 +194,18 @@ def test_call_chat_completions_with_use_case_not_supported(mock_databricks_rag_e
 
 def test_agentic_loop_final_answer_without_tool_calls():
     # Mock response with no tool calls (final answer)
-    mock_response = AttrDict(
-        {
-            "output_json": json.dumps(
+    mock_response = AttrDict({
+        "output_json": json.dumps({
+            "choices": [
                 {
-                    "choices": [
-                        {
-                            "message": {
-                                "role": "assistant",
-                                "content": '{"result": "yes", "rationale": "Looks good"}',
-                            }
-                        }
-                    ]
+                    "message": {
+                        "role": "assistant",
+                        "content": '{"result": "yes", "rationale": "Looks good"}',
+                    }
                 }
-            )
-        }
-    )
+            ]
+        })
+    })
 
     messages = [litellm.Message(role="user", content="Test prompt")]
     callback_called_with = []
@@ -237,13 +234,11 @@ def test_agentic_loop_final_answer_without_tool_calls():
 
 
 def test_agentic_loop_forwards_use_case():
-    mock_response = AttrDict(
-        {
-            "output_json": json.dumps(
-                {"choices": [{"message": {"role": "assistant", "content": "done"}}]}
-            )
-        }
-    )
+    mock_response = AttrDict({
+        "output_json": json.dumps({
+            "choices": [{"message": {"role": "assistant", "content": "done"}}]
+        })
+    })
 
     with mock.patch(
         "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
@@ -264,49 +259,41 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
     # First response has tool calls, second response is final answer
     mock_responses = [
         # First call: LLM requests tool call
-        AttrDict(
-            {
-                "output_json": json.dumps(
+        AttrDict({
+            "output_json": json.dumps({
+                "choices": [
                     {
-                        "choices": [
-                            {
-                                "message": {
-                                    "role": "assistant",
-                                    "content": None,
-                                    "tool_calls": [
-                                        {
-                                            "id": "call_123",
-                                            "type": "function",
-                                            "function": {
-                                                "name": "get_root_span",
-                                                "arguments": "{}",
-                                            },
-                                        }
-                                    ],
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": "call_123",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "get_root_span",
+                                        "arguments": "{}",
+                                    },
                                 }
-                            }
-                        ]
+                            ],
+                        }
                     }
-                )
-            }
-        ),
+                ]
+            })
+        }),
         # Second call: LLM returns final answer
-        AttrDict(
-            {
-                "output_json": json.dumps(
+        AttrDict({
+            "output_json": json.dumps({
+                "choices": [
                     {
-                        "choices": [
-                            {
-                                "message": {
-                                    "role": "assistant",
-                                    "content": '{"outputs": "The answer is 42"}',
-                                }
-                            }
-                        ]
+                        "message": {
+                            "role": "assistant",
+                            "content": '{"outputs": "The answer is 42"}',
+                        }
                     }
-                )
-            }
-        ),
+                ]
+            })
+        }),
     ]
 
     messages = [litellm.Message(role="user", content="Extract outputs")]
@@ -350,32 +337,28 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
 
 def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
     # Always return tool calls (never a final answer)
-    mock_response = AttrDict(
-        {
-            "output_json": json.dumps(
+    mock_response = AttrDict({
+        "output_json": json.dumps({
+            "choices": [
                 {
-                    "choices": [
-                        {
-                            "message": {
-                                "role": "assistant",
-                                "content": None,
-                                "tool_calls": [
-                                    {
-                                        "id": "call_123",
-                                        "type": "function",
-                                        "function": {
-                                            "name": "get_root_span",
-                                            "arguments": "{}",
-                                        },
-                                    }
-                                ],
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_123",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_root_span",
+                                    "arguments": "{}",
+                                },
                             }
-                        }
-                    ]
+                        ],
+                    }
                 }
-            )
-        }
-    )
+            ]
+        })
+    })
 
     messages = [litellm.Message(role="user", content="Extract outputs")]
 

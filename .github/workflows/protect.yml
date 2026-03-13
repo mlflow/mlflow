@@ -9,7 +9,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
   merge_group:
     types:
       - checks_requested

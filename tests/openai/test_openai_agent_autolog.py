@@ -146,16 +146,18 @@ async def test_autolog_agent():
     assert spans[2].name == "Response"
     assert spans[2].parent_id == spans[1].span_id
     assert spans[2].inputs == [{"role": "user", "content": "Hola.  ¿Como estás?"}]
-    assert spans[2].outputs == [
-        {
-            "id": "123",
-            "arguments": "{}",
-            "call_id": "123",
-            "name": "transfer_to_spanish_agent",
-            "type": "function_call",
-            "status": "completed",
-        }
-    ]
+    assert len(spans[2].outputs) == 1
+    # Use subset check to handle SDK version differences: OpenAI >= 2.25.0 adds a
+    # `namespace` field to ResponseFunctionToolCall that older versions don't have.
+    expected_output_fields = {
+        "id": "123",
+        "arguments": "{}",
+        "call_id": "123",
+        "name": "transfer_to_spanish_agent",
+        "type": "function_call",
+        "status": "completed",
+    }
+    assert expected_output_fields.items() <= spans[2].outputs[0].items()
     assert spans[2].attributes["temperature"] == 1
     assert spans[3].name == "Handoff"
     assert spans[3].span_type == SpanType.CHAIN

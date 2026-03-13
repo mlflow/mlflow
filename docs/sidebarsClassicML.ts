@@ -473,11 +473,6 @@ const sidebarsClassicML: SidebarsConfig = {
       ],
     },
     {
-      type: 'doc',
-      id: 'webhooks/index',
-      label: 'Webhooks',
-    },
-    {
       type: 'category',
       label: 'Team Collaboration',
       className: 'sidebar-top-level-category',
@@ -490,7 +485,7 @@ const sidebarsClassicML: SidebarsConfig = {
         },
         {
           type: 'link',
-          href: '/ml/#running-mlflow-anywhere',
+          href: '/ml/#running-mlflow-for-ml-models-anywhere',
           label: 'Managed Services',
         },
         {

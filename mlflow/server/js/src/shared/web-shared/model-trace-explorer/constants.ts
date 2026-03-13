@@ -24,6 +24,12 @@ export const SPAN_ATTRIBUTE_COST_KEY = 'mlflow.llm.cost';
 export const SELECTED_TRACE_ID_QUERY_PARAM = 'selectedTraceId';
 export const ASSESSMENT_SESSION_METADATA_KEY = 'mlflow.trace.session';
 
+// Span attribute key for linked gateway trace
+export const SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY = 'mlflow.gateway.linkedTraceId';
+
+// Internal assessment names that should be hidden from the UI
+export const INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE = '_issue_discovery_judge';
+
 // Key used in assessment metadata to indicate which document (by index) the assessment references
 export const MLFLOW_SPAN_OUTPUT_KEY = 'span_output_key';
 export const CHUNK_INDEX_KEY = 'chunk_index';

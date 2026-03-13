@@ -165,13 +165,11 @@ def _get_maven_proxy():
     if parsed_http_proxy.username is None or parsed_http_proxy.password is None:
         return " ".join(maven_proxy_options)
 
-    return " ".join(
-        (
-            *maven_proxy_options,
-            f"-Dhttp.proxyUser={parsed_http_proxy.username}",
-            f"-Dhttp.proxyPassword={parsed_http_proxy.password}",
-        )
-    )
+    return " ".join((
+        *maven_proxy_options,
+        f"-Dhttp.proxyUser={parsed_http_proxy.username}",
+        f"-Dhttp.proxyPassword={parsed_http_proxy.password}",
+    ))
 
 
 def _pip_mlflow_install_step(dockerfile_context_dir, mlflow_home):

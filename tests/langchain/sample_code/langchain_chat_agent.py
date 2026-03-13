@@ -19,13 +19,11 @@ class FakeOpenAI(ChatOpenAI, extra="allow"):
         super().__init__(*args, **kwargs)
 
         self._responses = iter([AIMessage(content="1")])
-        self._stream_responses = iter(
-            [
-                AIMessageChunk(content="1"),
-                AIMessageChunk(content="2"),
-                AIMessageChunk(content="3"),
-            ]
-        )
+        self._stream_responses = iter([
+            AIMessageChunk(content="1"),
+            AIMessageChunk(content="2"),
+            AIMessageChunk(content="3"),
+        ])
 
     def _generate(self, *args, **kwargs):
         return ChatResult(generations=[ChatGeneration(message=next(self._responses))])

@@ -25,6 +25,7 @@ class Record:
     # but callers can override with these fields (e.g. in UI telemetry records)
     installation_id: str | None = None
     session_id: str | None = None
+    server_installation_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         result = {
@@ -39,7 +40,35 @@ class Record:
             result["installation_id"] = self.installation_id
         if self.session_id:
             result["session_id"] = self.session_id
+        if self.server_installation_id:
+            result["server_installation_id"] = self.server_installation_id
         return result
+
+
+class Environment(str, Enum):
+    KAGGLE = "kaggle"
+    COLAB = "colab"
+    AZURE_ML = "azure_ml"
+    SAGEMAKER_STUDIO = "sagemaker_studio"
+    SAGEMAKER_NOTEBOOK = "sagemaker_notebook"
+    DOCKER = "docker"
+
+
+# The following env vars were found by manually inspecting
+# env vars in the specified environments and avoiding potentially
+# PII-containing variables.
+ENV_VAR_TO_ENVIRONMENT_MAP = {
+    # Undocumented env var in Kaggle notebooks
+    # https://www.kaggle.com/discussions/general/147433
+    "KAGGLE_KERNEL_RUN_TYPE": Environment.KAGGLE,
+    # Undocumented env var in Colab notebooks
+    "COLAB_RELEASE_TAG": Environment.COLAB,
+    # Undocumented env var in AzureML notebooks
+    "AZUREML_FRAMEWORK": Environment.AZURE_ML,
+    # Internal env var that SageMaker inserts
+    # https://docs.aws.amazon.com/sagemaker/latest/dg/studio-updated-byoi-specs.html#studio-updated-byoi-specs-run
+    "SAGEMAKER_APP_TYPE": Environment.SAGEMAKER_STUDIO,
+}
 
 
 class SourceSDK(str, Enum):
@@ -67,6 +96,7 @@ class TelemetryInfo:
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     operating_system: str = platform.platform()
+    environment: str | None = None
     tracking_uri_scheme: str | None = None
     is_localhost: bool | None = None
     installation_id: str | None = None

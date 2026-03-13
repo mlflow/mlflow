@@ -8,7 +8,16 @@ from urllib.parse import quote, urlencode
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from pydantic import BaseModel
 
-from mlflow.entities import Assessment, Span, Trace, TraceInfo, TraceLocation
+from mlflow.entities import (
+    Assessment,
+    Issue,
+    IssueSeverity,
+    IssueStatus,
+    Span,
+    Trace,
+    TraceInfo,
+    TraceLocation,
+)
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_location import (
     UCSchemaLocation as UCSchemaLocationEntity,
@@ -377,11 +386,11 @@ class DatabricksTracingRestStore(RestStore):
         """
         location, trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
-            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
             encoded_key = quote(key, safe="")
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{encoded_key}"
-            req_body = message_to_json(DeleteTraceTag(sql_warehouse_id=sql_warehouse_id))
-            self._call_endpoint(DeleteTraceTag, req_body, endpoint=endpoint)
+            endpoint = self._append_sql_warehouse_id_param(
+                f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{encoded_key}"
+            )
+            self._call_endpoint(DeleteTraceTag, endpoint=endpoint)
             return
         return super().delete_trace_tag(trace_id, key)
 
@@ -1075,6 +1084,93 @@ class DatabricksTracingRestStore(RestStore):
             next_token = current_backend_token
 
         return PagedList(results_to_return, next_token)
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        categories: list[str] | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status. Defaults to IssueStatus.PENDING.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():

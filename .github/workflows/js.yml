@@ -13,7 +13,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - mlflow/server/js/**
       - .github/workflows/js.yml
@@ -28,7 +27,7 @@ defaults:
 
 jobs:
   js:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
