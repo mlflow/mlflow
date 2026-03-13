@@ -42,6 +42,7 @@ import { v4 as uuidv4 } from 'uuid';
 import {
   DesignSystemEventProviderAnalyticsEventTypes,
   DesignSystemEventProviderComponentTypes,
+  useDesignSystemEventComponentCallbacks,
 } from '@databricks/design-system';
 import { useLogTelemetryEvent } from '../../telemetry/hooks/useLogTelemetryEvent';
 
@@ -144,17 +145,15 @@ const Link = React.forwardRef<
 >(function Link(props, ref) {
   const { to, disableWorkspacePrefix, componentId, onClick, ...rest } = props;
   const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  const logTelemetryEvent = useLogTelemetryEvent();
-  const viewId = useMemo(() => uuidv4(), []);
+  const events = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId,
+    analyticsEvents: events,
+  });
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    logTelemetryEvent({
-      componentId,
-      componentViewId: viewId,
-      componentType: DesignSystemEventProviderComponentTypes.Button,
-      componentSubType: null,
-      eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
-    });
+    eventContext?.onClick(e);
     onClick?.(e);
   };
 
