@@ -184,7 +184,69 @@ deny_push_without_branches contains msg if {
 	msg := "Push trigger must have a branches filter to avoid running on every branch."
 }
 
+deny_unsafe_interpolation contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	is_unsafe_interpolation(step.run)
+	msg := sprintf(
+		"Unsafe interpolation of a user-controlled github context in run block of job '%s'. Pass it via env: instead.",
+		[job_id],
+	)
+}
+
+deny_unsafe_interpolation contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/github-script@")
+	is_unsafe_interpolation(step["with"].script)
+	msg := sprintf(
+		concat("", [
+			"Unsafe interpolation of a user-controlled github context ",
+			"in github-script of job '%s'. Use env: + process.env instead.",
+		]),
+		[job_id],
+	)
+}
+
 ###########################   RULE HELPERS   ##################################
+# Top-level github contexts that are user-controlled.
+unsafe_top_level_contexts := [
+	"github.head_ref",
+	"github.ref",
+]
+
+# Suffixes of nested github.event.* contexts that are user-controlled.
+# Per https://docs.github.com/en/actions/concepts/security/script-injections
+unsafe_event_suffixes := [
+	"body",
+	"title",
+	"message",
+	"email",
+	"default_branch",
+	"label",
+	"page_name",
+	"name",
+]
+
+is_unsafe_interpolation(value) if {
+	some ctx in unsafe_top_level_contexts
+	regex.match(
+		sprintf(`\$\{\{\s*%s\s*\}\}`, [replace(ctx, ".", "\\.")]),
+		value,
+	)
+}
+
+is_unsafe_interpolation(value) if {
+	some suffix in unsafe_event_suffixes
+
+	# GitHub event context property names are always lowercase (snake_case).
+	# [a-z_.]* also prevents false positives on function calls (e.g., format(...)).
+	regex.match(
+		sprintf(`\$\{\{\s*github\.event\.[a-z_.]*\.%s\s*\}\}`, [suffix]),
+		value,
+	)
+}
+
 contains_github_token(value) if {
 	regex.match(`\$\{\{\s*github\.token\s*\}\}`, value)
 }

@@ -185,3 +185,11 @@ export const isScorerModelSelectionEnabled = () => {
 export const shouldEnableIssueDetection = () => {
   return false;
 };
+
+/**
+ * Controls visibility of the right panel (issues) on the evaluation runs page.
+ * When enabled (true), the right panel is hidden by default and only the evaluation runs table is shown.
+ */
+export const shouldShowEvalRunsIssuesPanel = () => {
+  return false;
+};

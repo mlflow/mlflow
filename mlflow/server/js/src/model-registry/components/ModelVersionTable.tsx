@@ -202,7 +202,12 @@ export const ModelVersionTable = ({
             description="Link to model version in the model version table"
             values={{
               link: (chunks) => (
-                <Link to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, String(getValue()))}>{chunks}</Link>
+                <Link
+                  componentId="mlflow.model_registry.version_table.version_link"
+                  to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, String(getValue()))}
+                >
+                  {chunks}
+                </Link>
               ),
               versionNumber: getValue(),
             }}

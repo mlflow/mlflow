@@ -675,28 +675,26 @@ async def test_gemini_chat_function_calling_second_turn():
     provider = GeminiProvider(EndpointConfig(**config))
     payload = chat_function_calling_payload()
 
-    payload["messages"].extend(
-        [
-            {
-                "role": "assistant",
-                "tool_calls": [
-                    {
-                        "id": "call_001",
-                        "function": {
-                            "arguments": '{"location": "Singapore"}',
-                            "name": "get_weather",
-                        },
-                        "type": "function",
-                    }
-                ],
-            },
-            {
-                "role": "tool",
-                "tool_call_id": "call_001",
-                "content": '{"temperature": 31.2, "condition": "sunny"}',
-            },
-        ]
-    )
+    payload["messages"].extend([
+        {
+            "role": "assistant",
+            "tool_calls": [
+                {
+                    "id": "call_001",
+                    "function": {
+                        "arguments": '{"location": "Singapore"}',
+                        "name": "get_weather",
+                    },
+                    "type": "function",
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "tool_call_id": "call_001",
+            "content": '{"temperature": 31.2, "condition": "sunny"}',
+        },
+    ])
 
     expected_url = (
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"

@@ -17,7 +17,10 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetTargetScope,
     GatewayBudgetPolicy,
 )
-from mlflow.environment_variables import MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL
+from mlflow.environment_variables import (
+    MLFLOW_GATEWAY_BUDGET_REDIS_URL,
+    MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL,
+)
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 _EPOCH = datetime.fromtimestamp(0, tz=timezone.utc)
@@ -35,9 +38,14 @@ def get_budget_tracker() -> BudgetTracker:
     if _budget_tracker is None:
         with _tracker_lock:
             if _budget_tracker is None:
-                from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+                if redis_url := MLFLOW_GATEWAY_BUDGET_REDIS_URL.get():
+                    from mlflow.gateway.budget_tracker.redis import RedisBudgetTracker
 
-                _budget_tracker = InMemoryBudgetTracker()
+                    _budget_tracker = RedisBudgetTracker(_redis_url=redis_url)
+                else:
+                    from mlflow.gateway.budget_tracker.in_memory import InMemoryBudgetTracker
+
+                    _budget_tracker = InMemoryBudgetTracker()
     return _budget_tracker
 
 
@@ -60,7 +68,7 @@ class BudgetTracker(ABC):
     in memory, Redis, or other backends.
     """
 
-    _last_refresh_time: float = 0.0
+    _last_refresh_time: float = float("-inf")
 
     def needs_refresh(self) -> bool:
         """Check whether policies should be re-fetched from the database."""
@@ -71,6 +79,10 @@ class BudgetTracker(ABC):
     def mark_refreshed(self) -> None:
         """Mark the tracker as just refreshed."""
         self._last_refresh_time = time.monotonic()
+
+    def invalidate(self) -> None:
+        """Reset the refresh timer so the next needs_refresh() call returns True."""
+        self._last_refresh_time = float("-inf")
 
     @abstractmethod
     def refresh_policies(self, policies: list[GatewayBudgetPolicy]) -> list[BudgetWindow]:
@@ -105,15 +117,15 @@ class BudgetTracker(ABC):
     def should_reject_request(
         self,
         workspace: str | None = None,
-    ) -> tuple[bool, GatewayBudgetPolicy | None]:
+    ) -> tuple[bool, BudgetWindow | None]:
         """Check if any REJECT-capable policy is exceeded.
 
         Args:
             workspace: The workspace to check against.
 
         Returns:
-            Tuple of (exceeded, policy). If exceeded is True, policy is the
-            first exceeded policy found.
+            Tuple of (exceeded, window). If exceeded is True, window is the
+            first exceeded window found.
         """
 
     @abstractmethod
@@ -126,6 +138,10 @@ class BudgetTracker(ABC):
         Args:
             spend_by_policy: Dict mapping budget_policy_id to historical spend amount.
         """
+
+    @abstractmethod
+    def get_all_windows(self) -> list[BudgetWindow]:
+        """Get the current window info for all tracked policies."""
 
     @abstractmethod
     def _get_window_info(self, budget_policy_id: str) -> BudgetWindow | None:

@@ -254,14 +254,12 @@ def _run_command(cmd, timeout_seconds, env=None):
         stdout = stdout.decode("utf-8")
         stderr = stderr.decode("utf-8")
         if proc.returncode != 0:
-            msg = "\n".join(
-                [
-                    f"Encountered an unexpected error while running {cmd}",
-                    f"exit status: {proc.returncode}",
-                    f"stdout: {stdout}",
-                    f"stderr: {stderr}",
-                ]
-            )
+            msg = "\n".join([
+                f"Encountered an unexpected error while running {cmd}",
+                f"exit status: {proc.returncode}",
+                f"stdout: {stdout}",
+                f"stderr: {stderr}",
+            ])
             raise MlflowException(msg)
     finally:
         if timer.is_alive():

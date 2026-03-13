@@ -1,3 +1,8 @@
+---
+title: Community ML Model Flavors | MLflow AI Platform
+description: Discover community-built MLflow model flavors for additional ML framework integrations.
+---
+
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
@@ -167,7 +172,8 @@ df_iris = load_iris(as_frame=True)
 
 # Create Altair visualization
 viz_iris = (
-    alt.Chart(df_iris)
+    alt
+    .Chart(df_iris)
     .mark_circle(size=60)
     .encode(x="sepal_length:Q", y="sepal_width:Q", color="target:N")
     .properties(height=375, width=575)
@@ -578,16 +584,14 @@ native_predictions = loaded_model.predict(fh=[1, 2, 3])
 loaded_pyfunc = mlflow.pyfunc.load_model(model_info.model_uri)
 
 # Create configuration for PyFunc prediction
-config_df = pd.DataFrame(
-    [
-        {
-            "predict_method": "predict_interval",
-            "fh": [1, 2, 3, 4],
-            "coverage": [0.9, 0.95],
-            "X": X.tail(4).values.tolist(),  # JSON serializable
-        }
-    ]
-)
+config_df = pd.DataFrame([
+    {
+        "predict_method": "predict_interval",
+        "fh": [1, 2, 3, 4],
+        "coverage": [0.9, 0.95],
+        "X": X.tail(4).values.tolist(),  # JSON serializable
+    }
+])
 
 pyfunc_predictions = loaded_pyfunc.predict(config_df)
 ```
@@ -673,17 +677,15 @@ import pandas as pd
 
 # Many community flavors use configuration DataFrames
 # for complex inference parameters
-config_df = pd.DataFrame(
-    [
-        {
-            "predict_method": "predict_interval",  # What type of prediction
-            "fh": [1, 2, 3, 4],  # Forecast horizon
-            "coverage": [0.9, 0.95],  # Confidence intervals
-            "X": exogenous_data.tolist(),  # Additional features
-            "custom_param": "value",  # Framework-specific options
-        }
-    ]
-)
+config_df = pd.DataFrame([
+    {
+        "predict_method": "predict_interval",  # What type of prediction
+        "fh": [1, 2, 3, 4],  # Forecast horizon
+        "coverage": [0.9, 0.95],  # Confidence intervals
+        "X": exogenous_data.tolist(),  # Additional features
+        "custom_param": "value",  # Framework-specific options
+    }
+])
 
 # Use configuration with PyFunc model
 pyfunc_model = community_flavor.pyfunc.load_model(model_uri)

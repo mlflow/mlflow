@@ -364,9 +364,7 @@ def _join_posixpaths_and_append_absolute_suffixes(prefix_path, suffix_path):
     >>> assert result2 == "relpath/absolutepath"
     >>> result3 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath", "relpath")
     >>> assert result3 == "/absolutepath/relpath"
-    >>> result4 = _join_posixpaths_and_append_absolute_suffixes(
-    ...     "/absolutepath1", "/absolutepath2"
-    ... )
+    >>> result4 = _join_posixpaths_and_append_absolute_suffixes("/absolutepath1", "/absolutepath2")
     >>> assert result4 == "/absolutepath1/absolutepath2"
     """
     if len(prefix_path) == 0:
@@ -449,26 +447,22 @@ def resolve_uri_if_local(local_uri):
         if not pathlib.Path(local_path).is_absolute():
             if scheme == "":
                 if is_windows():
-                    return urllib.parse.urlunsplit(
-                        (
-                            "file",
-                            None,
-                            cwd.joinpath(local_path).as_posix(),
-                            None,
-                            None,
-                        )
-                    )
+                    return urllib.parse.urlunsplit((
+                        "file",
+                        None,
+                        cwd.joinpath(local_path).as_posix(),
+                        None,
+                        None,
+                    ))
                 return cwd.joinpath(local_path).as_posix()
             local_uri_split = urllib.parse.urlsplit(local_uri)
-            return urllib.parse.urlunsplit(
-                (
-                    local_uri_split.scheme,
-                    None,
-                    cwd.joinpath(local_path).as_posix(),
-                    local_uri_split.query,
-                    local_uri_split.fragment,
-                )
-            )
+            return urllib.parse.urlunsplit((
+                local_uri_split.scheme,
+                None,
+                cwd.joinpath(local_path).as_posix(),
+                local_uri_split.query,
+                local_uri_split.fragment,
+            ))
     return local_uri
 
 

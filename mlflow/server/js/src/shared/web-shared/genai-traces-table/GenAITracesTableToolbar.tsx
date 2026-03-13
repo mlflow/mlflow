@@ -218,28 +218,24 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
             </Tooltip>
           )}
           {shouldEnableIssueDetection() && onDetectIssues && (
-            <Tooltip
-              componentId="mlflow.traces-table.detect-issues-button.tooltip"
-              content={intl.formatMessage({
+            <Button
+              componentId="mlflow.traces-table.detect-issues-button"
+              onClick={onDetectIssues}
+              aria-label={intl.formatMessage({
                 defaultMessage: 'Detect issues in traces',
-                description: 'Tooltip for the detect issues button in the traces table toolbar',
+                description: 'Aria label for the detect issues button in the traces table toolbar',
               })}
+              icon={<SparkleIcon color="ai" />}
+              css={{
+                border: '1px solid transparent !important',
+                background: `linear-gradient(${theme.colors.backgroundPrimary}, ${theme.colors.backgroundPrimary}) padding-box, ${theme.gradients.aiBorderGradient} border-box`,
+              }}
             >
-              <Button
-                componentId="mlflow.traces-table.detect-issues-button"
-                onClick={onDetectIssues}
-                aria-label={intl.formatMessage({
-                  defaultMessage: 'Detect issues in traces',
-                  description: 'Aria label for the detect issues button in the traces table toolbar',
-                })}
-                icon={<SparkleIcon color="ai" />}
-              >
-                <FormattedMessage
-                  defaultMessage="Detect Issues"
-                  description="Label for the detect issues button in the traces table toolbar"
-                />
-              </Button>
-            </Tooltip>
+              <FormattedMessage
+                defaultMessage="Detect Issues"
+                description="Label for the detect issues button in the traces table toolbar"
+              />
+            </Button>
           )}
           {onRefresh && (
             <Tooltip

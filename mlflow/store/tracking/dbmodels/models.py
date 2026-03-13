@@ -48,7 +48,10 @@ from mlflow.entities import (
     GatewayResourceType,
     GatewaySecretInfo,
     InputTag,
+    Issue,
     IssueReference,
+    IssueSeverity,
+    IssueStatus,
     Metric,
     Param,
     RoutingStrategy,
@@ -1048,6 +1051,7 @@ class SqlAssessments(Base):
                 source=source,
                 trace_id=self.trace_id,
                 run_id=self.run_id,
+                rationale=self.rationale,
                 metadata=parsed_metadata,
                 span_id=self.span_id,
                 create_time_ms=self.created_timestamp,
@@ -1142,9 +1146,9 @@ class SqlIssue(Base):
     """
     Issue status: `String` (limit 50 characters).
     """
-    confidence = Column(String(50), nullable=True)
+    severity = Column(String(50), nullable=True)
     """
-    Confidence level: `String` (limit 50 characters). Optional indicator of detection confidence.
+    Severity level: `String` (limit 50 characters). Optional indicator of issue severity.
     """
     root_causes = Column(Text, nullable=True)
     """
@@ -1172,9 +1176,7 @@ class SqlIssue(Base):
     Creator identifier: `String` (limit 255 characters). Optional.
     """
 
-    run = relationship(
-        "SqlRun", foreign_keys=[source_run_id], backref=backref("issues", cascade="all")
-    )
+    run = relationship("SqlRun", foreign_keys=[source_run_id], backref=backref("issues"))
     """
     SQLAlchemy relationship (many:one) with
     :py:class:`mlflow.store.tracking.dbmodels.models.SqlRun`.
@@ -1189,6 +1191,27 @@ class SqlIssue(Base):
 
     def __repr__(self):
         return f"<SqlIssue({self.issue_id}, {self.name}, {self.status})>"
+
+    def to_mlflow_entity(self) -> Issue:
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.Issue` object.
+        """
+        return Issue(
+            issue_id=self.issue_id,
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            description=self.description,
+            status=IssueStatus(self.status),
+            severity=IssueSeverity(self.severity) if self.severity else None,
+            root_causes=json.loads(self.root_causes) if self.root_causes else None,
+            source_run_id=self.source_run_id,
+            created_timestamp=self.created_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+            created_by=self.created_by,
+        )
 
 
 class SqlLoggedModel(Base):

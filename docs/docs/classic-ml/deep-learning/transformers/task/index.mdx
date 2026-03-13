@@ -155,16 +155,14 @@ print(model_info.signature)
 
 # The model can be served with the OpenAI-compatible inference API
 pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
-prediction = pyfunc_model.predict(
-    {
-        "messages": [
-            {"role": "system", "content": "You are a bot."},
-            {"role": "user", "content": "Hello, how are you?"},
-        ],
-        "temperature": 0.5,
-        "max_tokens": 200,
-    }
-)
+prediction = pyfunc_model.predict({
+    "messages": [
+        {"role": "system", "content": "You are a bot."},
+        {"role": "user", "content": "Hello, how are you?"},
+    ],
+    "temperature": 0.5,
+    "max_tokens": 200,
+})
 print(prediction)
 # >> [{'choices': [{'finish_reason': 'stop',
 # >>               'index': 0,

@@ -1,10 +1,60 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import Enum
+from functools import cached_property
 from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.issues_pb2 import Issue as ProtoIssue
+
+
+class IssueStatus(str, Enum):
+    """Enum for status of an :py:class:`mlflow.entities.Issue`."""
+
+    PENDING = "pending"
+    REJECTED = "rejected"
+    RESOLVED = "resolved"
+
+    def __str__(self):
+        return self.value
+
+
+class IssueSeverity(str, Enum):
+    """Enum for severity level of an :py:class:`mlflow.entities.Issue`."""
+
+    NOT_AN_ISSUE = "not_an_issue"
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+    def __str__(self):
+        return self.value
+
+    @cached_property
+    def _rank(self) -> int:
+        """Return the ordinal rank for severity comparison."""
+        return list(IssueSeverity).index(self)
+
+    def __lt__(self, other) -> bool:
+        if isinstance(other, IssueSeverity):
+            return self._rank < other._rank
+        return NotImplemented
+
+    def __le__(self, other) -> bool:
+        if isinstance(other, IssueSeverity):
+            return self._rank <= other._rank
+        return NotImplemented
+
+    def __gt__(self, other) -> bool:
+        if isinstance(other, IssueSeverity):
+            return self._rank > other._rank
+        return NotImplemented
+
+    def __ge__(self, other) -> bool:
+        if isinstance(other, IssueSeverity):
+            return self._rank >= other._rank
+        return NotImplemented
 
 
 @dataclass
@@ -25,7 +75,7 @@ class Issue(_MlflowObject):
     description: str
     """Detailed description of the issue."""
 
-    status: str
+    status: IssueStatus
     """Issue status."""
 
     created_timestamp: int
@@ -34,8 +84,8 @@ class Issue(_MlflowObject):
     last_updated_timestamp: int
     """Last update timestamp in milliseconds."""
 
-    confidence: str | None = None
-    """Confidence level indicator."""
+    severity: IssueSeverity | None = None
+    """Severity level indicator."""
 
     root_causes: list[str] | None = None
     """Analysis of the root causes of the issue."""
@@ -53,8 +103,8 @@ class Issue(_MlflowObject):
             "experiment_id": self.experiment_id,
             "name": self.name,
             "description": self.description,
-            "status": self.status,
-            "confidence": self.confidence,
+            "status": self.status.value,
+            "severity": self.severity.value if self.severity else None,
             "root_causes": self.root_causes,
             "source_run_id": self.source_run_id,
             "created_timestamp": self.created_timestamp,
@@ -70,10 +120,12 @@ class Issue(_MlflowObject):
             experiment_id=issue_dict["experiment_id"],
             name=issue_dict["name"],
             description=issue_dict["description"],
-            status=issue_dict["status"],
+            status=IssueStatus(issue_dict["status"]),
             created_timestamp=issue_dict["created_timestamp"],
             last_updated_timestamp=issue_dict["last_updated_timestamp"],
-            confidence=issue_dict.get("confidence"),
+            severity=(
+                IssueSeverity(issue_dict.get("severity")) if issue_dict.get("severity") else None
+            ),
             root_causes=issue_dict.get("root_causes"),
             source_run_id=issue_dict.get("source_run_id"),
             created_by=issue_dict.get("created_by"),
@@ -86,12 +138,12 @@ class Issue(_MlflowObject):
         proto_issue.experiment_id = self.experiment_id
         proto_issue.name = self.name
         proto_issue.description = self.description
-        proto_issue.status = self.status
+        proto_issue.status = self.status.value
         proto_issue.created_timestamp = self.created_timestamp
         proto_issue.last_updated_timestamp = self.last_updated_timestamp
 
-        if self.confidence:
-            proto_issue.confidence = self.confidence
+        if self.severity:
+            proto_issue.severity = self.severity.value
         if self.root_causes:
             proto_issue.root_causes.extend(self.root_causes)
         if self.source_run_id:
@@ -109,10 +161,10 @@ class Issue(_MlflowObject):
             experiment_id=proto.experiment_id,
             name=proto.name,
             description=proto.description,
-            status=proto.status,
+            status=IssueStatus(proto.status),
             created_timestamp=proto.created_timestamp,
             last_updated_timestamp=proto.last_updated_timestamp,
-            confidence=proto.confidence or None,
+            severity=IssueSeverity(proto.severity) if proto.severity else None,
             root_causes=list(proto.root_causes) or None,
             source_run_id=proto.source_run_id or None,
             created_by=proto.created_by or None,

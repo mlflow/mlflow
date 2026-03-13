@@ -406,6 +406,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Tools',
   },
   {
+    id: 'opencode',
+    name: 'Opencode',
+    logoPath: '/images/logos/opencode-logo.png',
+    link: '/genai/tracing/integrations/listing/opencode',
+    category: 'Tools',
+  },
+  {
     id: 'langfuse',
     name: 'Langfuse',
     logoPath: '/images/logos/langfuse-logo.png',

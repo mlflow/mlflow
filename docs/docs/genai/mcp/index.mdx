@@ -1,3 +1,8 @@
+---
+title: MLflow MCP Server | MLflow AI Platform
+description: Connect AI assistants and coding tools to MLflow using the Model Context Protocol (MCP). Search traces, analyze performance, log feedback, and more from Claude Code, Codex, Cursor, and Gemini CLI.
+---
+
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
@@ -20,7 +25,7 @@ The MLflow MCP server exposes all MLflow trace management operations through the
 - Manage trace tags and metadata
 - Delete traces and assessments
 
-This integration makes it easy to incorporate MLflow tracing capabilities into AI-powered development workflows, enabling more intelligent analysis and management of your GenAI applications.
+This integration makes it easy to incorporate MLflow tracing capabilities into AI-powered development workflows, enabling more intelligent analysis and management of your LLM applications and AI agents.
 
 ## Prerequisites
 
@@ -80,7 +85,14 @@ Add to your Cursor configuration file (`.cursor/mcp.json`):
   </TabItem>
   <TabItem label="Claude" value="claude">
 
-Add to your Claude `.claude/settings.json`:
+**Option 1 - `claude mcp add` CLI (recommended):**
+
+```bash
+claude mcp add mlflow-mcp -e MLFLOW_TRACKING_URI=<MLFLOW_TRACKING_URI> \
+  -- uv run --with "mlflow[mcp]>=3.5.1" mlflow mcp run
+```
+
+**Option 2 - `.mcp.json` at the project root (shareable via version control):**
 
 ```json
 {

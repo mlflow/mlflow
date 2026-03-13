@@ -978,6 +978,110 @@ def test_query_trace_metrics_total_tokens_without_token_usage(store: SqlAlchemyS
     assert len(result) == 0
 
 
+@pytest.fixture
+def traces_with_cached_token_usage_setup(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_traces_with_cached_token_usage")
+    traces_data = [
+        # (trace_id, name, input, output, total, cache_read, cache_creation)
+        ("trace1", "workflow_a", 100, 50, 150, 30, 10),
+        ("trace2", "workflow_a", 200, 100, 300, 60, 20),
+        ("trace3", "workflow_a", 150, 75, 225, 0, 0),
+        ("trace4", "workflow_b", 300, 150, 450, 100, 50),
+        ("trace5", "workflow_b", 250, 125, 375, 80, 40),
+    ]
+
+    for trace_id, name, input_t, output_t, total_t, cache_read, cache_creation in traces_data:
+        token_usage = {
+            TraceMetricKey.INPUT_TOKENS: input_t,
+            TraceMetricKey.OUTPUT_TOKENS: output_t,
+            TraceMetricKey.TOTAL_TOKENS: total_t,
+            TraceMetricKey.CACHE_READ_INPUT_TOKENS: cache_read,
+            TraceMetricKey.CACHE_CREATION_INPUT_TOKENS: cache_creation,
+        }
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(exp_id),
+            request_time=get_current_time_millis(),
+            execution_duration=100,
+            state=TraceStatus.OK,
+            tags={TraceTagKey.TRACE_NAME: name},
+            trace_metadata={TraceMetadataKey.TOKEN_USAGE: json.dumps(token_usage)},
+        )
+        store.start_trace(trace_info)
+    return exp_id, store
+
+
+def test_query_trace_metrics_cache_read_input_tokens_sum(traces_with_cached_token_usage_setup):
+    exp_id, store = traces_with_cached_token_usage_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
+        "values": {"SUM": 90},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
+        "values": {"SUM": 180},
+    }
+
+
+def test_query_trace_metrics_cache_creation_input_tokens_sum(traces_with_cached_token_usage_setup):
+    exp_id, store = traces_with_cached_token_usage_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
+        aggregations=[MetricAggregation(aggregation_type=AggregationType.SUM)],
+        dimensions=[TraceMetricDimensionKey.TRACE_NAME],
+    )
+
+    assert len(result) == 2
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_a"},
+        "values": {"SUM": 30},
+    }
+    assert asdict(result[1]) == {
+        "metric_name": TraceMetricKey.CACHE_CREATION_INPUT_TOKENS,
+        "dimensions": {TraceMetricDimensionKey.TRACE_NAME: "workflow_b"},
+        "values": {"SUM": 90},
+    }
+
+
+def test_query_trace_metrics_cache_read_input_tokens_no_dimensions(
+    traces_with_cached_token_usage_setup,
+):
+    exp_id, store = traces_with_cached_token_usage_setup
+
+    result = store.query_trace_metrics(
+        experiment_ids=[exp_id],
+        view_type=MetricViewType.TRACES,
+        metric_name=TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+        aggregations=[
+            MetricAggregation(aggregation_type=AggregationType.SUM),
+            MetricAggregation(aggregation_type=AggregationType.AVG),
+        ],
+    )
+
+    assert len(result) == 1
+    assert asdict(result[0]) == {
+        "metric_name": TraceMetricKey.CACHE_READ_INPUT_TOKENS,
+        "dimensions": {},
+        "values": {"SUM": 270, "AVG": 54.0},
+    }
+
+
 def test_query_span_metrics_count_no_dimensions(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_count_no_dimensions")
 

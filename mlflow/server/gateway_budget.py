@@ -9,11 +9,17 @@ import logging
 from fastapi import HTTPException
 
 import mlflow
+from mlflow.entities import SpanType
 from mlflow.entities.gateway_budget_policy import BudgetAction, BudgetTargetScope
+from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.budget_tracker import BudgetWindow, get_budget_tracker
-from mlflow.gateway.tracing_utils import _get_model_span_info
-from mlflow.server.handlers import _get_model_registry_store
+from mlflow.gateway.tracing_utils import (
+    _gateway_span_attributes,
+    _gateway_span_name,
+    _get_model_span_info,
+)
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracing.constant import CostKey, SpanAttributeKey
 from mlflow.tracing.utils import calculate_cost_by_model_and_token_usage
@@ -126,24 +132,57 @@ def fire_budget_exceeded_webhooks(
         deliver_webhook(event=event, payload=payload, store=registry_store)
 
 
-def check_budget_limit(store: SqlAlchemyStore, workspace: str | None = None) -> None:
+def _create_budget_error_trace(
+    endpoint_config: GatewayEndpointConfig,
+    exception: HTTPException,
+) -> None:
+    """Create an error trace for a budget limit rejection.
+
+    Only creates a trace when usage tracking is enabled (the endpoint has an
+    experiment_id), matching the guard in ``maybe_traced_gateway_call``.
+    """
+    if not endpoint_config.experiment_id:
+        return
+    try:
+        with mlflow.start_span(
+            name=_gateway_span_name(endpoint_config),
+            span_type=SpanType.LLM,
+            trace_destination=MlflowExperimentLocation(endpoint_config.experiment_id),
+            attributes=_gateway_span_attributes(endpoint_config),
+        ) as span:
+            span.record_exception(exception)
+    except Exception:
+        _logger.debug("Failed to create budget error trace", exc_info=True)
+
+
+def check_budget_limit(
+    store: SqlAlchemyStore,
+    endpoint_config: GatewayEndpointConfig,
+    workspace: str | None = None,
+) -> None:
     """Check if any REJECT-capable budget policy is exceeded.
 
-    Raises HTTPException(429) if the budget limit is exceeded.
+    Raises HTTPException(429) with an error trace if the budget limit is exceeded.
     """
     maybe_refresh_budget_policies(store)
     tracker = get_budget_tracker()
-    exceeded, policy = tracker.should_reject_request(workspace=workspace)
+    exceeded, window = tracker.should_reject_request(workspace=workspace)
     if exceeded:
-        raise HTTPException(
-            status_code=429,
-            detail=(
-                f"Budget limit exceeded for policy '{policy.budget_policy_id}'. "
-                f"Limit: ${policy.budget_amount:.2f} USD per "
-                f"{policy.duration_value} {policy.duration_unit.value.lower()}. "
-                "Request rejected."
-            ),
+        policy = window.policy
+        unit = policy.duration_unit.value.lower()
+        if policy.duration_value == 1:
+            unit = unit.rstrip("s")
+        reset_time = window.window_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+        detail = (
+            f"Budget limit exceeded. "
+            f"Limit: ${policy.budget_amount:.2f} USD per "
+            f"{policy.duration_value} {unit}. "
+            f"Budget resets at {reset_time}. "
+            "Request rejected."
         )
+        exc = HTTPException(status_code=429, detail=detail)
+        _create_budget_error_trace(endpoint_config, exc)
+        raise exc
 
 
 def make_budget_on_complete(
@@ -151,6 +190,8 @@ def make_budget_on_complete(
     workspace: str | None,
 ):
     """Create an on_complete callback that records budget cost from child span attributes."""
+    from mlflow.server.handlers import _get_model_registry_store
+
     try:
         registry_store = _get_model_registry_store()
     except Exception:

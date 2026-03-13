@@ -359,12 +359,10 @@ class _Example:
             model_input = _convert_dataframe_to_split_dict(model_input)
             self.serving_input = {DF_SPLIT: model_input}
             orient = "split" if "columns" in model_input else "values"
-            self.info.update(
-                {
-                    "type": "dataframe",
-                    "pandas_orient": orient,
-                }
-            )
+            self.info.update({
+                "type": "dataframe",
+                "pandas_orient": orient,
+            })
         elif np.isscalar(model_input) or isinstance(model_input, dt.datetime):
             self.info["type"] = "json_object"
             self.serving_input = {INPUTS: model_input}
@@ -1191,16 +1189,14 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: str | N
                         # ColSpec model signatures do not support array columns, so subsequent
                         # validation logic will result in a clear "incompatible input types"
                         # exception. This is preferable to a pandas DataFrame construction error
-                        pf_input = pd.DataFrame(
-                            {
-                                key: (
-                                    value.tolist()
-                                    if (isinstance(value, np.ndarray) and value.ndim > 1)
-                                    else value
-                                )
-                                for key, value in pf_input.items()
-                            }
-                        )
+                        pf_input = pd.DataFrame({
+                            key: (
+                                value.tolist()
+                                if (isinstance(value, np.ndarray) and value.ndim > 1)
+                                else value
+                            )
+                            for key, value in pf_input.items()
+                        })
                     else:
                         pf_input = pd.DataFrame(pf_input)
                 except Exception as e:

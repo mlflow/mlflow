@@ -160,9 +160,14 @@ class CreateLoggedModelEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        data: dict[str, Any] = {}
         if flavor := arguments.get("flavor"):
-            return {"flavor": flavor.removeprefix("mlflow.")}
-        return None
+            data["flavor"] = flavor.removeprefix("mlflow.")
+        if serialization_format := arguments.get("serialization_format"):
+            data["serialization_format"] = serialization_format
+        if arguments.get("uses_uv"):
+            data["uses_uv"] = True
+        return data or None
 
 
 class GetLoggedModelEvent(Event):
@@ -448,6 +453,37 @@ class GatewayListEndpointsEvent(Event):
         return {
             "filter_by_provider": arguments.get("provider") is not None,
         }
+
+
+# Gateway Budget Policy CRUD Events
+class GatewayCreateBudgetPolicyEvent(Event):
+    name: str = "gateway_create_budget_policy"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        def _enum_str(val: Any) -> str | None:
+            if val is None:
+                return None
+            return val.value if hasattr(val, "value") else str(val)
+
+        return {
+            "budget_unit": _enum_str(arguments.get("budget_unit")),
+            "duration_unit": _enum_str(arguments.get("duration_unit")),
+            "target_scope": _enum_str(arguments.get("target_scope")),
+            "budget_action": _enum_str(arguments.get("budget_action")),
+        }
+
+
+class GatewayUpdateBudgetPolicyEvent(Event):
+    name: str = "gateway_update_budget_policy"
+
+
+class GatewayDeleteBudgetPolicyEvent(Event):
+    name: str = "gateway_delete_budget_policy"
+
+
+class GatewayListBudgetPoliciesEvent(Event):
+    name: str = "gateway_list_budget_policies"
 
 
 # Gateway Secret CRUD Events

@@ -497,21 +497,24 @@ def test_databricks_profile_env_var_set_from_uri(monkeypatch):
     profile_values_during_calls = []
 
     def mock_get_dataset(name):
-        profile_values_during_calls.append(
-            ("get_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
-        )
+        profile_values_during_calls.append((
+            "get_dataset",
+            os.environ.get("DATABRICKS_CONFIG_PROFILE"),
+        ))
         return mock_dataset
 
     def mock_create_dataset(name, experiment_ids):
-        profile_values_during_calls.append(
-            ("create_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
-        )
+        profile_values_during_calls.append((
+            "create_dataset",
+            os.environ.get("DATABRICKS_CONFIG_PROFILE"),
+        ))
         return mock_dataset
 
     def mock_delete_dataset(name):
-        profile_values_during_calls.append(
-            ("delete_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
-        )
+        profile_values_during_calls.append((
+            "delete_dataset",
+            os.environ.get("DATABRICKS_CONFIG_PROFILE"),
+        ))
 
     mock_agents_module = mock.Mock(
         get_dataset=mock_get_dataset,
@@ -751,20 +754,18 @@ def test_dataset_with_dataframe_records(experiments):
         tags={"source": "csv", "file": "test_data.csv"},
     )
 
-    df = pd.DataFrame(
-        [
-            {
-                "inputs": {"text": "The movie was amazing!", "model": "sentiment-v1"},
-                "expectations": {"sentiment": "positive", "confidence": 0.95},
-                "tags": {"source": "imdb"},
-            },
-            {
-                "inputs": {"text": "Terrible experience", "model": "sentiment-v1"},
-                "expectations": {"sentiment": "negative", "confidence": 0.88},
-                "tags": {"source": "yelp"},
-            },
-        ]
-    )
+    df = pd.DataFrame([
+        {
+            "inputs": {"text": "The movie was amazing!", "model": "sentiment-v1"},
+            "expectations": {"sentiment": "positive", "confidence": 0.95},
+            "tags": {"source": "imdb"},
+        },
+        {
+            "inputs": {"text": "Terrible experience", "model": "sentiment-v1"},
+            "expectations": {"sentiment": "negative", "confidence": 0.88},
+            "tags": {"source": "yelp"},
+        },
+    ])
 
     dataset.merge_records(df)
 
@@ -1317,13 +1318,11 @@ def test_trace_integration_end_to_end(client, experiment):
             with mlflow.start_span(name=trace_config["name"]) as span:
                 span.set_inputs(trace_config["inputs"])
                 span.set_outputs(trace_config["outputs"])
-                span.set_attributes(
-                    {
-                        "model": "test-llm-v1",
-                        "temperature": 0.7,
-                        "max_tokens": 100,
-                    }
-                )
+                span.set_attributes({
+                    "model": "test-llm-v1",
+                    "temperature": 0.7,
+                    "max_tokens": 100,
+                })
                 trace_id = span.trace_id
                 created_trace_ids.append(trace_id)
 
@@ -1552,13 +1551,11 @@ def test_evaluation_dataset_tags_crud_workflow(experiments):
 
     dataset = get_dataset(dataset_id=dataset.dataset_id)
     expected_tags = initial_tags.copy()
-    expected_tags.update(
-        {
-            "team": "ml-platform",
-            "project": "evaluation",
-            "priority": "high",
-        }
-    )
+    expected_tags.update({
+        "team": "ml-platform",
+        "project": "evaluation",
+        "priority": "high",
+    })
     assert dataset.tags == expected_tags
 
     set_dataset_tags(
@@ -1571,14 +1568,12 @@ def test_evaluation_dataset_tags_crud_workflow(experiments):
 
     dataset = get_dataset(dataset_id=dataset.dataset_id)
     expected_tags = initial_tags.copy()
-    expected_tags.update(
-        {
-            "team": "ml-platform",
-            "project": "evaluation",
-            "priority": "medium",
-            "status": "active",
-        }
-    )
+    expected_tags.update({
+        "team": "ml-platform",
+        "project": "evaluation",
+        "priority": "medium",
+        "status": "active",
+    })
     assert dataset.tags == expected_tags
 
     delete_dataset_tag(
@@ -1588,13 +1583,11 @@ def test_evaluation_dataset_tags_crud_workflow(experiments):
 
     dataset = get_dataset(dataset_id=dataset.dataset_id)
     expected_tags = initial_tags.copy()
-    expected_tags.update(
-        {
-            "team": "ml-platform",
-            "project": "evaluation",
-            "status": "active",
-        }
-    )
+    expected_tags.update({
+        "team": "ml-platform",
+        "project": "evaluation",
+        "status": "active",
+    })
     assert dataset.tags == expected_tags
 
     delete_dataset(dataset_id=dataset.dataset_id)

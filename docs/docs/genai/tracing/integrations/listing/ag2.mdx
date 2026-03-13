@@ -86,19 +86,14 @@ assistant = ConversableAgent(
 user_proxy = ConversableAgent(
     name="ToolAgent",
     llm_config=False,
-    is_termination_msg=lambda msg: msg.get("content") is not None
-    and "TERMINATE" in msg["content"],
+    is_termination_msg=lambda msg: msg.get("content") is not None and "TERMINATE" in msg["content"],
     human_input_mode="NEVER",
 )
 
 # Register the tool signature with the assistant agent.
-assistant.register_for_llm(name="calculator", description="A simple calculator")(
-    calculator
-)
+assistant.register_for_llm(name="calculator", description="A simple calculator")(calculator)
 user_proxy.register_for_execution(name="calculator")(calculator)
-response = user_proxy.initiate_chat(
-    assistant, message="What is (44231 + 13312 / (230 - 20)) * 4?"
-)
+response = user_proxy.initiate_chat(assistant, message="What is (44231 + 13312 / (230 - 20)) * 4?")
 ```
 
 ## Tracking Token Usage and Cost

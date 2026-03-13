@@ -24,7 +24,7 @@ def upgrade():
         sa.Column("name", sa.String(length=250), nullable=False),
         sa.Column("description", sa.Text(), nullable=False),
         sa.Column("status", sa.String(length=50), nullable=False),
-        sa.Column("confidence", sa.String(length=50), nullable=True),
+        sa.Column("severity", sa.String(length=50), nullable=True),
         sa.Column("root_causes", sa.Text(), nullable=True),
         sa.Column("source_run_id", sa.String(length=32), nullable=True),
         sa.Column("created_timestamp", sa.BigInteger(), nullable=False),

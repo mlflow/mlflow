@@ -17,12 +17,10 @@ from mlflow.entities import Workspace
 
 class AbstractStore(ABC):
     @abstractmethod
-    def list_workspaces(self) -> Iterable[Workspace]:
-        ...
+    def list_workspaces(self) -> Iterable[Workspace]: ...
 
     @abstractmethod
-    def get_workspace(self, workspace_name: str) -> Workspace:
-        ...
+    def get_workspace(self, workspace_name: str) -> Workspace: ...
 
     def create_workspace(self, workspace: Workspace) -> Workspace:
         raise NotImplementedError

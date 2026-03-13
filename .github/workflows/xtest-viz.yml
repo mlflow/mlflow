@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - .github/workflows/xtest-viz.yml
       - dev/xtest_viz.py
@@ -31,7 +30,7 @@ jobs:
         github.repository == 'mlflow/dev'
       ) || (
         github.event_name == 'pull_request' &&
-        github.event.pull_request.draft == false
+        (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
       )
 
     steps:

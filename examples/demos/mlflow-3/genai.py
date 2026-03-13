@@ -8,12 +8,10 @@ import mlflow
 
 # Define the chain
 chat_model = ChatOpenAI(name="gpt-4o")
-prompt = ChatPromptTemplate.from_messages(
-    [
-        ("system", "You are a chatbot that can answer questions about Databricks."),
-        ("user", "{messages}"),
-    ]
-)
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "You are a chatbot that can answer questions about Databricks."),
+    ("user", "{messages}"),
+])
 chain = prompt | chat_model
 
 # Log the chain with MLflow, specifying its parameters

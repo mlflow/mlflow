@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import json
 import typing as t
 
@@ -16,6 +17,7 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.metrics.genai.model_utils import _parse_model_uri
 
 
@@ -50,6 +52,7 @@ def create_ragas_model(model_uri: str):
         model_uri: Model URI in one of these formats:
             - "databricks" - Use default Databricks managed judge
             - "databricks:/endpoint" - Use Databricks serving endpoint
+            - "gateway:/endpoint" - Use MLflow AI Gateway endpoint
             - "provider:/model" - Use LiteLLM (e.g., "openai:/gpt-4")
 
     Returns:
@@ -63,6 +66,23 @@ def create_ragas_model(model_uri: str):
 
     # Parse provider:/model format using shared helper
     provider, model_name = _parse_model_uri(model_uri)
+
+    if provider == "gateway":
+        config = get_gateway_litellm_config(model_name)
+        bound_completion = functools.partial(
+            litellm.acompletion,
+            api_base=config.api_base,
+            api_key=config.api_key,
+            **({"extra_headers": config.extra_headers} if config.extra_headers else {}),
+        )
+        client = instructor.from_litellm(bound_completion)
+        return LiteLLMStructuredLLM(
+            client=client,
+            model=config.model,
+            provider="openai",
+            drop_params=True,
+        )
+
     client = instructor.from_litellm(litellm.acompletion)
     return LiteLLMStructuredLLM(
         client=client,

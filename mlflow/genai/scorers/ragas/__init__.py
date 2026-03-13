@@ -11,9 +11,7 @@ Example usage:
     from mlflow.genai.scorers.ragas import get_scorer
 
     judge = get_scorer("Faithfulness", model="openai:/gpt-4")
-    feedback = judge(
-        inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace
-    )
+    feedback = judge(inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace)
 """
 
 from __future__ import annotations

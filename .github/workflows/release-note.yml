@@ -8,7 +8,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
       - labeled
       - unlabeled
   # post-merge job requires write access to add a label and post a comment.
@@ -26,7 +25,7 @@ defaults:
 
 jobs:
   validate-labeled:
-    if: github.event.pull_request.draft == false && github.event.action != 'closed'
+    if: (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot') && github.event.action != 'closed'
     runs-on: ubuntu-slim
     permissions:
       pull-requests: read # validateLabeled looks at PR's labels

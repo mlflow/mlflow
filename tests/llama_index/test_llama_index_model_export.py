@@ -163,12 +163,10 @@ def test_format_predict_input_correct_schema_complex(single_index, engine_type):
         "embedding": [[1.0]],
     }
     assert isinstance(wrapped_model._format_predict_input(pd.DataFrame(payload)), QueryBundle)
-    payload.update(
-        {
-            "custom_embedding_strs": ["a"],
-            "embedding": [1.0],
-        }
-    )
+    payload.update({
+        "custom_embedding_strs": ["a"],
+        "embedding": [1.0],
+    })
     assert isinstance(wrapped_model._format_predict_input(payload), QueryBundle)
 
 
@@ -213,13 +211,11 @@ def test_query_engine_predict(single_index, with_input_example, payload):
         ["string", "string"],
         np.array(["string", "string"]),
         pd.DataFrame({"query_str": ["string", "string"]}),
-        pd.DataFrame(
-            {
-                "query_str": ["hi"] * 2,
-                "custom_embedding_strs": [["a"] * _EMBEDDING_DIM] * 2,
-                "embedding": [[1.0] * _EMBEDDING_DIM] * 2,
-            }
-        ),
+        pd.DataFrame({
+            "query_str": ["hi"] * 2,
+            "custom_embedding_strs": [["a"] * _EMBEDDING_DIM] * 2,
+            "embedding": [[1.0] * _EMBEDDING_DIM] * 2,
+        }),
     ],
 )
 def test_query_engine_predict_list(single_index, with_input_example, payload):
@@ -275,12 +271,10 @@ def test_query_engine_predict_numeric(model_path, single_index, with_input_examp
             "message": "string",
             _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [{"role": "user", "content": "string"}] * 3,
         },
-        pd.DataFrame(
-            {
-                "message": ["string"],
-                _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [[{"role": "user", "content": "string"}]],
-            }
-        ),
+        pd.DataFrame({
+            "message": ["string"],
+            _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [[{"role": "user", "content": "string"}]],
+        }),
     ],
 )
 def test_chat_engine_predict(single_index, with_input_example, payload):
@@ -563,13 +557,11 @@ async def test_save_load_workflow_as_code():
     assert "pirates" in result
 
     # Batch inference
-    batch_result = pyfunc_loaded_model.predict(
-        [
-            {"topic": "pirates"},
-            {"topic": "ninjas"},
-            {"topic": "robots"},
-        ]
-    )
+    batch_result = pyfunc_loaded_model.predict([
+        {"topic": "pirates"},
+        {"topic": "ninjas"},
+        {"topic": "robots"},
+    ])
     assert len(batch_result) == 3
     assert all(isinstance(r, str) for r in batch_result)
 

@@ -1,6 +1,6 @@
 ---
-title: Prompt Registry
-description: MLflow Prompt Registry
+title: Prompt Registry | MLflow AI Platform
+description: Version, track, and reuse prompts across your organization with MLflow Prompt Registry. Maintain consistency and streamline prompt engineering.
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -12,7 +12,7 @@ import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
 
 # Prompt Registry
 
-**MLflow Prompt Registry** is a powerful tool that streamlines prompt engineering and management in your Generative AI (GenAI) applications. It enables you to version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.
+**MLflow Prompt Registry** is a powerful tool that streamlines prompt engineering and management in your LLM applications and AI agents. It enables you to version, track, and reuse prompts across your organization, helping maintain consistency and improving collaboration in prompt development.
 
 <GenAIDemoCard />
 
@@ -32,7 +32,7 @@ import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
   {
     icon: LineChart,
     title: "Lineage",
-    description: "Seamlessly integrate with MLflow's existing features such as model tracking and evaluation for end-to-end GenAI lifecycle management."
+    description: "Seamlessly integrated with MLflow's Tracing, Evaluation, and Monitoring capabilities for agent observability and quality improvement."
   },
   {
     icon: Users,
@@ -60,7 +60,7 @@ import GenAIDemoCard from "@site/src/content/genai_demo_card.mdx";
 
       :::note
 
-          Prompt template text can contain variables in `{{variable}}` format. These variables can be filled with dynamic content when using the prompt in your GenAI application. MLflow also provides the `to_single_brace_format()` API to convert templates into single brace format for frameworks like LangChain or LlamaIndex that require single brace interpolation.
+          Prompt template text can contain variables in `{{variable}}` format. These variables can be filled with dynamic content when using the prompt in your LLM application or AI agent. MLflow also provides the `to_single_brace_format()` API to convert templates into single brace format for frameworks like LangChain or LlamaIndex that require single brace interpolation.
       :::
 
     </div>
@@ -170,18 +170,16 @@ Once you have multiple versions of a prompt, you can compare them to understand 
 
 ### 4. Load and Use the Prompt
 
-To use a prompt in your GenAI application, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object.
+To use a prompt in your LLM application or AI agent, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object.
 
 ```python
 import mlflow
 import openai
 
 target_text = """
-MLflow is an open source platform for managing the end-to-end machine learning lifecycle.
-It tackles four primary functions in the ML lifecycle: Tracking experiments, packaging ML
-code for reuse, managing and deploying models, and providing a central model registry.
-MLflow currently offers these functions as four components: MLflow Tracking,
-MLflow Projects, MLflow Models, and MLflow Registry.
+MLflow is the largest open source AI engineering platform. It enables teams of all sizes
+to debug, evaluate, monitor, and optimize production-quality agents and LLM applications,
+while controlling costs and managing access to LLMs and data.
 """
 
 # Load the prompt
@@ -559,14 +557,10 @@ You can control caching on a per-request basis using the `cache_ttl_seconds` par
 import mlflow
 
 # Custom TTL: Cache for 5 minutes
-prompt = mlflow.genai.load_prompt(
-    "prompts:/summarization-prompt/1", cache_ttl_seconds=300
-)
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/1", cache_ttl_seconds=300)
 
 # Bypass cache entirely: Always fetch from registry
-prompt = mlflow.genai.load_prompt(
-    "prompts:/summarization-prompt@production", cache_ttl_seconds=0
-)
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@production", cache_ttl_seconds=0)
 
 # Use infinite TTL even for alias-based prompts
 prompt = mlflow.genai.load_prompt(

@@ -108,9 +108,11 @@ def fashion_mnist_tf_dataset_eval():
 
 
 def _create_fashion_mnist_model():
-    model = tf.keras.Sequential(
-        [tf.keras.Input((28, 28)), tf.keras.layers.Flatten(), tf.keras.layers.Dense(10)]
-    )
+    model = tf.keras.Sequential([
+        tf.keras.Input((28, 28)),
+        tf.keras.layers.Flatten(),
+        tf.keras.layers.Dense(10),
+    ])
     model.compile(
         optimizer=tf.keras.optimizers.Adam(),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -228,14 +230,12 @@ def test_tf_keras_autolog_log_datasets_configuration_with_numpy(
         assert len(dataset_inputs) == 1
         feature_schema = _infer_schema(data)
         target_schema = _infer_schema(labels)
-        assert dataset_inputs[0].dataset.schema == json.dumps(
-            {
-                "mlflow_tensorspec": {
-                    "features": feature_schema.to_json(),
-                    "targets": target_schema.to_json(),
-                }
+        assert dataset_inputs[0].dataset.schema == json.dumps({
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": target_schema.to_json(),
             }
-        )
+        })
     else:
         assert len(dataset_inputs) == 0
     logged_model_inputs = run_inputs.model_inputs
@@ -271,14 +271,12 @@ def test_tf_keras_autolog_log_datasets_configuration_with_tensor(
         assert len(dataset_inputs) == 1
         feature_schema = _infer_schema(data_as_tensor.numpy())
         target_schema = _infer_schema(labels_as_tensor.numpy())
-        assert dataset_inputs[0].dataset.schema == json.dumps(
-            {
-                "mlflow_tensorspec": {
-                    "features": feature_schema.to_json(),
-                    "targets": target_schema.to_json(),
-                }
+        assert dataset_inputs[0].dataset.schema == json.dumps({
+            "mlflow_tensorspec": {
+                "features": feature_schema.to_json(),
+                "targets": target_schema.to_json(),
             }
-        )
+        })
     else:
         assert len(dataset_inputs) == 0
 
@@ -296,16 +294,14 @@ def test_tf_keras_autolog_log_datasets_configuration_with_tf_dataset(
     if log_datasets:
         assert len(dataset_inputs) == 1
         numpy_data = next(fashion_mnist_tf_dataset.as_numpy_iterator())
-        assert dataset_inputs[0].dataset.schema == json.dumps(
-            {
-                "mlflow_tensorspec": {
-                    "features": _infer_schema(
-                        {str(i): data_element for i, data_element in enumerate(numpy_data)}
-                    ).to_json(),
-                    "targets": None,
-                }
+        assert dataset_inputs[0].dataset.schema == json.dumps({
+            "mlflow_tensorspec": {
+                "features": _infer_schema({
+                    str(i): data_element for i, data_element in enumerate(numpy_data)
+                }).to_json(),
+                "targets": None,
             }
-        )
+        })
 
     else:
         assert len(dataset_inputs) == 0
@@ -1001,20 +997,18 @@ def get_text_vec_model(train_samples):
         output_sequence_length=SEQUENCE_LENGTH,
     )
     vectorizer_layer.adapt(train_samples)
-    model = tf.keras.Sequential(
-        [
-            vectorizer_layer,
-            tf.keras.layers.Embedding(
-                VOCAB_SIZE,
-                EMBEDDING_DIM,
-                name="embedding",
-                mask_zero=True,
-            ),
-            tf.keras.layers.GlobalAveragePooling1D(),
-            tf.keras.layers.Dense(16, activation="relu"),
-            tf.keras.layers.Dense(1, activation="tanh"),
-        ]
-    )
+    model = tf.keras.Sequential([
+        vectorizer_layer,
+        tf.keras.layers.Embedding(
+            VOCAB_SIZE,
+            EMBEDDING_DIM,
+            name="embedding",
+            mask_zero=True,
+        ),
+        tf.keras.layers.GlobalAveragePooling1D(),
+        tf.keras.layers.Dense(16, activation="relu"),
+        tf.keras.layers.Dense(1, activation="tanh"),
+    ])
     model.compile(optimizer="adam", loss="mse", metrics=["mae"])
     return model
 
@@ -1308,13 +1302,11 @@ def test_import_keras_model_trigger_import_tensorflow():
     # and then import keras, if keras does not trigger importing tensorflow,
     # then the keras autologging patching cannot be installed.
     py_executable = sys.executable
-    _exec_cmd(
-        [
-            py_executable,
-            "-c",
-            "from keras import Model; import sys; assert 'tensorflow' in sys.modules",
-        ]
-    )
+    _exec_cmd([
+        py_executable,
+        "-c",
+        "from keras import Model; import sys; assert 'tensorflow' in sys.modules",
+    ])
 
 
 def test_autolog_throw_error_on_explicit_mlflow_callback(keras_data_gen_sequence):

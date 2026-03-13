@@ -634,14 +634,12 @@ def test_record_logged_model(store):
         tags=[
             RunTag(
                 MLFLOW_LOGGED_MODELS,
-                json.dumps(
-                    [
-                        m.get_tags_dict(),
-                        m2.get_tags_dict(),
-                        m3.get_tags_dict(),
-                        m4.get_tags_dict(),
-                    ]
-                ),
+                json.dumps([
+                    m.get_tags_dict(),
+                    m2.get_tags_dict(),
+                    m3.get_tags_dict(),
+                    m4.get_tags_dict(),
+                ]),
             )
         ],
     )
@@ -2867,9 +2865,10 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
     )
     expected_dataset2_storage_id = "419804e8e153199481c3e509de1fef8f"
     store.log_inputs(run2.info.run_id, [DatasetInput(dataset2)])
-    assert_expected_dataset_storage_ids_present(
-        [expected_dataset1_storage_id, expected_dataset2_storage_id]
-    )
+    assert_expected_dataset_storage_ids_present([
+        expected_dataset1_storage_id,
+        expected_dataset2_storage_id,
+    ])
     assert_expected_input_storage_ids_present(run2, [expected_dataset2_storage_id])
 
     dataset3 = Dataset(
@@ -2885,13 +2884,11 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
         run2.info.run_id,
         [DatasetInput(dataset1), DatasetInput(dataset2), DatasetInput(dataset3, tags)],
     )
-    assert_expected_dataset_storage_ids_present(
-        [
-            expected_dataset1_storage_id,
-            expected_dataset2_storage_id,
-            expected_dataset3_storage_id,
-        ]
-    )
+    assert_expected_dataset_storage_ids_present([
+        expected_dataset1_storage_id,
+        expected_dataset2_storage_id,
+        expected_dataset3_storage_id,
+    ])
     assert_expected_input_storage_ids_present(
         run2,
         [

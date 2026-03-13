@@ -8,9 +8,23 @@ from urllib.parse import quote, urlencode
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 from pydantic import BaseModel
 
-from mlflow.entities import Assessment, Span, Trace, TraceInfo, TraceLocation
+from mlflow.entities import (
+    Assessment,
+    Issue,
+    IssueSeverity,
+    IssueStatus,
+    Span,
+    Trace,
+    TraceInfo,
+    TraceLocation,
+)
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
-from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
+from mlflow.entities.trace_location import (
+    UCSchemaLocation as UCSchemaLocationEntity,
+)
+from mlflow.entities.trace_location import (
+    UnityCatalog as UnityCatalogEntity,
+)
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
@@ -30,14 +44,17 @@ from mlflow.protos.databricks_tracing_pb2 import (
     BatchLinkTraceToRun,
     BatchUnlinkTraceFromRun,
     CreateAssessment,
+    CreateLocation,
     CreateTraceInfo,
     CreateTraceUCStorageLocation,
     DatabricksTrackingService,
     DeleteAssessment,
     DeleteTraceTag,
     GetAssessment,
+    GetLocation,
     GetTraceInfo,
     LinkExperimentToUCTraceLocation,
+    LinkTraceLocation,
     SearchTraces,
     SetTraceTag,
     UnLinkExperimentToUCTraceLocation,
@@ -52,10 +69,13 @@ from mlflow.tracing.utils import parse_trace_id_v4
 from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, resource_to_otel_proto
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
+    parse_uc_location,
     trace_from_proto,
     trace_location_to_proto,
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
+    uc_table_prefix_location_from_proto,
+    uc_table_prefix_location_to_proto,
 )
 from mlflow.utils.databricks_utils import get_databricks_workspace_client_config
 from mlflow.utils.proto_json_utils import message_to_json
@@ -71,6 +91,7 @@ from mlflow.utils.rest_utils import (
 )
 
 DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
+_V5_TRACE_LOCATION_ENDPOINT = "/api/5.0/mlflow/tracing/locations"
 
 _logger = logging.getLogger(__name__)
 
@@ -177,6 +198,55 @@ class DatabricksTracingRestStore(RestStore):
                 ) from e
             raise
 
+    def get_trace_location(self, telemetry_profile_id: str) -> UnityCatalogEntity:
+        response_proto = self._call_endpoint(
+            GetLocation,
+            "{}",
+            endpoint=f"{_V5_TRACE_LOCATION_ENDPOINT}/{telemetry_profile_id}",
+            response_proto=GetLocation.Response(),
+        )
+        if response_proto.HasField("uc_table_prefix"):
+            return uc_table_prefix_location_from_proto(response_proto.uc_table_prefix)
+        raise MlflowException("GetLocation response did not include uc_table_prefix.")
+
+    def create_or_get_trace_location(
+        self,
+        location: UnityCatalogEntity,
+        sql_warehouse_id: str | None = None,
+    ) -> UnityCatalogEntity:
+        request_proto = CreateLocation(
+            uc_table_prefix=uc_table_prefix_location_to_proto(location),
+            sql_warehouse_id=sql_warehouse_id or MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+        )
+        req_body = message_to_json(request_proto)
+        response_proto = self._call_endpoint(
+            CreateLocation,
+            req_body,
+            endpoint=_V5_TRACE_LOCATION_ENDPOINT,
+            response_proto=CreateLocation.Response(),
+        )
+        if response_proto.HasField("uc_table_prefix"):
+            return uc_table_prefix_location_from_proto(response_proto.uc_table_prefix)
+        raise MlflowException("CreateLocation response did not include uc_table_prefix.")
+
+    def link_trace_location(
+        self,
+        experiment_id: str,
+        location: UnityCatalogEntity,
+    ) -> None:
+        request_proto = LinkTraceLocation(
+            experiment_id=experiment_id,
+            uc_table_prefix=uc_table_prefix_location_to_proto(location),
+        )
+        req_body = message_to_json(request_proto)
+        self._call_endpoint(
+            LinkTraceLocation,
+            req_body,
+            endpoint=f"/api/5.0/mlflow/experiments/{experiment_id}/trace-location:link",
+            response_proto=LinkTraceLocation.Response(),
+        )
+        _logger.debug(f"Linked experiment {experiment_id} to trace location: {location}")
+
     def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
         Create a new trace using the V4 API format.
@@ -223,7 +293,8 @@ class DatabricksTracingRestStore(RestStore):
 
         Args:
             trace_ids: List of trace IDs to fetch.
-            location: Location of the trace. For example, "catalog.schema" for UC schema.
+            location: Location of the trace. For example, "catalog.schema" or
+                "catalog.schema.table_prefix" for UC schema destinations.
 
         Returns:
             List of Trace objects.
@@ -315,11 +386,11 @@ class DatabricksTracingRestStore(RestStore):
         """
         location, trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
-            sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
             encoded_key = quote(key, safe="")
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{encoded_key}"
-            req_body = message_to_json(DeleteTraceTag(sql_warehouse_id=sql_warehouse_id))
-            self._call_endpoint(DeleteTraceTag, req_body, endpoint=endpoint)
+            endpoint = self._append_sql_warehouse_id_param(
+                f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{encoded_key}"
+            )
+            self._call_endpoint(DeleteTraceTag, endpoint=endpoint)
             return
         return super().delete_trace_tag(trace_id, key)
 
@@ -352,7 +423,7 @@ class DatabricksTracingRestStore(RestStore):
                 page_token=page_token,
             )
 
-        contain_uc_schemas = False
+        contains_uc_locations = False
         trace_locations = []
         for location in locations:
             match location.split("."):
@@ -366,11 +437,20 @@ class DatabricksTracingRestStore(RestStore):
                             TraceLocation.from_databricks_uc_schema(catalog, schema)
                         )
                     )
-                    contain_uc_schemas = True
+                    contains_uc_locations = True
+                case [catalog, schema, table_prefix]:
+                    trace_locations.append(
+                        trace_location_to_proto(
+                            TraceLocation.from_databricks_uc_table_prefix(
+                                catalog, schema, table_prefix
+                            )
+                        )
+                    )
+                    contains_uc_locations = True
                 case _:
                     raise MlflowException.invalid_parameter_value(
                         f"Invalid location type: {location}. Expected type: "
-                        "`<catalog_name>.<schema_name>` or `<experiment_id>`."
+                        "`<catalog_name>.<schema_name>[.<table_prefix>]` or `<experiment_id>`."
                     )
 
         request = SearchTraces(
@@ -394,7 +474,7 @@ class DatabricksTracingRestStore(RestStore):
             # 2. Server supports V4 API but the experiment location is not supported yet.
             # For these known cases, MLflow fallback to V3 API.
             if e.error_code == ErrorCode.Name(ENDPOINT_NOT_FOUND):
-                if contain_uc_schemas:
+                if contains_uc_locations:
                     raise MlflowException.invalid_parameter_value(
                         "Searching traces in UC tables is not supported yet. Only experiment IDs "
                         "are supported for searching traces."
@@ -404,7 +484,7 @@ class DatabricksTracingRestStore(RestStore):
                 e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
                 and "locations not yet supported" in e.message
             ):
-                if contain_uc_schemas:
+                if contains_uc_locations:
                     raise MlflowException.invalid_parameter_value(
                         "The `locations` parameter cannot contain both MLflow experiment and UC "
                         "schema in the same request. Please specify only one type of location "
@@ -628,10 +708,14 @@ class DatabricksTracingRestStore(RestStore):
         if location is not None:
             assessment = UpdateAssessment().assessment
             assessment.assessment_id = assessment_id
-            catalog, schema = location.split(".")
-            assessment.trace_location.CopyFrom(
-                trace_location_to_proto(TraceLocation.from_databricks_uc_schema(catalog, schema)),
-            )
+            catalog, schema, table_prefix = parse_uc_location(location)
+            if table_prefix:
+                trace_loc = TraceLocation.from_databricks_uc_table_prefix(
+                    catalog, schema, table_prefix
+                )
+            else:
+                trace_loc = TraceLocation.from_databricks_uc_schema(catalog, schema)
+            assessment.trace_location.CopyFrom(trace_location_to_proto(trace_loc))
             assessment.trace_id = parsed_trace_id
             # Field mask specifies which fields to update.
             mask = UpdateAssessment().update_mask
@@ -715,7 +799,8 @@ class DatabricksTracingRestStore(RestStore):
         Returns:
             Dict mapping location to list of trace IDs where:
             - None key: List of V3 trace IDs (without location prefix)
-            - str keys: Location IDs (e.g., "catalog.schema") mapping to OTEL trace IDs
+            - str keys: Location IDs (e.g., "catalog.schema" or
+              "catalog.schema.table_prefix") mapping to OTEL trace IDs
         """
         traces_by_location: dict[str | None, list[str]] = defaultdict(list)
 
@@ -732,7 +817,8 @@ class DatabricksTracingRestStore(RestStore):
         Link multiple traces to a run by creating internal trace-to-run relationships.
 
         Args:
-            location_id: The location ID (e.g., "catalog.schema") for the traces.
+            location_id: The location ID (e.g., "catalog.schema" or
+                "catalog.schema.table_prefix") for the traces.
             otel_trace_ids: List of OTEL trace IDs to link to the run.
             run_id: ID of the run to link traces to.
         """
@@ -756,7 +842,8 @@ class DatabricksTracingRestStore(RestStore):
         Unlink multiple traces from a run by removing the internal trace-to-run relationships.
 
         Args:
-            location_id: The location ID (e.g., "catalog.schema") for the traces.
+            location_id: The location ID (e.g., "catalog.schema" or
+                "catalog.schema.table_prefix") for the traces.
             otel_trace_ids: List of OTEL trace IDs to unlink from the run.
             run_id: ID of the run to unlink traces from.
         """
@@ -997,6 +1084,91 @@ class DatabricksTracingRestStore(RestStore):
             next_token = current_backend_token
 
         return PagedList(results_to_return, next_token)
+
+    def create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status. Defaults to IssueStatus.PENDING.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
+    def get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
+    def update_issue(
+        self,
+        issue_id: str,
+        status: IssueStatus | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        severity: IssueSeverity | None = None,
+    ) -> Issue:
+        """
+        Update an existing issue.
+
+        Args:
+            issue_id: The ID of the issue to update.
+            status: Optional new status.
+            name: Optional new name for the issue.
+            description: Optional new description.
+            severity: Optional new severity level.
+
+        Returns:
+            The updated Issue entity.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
+
+    def search_issues(
+        self,
+        experiment_id: str | None = None,
+        filter_string: str | None = None,
+        max_results: int | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[Issue]:
+        """
+        Search for issues matching the given filters.
+
+        Args:
+            experiment_id: Optional experiment ID to filter by.
+            filter_string: Optional filter string for advanced filtering.
+            max_results: Maximum number of results to return.
+            page_token: Token for pagination.
+
+        Returns:
+            A PagedList of Issue entities.
+        """
+        raise MlflowNotImplementedException("Issue management is not supported in Databricks")
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():

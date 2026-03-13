@@ -416,7 +416,7 @@ CREATE TABLE issues (
 	name VARCHAR(250) NOT NULL,
 	description TEXT NOT NULL,
 	status VARCHAR(50) NOT NULL,
-	confidence VARCHAR(50),
+	severity VARCHAR(50),
 	root_causes TEXT,
 	source_run_id VARCHAR(32),
 	created_timestamp BIGINT NOT NULL,

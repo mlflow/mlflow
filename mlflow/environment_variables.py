@@ -632,6 +632,14 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
+#: If True, the gateway will attempt to resolve API keys from environment variables
+#: (``$``-prefixed values). This is only enabled for the legacy YAML-config gateway
+#: (``mlflow gateway start``).
+#: (default: ``False``)
+MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV = _BooleanEnvironmentVariable(
+    "MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV", False
+)
+
 #: If True, the gateway will attempt to resolve API keys from local file paths.
 #: This is only enabled for the legacy YAML-config gateway (``mlflow gateway start``).
 #: (default: ``False``)
@@ -640,10 +648,16 @@ MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE = _BooleanEnvironmentVariable(
 )
 
 #: How often (in seconds) the gateway budget tracker re-fetches policies from the database.
-#: (default: ``60``)
+#: (default: ``600``)
 MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
-    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 60
+    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 600
 )
+
+#: Redis URL for the gateway budget tracker. When set, budget tracking uses Redis
+#: instead of in-memory storage, enabling shared state across multiple gateway instances.
+#: Example: ``redis://localhost:6379/0``
+#: (default: ``None`` — uses in-memory tracker)
+MLFLOW_GATEWAY_BUDGET_REDIS_URL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_REDIS_URL", str, None)
 
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
@@ -782,6 +796,12 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
 #: (default: ``300``)
 MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
 
+#: Number of sessions (or individual traces when no session metadata exists) to sample
+#: for the triage phase of ``mlflow.genai.discover_issues()``. (default: ``100``)
+MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE = _EnvironmentVariable(
+    "MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE", int, 100
+)
+
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
 #: inference or the process of capturing imported modules encounters any errors.
@@ -830,6 +850,27 @@ MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EX
 #: (default: ``True``)
 MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
+)
+
+#: When set to ``True``, MLflow uses a private ``random.Random`` instance for trace/span ID
+#: generation, making it immune to ``random.seed()`` calls in user code.  Enable this when
+#: ``random.seed()`` causes duplicate trace/span ID errors.
+#:
+#: .. note::
+#:     In global-provider mode (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false``), if an existing
+#:     ``TracerProvider`` is detected, setting ``MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR``
+#:     does not take effect.
+#:
+#: (default: ``False``)
+MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", False
+)
+
+#: When set to "true", MLflow translates span attributes from mlflow.* format
+#: to OpenTelemetry GenAI Semantic Convention format before OTLP export.
+#: (default: ``False``)
+MLFLOW_ENABLE_OTEL_GENAI_SEMCONV = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_OTEL_GENAI_SEMCONV", False
 )
 
 # Default addressing style to use for boto client
@@ -1321,3 +1362,26 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
 )
+
+
+#: Internal env var for the shared gateway auth token. The server generates a random
+#: token at startup and sets it in the environment so all uvicorn workers and job
+#: subprocesses can use it to authenticate internal gateway requests.
+#: (default: ``None``)
+_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
+    "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
+)
+
+
+#: Specifies whether to enable automatic UV project detection during model logging.
+#: When enabled, MLflow will look for uv.lock and pyproject.toml in the current working
+#: directory and use ``uv export`` for dependency inference instead of capturing imported packages.
+#: (default: ``True``)
+MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", True)
+
+
+#: Specifies whether to log uv project files (uv.lock, pyproject.toml, .python-version)
+#: as model artifacts. Set to ``False`` to disable for large projects where uv.lock
+#: file size is a concern.
+#: (default: ``True``)
+MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)

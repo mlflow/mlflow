@@ -160,14 +160,12 @@ def test_model_logging_and_inference(basic_model):
     encoded_single = model.encode(
         "Encodings provide a fixed width output regardless of input size."
     )
-    encoded_multi = model.encode(
-        [
-            "Just a small town girl",
-            "livin' in a lonely world",
-            "she took the midnight train",
-            "going anywhere",
-        ]
-    )
+    encoded_multi = model.encode([
+        "Just a small town girl",
+        "livin' in a lonely world",
+        "she took the midnight train",
+        "going anywhere",
+    ])
 
     assert isinstance(encoded_single, np.ndarray)
     assert len(encoded_single) == 384

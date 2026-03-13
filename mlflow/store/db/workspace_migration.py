@@ -89,7 +89,8 @@ def _assert_no_workspace_conflicts(
     if table_name == "experiments" and "experiment_id" in table.c:
         extra_columns.append(table.c.experiment_id)
     conflict_rows_stmt = (
-        sa.select(*group_columns, table.c.workspace, *extra_columns)
+        sa
+        .select(*group_columns, table.c.workspace, *extra_columns)
         .select_from(table.join(conflict_keys, sa.and_(*join_conditions)))
         .order_by(*group_columns, table.c.workspace, *extra_columns)
     )
@@ -132,7 +133,8 @@ def migrate_to_default_workspace(
         for table_name in _WORKSPACE_TABLES:
             table = _get_table(conn, table_name)
             stmt = (
-                sa.select(sa.func.count())
+                sa
+                .select(sa.func.count())
                 .select_from(table)
                 .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
             )
@@ -141,7 +143,8 @@ def migrate_to_default_workspace(
             if dry_run or counts[table_name] == 0:
                 continue
             conn.execute(
-                table.update()
+                table
+                .update()
                 .where(table.c.workspace != DEFAULT_WORKSPACE_NAME)
                 .values(workspace=DEFAULT_WORKSPACE_NAME)
             )
