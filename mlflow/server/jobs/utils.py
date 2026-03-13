@@ -240,13 +240,22 @@ def _exec_job_in_subproc(
     if workspace:
         job_env[MLFLOW_WORKSPACE.name] = workspace
 
+    _logger.info(f"[DEBUG] Starting subprocess for job {job_id}, cmd={job_cmd}")
     with subprocess.Popen(
         job_cmd,
         env=job_env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     ) as popen:
+        _logger.info(f"[DEBUG] Subprocess started for job {job_id}, pid={popen.pid}")
         beg_time = time.time()
         while popen.poll() is None:
             time.sleep(_JOB_STATUS_POLL_INTERVAL)
+            elapsed = time.time() - beg_time
+            _logger.info(
+                f"[DEBUG] Job {job_id} subprocess pid={popen.pid} still running "
+                f"after {elapsed:.1f}s"
+            )
 
             job_status = job_store.get_job(job_id).status
             if job_status == JobStatus.CANCELED:
@@ -259,6 +268,14 @@ def _exec_job_in_subproc(
                     popen.kill()
                     job_store.mark_job_timed_out(job_id)
                     return None
+
+        stdout_data = popen.stdout.read().decode(errors="replace") if popen.stdout else ""
+        stderr_data = popen.stderr.read().decode(errors="replace") if popen.stderr else ""
+        _logger.info(
+            f"[DEBUG] Subprocess for job {job_id} exited with code {popen.returncode}, "
+            f"elapsed={time.time() - beg_time:.1f}s, "
+            f"stdout={stdout_data[:500]!r}, stderr={stderr_data[:500]!r}"
+        )
 
         if popen.returncode == 0:
             return JobResult.load(result_file)
@@ -346,7 +363,9 @@ def _exec_job(
             lock = None
 
         try:
+            _logger.info(f"[DEBUG] _exec_job starting job {job_id} ({job_name})")
             job_store.start_job(job_id)
+            _logger.info(f"[DEBUG] Job {job_id} transitioned to RUNNING")
 
             fn_fullname = get_job_fn_fullname(job_name)
             function = _load_function(fn_fullname)
@@ -367,11 +386,15 @@ def _exec_job(
                     extra_envs,
                 )
 
+            _logger.info(f"[DEBUG] Job {job_id} subproc returned: {job_result}")
+
             if job_result is None:
+                _logger.info(f"[DEBUG] Job {job_id} result is None (canceled/timed out)")
                 return
 
             if job_result.succeeded:
                 job_store.finish_job(job_id, job_result.result)
+                _logger.info(f"[DEBUG] Job {job_id} marked SUCCEEDED")
                 return
 
             if job_result.is_transient_error:
@@ -383,6 +406,9 @@ def _exec_job(
             else:
                 _logger.error(f"Job {job_id} ({job_name}) failed with error: {job_result.error}")
                 job_store.fail_job(job_id, job_result.error)
+        except Exception:
+            _logger.exception(f"[DEBUG] Job {job_id} ({job_name}) hit unexpected exception")
+            raise
         finally:
             if lock is not None:
                 lock.release()

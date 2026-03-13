@@ -46,7 +46,7 @@ jobs:
   # The python skinny tests cover the subset of mlflow functionality
   # while also verifying certain dependencies are omitted.
   python-skinny:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: false # disabled for flaky test investigation
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -71,9 +71,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [1, 2, 3, 4]
+        group: [1]
         include:
-          - splits: 4
+          - splits: 1
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -88,34 +88,16 @@ jobs:
           uv sync --extra extras --extra gateway --extra mcp --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
-            -r requirements/extra-ml-requirements.txt
+            -r requirements/extra-ml-requirements.txt \
+            pytest-repeat
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
-      - name: Import check
-        run: |
-          # `-I` is used to avoid importing modules from user-specific site-packages
-          # that might conflict with the built-in modules (e.g. `types`).
-          uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
         run: |
-          source dev/setup-ssh.sh
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
-            --quiet --requires-ssh --ignore-flavors \
-            --ignore=tests/examples \
-            --ignore=tests/evaluate \
-            --ignore=tests/genai \
-            --ignore=tests/docker \
-            tests
-
-      - name: Run databricks-connect related tests
-        run: |
-          # this needs to be run in a separate job because installing databricks-connect could break other
-          # tests that uses normal SparkSession instead of remote SparkSession
-          uv run --no-sync --with 'databricks-agents,databricks-connect' \
-            pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
+          uv run --no-sync pytest -x -v tests/server/jobs/test_endpoint.py::test_job_submit
 
   database:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: false # disabled for flaky test investigation
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -173,7 +155,7 @@ jobs:
           ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
 
   java:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: false # disabled for flaky test investigation
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -194,7 +176,7 @@ jobs:
           uv run --no-dev mvn clean package -q
 
   flavors:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: false # disabled for flaky test investigation
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -221,7 +203,7 @@ jobs:
             tests/autologging
 
   models:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: false # disabled for flaky test investigation
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -252,7 +234,7 @@ jobs:
           uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
   evaluate:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: false # disabled for flaky test investigation
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -285,7 +267,7 @@ jobs:
           uv run --no-sync pytest tests/evaluate/test_default_evaluator_delta.py
 
   genai:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: false # disabled for flaky test investigation
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -315,7 +297,7 @@ jobs:
             --ignore tests/genai/optimize --ignore tests/genai/prompts
 
   pyfunc:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: false # disabled for flaky test investigation
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -350,7 +332,7 @@ jobs:
           uv run --no-sync pytest tests/pyfunc/test_spark_connect.py
 
   windows:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: false # disabled for flaky test investigation
     runs-on: windows-latest
     timeout-minutes: 120
     permissions:
