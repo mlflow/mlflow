@@ -41,7 +41,7 @@ class InMemoryBudgetTracker(BudgetTracker):
             refresh interval.
         """
         now = datetime.now(timezone.utc)
-        new_windows: dict[str, BudgetWindow] = {}
+        active_windows: dict[str, BudgetWindow] = {}
 
         with self._lock:
             for policy in policies:
@@ -57,18 +57,18 @@ class InMemoryBudgetTracker(BudgetTracker):
                 if existing and existing.window_start == window_start:
                     existing.policy = policy
                     existing.window_end = window_end
-                    new_windows[pid] = existing
+                    active_windows[pid] = existing
                 else:
-                    new_windows[pid] = BudgetWindow(
+                    active_windows[pid] = BudgetWindow(
                         policy=policy,
                         window_start=window_start,
                         window_end=window_end,
                     )
 
-            self._windows = new_windows
+            self._windows = active_windows
             self.mark_refreshed()
 
-        return list(new_windows.values())
+        return list(active_windows.values())
 
     def record_cost(
         self,
