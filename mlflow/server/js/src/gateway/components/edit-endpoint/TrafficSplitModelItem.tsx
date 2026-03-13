@@ -79,7 +79,7 @@ export const TrafficSplitModelItem = ({
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flex: 1 }}>
           <Button
-            componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_TrafficSplitModelItem.tsx_79"
+            componentId={`${componentIdPrefix}.expand.${index}`}
             icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
             onClick={() => setIsExpanded(!isExpanded)}
             size="small"
@@ -101,14 +101,14 @@ export const TrafficSplitModelItem = ({
           )}
         </div>
         <Tooltip
-          componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_TrafficSplitModelItem.tsx_101"
+          componentId={`${componentIdPrefix}.remove-tooltip.${index}`}
           content={intl.formatMessage({
             defaultMessage: 'Remove model',
             description: 'Tooltip for remove traffic split model button',
           })}
         >
           <Button
-            componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_TrafficSplitModelItem.tsx_108"
+            componentId={`${componentIdPrefix}.remove.${index}`}
             icon={<TrashIcon />}
             onClick={() => onRemove(index)}
           />
@@ -161,7 +161,7 @@ export const TrafficSplitModelItem = ({
             </FormUI.Label>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
               <GatewayInput
-                componentId="codegen_mlflow_app_src_oss_gateway_components_edit-endpoint_TrafficSplitModelItem.tsx_161"
+                componentId={`${componentIdPrefix}.weight.${index}`}
                 type="number"
                 min={0}
                 max={100}
