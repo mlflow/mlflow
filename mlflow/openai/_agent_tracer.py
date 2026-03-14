@@ -155,6 +155,9 @@ class MlflowOpenAgentTracingProcessor(oai.TracingProcessor):
         try:
             # parsed_span_data = parse_spandata(span.span_data)
             st: SpanWithToken | None = self._span_id_to_mlflow_span.pop(span.span_id, None)
+            if not st:
+                return
+
             detach_span_from_context(st.token)
             mlflow_span = st.span
 
