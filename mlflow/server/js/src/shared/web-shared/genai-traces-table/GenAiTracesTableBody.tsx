@@ -363,6 +363,23 @@ export const GenAiTracesTableBody = React.memo(
     const allRowSelected = rowSelection !== undefined && table.getIsAllRowsSelected();
     const someRowSelected = table.getIsSomeRowsSelected();
 
+    // Custom toggle-all handler that ensures "Deselect all" clears every selected row,
+    // including rows that are currently hidden by an active server-side filter.
+    // TanStack's built-in handler only operates on the visible row model, so rows that
+    // were selected before a filter was applied would remain selected after clicking
+    // "Deselect all". By checking the raw rowSelection state we cover those hidden rows.
+    const toggleAllRowsSelectedHandler = useCallback(
+      () => () => {
+        const hasAnySelected = rowSelection !== undefined && Object.keys(rowSelection).length > 0;
+        if (hasAnySelected) {
+          table.setRowSelection({});
+        } else {
+          table.toggleAllRowsSelected(true);
+        }
+      },
+      [rowSelection, table],
+    );
+
     useEffect(() => {
       setTable(table);
 
@@ -569,7 +586,7 @@ export const GenAiTracesTableBody = React.memo(
               isComparing={isComparing}
               allRowSelected={allRowSelected}
               someRowSelected={someRowSelected}
-              toggleAllRowsSelectedHandler={table.getToggleAllRowsSelectedHandler}
+              toggleAllRowsSelectedHandler={toggleAllRowsSelectedHandler}
               setColumnSizing={table.setColumnSizing}
             />
             {isTableLoading ? (
