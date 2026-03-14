@@ -16,7 +16,6 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 
 describe('SingleChatTurnAssessments', () => {
   const mockGetAssessmentTitle = jest.fn((name: string) => name);
-  const mockOnAddAssessmentsClick = jest.fn();
 
   const createMockTrace = (assessments: Assessment[]): ModelTrace => ({
     data: { spans: [] },
@@ -59,20 +58,16 @@ describe('SingleChatTurnAssessments', () => {
       },
     });
 
-  it('should show empty state when no trace-level assessments exist', () => {
+  it('should return null when no trace-level assessments exist', () => {
     const trace = createMockTrace([]);
 
-    render(
+    const { container } = render(
       <TestWrapper>
-        <SingleChatTurnAssessments
-          trace={trace}
-          getAssessmentTitle={mockGetAssessmentTitle}
-          onAddAssessmentsClick={mockOnAddAssessmentsClick}
-        />
+        <SingleChatTurnAssessments trace={trace} getAssessmentTitle={mockGetAssessmentTitle} />
       </TestWrapper>,
     );
 
-    expect(screen.getByText('Evaluate trace')).toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
   });
 
   it('should display trace-level assessments', () => {
@@ -83,11 +78,7 @@ describe('SingleChatTurnAssessments', () => {
 
     render(
       <TestWrapper>
-        <SingleChatTurnAssessments
-          trace={trace}
-          getAssessmentTitle={mockGetAssessmentTitle}
-          onAddAssessmentsClick={mockOnAddAssessmentsClick}
-        />
+        <SingleChatTurnAssessments trace={trace} getAssessmentTitle={mockGetAssessmentTitle} />
       </TestWrapper>,
     );
 
@@ -105,11 +96,7 @@ describe('SingleChatTurnAssessments', () => {
 
     render(
       <TestWrapper>
-        <SingleChatTurnAssessments
-          trace={trace}
-          getAssessmentTitle={mockGetAssessmentTitle}
-          onAddAssessmentsClick={mockOnAddAssessmentsClick}
-        />
+        <SingleChatTurnAssessments trace={trace} getAssessmentTitle={mockGetAssessmentTitle} />
       </TestWrapper>,
     );
 
@@ -127,11 +114,7 @@ describe('SingleChatTurnAssessments', () => {
 
     render(
       <TestWrapper>
-        <SingleChatTurnAssessments
-          trace={trace}
-          getAssessmentTitle={mockGetAssessmentTitle}
-          onAddAssessmentsClick={mockOnAddAssessmentsClick}
-        />
+        <SingleChatTurnAssessments trace={trace} getAssessmentTitle={mockGetAssessmentTitle} />
       </TestWrapper>,
     );
 
@@ -155,11 +138,7 @@ describe('SingleChatTurnAssessments', () => {
 
     render(
       <TestWrapper>
-        <SingleChatTurnAssessments
-          trace={trace}
-          getAssessmentTitle={mockGetAssessmentTitle}
-          onAddAssessmentsClick={mockOnAddAssessmentsClick}
-        />
+        <SingleChatTurnAssessments trace={trace} getAssessmentTitle={mockGetAssessmentTitle} />
       </TestWrapper>,
     );
 
@@ -181,11 +160,7 @@ describe('SingleChatTurnAssessments', () => {
 
     render(
       <TestWrapper>
-        <SingleChatTurnAssessments
-          trace={trace}
-          getAssessmentTitle={mockGetAssessmentTitle}
-          onAddAssessmentsClick={mockOnAddAssessmentsClick}
-        />
+        <SingleChatTurnAssessments trace={trace} getAssessmentTitle={mockGetAssessmentTitle} />
       </TestWrapper>,
     );
 
@@ -213,11 +188,7 @@ describe('SingleChatTurnAssessments', () => {
 
     render(
       <TestWrapper>
-        <SingleChatTurnAssessments
-          trace={trace}
-          getAssessmentTitle={mockGetAssessmentTitle}
-          onAddAssessmentsClick={mockOnAddAssessmentsClick}
-        />
+        <SingleChatTurnAssessments trace={trace} getAssessmentTitle={mockGetAssessmentTitle} />
       </TestWrapper>,
     );
 
@@ -237,11 +208,7 @@ describe('SingleChatTurnAssessments', () => {
 
     render(
       <TestWrapper>
-        <SingleChatTurnAssessments
-          trace={trace}
-          getAssessmentTitle={mockGetAssessmentTitle}
-          onAddAssessmentsClick={mockOnAddAssessmentsClick}
-        />
+        <SingleChatTurnAssessments trace={trace} getAssessmentTitle={mockGetAssessmentTitle} />
       </TestWrapper>,
     );
 

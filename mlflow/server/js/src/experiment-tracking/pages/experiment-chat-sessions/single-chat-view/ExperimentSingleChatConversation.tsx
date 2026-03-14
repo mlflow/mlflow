@@ -9,7 +9,6 @@ import {
   Button,
   importantify,
   ParagraphSkeleton,
-  Spacer,
   TitleSkeleton,
   Typography,
   useDesignSystemTheme,
@@ -110,14 +109,7 @@ export const ExperimentSingleChatConversation = ({
             {/* TODO: add turn-level metrics */}
             <SingleChatTurnMessages key={traceId} trace={trace} />
             {shouldEnableAssessmentsInSessions() && (
-              <>
-                <Spacer size="sm" />
-                <SingleChatTurnAssessments
-                  trace={trace}
-                  getAssessmentTitle={getAssessmentTitle}
-                  onAddAssessmentsClick={setSelectedTrace ? () => setSelectedTrace(trace) : undefined}
-                />
-              </>
+              <SingleChatTurnAssessments trace={trace} getAssessmentTitle={getAssessmentTitle} />
             )}
           </div>
         );

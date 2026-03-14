@@ -2910,10 +2910,6 @@
     "defaultMessage": "Error evaluating \"{label}\"",
     "description": "Error evaluating label"
   },
-  "HTQZeI": {
-    "defaultMessage": "Evaluate trace",
-    "description": "A call to action button to add assessments to a model trace in the single chat turn view"
-  },
   "HUC492": {
     "defaultMessage": "See detailed trace view",
     "description": "Evaluation review > see detailed trace view button"
