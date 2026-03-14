@@ -146,7 +146,6 @@ const createGroupRenderMetadataV2 = ({
   runsHiddenMode,
   runsInGroup,
   rowCounter,
-  useGroupedValuesInCharts = true,
 }: {
   groupId: string;
   expanded: boolean;
@@ -158,7 +157,6 @@ const createGroupRenderMetadataV2 = ({
   runsVisibilityMap: Record<string, boolean>;
   runsHiddenMode: RUNS_VISIBILITY_MODE;
   rowCounter: { value: number };
-  useGroupedValuesInCharts?: boolean;
 }): (RowRenderMetadata | RowGroupRenderMetadata)[] => {
   const isRunVisible = (runUuid: string, runStatus: string) => {
     if (shouldUseRunRowsVisibilityMap() && !isUndefined(runsVisibilityMap[runUuid])) {
@@ -184,21 +182,14 @@ const createGroupRenderMetadataV2 = ({
   const isGroupHidden =
     !isRemainingRowsGroup &&
     determineIfRowIsHidden(runsHiddenMode, runsHidden, groupId, rowCounter.value, runsVisibilityMap);
-  // Increment the counter for "Show N first runs" only if the group is actually visible in charts
-  const isGroupUsedInCharts = useGroupedValuesInCharts && !isRemainingRowsGroup;
+  // Increment the counter for "Show N first runs" only if the group is not a remaining-runs group
+  const isGroupUsedInCharts = !isRemainingRowsGroup;
 
   if (isGroupUsedInCharts) {
     rowCounter.value++;
   }
 
-  const groupVisibilityControl = (() => {
-    // If the individual run visibility selection is enabled then we should show the visibility control UI
-    if (useGroupedValuesInCharts === false) {
-      return RunRowVisibilityControl.Enabled;
-    }
-    // Otherwise, if the group is not used in charts, we should hide the visibility control UI
-    return isGroupUsedInCharts ? RunRowVisibilityControl.Enabled : RunRowVisibilityControl.Hidden;
-  })();
+  const groupVisibilityControl = isGroupUsedInCharts ? RunRowVisibilityControl.Enabled : RunRowVisibilityControl.Hidden;
 
   const groupHeaderMetadata: RowGroupRenderMetadata = {
     groupId,
@@ -227,7 +218,8 @@ const createGroupRenderMetadataV2 = ({
       ...runsInGroup.map((run) => {
         const { runInfo, metrics = [], params = [], tags = {}, datasets = [] } = run;
 
-        // If the group is not visible in charts, the run row has to determine its own visibility.
+        // If the group is not displayed in charts (remaining runs group), individual runs
+        // determine their own visibility based on the hidden mode counter.
         const isRowHidden = !isGroupUsedInCharts
           ? determineIfRowIsHidden(
               runsHiddenMode,
@@ -238,7 +230,7 @@ const createGroupRenderMetadataV2 = ({
               runInfo.status,
             )
           : !isRunVisible(runInfo.runUuid, runInfo.status);
-        // Increment the counter for "Show N first runs" only if the group itself is not visible in charts
+        // Increment the counter for "Show N first runs" only if the group itself is not displayed in charts
         if (!isGroupUsedInCharts) {
           rowCounter.value++;
         }
@@ -563,7 +555,6 @@ export const getGroupedRowRenderMetadata = ({
   runsHidden = [],
   runsVisibilityMap = {},
   runsHiddenMode = RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
-  useGroupedValuesInCharts,
 }: {
   groupsExpanded: Record<string, boolean>;
   runData: SingleRunData[];
@@ -572,7 +563,6 @@ export const getGroupedRowRenderMetadata = ({
   runsHidden?: string[];
   runsVisibilityMap?: Record<string, boolean>;
   runsHiddenMode?: RUNS_VISIBILITY_MODE;
-  useGroupedValuesInCharts?: boolean;
 }) => {
   // First, make sure we have a valid "group by" configuration.
   const groupByConfig = normalizeRunsGroupByKey(groupBy);
@@ -696,7 +686,6 @@ export const getGroupedRowRenderMetadata = ({
         runsHidden,
         runsVisibilityMap,
         runsHiddenMode,
-        useGroupedValuesInCharts,
       }),
     );
 
@@ -720,7 +709,6 @@ export const getGroupedRowRenderMetadata = ({
         runsHidden,
         runsVisibilityMap,
         runsHiddenMode,
-        useGroupedValuesInCharts,
       }),
     );
   }

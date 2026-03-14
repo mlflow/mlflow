@@ -581,28 +581,6 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy - selecting indivi
       tags: {},
     }));
 
-  test.each([10, 20] as const)('it correctly determines visibility for first %s runs', (amount) => {
-    const runData = createNRuns(30);
-    const runsGridData = prepareRunsGridData({
-      ...commonPrepareRunsGridDataParams,
-      groupBy: {
-        aggregateFunction: RunGroupingAggregateFunction.Min,
-        groupByKeys: [{ mode: RunGroupingMode.Param, groupByData: 'test-param' }],
-      },
-      runsHiddenMode: RUNS_VISIBILITY_MODE[`FIRST_${amount}_RUNS`],
-      runUuidsMatchingFilter: runData.map((r) => r.runInfo.runUuid),
-      runData,
-      useGroupedValuesInCharts: false,
-    });
-
-    const runRows = runsGridData.filter(({ runInfo }) => runInfo);
-    const firstRunRows = runRows.slice(0, amount);
-    const remainingRunRows = runRows.slice(amount);
-
-    expect(firstRunRows.some((row) => row.hidden)).toBe(false);
-    expect(remainingRunRows.every((row) => row.hidden)).toBe(true);
-  });
-
   test('it correctly determines visibility control for first 10 runs', () => {
     const runData = createNRuns(30);
     const runsGridData = prepareRunsGridData({
@@ -614,15 +592,12 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy - selecting indivi
       runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
       runUuidsMatchingFilter: runData.map((r) => r.runInfo.runUuid),
       runData,
-      useGroupedValuesInCharts: false,
     });
 
     const runRows = runsGridData.filter(({ runInfo }) => runInfo);
     const groupRows = runsGridData.filter(({ groupParentInfo }) => groupParentInfo);
 
     expect(runRows.every((row) => row.visibilityControl === RunRowVisibilityControl.Enabled)).toBe(true);
-
-    // When control over individual runs is enabled, we expect all groups to have visibility control enabled as well
     expect(groupRows.every((row) => row.visibilityControl === RunRowVisibilityControl.Enabled)).toBe(true);
   });
 
@@ -649,7 +624,6 @@ describe('ExperimentViewRuns row utils, grouped run hierarchy - selecting indivi
         runData,
         runsHidden: userSelectedRunsHidden,
         runsVisibilityMap: fromPairs(userSelectedRunsHidden.map((runUuid) => [runUuid, false])),
-        useGroupedValuesInCharts: false,
       });
 
       expect(runsGridData.length).toBe(33);

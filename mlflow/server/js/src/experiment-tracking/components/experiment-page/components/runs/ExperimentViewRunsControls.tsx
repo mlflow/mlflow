@@ -172,10 +172,6 @@ export const ExperimentViewRunsControls = React.memo(
                     }}
                     runsData={runsData}
                     isLoading={isLoading}
-                    useGroupedValuesInCharts={uiState.useGroupedValuesInCharts ?? true}
-                    onUseGroupedValuesInChartsChange={(useGroupedValuesInCharts) => {
-                      updateUIState((state) => ({ ...state, useGroupedValuesInCharts }));
-                    }}
                   />
                 )}
               </>

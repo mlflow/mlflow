@@ -25,8 +25,6 @@ export interface ExperimentViewRunsGroupBySelectorProps {
   runsData: ExperimentRunsSelectorResult;
   groupBy: RunsGroupByConfig | null | string;
   onChange: (newGroupByConfig: RunsGroupByConfig | null) => void;
-  useGroupedValuesInCharts?: boolean;
-  onUseGroupedValuesInChartsChange: (newValue: boolean) => void;
 }
 
 const messages = defineMessages({
@@ -80,13 +78,9 @@ const GroupBySelectorBody = ({
   runsData,
   onChange,
   groupBy,
-  useGroupedValuesInCharts,
-  onUseGroupedValuesInChartsChange,
 }: {
   groupBy: RunsGroupByConfig;
-  useGroupedValuesInCharts?: boolean;
   onChange: (newGroupBy: RunsGroupByConfig | null) => void;
-  onUseGroupedValuesInChartsChange: (newValue: boolean) => void;
   runsData: ExperimentRunsSelectorResult;
 }) => {
   const intl = useIntl();
@@ -222,16 +216,6 @@ const GroupBySelectorBody = ({
             </DropdownMenu.Trigger>
           </Tooltip>
           <DropdownMenu.Content align="start" side="right">
-            <DropdownMenu.CheckboxItem
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsgroupbyselector.tsx_233"
-              disabled={!groupByKeys.length}
-              checked={useGroupedValuesInCharts}
-              onCheckedChange={onUseGroupedValuesInChartsChange}
-            >
-              <DropdownMenu.ItemIndicator />
-              Use grouping from the runs table in charts
-            </DropdownMenu.CheckboxItem>
-            <DropdownMenu.Separator />
             <DropdownMenu.RadioGroup
               componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsgroupbyselector.tsx_244"
               value={aggregateFunction}
@@ -372,8 +356,6 @@ export const ExperimentViewRunsGroupBySelector = React.memo(
     groupBy,
     isLoading,
     onChange,
-    useGroupedValuesInCharts,
-    onUseGroupedValuesInChartsChange,
   }: ExperimentViewRunsGroupBySelectorProps & {
     isLoading: boolean;
   }) => {
@@ -450,13 +432,7 @@ export const ExperimentViewRunsGroupBySelector = React.memo(
               <Spinner />
             </DropdownMenu.Item>
           ) : (
-            <GroupBySelectorBody
-              groupBy={normalizedGroupBy}
-              onChange={onChange}
-              runsData={runsData}
-              onUseGroupedValuesInChartsChange={onUseGroupedValuesInChartsChange}
-              useGroupedValuesInCharts={useGroupedValuesInCharts}
-            />
+            <GroupBySelectorBody groupBy={normalizedGroupBy} onChange={onChange} runsData={runsData} />
           )}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
