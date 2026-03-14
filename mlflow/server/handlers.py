@@ -276,7 +276,11 @@ from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
-from mlflow.store.tracking import MAX_RESULTS_QUERY_TRACE_METRICS, SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import (
+    MAX_RESULTS_QUERY_TRACE_METRICS,
+    SEARCH_ALL_EXPERIMENTS,
+    SEARCH_MAX_RESULTS_DEFAULT,
+)
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
@@ -1711,7 +1715,16 @@ def search_runs_impl(request_message):
         from mlflow.server import auth
 
         if auth.auth_config:
-            experiment_ids = auth.filter_experiment_ids(experiment_ids)
+            if SEARCH_ALL_EXPERIMENTS in experiment_ids:
+                # When searching all experiments with auth enabled, resolve all
+                # experiment IDs and run them through auth filtering so that users
+                # only see runs from experiments they can read.
+                all_exps = _get_tracking_store().search_experiments(view_type=ViewType.ALL)
+                experiment_ids = auth.filter_experiment_ids(
+                    [e.experiment_id for e in all_exps]
+                )
+            else:
+                experiment_ids = auth.filter_experiment_ids(experiment_ids)
     except ImportError:
         # Auth module not available (Flask-WTF not installed), skip filtering
         pass

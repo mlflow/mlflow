@@ -50,7 +50,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_ALL_EXPERIMENTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.provider import (
@@ -3183,7 +3183,8 @@ def search_runs(
             is returned and, if ``list``, a list of :py:class:`mlflow.entities.Run`
             is returned.
         search_all_experiments: Boolean specifying whether all experiments should be searched.
-            Only honored if ``experiment_ids`` is ``[]`` or ``None``.
+            Only honored if ``experiment_ids`` is ``[]`` or ``None``. Equivalent to
+            passing ``experiment_ids=["ALL"]``.
         experiment_names: List of experiment names. Search can work with experiment IDs or
             experiment names, but not both in the same call. Values other
             than ``None`` or ``[]`` will result in error if ``experiment_ids``
@@ -3251,9 +3252,7 @@ def search_runs(
         )
 
     if search_all_experiments and no_ids_or_names:
-        experiment_ids = [
-            exp.experiment_id for exp in search_experiments(view_type=ViewType.ACTIVE_ONLY)
-        ]
+        experiment_ids = [SEARCH_ALL_EXPERIMENTS]
     elif no_ids_or_names:
         experiment_ids = [_get_experiment_id()]
     elif not no_names:

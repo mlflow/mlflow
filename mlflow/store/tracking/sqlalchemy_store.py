@@ -112,6 +112,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
+    SEARCH_ALL_EXPERIMENTS,
     SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -1879,17 +1880,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 stmt = stmt.outerjoin(j)
 
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
-            experiment_ids = [int(e) for e in experiment_ids]
-            experiment_ids = self._filter_experiment_ids(session, experiment_ids)
+
+            # Build base filters — skip the experiment_id IN(...) predicate when the
+            # caller passes the reserved "ALL" value, which is the key performance win.
+            base_filters = [
+                SqlRun.lifecycle_stage.in_(stages),
+                *attribute_filters,
+            ]
+            if SEARCH_ALL_EXPERIMENTS not in experiment_ids:
+                experiment_ids = [int(e) for e in experiment_ids]
+                experiment_ids = self._filter_experiment_ids(session, experiment_ids)
+                base_filters.insert(0, SqlRun.experiment_id.in_(experiment_ids))
+
             stmt = (
                 stmt
                 .distinct()
                 .options(*self._get_eager_run_query_options())
-                .filter(
-                    SqlRun.experiment_id.in_(experiment_ids),
-                    SqlRun.lifecycle_stage.in_(stages),
-                    *attribute_filters,
-                )
+                .filter(*base_filters)
                 .order_by(*parsed_orderby)
                 .offset(offset)
             )
