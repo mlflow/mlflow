@@ -164,6 +164,7 @@ mlflow.config.set_system_metrics_node_id
 mlflow.config.set_system_metrics_samples_before_logging
 mlflow.config.set_system_metrics_sampling_interval
 mlflow.config.set_tracking_uri
+mlflow.context
 mlflow.create_experiment
 mlflow.create_external_model
 mlflow.create_workspace
@@ -323,6 +324,21 @@ mlflow.entities.AssessmentSource.to_dictionary
 mlflow.entities.AssessmentSource.to_proto
 mlflow.entities.AssessmentSourceType
 mlflow.entities.AssessmentSourceType.from_proto
+mlflow.entities.BudgetAction
+mlflow.entities.BudgetAction.from_proto
+mlflow.entities.BudgetAction.to_proto
+mlflow.entities.BudgetDuration
+mlflow.entities.BudgetDuration.from_proto
+mlflow.entities.BudgetDuration.to_proto
+mlflow.entities.BudgetDurationUnit
+mlflow.entities.BudgetDurationUnit.from_proto
+mlflow.entities.BudgetDurationUnit.to_proto
+mlflow.entities.BudgetTargetScope
+mlflow.entities.BudgetTargetScope.from_proto
+mlflow.entities.BudgetTargetScope.to_proto
+mlflow.entities.BudgetUnit
+mlflow.entities.BudgetUnit.from_proto
+mlflow.entities.BudgetUnit.to_proto
 mlflow.entities.Dataset
 mlflow.entities.Dataset.from_proto
 mlflow.entities.Dataset.to_dictionary
@@ -369,6 +385,9 @@ mlflow.entities.Feedback.from_proto
 mlflow.entities.FileInfo
 mlflow.entities.FileInfo.from_proto
 mlflow.entities.FileInfo.to_proto
+mlflow.entities.GatewayBudgetPolicy
+mlflow.entities.GatewayBudgetPolicy.from_proto
+mlflow.entities.GatewayBudgetPolicy.to_proto
 mlflow.entities.GatewayEndpoint
 mlflow.entities.GatewayEndpoint.from_proto
 mlflow.entities.GatewayEndpoint.to_proto
@@ -402,6 +421,16 @@ mlflow.entities.InferenceTableLocation.to_proto
 mlflow.entities.InputTag
 mlflow.entities.InputTag.from_proto
 mlflow.entities.InputTag.to_proto
+mlflow.entities.Issue
+mlflow.entities.Issue.from_dictionary
+mlflow.entities.Issue.from_proto
+mlflow.entities.Issue.to_dictionary
+mlflow.entities.Issue.to_proto
+mlflow.entities.IssueReference
+mlflow.entities.IssueReference.from_dictionary
+mlflow.entities.IssueReference.from_proto
+mlflow.entities.IssueSeverity
+mlflow.entities.IssueStatus
 mlflow.entities.LifecycleStage
 mlflow.entities.LifecycleStage.is_valid
 mlflow.entities.LifecycleStage.matches_view_type
@@ -538,6 +567,7 @@ mlflow.entities.TraceInfo.to_dict
 mlflow.entities.TraceInfo.to_proto
 mlflow.entities.TraceLocation
 mlflow.entities.TraceLocation.from_databricks_uc_schema
+mlflow.entities.TraceLocation.from_databricks_uc_table_prefix
 mlflow.entities.TraceLocation.from_dict
 mlflow.entities.TraceLocation.from_experiment_id
 mlflow.entities.TraceLocation.from_proto
@@ -554,6 +584,9 @@ mlflow.entities.TraceState.to_proto
 mlflow.entities.UCSchemaLocation
 mlflow.entities.UCSchemaLocation.from_dict
 mlflow.entities.UCSchemaLocation.to_dict
+mlflow.entities.UnityCatalog
+mlflow.entities.UnityCatalog.from_dict
+mlflow.entities.UnityCatalog.to_dict
 mlflow.entities.ViewType
 mlflow.entities.ViewType.from_proto
 mlflow.entities.ViewType.from_string
@@ -582,6 +615,7 @@ mlflow.entities.WorkspaceDeletionMode
 mlflow.entities.assessment.Assessment
 mlflow.entities.assessment.Expectation
 mlflow.entities.assessment.Feedback
+mlflow.entities.assessment.IssueReference
 mlflow.entities.assessment_error.AssessmentError
 mlflow.entities.assessment_source.AssessmentSource
 mlflow.entities.assessment_source.AssessmentSourceType
@@ -595,6 +629,12 @@ mlflow.entities.entity_type.EntityAssociationType
 mlflow.entities.experiment.Experiment
 mlflow.entities.experiment_tag.ExperimentTag
 mlflow.entities.file_info.FileInfo
+mlflow.entities.gateway_budget_policy.BudgetAction
+mlflow.entities.gateway_budget_policy.BudgetDuration
+mlflow.entities.gateway_budget_policy.BudgetDurationUnit
+mlflow.entities.gateway_budget_policy.BudgetTargetScope
+mlflow.entities.gateway_budget_policy.BudgetUnit
+mlflow.entities.gateway_budget_policy.GatewayBudgetPolicy
 mlflow.entities.gateway_endpoint.FallbackConfig
 mlflow.entities.gateway_endpoint.FallbackStrategy
 mlflow.entities.gateway_endpoint.GatewayEndpoint
@@ -608,6 +648,9 @@ mlflow.entities.gateway_endpoint.GatewayResourceType
 mlflow.entities.gateway_endpoint.RoutingStrategy
 mlflow.entities.gateway_secrets.GatewaySecretInfo
 mlflow.entities.input_tag.InputTag
+mlflow.entities.issue.Issue
+mlflow.entities.issue.IssueSeverity
+mlflow.entities.issue.IssueStatus
 mlflow.entities.lifecycle_stage.LifecycleStage
 mlflow.entities.logged_model.LoggedModel
 mlflow.entities.logged_model_input.LoggedModelInput
@@ -689,6 +732,7 @@ mlflow.entities.trace_location.MlflowExperimentLocation
 mlflow.entities.trace_location.TraceLocation
 mlflow.entities.trace_location.TraceLocationType
 mlflow.entities.trace_location.UCSchemaLocation
+mlflow.entities.trace_location.UnityCatalog
 mlflow.entities.trace_state.TraceState
 mlflow.entities.view_type.ViewType
 mlflow.entities.webhook.Webhook
@@ -820,6 +864,7 @@ mlflow.genai.delete_prompt_tag
 mlflow.genai.delete_prompt_version_tag
 mlflow.genai.delete_scorer
 mlflow.genai.disable_git_model_versioning
+mlflow.genai.discover_issues
 mlflow.genai.enable_git_model_versioning
 mlflow.genai.evaluate
 mlflow.genai.get_dataset
@@ -1302,6 +1347,7 @@ mlflow.log_figure
 mlflow.log_image
 mlflow.log_input
 mlflow.log_inputs
+mlflow.log_issue
 mlflow.log_metric
 mlflow.log_metrics
 mlflow.log_model_params
@@ -1677,6 +1723,7 @@ mlflow.tensorflow.log_model
 mlflow.tensorflow.save_model
 mlflow.trace
 mlflow.tracing.configure
+mlflow.tracing.context
 mlflow.tracing.disable
 mlflow.tracing.disable_notebook_display
 mlflow.tracing.enable

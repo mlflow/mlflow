@@ -163,13 +163,11 @@ def parse_dataset(path: Path) -> list[dict[str, str]]:
         title_match = re.search(r"\*\*Title:\*\*\s*(.+)$", section, re.MULTILINE)
         body_match = re.search(r"\*\*Body:\*\*\s*\n(.*)", section, re.DOTALL)
         if header_match and title_match and body_match:
-            issues.append(
-                {
-                    "header": header_match.group(1).strip(),
-                    "title": title_match.group(1).strip(),
-                    "body": body_match.group(1).strip(),
-                }
-            )
+            issues.append({
+                "header": header_match.group(1).strip(),
+                "title": title_match.group(1).strip(),
+                "body": body_match.group(1).strip(),
+            })
     return issues
 
 

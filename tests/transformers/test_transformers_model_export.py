@@ -62,7 +62,11 @@ from tests.helper_functions import (
     pyfunc_scoring_endpoint,
     pyfunc_serve_and_score_model,
 )
-from tests.transformers.helper import CHAT_TEMPLATE, IS_NEW_FEATURE_EXTRACTION_API
+from tests.transformers.helper import (
+    CHAT_TEMPLATE,
+    IS_NEW_FEATURE_EXTRACTION_API,
+    IS_TRANSFORMERS_V5_OR_LATER,
+)
 from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVAILABLE
 
 # NB: Some pipelines under test in this suite come very close or outright exceed the
@@ -70,8 +74,13 @@ from tests.transformers.test_transformers_peft_model import SKIP_IF_PEFT_NOT_AVA
 # generating a SIGTERM Error (143), some tests are marked as local only.
 # See: https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted- \
 # runners#supported-runners-and-hardware-resources for instance specs.
-RUNNING_IN_GITHUB_ACTIONS = os.getenv("GITHUB_ACTIONS") == "true"
+RUNNING_IN_GITHUB_ACTIONS = os.environ.get("GITHUB_ACTIONS") == "true"
 GITHUB_ACTIONS_SKIP_REASON = "Test consumes too much memory"
+
+skip_transformers_v5_or_later = pytest.mark.skipif(
+    IS_TRANSFORMERS_V5_OR_LATER,
+    reason="Incompatible API changes in transformers 5.x",
+)
 image_url = "https://raw.githubusercontent.com/mlflow/mlflow/master/tests/datasets/cat.png"
 image_file_path = pathlib.Path(pathlib.Path(__file__).parent.parent, "datasets", "cat.png")
 # Test that can only be run locally:
@@ -99,7 +108,7 @@ def model_path(tmp_path):
     # Pytest keeps the temporary directory created by `tmp_path` fixture for 3 recent test sessions
     # by default. This is useful for debugging during local testing, but in CI it just wastes the
     # disk space.
-    if os.getenv("GITHUB_ACTIONS") == "true":
+    if os.environ.get("GITHUB_ACTIONS") == "true":
         shutil.rmtree(model_path, ignore_errors=True)
 
 
@@ -191,17 +200,16 @@ def test_pipeline_construction_from_base_nlp_model(small_qa_pipeline):
 def test_pipeline_construction_from_base_vision_model(small_vision_model):
     model = {"model": small_vision_model.model, "tokenizer": small_vision_model.tokenizer}
     if IS_NEW_FEATURE_EXTRACTION_API:
-        model.update({"image_processor": small_vision_model.feature_extractor})
+        model.update({"image_processor": small_vision_model.image_processor})
     else:
         model.update({"feature_extractor": small_vision_model.feature_extractor})
     generated = _build_pipeline_from_model_input(model, task="image-classification")
     assert isinstance(generated, type(small_vision_model))
     assert isinstance(generated.tokenizer, type(small_vision_model.tokenizer))
     if IS_NEW_FEATURE_EXTRACTION_API:
-        compare_type = generated.image_processor
+        assert isinstance(generated.image_processor, type(small_vision_model.image_processor))
     else:
-        compare_type = generated.feature_extractor
-    assert isinstance(compare_type, transformers.MobileNetV2ImageProcessor)
+        assert isinstance(generated.feature_extractor, transformers.MobileNetV2ImageProcessor)
 
 
 def test_saving_with_invalid_dict_as_model(model_path):
@@ -553,7 +561,7 @@ def test_log_and_load_transformers_pipeline(small_qa_pipeline, tmp_path, should_
         )
         assert (
             reloaded_model(
-                {"question": "Who's house?", "context": "The house is owned by a man named Run."}
+                question="Who's house?", context="The house is owned by a man named Run."
             )["answer"]
             == "Run"
         )
@@ -871,30 +879,26 @@ def test_invalid_input_to_pyfunc_signature_output_wrapper_raises(component_multi
     "inference_payload",
     [
         ({"question": "Who's house?", "context": "The house is owned by a man named Run."}),
-        (
-            [
-                {
-                    "question": "What color is it?",
-                    "context": "Some people said it was green but I know that it's definitely blue",
-                },
-                {
-                    "question": "How do the wheels go?",
-                    "context": "The wheels on the bus go round and round. Round and round.",
-                },
-            ]
-        ),
-        (
-            [
-                {
-                    "question": "What color is it?",
-                    "context": "Some people said it was green but I know that it's pink.",
-                },
-                {
-                    "context": "The people on the bus go up and down. Up and down.",
-                    "question": "How do the people go?",
-                },
-            ]
-        ),
+        ([
+            {
+                "question": "What color is it?",
+                "context": "Some people said it was green but I know that it's definitely blue",
+            },
+            {
+                "question": "How do the wheels go?",
+                "context": "The wheels on the bus go round and round. Round and round.",
+            },
+        ]),
+        ([
+            {
+                "question": "What color is it?",
+                "context": "Some people said it was green but I know that it's pink.",
+            },
+            {
+                "context": "The people on the bus go up and down. Up and down.",
+                "question": "How do the people go?",
+            },
+        ]),
     ],
 )
 def test_qa_pipeline_pyfunc_load_and_infer(small_qa_pipeline, model_path, inference_payload):
@@ -1625,23 +1629,21 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
             name=artifact_path,
         )
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "question": [
-                    "What color is it?",
-                    "How do the people go?",
-                    "What does the 'wolf' howl at?",
-                ],
-                "context": [
-                    "Some people said it was green but I know that it's pink.",
-                    "The people on the bus go up and down. Up and down.",
-                    "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
-                    "the moon for hours.",
-                ],
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "question": [
+                "What color is it?",
+                "How do the people go?",
+                "What does the 'wolf' howl at?",
+            ],
+            "context": [
+                "Some people said it was green but I know that it's pink.",
+                "The people on the bus go up and down. Up and down.",
+                "The pack of 'wolves' stood on the cliff and a 'lone wolf' howled at "
+                "the moon for hours.",
+            ],
         }
-    )
+    })
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,
@@ -1652,14 +1654,12 @@ def test_qa_pipeline_pyfunc_predict(small_qa_pipeline):
 
     assert values.to_dict(orient="records") == [{0: "pink"}, {0: "up and down"}, {0: "the moon"}]
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "question": "Who's house?",
-                "context": "The house is owned by a man named Run.",
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "question": "Who's house?",
+            "context": "The house is owned by a man named Run.",
         }
-    )
+    })
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -1823,16 +1823,13 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
         )
         model_uri = model_info.model_uri
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "sequences": "My dog loves running through troughs of spaghetti "
-                "with his mouth open",
-                "candidate_labels": ["happy", "sad"],
-                "hypothesis_template": "This example talks about how the dog is {}",
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "sequences": "My dog loves running through troughs of spaghetti with his mouth open",
+            "candidate_labels": ["happy", "sad"],
+            "hypothesis_template": "This example talks about how the dog is {}",
         }
-    )
+    })
 
     response = pyfunc_serve_and_score_model(
         model_uri,
@@ -1845,19 +1842,17 @@ def test_zero_shot_pipeline_pyfunc_predict(zero_shot_pipeline):
     assert len(values.to_dict()) == 3
     assert len(values.to_dict()["labels"]) == 2
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "sequences": [
-                    "My dog loves to eat spaghetti",
-                    "My dog hates going to the vet",
-                    "My 'hamster' loves to play with my 'friendly' dog",
-                ],
-                "candidate_labels": '["happy", "sad"]',
-                "hypothesis_template": "This example talks about how the dog is {}",
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "sequences": [
+                "My dog loves to eat spaghetti",
+                "My dog hates going to the vet",
+                "My 'hamster' loves to play with my 'friendly' dog",
+            ],
+            "candidate_labels": '["happy", "sad"]',
+            "hypothesis_template": "This example talks about how the dog is {}",
         }
-    )
+    })
     response = pyfunc_serve_and_score_model(
         model_uri,
         data=inference_payload,
@@ -1884,14 +1879,12 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
         "Inventory": ["910", "4589", "11200", "80", "3459"],
     }
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "query": "What should we order more of?",
-                "table": table,
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "query": "What should we order more of?",
+            "table": table,
         }
-    )
+    })
 
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
@@ -1903,18 +1896,16 @@ def test_table_question_answering_pyfunc_predict(table_question_answering_pipeli
 
     assert len(values.to_dict(orient="records")) == 1
 
-    inference_payload = json.dumps(
-        {
-            "inputs": {
-                "query": [
-                    "What is our highest sales?",
-                    "What should we order more of?",
-                    "Which 'fruit' has the 'highest' 'sales'?",
-                ],
-                "table": table,
-            }
+    inference_payload = json.dumps({
+        "inputs": {
+            "query": [
+                "What is our highest sales?",
+                "What should we order more of?",
+                "Which 'fruit' has the 'highest' 'sales'?",
+            ],
+            "table": table,
         }
-    )
+    })
     response = pyfunc_serve_and_score_model(
         model_info.model_uri,
         data=inference_payload,
@@ -2578,12 +2569,10 @@ def test_whisper_model_support_timestamps(whisper_pipeline):
         _assert_prediction(json.loads(predictions[0]))
 
         # Request with inference params
-        payload = json.dumps(
-            {
-                "inputs": [encoded_audio],
-                "model_config": model_config,
-            }
-        )
+        payload = json.dumps({
+            "inputs": [encoded_audio],
+            "model_config": model_config,
+        })
         response = endpoint.invoke(payload, content_type=content_type)
         predictions = json.loads(response.content.decode("utf-8"))["predictions"]
         _assert_prediction(json.loads(predictions[0]))
@@ -2676,12 +2665,10 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     parameters = {
         "top_k": 2,
     }
-    inference_payload = json.dumps(
-        {
-            "inputs": [image_url],
-            "params": parameters,
-        }
-    )
+    inference_payload = json.dumps({
+        "inputs": [image_url],
+        "params": parameters,
+    })
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
@@ -2729,12 +2716,10 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
         "top_k": 2,
         "max_answer_len": 5,
     }
-    inference_payload = json.dumps(
-        {
-            "inputs": data,
-            "params": parameters,
-        }
-    )
+    inference_payload = json.dumps({
+        "inputs": data,
+        "params": parameters,
+    })
     output = mlflow.transformers.generate_signature_output(small_qa_pipeline, data)
     signature_with_params = infer_signature(
         data,
@@ -2742,19 +2727,15 @@ def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
         parameters,
     )
     expected_signature = ModelSignature(
-        Schema(
-            [
-                ColSpec(Array(DataType.string), name="question"),
-                ColSpec(Array(DataType.string), name="context"),
-            ]
-        ),
+        Schema([
+            ColSpec(Array(DataType.string), name="question"),
+            ColSpec(Array(DataType.string), name="context"),
+        ]),
         Schema([ColSpec(DataType.string)]),
-        ParamSchema(
-            [
-                ParamSpec("top_k", DataType.long, 2),
-                ParamSpec("max_answer_len", DataType.long, 5),
-            ]
-        ),
+        ParamSchema([
+            ParamSpec("top_k", DataType.long, 2),
+            ParamSpec("max_answer_len", DataType.long, 5),
+        ]),
     )
     assert signature_with_params == expected_signature
 
@@ -2840,6 +2821,7 @@ def test_uri_directory_renaming_handling_components(model_path, text_classificat
     assert isinstance(prediction["label"][0], str)
 
 
+@skip_transformers_v5_or_later
 def test_pyfunc_model_log_load_with_artifacts_snapshot():
     architecture = "prajjwal1/bert-tiny"
     tokenizer = transformers.AutoTokenizer.from_pretrained(architecture)
@@ -2945,6 +2927,7 @@ def test_model_on_single_device():
     assert not _is_model_distributed_in_memory(mock_model)
 
 
+@skip_transformers_v5_or_later
 def test_basic_model_with_accelerate_device_mapping_fails_save(tmp_path, model_path):
     task = "translation_en_to_de"
     architecture = "t5-small"
@@ -3305,11 +3288,12 @@ def test_get_task_for_model():
             _get_task_for_model("model")
 
 
+@skip_transformers_v5_or_later
 def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, tmp_path):
     local_repo_path = tmp_path / "local_repo"
     text_generation_pipeline.save_pretrained(local_repo_path)
 
-    locally_loaded_model = transformers.AutoModelWithLMHead.from_pretrained(local_repo_path)
+    locally_loaded_model = transformers.AutoModelForCausalLM.from_pretrained(local_repo_path)
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         local_repo_path, chat_template=CHAT_TEMPLATE
     )
@@ -3350,16 +3334,14 @@ def test_local_custom_model_save_and_load(text_generation_pipeline, model_path, 
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
-    inference = pyfunc_loaded.predict(
-        {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": "How to save Transformer model?",
-                }
-            ]
-        }
-    )
+    inference = pyfunc_loaded.predict({
+        "messages": [
+            {
+                "role": "user",
+                "content": "How to save Transformer model?",
+            }
+        ]
+    })
     assert isinstance(inference[0], dict)
     assert inference[0]["choices"][0]["message"]["role"] == "assistant"
 
@@ -3402,15 +3384,13 @@ def test_text_generation_task_chat_predict(text_generation_pipeline, model_path)
 
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
 
-    inference = pyfunc_loaded.predict(
-        {
-            "messages": [
-                {"role": "system", "content": "Hello, how can I help you today?"},
-                {"role": "user", "content": "How to learn Python in 3 weeks?"},
-            ],
-            "max_tokens": 10,
-        }
-    )
+    inference = pyfunc_loaded.predict({
+        "messages": [
+            {"role": "system", "content": "Hello, how can I help you today?"},
+            {"role": "user", "content": "How to learn Python in 3 weeks?"},
+        ],
+        "max_tokens": 10,
+    })
 
     assert inference[0]["choices"][0]["message"]["role"] == "assistant"
     assert (
@@ -3469,9 +3449,7 @@ HF_COMMIT_HASH_PATTERN = re.compile(r"^[a-z0-9]{40}$")
         (
             "small_vision_model",
             image_url,
-            {"feature_extractor", "image_processor"}
-            if IS_NEW_FEATURE_EXTRACTION_API
-            else {"feature_extractor"},
+            {"image_processor"} if IS_NEW_FEATURE_EXTRACTION_API else {"feature_extractor"},
         ),
         (
             "component_multi_modal",
@@ -3630,7 +3608,7 @@ def local_checkpoint_path(tmp_path):
     """
     Fixture to create a local model checkpoint for testing fine-tuning scenario.
     """
-    model = transformers.AutoModelWithLMHead.from_pretrained("distilgpt2")
+    model = transformers.AutoModelForCausalLM.from_pretrained("distilgpt2")
 
     class DummyDataset(torch.utils.data.Dataset):
         def __getitem__(self, idx):
@@ -3675,9 +3653,13 @@ def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
     flavor_conf = logged_info.flavors["transformers"]
     assert flavor_conf["source_model_name"] == local_checkpoint_path
     assert flavor_conf["task"] == "text-generation"
-    assert flavor_conf["framework"] == "pt"
+    if not IS_TRANSFORMERS_V5_OR_LATER:
+        assert flavor_conf["framework"] == "pt"
     assert flavor_conf["instance_type"] == "TextGenerationPipeline"
-    assert flavor_conf["tokenizer_type"] == "GPT2TokenizerFast"
+    expected_tokenizer_type = (
+        "GPT2Tokenizer" if IS_TRANSFORMERS_V5_OR_LATER else "GPT2TokenizerFast"
+    )
+    assert flavor_conf["tokenizer_type"] == expected_tokenizer_type
 
     # Default task signature should be used
     assert logged_info.signature.inputs == Schema([ColSpec(DataType.string)])
@@ -3714,6 +3696,7 @@ def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
     assert pred_serve["predictions"][0].startswith(query)
 
 
+@skip_transformers_v5_or_later
 def test_save_model_from_local_checkpoint_with_custom_tokenizer(model_path, local_checkpoint_path):
     # When a custom tokenizer is also saved in the checkpoint, MLflow should save and load it.
     tokenizer = transformers.AutoTokenizer.from_pretrained("distilroberta-base")
@@ -3751,14 +3734,12 @@ def test_save_model_from_local_checkpoint_with_llm_inference_task(
 
     # Load as pyfunc
     loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
-    response = loaded_pyfunc.predict(
-        {
-            "messages": [
-                {"role": "system", "content": "Hello, how can I help you today?"},
-                {"role": "user", "content": "What is MLflow?"},
-            ],
-        }
-    )
+    response = loaded_pyfunc.predict({
+        "messages": [
+            {"role": "system", "content": "Hello, how can I help you today?"},
+            {"role": "user", "content": "What is MLflow?"},
+        ],
+    })
     assert response[0]["choices"][0]["message"]["role"] == "assistant"
     assert response[0]["choices"][0]["message"]["content"] is not None
 

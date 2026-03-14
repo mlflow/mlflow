@@ -26,6 +26,26 @@ class UCSchemaLocation(_message.Message):
     otel_logs_table_name: str
     def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., otel_spans_table_name: _Optional[str] = ..., otel_logs_table_name: _Optional[str] = ...) -> None: ...
 
+class UcTablePrefixLocation(_message.Message):
+    __slots__ = ("catalog_name", "schema_name", "table_prefix", "spans_table_name", "logs_table_name", "metrics_table_name", "location_id", "annotations_table_name")
+    CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
+    TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    SPANS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    LOGS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    METRICS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
+    ANNOTATIONS_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    catalog_name: str
+    schema_name: str
+    table_prefix: str
+    spans_table_name: str
+    logs_table_name: str
+    metrics_table_name: str
+    location_id: str
+    annotations_table_name: str
+    def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ..., table_prefix: _Optional[str] = ..., spans_table_name: _Optional[str] = ..., logs_table_name: _Optional[str] = ..., metrics_table_name: _Optional[str] = ..., location_id: _Optional[str] = ..., annotations_table_name: _Optional[str] = ...) -> None: ...
+
 class MlflowExperimentLocation(_message.Message):
     __slots__ = ("experiment_id",)
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -39,26 +59,30 @@ class InferenceTableLocation(_message.Message):
     def __init__(self, full_table_name: _Optional[str] = ...) -> None: ...
 
 class TraceLocation(_message.Message):
-    __slots__ = ("type", "mlflow_experiment", "inference_table", "uc_schema")
+    __slots__ = ("type", "mlflow_experiment", "inference_table", "uc_schema", "uc_table_prefix")
     class TraceLocationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         TRACE_LOCATION_TYPE_UNSPECIFIED: _ClassVar[TraceLocation.TraceLocationType]
         MLFLOW_EXPERIMENT: _ClassVar[TraceLocation.TraceLocationType]
         INFERENCE_TABLE: _ClassVar[TraceLocation.TraceLocationType]
         UC_SCHEMA: _ClassVar[TraceLocation.TraceLocationType]
+        UC_TABLE_PREFIX: _ClassVar[TraceLocation.TraceLocationType]
     TRACE_LOCATION_TYPE_UNSPECIFIED: TraceLocation.TraceLocationType
     MLFLOW_EXPERIMENT: TraceLocation.TraceLocationType
     INFERENCE_TABLE: TraceLocation.TraceLocationType
     UC_SCHEMA: TraceLocation.TraceLocationType
+    UC_TABLE_PREFIX: TraceLocation.TraceLocationType
     TYPE_FIELD_NUMBER: _ClassVar[int]
     MLFLOW_EXPERIMENT_FIELD_NUMBER: _ClassVar[int]
     INFERENCE_TABLE_FIELD_NUMBER: _ClassVar[int]
     UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    UC_TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
     type: TraceLocation.TraceLocationType
     mlflow_experiment: MlflowExperimentLocation
     inference_table: InferenceTableLocation
     uc_schema: UCSchemaLocation
-    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[InferenceTableLocation, _Mapping]] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+    uc_table_prefix: UcTablePrefixLocation
+    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[InferenceTableLocation, _Mapping]] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., uc_table_prefix: _Optional[_Union[UcTablePrefixLocation, _Mapping]] = ...) -> None: ...
 
 class TraceInfo(_message.Message):
     __slots__ = ("trace_id", "client_request_id", "trace_location", "request_preview", "response_preview", "request_time", "execution_duration", "state", "trace_metadata", "assessments", "tags")
@@ -256,6 +280,47 @@ class UnLinkExperimentToUCTraceLocation(_message.Message):
     experiment_id: str
     uc_schema: UCSchemaLocation
     def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ...) -> None: ...
+
+class GetLocation(_message.Message):
+    __slots__ = ("location_id",)
+    class Response(_message.Message):
+        __slots__ = ("uc_table_prefix",)
+        UC_TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
+        uc_table_prefix: UcTablePrefixLocation
+        def __init__(self, uc_table_prefix: _Optional[_Union[UcTablePrefixLocation, _Mapping]] = ...) -> None: ...
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
+    location_id: str
+    def __init__(self, location_id: _Optional[str] = ...) -> None: ...
+
+class CreateLocation(_message.Message):
+    __slots__ = ("uc_schema", "uc_table_prefix", "sql_warehouse_id")
+    class Response(_message.Message):
+        __slots__ = ("uc_schema", "uc_table_prefix")
+        UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+        UC_TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
+        uc_schema: UCSchemaLocation
+        uc_table_prefix: UcTablePrefixLocation
+        def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., uc_table_prefix: _Optional[_Union[UcTablePrefixLocation, _Mapping]] = ...) -> None: ...
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    UC_TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
+    uc_schema: UCSchemaLocation
+    uc_table_prefix: UcTablePrefixLocation
+    sql_warehouse_id: str
+    def __init__(self, uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., uc_table_prefix: _Optional[_Union[UcTablePrefixLocation, _Mapping]] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class LinkTraceLocation(_message.Message):
+    __slots__ = ("experiment_id", "uc_schema", "uc_table_prefix")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    UC_TABLE_PREFIX_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    uc_schema: UCSchemaLocation
+    uc_table_prefix: UcTablePrefixLocation
+    def __init__(self, experiment_id: _Optional[str] = ..., uc_schema: _Optional[_Union[UCSchemaLocation, _Mapping]] = ..., uc_table_prefix: _Optional[_Union[UcTablePrefixLocation, _Mapping]] = ...) -> None: ...
 
 class Assessment(_message.Message):
     __slots__ = ("assessment_id", "assessment_name", "trace_id", "trace_location", "span_id", "source", "create_time", "last_update_time", "feedback", "expectation", "rationale", "metadata", "overrides", "valid")

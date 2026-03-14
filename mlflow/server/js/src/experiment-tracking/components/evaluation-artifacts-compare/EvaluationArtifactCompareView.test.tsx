@@ -5,7 +5,14 @@ import { EvaluationArtifactCompareView } from './EvaluationArtifactCompareView';
 import configureStore from 'redux-mock-store';
 import type { RunRowType } from '../experiment-page/utils/experimentPage.row-types';
 import { ExperimentPageViewState } from '../experiment-page/models/ExperimentPageViewState';
-import { renderWithIntl, act, within, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import {
+  renderWithIntl,
+  act,
+  within,
+  screen,
+  waitFor,
+  fireEvent,
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 
 import { getEvaluationTableArtifact } from '../../actions';
 import { MLFLOW_LOGGED_ARTIFACTS_TAG, MLFLOW_RUN_SOURCE_TYPE_TAG, MLflowRunSourceType } from '../../constants';
@@ -534,6 +541,38 @@ describe('EvaluationArtifactCompareView', () => {
     expect(renderResult.getByTestId('dropdown-tables')).toBeDisabled();
     expect(renderResult.getByText(/No evaluation tables logged/)).toBeInTheDocument();
   });
+
+  test('filters rows case-insensitively', async () => {
+    mountTestComponent();
+
+    await userEvent.click(screen.getByLabelText('Select "group by" columns'));
+    await userEvent.click(within(screen.getByRole('listbox')).getByLabelText('col_output'));
+
+    const filterInput = screen.getByPlaceholderText('Filter by col_group, col_output');
+    await userEvent.type(filterInput, 'ANSWER_1');
+
+    await waitFor(() => {
+      const groupByCells = screen.getAllByTestId('group-by-cell');
+      expect(groupByCells.map((el) => el.textContent)).toContain('answer_1_run_a');
+      expect(groupByCells.map((el) => el.textContent)).not.toContain('answer_2_run_a');
+    });
+  });
+
+  test.each([['[invalid(regex'], ['(.+)+#'], ['*?{}^$|\\'], ['<script>alert(1)</script>'], ["' OR 1=1 --"]])(
+    'handles special characters in filter without crashing: %s',
+    async (specialInput) => {
+      mountTestComponent();
+
+      const filterInput = screen.getByPlaceholderText('Filter by col_group');
+      await userEvent.clear(filterInput);
+      fireEvent.change(filterInput, { target: { value: specialInput } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId('mock-compare-table')).toBeInTheDocument();
+        expect(screen.queryAllByTestId('group-by-cell')).toHaveLength(0);
+      });
+    },
+  );
 
   test('checks that image columns are correctly assigned to only be output columns', async () => {
     mountTestComponent({ mockState: SAMPLE_STATE_WITH_IMAGES });

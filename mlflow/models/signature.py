@@ -222,9 +222,6 @@ def infer_signature(
 
               .. code-block:: python
 
-                    from mlflow.models import infer_signature
-                    from mlflow.transformers import generate_signature_output
-
                     # Define parameters for inference
                     params = {
                         "num_beams": 5,
@@ -233,18 +230,14 @@ def infer_signature(
                         "remove_invalid_values": True,
                     }
 
-                    # Infer the signature including parameters
-                    signature = infer_signature(
-                        data,
-                        generate_signature_output(model, data),
-                        params=params,
-                    )
+                    import mlflow
 
-                    # Saving model with model signature
+                    # For transformers models, pass input_example directly to
+                    # log_model/save_model to automatically infer the signature:
                     mlflow.transformers.save_model(
                         model,
                         path=model_path,
-                        signature=signature,
+                        input_example=(data, params),
                     )
 
                     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)

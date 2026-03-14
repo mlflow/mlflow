@@ -28,7 +28,7 @@ def setup_mlflow_git_based_version_tracking() -> None:
     """Initialize MLflow tracking and set active model with git-based version tracking."""
     # in a Databricks App, the app name is set in the environment variable DATABRICKS_APP_NAME
     # in local development, we use a fallback app name
-    app_name = os.getenv("DATABRICKS_APP_NAME", "local")
+    app_name = os.environ.get("DATABRICKS_APP_NAME", "local")
 
     # Get current git commit hash for versioning
     try:

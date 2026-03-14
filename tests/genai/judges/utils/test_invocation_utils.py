@@ -4,7 +4,7 @@ from unittest import mock
 import litellm
 import pytest
 from litellm import RetryPolicy
-from litellm.types.utils import ModelResponse
+from litellm.types.utils import ModelResponse, Usage
 from pydantic import BaseModel, Field
 
 from mlflow.entities.assessment import AssessmentSourceType
@@ -1027,8 +1027,7 @@ def test_invoke_judge_model_databricks_with_response_format(mock_response):
 def test_invoke_judge_model_databricks_success_telemetry(
     model_uri: str, expected_model_name: str, mock_response
 ):
-    mock_response.usage.prompt_tokens = 15
-    mock_response.usage.completion_tokens = 8
+    mock_response.usage = Usage(prompt_tokens=15, completion_tokens=8, total_tokens=23)
     mock_response.id = "req-456"
 
     with (
@@ -1065,8 +1064,7 @@ def test_invoke_judge_model_databricks_success_telemetry(
 def test_invoke_judge_model_databricks_telemetry_error_handling(
     model_uri: str, expected_model_name: str, mock_response
 ):
-    mock_response.usage.prompt_tokens = 5
-    mock_response.usage.completion_tokens = 3
+    mock_response.usage = Usage(prompt_tokens=5, completion_tokens=3, total_tokens=8)
     mock_response.id = "req-789"
 
     with (
@@ -1102,8 +1100,7 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
     ],
 )
 def test_invoke_judge_model_non_databricks_no_telemetry(model_uri: str, mock_response):
-    mock_response.usage.prompt_tokens = 10
-    mock_response.usage.completion_tokens = 5
+    mock_response.usage = Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
     mock_response.id = "req-123"
 
     with (

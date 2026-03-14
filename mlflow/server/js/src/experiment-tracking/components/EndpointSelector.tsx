@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import {
   useDesignSystemTheme,
   Typography,
@@ -43,6 +43,8 @@ export interface EndpointSelectorProps {
   onEndpointCreated?: (endpoint: Endpoint) => void;
   /** Whether to auto-select the first endpoint */
   autoSelectFirstEndpoint?: boolean;
+  /** Called when the current endpoint name doesn't match any loaded endpoint (e.g., after a rename) */
+  onEndpointNotFound?: () => void;
 }
 
 export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
@@ -53,6 +55,7 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   componentIdPrefix = 'mlflow.endpoint-selector',
   onEndpointCreated,
   autoSelectFirstEndpoint = false,
+  onEndpointNotFound,
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -101,6 +104,21 @@ export const EndpointSelector: React.FC<EndpointSelectorProps> = ({
   const currentEndpoint = useMemo(() => {
     return endpointOptions.find((opt) => opt.value === currentEndpointName);
   }, [endpointOptions, currentEndpointName]);
+
+  // When the endpoint name doesn't match any loaded endpoint (e.g., after a rename),
+  // notify the parent so it can refetch scorer data with the resolved endpoint name.
+  const hasTriedRefetch = useRef(false);
+
+  useEffect(() => {
+    hasTriedRefetch.current = false;
+  }, [currentEndpointName]);
+
+  useEffect(() => {
+    if (currentEndpointName && !currentEndpoint && !isLoading && !error && !hasTriedRefetch.current) {
+      hasTriedRefetch.current = true;
+      onEndpointNotFound?.();
+    }
+  }, [currentEndpointName, currentEndpoint, isLoading, error, onEndpointNotFound]);
 
   const defaultPlaceholder = intl.formatMessage({
     defaultMessage: 'Select an endpoint',

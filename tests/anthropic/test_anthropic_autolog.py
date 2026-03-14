@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import re
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -456,3 +457,38 @@ def test_messages_autolog_with_cached_tokens(is_async, mock_litellm_cost):
         TokenUsageKey.CACHE_READ_INPUT_TOKENS: 25,
         TokenUsageKey.CACHE_CREATION_INPUT_TOKENS: 15,
     }
+
+
+def test_tracing_headers_injected(is_async):
+    mlflow.anthropic.autolog()
+
+    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    span_ctx = span._span.get_span_context()
+    expected_trace_id = format(span_ctx.trace_id, "032x")
+    expected_span_id = format(span_ctx.span_id, "016x")
+
+    # Verify the span has valid IDs that would produce a correct traceparent header
+    from mlflow.tracing.distributed import _get_tracing_headers_from_span
+
+    headers = _get_tracing_headers_from_span(span)
+    assert "traceparent" in headers
+    traceparent = headers["traceparent"]
+    assert re.fullmatch(r"00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}", traceparent)
+    assert traceparent.startswith(f"00-{expected_trace_id}-{expected_span_id}-")
+
+
+def test_tracing_headers_preserve_user_extra_headers(is_async):
+    mlflow.anthropic.autolog()
+
+    request = {**DUMMY_CREATE_MESSAGE_REQUEST, "extra_headers": {"X-Custom": "my-value"}}
+    _call_anthropic(request, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    # User-provided extra_headers should be recorded in span inputs and take precedence
+    assert span.inputs.get("extra_headers", {}).get("X-Custom") == "my-value"

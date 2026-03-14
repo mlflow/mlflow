@@ -1,5 +1,53 @@
 # CHANGELOG
 
+## 3.10.1 (2026-03-05)
+
+MLflow 3.10.1 is a patch release that contains some minor feature enhancements, bug fixes, and documentation updates.
+
+Features:
+
+- [UI] Add try-it page on Gateway usage example modal (#21077, @PattaraS)
+- [UI] Filter gateway experiments from the experiment list page (#21130, @copilot-swe-agent)
+
+Bug fixes:
+
+- [UI] Fix "View full dashboard" link in gateway usage tab when workspace is enabled (#21191, @copilot-swe-agent)
+- [UI] Persist AI Gateway default passphrase security banner dismissal to localStorage (#21292, @copilot-swe-agent)
+- [Evaluation] Demote unused parameters log message from WARNING to DEBUG in instructions judge (#21294, @copilot-swe-agent)
+- [UI] Clear "All" time selector when switching to overview tab (#21371, @daniellok-db)
+- [Prompts / UI] Fix Traces view in Prompts tab not being scrollable (#21282, @TomeHirata)
+- [UI] Fix judge builder instruction textarea (#21299, @daniellok-db)
+- [UI] Fix group mode to aggregate "Additional runs" as "Unassigned" group in charts (#21155, @copilot-swe-agent)
+- [UI] Fix artifact download when workspaces are enabled (#21074, @timsolovev)
+- [Tracing] Fix NOT NULL constraint on assessments.trace_id during trace export (#21348, @dbczumar)
+- [Tracking] Fix 403 Forbidden for artifact list via query param when `default_permission=NO_PERMISSIONS` (#21220, @copilot-swe-agent)
+- [UI] [ML-63097] Fix broken LLM judge documentation links (#21347, @smoorjani)
+- [] Fix Run Judge failed with litellm.InternalServerError: Invalid response object. (#21262, @PattaraS)
+- [Tracing / UI] Update Action menu: indentation to avoid confusion (#21266, @PattaraS)
+- [Model Registry] Fix MlflowClient.copy_model_version for the case that copy UC model across workspaces (#21212, @WeichenXu123)
+- [UI] Fix empty description box rendering for sanitized-empty experiment descriptions (#21223, @copilot-swe-agent)
+- [Artifacts] Fix single artifact downloading through `HttpArtifactRepository` (#12955, @Koenkk)
+- [Tracing] Fix find_last_user_message_index skipping skill content injections (#21119, @alkispoly-db)
+- [] Fix retrieval context extraction when span outputs are stored as strings (#21213, @smoorjani)
+- [UI] Fix visibility toggle button in chart tooltip not working (#21071, @daniellok-db)
+- [UI] Move gateway experiment filtering to server-side query to fix inconsistent page sizes (#21138, @copilot-swe-agent)
+- [] Downgrade spurious warning to debug log for gateway endpoints with fallback_config but no FALLBACK models (#21123, @copilot-swe-agent)
+- [Tracing] Fix MCP fn_wrapper to pass None for optional params with UNSET defaults (#21051, @yangbaechu)
+- [Tracking] Add CASCADE to `logged_model` tables `experiment_id` foreign keys (#20185, @harupy)
+- [Tracing] Fix MCP fn_wrapper handling of Click UNSET defaults (#20953) (#20962, @yangbaechu)
+
+Documentation updates:
+
+- [Docs] Update SSO oidc plugin doc: add google identity platform / AWS cognito / Azure Entra ID configuration guide (#20591, @WeichenXu123)
+- [Docs / Tracing] Fix distributed tracing rendering and improve doc (#21070, @B-Step62)
+- [Docs] docs: Add single quotes to install commands with extras to prevent zsh errors (#21227, @mshavliuk)
+- [Docs / Model Registry] Fix outdated docstring claiming models:/ URIs are unsupported in register_model (#21197, @copilot-swe-agent)
+- [Docs] Replace MinIO with RustFS in docker-compose setup (#21099, @jmaggesi)
+
+Small bug fixes and documentation updates:
+
+#20740, #21148, #21149, #21096, @TomeHirata; #21368, #21118, @B-Step62; #21384, #21345, #21236, #21106, #21033, #21115, #21034, @smoorjani; #21326, #21133, #21036, @copilot-swe-agent; #21293, @daniellok-db; #21175, @caponetto; #21305, #21264, @serena-ruan; #21216, @justinwei-db; #21038, #21082, @bbqiu; #21143, #20733, @mprahl; #20488, @mdalvz0000; #21142, @EPgg92; #21094, @PattaraS
+
 ## 3.10.0 (2026-02-20)
 
 We're excited to announce MLflow 3.10.0, which includes several notable updates:

@@ -336,17 +336,15 @@ async def test_maybe_traced_gateway_call_with_payload_kwarg(endpoint_config):
 async def test_get_model_span_info_reads_child_span(endpoint_config):
     async def func_with_child_span(payload):
         with mlflow.start_span("provider/openai/gpt-4", span_type=SpanType.LLM) as child:
-            child.set_attributes(
-                {
-                    SpanAttributeKey.CHAT_USAGE: {
-                        "input_tokens": 10,
-                        "output_tokens": 5,
-                        "total_tokens": 15,
-                    },
-                    SpanAttributeKey.MODEL: "gpt-4",
-                    SpanAttributeKey.MODEL_PROVIDER: "openai",
-                }
-            )
+            child.set_attributes({
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            })
         return {"result": "ok"}
 
     traced = maybe_traced_gateway_call(func_with_child_span, endpoint_config)
@@ -378,17 +376,15 @@ async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id)
 
     async def func_with_usage(payload):
         with mlflow.start_span("provider/openai/gpt-4", span_type=SpanType.LLM) as child:
-            child.set_attributes(
-                {
-                    SpanAttributeKey.CHAT_USAGE: {
-                        "input_tokens": 10,
-                        "output_tokens": 5,
-                        "total_tokens": 15,
-                    },
-                    SpanAttributeKey.MODEL: "gpt-4",
-                    SpanAttributeKey.MODEL_PROVIDER: "openai",
-                }
-            )
+            child.set_attributes({
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            })
         return {"result": "ok"}
 
     # Step 1: Agent creates span and generates traceparent headers
@@ -464,17 +460,15 @@ async def test_maybe_traced_gateway_call_streaming_with_traceparent(gateway_expe
 
     async def mock_stream_with_usage(payload):
         with mlflow.start_span("provider/openai/gpt-4", span_type=SpanType.LLM) as child:
-            child.set_attributes(
-                {
-                    SpanAttributeKey.CHAT_USAGE: {
-                        "input_tokens": 20,
-                        "output_tokens": 10,
-                        "total_tokens": 30,
-                    },
-                    SpanAttributeKey.MODEL: "gpt-4",
-                    SpanAttributeKey.MODEL_PROVIDER: "openai",
-                }
-            )
+            child.set_attributes({
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 20,
+                    "output_tokens": 10,
+                    "total_tokens": 30,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            })
         yield _make_chunk(content="Hello")
         yield _make_chunk(content=" world", finish_reason="stop")
 
@@ -554,29 +548,25 @@ async def test_maybe_traced_gateway_call_with_traceparent_multiple_providers(gat
 
     async def func_with_multiple_providers(payload):
         with mlflow.start_span("provider/openai/gpt-4", span_type=SpanType.LLM) as child:
-            child.set_attributes(
-                {
-                    SpanAttributeKey.CHAT_USAGE: {
-                        "input_tokens": 10,
-                        "output_tokens": 5,
-                        "total_tokens": 15,
-                    },
-                    SpanAttributeKey.MODEL: "gpt-4",
-                    SpanAttributeKey.MODEL_PROVIDER: "openai",
-                }
-            )
+            child.set_attributes({
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 10,
+                    "output_tokens": 5,
+                    "total_tokens": 15,
+                },
+                SpanAttributeKey.MODEL: "gpt-4",
+                SpanAttributeKey.MODEL_PROVIDER: "openai",
+            })
         with mlflow.start_span("provider/anthropic/claude-3", span_type=SpanType.LLM) as child:
-            child.set_attributes(
-                {
-                    SpanAttributeKey.CHAT_USAGE: {
-                        "input_tokens": 20,
-                        "output_tokens": 10,
-                        "total_tokens": 30,
-                    },
-                    SpanAttributeKey.MODEL: "claude-3",
-                    SpanAttributeKey.MODEL_PROVIDER: "anthropic",
-                }
-            )
+            child.set_attributes({
+                SpanAttributeKey.CHAT_USAGE: {
+                    "input_tokens": 20,
+                    "output_tokens": 10,
+                    "total_tokens": 30,
+                },
+                SpanAttributeKey.MODEL: "claude-3",
+                SpanAttributeKey.MODEL_PROVIDER: "anthropic",
+            })
         return {"result": "ok"}
 
     with mlflow.start_span("agent-root") as agent_span:

@@ -114,20 +114,18 @@ def evaluate(
         from mlflow.genai.scorers import Correctness
         import pandas as pd
 
-        data = pd.DataFrame(
-            [
-                {
-                    "inputs": {"question": "What is MLflow?"},
-                    "outputs": "MLflow is an ML platform",
-                    "expectations": "MLflow is an ML platform",
-                },
-                {
-                    "inputs": {"question": "What is Spark?"},
-                    "outputs": "I don't know",
-                    "expectations": "Spark is a data engine",
-                },
-            ]
-        )
+        data = pd.DataFrame([
+            {
+                "inputs": {"question": "What is MLflow?"},
+                "outputs": "MLflow is an ML platform",
+                "expectations": "MLflow is an ML platform",
+            },
+            {
+                "inputs": {"question": "What is Spark?"},
+                "outputs": "I don't know",
+                "expectations": "Spark is a data engine",
+            },
+        ])
 
         mlflow.genai.evaluate(
             data=data,
@@ -148,12 +146,10 @@ def evaluate(
         import openai
 
         # Create a dataframe with input samples
-        data = pd.DataFrame(
-            [
-                {"inputs": {"question": "What is MLflow?"}},
-                {"inputs": {"question": "What is Spark?"}},
-            ]
-        )
+        data = pd.DataFrame([
+            {"inputs": {"question": "What is MLflow?"}},
+            {"inputs": {"question": "What is Spark?"}},
+        ])
 
 
         # Define a predict function to evaluate. The "inputs" column will be

@@ -18,18 +18,17 @@ def set_request_response_preview(trace_info: TraceInfo, trace_data: TraceData) -
     """
     # If request/response preview is already set by users via `mlflow.update_current_trace`,
     # we don't override it with the truncated version.
-    if trace_info.request_preview is None:
+    if trace_info.request_preview is None and trace_data.request is not None:
         trace_info.request_preview = _get_truncated_preview(trace_data.request, role="user")
-    if trace_info.response_preview is None:
+    if trace_info.response_preview is None and trace_data.response is not None:
         trace_info.response_preview = _get_truncated_preview(trace_data.response, role="assistant")
 
 
-def _get_truncated_preview(request_or_response: str | dict[str, Any] | None, role: str) -> str:
-    """
-    Truncate the request preview to fit the max length.
-    """
+def _get_truncated_preview(
+    request_or_response: str | dict[str, Any] | None, role: str
+) -> str | None:
     if request_or_response is None:
-        return ""
+        return None
 
     max_length = _get_max_length()
 

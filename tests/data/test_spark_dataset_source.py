@@ -13,7 +13,8 @@ def spark_session():
     from pyspark.sql import SparkSession
 
     with (
-        SparkSession.builder.master("local[*]")
+        SparkSession.builder
+        .master("local[*]")
         .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config(

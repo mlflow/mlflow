@@ -1789,4 +1789,71 @@ describe('createMlflowSearchFilter', () => {
     expect(filterString).toContain("attributes.status = 'OK'");
     expect(filterString).toContain(' AND ');
   });
+
+  test('creates correct filter string for tag IS NULL', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.TAG,
+        operator: FilterOperator.IS_NULL,
+        key: 'environment',
+        value: undefined,
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe('tags.environment IS NULL');
+  });
+
+  test('creates correct filter string for tag IS NOT NULL', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.TAG,
+        operator: FilterOperator.IS_NOT_NULL,
+        key: 'model_name',
+        value: undefined,
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe('tags.model_name IS NOT NULL');
+  });
+
+  test('creates correct filter string for tag IS NULL with special characters in key', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.TAG,
+        operator: FilterOperator.IS_NULL,
+        key: 'my.tag',
+        value: undefined,
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toBe('tags.`my.tag` IS NULL');
+  });
+
+  test('combines tag IS NULL/IS NOT NULL filters with other filters', () => {
+    const networkFilters = [
+      {
+        column: TracesTableColumnGroup.TAG,
+        operator: FilterOperator.IS_NOT_NULL,
+        key: 'environment',
+        value: undefined,
+      },
+      {
+        column: STATE_COLUMN_ID,
+        operator: FilterOperator.EQUALS,
+        value: 'OK',
+      },
+    ];
+
+    const filterString = createMlflowSearchFilter(undefined, undefined, networkFilters);
+
+    expect(filterString).toContain('tags.environment IS NOT NULL');
+    expect(filterString).toContain("attributes.status = 'OK'");
+    expect(filterString).toContain(' AND ');
+  });
 });

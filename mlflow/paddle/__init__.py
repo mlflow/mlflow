@@ -166,8 +166,7 @@ def save_model(
         for epoch_id in range(EPOCH_NUM):
             np.random.shuffle(training_data)
             mini_batches = [
-                training_data[k : k + BATCH_SIZE]
-                for k in range(0, len(training_data), BATCH_SIZE)
+                training_data[k : k + BATCH_SIZE] for k in range(0, len(training_data), BATCH_SIZE)
             ]
             for iter_id, mini_batch in enumerate(mini_batches):
                 x = np.array(mini_batch[:, :-1]).astype("float32")

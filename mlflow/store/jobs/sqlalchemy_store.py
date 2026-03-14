@@ -149,14 +149,13 @@ class SqlAlchemyJobStore(AbstractJobStore):
         with self.ManagedSessionMaker() as session:
             # Atomic update: only transition from PENDING to RUNNING
             rows_updated = (
-                self._get_query(session, SqlJob)
+                self
+                ._get_query(session, SqlJob)
                 .filter(SqlJob.id == job_id, SqlJob.status == JobStatus.PENDING.to_int())
-                .update(
-                    {
-                        SqlJob.status: JobStatus.RUNNING.to_int(),
-                        SqlJob.last_update_time: get_current_time_millis(),
-                    }
-                )
+                .update({
+                    SqlJob.status: JobStatus.RUNNING.to_int(),
+                    SqlJob.last_update_time: get_current_time_millis(),
+                })
             )
 
             if rows_updated == 0:
@@ -295,7 +294,8 @@ class SqlAlchemyJobStore(AbstractJobStore):
 
                 # Order by creation time (oldest first) and apply pagination
                 jobs = (
-                    query.order_by(SqlJob.creation_time)
+                    query
+                    .order_by(SqlJob.creation_time)
                     .offset(offset)
                     .limit(_LIST_JOB_PAGE_SIZE)
                     .all()

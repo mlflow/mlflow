@@ -5,6 +5,23 @@ CREATE TABLE alembic_version (
 )
 
 
+CREATE TABLE budget_policies (
+	budget_policy_id VARCHAR(36) NOT NULL,
+	budget_unit VARCHAR(32) NOT NULL,
+	budget_amount DOUBLE PRECISION NOT NULL,
+	duration_unit VARCHAR(32) NOT NULL,
+	duration_value INTEGER NOT NULL,
+	target_scope VARCHAR(32) NOT NULL,
+	budget_action VARCHAR(32) NOT NULL,
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	CONSTRAINT budget_policies_pk PRIMARY KEY (budget_policy_id)
+)
+
+
 CREATE TABLE entity_associations (
 	association_id VARCHAR(36) NOT NULL,
 	source_type VARCHAR(36) NOT NULL,
@@ -390,6 +407,25 @@ CREATE TABLE endpoint_tags (
 	endpoint_id VARCHAR(36) NOT NULL,
 	CONSTRAINT endpoint_tag_pk PRIMARY KEY (key, endpoint_id),
 	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE issues (
+	issue_id VARCHAR(36) NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(250) NOT NULL,
+	description TEXT NOT NULL,
+	status VARCHAR(50) NOT NULL,
+	severity VARCHAR(50),
+	root_causes TEXT,
+	source_run_id VARCHAR(32),
+	categories TEXT,
+	created_timestamp BIGINT NOT NULL,
+	last_updated_timestamp BIGINT NOT NULL,
+	created_by VARCHAR(255),
+	CONSTRAINT issues_pk PRIMARY KEY (issue_id),
+	CONSTRAINT fk_issues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT fk_issues_source_run_id FOREIGN KEY(source_run_id) REFERENCES runs (run_uuid) ON DELETE SET NULL
 )
 
 

@@ -15,7 +15,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
     paths:
       - pyproject.toml
       - uv.lock
@@ -34,13 +33,13 @@ defaults:
 
 jobs:
   check:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
@@ -53,13 +52,13 @@ jobs:
           npm run prettier:check
 
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
@@ -94,7 +93,7 @@ jobs:
         run: |
           if [ -n "$(git status --porcelain api_reference/api_inventory.txt)" ]; then
             echo "The API inventory file 'docs/api_reference/api_inventory.txt' is outdated (see the diff below)."
-            echo "Please update it by running 'make rsthtml' in the 'docs/api_reference' directory."
+            echo "Please update it by running 'make rsthtml' in the 'docs/api_reference' directory, or post a comment '/autoformat' on this PR if you're a maintainer/collaborator."
             echo "If the new APIs should be marked as experimental, please decorate them with '@experimental'."
             echo "Diff:"
             git diff api_reference/api_inventory.txt
@@ -112,7 +111,7 @@ jobs:
           VERSION="$(uv version | cut -d' ' -f2)"
           echo "{\"versions\": [\"$VERSION\"]}" > /tmp/docs-build/docs/versions.json
       - name: Upload build artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: docs-build-${{ github.run_id }}
           path: /tmp/docs-build
@@ -120,7 +119,7 @@ jobs:
           if-no-files-found: error
 
   test-examples:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
@@ -129,7 +128,7 @@ jobs:
       run:
         working-directory: docs/api_reference
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         working-directory: .
@@ -143,13 +142,13 @@ jobs:
           uv run pytest .examples
 
   r:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Build docs
         working-directory: docs/api_reference
         run: |

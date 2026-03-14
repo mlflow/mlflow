@@ -4,16 +4,15 @@ sidebar_label: LangGraph
 toc_max_heading_level: 2
 ---
 
-import useBaseUrl from '@docusaurus/useBaseUrl';
-
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
+import ImageBox from "@site/src/components/ImageBox";
 
 # Tracing LangGraph🦜🕸️
 
-<video src={useBaseUrl("/images/llms/tracing/langgraph-tracing.mp4")} controls loop autoPlay muted aria-label="LangGraph Tracing via autolog" />
+<ImageBox src="/images/llms/tracing/langgraph-agent-trace.png" alt="LangGraph Tracing via autolog" />
 
 [LangGraph](https://www.langchain.com/langgraph) is an open-source library for building stateful, multi-actor applications with LLMs, used to create agent and multi-agent workflows.
 
@@ -106,9 +105,7 @@ tools = [get_weather]
 graph = create_react_agent(llm, tools)
 
 # Invoke the graph
-result = graph.invoke(
-    {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
-)
+result = graph.invoke({"messages": [{"role": "user", "content": "what is the weather in sf?"}]})
 ```
 
 ### 5. View the trace in the MLflow UI

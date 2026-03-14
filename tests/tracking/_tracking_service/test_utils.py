@@ -31,6 +31,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _get_store,
     _get_tracking_scheme,
+    _resolve_custom_scheme,
     _resolve_tracking_uri,
     _use_tracking_uri,
     get_tracking_uri,
@@ -523,3 +524,17 @@ def test_get_tracking_scheme():
     assert _get_tracking_scheme("uc://profile@databricks") == "uc"
     # no builder registered for custom scheme
     assert _get_tracking_scheme("custom-scheme://") == "None"
+
+
+@pytest.mark.parametrize(
+    ("scheme", "uri", "expected"),
+    [
+        ("arn", "arn:aws:sagemaker:us-east-1:123456789:mlflow-tracking-server/my-server", "aws"),
+        ("arn", "arn:aws:sagemaker:eu-west-1:987654321:mlflow-tracking-server/test", "aws"),
+        ("azureml", "azureml://eastus.api.azureml.ms/mlflow/v2.0/subscriptions/123", "azure"),
+        ("azureml", "azureml://workspace", "azure"),
+        ("some-plugin", "some-plugin://host/path", "custom_scheme"),
+    ],
+)
+def test_resolve_custom_scheme(scheme, uri, expected):
+    assert _resolve_custom_scheme(scheme, uri) == expected

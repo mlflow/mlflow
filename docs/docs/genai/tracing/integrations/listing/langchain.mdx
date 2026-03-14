@@ -4,16 +4,15 @@ sidebar_label: LangChain
 toc_max_heading_level: 2
 ---
 
-import useBaseUrl from '@docusaurus/useBaseUrl';
-
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import TabsWrapper from "@site/src/components/TabsWrapper";
+import ImageBox from "@site/src/components/ImageBox";
 
 # Tracing LangChain🦜⛓️
 
-<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
+<ImageBox src="/images/llms/tracing/langgraph-agent-trace.png" alt="LangChain Tracing with MLflow" />
 
 [LangChain](https://www.langchain.com/) is an open-source framework for building LLM-powered applications.
 
@@ -92,12 +91,10 @@ prompt_template = PromptTemplate.from_template(
 chain = prompt_template | llm | StrOutputParser()
 
 # Let's test another call
-chain.invoke(
-    {
-        "person": "Linus Torvalds",
-        "question": "Can I just set everyone's access to sudo to make things easier?",
-    }
-)
+chain.invoke({
+    "person": "Linus Torvalds",
+    "question": "Can I just set everyone's access to sudo to make things easier?",
+})
 ```
 
 ### 5. View the trace in the MLflow UI
@@ -254,6 +251,10 @@ This example above has been confirmed working with the following requirement ver
 pip install openai==1.30.5 langchain==0.2.1 langchain-openai==0.1.8 langchain-community==0.2.1 mlflow==2.14.0 tiktoken==0.7.0
 ```
 
+:::
+
+:::tip Image Support for LangChain Traces
+MLflow captures image content parts passed through LangChain models. See [Image and Audio (Multimodal) Content in Traces](/genai/tracing/observe-with-traces/multimodal) for details.
 :::
 
 ## Supported APIs

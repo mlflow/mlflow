@@ -88,7 +88,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--serve-wheel",
         action="store_true",
-        default=os.getenv("CI", "false").lower() == "true",
+        default=os.environ.get("CI", "false").lower() == "true",
         help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
     )
     parser.addoption(
@@ -389,17 +389,15 @@ def generate_duration_stats() -> str:
     # Prepare data for markdown table (headers + data rows)
     table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
     for idx, (path, dur, count, min_, max_, avg_) in enumerate(rows, 1):
-        table_rows.append(
-            [
-                str(idx),
-                f"`{path}`",
-                f"{dur:.2f}s",
-                str(count),
-                f"{min_:.3f}s",
-                f"{max_:.3f}s",
-                f"{avg_:.3f}s",
-            ]
-        )
+        table_rows.append([
+            str(idx),
+            f"`{path}`",
+            f"{dur:.2f}s",
+            str(count),
+            f"{min_:.3f}s",
+            f"{max_:.3f}s",
+            f"{avg_:.3f}s",
+        ])
 
     return to_md_table(table_rows)
 
@@ -552,6 +550,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/mistral",
             "tests/models",
             "tests/onnx",
+            "tests/otel",
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
@@ -1026,6 +1025,13 @@ def clean_up_envs():
 def enable_mlflow_testing():
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv(_MLFLOW_TESTING.name, "TRUE")
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def disable_uv_auto_detect():
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MLFLOW_UV_AUTO_DETECT", "false")
         yield
 
 

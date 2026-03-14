@@ -2,7 +2,7 @@ import type { RowSelectionState } from '@tanstack/react-table';
 import { compact, isNil } from 'lodash';
 import { useCallback, useContext, useMemo, useState } from 'react';
 
-import { Button, Tooltip, DropdownMenu, ChevronDownIcon } from '@databricks/design-system';
+import { Button, Tooltip, DropdownMenu, ChevronDownIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 
 import { GenAITracesTableContext } from './GenAITracesTableContext';
@@ -12,6 +12,7 @@ import type { RunEvaluationTracesDataEntry, TraceActions } from './types';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, getRowIdFromTrace } from './utils/TraceUtils';
 import { shouldUseUnifiedModelTraceComparisonUI } from '../model-trace-explorer/FeatureUtils';
+import { SESSION_ID_METADATA_KEY } from '../model-trace-explorer/constants';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 interface GenAITracesTableActionsProps {
@@ -35,7 +36,7 @@ export const GenAITracesTableActions = (props: GenAITracesTableActionsProps) => 
     sqlWarehouseId,
   } = props;
 
-  const { table, selectedRowIds } = useContext(GenAITracesTableContext);
+  const { table, selectedRowIds, isGroupedBySession } = useContext(GenAITracesTableContext);
 
   const selectedTracesFromContext: RunEvaluationTracesDataEntry[] | undefined = useMemo(
     () =>
@@ -73,6 +74,7 @@ export const GenAITracesTableActions = (props: GenAITracesTableActionsProps) => 
       traceActions={traceActions}
       setRowSelection={setRowSelection ?? table?.setRowSelection}
       sqlWarehouseId={sqlWarehouseId}
+      isGroupedBySession={isGroupedBySession}
     />
   );
 };
@@ -83,11 +85,13 @@ interface TraceActionsDropdownProps {
   traceActions?: TraceActions;
   setRowSelection: React.Dispatch<React.SetStateAction<RowSelectionState>> | undefined;
   sqlWarehouseId?: string;
+  isGroupedBySession: boolean;
 }
 
 const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
-  const { experimentId, selectedTraces, traceActions, setRowSelection, sqlWarehouseId } = props;
+  const { experimentId, selectedTraces, traceActions, setRowSelection, sqlWarehouseId, isGroupedBySession } = props;
   const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const isComparisonDrawerEnabled = shouldUseUnifiedModelTraceComparisonUI();
@@ -123,6 +127,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   );
 
   const hasExportAction = Boolean(traceActions?.exportToEvals);
+  const hasRunJudgesAction = Boolean(traceActions?.runJudgesAction);
   const hasEditTagsAction = shouldEnableTagGrouping() && Boolean(traceActions?.editTags);
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
 
@@ -130,10 +135,37 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
     showAddToEvaluationDatasetModal?.(selectedTraces);
   };
 
+  const handleRunJudges = useCallback(() => {
+    const traceIds = compact(selectedTraces.map((trace) => trace.traceInfo?.trace_id));
+    traceActions?.runJudgesAction?.showRunJudgesModal(traceIds);
+  }, [selectedTraces, traceActions]);
+
+  const selectedSessionCount = useMemo(() => {
+    if (!isGroupedBySession) {
+      return 0;
+    }
+    const sessionIds = new Set<string>();
+    selectedTraces.forEach((trace) => {
+      const sessionId = trace.traceInfo?.trace_metadata?.[SESSION_ID_METADATA_KEY];
+      if (sessionId) {
+        sessionIds.add(sessionId);
+      }
+    });
+    return sessionIds.size;
+  }, [isGroupedBySession, selectedTraces]);
+
   const isEditTagsDisabled = selectedTraces.length > 1;
   const noTracesSelected = selectedTraces.length === 0;
-  const noActionsAvailable = !hasExportAction && !hasEditTagsAction && !hasDeleteAction;
+  const noActionsAvailable = !hasExportAction && !hasRunJudgesAction && !hasEditTagsAction && !hasDeleteAction;
   const canCompare = selectedTraces.length >= 2 && selectedTraces.length < 4;
+
+  const groupLabelStyles = {
+    color: theme.colors.textSecondary,
+  };
+
+  const groupItemStyles = {
+    paddingLeft: theme.spacing.lg,
+  };
 
   if (noActionsAvailable) {
     return null;
@@ -146,15 +178,25 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
       type="primary"
       endIcon={<ChevronDownIcon />}
     >
-      {intl.formatMessage(
-        {
-          defaultMessage: 'Actions{count}',
-          description: 'Trace actions dropdown button',
-        },
-        {
-          count: noTracesSelected ? '' : ` (${selectedTraces.length})`,
-        },
-      )}
+      {isGroupedBySession
+        ? intl.formatMessage(
+            {
+              defaultMessage: 'Actions{count}',
+              description: 'Session actions dropdown button',
+            },
+            {
+              count: selectedSessionCount === 0 ? '' : ` (${selectedSessionCount})`,
+            },
+          )
+        : intl.formatMessage(
+            {
+              defaultMessage: 'Actions{count}',
+              description: 'Trace actions dropdown button',
+            },
+            {
+              count: noTracesSelected ? '' : ` (${selectedTraces.length})`,
+            },
+          )}
     </Button>
   );
 
@@ -164,10 +206,17 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
         {noTracesSelected ? (
           <Tooltip
             componentId="mlflow.genai-traces-table.actions-disabled-tooltip"
-            content={intl.formatMessage({
-              defaultMessage: 'Select one or more traces to add to an evaluation or edit the traces.',
-              description: 'Tooltip shown when actions button is disabled due to no trace selection',
-            })}
+            content={
+              isGroupedBySession
+                ? intl.formatMessage({
+                    defaultMessage: 'Select one or more sessions to perform actions.',
+                    description: 'Tooltip shown when actions button is disabled due to no session selection',
+                  })
+                : intl.formatMessage({
+                    defaultMessage: 'Select one or more traces to add to an evaluation or edit the traces.',
+                    description: 'Tooltip shown when actions button is disabled due to no trace selection',
+                  })
+            }
           >
             <div>
               <DropdownMenu.Trigger disabled asChild>
@@ -179,81 +228,117 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
           <DropdownMenu.Trigger asChild>{ActionButton}</DropdownMenu.Trigger>
         )}
         <DropdownMenu.Content>
-          {isComparisonDrawerEnabled && (
-            <>
+          {isGroupedBySession ? (
+            hasDeleteAction && (
               <DropdownMenu.Item
-                componentId="mlflow.genai-traces-table.compare-traces"
-                onClick={handleOpenCompare}
-                disabled={!canCompare}
+                componentId="mlflow.genai-traces-table.delete-session"
+                onClick={handleDeleteTraces}
+                disabled={traceActions?.deleteTracesAction?.isDisabled}
+                disabledReason={traceActions?.deleteTracesAction?.disabledReason}
               >
-                {intl.formatMessage({ defaultMessage: 'Compare', description: 'Compare traces button' })}
+                {intl.formatMessage({
+                  defaultMessage: 'Delete sessions',
+                  description: 'Delete sessions and all their traces action',
+                })}
               </DropdownMenu.Item>
-              <DropdownMenu.Separator />
-            </>
-          )}
-          {hasExportAction && (
+            )
+          ) : (
             <>
-              <DropdownMenu.Group>
-                <DropdownMenu.Label>
-                  {intl.formatMessage({
-                    defaultMessage: 'Use for evaluation',
-                    description: 'Trace actions dropdown group label',
-                  })}
-                </DropdownMenu.Label>
-                <DropdownMenu.Item
-                  componentId="mlflow.genai-traces-table.export-to-datasets"
-                  onClick={handleExportToDatasets}
-                >
-                  {intl.formatMessage({
-                    defaultMessage: 'Add to evaluation dataset',
-                    description: 'Add traces to evaluation dataset action',
-                  })}
-                </DropdownMenu.Item>
-              </DropdownMenu.Group>
-            </>
-          )}
-          {(hasEditTagsAction || hasDeleteAction) && (
-            <>
-              {hasExportAction && <DropdownMenu.Separator />}
-              <DropdownMenu.Group>
-                <DropdownMenu.Label>
-                  {intl.formatMessage({
-                    defaultMessage: 'Edit',
-                    description: 'Trace actions dropdown group label',
-                  })}
-                </DropdownMenu.Label>
-                {hasEditTagsAction && (
+              {isComparisonDrawerEnabled && (
+                <>
                   <DropdownMenu.Item
-                    componentId="mlflow.genai-traces-table.edit-tags"
-                    onClick={handleEditTags}
-                    disabled={isEditTagsDisabled}
+                    componentId="mlflow.genai-traces-table.compare-traces"
+                    onClick={handleOpenCompare}
+                    disabled={!canCompare}
                   >
-                    {intl.formatMessage({
-                      defaultMessage: 'Edit tags',
-                      description: 'Edit tags action',
-                    })}
+                    {intl.formatMessage({ defaultMessage: 'Compare', description: 'Compare traces button' })}
                   </DropdownMenu.Item>
-                )}
-                {hasDeleteAction && (
-                  <DropdownMenu.Item
-                    componentId="mlflow.genai-traces-table.delete-traces"
-                    onClick={handleDeleteTraces}
-                    disabled={traceActions?.deleteTracesAction?.isDisabled}
-                    disabledReason={traceActions?.deleteTracesAction?.disabledReason}
-                  >
-                    {intl.formatMessage({
-                      defaultMessage: 'Delete traces',
-                      description: 'Delete traces action',
-                    })}
-                  </DropdownMenu.Item>
-                )}
-              </DropdownMenu.Group>
+                  <DropdownMenu.Separator />
+                </>
+              )}
+              {(hasExportAction || hasRunJudgesAction) && (
+                <>
+                  <DropdownMenu.Group>
+                    <DropdownMenu.Label css={groupLabelStyles}>
+                      {intl.formatMessage({
+                        defaultMessage: 'Use for evaluation',
+                        description: 'Trace actions dropdown group label',
+                      })}
+                    </DropdownMenu.Label>
+                    {hasRunJudgesAction && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.genai-traces-table.run-judges"
+                        css={groupItemStyles}
+                        onClick={handleRunJudges}
+                      >
+                        {intl.formatMessage({
+                          defaultMessage: 'Run judges',
+                          description: 'Run judges on selected traces action',
+                        })}
+                      </DropdownMenu.Item>
+                    )}
+                    {hasExportAction && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.genai-traces-table.export-to-datasets"
+                        css={groupItemStyles}
+                        onClick={handleExportToDatasets}
+                      >
+                        {intl.formatMessage({
+                          defaultMessage: 'Add to evaluation dataset',
+                          description: 'Add traces to evaluation dataset action',
+                        })}
+                      </DropdownMenu.Item>
+                    )}
+                  </DropdownMenu.Group>
+                </>
+              )}
+              {(hasEditTagsAction || hasDeleteAction) && (
+                <>
+                  {(hasExportAction || hasRunJudgesAction) && <DropdownMenu.Separator />}
+                  <DropdownMenu.Group>
+                    <DropdownMenu.Label css={groupLabelStyles}>
+                      {intl.formatMessage({
+                        defaultMessage: 'Edit',
+                        description: 'Trace actions dropdown group label',
+                      })}
+                    </DropdownMenu.Label>
+                    {hasEditTagsAction && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.genai-traces-table.edit-tags"
+                        css={groupItemStyles}
+                        onClick={handleEditTags}
+                        disabled={isEditTagsDisabled}
+                      >
+                        {intl.formatMessage({
+                          defaultMessage: 'Edit tags',
+                          description: 'Edit tags action',
+                        })}
+                      </DropdownMenu.Item>
+                    )}
+                    {hasDeleteAction && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.genai-traces-table.delete-traces"
+                        css={groupItemStyles}
+                        onClick={handleDeleteTraces}
+                        disabled={traceActions?.deleteTracesAction?.isDisabled}
+                        disabledReason={traceActions?.deleteTracesAction?.disabledReason}
+                      >
+                        {intl.formatMessage({
+                          defaultMessage: 'Delete traces',
+                          description: 'Delete traces action',
+                        })}
+                      </DropdownMenu.Item>
+                    )}
+                  </DropdownMenu.Group>
+                </>
+              )}
             </>
           )}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 
       {traceActions?.editTags?.EditTagsModal}
+      {traceActions?.runJudgesAction?.RunJudgesModal}
 
       {showDeleteModal && traceActions?.deleteTracesAction && (
         <GenAiDeleteTraceModal

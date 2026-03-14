@@ -58,9 +58,9 @@ def mock_databricks_rag_eval(monkeypatch):
         def __init__(self, output_data=None):
             data = output_data or {"result": True, "rationale": "Test passed"}
             self.output = json.dumps(data)
-            self.output_json = json.dumps(
-                {"choices": [{"message": {"role": "assistant", "content": json.dumps(data)}}]}
-            )
+            self.output_json = json.dumps({
+                "choices": [{"message": {"role": "assistant", "content": json.dumps(data)}}]
+            })
             self.error_message = None
 
     class MockManagedRAGClient:
@@ -130,18 +130,16 @@ def mock_invoke_judge_model(monkeypatch):
         calls.append((model_uri, prompt, assessment_name))
 
         # Store latest call details in dict format
-        captured_args.update(
-            {
-                "model_uri": model_uri,
-                "prompt": prompt,
-                "assessment_name": assessment_name,
-                "trace": trace,
-                "num_retries": num_retries,
-                "response_format": response_format,
-                "use_case": use_case,
-                "inference_params": inference_params,
-            }
-        )
+        captured_args.update({
+            "model_uri": model_uri,
+            "prompt": prompt,
+            "assessment_name": assessment_name,
+            "trace": trace,
+            "num_retries": num_retries,
+            "response_format": response_format,
+            "use_case": use_case,
+            "inference_params": inference_params,
+        })
 
         # Return appropriate Feedback based on whether trace is provided
         if trace is not None:
@@ -193,9 +191,9 @@ def mock_trace():
         trace_metadata={
             "mlflow.trace_schema.version": "2",
             "mlflow.traceInputs": json.dumps({"question": "What is MLflow?"}),
-            "mlflow.traceOutputs": json.dumps(
-                {"answer": "MLflow is an open source platform for ML lifecycle management."}
-            ),
+            "mlflow.traceOutputs": json.dumps({
+                "answer": "MLflow is an open source platform for ML lifecycle management."
+            }),
         },
         tags={
             "mlflow.traceName": "test_trace",
@@ -366,9 +364,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
         def __init__(self):
             invalid_text = "This is not valid JSON - maybe the model returned plain text"
             self.output = invalid_text
-            self.output_json = json.dumps(
-                {"choices": [{"message": {"role": "assistant", "content": invalid_text}}]}
-            )
+            self.output_json = json.dumps({
+                "choices": [{"message": {"role": "assistant", "content": invalid_text}}]
+            })
 
     class MockClientInvalid:
         def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
@@ -398,9 +396,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
         def __init__(self):
             data = {"rationale": "Some rationale but no result field"}
             self.output = json.dumps(data)
-            self.output_json = json.dumps(
-                {"choices": [{"message": {"role": "assistant", "content": json.dumps(data)}}]}
-            )
+            self.output_json = json.dumps({
+                "choices": [{"message": {"role": "assistant", "content": json.dumps(data)}}]
+            })
 
     class MockClientMissingField:
         def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
@@ -676,18 +674,16 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
         use_case=None,
         inference_params=None,
     ):
-        captured_args.update(
-            {
-                "model_uri": model_uri,
-                "prompt": prompt,
-                "assessment_name": assessment_name,
-                "trace": trace,
-                "num_retries": num_retries,
-                "response_format": response_format,
-                "use_case": use_case,
-                "inference_params": inference_params,
-            }
-        )
+        captured_args.update({
+            "model_uri": model_uri,
+            "prompt": prompt,
+            "assessment_name": assessment_name,
+            "trace": trace,
+            "num_retries": num_retries,
+            "response_format": response_format,
+            "use_case": use_case,
+            "inference_params": inference_params,
+        })
         return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
 
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
@@ -1002,9 +998,9 @@ def test_output_format_instructions_added(mock_invoke_judge_model):
     assert system_msg.content.startswith(JUDGE_BASE_PROMPT)
     assert "Check if {{ outputs }} is formal" in system_msg.content
     # Tighter assertion for output format instructions
-    assert "Please provide your assessment in the following JSON format only" in system_msg.content
-    assert '"result": "The evaluation rating/result"' in system_msg.content
-    assert '"rationale": "Detailed explanation for the evaluation"' in system_msg.content
+    assert "format your evaluation rating as a JSON object" in system_msg.content
+    assert "- result (str): The evaluation rating/result" in system_msg.content
+    assert "- rationale (str): Detailed explanation for the evaluation" in system_msg.content
 
     assert result.value is True
 
@@ -1037,20 +1033,22 @@ def test_output_format_instructions_with_complex_template(mock_invoke_judge_mode
         in system_msg.content
     )
     # Tighter assertion for output format instructions
-    assert "Please provide your assessment in the following JSON format only" in system_msg.content
-    assert '"result": "The evaluation rating/result"' in system_msg.content
-    assert '"rationale": "Detailed explanation for the evaluation"' in system_msg.content
+    assert "format your evaluation rating as a JSON object" in system_msg.content
+    assert "- result (str): The evaluation rating/result" in system_msg.content
+    assert "- rationale (str): Detailed explanation for the evaluation" in system_msg.content
 
 
 def test_judge_registration_as_scorer(mock_invoke_judge_model):
     experiment = mlflow.create_experiment("test_judge_registration")
 
     original_instructions = "Evaluate if the {{ outputs }} is professional and formal."
+    inference_params = {"temperature": 0.2, "max_tokens": 64}
     judge = make_judge(
         name="test_judge",
         instructions=original_instructions,
         feedback_value_type=str,
         model="openai:/gpt-4",
+        inference_params=inference_params,
     )
 
     assert judge.instructions == original_instructions
@@ -1063,6 +1061,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert "instructions_judge_pydantic_data" in serialized
     assert serialized["instructions_judge_pydantic_data"]["instructions"] == original_instructions
     assert serialized["instructions_judge_pydantic_data"]["model"] == "openai:/gpt-4"
+    assert serialized["instructions_judge_pydantic_data"]["inference_params"] == inference_params
 
     store = _get_scorer_store()
     version = store.register_scorer(experiment, judge)
@@ -1074,6 +1073,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert retrieved_scorer.name == "test_judge"
     assert retrieved_scorer.instructions == original_instructions
     assert retrieved_scorer.model == "openai:/gpt-4"
+    assert retrieved_scorer.inference_params == inference_params
     assert retrieved_scorer.template_variables == {"outputs"}
 
     deserialized = Scorer.model_validate(serialized)
@@ -1081,6 +1081,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert deserialized.name == judge.name
     assert deserialized.instructions == original_instructions
     assert deserialized.model == judge.model
+    assert deserialized.inference_params == inference_params
     assert deserialized.template_variables == {"outputs"}
 
     test_output = {"response": "This output demonstrates professional communication."}
@@ -1101,7 +1102,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     assert prompt[0].role == "system"
     assert prompt[0].content.startswith(JUDGE_BASE_PROMPT)
     assert "Evaluate if the {{ outputs }} is professional and formal." in prompt[0].content
-    assert "JSON format" in prompt[0].content
+    assert "format your evaluation rating as a JSON object" in prompt[0].content
 
     # Check user message
     assert prompt[1].role == "user"
@@ -1202,7 +1203,7 @@ def test_judge_registration_with_reserved_variables(mock_invoke_judge_model):
     assert prompt[0].content.startswith(JUDGE_BASE_PROMPT)
     assert "Check if {{ inputs }} is answered correctly by {{ outputs }}" in prompt[0].content
     assert "according to {{ expectations }}" in prompt[0].content
-    assert "JSON format" in prompt[0].content
+    assert "format your evaluation rating as a JSON object" in prompt[0].content
 
     # Check user message with all reserved variables as JSON
     assert prompt[1].role == "user"
@@ -1444,18 +1445,16 @@ def test_instructions_judge_works_with_evaluate(mock_invoke_judge_model):
 
     assert judge.aggregations == []
 
-    data = pd.DataFrame(
-        {
-            "inputs": [
-                {"question": "What is MLflow?"},
-                {"question": "How to track experiments?"},
-            ],
-            "outputs": [
-                {"response": "MLflow is an open source platform for ML lifecycle."},
-                {"response": "Use mlflow.start_run() to track experiments."},
-            ],
-        }
-    )
+    data = pd.DataFrame({
+        "inputs": [
+            {"question": "What is MLflow?"},
+            {"question": "How to track experiments?"},
+        ],
+        "outputs": [
+            {"response": "MLflow is an open source platform for ML lifecycle."},
+            {"response": "Use mlflow.start_run() to track experiments."},
+        ],
+    })
 
     result = mlflow.genai.evaluate(data=data, scorers=[judge])
 
@@ -1823,14 +1822,14 @@ def test_unused_parameters_warning(
         judge(**provided_params)
 
         if "{{ trace }}" in instructions:
-            assert not mock_logger.warning.called
+            assert not mock_logger.debug.called
         else:
-            assert mock_logger.warning.called
+            assert mock_logger.debug.called
 
-            warning_call_args = mock_logger.warning.call_args
-            assert warning_call_args is not None
+            debug_call_args = mock_logger.debug.call_args
+            assert debug_call_args is not None
 
-            warning_msg = warning_call_args[0][0]
+            warning_msg = debug_call_args[0][0]
 
             assert "parameters were provided but are not used" in warning_msg
             assert expected_warning in warning_msg
@@ -2589,13 +2588,13 @@ def test_warning_shown_for_explicitly_provided_unused_fields(mock_invoke_judge_m
         model="openai:/gpt-4",
     )
 
-    with mock.patch("mlflow.genai.judges.instructions_judge._logger.warning") as mock_warning:
+    with mock.patch("mlflow.genai.judges.instructions_judge._logger.debug") as mock_debug:
         judge(inputs="What is AI?", outputs="This output is not used by the template")
 
-        mock_warning.assert_called_once()
-        warning_message = mock_warning.call_args[0][0]
-        assert "outputs" in warning_message
-        assert "not used by this judge" in warning_message
+        mock_debug.assert_called_once()
+        debug_message = mock_debug.call_args[0][0]
+        assert "outputs" in debug_message
+        assert "not used by this judge" in debug_message
 
 
 def test_no_warning_for_trace_based_judge_with_extra_fields(mock_invoke_judge_model):
@@ -2643,18 +2642,16 @@ def test_no_duplicate_output_fields_in_system_message():
     field_judge = make_judge(
         name="field_judge",
         instructions="Evaluate {{ inputs }} and {{ outputs }} for quality",
-        feedback_value_type=str,
+        feedback_value_type=Literal["yes", "no"],
         model="openai:/gpt-4",
     )
 
     field_system_msg = field_judge._build_system_message(is_trace_based=False)
 
-    assert field_system_msg.count('"result"') == 1
-    assert field_system_msg.count('"rationale"') == 1
+    assert field_system_msg.count("- result (Literal['yes', 'no']):") == 1
+    assert field_system_msg.count("- rationale (str):") == 1
 
-    assert (
-        field_system_msg.count("Please provide your assessment in the following JSON format") == 1
-    )
+    assert field_system_msg.count("format your evaluation rating as a JSON object") == 1
 
     trace_judge = make_judge(
         name="trace_judge",
@@ -2667,8 +2664,6 @@ def test_no_duplicate_output_fields_in_system_message():
 
     assert trace_system_msg.count("- result (Literal['good', 'bad', 'neutral'])") == 1
     assert trace_system_msg.count("- rationale (str):") == 1
-
-    assert "Please provide your assessment in the following JSON format" not in trace_system_msg
 
 
 def test_instructions_judge_repr():
@@ -3485,8 +3480,8 @@ def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
     with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
         judge(outputs={"answer": "Test"}, session=[trace1])
 
-        mock_logger.warning.assert_called_once()
-        warning_msg = mock_logger.warning.call_args[0][0]
+        mock_logger.debug.assert_called_once()
+        warning_msg = mock_logger.debug.call_args[0][0]
         assert "conversation" in warning_msg or "session" in warning_msg
         assert "not used by this judge" in warning_msg
 
@@ -3664,3 +3659,20 @@ def test_inference_params_passed_to_invoke_judge_model(mock_invoke_judge_model):
     judge(outputs="test output")
 
     assert mock_invoke_judge_model.captured_args.get("inference_params") == inference_params
+
+
+def test_inference_params_preserved_after_round_trip_serialization():
+    inference_params = {"temperature": 0.5, "max_tokens": 200, "top_p": 0.9}
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is good",
+        model="openai:/gpt-4",
+        inference_params=inference_params,
+    )
+
+    serialized = judge.model_dump()
+    restored = Scorer.model_validate(serialized)
+    restored_from_json = Scorer.model_validate_json(json.dumps(serialized))
+
+    assert restored.inference_params == inference_params
+    assert restored_from_json.inference_params == inference_params

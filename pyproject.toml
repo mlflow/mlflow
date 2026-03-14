@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.10.1.dev0"
+version = "3.10.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -116,9 +116,11 @@ genai = [
   "watchfiles<2",
 ]
 mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
+azure = ["azure-storage-blob>=12", "azure-identity>=1.6.1"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
+kubernetes = ["kubernetes"]
 langchain = ["langchain>=0.3.20,<=1.2.10"]
 auth = ["Flask-WTF<2"]
 
@@ -176,9 +178,7 @@ dev = [
   "skills",
 ]
 lint = [
-  "ruff==0.15.2",
-  "black==23.7.0",
-  "blacken-docs==1.18.0",
+  "ruff==0.15.5",
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "types-toml",
@@ -249,8 +249,6 @@ constraint-dependencies = [
   "xgboost<3.1.0",
   # pyspark 4.1.0 causes issues with documentation build
   "pyspark<4.1.0",
-  # TODO: Remove this once transformers 5.x is supported
-  "transformers<5",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
 ]
@@ -279,9 +277,10 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.15.2"
+required-version = "0.15.5"
 force-exclude = true
 extend-include = ["*.ipynb"]
+extension = { mdx = "markdown" }
 extend-exclude = [
   "examples/llama_index/workflow",
   "mlflow/assistant/skills",
@@ -293,8 +292,8 @@ extend-exclude = [
 ]
 
 [tool.ruff.format]
+preview = true
 docstring-code-format = true
-docstring-code-line-length = 88
 
 [tool.ruff.lint]
 preview = true
@@ -443,7 +442,7 @@ typing-extensions-allowlist = [
 ]
 # Rules that are only enabled for code examples.
 example-rules = [
-  "lazy-builtin-import",
+  "lazy-import",
   "log-model-artifact-path",
   "unknown-mlflow-function",
   "unknown-mlflow-arguments",

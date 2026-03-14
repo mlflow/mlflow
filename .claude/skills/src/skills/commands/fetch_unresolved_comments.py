@@ -26,7 +26,6 @@ query($owner: String!, $repo: String!, $prNumber: Int!) {
         nodes {
           id
           isResolved
-          isOutdated
           comments(first: 100) {
             nodes {
               id
@@ -59,7 +58,7 @@ def format_comments(data: dict[str, Any]) -> UnresolvedCommentsResult:
     total_comments = 0
 
     for thread in threads:
-        if thread["isResolved"] or thread["isOutdated"]:
+        if thread["isResolved"]:
             continue
 
         comments: list[ReviewComment] = []

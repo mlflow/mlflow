@@ -90,6 +90,9 @@ export const ExperimentViewDescriptionNotes = ({
     [experiment.experimentId, dispatch, setEditing, setShowAddDescriptionButton, onNoteUpdated],
   );
 
+  const sanitizedContent = getSanitizedHtmlContent(effectiveNote);
+  const hasContent = sanitizedContent && sanitizedContent.trim().length > 0;
+
   return (
     <div
       css={
@@ -101,7 +104,7 @@ export const ExperimentViewDescriptionNotes = ({
           : undefined
       }
     >
-      {effectiveNote && (
+      {hasContent && (
         <div
           style={{
             whiteSpace: isExpanded ? 'normal' : 'pre-wrap',
@@ -125,7 +128,7 @@ export const ExperimentViewDescriptionNotes = ({
           >
             <div
               // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(effectiveNote) }}
+              dangerouslySetInnerHTML={{ __html: sanitizedContent }}
             />
           </div>
           <Button

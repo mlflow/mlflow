@@ -81,7 +81,13 @@ module.exports = async ({ github, context }) => {
         repo,
         head_sha: ref,
       })
-    ).filter(({ path }) => path !== ".github/workflows/protect.yml");
+    ).filter(
+      ({ path, event }) =>
+        // Exclude this workflow to avoid self-checking
+        path !== ".github/workflows/protect.yml" &&
+        // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
+        event !== "dynamic"
+    );
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};

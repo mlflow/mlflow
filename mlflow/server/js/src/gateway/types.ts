@@ -279,3 +279,73 @@ export interface UserInfo {
 export interface ListUsersResponse {
   users: UserInfo[];
 }
+
+// Budget Policy types
+export type BudgetUnit = 'USD';
+export type DurationUnit = 'MINUTES' | 'HOURS' | 'DAYS' | 'WEEKS' | 'MONTHS';
+export type TargetScope = 'GLOBAL' | 'WORKSPACE';
+export type BudgetAction = 'ALERT' | 'REJECT';
+
+export interface BudgetDuration {
+  unit: DurationUnit;
+  value: number;
+}
+
+export interface BudgetPolicy {
+  budget_policy_id: string;
+  budget_unit: BudgetUnit;
+  budget_amount: number;
+  duration: BudgetDuration;
+  target_scope: TargetScope;
+  budget_action: BudgetAction;
+  created_at: number;
+  last_updated_at: number;
+  created_by?: string | null;
+  last_updated_by?: string | null;
+  workspace?: string | null;
+}
+
+export interface CreateBudgetPolicyRequest {
+  budget_unit: BudgetUnit;
+  budget_amount: number;
+  duration: BudgetDuration;
+  target_scope: TargetScope;
+  budget_action: BudgetAction;
+}
+
+export interface CreateBudgetPolicyResponse {
+  budget_policy: BudgetPolicy;
+}
+
+export interface GetBudgetPolicyResponse {
+  budget_policy: BudgetPolicy;
+}
+
+export interface UpdateBudgetPolicyRequest {
+  budget_policy_id: string;
+  budget_unit?: BudgetUnit;
+  budget_amount?: number;
+  duration?: BudgetDuration;
+  target_scope?: TargetScope;
+  budget_action?: BudgetAction;
+}
+
+export interface UpdateBudgetPolicyResponse {
+  budget_policy: BudgetPolicy;
+}
+
+export interface ListBudgetPoliciesResponse {
+  budget_policies: BudgetPolicy[];
+  next_page_token?: string;
+}
+
+export interface BudgetPolicyWindow {
+  budget_policy_id: string;
+  window_start_ms: number;
+  window_end_ms: number;
+  current_spend: number;
+}
+
+export interface ListBudgetWindowsResponse {
+  windows: BudgetPolicyWindow[];
+}

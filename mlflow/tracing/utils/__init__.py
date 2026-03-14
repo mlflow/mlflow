@@ -128,6 +128,14 @@ def dump_span_attribute_value(value: Any) -> str:
     return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
 
 
+def try_json_loads(value: Any) -> Any:
+    """Try to parse a value as JSON, returning the original value on failure."""
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
+
+
 @lru_cache(maxsize=1)
 def encode_span_id(span_id: int) -> str:
     """
@@ -720,11 +728,11 @@ def get_active_spans_table_name() -> str | None:
     """
     Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
     """
-    from mlflow.entities.trace_location import UCSchemaLocation
+    from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        if isinstance(destination, UCSchemaLocation):
+        if isinstance(destination, (UCSchemaLocation, UnityCatalog)):
             return destination.full_otel_spans_table_name
 
     return None

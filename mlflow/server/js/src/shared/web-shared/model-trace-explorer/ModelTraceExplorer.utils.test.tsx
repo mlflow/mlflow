@@ -1351,3 +1351,65 @@ describe('isSessionLevelAssessment', () => {
     expect(isSessionLevelAssessment(assessment)).toBe(false);
   });
 });
+
+describe('prettyPrintChatMessage - audio parts', () => {
+  it('should extract audio parts and exclude them from content string', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [
+        { type: 'text', text: 'Listen to this:' },
+        { type: 'input_audio', input_audio: { data: 'base64data', format: 'wav' } },
+      ],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('Listen to this:');
+    expect(result?.audioParts).toEqual([{ data: 'base64data', format: 'wav' }]);
+  });
+
+  it('should not add audioParts for messages without audio', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [{ type: 'text', text: 'Hello' }],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('Hello');
+    expect(result?.audioParts).toBeUndefined();
+  });
+
+  it('should handle multiple audio parts', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [
+        { type: 'input_audio', input_audio: { data: 'data1', format: 'wav' } },
+        { type: 'text', text: 'and' },
+        { type: 'input_audio', input_audio: { data: 'data2', format: 'mp3' } },
+      ],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('and');
+    expect(result?.audioParts).toEqual([
+      { data: 'data1', format: 'wav' },
+      { data: 'data2', format: 'mp3' },
+    ]);
+  });
+
+  it('should handle string content (no audio parts)', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: 'plain string',
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('plain string');
+    expect(result?.audioParts).toBeUndefined();
+  });
+
+  it('should handle audio-only message (no text content)', () => {
+    const message: RawModelTraceChatMessage = {
+      role: 'user',
+      content: [{ type: 'input_audio', input_audio: { data: 'audiodata', format: 'wav' } }],
+    };
+    const result = prettyPrintChatMessage(message);
+    expect(result?.content).toBe('');
+    expect(result?.audioParts).toEqual([{ data: 'audiodata', format: 'wav' }]);
+  });
+});

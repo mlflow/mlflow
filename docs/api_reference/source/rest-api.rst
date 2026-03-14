@@ -2968,6 +2968,318 @@ Request Structure
 
 
 
+.. _mlflowMlflowServicecreateBudgetPolicy:
+
+Create Budget Policy
+====================
+
+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``3.0/mlflow/gateway/budgets/create`` | ``POST``    |
++---------------------------------------+-------------+
+
+Create a new budget policy
+
+
+
+
+.. _mlflowCreateGatewayBudgetPolicy:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++---------------+--------------------------------+-------------+
+|  Field Name   |              Type              | Description |
++===============+================================+=============+
+| budget_unit   | :ref:`mlflowbudgetunit`        |             |
++---------------+--------------------------------+-------------+
+| budget_amount | ``DOUBLE``                     |             |
++---------------+--------------------------------+-------------+
+| duration      | :ref:`mlflowbudgetduration`    |             |
++---------------+--------------------------------+-------------+
+| target_scope  | :ref:`mlflowbudgettargetscope` |             |
++---------------+--------------------------------+-------------+
+| budget_action | :ref:`mlflowbudgetaction`      |             |
++---------------+--------------------------------+-------------+
+| created_by    | ``STRING``                     |             |
++---------------+--------------------------------+-------------+
+
+.. _mlflowCreateGatewayBudgetPolicyResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++---------------+----------------------------------+-------------+
+|  Field Name   |               Type               | Description |
++===============+==================================+=============+
+| budget_policy | :ref:`mlflowgatewaybudgetpolicy` |             |
++---------------+----------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicegetBudgetPolicy:
+
+Get Budget Policy
+=================
+
+
++------------------------------------+-------------+
+|              Endpoint              | HTTP Method |
++====================================+=============+
+| ``3.0/mlflow/gateway/budgets/get`` | ``GET``     |
++------------------------------------+-------------+
+
+Get a budget policy by ID
+
+
+
+
+.. _mlflowGetGatewayBudgetPolicy:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+------------+-------------+
+|    Field Name    |    Type    | Description |
++==================+============+=============+
+| budget_policy_id | ``STRING`` |             |
++------------------+------------+-------------+
+
+.. _mlflowGetGatewayBudgetPolicyResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++---------------+----------------------------------+-------------+
+|  Field Name   |               Type               | Description |
++===============+==================================+=============+
+| budget_policy | :ref:`mlflowgatewaybudgetpolicy` |             |
++---------------+----------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServiceupdateBudgetPolicy:
+
+Update Budget Policy
+====================
+
+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``3.0/mlflow/gateway/budgets/update`` | ``POST``    |
++---------------------------------------+-------------+
+
+Update a budget policy
+
+
+
+
+.. _mlflowUpdateGatewayBudgetPolicy:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+--------------------------------+-------------+
+|    Field Name    |              Type              | Description |
++==================+================================+=============+
+| budget_policy_id | ``STRING``                     |             |
++------------------+--------------------------------+-------------+
+| budget_unit      | :ref:`mlflowbudgetunit`        |             |
++------------------+--------------------------------+-------------+
+| budget_amount    | ``DOUBLE``                     |             |
++------------------+--------------------------------+-------------+
+| duration         | :ref:`mlflowbudgetduration`    |             |
++------------------+--------------------------------+-------------+
+| target_scope     | :ref:`mlflowbudgettargetscope` |             |
++------------------+--------------------------------+-------------+
+| budget_action    | :ref:`mlflowbudgetaction`      |             |
++------------------+--------------------------------+-------------+
+| updated_by       | ``STRING``                     |             |
++------------------+--------------------------------+-------------+
+
+.. _mlflowUpdateGatewayBudgetPolicyResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++---------------+----------------------------------+-------------+
+|  Field Name   |               Type               | Description |
++===============+==================================+=============+
+| budget_policy | :ref:`mlflowgatewaybudgetpolicy` |             |
++---------------+----------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicedeleteBudgetPolicy:
+
+Delete Budget Policy
+====================
+
+
++---------------------------------------+-------------+
+|               Endpoint                | HTTP Method |
++=======================================+=============+
+| ``3.0/mlflow/gateway/budgets/delete`` | ``DELETE``  |
++---------------------------------------+-------------+
+
+Delete a budget policy
+
+
+
+
+.. _mlflowDeleteGatewayBudgetPolicy:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++------------------+------------+-------------+
+|    Field Name    |    Type    | Description |
++==================+============+=============+
+| budget_policy_id | ``STRING`` |             |
++------------------+------------+-------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicelistBudgetPolicies:
+
+List Budget Policies
+====================
+
+
++-------------------------------------+-------------+
+|              Endpoint               | HTTP Method |
++=====================================+=============+
+| ``3.0/mlflow/gateway/budgets/list`` | ``GET``     |
++-------------------------------------+-------------+
+
+List budget policies
+
+
+
+
+.. _mlflowListGatewayBudgetPolicies:
+
+Request Structure
+-----------------
+
+
+
+
+
+
++-------------+------------+-------------+
+| Field Name  |    Type    | Description |
++=============+============+=============+
+| max_results | ``INT64``  |             |
++-------------+------------+-------------+
+| page_token  | ``STRING`` |             |
++-------------+------------+-------------+
+
+.. _mlflowListGatewayBudgetPoliciesResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++-----------------+----------------------------------------------+-------------+
+|   Field Name    |                     Type                     | Description |
++=================+==============================================+=============+
+| budget_policies | An array of :ref:`mlflowgatewaybudgetpolicy` |             |
++-----------------+----------------------------------------------+-------------+
+| next_page_token | ``STRING``                                   |             |
++-----------------+----------------------------------------------+-------------+
+
+===========================
+
+
+
+.. _mlflowMlflowServicelistBudgetWindows:
+
+List Budget Windows
+===================
+
+
++----------------------------------------+-------------+
+|                Endpoint                | HTTP Method |
++========================================+=============+
+| ``3.0/mlflow/gateway/budgets/windows`` | ``GET``     |
++----------------------------------------+-------------+
+
+List budget windows with current spending
+
+
+
+
+.. _mlflowListGatewayBudgetWindowsResponse:
+
+Response Structure
+------------------
+
+
+
+
+
+
++------------+---------------------------------------------------------------+-------------+
+| Field Name |                             Type                              | Description |
++============+===============================================================+=============+
+| windows    | An array of :ref:`mlflowlistgatewaybudgetwindowsbudgetwindow` |             |
++------------+---------------------------------------------------------------+-------------+
+
+===========================
+
+
+
 .. _mlflowModelRegistryServicecreateRegisteredModel:
 
 Create RegisteredModel
@@ -4699,38 +5011,42 @@ Assessment
 Data and metadata for an assessment of a trace.
 
 
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-|           Field Name            |                                  Type                                   |                                       Description                                        |
-+=================================+=========================================================================+==========================================================================================+
-| assessment_id                   | ``STRING``                                                              | Unique ID of the assessment. NB: This is not marked as required field via                |
-|                                 |                                                                         | "validate_required", because the message is used in the context of creating a new        |
-|                                 |                                                                         | assessment, where the ID is not known.                                                   |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| assessment_name                 | ``STRING``                                                              | Name of the assessment. The name must not contain ".". This field is required.           |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| trace_id                        | ``STRING``                                                              | ID of the trace this assessment is associated with.                                      |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| span_id                         | ``STRING``                                                              | ID of the span if the assessment is for a particular span (optional).                    |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| source                          | :ref:`mlflowassessmentsassessmentsource`                                | The source this assessment came from.                                                    |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| create_time                     | ``google.protobuf.Timestamp``                                           | The creation time of this assessment.                                                    |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| last_update_time                | ``google.protobuf.Timestamp``                                           | The last update time of this assessment.                                                 |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| rationale                       | ``STRING``                                                              | Justification for the assessment.                                                        |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| metadata                        | An array of :ref:`mlflowassessmentsassessmentmetadataentry`             | Additional metadata describing the assessment and store additional information, such as  |
-|                                 |                                                                         | the chunk relevance chunk_index. This metadata is required to be JSON-serializable.      |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| overrides                       | ``STRING``                                                              | The ID of the assessment which this assessment overrides.                                |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| valid                           | ``BOOL``                                                                | Whether this assessment is valid (i.e. has not been superseded) defaults to true, and is |
-|                                 |                                                                         | set to false if a new superseding assessment is created.                                 |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
-| ``feedback`` OR ``expectation`` | :ref:`mlflowassessmentsfeedback` OR :ref:`mlflowassessmentsexpectation` | If ``feedback``, the feedback on the trace from this assessment. If ``expectation``, a   |
-|                                 |                                                                         | representation of the guidelines and/or expected response from the agent.                |
-+---------------------------------+-------------------------------------------------------------------------+------------------------------------------------------------------------------------------+
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+|                  Field Name                  |                                   Type                                    |                                Description                                |
++==============================================+===========================================================================+===========================================================================+
+| assessment_id                                | ``STRING``                                                                | Unique ID of the assessment. NB: This is not marked as required field via |
+|                                              |                                                                           | "validate_required", because the message is used in the context of        |
+|                                              |                                                                           | creating a new assessment, where the ID is not known.                     |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| assessment_name                              | ``STRING``                                                                | Name of the assessment. The name must not contain ".". This field is      |
+|                                              |                                                                           | required.                                                                 |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| trace_id                                     | ``STRING``                                                                | ID of the trace this assessment is associated with.                       |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| span_id                                      | ``STRING``                                                                | ID of the span if the assessment is for a particular span (optional).     |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| source                                       | :ref:`mlflowassessmentsassessmentsource`                                  | The source this assessment came from.                                     |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| create_time                                  | ``google.protobuf.Timestamp``                                             | The creation time of this assessment.                                     |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| last_update_time                             | ``google.protobuf.Timestamp``                                             | The last update time of this assessment.                                  |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| rationale                                    | ``STRING``                                                                | Justification for the assessment.                                         |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| metadata                                     | An array of :ref:`mlflowassessmentsassessmentmetadataentry`               | Additional metadata describing the assessment and store additional        |
+|                                              |                                                                           | information, such as the chunk relevance chunk_index. This metadata is    |
+|                                              |                                                                           | required to be JSON-serializable.                                         |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| overrides                                    | ``STRING``                                                                | The ID of the assessment which this assessment overrides.                 |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| valid                                        | ``BOOL``                                                                  | Whether this assessment is valid (i.e. has not been superseded) defaults  |
+|                                              |                                                                           | to true, and is set to false if a new superseding assessment is created.  |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
+| ``feedback`` OR ``expectation`` OR ``issue`` | :ref:`mlflowassessmentsfeedback` OR :ref:`mlflowassessmentsexpectation`   | If ``feedback``, the feedback on the trace from this assessment. If       |
+|                                              | OR :ref:`mlflowassessmentsissuereference`                                 | ``expectation``, a representation of the guidelines and/or expected       |
+|                                              |                                                                           | response from the agent. If ``issue``, a reference to an issue associated |
+|                                              |                                                                           | with this trace.                                                          |
++----------------------------------------------+---------------------------------------------------------------------------+---------------------------------------------------------------------------+
 
 .. _mlflowassessmentsAssessmentError:
 
@@ -4840,6 +5156,46 @@ BatchGetTraces
 +============+========================+==============================================+
 | trace_ids  | An array of ``STRING`` | ID of the traces to fetch. Must be provided. |
 +------------+------------------------+----------------------------------------------+
+
+.. _mlflowBudgetDuration:
+
+BudgetDuration
+--------------
+
+
+
+Fixed window duration: a (unit, value) pair that defines how long a budget window is
+
+
++------------+---------------------------------+----------------------------------------------------+
+| Field Name |              Type               |                    Description                     |
++============+=================================+====================================================+
+| unit       | :ref:`mlflowbudgetdurationunit` | Unit of time (MINUTES, HOURS, DAYS, WEEKS, MONTHS) |
++------------+---------------------------------+----------------------------------------------------+
+| value      | ``INT32``                       | Number of units per window                         |
++------------+---------------------------------+----------------------------------------------------+
+
+.. _mlflowListGatewayBudgetWindowsBudgetWindow:
+
+BudgetWindow
+------------
+
+
+
+
+
+
++------------------+------------+-------------+
+|    Field Name    |    Type    | Description |
++==================+============+=============+
+| budget_policy_id | ``STRING`` |             |
++------------------+------------+-------------+
+| window_start_ms  | ``INT64``  |             |
++------------------+------------+-------------+
+| window_end_ms    | ``INT64``  |             |
++------------------+------------+-------------+
+| current_spend    | ``DOUBLE`` |             |
++------------------+------------+-------------+
 
 .. _mlflowCalculateTraceFilterCorrelation:
 
@@ -5570,6 +5926,40 @@ FinalizeLoggedModel
 |            |                                | ("LOGGED_MODEL_UPLOAD_FAILED" indicates that something went wrong when logging the model weights / agent code) This field is required.                 |
 +------------+--------------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------+
 
+.. _mlflowGatewayBudgetPolicy:
+
+GatewayBudgetPolicy
+-------------------
+
+
+
+Represents a budget policy for the AI Gateway
+
+
++------------------+--------------------------------+-------------------------------------------+
+|    Field Name    |              Type              |                Description                |
++==================+================================+===========================================+
+| budget_policy_id | ``STRING``                     | Unique identifier for this budget policy  |
++------------------+--------------------------------+-------------------------------------------+
+| budget_unit      | :ref:`mlflowbudgetunit`        | Budget measurement unit (e.g. USD)        |
++------------------+--------------------------------+-------------------------------------------+
+| budget_amount    | ``DOUBLE``                     | Budget limit amount                       |
++------------------+--------------------------------+-------------------------------------------+
+| duration         | :ref:`mlflowbudgetduration`    | Fixed time window (unit + length pair)    |
++------------------+--------------------------------+-------------------------------------------+
+| target_scope     | :ref:`mlflowbudgettargetscope` | Scope of the budget (GLOBAL or WORKSPACE) |
++------------------+--------------------------------+-------------------------------------------+
+| budget_action    | :ref:`mlflowbudgetaction`      | Action when budget is exceeded            |
++------------------+--------------------------------+-------------------------------------------+
+| created_by       | ``STRING``                     | User ID who created the policy            |
++------------------+--------------------------------+-------------------------------------------+
+| created_at       | ``INT64``                      | Creation timestamp in milliseconds        |
++------------------+--------------------------------+-------------------------------------------+
+| last_updated_by  | ``STRING``                     | User ID who last updated the policy       |
++------------------+--------------------------------+-------------------------------------------+
+| last_updated_at  | ``INT64``                      | Last update timestamp in milliseconds     |
++------------------+--------------------------------+-------------------------------------------+
+
 .. _mlflowGatewayEndpoint:
 
 GatewayEndpoint
@@ -6067,6 +6457,22 @@ Tag for an input.
 +------------+------------+----------------------------------------+
 | value      | ``STRING`` | The tag value. This field is required. |
 +------------+------------+----------------------------------------+
+
+.. _mlflowassessmentsIssueReference:
+
+IssueReference
+--------------
+
+
+
+Reference to an issue associated with this trace
+
+
++------------+------------+--------------------------------------------------------------------------+
+| Field Name |    Type    |                               Description                                |
++============+============+==========================================================================+
+| issue_name | ``STRING`` | The name of the issue this assessment references This field is required. |
++------------+------------+--------------------------------------------------------------------------+
 
 .. _mlflowJobState:
 
@@ -8505,6 +8911,82 @@ Aggregation type for metrics.
 | MAX        | Maximum value.                                                |
 +------------+---------------------------------------------------------------+
 
+.. _mlflowBudgetAction:
+
+BudgetAction
+------------
+
+
+Action to take when a budget is exceeded
+
++---------------------------+-------------+
+|           Name            | Description |
++===========================+=============+
+| BUDGET_ACTION_UNSPECIFIED |             |
++---------------------------+-------------+
+| ALERT                     |             |
++---------------------------+-------------+
+| REJECT                    |             |
++---------------------------+-------------+
+
+.. _mlflowBudgetDurationUnit:
+
+BudgetDurationUnit
+------------------
+
+
+Duration unit for budget policy fixed windows
+
++---------------------------+-------------+
+|           Name            | Description |
++===========================+=============+
+| DURATION_UNIT_UNSPECIFIED |             |
++---------------------------+-------------+
+| MINUTES                   |             |
++---------------------------+-------------+
+| HOURS                     |             |
++---------------------------+-------------+
+| DAYS                      |             |
++---------------------------+-------------+
+| WEEKS                     |             |
++---------------------------+-------------+
+| MONTHS                    |             |
++---------------------------+-------------+
+
+.. _mlflowBudgetTargetScope:
+
+BudgetTargetScope
+-----------------
+
+
+Target scope for a budget policy
+
++--------------------------+-------------+
+|           Name           | Description |
++==========================+=============+
+| TARGET_SCOPE_UNSPECIFIED |             |
++--------------------------+-------------+
+| GLOBAL                   |             |
++--------------------------+-------------+
+| WORKSPACE                |             |
++--------------------------+-------------+
+
+.. _mlflowBudgetUnit:
+
+BudgetUnit
+----------
+
+
+Budget measurement unit
+
++-------------------------+-------------+
+|          Name           | Description |
++=========================+=============+
+| BUDGET_UNIT_UNSPECIFIED |             |
++-------------------------+-------------+
+| USD                     |             |
++-------------------------+-------------+
+
 .. _mlflowModelVersionDeploymentJobStateDeploymentJobRunState:
 
 DeploymentJobRunState
@@ -8889,6 +9371,8 @@ Webhook action types
 +--------------------+-------------+
 | SET                |             |
 +--------------------+-------------+
+| EXCEEDED           |             |
++--------------------+-------------+
 
 .. _mlflowWebhookEntity:
 
@@ -8920,6 +9404,8 @@ Webhook entity types
 | PROMPT_VERSION_TAG  |             |
 +---------------------+-------------+
 | PROMPT_ALIAS        |             |
++---------------------+-------------+
+| BUDGET_POLICY       |             |
 +---------------------+-------------+
 
 .. _mlflowWebhookStatus:

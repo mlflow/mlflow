@@ -59,7 +59,8 @@ def test_spark_autologging_with_sklearn_autologging(spark_session, data_format, 
     mlflow.spark.autolog()
     mlflow.sklearn.autolog()
     df = (
-        spark_session.read.format(data_format)
+        spark_session.read
+        .format(data_format)
         .option("header", "true")
         .option("inferSchema", "true")
         .load(file_path)
@@ -76,7 +77,8 @@ def test_spark_sklearn_autologging_context_provider(spark_session, data_format, 
     mlflow.sklearn.autolog()
 
     df = (
-        spark_session.read.format(data_format)
+        spark_session.read
+        .format(data_format)
         .option("header", "true")
         .option("inferSchema", "true")
         .load(file_path)
@@ -105,7 +107,8 @@ def test_spark_and_sklearn_autologging_all_runs_managed(spark_session, data_form
     for _ in range(2):
         with mlflow.start_run():
             df = (
-                spark_session.read.format(data_format)
+                spark_session.read
+                .format(data_format)
                 .option("header", "true")
                 .option("inferSchema", "true")
                 .load(file_path)

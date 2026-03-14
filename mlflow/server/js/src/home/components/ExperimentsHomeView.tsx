@@ -105,7 +105,7 @@ export const ExperimentsHomeView = ({
         <Typography.Title level={3} css={{ margin: 0 }}>
           <FormattedMessage defaultMessage="Recent Experiments" description="Home page experiments preview title" />
         </Typography.Title>
-        <Link to={Routes.experimentsObservatoryRoute}>
+        <Link componentId="mlflow.home.experiments.view_all_link" to={Routes.experimentsObservatoryRoute}>
           <FormattedMessage defaultMessage="View all" description="Home page experiments view all link" />
         </Link>
       </div>

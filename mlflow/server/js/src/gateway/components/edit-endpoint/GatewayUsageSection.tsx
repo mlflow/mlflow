@@ -1,6 +1,7 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { GatewayChartsPanel } from '../GatewayChartsPanel';
+import { prefixRouteWithWorkspace } from '../../../workspaces/utils/WorkspaceUtils';
 
 interface GatewayUsageSectionProps {
   experimentId: string;
@@ -24,7 +25,7 @@ export const GatewayUsageSection = ({ experimentId, tooltipLinkUrlBuilder }: Gat
         </Typography.Text>
         <Typography.Link
           componentId="mlflow.gateway.endpoint.usage.view-full-dashboard"
-          href={`#/experiments/${experimentId}/overview`}
+          href={prefixRouteWithWorkspace(`#/experiments/${experimentId}/overview`)}
           css={{ display: 'inline-block', marginTop: theme.spacing.xs }}
         >
           <FormattedMessage defaultMessage="View full dashboard" description="Link to view full usage dashboard" />

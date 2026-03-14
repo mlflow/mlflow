@@ -27,7 +27,7 @@ const QUERY = `
           }
           timelineItems(
             last: 10
-            itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW, PULL_REQUEST_COMMIT]
+            itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW, PULL_REQUEST_COMMIT, REOPENED_EVENT]
           ) {
             nodes {
               __typename
@@ -45,6 +45,10 @@ const QUERY = `
                   author { user { __typename } }
                 }
               }
+              ... on ReopenedEvent {
+                createdAt
+                actor { __typename }
+              }
             }
           }
         }
@@ -59,6 +63,9 @@ const getEventDate = (item) => {
   if (item.__typename === "PullRequestCommit") {
     const user = item.commit?.author?.user;
     return user && !isBot(user) ? item.commit.committedDate : null;
+  }
+  if (item.__typename === "ReopenedEvent") {
+    return !isBot(item.actor) ? item.createdAt : null;
   }
   return !isBot(item.author) ? item.createdAt : null;
 };

@@ -21,7 +21,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.64.0",
-            "maximum": "2.21.0"
+            "maximum": "2.26.0"
         }
     },
     "dspy": {
@@ -123,7 +123,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.105.0",
-            "maximum": "1.9.3"
+            "maximum": "1.10.3"
         }
     },
     "agno": {
@@ -264,11 +264,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "2.16.0",
-            "maximum": "2.20.0"
+            "maximum": "2.21.0"
         },
         "autologging": {
             "minimum": "2.16.0",
-            "maximum": "2.20.0"
+            "maximum": "2.21.0"
         }
     },
     "xgboost": {
@@ -406,11 +406,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.38.2",
-            "maximum": "4.57.6"
+            "maximum": "5.3.0"
         },
         "autologging": {
             "minimum": "4.38.2",
-            "maximum": "4.57.6"
+            "maximum": "5.2.0"
         }
     },
     "haystack": {

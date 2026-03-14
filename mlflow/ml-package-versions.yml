@@ -15,7 +15,7 @@ sklearn:
     minimum: "1.4.2"
     maximum: "1.8.0"
     requirements:
-      ">= 0.0.0": ["matplotlib"]
+      ">= 0.0.0": ["matplotlib", "polars"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py
 
@@ -37,6 +37,7 @@ pytorch:
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
+      "== 2.3.*": ["transformers<5"]
       "< 2.3": ["numpy<2", "transformers<=4.49.0", "safetensors<0.6.0"]
     run: |
       pytest tests/pytorch/test_pytorch_model_export.py tests/pytorch/test_pytorch_metric_value_conversion_utils.py
@@ -118,10 +119,11 @@ tensorflow:
 
   models:
     minimum: "2.16.0"
-    maximum: "2.20.0"
+    maximum: "2.21.0"
     requirements:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
+      ">= 2.21.0": ["tensorboard"]
     run: |
       pytest \
         tests/tensorflow/test_tensorflow2_core_model_export.py \
@@ -131,9 +133,10 @@ tensorflow:
 
   autologging:
     minimum: "2.16.0"
-    maximum: "2.20.0"
+    maximum: "2.21.0"
     requirements:
       "== dev": ["scikit-learn"]
+      ">= 2.21.0": ["tensorboard"]
     run: |
       pytest tests/tensorflow/test_tensorflow2_autolog.py
 
@@ -181,7 +184,7 @@ lightgbm:
     minimum: "4.4.0"
     maximum: "4.6.0"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "matplotlib"]
+      ">= 0.0.0": ["scikit-learn", "matplotlib", "polars"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py
 
@@ -204,19 +207,15 @@ onnx:
     pip_release: "onnx"
     install_dev: |
       # This workflow describes how to build a wheel for Linux:
-      # https://github.com/onnx/onnx/blob/51a7d932356cbb1205341660a4a52f8c121d8f4b/.github/workflows/release_linux_x86_64.yml
-
-      auth_header="$(git config --local --get http.https://github.com/.extraheader)"
+      # https://github.com/onnx/onnx/blob/bf3f63ece5cadea625265a42e17dd685f4cf17eb/.github/workflows/release_linux.yml
       tmp_dir=$(mktemp -d)
-      git clone https://github.com/onnx/onnx.git $tmp_dir
+      git clone --recurse-submodules --shallow-submodules --depth=1 https://github.com/onnx/onnx.git $tmp_dir
       cd $tmp_dir
-      git submodule sync --recursive
-      git -c "http.extraheader=$auth_header" -c protocol.version=2 submodule update --init --force --recursive --depth=1
 
       # Build wheel
       python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
       docker run --rm -v $(pwd):/github/workspace --workdir /github/workspace --entrypoint bash \
-        quay.io/pypa/manylinux2014_x86_64 .github/workflows/manylinux/entrypoint.sh $python_version manylinux2014_x86_64 pull_request
+        quay.io/pypa/manylinux_2_28_x86_64 .github/workflows/manylinux/entrypoint.sh $python_version manylinux_2_28_x86_64 pull_request
 
       # Install wheel
       pip install dist/*manylinux*.whl
@@ -446,8 +445,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.38.2"
-    # transformers 5.x is not supported yet
-    maximum: "4.57.6"
+    maximum: "5.3.0"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -493,8 +491,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.38.2"
-    # transformers 5.x is not supported yet
-    maximum: "4.57.6"
+    maximum: "5.2.0"
     test_every_n_versions: 4
     unsupported: [
         # https://github.com/huggingface/transformers/issues/38269
@@ -510,7 +507,6 @@ transformers:
           "torch",
           "torchvision",
           "tensorflow",
-          "setfit",
           "optuna",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
@@ -525,6 +521,10 @@ transformers:
       # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
       "< 4.42": ["sentence-transformers<5.1.2"]
       "< 4.52.0.dev0": ["accelerate<1"]
+      # transformers 5.x requires accelerate>=1.1.0 for Trainer
+      ">= 5.0": ["accelerate>=1.1.0"]
+      # setfit is incompatible with transformers 5.x (imports removed `default_logdir` from training_args)
+      "< 5.0": ["setfit"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
 
@@ -555,7 +555,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.64.0"
-    maximum: "2.21.0"
+    maximum: "2.26.0"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -605,6 +605,10 @@ langchain:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.3.20"
     maximum: "1.2.10"
+    unsupported: [
+        # Chain.save() broken in 0.3.28 due to model_dump() regression: https://github.com/langchain-ai/langchain/issues/35665
+        "== 0.3.28",
+      ]
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -850,7 +854,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.105.0"
-    maximum: "1.9.3"
+    maximum: "1.10.3"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai

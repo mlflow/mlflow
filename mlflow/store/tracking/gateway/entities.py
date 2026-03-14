@@ -1,8 +1,9 @@
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from mlflow.entities.gateway_endpoint import (
     FallbackConfig,
+    FallbackStrategy,
     GatewayModelLinkageType,
     RoutingStrategy,
 )
@@ -41,6 +42,15 @@ class GatewayModelConfig:
     linkage_type: GatewayModelLinkageType = GatewayModelLinkageType.PRIMARY
     fallback_order: int | None = None
 
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "GatewayModelConfig":
+        data = {**data}
+        data["linkage_type"] = GatewayModelLinkageType(data["linkage_type"])
+        return cls(**data)
+
 
 @dataclass
 class GatewayEndpointConfig:
@@ -66,3 +76,20 @@ class GatewayEndpointConfig:
     routing_strategy: RoutingStrategy | None = None
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "GatewayEndpointConfig":
+        data = {**data}
+        models = [GatewayModelConfig.from_dict(m) for m in data.pop("models", [])]
+        fc_data = data.pop("fallback_config", None)
+        if fc_data:
+            fc_data = {**fc_data}
+            if fc_data.get("strategy"):
+                fc_data["strategy"] = FallbackStrategy(fc_data["strategy"])
+        fallback = FallbackConfig(**fc_data) if fc_data else None
+        if data.get("routing_strategy"):
+            data["routing_strategy"] = RoutingStrategy(data["routing_strategy"])
+        return cls(**data, models=models, fallback_config=fallback)

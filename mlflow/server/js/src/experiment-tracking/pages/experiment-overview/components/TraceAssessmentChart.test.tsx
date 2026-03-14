@@ -369,7 +369,7 @@ describe('TraceAssessmentChart', () => {
         expect(barChart).toBeInTheDocument();
         // Should show individual values, not bucketed
         expect(barChart).toHaveAttribute('data-count', '5');
-        expect(barChart).toHaveAttribute('data-labels', '1,2,3,4,5');
+        expect(barChart).toHaveAttribute('data-labels', '5,4,3,2,1');
       });
     });
 
@@ -427,7 +427,7 @@ describe('TraceAssessmentChart', () => {
         expect(barChart).toBeInTheDocument();
         // Should show individual values
         expect(barChart).toHaveAttribute('data-count', '2');
-        expect(barChart).toHaveAttribute('data-labels', 'false,true');
+        expect(barChart).toHaveAttribute('data-labels', 'true,false');
       });
     });
 
@@ -447,7 +447,7 @@ describe('TraceAssessmentChart', () => {
         expect(barChart).toBeInTheDocument();
         // Should show individual values sorted alphabetically
         expect(barChart).toHaveAttribute('data-count', '3');
-        expect(barChart).toHaveAttribute('data-labels', 'error,fail,pass');
+        expect(barChart).toHaveAttribute('data-labels', 'pass,fail,error');
       });
     });
 

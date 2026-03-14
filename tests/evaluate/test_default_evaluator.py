@@ -649,18 +649,16 @@ def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_
 
 
 def test_compute_df_mode_or_mean():
-    df = pd.DataFrame(
-        {
-            "a": [2.0, 2.0, 5.0],
-            "b": [3, 3, 5],
-            "c": [2.0, 2.0, 6.5],
-            "d": [True, False, True],
-            "e": ["abc", "b", "abc"],
-            "f": [1.5, 2.5, np.nan],
-            "g": ["ab", "ab", None],
-            "h": pd.Series([2.0, 2.0, 6.5], dtype="category"),
-        }
-    )
+    df = pd.DataFrame({
+        "a": [2.0, 2.0, 5.0],
+        "b": [3, 3, 5],
+        "c": [2.0, 2.0, 6.5],
+        "d": [True, False, True],
+        "e": ["abc", "b", "abc"],
+        "f": [1.5, 2.5, np.nan],
+        "g": ["ab", "ab", None],
+        "h": pd.Series([2.0, 2.0, 6.5], dtype="category"),
+    })
     result = _compute_df_mode_or_mean(df)
     assert result == {
         "a": 2,
@@ -674,21 +672,17 @@ def test_compute_df_mode_or_mean():
     }
 
     # Test on dataframe that all columns are continuous.
-    df2 = pd.DataFrame(
-        {
-            "c": [2.0, 2.0, 6.5],
-            "f": [1.5, 2.5, np.nan],
-        }
-    )
+    df2 = pd.DataFrame({
+        "c": [2.0, 2.0, 6.5],
+        "f": [1.5, 2.5, np.nan],
+    })
     assert _compute_df_mode_or_mean(df2) == {"c": 3.5, "f": 2.0}
 
     # Test on dataframe that all columns are not continuous.
-    df2 = pd.DataFrame(
-        {
-            "d": [True, False, True],
-            "g": ["ab", "ab", None],
-        }
-    )
+    df2 = pd.DataFrame({
+        "d": [True, False, True],
+        "g": ["ab", "ab", None],
+    })
     assert _compute_df_mode_or_mean(df2) == {"d": True, "g": "ab"}
 
 
@@ -897,38 +891,34 @@ def test_gen_binary_precision_recall_curve_with_sample_weights():
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
-        np.array(
-            [
-                1.0,
-                1.0,
-                0.83870968,
-                0.83870968,
-                0.83870968,
-                0.51612903,
-                0.48387097,
-                0.48387097,
-                0.16129032,
-                0.0,
-            ]
-        ),
+        np.array([
+            1.0,
+            1.0,
+            0.83870968,
+            0.83870968,
+            0.83870968,
+            0.51612903,
+            0.48387097,
+            0.48387097,
+            0.16129032,
+            0.0,
+        ]),
         rtol=1e-3,
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][2],
-        np.array(
-            [
-                0.54386,
-                0.59615385,
-                0.55319149,
-                0.7027027,
-                0.72222222,
-                0.61538462,
-                0.6,
-                0.75,
-                1.0,
-                1.0,
-            ]
-        ),
+        np.array([
+            0.54386,
+            0.59615385,
+            0.55319149,
+            0.7027027,
+            0.72222222,
+            0.61538462,
+            0.6,
+            0.75,
+            1.0,
+            1.0,
+        ]),
         rtol=1e-3,
     )
     assert results.plot_fn_args["xlabel"] == "Recall (Positive label: 1)"
@@ -983,38 +973,34 @@ def test_gen_binary_roc_curve_with_sample_weights():
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][1],
-        np.array(
-            [
-                0.0,
-                0.0,
-                0.19230769,
-                0.38461538,
-                0.38461538,
-                0.38461538,
-                0.42307692,
-                0.80769231,
-                0.80769231,
-                1.0,
-            ]
-        ),
+        np.array([
+            0.0,
+            0.0,
+            0.19230769,
+            0.38461538,
+            0.38461538,
+            0.38461538,
+            0.42307692,
+            0.80769231,
+            0.80769231,
+            1.0,
+        ]),
         rtol=1e-3,
     )
     np.testing.assert_allclose(
         results.plot_fn_args["data_series"][0][2],
-        np.array(
-            [
-                0.0,
-                0.16129032,
-                0.48387097,
-                0.48387097,
-                0.51612903,
-                0.83870968,
-                0.83870968,
-                0.83870968,
-                1.0,
-                1.0,
-            ]
-        ),
+        np.array([
+            0.0,
+            0.16129032,
+            0.48387097,
+            0.48387097,
+            0.51612903,
+            0.83870968,
+            0.83870968,
+            0.83870968,
+            1.0,
+            1.0,
+        ]),
         rtol=1e-3,
     )
     assert results.plot_fn_args["xlabel"] == "False Positive Rate (Positive label: 1)"
@@ -2078,12 +2064,10 @@ def test_evaluate_question_answering_with_targets():
         model_info = mlflow.pyfunc.log_model(
             name="model", python_model=language_model, input_example=["a", "b"]
         )
-        data = pd.DataFrame(
-            {
-                "question": ["words random", "This is a sentence."],
-                "answer": ["words random", "This is a sentence."],
-            }
-        )
+        data = pd.DataFrame({
+            "question": ["words random", "This is a sentence."],
+            "answer": ["words random", "This is a sentence."],
+        })
         results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -2104,13 +2088,11 @@ def test_evaluate_question_answering_with_targets():
 
 def test_evaluate_question_answering_on_static_dataset_with_targets():
     with mlflow.start_run() as run:
-        data = pd.DataFrame(
-            {
-                "question": ["words random", "This is a sentence."],
-                "answer": ["words random", "This is a sentence."],
-                "pred": ["words random", "This is a sentence."],
-            }
-        )
+        data = pd.DataFrame({
+            "question": ["words random", "This is a sentence."],
+            "answer": ["words random", "This is a sentence."],
+            "pred": ["words random", "This is a sentence."],
+        })
         results = mlflow.evaluate(
             data=data,
             targets="answer",
@@ -2202,15 +2184,13 @@ def validate_text_summarization_logged_data(logged_data, with_targets=True):
         "token_count",
     }
     if with_targets:
-        columns.update(
-            {
-                "summary",
-                "rouge1/v1/score",
-                "rouge2/v1/score",
-                "rougeL/v1/score",
-                "rougeLsum/v1/score",
-            }
-        )
+        columns.update({
+            "summary",
+            "rouge1/v1/score",
+            "rouge2/v1/score",
+            "rougeL/v1/score",
+            "rougeLsum/v1/score",
+        })
 
     assert set(logged_data.columns.tolist()) == columns
 
@@ -2590,30 +2570,26 @@ def language_model_with_context(inputs: list[str]) -> list[dict[str, str]]:
 
 
 def test_constructing_eval_df_for_custom_metrics():
-    test_eval_df_value = pd.DataFrame(
-        {
-            "predictions": ["text_a", "text_b"],
-            "targets": ["target_a", "target_b"],
-            "inputs": ["text_a", "text_b"],
-            "truth": ["truth_a", "truth_b"],
-            "context": ["context_text_a", "context_text_b"],
-        }
-    )
+    test_eval_df_value = pd.DataFrame({
+        "predictions": ["text_a", "text_b"],
+        "targets": ["target_a", "target_b"],
+        "inputs": ["text_a", "text_b"],
+        "truth": ["truth_a", "truth_b"],
+        "context": ["context_text_a", "context_text_b"],
+    })
 
     def example_custom_artifact(_, __, ___):
         return {"test_json_artifact": {"a": 2, "b": [1, 2]}}
 
     def test_eval_df(predictions, targets, metrics, inputs, truth, context):
         global eval_df_value
-        eval_df_value = pd.DataFrame(
-            {
-                "predictions": predictions,
-                "targets": targets,
-                "inputs": inputs,
-                "truth": truth,
-                "context": context,
-            }
-        )
+        eval_df_value = pd.DataFrame({
+            "predictions": predictions,
+            "targets": targets,
+            "inputs": inputs,
+            "truth": truth,
+            "context": context,
+        })
         return predictions.eq(targets).mean()
 
     with mlflow.start_run():
@@ -2622,13 +2598,11 @@ def test_constructing_eval_df_for_custom_metrics():
             python_model=language_model_with_context,
             input_example=["a", "b"],
         )
-        data = pd.DataFrame(
-            {
-                "text": ["text_a", "text_b"],
-                "truth": ["truth_a", "truth_b"],
-                "targets": ["target_a", "target_b"],
-            }
-        )
+        data = pd.DataFrame({
+            "text": ["text_a", "text_b"],
+            "truth": ["truth_a", "truth_b"],
+            "targets": ["target_a", "target_b"],
+        })
         eval_results = mlflow.evaluate(
             model_info.model_uri,
             data,
@@ -2658,12 +2632,10 @@ def test_constructing_eval_df_for_custom_metrics():
 
 
 def test_evaluate_no_model_or_predictions_specified():
-    data = pd.DataFrame(
-        {
-            "question": ["words random", "This is a sentence."],
-            "truth": ["words random", "This is a sentence."],
-        }
-    )
+    data = pd.DataFrame({
+        "question": ["words random", "This is a sentence."],
+        "truth": ["words random", "This is a sentence."],
+    })
 
     with pytest.raises(
         MlflowException,
@@ -2772,12 +2744,10 @@ def test_evaluate_no_model_type_with_custom_metric():
 
 
 def multi_output_model(inputs):
-    return pd.DataFrame(
-        {
-            "answer": ["words random", "This is a sentence."],
-            "source": ["words random", "This is a sentence."],
-        }
-    )
+    return pd.DataFrame({
+        "answer": ["words random", "This is a sentence."],
+        "source": ["words random", "This is a sentence."],
+    })
 
 
 def test_default_metrics_as_extra_metrics():
@@ -2785,12 +2755,10 @@ def test_default_metrics_as_extra_metrics():
         model_info = mlflow.pyfunc.log_model(
             name="model", python_model=multi_output_model, input_example=["a"]
         )
-        data = pd.DataFrame(
-            {
-                "question": ["words random", "This is a sentence."],
-                "truth": ["words random", "This is a sentence."],
-            }
-        )
+        data = pd.DataFrame({
+            "question": ["words random", "This is a sentence."],
+            "truth": ["words random", "This is a sentence."],
+        })
         results = evaluate(
             model_info.model_uri,
             data,
@@ -2811,14 +2779,12 @@ def test_default_metrics_as_extra_metrics():
 
 def test_default_metrics_as_extra_metrics_static_dataset():
     with mlflow.start_run() as run:
-        data = pd.DataFrame(
-            {
-                "question": ["words random", "This is a sentence."],
-                "truth": ["words random", "This is a sentence."],
-                "answer": ["words random", "This is a sentence."],
-                "source": ["words random", "This is a sentence."],
-            }
-        )
+        data = pd.DataFrame({
+            "question": ["words random", "This is a sentence."],
+            "truth": ["words random", "This is a sentence."],
+            "answer": ["words random", "This is a sentence."],
+            "source": ["words random", "This is a sentence."],
+        })
         results = evaluate(
             data=data,
             targets="truth",
@@ -2870,13 +2836,11 @@ def test_derived_metrics_basic_dependency_graph():
         )
 
     with mlflow.start_run():
-        data = pd.DataFrame(
-            {
-                "question": ["words random", "This is a sentence."],
-                "truth": ["words random", "This is a sentence."],
-                "answer": ["words random", "This is a sentence."],
-            }
-        )
+        data = pd.DataFrame({
+            "question": ["words random", "This is a sentence."],
+            "truth": ["words random", "This is a sentence."],
+            "answer": ["words random", "This is a sentence."],
+        })
         results = evaluate(
             data=data,
             targets="truth",
@@ -2962,13 +2926,11 @@ def test_derived_metrics_complicated_dependency_graph():
         assert metric_2.scores == [2, 3]
         return MetricValue(scores=[6, 7])
 
-    data = pd.DataFrame(
-        {
-            "question": ["words random", "This is a sentence."],
-            "truth": ["words random", "This is a sentence."],
-            "answer": ["words random", "This is a sentence."],
-        }
-    )
+    data = pd.DataFrame({
+        "question": ["words random", "This is a sentence."],
+        "truth": ["words random", "This is a sentence."],
+        "answer": ["words random", "This is a sentence."],
+    })
 
     with mlflow.start_run():
         results = evaluate(
@@ -3056,12 +3018,10 @@ def test_derived_metrics_circular_dependencies_raises_exception():
 
     error_message = r"Error: Metric calculation failed for the following metrics:\n"
 
-    data = pd.DataFrame(
-        {
-            "question": ["words random", "This is a sentence."],
-            "answer": ["words random", "This is a sentence."],
-        }
-    )
+    data = pd.DataFrame({
+        "question": ["words random", "This is a sentence."],
+        "answer": ["words random", "This is a sentence."],
+    })
 
     with pytest.raises(
         MlflowException,
@@ -3090,12 +3050,10 @@ def test_derived_metrics_missing_dependencies_raises_exception():
 
     error_message = r"Error: Metric calculation failed for the following metrics:\n"
 
-    data = pd.DataFrame(
-        {
-            "question": ["words random", "This is a sentence."],
-            "answer": ["words random", "This is a sentence."],
-        }
-    )
+    data = pd.DataFrame({
+        "question": ["words random", "This is a sentence."],
+        "answer": ["words random", "This is a sentence."],
+    })
 
     with pytest.raises(
         MlflowException,
@@ -3158,12 +3116,10 @@ def test_multi_output_model_error_handling():
         model_info = mlflow.pyfunc.log_model(
             name="model", python_model=multi_output_model, input_example=["a"]
         )
-        data = pd.DataFrame(
-            {
-                "question": ["words random", "This is a sentence."],
-                "truth": ["words random", "This is a sentence."],
-            }
-        )
+        data = pd.DataFrame({
+            "question": ["words random", "This is a sentence."],
+            "truth": ["words random", "This is a sentence."],
+        })
         with pytest.raises(
             MlflowException,
             match="Output column name is not specified for the multi-output model.",
@@ -3269,12 +3225,10 @@ def test_evaluate_with_latency_and_pd_series():
 def test_evaluate_with_latency_static_dataset():
     with mlflow.start_run() as run:
         mlflow.pyfunc.log_model(name="model", python_model=language_model, input_example=["a", "b"])
-        data = pd.DataFrame(
-            {
-                "text": ["foo", "bar"],
-                "model_output": ["FOO", "BAR"],
-            }
-        )
+        data = pd.DataFrame({
+            "text": ["foo", "bar"],
+            "model_output": ["FOO", "BAR"],
+        })
         results = mlflow.evaluate(
             data=data,
             model_type="text",
@@ -3344,25 +3298,23 @@ def test_evaluate_with_correctness():
         return_value=properly_formatted_openai_response1,
     ):
         with mlflow.start_run():
-            eval_df = pd.DataFrame(
-                {
-                    "inputs": [
-                        "What is MLflow?",
-                        "What is Spark?",
-                        "What is Python?",
-                    ],
-                    "ground_truth": [
-                        "MLflow is an open-source platform",
-                        "Apache Spark is an open-source, distributed computing system",
-                        "Python is a high-level programming language",
-                    ],
-                    "prediction": [
-                        "MLflow is an open-source platform",
-                        "Apache Spark is an open-source, distributed computing system",
-                        "Python is a high-level programming language",
-                    ],
-                }
-            )
+            eval_df = pd.DataFrame({
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                    "What is Python?",
+                ],
+                "ground_truth": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+                "prediction": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+            })
             results = mlflow.evaluate(
                 data=eval_df,
                 evaluators="default",
@@ -3565,13 +3517,11 @@ def test_evaluate_retriever():
     }
 
     # test with a static dataset
-    X_1 = pd.DataFrame(
-        {
-            "question": [["q1?"]] * 3,
-            "targets_param": [["doc1", "doc2"]] * 3,
-            "predictions_param": [["doc1", "doc4", "doc5"]] * 3,
-        }
-    )
+    X_1 = pd.DataFrame({
+        "question": [["q1?"]] * 3,
+        "targets_param": [["doc1", "doc2"]] * 3,
+        "predictions_param": [["doc1", "doc4", "doc5"]] * 3,
+    })
     with mlflow.start_run() as run:
         mlflow.evaluate(
             data=X_1,
@@ -3808,25 +3758,23 @@ def test_target_prediction_col_mapping():
         return_value=properly_formatted_openai_response1,
     ):
         with mlflow.start_run():
-            eval_df = pd.DataFrame(
-                {
-                    "inputs": [
-                        "What is MLflow?",
-                        "What is Spark?",
-                        "What is Python?",
-                    ],
-                    "ground_truth": [
-                        "MLflow is an open-source platform",
-                        "Apache Spark is an open-source, distributed computing system",
-                        "Python is a high-level programming language",
-                    ],
-                    "prediction": [
-                        "MLflow is an open-source platform",
-                        "Apache Spark is an open-source, distributed computing system",
-                        "Python is a high-level programming language",
-                    ],
-                }
-            )
+            eval_df = pd.DataFrame({
+                "inputs": [
+                    "What is MLflow?",
+                    "What is Spark?",
+                    "What is Python?",
+                ],
+                "ground_truth": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+                "prediction": [
+                    "MLflow is an open-source platform",
+                    "Apache Spark is an open-source, distributed computing system",
+                    "Python is a high-level programming language",
+                ],
+            })
             results = mlflow.evaluate(
                 data=eval_df,
                 evaluators="default",
@@ -3846,25 +3794,23 @@ def test_target_prediction_col_mapping():
 def test_precanned_metrics_work():
     metric = mlflow.metrics.rouge1()
     with mlflow.start_run():
-        eval_df = pd.DataFrame(
-            {
-                "inputs": [
-                    "What is MLflow?",
-                    "What is Spark?",
-                    "What is Python?",
-                ],
-                "ground_truth": [
-                    "MLflow is an open-source platform",
-                    "Apache Spark is an open-source, distributed computing system",
-                    "Python is a high-level programming language",
-                ],
-                "prediction": [
-                    "MLflow is an open-source platform",
-                    "Apache Spark is an open-source, distributed computing system",
-                    "Python is a high-level programming language",
-                ],
-            }
-        )
+        eval_df = pd.DataFrame({
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+                "What is Python?",
+            ],
+            "ground_truth": [
+                "MLflow is an open-source platform",
+                "Apache Spark is an open-source, distributed computing system",
+                "Python is a high-level programming language",
+            ],
+            "prediction": [
+                "MLflow is an open-source platform",
+                "Apache Spark is an open-source, distributed computing system",
+                "Python is a high-level programming language",
+            ],
+        })
 
         results = mlflow.evaluate(
             data=eval_df,
@@ -3888,25 +3834,23 @@ def test_precanned_metrics_work():
 def test_precanned_bleu_metrics_work():
     metric = mlflow.metrics.bleu()
     with mlflow.start_run():
-        eval_df = pd.DataFrame(
-            {
-                "inputs": [
-                    "What is MLflow?",
-                    "What is Spark?",
-                    "What is Python?",
-                ],
-                "ground_truth": [
-                    "MLflow is an open-source platform",
-                    "Apache Spark is an open-source, distributed computing system",
-                    "Python is a high-level programming language",
-                ],
-                "prediction": [
-                    "MLflow is an open-source platform",
-                    "Apache Spark is an open-source, distributed computing system",
-                    "Python is a high-level programming language",
-                ],
-            }
-        )
+        eval_df = pd.DataFrame({
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+                "What is Python?",
+            ],
+            "ground_truth": [
+                "MLflow is an open-source platform",
+                "Apache Spark is an open-source, distributed computing system",
+                "Python is a high-level programming language",
+            ],
+            "prediction": [
+                "MLflow is an open-source platform",
+                "Apache Spark is an open-source, distributed computing system",
+                "Python is a high-level programming language",
+            ],
+        })
 
         results = mlflow.evaluate(
             data=eval_df,
@@ -3973,12 +3917,10 @@ def test_do_not_log_built_in_metrics_as_artifacts():
         model_info = mlflow.pyfunc.log_model(
             name="model", python_model=language_model, input_example=["a"]
         )
-        data = pd.DataFrame(
-            {
-                "inputs": ["words random", "This is a sentence."],
-                "ground_truth": ["words random", "This is a sentence."],
-            }
-        )
+        data = pd.DataFrame({
+            "inputs": ["words random", "This is a sentence."],
+            "ground_truth": ["words random", "This is a sentence."],
+        })
         evaluate(
             model_info.model_uri,
             data,
@@ -4004,12 +3946,10 @@ def test_log_genai_custom_metrics_as_artifacts():
         model_info = mlflow.pyfunc.log_model(
             name="model", python_model=language_model, input_example=["a"]
         )
-        data = pd.DataFrame(
-            {
-                "inputs": ["words random", "This is a sentence."],
-                "ground_truth": ["words random", "This is a sentence."],
-            }
-        )
+        data = pd.DataFrame({
+            "inputs": ["words random", "This is a sentence."],
+            "ground_truth": ["words random", "This is a sentence."],
+        })
         example = EvaluationExample(
             input="What is MLflow?",
             output="MLflow is an open-source platform for managing machine learning workflows.",
@@ -4081,13 +4021,11 @@ def test_all_genai_custom_metrics_are_from_user_prompt():
         model_info = mlflow.pyfunc.log_model(
             name="model", python_model=language_model, input_example=["a"]
         )
-        data = pd.DataFrame(
-            {
-                "inputs": ["words random", "This is a sentence."],
-                "ground_truth": ["words random", "This is a sentence."],
-                "custom_column": ["test", "test"],
-            }
-        )
+        data = pd.DataFrame({
+            "inputs": ["words random", "This is a sentence."],
+            "ground_truth": ["words random", "This is a sentence."],
+            "custom_column": ["test", "test"],
+        })
         custom_metric = make_genai_metric_from_prompt(
             name="custom llm judge",
             judge_prompt="This is a custom judge prompt. {custom_column}.",
@@ -4260,12 +4198,10 @@ def test_regressor_returning_pandas_object(model_output, predictions):
         model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
         result = mlflow.evaluate(
             model_info.model_uri,
-            data=pd.DataFrame(
-                {
-                    "input": [0, 1, 2],
-                    "output": [0, 1, 2],
-                }
-            ),
+            data=pd.DataFrame({
+                "input": [0, 1, 2],
+                "output": [0, 1, 2],
+            }),
             targets="output",
             model_type="regressor",
             predictions=predictions,
@@ -4323,12 +4259,10 @@ def test_regressor_returning_pandas_object(model_output, predictions):
         ),
         # Multiclass with string labels
         (
-            pd.DataFrame(
-                {
-                    "target": ["cat", "dog", "bird", "cat", "dog", "bird"],
-                    "prediction": ["cat", "dog", "cat", "dog", "bird", "bird"],
-                }
-            ),
+            pd.DataFrame({
+                "target": ["cat", "dog", "bird", "cat", "dog", "bird"],
+                "prediction": ["cat", "dog", "cat", "dog", "bird", "bird"],
+            }),
             {},
             {"accuracy_score": 0.5},
             {"per_class_metrics": True, "confusion_matrix": True},
@@ -4336,12 +4270,10 @@ def test_regressor_returning_pandas_object(model_output, predictions):
         ),
         # Multiclass with missing class in data
         (
-            pd.DataFrame(
-                {
-                    "target": ["cat", "dog", "cat", "dog"],
-                    "prediction": ["cat", "dog", "dog", "cat"],
-                }
-            ),
+            pd.DataFrame({
+                "target": ["cat", "dog", "cat", "dog"],
+                "prediction": ["cat", "dog", "dog", "cat"],
+            }),
             {"label_list": ["cat", "dog", "bird"]},
             {"accuracy_score": 0.5},
             {"per_class_metrics": True},
@@ -4349,12 +4281,10 @@ def test_regressor_returning_pandas_object(model_output, predictions):
         ),
         # Multiclass with numeric labels
         (
-            pd.DataFrame(
-                {
-                    "target": [0, 1, 2, 0, 1],
-                    "prediction": [0, 1, 1, 2, 1],
-                }
-            ),
+            pd.DataFrame({
+                "target": [0, 1, 2, 0, 1],
+                "prediction": [0, 1, 1, 2, 1],
+            }),
             {"label_list": [0, 1, 2]},
             {"accuracy_score": 0.6},
             {"per_class_metrics": True},
@@ -4562,12 +4492,10 @@ def test_multiclass_per_class_metrics_with_missing_class_failure():
     prevents crashes when classes are missing from evaluation data.
     """
     # Create multiclass data where class 'C' is completely missing from evaluation
-    data = pd.DataFrame(
-        {
-            "target": ["A", "B", "A", "A", "B", "A", "B", "A"],  # Only A and B present
-            "prediction": ["A", "B", "A", "A", "B", "A", "B", "A"],  # Only A and B predicted
-        }
-    )
+    data = pd.DataFrame({
+        "target": ["A", "B", "A", "A", "B", "A", "B", "A"],  # Only A and B present
+        "prediction": ["A", "B", "A", "A", "B", "A", "B", "A"],  # Only A and B predicted
+    })
 
     # Model was trained on A, B, C but evaluation data missing C
     label_list = ["A", "B", "C"]  # C missing from actual data!

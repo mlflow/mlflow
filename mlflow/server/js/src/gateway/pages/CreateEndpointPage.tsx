@@ -35,12 +35,18 @@ const CreateEndpointPage = () => {
         <div css={{ padding: theme.spacing.md }}>
           <Breadcrumb includeTrailingCaret>
             <Breadcrumb.Item>
-              <Link to={GatewayRoutes.gatewayPageRoute}>
+              <Link
+                componentId="mlflow.gateway.create_endpoint.breadcrumb_gateway_link"
+                to={GatewayRoutes.gatewayPageRoute}
+              >
                 <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
               </Link>
             </Breadcrumb.Item>
             <Breadcrumb.Item>
-              <Link to={GatewayRoutes.gatewayPageRoute}>
+              <Link
+                componentId="mlflow.gateway.create_endpoint.breadcrumb_endpoints_link"
+                to={GatewayRoutes.gatewayPageRoute}
+              >
                 <FormattedMessage defaultMessage="Endpoints" description="Breadcrumb link to endpoints list" />
               </Link>
             </Breadcrumb.Item>

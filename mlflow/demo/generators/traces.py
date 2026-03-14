@@ -4,6 +4,7 @@ import hashlib
 import logging
 import random
 import re
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Literal
 
@@ -76,20 +77,26 @@ def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
 
-# Model names and approximate per-token pricing (USD per 1M tokens).
+@dataclass(frozen=True)
+class _Model:
+    """Model configuration with name, provider, and pricing."""
+
+    name: str
+    provider: str
+    pricing: tuple[float, float]  # (input $/1M tokens, output $/1M tokens)
+
+
 # Using three distinct models so the cost breakdown chart shows a nice distribution.
-_DEMO_MODELS = ("gpt-5.2", "claude-sonnet-4-5", "gemini-3-pro")
-_MODEL_PRICING: dict[str, tuple[float, float]] = {
-    # (input $/1M tokens, output $/1M tokens)
-    "gpt-5.2": (1.75, 14.00),
-    "claude-sonnet-4-5": (3.00, 15.00),
-    "gemini-3-pro": (2.00, 12.00),
-}
+GPT_5_2 = _Model(name="gpt-5.2", provider="openai", pricing=(1.75, 14.00))
+CLAUDE_SONNET_4_5 = _Model(name="claude-sonnet-4-5", provider="anthropic", pricing=(3.00, 15.00))
+GEMINI_3_PRO = _Model(name="gemini-3-pro", provider="google", pricing=(2.00, 12.00))
+
+_DEMO_MODELS = (GPT_5_2, CLAUDE_SONNET_4_5, GEMINI_3_PRO)
 
 
-def _compute_cost(model: str, prompt_tokens: int, completion_tokens: int) -> dict[str, float]:
+def _compute_cost(model: _Model, prompt_tokens: int, completion_tokens: int) -> dict[str, float]:
     """Compute synthetic cost using approximate per-model pricing."""
-    input_rate, output_rate = _MODEL_PRICING[model]
+    input_rate, output_rate = model.pricing
     input_cost = prompt_tokens * input_rate / 1_000_000
     output_cost = completion_tokens * output_rate / 1_000_000
     return {
@@ -275,7 +282,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         retrieve.set_outputs({"documents": docs})
         retrieve.end(end_time_ns=retrieve_end)
 
-        model = "gpt-5.2"
+        model = GPT_5_2
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -286,7 +293,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "user", "content": trace_def.query},
                 ],
                 "context": docs,
-                "model": model,
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
@@ -294,7 +301,8 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
-                SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
                 SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
@@ -343,7 +351,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
             tool_span.end(end_time_ns=tool_start + tool_duration // len(trace_def.tools))
             tool_start += tool_duration // len(trace_def.tools) + 1000
 
-        model = "claude-sonnet-4-5"
+        model = CLAUDE_SONNET_4_5
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -354,7 +362,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "user", "content": trace_def.query},
                 ],
                 "tool_results": [t.output for t in trace_def.tools],
-                "model": model,
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
@@ -362,7 +370,8 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
-                SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
                 SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
@@ -442,7 +451,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
         render.set_outputs({"rendered_prompt": rendered_prompt})
         render.end(end_time_ns=render_end)
 
-        model = "gemini-3-pro"
+        model = GEMINI_3_PRO
         llm = mlflow.start_span_no_context(
             name="generate_response",
             span_type=SpanType.LLM,
@@ -451,7 +460,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                 "messages": [
                     {"role": "user", "content": rendered_prompt},
                 ],
-                "model": model,
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
@@ -459,7 +468,8 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
-                SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
                 SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,
@@ -633,7 +643,7 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     {"role": "system", "content": "You are an MLflow assistant."},
                     {"role": "user", "content": trace_def.query},
                 ],
-                "model": model,
+                "model": model.name,
             },
             attributes={
                 SpanAttributeKey.CHAT_USAGE: {
@@ -641,7 +651,8 @@ class TracesDemoGenerator(BaseDemoGenerator):
                     "output_tokens": completion_tokens,
                     "total_tokens": prompt_tokens + completion_tokens,
                 },
-                SpanAttributeKey.MODEL: model,
+                SpanAttributeKey.MODEL: model.name,
+                SpanAttributeKey.MODEL_PROVIDER: model.provider,
                 SpanAttributeKey.LLM_COST: _compute_cost(model, prompt_tokens, completion_tokens),
             },
             start_time_ns=llm_start,

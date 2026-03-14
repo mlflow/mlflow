@@ -22,6 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { invalidateMlflowSearchTracesCache } from '../hooks/invalidateMlflowSearchTracesCache';
 import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import { isEvaluatingTracesInDetailsViewEnabled } from '../FeatureUtils';
+import { INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE } from '../constants';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -136,7 +137,11 @@ export const AssessmentsPaneFeedbackSection = ({
   traceId: string;
   sessionId?: string;
 }) => {
-  const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
+  const visibleFeedbacks = useMemo(
+    () => feedbacks.filter((f) => f.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE),
+    [feedbacks],
+  );
+  const groupedFeedbacks = useMemo(() => groupFeedbacks(visibleFeedbacks), [visibleFeedbacks]);
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
 
@@ -206,7 +211,7 @@ export const AssessmentsPaneFeedbackSection = ({
             defaultMessage="Feedback"
             description="Label for the feedback section in the assessments pane"
           />{' '}
-          {!isEmpty(groupedFeedbacks) && <>({feedbacks?.length})</>}
+          {!isEmpty(groupedFeedbacks) && <>({visibleFeedbacks.length})</>}
         </Typography.Text>
       </div>
 
@@ -292,10 +297,17 @@ export const AssessmentsPaneFeedbackSection = ({
           }}
         >
           <Typography.Hint>
-            <FormattedMessage
-              defaultMessage="Add custom feedback to this trace."
-              description="Hint message prompting user to add new feedback"
-            />{' '}
+            {sessionId ? (
+              <FormattedMessage
+                defaultMessage="Add custom feedback to this session."
+                description="Hint message prompting user to add new feedback to a session"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Add custom feedback to this trace."
+                description="Hint message prompting user to add new feedback to a trace"
+              />
+            )}{' '}
             <Typography.Link
               componentId="shared.model-trace-explorer.feedback-learn-more-link"
               openInNewTab

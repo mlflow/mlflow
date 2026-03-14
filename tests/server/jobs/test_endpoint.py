@@ -146,7 +146,7 @@ def test_job_submit(client: Client):
         job_name="simple_job_fun",
         params={"x": 3, "y": 4},
     )["job_id"]
-    job_json = client.wait_job(job_id)
+    job_json = client.wait_job(job_id, timeout=30)
     job_json.pop("creation_time")
     job_json.pop("last_update_time")
     assert job_json == {

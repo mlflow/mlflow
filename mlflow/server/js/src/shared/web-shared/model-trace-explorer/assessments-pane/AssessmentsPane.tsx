@@ -6,11 +6,17 @@ import { FormattedMessage } from '@databricks/i18n';
 
 import { ASSESSMENT_PANE_MIN_WIDTH } from './AssessmentsPane.utils';
 import { isEvaluatingTracesInDetailsViewEnabled, shouldUseTracesV4API } from '../FeatureUtils';
-import type { Assessment } from '../ModelTrace.types';
+import type {
+  Assessment,
+  ExpectationAssessment,
+  FeedbackAssessment,
+  IssueReferenceAssessment,
+} from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
 import { AssessmentsPaneExpectationsSection } from './AssessmentsPaneExpectationsSection';
 import { AssessmentsPaneFeedbackSection } from './AssessmentsPaneFeedbackSection';
+import { AssessmentsPaneIssuesSection } from './AssessmentsPaneIssuesSection';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 
 export const AssessmentsPane = ({
@@ -47,10 +53,25 @@ export const AssessmentsPane = ({
 
   const { theme } = useDesignSystemTheme();
   const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
-  const [feedbacks, expectations] = useMemo(
-    () => partition(allAssessments, (assessment) => 'feedback' in assessment),
-    [allAssessments],
-  );
+
+  const { feedbacks, expectations, issues } = useMemo(() => {
+    const feedbacks: FeedbackAssessment[] = [];
+    const expectations: ExpectationAssessment[] = [];
+    const issues: IssueReferenceAssessment[] = [];
+
+    for (const assessment of allAssessments) {
+      if ('feedback' in assessment) {
+        feedbacks.push(assessment);
+      } else if ('issue' in assessment) {
+        issues.push(assessment);
+      } else if ('expectation' in assessment) {
+        expectations.push(assessment);
+      }
+    }
+
+    return { feedbacks, expectations, issues };
+  }, [allAssessments]);
+
   const runJudgeConfiguration = useModelTraceExplorerRunJudgesContext();
 
   return (
@@ -108,7 +129,18 @@ export const AssessmentsPane = ({
         sessionId={sessionId}
       />
       <Spacer size="sm" shrinks={false} />
-      <AssessmentsPaneExpectationsSection expectations={expectations} activeSpanId={activeSpanId} traceId={traceId} />
+      <AssessmentsPaneExpectationsSection
+        expectations={expectations}
+        activeSpanId={activeSpanId}
+        traceId={traceId}
+        sessionId={sessionId}
+      />
+      {issues.length > 0 && (
+        <>
+          <Spacer size="sm" shrinks={false} />
+          <AssessmentsPaneIssuesSection issues={issues} />
+        </>
+      )}
     </div>
   );
 };

@@ -235,9 +235,7 @@ multiple_models = mlflow.search_logged_models(
 )
 
 # Exclude specific model
-not_svm = mlflow.search_logged_models(
-    experiment_ids=["1"], filter_string="name != 'SVM_model_4'"
-)
+not_svm = mlflow.search_logged_models(experiment_ids=["1"], filter_string="name != 'SVM_model_4'")
 ```
 
 ### 4 - Searching By Model Attributes
@@ -413,9 +411,7 @@ best_model = mlflow.search_logged_models(
     output_format="list",
 )[0]
 
-accuracy_metric = next(
-    (metric for metric in best_model.metrics if metric.key == "accuracy"), None
-)
+accuracy_metric = next((metric for metric in best_model.metrics if metric.key == "accuracy"), None)
 print(f"Model ID: {best_model.model_id}, Accuracy: {accuracy_metric.value}")
 ```
 

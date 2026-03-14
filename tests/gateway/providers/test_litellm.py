@@ -539,9 +539,10 @@ async def test_passthrough_gemini_stream_generate_content():
             "contents": [{"parts": [{"text": "Generate something"}]}],
         }
 
-        result = provider._passthrough_gemini_stream_generate_content(
-            {"model": "claude-3-5-sonnet-20241022", **payload}
-        )
+        result = provider._passthrough_gemini_stream_generate_content({
+            "model": "claude-3-5-sonnet-20241022",
+            **payload,
+        })
 
         chunks = [chunk async for chunk in result]
         assert len(chunks) == 2
