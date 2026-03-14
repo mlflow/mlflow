@@ -18,6 +18,9 @@ if TYPE_CHECKING:
 
 _logger = logging.getLogger(__name__)
 
+# Timeout in seconds for atexit cleanup to prevent indefinite hangs.
+_AT_EXIT_TIMEOUT_SECONDS = 30
+
 
 class AsyncArtifactsLoggingQueue:
     """
@@ -46,14 +49,27 @@ class AsyncArtifactsLoggingQueue:
 
         Stops the data processing thread and waits for the queue to be drained. Finally, shuts down
         the thread pools used for data logging and artifact processing status check.
+
+        Uses timeouts to prevent indefinite hangs when worker threads are blocked
+        on network I/O or other operations during process exit.
         """
         try:
             # Stop the data processing thread
             self._stop_data_logging_thread_event.set()
             # Waits till logging queue is drained.
-            self._artifact_logging_thread.join()
-            self._artifact_logging_worker_threadpool.shutdown(wait=True)
-            self._artifact_status_check_threadpool.shutdown(wait=True)
+            self._artifact_logging_thread.join(timeout=_AT_EXIT_TIMEOUT_SECONDS)
+            if self._artifact_logging_thread.is_alive():
+                _logger.warning(
+                    "Artifact logging thread did not finish within %s seconds during exit. "
+                    "Some artifacts may not have been logged.",
+                    _AT_EXIT_TIMEOUT_SECONDS,
+                )
+            self._artifact_logging_worker_threadpool.shutdown(
+                wait=True, cancel_futures=True
+            )
+            self._artifact_status_check_threadpool.shutdown(
+                wait=True, cancel_futures=True
+            )
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
 
