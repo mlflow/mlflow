@@ -86,7 +86,11 @@ class TraceJSONEncoder(json.JSONEncoder):
         if is_dataclass(obj):
             try:
                 return asdict(obj)
-            except TypeError:
+            except Exception:
+                # asdict() internally calls copy.deepcopy() on non-dataclass fields,
+                # which can raise various exceptions (TypeError, RuntimeError,
+                # AttributeError, etc.) when encountering non-copyable objects
+                # such as asyncio HTTP clients or locks.
                 pass
 
         # Some object has dangerous side effect in __str__ method, so we use class name instead.
