@@ -191,18 +191,22 @@ class PyFuncBackend(FlavorBackend):
         local_uri = path_to_local_file_uri(local_path)
 
         if self._env_manager != em.LOCAL:
+            # On Windows, shlex.quote wraps values in single quotes which
+            # cmd.exe does not strip, causing 'path' to be passed literally
+            # (including the quotes) and breaking file operations.
+            _quote = str if is_windows() else shlex.quote
             predict_cmd = [
                 "python",
                 _mlflow_pyfunc_backend_predict.__file__,
                 "--model-uri",
                 str(local_uri),
                 "--content-type",
-                shlex.quote(str(content_type)),
+                _quote(str(content_type)),
             ]
             if input_path:
-                predict_cmd += ["--input-path", shlex.quote(str(input_path))]
+                predict_cmd += ["--input-path", _quote(str(input_path))]
             if output_path:
-                predict_cmd += ["--output-path", shlex.quote(str(output_path))]
+                predict_cmd += ["--output-path", _quote(str(output_path))]
 
             if pip_requirements_override and self._env_manager == em.CONDA:
                 # Conda use = instead of == for version pinning
