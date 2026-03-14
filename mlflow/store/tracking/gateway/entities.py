@@ -3,6 +3,7 @@ from typing import Any
 
 from mlflow.entities.gateway_endpoint import (
     FallbackConfig,
+    FallbackStrategy,
     GatewayModelLinkageType,
     RoutingStrategy,
 )
@@ -46,6 +47,8 @@ class GatewayModelConfig:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "GatewayModelConfig":
+        data = {**data}
+        data["linkage_type"] = GatewayModelLinkageType(data["linkage_type"])
         return cls(**data)
 
 
@@ -80,7 +83,13 @@ class GatewayEndpointConfig:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "GatewayEndpointConfig":
         data = {**data}
-        models = [GatewayModelConfig(**m) for m in data.pop("models", [])]
+        models = [GatewayModelConfig.from_dict(m) for m in data.pop("models", [])]
         fc_data = data.pop("fallback_config", None)
+        if fc_data:
+            fc_data = {**fc_data}
+            if fc_data.get("strategy"):
+                fc_data["strategy"] = FallbackStrategy(fc_data["strategy"])
         fallback = FallbackConfig(**fc_data) if fc_data else None
+        if data.get("routing_strategy"):
+            data["routing_strategy"] = RoutingStrategy(data["routing_strategy"])
         return cls(**data, models=models, fallback_config=fallback)

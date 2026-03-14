@@ -1566,8 +1566,10 @@ def test_gateway_model_config_roundtrip():
         linkage_type=GatewayModelLinkageType.FALLBACK,
         fallback_order=2,
     )
-    restored = GatewayModelConfig.from_dict(original.to_dict())
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayModelConfig.from_dict(serialized)
     assert restored == original
+    assert isinstance(restored.linkage_type, GatewayModelLinkageType)
 
 
 def test_gateway_endpoint_config_roundtrip_with_fallback():
@@ -1598,8 +1600,12 @@ def test_gateway_endpoint_config_roundtrip_with_fallback():
         ),
         experiment_id="42",
     )
-    restored = GatewayEndpointConfig.from_dict(original.to_dict())
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayEndpointConfig.from_dict(serialized)
     assert restored == original
+    assert isinstance(restored.routing_strategy, RoutingStrategy)
+    assert isinstance(restored.models[0].linkage_type, GatewayModelLinkageType)
+    assert isinstance(restored.fallback_config.strategy, FallbackStrategy)
 
 
 def test_gateway_endpoint_config_roundtrip_no_fallback():
@@ -1615,7 +1621,8 @@ def test_gateway_endpoint_config_roundtrip_no_fallback():
             ),
         ],
     )
-    restored = GatewayEndpointConfig.from_dict(original.to_dict())
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayEndpointConfig.from_dict(serialized)
     assert restored == original
 
 
@@ -1739,7 +1746,8 @@ def test_gateway_endpoint_config_roundtrip_fallback_with_none_fields():
         ],
         fallback_config=FallbackConfig(strategy=None, max_attempts=None),
     )
-    restored = GatewayEndpointConfig.from_dict(original.to_dict())
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayEndpointConfig.from_dict(serialized)
     assert restored == original
 
 
