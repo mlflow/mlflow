@@ -12727,6 +12727,45 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
     assert traces[0].data.spans[0].status.status_code == "OK"
 
 
+def test_batch_get_traces_skips_artifact_repo_traces(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_artifact_repo_traces")
+
+    # Create a trace via start_trace only (no log_spans call),
+    # so it has no SPANS_LOCATION tag — simulating spans stored in artifact repo.
+    artifact_trace_id = f"tr-{uuid.uuid4().hex}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=artifact_trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1000,
+            execution_duration=500,
+            state=TraceState.OK,
+        )
+    )
+
+    # Requesting only the artifact-repo trace should return empty
+    traces = store.batch_get_traces([artifact_trace_id])
+    assert len(traces) == 0
+
+    # Create a normal trace with spans in the tracking store
+    normal_trace_id = f"tr-{uuid.uuid4().hex}"
+    spans = [
+        create_test_span(
+            trace_id=normal_trace_id,
+            name="root_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=99999,
+        ),
+    ]
+    store.log_spans(experiment_id, spans)
+
+    # Requesting both should return only the normal trace
+    traces = store.batch_get_traces([artifact_trace_id, normal_trace_id])
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == normal_trace_id
+
+
 def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_log_spans_token_usage")
     trace_id = f"tr-{uuid.uuid4().hex}"
