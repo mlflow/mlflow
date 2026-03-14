@@ -14,6 +14,7 @@ from mlflow.mcp.server import fn_wrapper
 from mlflow.models import python_api
 from mlflow.models.cli import commands as model_commands
 from mlflow.runs import commands as run_commands
+from mlflow.utils import env_manager as _EnvManager
 
 
 def test_get_input_schema_uses_array_schema_for_repeatable_options():
@@ -185,13 +186,18 @@ def test_fn_wrapper_handles_unset_defaults(monkeypatch):
 
 
 def test_fn_wrapper_converts_repeatable_custom_types():
-    captured = {}
-
-    def fake_predict(**kwargs):
-        captured.update(kwargs)
-
-    with patch.object(python_api, "predict", fake_predict):
+    with patch.object(python_api, "predict") as mock_predict:
         wrapper = fn_wrapper(model_commands.commands["predict"])
         wrapper(model_uri="runs:/123/model", env=["FOO=bar", "BAR=baz"])
 
-    assert captured["extra_envs"] == {"FOO": "bar", "BAR": "baz"}
+    mock_predict.assert_called_once_with(
+        model_uri="runs:/123/model",
+        input_data=None,
+        input_path=None,
+        content_type=python_api._CONTENT_TYPE_JSON,
+        output_path=None,
+        env_manager=_EnvManager.VIRTUALENV,
+        install_mlflow=False,
+        pip_requirements_override=None,
+        extra_envs={"FOO": "bar", "BAR": "baz"},
+    )
