@@ -84,7 +84,7 @@ const MOCK_VERCEL_AI_TOOL_CALL_INPUT = {
   ],
 };
 
-// Mock Vercel AI output with toolCalls array
+// Mock Vercel AI output with toolCalls array (input-style)
 const MOCK_VERCEL_AI_TOOL_CALLS_OUTPUT = {
   toolCalls: [
     {
@@ -93,6 +93,18 @@ const MOCK_VERCEL_AI_TOOL_CALLS_OUTPUT = {
       toolName: 'add',
       input: '{"a":2,"b":3}',
       providerOptions: {},
+    },
+  ],
+};
+
+// Mock Vercel AI output with response-style toolCalls (args format from doGenerate)
+const MOCK_VERCEL_AI_RESPONSE_TOOL_CALLS_OUTPUT = {
+  toolCalls: [
+    {
+      toolCallType: 'function',
+      toolCallId: 'call_abc123',
+      toolName: 'get_weather',
+      args: '{"location":"San Francisco"}',
     },
   ],
 };
@@ -152,6 +164,21 @@ describe('normalizeConversation - Vercel AI', () => {
       const parsedOnce = JSON.parse(msg.tool_calls[0].function.arguments);
       const parsedTwice = JSON.parse(parsedOnce);
       expect(parsedTwice).toEqual({ a: 2, b: 3 });
+    });
+
+    it('should handle Vercel AI output with response-style toolCalls (args format)', () => {
+      const result = normalizeConversation(MOCK_VERCEL_AI_RESPONSE_TOOL_CALLS_OUTPUT, 'vercel_ai');
+      expect(result).not.toBeNull();
+      expect(result).toHaveLength(1);
+
+      const msg = result![0] as any;
+      expect(msg.role).toBe('assistant');
+      expect(msg.content).toBe('');
+      expect(Array.isArray(msg.tool_calls)).toBe(true);
+      expect(msg.tool_calls).toHaveLength(1);
+      expect(msg.tool_calls[0].id).toBe('call_abc123');
+      expect(msg.tool_calls[0].function.name).toBe('get_weather');
+      expect(JSON.parse(msg.tool_calls[0].function.arguments)).toEqual({ location: 'San Francisco' });
     });
   });
 

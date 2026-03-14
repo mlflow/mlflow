@@ -21,6 +21,14 @@ type VercelAIToolCall = {
   providerOptions: Record<string, any>;
 };
 
+// Response-style tool call format from Vercel AI SDK doGenerate output
+type VercelAIResponseToolCall = {
+  toolCallType: string;
+  toolCallId: string;
+  toolName: string;
+  args: string | Record<string, any>;
+};
+
 type VercelAIToolCallResult = {
   type: 'tool-result';
   toolCallId: string;
@@ -51,9 +59,9 @@ const isVercelAIContentPart = (obj: unknown): obj is VercelAIContentPart => {
     return isString(typedObj.image);
   }
 
-  if (isVercelAIToolCall(obj)) return true;
+  if (isVercelAIToolCall(obj) || isVercelAIResponseToolCall(obj)) return true;
 
-  if (typedObj.type === 'tool-result' && has(obj, 'output')) {
+  if (typedObj.type === 'tool-result' && (has(obj, 'output') || has(obj, 'result'))) {
     return true;
   }
 
@@ -66,6 +74,14 @@ const isVercelAIToolCall = (obj: unknown): obj is VercelAIToolCall => {
   }
 
   return has(obj, 'toolCallId') && has(obj, 'toolName') && has(obj, 'input');
+};
+
+const isVercelAIResponseToolCall = (obj: unknown): obj is VercelAIResponseToolCall => {
+  if (!isObject(obj)) {
+    return false;
+  }
+
+  return has(obj, 'toolCallId') && has(obj, 'toolName') && has(obj, 'args');
 };
 
 const isVercelAIMessage = (obj: unknown): obj is VercelAIMessage => {
@@ -91,7 +107,7 @@ const isVercelAIMessage = (obj: unknown): obj is VercelAIMessage => {
   return hasContent;
 };
 
-const normalizeVercelAIContentPart = (item: VercelAIContentPart): ModelTraceContentParts => {
+const normalizeVercelAIContentPart = (item: any): ModelTraceContentParts => {
   switch (item.type) {
     case 'text': {
       return { type: 'text', text: item.text };
@@ -103,13 +119,16 @@ const normalizeVercelAIContentPart = (item: VercelAIContentPart): ModelTraceCont
       return { type: 'text', text: '' };
     }
     case 'tool-result': {
-      return { type: 'text', text: JSON.stringify(item.output) };
+      return { type: 'text', text: JSON.stringify(item.output ?? item.result) };
     }
   }
+  return { type: 'text', text: '' };
 };
 
 const extractToolCalls = (content: VercelAIContentPart[]): ModelTraceToolCall[] => {
-  return content.filter((item) => item.type === 'tool-call').map(processVercelAIToolCall);
+  return content
+    .filter((item) => item.type === 'tool-call')
+    .map((item) => (isVercelAIToolCall(item) ? processVercelAIToolCall(item) : processVercelAIResponseToolCall(item)));
 };
 
 const processVercelAIMessage = (message: VercelAIMessage): ModelTraceChatMessage | null => {
@@ -145,6 +164,17 @@ const processVercelAIToolCall = (toolCall: VercelAIToolCall): ModelTraceToolCall
     },
   };
 };
+
+const processVercelAIResponseToolCall = (toolCall: VercelAIResponseToolCall): ModelTraceToolCall => {
+  return {
+    id: toolCall.toolCallId,
+    function: {
+      name: toolCall.toolName,
+      arguments: typeof toolCall.args === 'string' ? toolCall.args : JSON.stringify(toolCall.args),
+    },
+  };
+};
+
 /**
  * Normalize Vercel AI chat input format (generateText.doGenerate)
  */
@@ -182,15 +212,27 @@ export const normalizeVercelAIChatOutput = (obj: unknown): ModelTraceChatMessage
     ]);
   }
 
-  if (has(obj, 'toolCalls') && isArray(typedObj.toolCalls) && typedObj.toolCalls.every(isVercelAIToolCall)) {
-    return compact([
-      prettyPrintChatMessage({
-        type: 'message',
-        content: '',
-        role: 'assistant',
-        tool_calls: compact(typedObj.toolCalls.map(processVercelAIToolCall)),
-      }),
-    ]);
+  if (has(obj, 'toolCalls') && isArray(typedObj.toolCalls)) {
+    if (typedObj.toolCalls.every(isVercelAIToolCall)) {
+      return compact([
+        prettyPrintChatMessage({
+          type: 'message',
+          content: '',
+          role: 'assistant',
+          tool_calls: compact(typedObj.toolCalls.map(processVercelAIToolCall)),
+        }),
+      ]);
+    }
+    if (typedObj.toolCalls.every(isVercelAIResponseToolCall)) {
+      return compact([
+        prettyPrintChatMessage({
+          type: 'message',
+          content: '',
+          role: 'assistant',
+          tool_calls: compact(typedObj.toolCalls.map(processVercelAIResponseToolCall)),
+        }),
+      ]);
+    }
   }
 
   return null;
