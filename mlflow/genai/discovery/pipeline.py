@@ -57,7 +57,6 @@ from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -436,8 +435,6 @@ def build_issue_discovery_scorer(
     )
 
 
-# TODO: Add telemetry for this API
-@experimental(version="3.11.0")
 def discover_issues(
     experiment_id: str | None = None,
     traces: list[Trace] | None = None,
@@ -475,23 +472,6 @@ def discover_issues(
     Returns:
         A :class:`DiscoverIssuesResult` with discovered issues, run IDs,
         and a summary report.
-
-    Example:
-
-        .. code-block:: python
-
-            import mlflow
-
-            # Option 1: Auto-sample from experiment
-            mlflow.set_experiment("my-genai-app")
-            result = mlflow.genai.discover_issues()
-
-            # Option 2: Pass traces directly
-            traces = mlflow.search_traces(max_results=100, return_type="list")
-            result = mlflow.genai.discover_issues(traces=traces)
-
-            for issue in result.issues:
-                print(f"{issue.name} (severity: {issue.severity})")
     """
     pipeline_start = time.time()
     token_counter = _TokenCounter()
