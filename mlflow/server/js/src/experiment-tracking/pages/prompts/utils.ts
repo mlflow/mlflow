@@ -40,6 +40,10 @@ export const MODEL_CONFIG_FIELD_LABELS: Record<Exclude<keyof PromptModelConfig, 
 
 // Query parameter name for specifying prompt version in URLs
 export const PROMPT_VERSION_QUERY_PARAM = 'promptVersion';
+// Query parameter name for specifying view mode in URLs
+export const PROMPT_VIEW_MODE_QUERY_PARAM = 'viewMode';
+// Query parameter name for specifying compared version in URLs
+export const PROMPT_COMPARED_VERSION_QUERY_PARAM = 'comparedVersion';
 
 export type PromptsTableMetadata = {
   onEditTags: (editedEntity: RegisteredPrompt) => void;
