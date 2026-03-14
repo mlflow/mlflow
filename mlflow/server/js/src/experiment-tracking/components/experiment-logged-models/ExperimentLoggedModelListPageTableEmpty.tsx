@@ -178,7 +178,7 @@ export const ExperimentLoggedModelListPageTableEmpty = ({
           <Typography.Title level={3} color="secondary">
             {isGenAIExperiment ? (
               <FormattedMessage
-                defaultMessage="Track and compare versions of your GenAI app"
+                defaultMessage="Track and compare versions of your Agent or LLM Application"
                 description="Empty state title displayed when no models are logged in the genai logged models list page"
               />
             ) : (
@@ -191,7 +191,7 @@ export const ExperimentLoggedModelListPageTableEmpty = ({
           <Typography.Paragraph color="secondary" css={{ textAlign: 'center' }}>
             {isGenAIExperiment ? (
               <FormattedMessage
-                defaultMessage="Track every version of your app's code and prompts to understand how quality changes over time. {learnMoreLink}"
+                defaultMessage="Track every version of your agent's or LLM application's code and prompts to understand how quality changes over time. {learnMoreLink}"
                 description="Empty state description displayed when no models are logged in the genai logged models list page"
                 values={{
                   learnMoreLink: (

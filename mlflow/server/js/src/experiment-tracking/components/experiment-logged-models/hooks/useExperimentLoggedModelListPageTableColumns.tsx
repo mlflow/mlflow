@@ -197,6 +197,7 @@ export const useExperimentLoggedModelListPageTableColumns = ({
   orderByColumn,
   orderByAsc,
   isLoading,
+  isAgent = false,
 }: {
   loggedModels?: LoggedModelProto[];
   columnVisibility?: Record<string, boolean>;
@@ -207,6 +208,7 @@ export const useExperimentLoggedModelListPageTableColumns = ({
   orderByColumn?: string;
   orderByAsc?: boolean;
   isLoading?: boolean;
+  isAgent?: boolean;
 }) => {
   const datasetMetricGroups = useMemo(() => extractMetricGroups(loggedModels), [loggedModels]);
 
@@ -257,10 +259,15 @@ export const useExperimentLoggedModelListPageTableColumns = ({
           width: 60,
         },
         {
-          headerName: intl.formatMessage({
-            defaultMessage: 'Model name',
-            description: 'Header title for the model name column in the logged model list table',
-          }),
+          headerName: isAgent
+            ? intl.formatMessage({
+                defaultMessage: 'Agent name',
+                description: 'Header title for the agent name column in the logged agent list table',
+              })
+            : intl.formatMessage({
+                defaultMessage: 'Model name',
+                description: 'Header title for the model name column in the logged model list table',
+              }),
           colId: ExperimentLoggedModelListPageKnownColumns.Name,
           cellRenderer: ExperimentLoggedModelTableNameCell,
           cellClass: ({ data }: { data: LoggedModelsTableRow }) => {
@@ -315,10 +322,15 @@ export const useExperimentLoggedModelListPageTableColumns = ({
           resizable: true,
         },
         {
-          headerName: intl.formatMessage({
-            defaultMessage: 'Registered models',
-            description: 'Header title for the registered models column in the logged model list table',
-          }),
+          headerName: isAgent
+            ? intl.formatMessage({
+                defaultMessage: 'Registered agents',
+                description: 'Header title for the registered agents column in the logged agent list table',
+              })
+            : intl.formatMessage({
+                defaultMessage: 'Registered models',
+                description: 'Header title for the registered models column in the logged model list table',
+              }),
           colId: ExperimentLoggedModelListPageKnownColumns.RegisteredModels,
           cellRenderer: ExperimentLoggedModelTableRegisteredModelsCell,
           resizable: true,
@@ -338,10 +350,15 @@ export const useExperimentLoggedModelListPageTableColumns = ({
       const columnDefs: ColGroupDef[] = [
         {
           groupId: 'attributes',
-          headerName: intl.formatMessage({
-            defaultMessage: 'Model attributes',
-            description: 'Header title for the model attributes section of the logged model list table',
-          }),
+          headerName: isAgent
+            ? intl.formatMessage({
+                defaultMessage: 'Agent attributes',
+                description: 'Header title for the agent attributes section of the logged agent list table',
+              })
+            : intl.formatMessage({
+                defaultMessage: 'Model attributes',
+                description: 'Header title for the model attributes section of the logged model list table',
+              }),
           children: attributeColumns.filter((column) => {
             // Exclude registered models column when unified logged models feature is enabled
             if (
@@ -431,10 +448,15 @@ export const useExperimentLoggedModelListPageTableColumns = ({
           flex: undefined,
         },
         {
-          headerName: intl.formatMessage({
-            defaultMessage: 'Model name',
-            description: 'Header title for the model name column in the logged model list table',
-          }),
+          headerName: isAgent
+            ? intl.formatMessage({
+                defaultMessage: 'Agent name',
+                description: 'Header title for the agent name column in the logged agent list table',
+              })
+            : intl.formatMessage({
+                defaultMessage: 'Model name',
+                description: 'Header title for the model name column in the logged model list table',
+              }),
           colId: ExperimentLoggedModelListPageKnownColumns.Name,
           cellRenderer: ExperimentLoggedModelTableNameCell,
           resizable: true,
@@ -444,7 +466,7 @@ export const useExperimentLoggedModelListPageTableColumns = ({
 
       return { columnDefs, compactColumnDefs };
     },
-    [datasetMetricGroups, parameterKeys, supportedAttributeColumnKeys],
+    [datasetMetricGroups, parameterKeys, supportedAttributeColumnKeys, isAgent],
     // Do not recreate column definitions if logged models are being loaded, e.g. due to changing sort order
     isLoading,
   );

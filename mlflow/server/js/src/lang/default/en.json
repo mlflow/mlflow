@@ -327,6 +327,10 @@
     "defaultMessage": "or",
     "description": "Divider between model list and custom input"
   },
+  "0/jxzg": {
+    "defaultMessage": "Agent name",
+    "description": "Header title for the agent name column in the logged agent list table"
+  },
   "02+DX/": {
     "defaultMessage": "Provider cannot be changed.",
     "description": "Tooltip explaining why provider field is disabled"
@@ -3293,10 +3297,6 @@
   "KADUUT": {
     "defaultMessage": "Model parameters",
     "description": "Experiment page > new run modal > served LLM model parameters label"
-  },
-  "KB62p3": {
-    "defaultMessage": "Track every version of your app's code and prompts to understand how quality changes over time. {learnMoreLink}",
-    "description": "Empty state description displayed when no models are logged in the genai logged models list page"
   },
   "KDxbQI": {
     "defaultMessage": "An error occurred while rendering the trace",
@@ -6665,6 +6665,10 @@
     "defaultMessage": "The retrieval sufficiency LLM judge determines whether the retrieved context is sufficient to generate the expected response.",
     "description": "Evaluation results > known type of evaluation result assessment > retrieval sufficiency judge."
   },
+  "fx6Jz4": {
+    "defaultMessage": "Registered agents",
+    "description": "Header title for the registered agents column in the logged agent list table"
+  },
   "fyVs2o": {
     "defaultMessage": "Examples:",
     "description": "Text header for examples of logged models search syntax"
@@ -7044,6 +7048,10 @@
     "defaultMessage": "State",
     "description": "Filtering label to filter experiments based on state of active or deleted"
   },
+  "iMEClS": {
+    "defaultMessage": "Track every version of your agent's or LLM application's code and prompts to understand how quality changes over time. {learnMoreLink}",
+    "description": "Empty state description displayed when no models are logged in the genai logged models list page"
+  },
   "iN/n6b": {
     "defaultMessage": "Auth Type",
     "description": "Auth type label"
@@ -7155,6 +7163,10 @@
   "izS5yQ": {
     "defaultMessage": "Learn more",
     "description": "Learn more link text"
+  },
+  "j/7jb4": {
+    "defaultMessage": "Track and compare versions of your Agent or LLM Application",
+    "description": "Empty state title displayed when no models are logged in the genai logged models list page"
   },
   "j/pJM6": {
     "defaultMessage": "Last Modified",
@@ -8310,10 +8322,6 @@
   "qNaoD5": {
     "defaultMessage": "Cannot be changed after creation.",
     "description": "Hint text for Name section"
-  },
-  "qNtagt": {
-    "defaultMessage": "Track and compare versions of your GenAI app",
-    "description": "Empty state title displayed when no models are logged in the genai logged models list page"
   },
   "qR3llD": {
     "defaultMessage": "Max tokens",
@@ -9597,6 +9605,10 @@
   "z42Rsj": {
     "defaultMessage": "Source run",
     "description": "Label for the column indicating a run being the source of the logged model's metric (i.e. source run). Displayed in the logged model details metrics table."
+  },
+  "z5YXTa": {
+    "defaultMessage": "Agent attributes",
+    "description": "Header title for the agent attributes section of the logged agent list table"
   },
   "z6qX4/": {
     "defaultMessage": "This endpoint may have been deleted",
