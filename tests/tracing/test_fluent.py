@@ -2884,6 +2884,40 @@ def test_tracing_context_injects_metadata_and_tags():
     assert "session" not in trace.info.request_metadata
 
 
+def test_tracing_context_session_id_and_user():
+    with mlflow.tracing.context(session_id="sess-123", user="user-456"):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.request_metadata["mlflow.trace.session"] == "sess-123"
+    assert trace.info.request_metadata["mlflow.trace.user"] == "user-456"
+
+    # session_id and user can coexist with explicit metadata
+    with mlflow.tracing.context(
+        session_id="sess-abc",
+        user="user-xyz",
+        metadata={"custom_key": "custom_value"},
+    ):
+        my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace.info.request_metadata["mlflow.trace.session"] == "sess-abc"
+    assert trace.info.request_metadata["mlflow.trace.user"] == "user-xyz"
+    assert trace.info.request_metadata["custom_key"] == "custom_value"
+
+
+def test_tracing_context_session_id_and_user_nesting():
+    with mlflow.tracing.context(session_id="outer-sess", user="outer-user"):
+        with mlflow.tracing.context(session_id="inner-sess"):
+            my_func()
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    # Inner session_id overrides outer
+    assert trace.info.request_metadata["mlflow.trace.session"] == "inner-sess"
+    # Outer user is inherited
+    assert trace.info.request_metadata["mlflow.trace.user"] == "outer-user"
+
+
 def test_tracing_context_nesting_merges():
     with mlflow.tracing.context(
         metadata={"outer_key": "outer_val", "shared": "outer"},
