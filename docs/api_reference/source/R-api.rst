@@ -1817,7 +1817,8 @@ Wrapper for ``mlflow server``.
 .. code:: r
 
    mlflow_server(
-     file_store = "mlruns",
+     backend_store_uri = NULL,
+     file_store = NULL,
      default_artifact_root = NULL,
      host = "127.0.0.1",
      port = 5000,
@@ -1834,8 +1835,12 @@ Arguments
 +-------------------------------+--------------------------------------+
 | Argument                      | Description                          |
 +===============================+======================================+
-| ``file_store``                | The root of the backing file store   |
-|                               | for experiment and run data.         |
+| ``backend_store_uri``         | The URI for the backend store (e.g., |
+|                               | ‘sqlite:///path/to/mlflow.db’ or a   |
+|                               | file path).                          |
++-------------------------------+--------------------------------------+
+| ``file_store``                | (Deprecated) Use backend_store_uri   |
+|                               | instead.                             |
 +-------------------------------+--------------------------------------+
 | ``default_artifact_root``     | Local or S3 URI to store artifacts   |
 |                               | in, for newly created experiments.   |

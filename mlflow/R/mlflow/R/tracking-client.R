@@ -76,17 +76,33 @@ print.mlflow_host_creds <- function(x, ...) {
 }
 
 new_mlflow_client.mlflow_file <- function(tracking_uri) {
+  warning("File store backend is deprecated. Please use SQLite: sqlite:///path/to/mlflow.db")
   path <- tracking_uri$path
   server_url <- if (!is.null(mlflow_local_server(path)$server_url)) {
     mlflow_local_server(path)$server_url
   } else {
-    local_server <- mlflow_server(file_store = path, port = mlflow_connect_port())
+    local_server <- mlflow_server(backend_store_uri = path, port = mlflow_connect_port())
     mlflow_register_local_server(tracking_uri = path, local_server = local_server)
     local_server$server_url
   }
   new_mlflow_client_impl(get_host_creds = function () {
     new_mlflow_host_creds(host = server_url)
   }, class = "mlflow_file_client")
+}
+
+new_mlflow_client.mlflow_sqlite <- function(tracking_uri) {
+  # Reconstruct full URI: sqlite:// + path
+  sqlite_uri <- paste0("sqlite://", tracking_uri$path)
+  server_url <- if (!is.null(mlflow_local_server(sqlite_uri)$server_url)) {
+    mlflow_local_server(sqlite_uri)$server_url
+  } else {
+    local_server <- mlflow_server(backend_store_uri = sqlite_uri, port = mlflow_connect_port())
+    mlflow_register_local_server(tracking_uri = sqlite_uri, local_server = local_server)
+    local_server$server_url
+  }
+  new_mlflow_client_impl(get_host_creds = function () {
+    new_mlflow_host_creds(host = server_url)
+  }, class = "mlflow_sqlite_client")
 }
 
 new_mlflow_client.default <- function(tracking_uri) {
@@ -150,6 +166,6 @@ new_mlflow_client.mlflow_https <- function(tracking_uri) {
 mlflow_client <- function(tracking_uri = NULL) {
   tracking_uri <- new_mlflow_uri(tracking_uri %||% mlflow_get_tracking_uri())
   client <- new_mlflow_client(tracking_uri)
-  if (inherits(client, "mlflow_file_client")) mlflow_validate_server(client)
+  if (inherits(client, c("mlflow_file_client", "mlflow_sqlite_client"))) mlflow_validate_server(client)
   client
 }
