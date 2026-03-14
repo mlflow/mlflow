@@ -6,9 +6,14 @@ import { useLocalStorage } from '../../hooks/useLocalStorage';
 import { useColumnsURL } from './useColumnsURL';
 import {
   EXECUTION_DURATION_COLUMN_ID,
+  LOGGED_MODEL_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
+  RUN_NAME_COLUMN_ID,
   SOURCE_COLUMN_ID,
   STATE_COLUMN_ID,
+  TAGS_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
+  USER_COLUMN_ID,
 } from './useTableColumns';
 import { shouldEnableTracesTableStatePersistence } from '../../model-trace-explorer/FeatureUtils';
 import type { TracesTableColumn } from '../types';
@@ -35,20 +40,54 @@ const toHiddenColumnsFromVisibleColumns = (visibleColumns: TracesTableColumn[], 
   return allColumns.filter((col) => !visibleColumns.includes(col)).map((col) => col.id);
 };
 
-// This function adjusts the hidden columns to ensure that the number of visible columns is at most DEFAULT_MAX_VISIBLE_COLUMNS
-// If over the limit, it removes assessment columns until the limit is met.
+// Low-priority info columns that are hidden before assessment columns when the number of
+// visible columns exceeds DEFAULT_MAX_VISIBLE_COLUMNS. Assessment columns are prioritized
+// over these columns because they are the primary reason users view the traces table.
+// These columns are informational/metadata and less critical for evaluation workflows:
+// - tags: supplementary metadata
+// - prompt (linked prompts): supplementary context
+// - logged_model: version info, less relevant during evaluation
+// - run_name: run provenance, not directly relevant to evaluation results
+// - user: session metadata, not directly relevant to evaluation results
+const LOW_PRIORITY_COLUMN_IDS = [
+  TAGS_COLUMN_ID,
+  LINKED_PROMPTS_COLUMN_ID,
+  LOGGED_MODEL_COLUMN_ID,
+  RUN_NAME_COLUMN_ID,
+  USER_COLUMN_ID,
+];
+
+// This function adjusts the hidden columns to ensure that the number of visible columns is at most DEFAULT_MAX_VISIBLE_COLUMNS.
+// If over the limit, it removes low-priority info columns first, then assessment columns, then high-priority columns.
 const adjustHiddenColumns = (hiddenColumns: string[], allColumns: TracesTableColumn[]): string[] => {
   let visibleColumns = toVisibleColumnsFromHiddenColumns(hiddenColumns, allColumns);
   if (visibleColumns.length > DEFAULT_MAX_VISIBLE_COLUMNS) {
     const assessmentColumns = visibleColumns.filter((col) => col.type === TracesTableColumnType.ASSESSMENT);
-    const nonAssessmentColumns = visibleColumns.filter((col) => col.type !== TracesTableColumnType.ASSESSMENT);
+    const lowPriorityColumns = visibleColumns.filter(
+      (col) => col.type !== TracesTableColumnType.ASSESSMENT && LOW_PRIORITY_COLUMN_IDS.includes(col.id),
+    );
+    const highPriorityColumns = visibleColumns.filter(
+      (col) => col.type !== TracesTableColumnType.ASSESSMENT && !LOW_PRIORITY_COLUMN_IDS.includes(col.id),
+    );
 
-    // Calculate how many assessment columns we need to remove
-    const columnsToRemove = visibleColumns.length - DEFAULT_MAX_VISIBLE_COLUMNS;
+    let columnsToRemove = visibleColumns.length - DEFAULT_MAX_VISIBLE_COLUMNS;
+
+    // First remove low-priority info columns to make room for assessment columns
+    const lowPriorityToKeep = Math.max(0, lowPriorityColumns.length - columnsToRemove);
+    columnsToRemove = Math.max(0, columnsToRemove - lowPriorityColumns.length);
+
+    // If still over limit, remove assessment columns from the tail
     const assessmentColumnsToKeep = Math.max(0, assessmentColumns.length - columnsToRemove);
+    columnsToRemove = Math.max(0, columnsToRemove - assessmentColumns.length);
 
-    // Keep the first N assessment columns and all non-assessment columns
-    visibleColumns = [...nonAssessmentColumns, ...assessmentColumns.slice(0, assessmentColumnsToKeep)];
+    // If still over limit, trim high-priority columns as a last resort
+    const highPriorityToKeep = Math.max(0, highPriorityColumns.length - columnsToRemove);
+
+    visibleColumns = [
+      ...highPriorityColumns.slice(0, highPriorityToKeep),
+      ...lowPriorityColumns.slice(0, lowPriorityToKeep),
+      ...assessmentColumns.slice(0, assessmentColumnsToKeep),
+    ];
   }
   return toHiddenColumnsFromVisibleColumns(visibleColumns, allColumns);
 };
