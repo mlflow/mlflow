@@ -12,7 +12,7 @@ import os
 import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
-from typing import Any, Generator, Iterator
+from typing import Any, Generator, Iterator, overload
 
 import cloudpickle
 import pandas as pd
@@ -213,8 +213,17 @@ class PythonModel:
         else:
             cls.predict._is_pyfunc = True
 
-    @abstractmethod
-    def predict(self, context, model_input, params: dict[str, Any] | None = None):
+    @overload
+    def predict(
+        self, context: Any, model_input: Any, params: dict[str, Any] | None = None
+    ) -> Any: ...
+
+    @overload
+    def predict(
+        self, model_input: Any, params: dict[str, Any] | None = None
+    ) -> Any: ...
+
+    def predict(self, *args: Any, **kwargs: Any) -> Any:
         """
         Evaluates a pyfunc-compatible input and produces a pyfunc-compatible output.
         For more information about the pyfunc input/output API, see the :ref:`pyfunc-inference-api`.
@@ -230,7 +239,17 @@ class PythonModel:
             signature if it's not used. `def predict(self, model_input, params=None)` is valid.
         """
 
-    def predict_stream(self, context, model_input, params: dict[str, Any] | None = None):
+    @overload
+    def predict_stream(
+        self, context: Any, model_input: Any, params: dict[str, Any] | None = None
+    ) -> Any: ...
+
+    @overload
+    def predict_stream(
+        self, model_input: Any, params: dict[str, Any] | None = None
+    ) -> Any: ...
+
+    def predict_stream(self, *args: Any, **kwargs: Any) -> Any:
         """
         Evaluates a pyfunc-compatible input and produces an iterator of output.
         For more information about the pyfunc input API, see the :ref:`pyfunc-inference-api`.
