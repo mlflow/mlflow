@@ -11,10 +11,7 @@ import { FormattedMessage } from 'react-intl';
 import { useExperimentLoggedModelRegisteredVersions } from '../../../../experiment-logged-models/hooks/useExperimentLoggedModelRegisteredVersions';
 import { isEmpty, uniqBy, values } from 'lodash';
 import { isUCModelName } from '../../../../../utils/IsUCModelName';
-import {
-  shouldUnifyLoggedModelsAndRegisteredModels,
-  shouldUseGetLoggedModelsBatchAPI,
-} from '../../../../../../common/utils/FeatureUtils';
+import { shouldUnifyLoggedModelsAndRegisteredModels } from '../../../../../../common/utils/FeatureUtils';
 
 const EMPTY_CELL_PLACEHOLDER = '-';
 
@@ -195,10 +192,9 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
 
   // We create a map of registered model versions by their source logged model.
   // This allows to unfurl logged model to registered model versions while hiding the original logged model.
+  // Always build this map (not just when GetLoggedModelsBatchAPI is used) so registered models
+  // display consistently on Runs page vs Models page regardless of navigation path (fixes #20671).
   const registeredModelVersionsByLoggedModel = useMemo(() => {
-    if (!shouldUseGetLoggedModelsBatchAPI()) {
-      return {};
-    }
     const map: Record<string, CombinedModelType[]> = {};
     registeredModelVersions.forEach((modelVersion) => {
       const loggedModelId = modelVersion.sourceLoggedModel?.info?.model_id;

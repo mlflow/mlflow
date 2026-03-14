@@ -425,7 +425,9 @@ describe('ModelsCellRenderer', () => {
     expect(screen.queryByText('LoggedModelV3')).not.toBeInTheDocument();
   });
 
-  test('should not unfurl logged models into registered models when feature flag is off', async () => {
+  test('unfurls logged models into registered models regardless of GetLoggedModelsBatchAPI feature flag', async () => {
+    // Fix #20671: registered models should display consistently on Runs page vs Models page
+    // regardless of navigation path. Previously this only worked when the flag was true (Databricks).
     jest.mocked(shouldUseGetLoggedModelsBatchAPI).mockReturnValue(false);
 
     const loggedModelV3: LoggedModelProto = {
@@ -462,8 +464,10 @@ describe('ModelsCellRenderer', () => {
       },
     });
 
-    expect(screen.getByText('LoggedModelV3')).toBeInTheDocument();
-    // We should not see the "+" button since there are no additional models
-    expect(screen.queryByRole('button', { name: /\+\d/ })).not.toBeInTheDocument();
+    // Registered versions should be shown consistently (fixes #20671)
+    await userEvent.click(screen.getByText('+1'));
+    expect(getLinkByTextContent('RegisteredModel v1')).toBeInTheDocument();
+    expect(getLinkByTextContent('RegisteredModel v2')).toBeInTheDocument();
+    expect(screen.queryByText('LoggedModelV3')).not.toBeInTheDocument();
   });
 });

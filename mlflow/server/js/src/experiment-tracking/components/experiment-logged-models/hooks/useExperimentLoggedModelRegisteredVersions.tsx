@@ -10,18 +10,51 @@ const getUCModelUrl = (name: string, version: string) =>
   `/explore/data/models/${name.replace(/\./g, '/')}/version/${version}`;
 const getWMRModelUrl = (name: string, version: string) => createMLflowRoutePath(`/models/${name}/versions/${version}`);
 
-const getTagValueForModel = (loggedModel: LoggedModelProto): { name: string; version: string }[] | null => {
+type RegisteredModelEntry = { name: string; version: string };
+
+const getTagValueForModel = (loggedModel: LoggedModelProto): RegisteredModelEntry[] | null => {
   try {
     const tagValue = loggedModel.info?.tags?.find((tag) => tag.key === MODEL_VERSIONS_TAG_NAME)?.value;
 
     if (tagValue) {
       // Try to parse the tag. If it's malformed, catch and return nothing.
-      return JSON.parse(tagValue);
+      const parsed = JSON.parse(tagValue) as { name: string; version: string | number }[];
+      return (Array.isArray(parsed) ? parsed : []).map((entry) => ({
+        name: String(entry?.name ?? ''),
+        version: String(entry?.version ?? ''),
+      }));
     }
   } catch (e) {
     return null;
   }
   return null;
+};
+
+/**
+ * Extracts registered model versions from a logged model.
+ * Uses both `registrations` (from API) and `mlflow.modelVersions` tag for consistent display
+ * across Runs page, Models page, and Run details - fixing inconsistent display when navigating
+ * between pages (see https://github.com/mlflow/mlflow/issues/20671).
+ */
+const getRegisteredModelVersionsForLoggedModel = (loggedModel: LoggedModelProto): RegisteredModelEntry[] => {
+  const fromRegistrations =
+    loggedModel.info?.registrations?.map((r) => ({
+      name: String(r?.name ?? ''),
+      version: String(r?.version ?? ''),
+    })) ?? [];
+  const fromTags = getTagValueForModel(loggedModel) ?? [];
+
+  // Merge both sources, deduplicating by name+version (registrations take precedence)
+  const seen = new Set<string>();
+  const result: RegisteredModelEntry[] = [];
+  for (const entry of [...fromRegistrations, ...fromTags]) {
+    if (!entry.name) continue;
+    const key = `${entry.name}:${entry.version}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(entry);
+  }
+  return result;
 };
 
 // Hook for ACL checking logic
@@ -72,10 +105,10 @@ export const useExperimentLoggedModelRegisteredVersions = ({
   loggedModels: LoggedModelProto[];
   checkAcl?: boolean;
 }): UseExperimentLoggedModelRegisteredVersionsResult => {
-  // Combined useMemo for parsing tags and creating model versions
+  // Combined useMemo for parsing tags/registrations and creating model versions
   const { modelVersions, ucModels } = useMemo(() => {
     const modelVersions = loggedModels.flatMap((loggedModel) => {
-      const modelVersionsInTag = getTagValueForModel(loggedModel) ?? [];
+      const modelVersionsInTag = getRegisteredModelVersionsForLoggedModel(loggedModel);
       return modelVersionsInTag.map((registeredModelEntry) => {
         const isUCModel = isUCModelName(registeredModelEntry.name);
         const getUrlFn = isUCModel ? getUCModelUrl : getWMRModelUrl;
