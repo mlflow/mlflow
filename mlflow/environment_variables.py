@@ -893,6 +893,28 @@ MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTION
 #: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
 
+#: Whether to enable TCP keepalive on HTTP connections. When enabled, keepalive probes detect
+#: stale/dead connections faster than waiting for the default TCP timeout (e.g., 120 seconds).
+#: (default: ``True``)
+MLFLOW_HTTP_TCP_KEEPALIVE = _BooleanEnvironmentVariable("MLFLOW_HTTP_TCP_KEEPALIVE", True)
+
+#: Time in seconds a connection must be idle before TCP keepalive probes are sent.
+#: Only effective when ``MLFLOW_HTTP_TCP_KEEPALIVE`` is enabled.
+#: (default: ``30``)
+MLFLOW_HTTP_TCP_KEEPALIVE_IDLE = _EnvironmentVariable("MLFLOW_HTTP_TCP_KEEPALIVE_IDLE", int, 30)
+
+#: Interval in seconds between TCP keepalive probes.
+#: Only effective when ``MLFLOW_HTTP_TCP_KEEPALIVE`` is enabled.
+#: (default: ``10``)
+MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL", int, 10
+)
+
+#: Number of failed TCP keepalive probes before the connection is considered dead.
+#: Only effective when ``MLFLOW_HTTP_TCP_KEEPALIVE`` is enabled.
+#: (default: ``3``)
+MLFLOW_HTTP_TCP_KEEPALIVE_COUNT = _EnvironmentVariable("MLFLOW_HTTP_TCP_KEEPALIVE_COUNT", int, 3)
+
 #: (Deprecated) Enable Unity Catalog integration for MLflow AI Gateway.
 #: This feature is deprecated and will be removed in a future release.
 #: (default: ``False``)

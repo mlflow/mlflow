@@ -3,6 +3,7 @@
 # Importing mlflow is time-consuming and we want to avoid that in artifact download subprocesses.
 import os
 import random
+import socket
 from functools import lru_cache
 
 import requests
@@ -10,6 +11,7 @@ import urllib3
 from packaging.version import Version
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
+from urllib3.connection import HTTPConnection
 from urllib3.util import Retry
 
 # Response codes that generally indicate transient network failures and merit client retries,
@@ -23,6 +25,56 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset([
     503,  # Service Unavailable
     504,  # Gateway Timeout
 ])
+
+
+def _build_socket_options() -> list[tuple[int, int, int]]:
+    """Returns socket options with TCP keepalive enabled.
+
+    Reads configuration from MLFLOW_HTTP_TCP_KEEPALIVE_* environment variables.
+    """
+    from mlflow.environment_variables import (
+        MLFLOW_HTTP_TCP_KEEPALIVE,
+        MLFLOW_HTTP_TCP_KEEPALIVE_COUNT,
+        MLFLOW_HTTP_TCP_KEEPALIVE_IDLE,
+        MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL,
+    )
+
+    socket_options = list(HTTPConnection.default_socket_options or [])
+
+    if not MLFLOW_HTTP_TCP_KEEPALIVE.get():
+        return socket_options
+
+    idle = MLFLOW_HTTP_TCP_KEEPALIVE_IDLE.get()
+    interval = MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL.get()
+    count = MLFLOW_HTTP_TCP_KEEPALIVE_COUNT.get()
+
+    socket_options.append((socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1))
+
+    # TCP_KEEPIDLE (Linux) vs TCP_KEEPALIVE (macOS/BSD) for idle time before first probe
+    if hasattr(socket, "TCP_KEEPIDLE"):
+        socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, idle))
+    elif hasattr(socket, "TCP_KEEPALIVE"):
+        socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPALIVE, idle))
+
+    if hasattr(socket, "TCP_KEEPINTVL"):
+        socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval))
+
+    if hasattr(socket, "TCP_KEEPCNT"):
+        socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPCNT, count))
+
+    return socket_options
+
+
+class TCPKeepAliveHTTPAdapter(HTTPAdapter):
+    """HTTPAdapter with TCP keepalive enabled to detect stale/dead connections faster."""
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs["socket_options"] = _build_socket_options()
+        super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        proxy_kwargs.setdefault("socket_options", _build_socket_options())
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
 
 
 class JitteredRetry(Retry):
@@ -140,7 +192,7 @@ def _cached_get_request_session(
         MLFLOW_HTTP_POOL_MAXSIZE,
     )
 
-    adapter = HTTPAdapter(
+    adapter = TCPKeepAliveHTTPAdapter(
         pool_connections=MLFLOW_HTTP_POOL_CONNECTIONS.get(),
         pool_maxsize=MLFLOW_HTTP_POOL_MAXSIZE.get(),
         max_retries=retry,
