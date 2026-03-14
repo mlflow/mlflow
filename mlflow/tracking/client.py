@@ -3487,6 +3487,8 @@ class MlflowClient:
             extra_columns: Optional list of extra columns to add to the returned DataFrame
                 For example, if extra_columns=["run_id"], then the returned DataFrame
                 will have a column named run_id.
+            max_workers: The maximum number of thread workers to use for downloading 
+                artifacts in parallel. Defaults to 10.
 
         Returns:
             pandas.DataFrame containing the loaded table if the artifact exists
@@ -3600,7 +3602,7 @@ class MlflowClient:
             return existing_predictions
 
         if not runs.empty:
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="load_table_worker") as executor:
                 futures = [executor.submit(get_artifact_data, run) for _, run in runs.iterrows()]
                 results = [f.result() for f in futures]
 
