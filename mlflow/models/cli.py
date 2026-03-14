@@ -1,7 +1,9 @@
 import logging
+import os
 
 import click
 
+from mlflow.cli import _validate_static_prefix
 from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.models import python_api
 from mlflow.models.flavor_backend_registry import get_flavor_backend
@@ -33,6 +35,15 @@ def commands():
 @cli_args.NO_CONDA
 @cli_args.INSTALL_MLFLOW
 @cli_args.ENABLE_MLSERVER
+@click.option(
+    "--static-prefix",
+    envvar="MLFLOW_STATIC_PREFIX",
+    default=None,
+    callback=_validate_static_prefix,
+    help="A prefix which will be prepended to the path of all routes. "
+    "Not supported with MLServer (ENABLE_MLSERVER=true). "
+    "Example: --static-prefix /api/v1",
+)
 def serve(
     model_uri,
     port,
@@ -43,6 +54,7 @@ def serve(
     no_conda=False,
     install_mlflow=False,
     enable_mlserver=False,
+    static_prefix=None,
 ):
     """
     Serve a model saved with MLflow by launching a webserver on the specified host and port.
@@ -100,6 +112,9 @@ def serve(
 
     """
     env_manager = _EnvManager.LOCAL if no_conda else env_manager
+
+    if static_prefix:
+        os.environ["MLFLOW_STATIC_PREFIX"] = static_prefix
 
     return get_flavor_backend(
         model_uri, env_manager=env_manager, workers=workers, install_mlflow=install_mlflow
