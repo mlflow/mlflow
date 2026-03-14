@@ -15,7 +15,51 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
   getAjaxUrl: (url: string) => url,
 }));
 
+// Mock useGetExperimentQuery to avoid Apollo client dependency
+const mockUseGetExperimentQuery = jest.fn<() => { data: unknown; loading: boolean }>(() => ({
+  data: undefined,
+  loading: false,
+}));
+jest.mock('../../hooks/useExperimentQuery', () => ({
+  useGetExperimentQuery: () => mockUseGetExperimentQuery(),
+}));
+
+// Mock useSearchMlflowTraces for demo experiment time range detection
+const mockUseSearchMlflowTraces = jest.fn<() => { data: unknown[]; isLoading: boolean }>(() => ({
+  data: [],
+  isLoading: false,
+}));
+jest.mock('@databricks/web-shared/genai-traces-table', () => ({
+  useSearchMlflowTraces: () => mockUseSearchMlflowTraces(),
+  REQUEST_TIME_COLUMN_ID: 'request_time',
+  TracesTableColumnType: { TRACE_INFO: 'TRACE_INFO' },
+  invalidateMlflowSearchTracesCache: jest.fn(),
+  SEARCH_MLFLOW_TRACES_QUERY_KEY: 'search-mlflow-traces',
+}));
+
 const mockFetchOrFail = jest.mocked(fetchOrFail);
+
+// Demo experiment mock data (has mlflow.demo.version.* tag)
+const createDemoExperimentMock = () => ({
+  experimentId: 'test-experiment-456',
+  name: 'Demo Experiment',
+  artifactLocation: '/artifacts',
+  creationTime: Date.now().toString(),
+  lastUpdateTime: Date.now().toString(),
+  lifecycleStage: 'active',
+  tags: [{ key: 'mlflow.demo.version.traces', value: '1' }],
+});
+
+// Regular experiment mock data (no demo tags)
+const createRegularExperimentMock = () => ({
+  experimentId: 'test-experiment-456',
+  name: 'Regular Experiment',
+  artifactLocation: '/artifacts',
+  creationTime: Date.now().toString(),
+  lastUpdateTime: Date.now().toString(),
+  lifecycleStage: 'active',
+  tags: [],
+});
 
 describe('ExperimentGenAIOverviewPage', () => {
   const { history } = setupTestRouter();
@@ -51,6 +95,10 @@ describe('ExperimentGenAIOverviewPage', () => {
     mockFetchOrFail.mockResolvedValue({
       json: () => Promise.resolve({ data_points: [] }),
     } as Response);
+    // Default mock for useGetExperimentQuery to return undefined (non-demo experiment)
+    mockUseGetExperimentQuery.mockReturnValue({ data: undefined, loading: false });
+    // Default mock for useSearchMlflowTraces to return empty data
+    mockUseSearchMlflowTraces.mockReturnValue({ data: [], isLoading: false });
   });
 
   describe('page rendering', () => {
@@ -201,6 +249,71 @@ describe('ExperimentGenAIOverviewPage', () => {
         const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
         expect(callBody.start_time_ms).toEqual(expect.any(Number));
         expect(callBody.end_time_ms).toEqual(expect.any(Number));
+      });
+    });
+
+    it('should set custom time range based on actual trace data for demo experiments', async () => {
+      // Mock trace data with specific timestamps (oldest trace 10 days ago, newest 5 days ago)
+      const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+      const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+
+      const mockTraces = [
+        { request_time: fiveDaysAgo, trace_id: 'trace-1' }, // newest (first in desc order)
+        { request_time: tenDaysAgo, trace_id: 'trace-2' }, // oldest (last in desc order)
+      ];
+
+      // Mock to return a demo experiment
+      mockUseGetExperimentQuery.mockReturnValue({
+        data: createDemoExperimentMock(),
+        loading: false,
+      });
+
+      // Mock to return traces with specific timestamps
+      mockUseSearchMlflowTraces.mockReturnValue({
+        data: mockTraces,
+        isLoading: false,
+      });
+
+      renderComponent();
+
+      // For demo experiments, the time range should be updated to a custom range
+      // based on actual trace timestamps
+      await waitFor(() => {
+        const dateSelector = screen.getByTestId('time-range-select-dropdown');
+        expect(dateSelector).toHaveTextContent(/Custom/i);
+      });
+
+      // Verify that API calls use the custom time range based on trace data
+      await waitFor(() => {
+        const calls = mockFetchOrFail.mock.calls;
+        expect(calls.length).toBeGreaterThan(0);
+
+        // Get the last call which should have the custom range
+        const lastCallBody = JSON.parse((calls[calls.length - 1]?.[1] as any)?.body || '{}');
+
+        // The start time should be close to the oldest trace (10 days ago)
+        const tenDaysAgoMs = Date.now() - 10 * 24 * 60 * 60 * 1000;
+        expect(lastCallBody.start_time_ms).toBeGreaterThanOrEqual(tenDaysAgoMs - 60000);
+        expect(lastCallBody.start_time_ms).toBeLessThanOrEqual(tenDaysAgoMs + 60000);
+      });
+    });
+
+    it('should respect explicit URL time range even for demo experiments', async () => {
+      // Mock to return a demo experiment
+      mockUseGetExperimentQuery.mockReturnValue({
+        data: createDemoExperimentMock(),
+        loading: false,
+      });
+
+      // Explicitly set time range to LAST_7_DAYS in URL
+      const urlWithParams = `/experiments/${testExperimentId}/overview/usage?startTimeLabel=LAST_7_DAYS`;
+
+      renderComponent(urlWithParams);
+
+      // Even for demo experiments, explicit URL param should be respected
+      await waitFor(() => {
+        const dateSelector = screen.getByTestId('time-range-select-dropdown');
+        expect(dateSelector).toHaveTextContent(/7 days/i);
       });
     });
   });

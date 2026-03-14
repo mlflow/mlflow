@@ -31,6 +31,7 @@ import { TIME_UNIT_SECONDS, calculateDefaultTimeUnit, isTimeUnitValid } from './
 import { generateTimeBuckets } from './utils/chartUtils';
 import { OverviewChartProvider } from './OverviewChartContext';
 import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
+import { useDemoExperimentTimeRange } from './hooks/useDemoExperimentTimeRange';
 
 const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
@@ -40,6 +41,9 @@ const ExperimentGenAIOverviewPageImpl = () => {
   const isFileStore = useIsFileStore();
 
   invariant(experimentId, 'Experiment ID must be defined');
+
+  // For demo experiments, automatically set time range based on actual trace data
+  useDemoExperimentTimeRange(experimentId);
 
   // Get the current time range from monitoring filters
   const [monitoringFilters, setMonitoringFilters] = useMonitoringFilters();
