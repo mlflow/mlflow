@@ -26,6 +26,7 @@ export const ExperimentSingleChatConversation = ({
   setSelectedTrace,
   chatRefs,
   getAssessmentTitle,
+  onAssessmentClick,
 }: {
   traces: ModelTrace[];
   selectedTurnIndex: number | null;
@@ -33,6 +34,7 @@ export const ExperimentSingleChatConversation = ({
   setSelectedTrace?: (trace: ModelTrace) => void;
   chatRefs?: MutableRefObject<{ [traceId: string]: HTMLDivElement }>;
   getAssessmentTitle: (assessmentName: string) => string;
+  onAssessmentClick?: (trace: ModelTrace, assessmentId: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -116,6 +118,9 @@ export const ExperimentSingleChatConversation = ({
                   trace={trace}
                   getAssessmentTitle={getAssessmentTitle}
                   onAddAssessmentsClick={setSelectedTrace ? () => setSelectedTrace(trace) : undefined}
+                  onAssessmentClick={
+                    onAssessmentClick ? (assessmentId) => onAssessmentClick(trace, assessmentId) : undefined
+                  }
                 />
               </>
             )}

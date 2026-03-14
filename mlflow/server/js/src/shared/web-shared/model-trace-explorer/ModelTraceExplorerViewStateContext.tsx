@@ -90,6 +90,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   isTraceInitialLoading = false,
   children,
   readOnly = false,
+  initialHighlightedAssessmentId,
 }: {
   modelTrace: ModelTrace;
   initialActiveView?: 'summary' | 'detail';
@@ -99,6 +100,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   initialAssessmentsPaneCollapsed?: boolean | 'force-open';
   isTraceInitialLoading?: boolean;
   readOnly?: boolean;
+  initialHighlightedAssessmentId?: string;
 }) => {
   const topLevelNodes = useMemo(() => parseModelTraceToTreeWithMultipleRoots(modelTrace), [modelTrace]);
   const rootNode = topLevelNodes.length === 1 ? topLevelNodes[0] : null;
@@ -163,7 +165,7 @@ export const ModelTraceExplorerViewStateProvider = ({
     [preferences],
   );
 
-  const pendingHighlightRef = useRef<string | null>(null);
+  const pendingHighlightRef = useRef<string | null>(initialHighlightedAssessmentId ?? null);
   const highlightListenersRef = useRef<Map<string, Set<() => void>>>(new Map());
 
   const subscribeToHighlightEvent = useCallback((assessmentId: string, callback: () => void) => {
