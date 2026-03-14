@@ -24,6 +24,7 @@ type AnthropicThinkingBlock = {
 };
 
 type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock | AnthropicThinkingBlock;
+// These types are handled at runtime via a catch-all that renders them as [type] text placeholders.
 // | RedactedThinkingBlock
 // | ServerToolUseBlock
 // | WebSearchToolResultBlock;
@@ -39,6 +40,7 @@ type AnthropicContentBlockParam =
   | AnthropicToolUseBlockParam
   | AnthropicToolResultBlockParam
   | AnthropicThinkingBlock;
+// These types are handled at runtime via a catch-all that renders them as [type] text placeholders.
 // | DocumentBlockParam
 // | RedactedThinkingBlockParam
 // | ServerToolUseBlockParam
@@ -160,6 +162,12 @@ const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBloc
     if (obj.type === 'thinking' && has(obj, 'thinking') && isString(obj.thinking)) {
       return true;
     }
+
+    // Accept any block with a string type — unknown types will be rendered
+    // as text placeholders rather than rejecting the entire message.
+    if (isString(obj.type)) {
+      return true;
+    }
   }
   return false;
 };
@@ -196,7 +204,9 @@ const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): 
       }
     }
   }
-  throw new Error(`Unsupported content block type: ${(item as any).type}`);
+  // Fallback for unrecognized content block types — return a text placeholder
+  // instead of throwing so the Chat tab degrades gracefully.
+  return { type: 'text', text: `[${(item as any).type}]` };
 };
 
 const processAnthropicMessageContent = (
@@ -241,6 +251,9 @@ const processAnthropicMessageContent = (
       }
     } else if (item.type === 'thinking') {
       thinkingParts.push((item as any).thinking);
+    } else {
+      // Unknown/unsupported content block — render as text placeholder
+      textParts.push({ type: 'text', text: `[${(item as any).type}]` });
     }
   }
 

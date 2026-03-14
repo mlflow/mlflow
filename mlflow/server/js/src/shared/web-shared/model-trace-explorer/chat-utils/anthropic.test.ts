@@ -145,4 +145,101 @@ describe('normalizeConversation', () => {
       expect(result?.[0]).not.toHaveProperty('reasoning');
     });
   });
+
+  describe('Unsupported content block handling', () => {
+    it('renders redacted_thinking blocks as text placeholders in inputs', () => {
+      const input = {
+        messages: [
+          { role: 'user', content: 'Think carefully.' },
+          {
+            role: 'assistant',
+            content: [
+              { type: 'thinking', thinking: 'Deep thought...' },
+              { type: 'redacted_thinking', data: 'base64encodeddata' },
+              { type: 'text', text: 'My answer.' },
+            ],
+          },
+          { role: 'user', content: 'Continue.' },
+        ],
+      };
+      const result = normalizeConversation(input, 'anthropic');
+      expect(result).not.toBeNull();
+      // The assistant message should contain the placeholder and preserve thinking
+      expect(result).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            role: 'assistant',
+            content: expect.stringContaining('[redacted_thinking]'),
+            reasoning: 'Deep thought...',
+          }),
+        ]),
+      );
+    });
+
+    it('renders document blocks as text placeholders in inputs', () => {
+      const input = {
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: 'pdfdata' } },
+              { type: 'text', text: 'Summarize this.' },
+            ],
+          },
+        ],
+      };
+      const result = normalizeConversation(input, 'anthropic');
+      expect(result).not.toBeNull();
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'user',
+          content: expect.stringContaining('[document]'),
+        }),
+      ]);
+    });
+
+    it('renders unsupported blocks as text placeholders in outputs', () => {
+      const output = {
+        id: 'msg_test',
+        type: 'message',
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: 'Let me think...' },
+          { type: 'redacted_thinking', data: 'base64sig' },
+          { type: 'text', text: 'Here is my answer.' },
+        ],
+      };
+      const result = normalizeConversation(output, 'anthropic');
+      expect(result).not.toBeNull();
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'assistant',
+          content: expect.stringContaining('[redacted_thinking]'),
+          reasoning: 'Let me think...',
+        }),
+      ]);
+    });
+
+    it('handles arbitrary unknown block types gracefully', () => {
+      const input = {
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'some_future_type', data: 'whatever' },
+              { type: 'text', text: 'Hello' },
+            ],
+          },
+        ],
+      };
+      const result = normalizeConversation(input, 'anthropic');
+      expect(result).not.toBeNull();
+      expect(result).toEqual([
+        expect.objectContaining({
+          role: 'user',
+          content: expect.stringContaining('[some_future_type]'),
+        }),
+      ]);
+    });
+  });
 });

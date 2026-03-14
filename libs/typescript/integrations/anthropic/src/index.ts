@@ -17,6 +17,140 @@ const SUPPORTED_MODULES = ['Messages'];
 const SUPPORTED_METHODS = ['create', 'stream'];
 
 /**
+ * Content block types that the MLflow UI's Anthropic chat normalizer supports.
+ * Any other types (e.g. `redacted_thinking`, `document`) cause the normalizer
+ * to reject the entire message, which prevents the Chat tab from rendering.
+ */
+const MLFLOW_UI_SUPPORTED_CONTENT_TYPES = new Set([
+  'text',
+  'image',
+  'tool_use',
+  'tool_result',
+  'thinking',
+]);
+
+/**
+ * Sanitize Anthropic API inputs for MLflow span storage.
+ * Replaces content block types not supported by the MLflow UI normalizer
+ * with text placeholders so the Chat tab renders correctly.
+ *
+ * Handles `redacted_thinking` (large base64 signatures from extended thinking)
+ * and `document` (base64 PDF data) blocks that would otherwise cause the
+ * normalizer to fail.
+ */
+function sanitizeInputsForTracing(inputs: any): any {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  if (!inputs?.messages || !Array.isArray(inputs.messages)) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return inputs;
+  }
+
+  let needsSanitization = false;
+
+  // Quick scan: check if any message has unsupported content blocks
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  for (const msg of inputs.messages as any[]) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (Array.isArray(msg.content)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      for (const block of msg.content as any[]) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (block && block.type && !MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
+          needsSanitization = true;
+          break;
+        }
+      }
+      if (needsSanitization) {
+        break;
+      }
+    }
+  }
+
+  if (!needsSanitization) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return inputs;
+  }
+
+  // Build a shallow copy with sanitized messages
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const sanitizedMessages = (inputs.messages as any[]).map((msg: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (!Array.isArray(msg.content)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return msg;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const hasUnsupported = (msg.content as any[]).some(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (block: any) =>
+        block && block.type && !MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string),
+    );
+    if (!hasUnsupported) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return msg;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const sanitizedContent = (msg.content as any[]).map((block: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (!block || !block.type || MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return block;
+      }
+      // Replace unsupported block with a text placeholder
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      return { type: 'text', text: `[${block.type as string}]` };
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return { ...msg, content: sanitizedContent };
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return { ...inputs, messages: sanitizedMessages };
+}
+
+/**
+ * Sanitize Anthropic API outputs for MLflow span storage.
+ * The output is a single message object with content blocks.
+ * Replaces unsupported content block types with text placeholders
+ * so the Chat tab renders correctly.
+ */
+function sanitizeOutputsForTracing(output: any): any {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  if (!output?.content || !Array.isArray(output.content)) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return output;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const hasUnsupported = (output.content as any[]).some(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    (block: any) =>
+      block && block.type && !MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string),
+  );
+  if (!hasUnsupported) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return output;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const sanitizedContent = (output.content as any[]).map((block: any) => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (!block || !block.type || MLFLOW_UI_SUPPORTED_CONTENT_TYPES.has(block.type as string)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return block;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    return { type: 'text', text: `[${block.type as string}]` };
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return { ...output, content: sanitizedContent };
+}
+
+/**
  * Create a traced version of Anthropic client with MLflow tracing
  * @param anthropicClient - The Anthropic client instance to trace
  * @returns Traced Anthropic client with tracing capabilities
@@ -87,11 +221,11 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return withSpan(
       async (span: LiveSpan) => {
-        span.setInputs(args[0]);
+        span.setInputs(sanitizeInputsForTracing(args[0]));
 
         const result = await fn.apply(this, args);
 
-        span.setOutputs(result);
+        span.setOutputs(sanitizeOutputsForTracing(result));
 
         try {
           const usage = extractTokenUsage(result);
@@ -137,7 +271,7 @@ function wrapStreamWithTracing(fn: Function, moduleName: string): Function {
 
     // Return a proxy that wraps the stream with tracing
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return wrapMessageStream(stream, args[0], name, spanType);
+    return wrapMessageStream(stream, sanitizeInputsForTracing(args[0]), name, spanType);
   };
 }
 
@@ -170,7 +304,7 @@ function wrapMessageStream(stream: any, inputs: any, name: string, spanType: Spa
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
               const message = await target.finalMessage();
 
-              span.setOutputs(message);
+              span.setOutputs(sanitizeOutputsForTracing(message));
 
               try {
                 const usage = extractTokenUsage(message);
@@ -266,7 +400,7 @@ async function* wrapAsyncIterator(
         }
 
         if (finalMessage !== undefined) {
-          span.setOutputs(finalMessage);
+          span.setOutputs(sanitizeOutputsForTracing(finalMessage));
 
           const usage = extractTokenUsage(finalMessage);
           if (usage) {
