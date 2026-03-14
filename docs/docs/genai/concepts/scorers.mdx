@@ -135,7 +135,7 @@ def retrieve_user_history(user_id: str):
 @mlflow.trace(span_type=SpanType.LLM)
 def generate_response(query: str, context: list, history: dict):
     # Simulate LLM generation
-    return f"Based on context about '{query}': MLflow is an open-source AI engineering platform."
+    return f"Based on context about '{query}': MLflow is an open-source AI engineering platform for agents and LLMs."
 
 
 @mlflow.trace(span_type=SpanType.AGENT)
@@ -176,7 +176,7 @@ correctness_judge = make_judge(
 # Example usage
 feedback = correctness_judge(
     inputs={"question": "What is MLflow?"},
-    outputs={"response": "MLflow is an open-source AI engineering platform."},
+    outputs={"response": "MLflow is an open-source AI engineering platform for agents and LLMs."},
 )
 print(f"Correctness: {feedback.value}")
 ```
@@ -333,8 +333,8 @@ import pandas as pd
 test_data = pd.DataFrame([
     {
         "inputs": {"question": "What is MLflow?"},
-        "outputs": {"response": "MLflow is an open-source AI engineering platform."},
-        "expectations": {"ground_truth": "MLflow is an open-source AI engineering platform"},
+        "outputs": {"response": "MLflow is an open-source AI engineering platform for agents and LLMs."},
+        "expectations": {"ground_truth": "MLflow is an open-source AI engineering platform for agents and LLMs"},
     },
     {
         "inputs": {"question": "How do I track experiments?"},
