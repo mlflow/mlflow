@@ -4648,7 +4648,7 @@ __metadata:
     jest-canvas-mock: "npm:^2.2.0"
     jest-localstorage-mock: "npm:^2.3.0"
     js-yaml: "npm:^3.14.0"
-    json-bigint: "databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658"
+    json-bigint: "npm:^1.0.0"
     knip: "npm:^5.30.2"
     leaflet: "npm:^1.5.1"
     lodash: "npm:^4.17.21"
@@ -11939,10 +11939,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"bignumber.js@npm:^4.0.0":
-  version: 4.1.0
-  resolution: "bignumber.js@npm:4.1.0"
-  checksum: 10c0/cb97804781f85a1c64044c3a2cf63ef90ef75201ca119dbb4cba663b7e5bc5f6e3f1f1d117e6a92e9e84bb0e0138970ebc25c5ec8132e103de66f39fa38af313
+"bignumber.js@npm:^9.0.0":
+  version: 9.3.1
+  resolution: "bignumber.js@npm:9.3.1"
+  checksum: 10c0/61342ba5fe1c10887f0ecf5be02ff6709271481aff48631f86b4d37d55a99b87ce441cfd54df3d16d10ee07ceab7e272fc0be430c657ffafbbbf7b7d631efb75
   languageName: node
   linkType: hard
 
@@ -22551,12 +22551,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"json-bigint@databricks/json-bigint#a1defaf9cd8dd749f0fd4d5f83a22cd846789658":
-  version: 0.2.3
-  resolution: "json-bigint@https://github.com/databricks/json-bigint.git#commit=a1defaf9cd8dd749f0fd4d5f83a22cd846789658"
+"json-bigint@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "json-bigint@npm:1.0.0"
   dependencies:
-    bignumber.js: "npm:^4.0.0"
-  checksum: 10c0/97d1587be2ff0e610e66b97319c7a9d0a9f340f624189f42cce9b92f4e016762cb097e14e9140185f67e8eae5573873536e29135dfb69fe823e0acbb61a318e8
+    bignumber.js: "npm:^9.0.0"
+  checksum: 10c0/e3f34e43be3284b573ea150a3890c92f06d54d8ded72894556357946aeed9877fd795f62f37fe16509af189fd314ab1104d0fd0f163746ad231b9f378f5b33f4
   languageName: node
   linkType: hard
 
