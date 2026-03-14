@@ -2137,6 +2137,154 @@ def test_field_based_template_extracts_missing_fields_from_trace(
     assert "Trace output" in user_message
 
 
+def _create_otel_trace_without_root_inputs_outputs(
+    root_inputs=None, root_outputs=None, child_inputs=None, child_outputs=None
+):
+    """Create a trace simulating OTel-based traces where root span lacks inputs/outputs."""
+    root_attributes = {
+        "mlflow.spanType": json.dumps(SpanType.CHAIN),
+    }
+    if root_inputs is not None:
+        root_attributes["mlflow.spanInputs"] = json.dumps(root_inputs)
+    if root_outputs is not None:
+        root_attributes["mlflow.spanOutputs"] = json.dumps(root_outputs)
+
+    root_span = Span(
+        OTelReadableSpan(
+            name="root_span",
+            context=build_otel_context(trace_id=999999, span_id=1),
+            parent=None,
+            start_time=100000000,
+            end_time=200000000,
+            attributes=root_attributes,
+        )
+    )
+
+    child_span = Span(
+        OTelReadableSpan(
+            name="llm_call",
+            context=build_otel_context(trace_id=999999, span_id=2),
+            parent=build_otel_context(trace_id=999999, span_id=1),
+            start_time=110000000,
+            end_time=190000000,
+            attributes={
+                "mlflow.spanType": json.dumps(SpanType.LLM),
+                "mlflow.spanInputs": json.dumps(child_inputs or {"prompt": "What is MLflow?"}),
+                "mlflow.spanOutputs": json.dumps(
+                    child_outputs or {"text": "MLflow is an ML platform."}
+                ),
+            },
+        )
+    )
+
+    trace_info = TraceInfo(
+        trace_id="otel-trace-no-root-io",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1234567890,
+        execution_duration=1000,
+        state=TraceState.OK,
+        trace_metadata={"mlflow.trace_schema.version": "2"},
+        tags={
+            "mlflow.traceName": "otel_trace",
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+        },
+    )
+    return Trace(info=trace_info, data=TraceData(spans=[root_span, child_span]))
+
+
+def test_fallback_to_agentic_mode_when_trace_missing_inputs_outputs(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trace = _create_otel_trace_without_root_inputs_outputs()
+
+    # Should NOT raise "Must specify 'inputs', 'outputs'" error
+    result = judge(trace=trace)
+    assert isinstance(result, Feedback)
+
+    # Verify agentic mode was used (trace passed to invoke_judge_model)
+    captured = mock_invoke_judge_model.captured_args
+    assert captured["trace"] is trace
+    assert "analyze a trace" in captured["prompt"][0].content.lower()
+
+
+def test_fallback_with_partial_data(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trace = _create_otel_trace_without_root_inputs_outputs(
+        root_inputs={"question": "What is MLflow?"},
+        root_outputs=None,
+    )
+
+    result = judge(trace=trace)
+    assert isinstance(result, Feedback)
+
+    # Verify agentic mode was used
+    captured = mock_invoke_judge_model.captured_args
+    assert captured["trace"] is trace
+
+    # Verify the resolved inputs are included in the user message
+    user_message = captured["prompt"][1].content
+    assert "What is MLflow?" in user_message
+
+
+def test_no_fallback_when_no_trace():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    with pytest.raises(MlflowException, match="Must specify 'inputs', 'outputs'"):
+        judge()
+
+
+def test_no_fallback_when_trace_has_root_data(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trace = _create_otel_trace_without_root_inputs_outputs(
+        root_inputs={"question": "What is MLflow?"},
+        root_outputs={"answer": "MLflow is great"},
+    )
+
+    result = judge(trace=trace)
+    assert isinstance(result, Feedback)
+
+    # Verify normal mode was used (trace NOT passed to invoke_judge_model)
+    captured = mock_invoke_judge_model.captured_args
+    assert captured["trace"] is None
+
+
+def test_fallback_still_validates_expectations():
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ inputs }} meets {{ expectations }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
+
+    trace = _create_otel_trace_without_root_inputs_outputs()
+
+    with pytest.raises(MlflowException, match="Must specify 'expectations'"):
+        judge(trace=trace)
+
+
 def test_trace_based_template_with_additional_inputs(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
