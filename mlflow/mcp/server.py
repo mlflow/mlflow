@@ -57,23 +57,29 @@ def get_input_schema(params: list[click.Parameter]) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     required: list[str] = []
     for p in params:
-        is_array_param = getattr(p, "multiple", False) or p.nargs == -1
+        is_array_param = p.multiple or p.nargs == -1
         item_schema = {"type": param_type_to_json_schema_type(p.type)}
         if isinstance(p.type, click.Choice):
             item_schema["enum"] = [str(choice) for choice in p.type.choices]
 
         schema = {"type": "array", "items": item_schema} if is_array_param else item_schema
-        if p.default is not None and (
-            # In click >= 8.3.0, the default value is set to `Sentinel.UNSET` when no default is
-            # provided. Skip setting the default in this case.
-            # See https://github.com/pallets/click/pull/3030 for more details.
-            not isinstance(p.default, str) and repr(p.default) != "Sentinel.UNSET"
+        if (
+            p.default is not None
+            and (
+                # In click >= 8.3.0, the default value is set to `Sentinel.UNSET` when no default is
+                # provided. Skip setting the default in this case.
+                # See https://github.com/pallets/click/pull/3030 for more details.
+                not isinstance(p.default, str) and repr(p.default) != "Sentinel.UNSET"
+            )
+            and not (is_array_param and p.required)
         ):
             schema["default"] = list(p.default) if is_array_param else p.default
         if isinstance(p, click.Option):
             schema["description"] = (p.help or "").strip()
         if p.required:
             required.append(p.name)
+            if is_array_param:
+                schema["minItems"] = 1
         properties[p.name] = schema
 
     return {
@@ -105,7 +111,7 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
             for param in command.params:
                 if (
                     param.name in kwargs
-                    and (getattr(param, "multiple", False) or param.nargs == -1)
+                    and (param.multiple or param.nargs == -1)
                     and isinstance(kwargs[param.name], list)
                 ):
                     kwargs[param.name] = tuple(

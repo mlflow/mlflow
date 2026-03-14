@@ -1,6 +1,8 @@
 import sys
 from collections.abc import AsyncIterator
+from unittest.mock import patch
 
+import click
 import pytest
 import pytest_asyncio
 from fastmcp import Client
@@ -8,6 +10,8 @@ from fastmcp.client.transports import StdioTransport
 
 import mlflow
 from mlflow.mcp import server
+from mlflow.mcp.server import fn_wrapper
+from mlflow.models import python_api
 from mlflow.models.cli import commands as model_commands
 from mlflow.runs import commands as run_commands
 
@@ -161,10 +165,6 @@ async def test_get_prompt(client: Client):
 
 
 def test_fn_wrapper_handles_unset_defaults(monkeypatch):
-    import click
-
-    from mlflow.mcp.server import fn_wrapper
-
     fake_unset = object()
     monkeypatch.setattr(click.core, "UNSET", fake_unset, raising=False)
 
@@ -184,18 +184,14 @@ def test_fn_wrapper_handles_unset_defaults(monkeypatch):
     assert "None" in result
 
 
-def test_fn_wrapper_converts_repeatable_custom_types(monkeypatch):
-    from mlflow.mcp.server import fn_wrapper
-    from mlflow.models import python_api
-
+def test_fn_wrapper_converts_repeatable_custom_types():
     captured = {}
 
     def fake_predict(**kwargs):
         captured.update(kwargs)
 
-    monkeypatch.setattr(python_api, "predict", fake_predict)
-
-    wrapper = fn_wrapper(model_commands.commands["predict"])
-    wrapper(model_uri="runs:/123/model", env=["FOO=bar", "BAR=baz"])
+    with patch.object(python_api, "predict", fake_predict):
+        wrapper = fn_wrapper(model_commands.commands["predict"])
+        wrapper(model_uri="runs:/123/model", env=["FOO=bar", "BAR=baz"])
 
     assert captured["extra_envs"] == {"FOO": "bar", "BAR": "baz"}
