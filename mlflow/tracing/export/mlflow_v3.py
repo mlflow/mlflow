@@ -204,6 +204,11 @@ class MlflowV3SpanExporter(SpanExporter):
                 returned_trace_info = self._client.start_trace(trace.info)
                 if self._should_log_spans_to_artifacts(returned_trace_info):
                     self._client._upload_trace_data(returned_trace_info, trace.data)
+                    attachments = {}
+                    for span in trace.data.spans:
+                        attachments.update(span._attachments)
+                    if attachments:
+                        self._client._upload_attachments(returned_trace_info, attachments)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
