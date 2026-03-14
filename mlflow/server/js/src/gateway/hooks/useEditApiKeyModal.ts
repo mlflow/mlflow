@@ -59,17 +59,30 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
     [resetMutation],
   );
 
+  const selectedAuthMode = useMemo(() => {
+    if (!providerConfig?.auth_modes?.length) return undefined;
+    if (formData.authMode) {
+      return providerConfig.auth_modes.find((m) => m.mode === formData.authMode);
+    }
+    return (
+      providerConfig.auth_modes.find((m) => m.mode === providerConfig.default_mode) ?? providerConfig.auth_modes[0]
+    );
+  }, [providerConfig, formData.authMode]);
+
   const validateForm = useCallback((): boolean => {
     const newErrors: typeof errors = {};
 
-    const hasSecretValues = Object.values(formData.secretFields).some((v) => Boolean(v));
-    if (!hasSecretValues) {
-      newErrors.secretFields = {};
+    const requiredSecretFields = selectedAuthMode?.secret_fields?.filter((f) => f.required) ?? [];
+    if (requiredSecretFields.length > 0) {
+      const hasSecretValues = Object.values(formData.secretFields).some((v) => Boolean(v));
+      if (!hasSecretValues) {
+        newErrors.secretFields = {};
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData.secretFields]);
+  }, [formData.secretFields, selectedAuthMode]);
 
   const handleClose = useCallback(() => {
     setFormData(INITIAL_FORM_DATA);
@@ -91,16 +104,6 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
 
     return message;
   }, [mutationError, intl]);
-
-  const selectedAuthMode = useMemo(() => {
-    if (!providerConfig?.auth_modes?.length) return undefined;
-    if (formData.authMode) {
-      return providerConfig.auth_modes.find((m) => m.mode === formData.authMode);
-    }
-    return (
-      providerConfig.auth_modes.find((m) => m.mode === providerConfig.default_mode) ?? providerConfig.auth_modes[0]
-    );
-  }, [providerConfig, formData.authMode]);
 
   const handleSubmit = useCallback(async () => {
     if (!secret || !validateForm()) return;

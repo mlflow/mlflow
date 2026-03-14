@@ -155,11 +155,16 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
             return model.existingSecretId;
           }
 
+          const authConfig: Record<string, string> = { ...model.newSecret.configFields };
+          if (model.newSecret.authMode) {
+            authConfig['auth_mode'] = model.newSecret.authMode;
+          }
+
           const secretResponse = await createSecret({
             secret_name: model.newSecret.name,
             secret_value: model.newSecret.secretFields,
             provider: model.provider,
-            auth_config: model.newSecret.configFields,
+            auth_config: authConfig,
           });
 
           return secretResponse.secret.secret_id;
@@ -309,11 +314,10 @@ export function useEditEndpointForm(endpointId: string): UseEditEndpointFormResu
         if (!m.newSecret) return false;
 
         const hasRequiredNewSecretFields = Boolean(m.newSecret.name && m.newSecret.authMode);
-        const hasAtLeastOneSecretFieldValue = m.newSecret.secretFields
-          ? Object.values(m.newSecret.secretFields).some((value) => value)
-          : false;
+        const secretEntries = Object.entries(m.newSecret.secretFields || {});
+        const hasSecretFieldValues = secretEntries.length === 0 || secretEntries.some(([, v]) => !!v);
 
-        return hasRequiredNewSecretFields && hasAtLeastOneSecretFieldValue;
+        return hasRequiredNewSecretFields && hasSecretFieldValues;
       }
     };
 
