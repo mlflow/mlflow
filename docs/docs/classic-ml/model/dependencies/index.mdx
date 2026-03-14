@@ -141,6 +141,98 @@ dependencies:
       - cloudpickle==3.0.0
 ```
 
+## Using uv for Dependency Management \{#uv-dependency-management}
+
+:::note
+Experimental: These parameters may change or be removed in a future release without warning.
+:::
+
+[uv](https://docs.astral.sh/uv/) is a fast Python package manager that supports lockfile-based dependency resolution. When your project uses uv, MLflow can read directly from your `uv.lock` file to capture exact, reproducible dependencies when logging a model. This avoids relying solely on import-based inference and ensures that every transitive dependency is pinned to the version you tested with.
+
+### How It Works
+
+When you log a model, MLflow checks for a `uv.lock` and `pyproject.toml` in the current working directory. If both files exist and uv (version 0.5.0 or later) is installed, MLflow runs `uv export` to produce a pinned requirements list from the lockfile. This list replaces the standard import-based dependency inference.
+
+MLflow also copies `uv.lock`, `pyproject.toml`, and `.python-version` (if present) into the model artifact directory. These files enable exact environment restoration with `uv sync` when the model is loaded later.
+
+### Auto-Detection
+
+By default, uv project detection is enabled. MLflow looks for `uv.lock` and `pyproject.toml` in the current working directory every time you call <APILink fn="mlflow.pyfunc.log_model" /> or <APILink fn="mlflow.pyfunc.save_model" />.
+
+To disable auto-detection, set the `MLFLOW_UV_AUTO_DETECT` environment variable:
+
+```bash
+export MLFLOW_UV_AUTO_DETECT=false
+```
+
+You can also control whether uv project files are saved as model artifacts with `MLFLOW_LOG_UV_FILES`:
+
+```bash
+# Disable copying uv.lock and pyproject.toml into model artifacts
+export MLFLOW_LOG_UV_FILES=false
+```
+
+### Specifying a uv Project Path
+
+If your uv project is not in the current working directory (common in monorepos or non-standard layouts), use the `uv_project_path` parameter to point to the correct directory:
+
+```python
+import mlflow
+
+mlflow.pyfunc.log_model(
+    python_model=my_model,
+    name="model",
+    input_example=input_data,
+    uv_project_path="/path/to/my-uv-project",
+)
+```
+
+MLflow will look for `uv.lock` and `pyproject.toml` in the specified directory instead of the current working directory.
+
+### Including Dependency Groups
+
+uv supports [dependency groups](https://docs.astral.sh/uv/concepts/dependencies/#dependency-groups) for organizing related packages (such as a `ml` group for model-specific libraries). Use the `uv_groups` parameter to include one or more groups when exporting requirements:
+
+```python
+import mlflow
+
+mlflow.pyfunc.log_model(
+    python_model=my_model,
+    name="model",
+    input_example=input_data,
+    uv_groups=["ml", "data"],
+)
+```
+
+This maps to `uv export --group ml --group data`. The group dependencies are included in addition to the project's default dependencies.
+
+### Including Optional Extras
+
+uv supports [optional extras](https://docs.astral.sh/uv/concepts/dependencies/#optional-dependencies) defined in `pyproject.toml` (the standard `[project.optional-dependencies]` table). Use the `uv_extras` parameter to include one or more extras:
+
+```python
+import mlflow
+
+mlflow.pyfunc.log_model(
+    python_model=my_model,
+    name="model",
+    input_example=input_data,
+    uv_extras=["gpu", "serving"],
+)
+```
+
+This maps to `uv export --extra gpu --extra serving`.
+
+For a complete, runnable example with a uv project (including `pyproject.toml`, `uv.lock`, and a script demonstrating auto-detection, explicit paths, groups, and extras), see the [full example code](https://github.com/mlflow/mlflow/tree/master/examples/uv-dependency-management).
+
+:::tip
+These parameters are available on both <APILink fn="mlflow.pyfunc.log_model" /> and <APILink fn="mlflow.pyfunc.save_model" />.
+:::
+
+:::warning
+uv version 0.5.0 or later must be installed for these features to work. If uv is not available, MLflow falls back to standard import-based dependency inference and logs a warning.
+:::
+
 ## Adding Extra Dependencies to an MLflow Model
 
 MLflow infers dependencies required for the model flavor library, but your model may depend on other libraries e.g. data
