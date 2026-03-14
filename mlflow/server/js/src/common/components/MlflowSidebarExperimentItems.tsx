@@ -1,6 +1,6 @@
 import { ArrowLeftIcon, BeakerIcon, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useGetExperimentQuery } from '../../experiment-tracking/hooks/useExperimentQuery';
-import { useLocation } from '../utils/RoutingUtils';
+import { matchPath, useLocation } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { MlflowSidebarLink } from './MlflowSidebarLink';
 import { getExperimentKindForWorkflowType } from '../../experiment-tracking/utils/ExperimentKindUtils';
@@ -46,7 +46,7 @@ export const MlflowSidebarExperimentItems = ({
     hasTrainingRuns: (trainingRuns?.length ?? 0) > 0,
   });
   const { tabName: activeTabByRoute } = useGetExperimentPageActiveTabByRoute();
-  const { search } = useLocation();
+  const { pathname, search } = useLocation();
 
   return (
     <>
@@ -89,6 +89,18 @@ export const MlflowSidebarExperimentItems = ({
                 return (
                   activeTabByRoute === ExperimentPageTabName.ChatSessions ||
                   activeTabByRoute === ExperimentPageTabName.SingleChatSession
+                );
+              }
+              if (item.tabName === ExperimentPageTabName.EvaluationRuns) {
+                return (
+                  activeTabByRoute === ExperimentPageTabName.EvaluationRuns ||
+                  Boolean(matchPath('/experiments/:experimentId/runs/:runId/*', pathname))
+                );
+              }
+              if (item.tabName === ExperimentPageTabName.Runs && workflowType === WorkflowType.MACHINE_LEARNING) {
+                return (
+                  activeTabByRoute === ExperimentPageTabName.Runs ||
+                  Boolean(matchPath('/experiments/:experimentId/runs/:runId/*', pathname))
                 );
               }
               return activeTabByRoute === item.tabName;
