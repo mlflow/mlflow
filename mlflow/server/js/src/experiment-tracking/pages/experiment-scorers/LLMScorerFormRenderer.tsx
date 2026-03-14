@@ -24,8 +24,16 @@ import { useTemplateOptions, validateInstructions } from './llmScorerUtils';
 import { isScorerModelSelectionEnabled } from '../../../common/utils/FeatureUtils';
 import { type SCORER_TYPE, ScorerEvaluationScope } from './constants';
 import { COMPONENT_ID_PREFIX, type ScorerFormMode, SCORER_FORM_MODE } from './constants';
-import { LLM_TEMPLATE, isGuidelinesTemplate, type JudgeOutputTypeKind, type JudgePrimitiveOutputType } from './types';
+import {
+  LLM_TEMPLATE,
+  isGuidelinesTemplate,
+  isExpectationsTemplate,
+  type JudgeOutputTypeKind,
+  type JudgePrimitiveOutputType,
+} from './types';
 import { TEMPLATE_INSTRUCTIONS_MAP, EDITABLE_TEMPLATES } from './prompts';
+import { hasTemplateVariable } from './utils/templateUtils';
+import { ModelProvider, getModelProvider } from '../../../gateway/utils/gatewayUtils';
 import EvaluateTracesSection from './EvaluateTracesSection';
 import { ModelSectionRenderer } from './ModelSectionRenderer';
 import OutputTypeSection from './OutputTypeSection';
@@ -70,7 +78,7 @@ interface LLMTemplateSectionProps {
 
 const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, setValue, currentTemplate }) => {
   const { theme } = useDesignSystemTheme();
-  const { watch } = useFormContext<LLMScorerFormData>();
+  const { watch, unregister } = useFormContext<LLMScorerFormData>();
   const scope = watch('evaluationScope');
   const intl = useIntl();
   const { templateOptions, displayMap } = useTemplateOptions(scope);
@@ -80,10 +88,16 @@ const LLMTemplateSection: React.FC<LLMTemplateSectionProps> = ({ mode, control, 
   };
 
   const handleTemplateChange = (newTemplate: string) => {
-    const instructions = TEMPLATE_INSTRUCTIONS_MAP[newTemplate] || '';
     const isInstructionsJudge = EDITABLE_TEMPLATES.has(newTemplate);
     setValue('isInstructionsJudge', isInstructionsJudge);
-    setValue('instructions', instructions, { shouldValidate: isInstructionsJudge });
+    if (isInstructionsJudge) {
+      const instructions = TEMPLATE_INSTRUCTIONS_MAP[newTemplate] || '';
+      setValue('instructions', instructions, { shouldValidate: true });
+    } else {
+      // For non-instructions templates, unregister the instructions field
+      // to remove its validation rule.
+      unregister('instructions');
+    }
   };
 
   const isReadOnly = mode !== SCORER_FORM_MODE.CREATE;
@@ -544,7 +558,25 @@ const LLMScorerFormRenderer: React.FC<LLMScorerFormRendererProps> = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const selectedTemplate = useWatch({ control, name: 'llmTemplate' });
+  const instructions = useWatch({ control, name: 'instructions' });
+  const model = useWatch({ control, name: 'model' });
+  const disableMonitoring = useWatch({ control, name: 'disableMonitoring' });
   const accordionRef = useRef<ScorerFormAccordionHandle>(null);
+
+  // Set sampleRate based on whether automatic evaluation is allowed.
+  // This runs regardless of accordion state, ensuring sampleRate is correct
+  // even if the Automatic evaluation section is never expanded.
+  useEffect(() => {
+    if (disableMonitoring) return;
+    const hasExpectations =
+      isExpectationsTemplate(selectedTemplate) || hasTemplateVariable(instructions, 'expectations');
+    const isNonGatewayModel = getModelProvider(model) === ModelProvider.OTHER;
+    if (hasExpectations || isNonGatewayModel) {
+      setValue('sampleRate', 0);
+    } else {
+      setValue('sampleRate', 100);
+    }
+  }, [selectedTemplate, instructions, model, disableMonitoring, setValue]);
 
   // Check if General section is complete and progress to Evaluation Criteria
   const checkAndProgressGeneral = useCallback(
