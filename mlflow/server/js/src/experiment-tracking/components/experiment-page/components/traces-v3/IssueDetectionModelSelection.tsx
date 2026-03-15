@@ -1,12 +1,35 @@
-import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef } from 'react';
-import { useDesignSystemTheme, Typography, Tooltip, Input, Button, Accordion } from '@databricks/design-system';
+import React, { useState, useCallback, useEffect, useImperativeHandle, forwardRef, useMemo } from 'react';
+import {
+  useDesignSystemTheme,
+  Typography,
+  Tooltip,
+  Input,
+  Button,
+  Accordion,
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxTrigger,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListSelectItem,
+  DialogComboboxHintRow,
+  DialogComboboxSeparator,
+  Spinner,
+  InfoSmallIcon,
+} from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ProviderSelect } from '../../../../../gateway/components/create-endpoint/ProviderSelect';
+import { ModelSelect } from '../../../../../gateway/components/create-endpoint/ModelSelect';
 import { IssueDetectionApiKeyConfigurator } from './IssueDetectionApiKeyConfigurator';
 import { IssueDetectionAdvancedSettings } from './IssueDetectionAdvancedSettings';
 import { useApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/hooks/useApiKeyConfiguration';
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import { generateRandomName } from '../../../../../common/utils/NameUtils';
+import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
+import { getEndpointDisplayInfo } from '../../../../../gateway/utils/gatewayUtils';
+
+type ModelConfigMode = 'endpoint' | 'direct';
+
+const CONFIGURE_DIRECTLY_VALUE = '__configure_directly__';
 
 const DEFAULT_PROVIDER = 'openai';
 
@@ -29,6 +52,8 @@ const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
 };
 
 export interface ModelSelectionValues {
+  mode: ModelConfigMode;
+  endpointName?: string;
   provider: string;
   model: string;
   apiKeyConfig: ApiKeyConfiguration;
@@ -54,6 +79,23 @@ export const IssueDetectionModelSelection = forwardRef<
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
+  // Fetch available endpoints
+  const { data: endpoints, isLoading: isLoadingEndpoints } = useEndpointsQuery();
+  const hasEndpoints = endpoints.length > 0;
+
+  // Track mode and selected endpoint - default to 'endpoint' mode if there are endpoints
+  const [mode, setMode] = useState<ModelConfigMode>('direct');
+  const [selectedEndpointName, setSelectedEndpointName] = useState<string | undefined>();
+  const [hasInitializedMode, setHasInitializedMode] = useState(false);
+
+  // Set initial mode based on whether endpoints are available
+  useEffect(() => {
+    if (!isLoadingEndpoints && !hasInitializedMode) {
+      setMode(hasEndpoints ? 'endpoint' : 'direct');
+      setHasInitializedMode(true);
+    }
+  }, [isLoadingEndpoints, hasEndpoints, hasInitializedMode]);
+
   const [provider, setProvider] = useState(DEFAULT_PROVIDER);
   const [model, setModel] = useState(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
   const [apiKeyConfig, setApiKeyConfig] = useState<ApiKeyConfiguration>(() => ({
@@ -69,6 +111,46 @@ export const IssueDetectionModelSelection = forwardRef<
   const { existingSecrets, authModes, defaultAuthMode, isLoadingProviderConfig } = useApiKeyConfiguration({
     provider,
   });
+
+  // Build endpoint options for the dropdown
+  const endpointOptions = useMemo(() => {
+    return endpoints.map((endpoint) => {
+      const displayInfo = getEndpointDisplayInfo(endpoint);
+      return {
+        value: endpoint.name,
+        label: endpoint.name,
+        provider: displayInfo?.provider,
+        modelName: displayInfo?.modelName,
+      };
+    });
+  }, [endpoints]);
+
+  // Get display value for the dropdown
+  const dropdownDisplayValue = useMemo(() => {
+    if (mode === 'direct') {
+      return intl.formatMessage({
+        defaultMessage: 'Configure model directly',
+        description: 'Option to configure model directly instead of using an endpoint',
+      });
+    }
+    if (mode === 'endpoint' && selectedEndpointName) {
+      const selectedOption = endpointOptions.find((opt) => opt.value === selectedEndpointName);
+      return selectedOption?.label || '';
+    }
+    // No endpoint selected yet - return empty to show placeholder
+    return '';
+  }, [mode, selectedEndpointName, endpointOptions, intl]);
+
+  // Handle selection from dropdown
+  const handleDropdownSelect = useCallback((value: string) => {
+    if (value === CONFIGURE_DIRECTLY_VALUE) {
+      setMode('direct');
+      setSelectedEndpointName(undefined);
+    } else {
+      setMode('endpoint');
+      setSelectedEndpointName(value);
+    }
+  }, []);
 
   // Update API key mode to 'existing' when secrets become available for the selected provider
   useEffect(() => {
@@ -94,11 +176,12 @@ export const IssueDetectionModelSelection = forwardRef<
         name: generateRandomName(newProvider),
       },
     });
-    // Auto-expand advanced settings if provider doesn't have a default model, collapse if it does
-    setIsAdvancedSettingsExpanded(!defaultModel);
+    setIsAdvancedSettingsExpanded(false);
   }, []);
 
   const reset = useCallback(() => {
+    setMode(hasEndpoints ? 'endpoint' : 'direct');
+    setSelectedEndpointName(undefined);
     setProvider(DEFAULT_PROVIDER);
     setModel(DEFAULT_MODEL_BY_PROVIDER[DEFAULT_PROVIDER]);
     setApiKeyConfig({
@@ -109,7 +192,7 @@ export const IssueDetectionModelSelection = forwardRef<
       },
     });
     setIsAdvancedSettingsExpanded(false);
-  }, []);
+  }, [hasEndpoints]);
 
   const isApiKeyValid =
     apiKeyConfig.mode === 'existing'
@@ -117,7 +200,24 @@ export const IssueDetectionModelSelection = forwardRef<
       : Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) &&
         (!saveKey || !!apiKeyConfig.newSecret.name);
 
-  const isValid = Boolean(provider && model && isApiKeyValid && selectedTraceIds.length > 0);
+  const isEndpointModeValid = mode === 'endpoint' && !!selectedEndpointName;
+  const isDirectModeValid = mode === 'direct' && Boolean(provider && model && isApiKeyValid);
+  const isValid = (isEndpointModeValid || isDirectModeValid) && selectedTraceIds.length > 0;
+
+  // Compute whether there are optional fields in the selected auth mode
+  const hasOptionalFields = useMemo(() => {
+    const selectedAuthMode =
+      authModes.find((m) => m.mode === (apiKeyConfig.newSecret.authMode || defaultAuthMode)) ?? authModes[0];
+    if (!selectedAuthMode) return false;
+    const allFields = [...(selectedAuthMode.secret_fields ?? []), ...(selectedAuthMode.config_fields ?? [])];
+    return allFields.some((field) => !field.required);
+  }, [authModes, apiKeyConfig.newSecret.authMode, defaultAuthMode]);
+
+  // Show advanced settings if: 1) provider has default model, OR 2) user is entering new key AND there are optional fields
+  const hasEnteredNewApiKey =
+    apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v);
+  const shouldShowAdvancedSettings =
+    !!DEFAULT_MODEL_BY_PROVIDER[provider] || (hasEnteredNewApiKey && hasOptionalFields);
 
   useEffect(() => {
     onValidityChange(isValid);
@@ -127,6 +227,8 @@ export const IssueDetectionModelSelection = forwardRef<
     ref,
     () => ({
       getValues: () => ({
+        mode,
+        endpointName: selectedEndpointName,
         provider,
         model,
         apiKeyConfig,
@@ -135,105 +237,187 @@ export const IssueDetectionModelSelection = forwardRef<
       isValid,
       reset,
     }),
-    [provider, model, apiKeyConfig, saveKey, isValid, reset],
+    [mode, selectedEndpointName, provider, model, apiKeyConfig, saveKey, isValid, reset],
   );
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
         <div>
-          <Typography.Title level={4} css={{ marginBottom: theme.spacing.xs }}>
+          <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.xs }}>
             <FormattedMessage
               defaultMessage="Select Model"
               description="Header for the model selection step in issue detection modal"
-            />
+            />{' '}
+            <Tooltip
+              componentId="mlflow.traces.issue-detection-modal.endpoint-tip-tooltip"
+              content={intl.formatMessage({
+                defaultMessage: 'Create an AI Gateway endpoint in AI Gateway → Endpoints tab to reuse it here',
+                description: 'Tooltip suggesting to create an endpoint for reuse',
+              })}
+            >
+              <InfoSmallIcon css={{ color: theme.colors.textSecondary, cursor: 'help', verticalAlign: 'middle' }} />
+            </Tooltip>
           </Typography.Title>
           <Typography.Text color="secondary">
             <FormattedMessage
-              defaultMessage="Configure the LLM provider and model to power issue detection"
+              defaultMessage="Configure the model to power issue detection"
               description="Description for the model selection step"
             />
           </Typography.Text>
         </div>
-        <div>
-          <ProviderSelect
-            value={provider}
-            onChange={handleProviderChange}
-            componentIdPrefix="mlflow.traces.issue-detection-modal.provider"
-            hideLabel
-          />
-          {provider && DEFAULT_MODEL_BY_PROVIDER[provider] && (
-            <Typography.Text
-              color="secondary"
-              css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
-            >
-              <FormattedMessage
-                defaultMessage="Model: {model}"
-                description="Display of default model for selected provider"
-                values={{ model }}
-              />
+
+        {/* Model source selector - only show dropdown when there are endpoints */}
+        {isLoadingEndpoints ? (
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <Spinner size="small" />
+            <Typography.Text color="secondary">
+              <FormattedMessage defaultMessage="Loading endpoints..." description="Loading endpoints message" />
             </Typography.Text>
-          )}
-          {provider && !DEFAULT_MODEL_BY_PROVIDER[provider] && (
-            <Typography.Text
-              color="secondary"
-              css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
+          </div>
+        ) : (
+          hasEndpoints && (
+            <DialogCombobox
+              componentId="mlflow.traces.issue-detection-modal.model-source"
+              id="mlflow.traces.issue-detection-modal.model-source"
+              value={
+                mode === 'direct' ? [CONFIGURE_DIRECTLY_VALUE] : selectedEndpointName ? [selectedEndpointName] : []
+              }
             >
-              <FormattedMessage
-                defaultMessage="Please select a model in `Advanced settings` below"
-                description="Message when provider has no default model"
+              <DialogComboboxTrigger
+                withInlineLabel={false}
+                allowClear={false}
+                placeholder={intl.formatMessage({
+                  defaultMessage: 'Select endpoint',
+                  description: 'Placeholder for endpoint selector',
+                })}
+                renderDisplayedValue={() => (dropdownDisplayValue ? <span>{dropdownDisplayValue}</span> : null)}
               />
-            </Typography.Text>
-          )}
-        </div>
-        {provider && (
+              <DialogComboboxContent maxHeight={350}>
+                <DialogComboboxOptionList>
+                  {endpointOptions.map((option) => (
+                    <DialogComboboxOptionListSelectItem
+                      key={option.value}
+                      value={option.value}
+                      onChange={() => handleDropdownSelect(option.value)}
+                      checked={mode === 'endpoint' && selectedEndpointName === option.value}
+                    >
+                      {option.label}
+                      {option.provider && option.modelName && (
+                        <DialogComboboxHintRow>
+                          {option.provider} / {option.modelName}
+                        </DialogComboboxHintRow>
+                      )}
+                    </DialogComboboxOptionListSelectItem>
+                  ))}
+                  {endpointOptions.length > 0 && <DialogComboboxSeparator />}
+                  <DialogComboboxOptionListSelectItem
+                    value={CONFIGURE_DIRECTLY_VALUE}
+                    onChange={() => handleDropdownSelect(CONFIGURE_DIRECTLY_VALUE)}
+                    checked={mode === 'direct'}
+                  >
+                    <FormattedMessage
+                      defaultMessage="Configure model directly"
+                      description="Option to configure model directly instead of using an endpoint"
+                    />
+                  </DialogComboboxOptionListSelectItem>
+                </DialogComboboxOptionList>
+              </DialogComboboxContent>
+            </DialogCombobox>
+          )
+        )}
+
+        {/* Direct provider/model configuration - shown when 'Configure model directly' is selected */}
+        {mode === 'direct' && (
           <>
-            <IssueDetectionApiKeyConfigurator
-              value={apiKeyConfig}
-              onChange={setApiKeyConfig}
-              provider={provider}
-              authModes={authModes}
-              defaultAuthMode={defaultAuthMode}
-              isLoadingProviderConfig={isLoadingProviderConfig}
-              hasExistingSecrets={existingSecrets.length > 0}
-            />
-            {apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
-              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginTop: -theme.spacing.xs }}>
-                <Tooltip
-                  componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
-                  content={intl.formatMessage({
-                    defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
-                    description: 'Tooltip explaining where saved API keys can be found',
-                  })}
+            <div>
+              <ProviderSelect
+                value={provider}
+                onChange={handleProviderChange}
+                componentIdPrefix="mlflow.traces.issue-detection-modal.provider"
+                hideLabel
+              />
+              {provider && DEFAULT_MODEL_BY_PROVIDER[provider] && (
+                <Typography.Text
+                  color="secondary"
+                  css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
                 >
-                  <span>
-                    <Typography.Text color="secondary">
-                      <FormattedMessage
-                        defaultMessage="This key will be saved for reuse."
-                        description="Text indicating API key will be saved for reuse"
-                      />
-                    </Typography.Text>
-                  </span>
-                </Tooltip>
-                <Typography.Text color="secondary">
-                  <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
+                  <FormattedMessage
+                    defaultMessage="Model: {model}"
+                    description="Display of default model for selected provider"
+                    values={{ model }}
+                  />
                 </Typography.Text>
-                <Input
-                  componentId="mlflow.traces.issue-detection-modal.api-key-name"
-                  value={apiKeyConfig.newSecret.name}
-                  onChange={(e) =>
-                    setApiKeyConfig({
-                      ...apiKeyConfig,
-                      newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
-                    })
-                  }
-                  placeholder={intl.formatMessage({
-                    defaultMessage: 'API key name',
-                    description: 'Placeholder for API key name input',
-                  })}
-                  css={{ width: 200 }}
+              )}
+              {provider && !DEFAULT_MODEL_BY_PROVIDER[provider] && (
+                <div css={{ marginTop: theme.spacing.sm }}>
+                  <ModelSelect
+                    provider={provider}
+                    value={model}
+                    onChange={setModel}
+                    componentIdPrefix="mlflow.traces.issue-detection-modal.model"
+                    label={
+                      <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
+                        <FormattedMessage defaultMessage="Model *" description="Label for model selection (required)" />
+                      </Typography.Text>
+                    }
+                    hideCapabilities
+                  />
+                </div>
+              )}
+            </div>
+            {provider && (
+              <>
+                <IssueDetectionApiKeyConfigurator
+                  value={apiKeyConfig}
+                  onChange={setApiKeyConfig}
+                  provider={provider}
+                  authModes={authModes}
+                  defaultAuthMode={defaultAuthMode}
+                  isLoadingProviderConfig={isLoadingProviderConfig}
+                  hasExistingSecrets={existingSecrets.length > 0}
                 />
-              </div>
+                {apiKeyConfig.mode === 'new' && Object.values(apiKeyConfig.newSecret.secretFields).some((v) => v) && (
+                  <div
+                    css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginTop: -theme.spacing.xs }}
+                  >
+                    <Tooltip
+                      componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
+                      content={intl.formatMessage({
+                        defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
+                        description: 'Tooltip explaining where saved API keys can be found',
+                      })}
+                    >
+                      <span>
+                        <Typography.Text color="secondary">
+                          <FormattedMessage
+                            defaultMessage="This key will be saved for reuse."
+                            description="Text indicating API key will be saved for reuse"
+                          />
+                        </Typography.Text>
+                      </span>
+                    </Tooltip>
+                    <Typography.Text color="secondary">
+                      <FormattedMessage defaultMessage="API key name:" description="Label for API key name input" />
+                    </Typography.Text>
+                    <Input
+                      componentId="mlflow.traces.issue-detection-modal.api-key-name"
+                      value={apiKeyConfig.newSecret.name}
+                      onChange={(e) =>
+                        setApiKeyConfig({
+                          ...apiKeyConfig,
+                          newSecret: { ...apiKeyConfig.newSecret, name: e.target.value },
+                        })
+                      }
+                      placeholder={intl.formatMessage({
+                        defaultMessage: 'API key name',
+                        description: 'Placeholder for API key name input',
+                      })}
+                      css={{ width: 200 }}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -264,33 +448,36 @@ export const IssueDetectionModelSelection = forwardRef<
         </div>
       </div>
 
-      <Accordion
-        componentId="mlflow.traces.issue-detection-modal.advanced-settings"
-        activeKey={isAdvancedSettingsExpanded ? ['advanced'] : []}
-        onChange={(keys) => setIsAdvancedSettingsExpanded(Array.isArray(keys) ? keys.includes('advanced') : false)}
-        dangerouslyAppendEmotionCSS={{
-          background: 'transparent',
-          border: 'none',
-        }}
-      >
-        <Accordion.Panel
-          header={intl.formatMessage({
-            defaultMessage: 'Advanced settings',
-            description: 'Collapsible section for advanced settings',
-          })}
-          key="advanced"
+      {mode === 'direct' && shouldShowAdvancedSettings && (
+        <Accordion
+          componentId="mlflow.traces.issue-detection-modal.advanced-settings"
+          activeKey={isAdvancedSettingsExpanded ? ['advanced'] : []}
+          onChange={(keys) => setIsAdvancedSettingsExpanded(Array.isArray(keys) ? keys.includes('advanced') : false)}
+          dangerouslyAppendEmotionCSS={{
+            background: 'transparent',
+            border: 'none',
+          }}
         >
-          <IssueDetectionAdvancedSettings
-            provider={provider}
-            model={model}
-            onModelChange={setModel}
-            apiKeyConfig={apiKeyConfig}
-            onApiKeyConfigChange={setApiKeyConfig}
-            authModes={authModes}
-            defaultAuthMode={defaultAuthMode}
-          />
-        </Accordion.Panel>
-      </Accordion>
+          <Accordion.Panel
+            header={intl.formatMessage({
+              defaultMessage: 'Advanced settings',
+              description: 'Collapsible section for advanced settings',
+            })}
+            key="advanced"
+          >
+            <IssueDetectionAdvancedSettings
+              provider={provider}
+              model={model}
+              onModelChange={setModel}
+              apiKeyConfig={apiKeyConfig}
+              onApiKeyConfigChange={setApiKeyConfig}
+              authModes={authModes}
+              defaultAuthMode={defaultAuthMode}
+              showModelSelector={!!DEFAULT_MODEL_BY_PROVIDER[provider]}
+            />
+          </Accordion.Panel>
+        </Accordion>
+      )}
     </div>
   );
 });
