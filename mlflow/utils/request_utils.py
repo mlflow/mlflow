@@ -42,21 +42,19 @@ def _build_socket_options() -> list[tuple[int, int, int]]:
     if not MLFLOW_HTTP_TCP_KEEPALIVE.get():
         return socket_options
 
-    idle = MLFLOW_HTTP_TCP_KEEPALIVE_IDLE.get()
-    interval = MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL.get()
-    count = MLFLOW_HTTP_TCP_KEEPALIVE_COUNT.get()
-
     socket_options.append((socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1))
-
     # TCP_KEEPIDLE (Linux) vs TCP_KEEPALIVE (macOS/BSD) for idle time before first probe
+    idle = MLFLOW_HTTP_TCP_KEEPALIVE_IDLE.get()
     if hasattr(socket, "TCP_KEEPIDLE"):
         socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, idle))
     elif hasattr(socket, "TCP_KEEPALIVE"):
         socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPALIVE, idle))
 
+    interval = MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL.get()
     if hasattr(socket, "TCP_KEEPINTVL"):
         socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval))
 
+    count = MLFLOW_HTTP_TCP_KEEPALIVE_COUNT.get()
     if hasattr(socket, "TCP_KEEPCNT"):
         socket_options.append((socket.IPPROTO_TCP, socket.TCP_KEEPCNT, count))
 
