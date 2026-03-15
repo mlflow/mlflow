@@ -6,7 +6,7 @@ from typing import Any
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.exceptions import MlflowException
 from mlflow.protos import service_pb2 as pb
-from mlflow.utils.annotations import deprecated
+from mlflow.utils.annotations import deprecated, experimental
 
 _UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME = "mlflow_experiment_trace_otel_spans"
 _UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME = "mlflow_experiment_trace_otel_logs"
@@ -132,6 +132,7 @@ class UCSchemaLocation(TraceLocationBase):
         return location
 
 
+@experimental(version="3.11.0")
 @dataclass
 class UnityCatalog(TraceLocationBase):
     """
