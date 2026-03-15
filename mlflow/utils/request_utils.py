@@ -29,8 +29,6 @@ _TRANSIENT_FAILURE_RESPONSE_CODES = frozenset([
 
 def _build_socket_options() -> list[tuple[int, int, int]]:
     """Returns socket options with TCP keepalive enabled.
-
-    Reads configuration from MLFLOW_HTTP_TCP_KEEPALIVE_* environment variables.
     """
     from mlflow.environment_variables import (
         MLFLOW_HTTP_TCP_KEEPALIVE,
