@@ -841,6 +841,25 @@ def test_create_model_version_rejects_traversal_source_for_prompts(
     assert "Invalid model version source" in resp.get_json()["message"]
 
 
+def test_create_model_version_populates_user_id_from_run(
+    mock_get_request_message, mock_model_registry_store, mock_tracking_store
+):
+    run_id = uuid.uuid4().hex
+    mock_get_request_message.return_value = CreateModelVersion(
+        name="model_1",
+        source=f"runs:/{run_id}",
+        run_id=run_id,
+    )
+    mock_run = mock.MagicMock()
+    mock_run.data.tags = {"mlflow.user": "alice"}
+    mock_tracking_store.get_run.return_value = mock_run
+    mv = ModelVersion(name="model_1", version="1", creation_timestamp=123, user_id="alice")
+    mock_model_registry_store.create_model_version.return_value = mv
+    _create_model_version()
+    _, args = mock_model_registry_store.create_model_version.call_args
+    assert args["user_id"] == "alice"
+
+
 def test_set_registered_model_tag(mock_get_request_message, mock_model_registry_store):
     name = "model1"
     tag = RegisteredModelTag(key="some weird key", value="some value")
