@@ -15,6 +15,7 @@ import {
   useDynamicPlotSize,
   getLegendDataFromRuns,
 } from './RunsCharts.common';
+import type { LegendLabelData } from './RunsMetricsLegend';
 import type { MetricEntity } from '../../../types';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
@@ -36,6 +37,12 @@ export interface RunsMetricsBarPlotProps extends RunsPlotsCommonProps {
    * Determines which metric are we comparing by
    */
   metricKey: string;
+
+  /**
+   * Optional array of metric keys to display as grouped bars.
+   * When provided, renders one trace per metric key instead of one trace for all runs.
+   */
+  selectedMetricKeys?: string[];
 
   /**
    * Array of runs data with corresponding values
@@ -75,6 +82,50 @@ const Y_AXIS_PARAMS = {
 const getFixedPointValue = (val: string | number, places = 2) => (typeof val === 'number' ? val.toFixed(places) : val);
 
 /**
+ * Highlight function for multi-metric grouped bar charts.
+ * In grouped mode, plotly renders one `.trace.bars` group per metric,
+ * each containing `g.point` elements (one per run). We need to highlight
+ * the bar at the same run index across ALL trace groups.
+ */
+const highlightGroupedBarTraces = (parent: HTMLElement, hoverIndex: number, selectIndex: number) => {
+  const traceGroups = parent.querySelectorAll('svg .trace.bars');
+  const deselected = hoverIndex === -1 && selectIndex === -1;
+
+  traceGroups.forEach((traceGroup) => {
+    const points = traceGroup.querySelectorAll('g.point');
+
+    points.forEach((point) => point.classList.remove('is-hover-highlight', 'is-selection-highlight'));
+
+    if (hoverIndex > -1) {
+      points[hoverIndex]?.classList.add('is-hover-highlight');
+    }
+    if (selectIndex > -1) {
+      points[selectIndex]?.classList.add('is-selection-highlight');
+    }
+
+    if (deselected) {
+      traceGroup.classList.remove('is-highlight');
+    } else {
+      traceGroup.classList.add('is-highlight');
+    }
+  });
+};
+
+// Color palette for multi-metric grouped bars
+const METRIC_COLORS = [
+  '#2196F3', // blue
+  '#FF9800', // orange
+  '#4CAF50', // green
+  '#E91E63', // pink
+  '#9C27B0', // purple
+  '#00BCD4', // cyan
+  '#FF5722', // deep orange
+  '#607D8B', // blue grey
+  '#8BC34A', // light green
+  '#FFC107', // amber
+];
+
+/**
  * Implementation of plotly.js chart displaying
  * bar plot comparing metrics for a given
  * set of experiments runs
@@ -84,6 +135,7 @@ export const RunsMetricsBarPlot = React.memo(
   ({
     runsData,
     metricKey,
+    selectedMetricKeys,
     className,
     margin = runsChartDefaultMargin,
     onUpdate,
@@ -98,55 +150,76 @@ export const RunsMetricsBarPlot = React.memo(
     selectedRunUuid,
     onSetDownloadHandler,
   }: RunsMetricsBarPlotProps) => {
-    const plotData = useMemo(() => {
-      // Run uuids
-      const ids = runsData.map((d) => d.uuid);
+    const metricKeys = useMemo(() => selectedMetricKeys ?? [metricKey], [selectedMetricKeys, metricKey]);
+    const isMultiMetric = metricKeys.length > 1;
 
-      // Trace names
+    const plotData = useMemo(() => {
+      if (!isMultiMetric) {
+        // Single metric mode: one trace with per-run colors (original behavior)
+        const ids = runsData.map((d) => d.uuid);
+        const names = runsData.map(({ displayName }) => displayName);
+        const values = runsData.map((d) => normalizeChartValue(d.metrics[metricKey]?.value));
+        const textValues = runsData.map((d) => {
+          const customMetricBehaviorDef = customMetricBehaviorDefs[metricKey];
+          if (customMetricBehaviorDef) {
+            return customMetricBehaviorDef.valueFormatter({ value: d.metrics[metricKey]?.value });
+          }
+          return getFixedPointValue(d.metrics[metricKey]?.value);
+        });
+        const colors = runsData.map((d) => d.color);
+
+        return [
+          {
+            y: ids,
+            x: values,
+            names,
+            text: textValues,
+            textposition: values.map((value) => (value === 0 ? 'outside' : 'auto')),
+            textfont: { size: 11 },
+            metrics: runsData.map((d) => d.metrics[metricKey]),
+            type: 'bar' as any,
+            hovertemplate: useDefaultHoverBox ? '%{label}<extra></extra>' : undefined,
+            hoverinfo: useDefaultHoverBox ? 'y' : 'none',
+            hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
+            width: barWidth,
+            orientation: 'h',
+            marker: { color: colors },
+          } as Data & { names: string[] },
+        ];
+      }
+
+      // Multi-metric mode: one trace per metric, grouped by run
+      const ids = runsData.map((d) => d.uuid);
       const names = runsData.map(({ displayName }) => displayName);
 
-      // Actual metric values
-      const values = runsData.map((d) => normalizeChartValue(d.metrics[metricKey]?.value));
+      return metricKeys.map((mKey, metricIdx) => {
+        const values = runsData.map((d) => normalizeChartValue(d.metrics[mKey]?.value));
+        const textValues = runsData.map((d) => {
+          const customMetricBehaviorDef = customMetricBehaviorDefs[mKey];
+          if (customMetricBehaviorDef) {
+            return customMetricBehaviorDef.valueFormatter({ value: d.metrics[mKey]?.value });
+          }
+          return getFixedPointValue(d.metrics[mKey]?.value);
+        });
 
-      // Displayed metric values
-      const textValues = runsData.map((d) => {
-        const customMetricBehaviorDef = customMetricBehaviorDefs[metricKey];
-        if (customMetricBehaviorDef) {
-          return customMetricBehaviorDef.valueFormatter({ value: d.metrics[metricKey]?.value });
-        }
-
-        return getFixedPointValue(d.metrics[metricKey]?.value);
-      });
-
-      // Colors corresponding to each run
-      const colors = runsData.map((d) => d.color);
-
-      return [
-        {
+        return {
           y: ids,
           x: values,
+          name: mKey,
           names,
           text: textValues,
           textposition: values.map((value) => (value === 0 ? 'outside' : 'auto')),
-          textfont: {
-            size: 11,
-          },
-          metrics: runsData.map((d) => d.metrics[metricKey]),
-          // Display run name on hover. "<extra></extra>" removes plotly's "extra" tooltip that
-          // is unnecessary here.
+          textfont: { size: 11 },
+          metrics: runsData.map((d) => d.metrics[mKey]),
           type: 'bar' as any,
-          hovertemplate: useDefaultHoverBox ? '%{label}<extra></extra>' : undefined,
+          hovertemplate: useDefaultHoverBox ? `${mKey}: %{x}<extra>%{label}</extra>` : undefined,
           hoverinfo: useDefaultHoverBox ? 'y' : 'none',
           hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
-          width: barWidth,
-
           orientation: 'h',
-          marker: {
-            color: colors,
-          },
-        } as Data & { names: string[] },
-      ];
-    }, [runsData, metricKey, barWidth, useDefaultHoverBox]);
+          marker: { color: METRIC_COLORS[metricIdx % METRIC_COLORS.length] },
+        } as Data & { names: string[]; name: string };
+      });
+    }, [runsData, metricKey, metricKeys, isMultiMetric, barWidth, useDefaultHoverBox]);
 
     const { layoutHeight, layoutWidth, setContainerDiv, containerDiv, isDynamicSizeSupported } = useDynamicPlotSize();
 
@@ -159,10 +232,13 @@ export const RunsMetricsBarPlot = React.memo(
       height: height || layoutHeight,
       hovermode: 'y',
       margin,
+      barmode: isMultiMetric ? 'group' : undefined,
       xaxis: {
-        title: displayMetricKey ? metricKey : undefined,
+        title: displayMetricKey ? (isMultiMetric ? undefined : metricKey) : undefined,
         tickfont: { size: 11, color: theme.colors.textSecondary },
-        tickformat: customMetricBehaviorDefs[metricKey]?.chartAxisTickFormat ?? undefined,
+        tickformat: !isMultiMetric
+          ? (customMetricBehaviorDefs[metricKey]?.chartAxisTickFormat ?? undefined)
+          : undefined,
       },
       yaxis: {
         showticklabels: displayRunNames,
@@ -184,18 +260,24 @@ export const RunsMetricsBarPlot = React.memo(
         width: width || layoutWidth,
         height: height || layoutHeight,
         margin,
+        barmode: isMultiMetric ? 'group' : undefined,
         xaxis: {
           ...current.xaxis,
-          title: displayMetricKey ? metricKey : undefined,
+          title: displayMetricKey ? (isMultiMetric ? undefined : metricKey) : undefined,
         },
       }));
-    }, [layoutWidth, layoutHeight, margin, metricKey, width, height, displayMetricKey]);
+    }, [layoutWidth, layoutHeight, margin, metricKey, width, height, displayMetricKey, isMultiMetric]);
+
+    const barHighlightFn = useMemo(
+      () => (isMultiMetric ? highlightGroupedBarTraces : highlightBarTraces),
+      [isMultiMetric],
+    );
 
     const { setHoveredPointIndex } = useRenderRunsChartTraceHighlight(
       containerDiv,
       selectedRunUuid,
       runsData,
-      highlightBarTraces,
+      barHighlightFn,
     );
 
     const hoverCallback = useCallback(
@@ -231,7 +313,16 @@ export const RunsMetricsBarPlot = React.memo(
      */
     const mutableHoverCallback = useMutableChartHoverCallback(hoverCallback);
 
-    const legendLabelData = useMemo(() => getLegendDataFromRuns(runsData), [runsData]);
+    const legendLabelData = useMemo((): LegendLabelData[] => {
+      if (isMultiMetric) {
+        return metricKeys.map((mKey, idx) => ({
+          label: mKey,
+          color: METRIC_COLORS[idx % METRIC_COLORS.length],
+          uuid: mKey,
+        }));
+      }
+      return getLegendDataFromRuns(runsData);
+    }, [runsData, isMultiMetric, metricKeys]);
 
     useEffect(() => {
       // Prepare layout and data traces to export
@@ -247,7 +338,7 @@ export const RunsMetricsBarPlot = React.memo(
       const dataToExport = plotData.map((trace) => ({
         ...trace,
         // In exported image, use names for Y axes
-        y: trace.names,
+        y: (trace as any).names,
       }));
       onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layoutToExport));
     }, [layout, onSetDownloadHandler, plotData]);

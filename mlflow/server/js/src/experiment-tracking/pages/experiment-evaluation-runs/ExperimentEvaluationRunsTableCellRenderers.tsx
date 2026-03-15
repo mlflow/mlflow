@@ -347,13 +347,15 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
   const Icon = isRowHidden(runUuid, rowIndex, runStatus) ? VisibleOffIcon : VisibleIcon;
 
   return (
-    <Icon
-      onClick={(e: React.MouseEvent) => {
-        e.stopPropagation();
-        toggleRowVisibility(runUuid);
-      }}
-      css={{ cursor: 'pointer' }}
-    />
+    <div css={{ display: 'flex', alignItems: 'center', height: '100%' }}>
+      <Icon
+        onClick={(e: React.MouseEvent) => {
+          e.stopPropagation();
+          toggleRowVisibility(runUuid);
+        }}
+        css={{ cursor: 'pointer' }}
+      />
+    </div>
   );
 };
 
