@@ -69,7 +69,7 @@ class TCPKeepAliveHTTPAdapter(HTTPAdapter):
     """HTTPAdapter with TCP keepalive enabled to detect stale/dead connections faster."""
 
     def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
-        pool_kwargs["socket_options"] = _build_socket_options()
+        pool_kwargs.setdefault("socket_options", _build_socket_options())
         super().init_poolmanager(connections, maxsize, block=block, **pool_kwargs)
 
     def proxy_manager_for(self, proxy, **proxy_kwargs):
