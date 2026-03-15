@@ -14,6 +14,7 @@ type PaneSizeRatios = {
   summarySidebar: number;
   detailsSidebar: number;
   detailsPane: number;
+  graphPane: number;
 };
 
 // Default ratios of pane sizes in the model trace explorer.
@@ -24,6 +25,8 @@ const getDefaultPaneSizeRatios = (): PaneSizeRatios => ({
   detailsSidebar: 0.7,
   // Details pane (based on the window width)
   detailsPane: window.innerWidth <= 768 ? 0.33 : 0.25,
+  // Graph view pane — balanced with details pane
+  graphPane: 0.5,
 });
 
 export type ModelTraceExplorerViewState = {
@@ -35,6 +38,8 @@ export type ModelTraceExplorerViewState = {
   setSelectedNode: (node: ModelTraceSpanNode | undefined) => void;
   activeTab: ModelTraceExplorerTab;
   setActiveTab: (tab: ModelTraceExplorerTab) => void;
+  showGraph: boolean;
+  setShowGraph: (show: boolean) => void;
   showTimelineTreeGantt: boolean;
   setShowTimelineTreeGantt: (show: boolean) => void;
   assessmentsPaneExpanded: boolean;
@@ -60,6 +65,8 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   setSelectedNode: () => {},
   activeTab: 'content',
   setActiveTab: () => {},
+  showGraph: true,
+  setShowGraph: () => {},
   showTimelineTreeGantt: false,
   setShowTimelineTreeGantt: () => {},
   assessmentsPaneExpanded: false,
@@ -147,6 +154,7 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [selectedNode, setSelectedNode] = useState<ModelTraceSpanNode | undefined>(defaultSelectedNode);
   const defaultActiveTab = getDefaultActiveTab(selectedNode);
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
+  const [showGraph, setShowGraph] = useState(!!rootNode);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
   const [assessmentsPaneExpanded, setAssessmentsPaneExpandedInternal] = useState(() => {
     if (preferences.assessmentsPaneExpanded !== undefined) {
@@ -216,6 +224,8 @@ export const ModelTraceExplorerViewStateProvider = ({
       setActiveTab,
       selectedNode,
       setSelectedNode,
+      showGraph,
+      setShowGraph,
       showTimelineTreeGantt,
       setShowTimelineTreeGantt,
       assessmentsPaneExpanded: !readOnly && assessmentsPaneExpanded,
@@ -236,6 +246,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       activeTab,
       rootNode,
       selectedNode,
+      showGraph,
       showTimelineTreeGantt,
       setShowTimelineTreeGantt,
       assessmentsPaneExpanded,
