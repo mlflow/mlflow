@@ -80,9 +80,9 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
     const values = modelSelectionRef.current?.getValues();
     if (!values || !experimentId) return;
 
-    const { provider, model, apiKeyConfig, saveKey } = values;
+    const { mode, endpointName, provider, model, apiKeyConfig, saveKey } = values;
 
-    const submitIssueDetection = (secretId: string) => {
+    const submitIssueDetection = (secretId?: string) => {
       invokeIssueDetection(
         {
           experimentId,
@@ -91,6 +91,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           provider,
           model,
           secret_id: secretId,
+          endpoint_name: endpointName,
         },
         {
           onSuccess: (response) => {
@@ -102,7 +103,14 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
       );
     };
 
-    if (saveKey && apiKeyConfig.mode === 'new') {
+    // Endpoint mode - use the selected endpoint
+    if (mode === 'endpoint' && endpointName) {
+      submitIssueDetection();
+      return;
+    }
+
+    // Direct mode - save secret if new API key, or use existing secret
+    if (mode === 'direct' && saveKey && apiKeyConfig.mode === 'new') {
       const authConfig = { ...apiKeyConfig.newSecret.configFields } satisfies Record<string, string>;
       if (apiKeyConfig.newSecret.authMode) {
         authConfig['auth_mode'] = apiKeyConfig.newSecret.authMode;
