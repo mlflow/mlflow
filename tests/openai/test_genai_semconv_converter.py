@@ -7,7 +7,7 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from packaging.version import Version
 
 import mlflow
-from mlflow.openai.genai_semconv_converter import _convert_content
+from mlflow.openai.genai_semconv_converter import _convert_content, _convert_message
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import provider as tracer_provider_wrapper
 
@@ -284,3 +284,45 @@ def test_autolog_streaming(client, genai_semconv_capture, api):
 def test_convert_content_multimodal(content_item, expected):
     result = _convert_content([content_item])
     assert result == [expected]
+
+
+def test_convert_message_audio_transcript_fallback():
+    msg = {
+        "role": "assistant",
+        "content": None,
+        "audio": {
+            "id": "audio_abc123",
+            "data": "SGVsbG8=",
+            "expires_at": 9999999999,
+            "transcript": "Yes, I am.",
+        },
+    }
+    result = _convert_message(msg)
+    assert result == {
+        "role": "assistant",
+        "parts": [{"type": "text", "content": "Yes, I am."}],
+    }
+
+
+def test_convert_message_audio_no_override():
+    msg = {
+        "role": "assistant",
+        "content": "I have text.",
+        "audio": {
+            "id": "audio_abc123",
+            "data": "SGVsbG8=",
+            "expires_at": 9999999999,
+            "transcript": "Different transcript.",
+        },
+    }
+    result = _convert_message(msg)
+    assert result == {
+        "role": "assistant",
+        "parts": [{"type": "text", "content": "I have text."}],
+    }
+
+
+def test_convert_message_no_audio_no_content():
+    msg = {"role": "assistant", "content": None}
+    result = _convert_message(msg)
+    assert result == {"role": "assistant", "parts": []}

@@ -284,6 +284,111 @@ def test_chat_model_autolog_audio_output_normalization():
     assert audio_block["input_audio"]["data"] == audio_b64
 
 
+def test_chat_model_autolog_openai_audio_output_with_format():
+    audio_b64 = "SGVsbG8="
+
+    class OpenAIAudioModelWithFormat(BaseChatModel):
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            ai_msg = AIMessage(
+                content="",
+                additional_kwargs={
+                    "audio": {
+                        "id": "audio_abc123",
+                        "data": audio_b64,
+                        "expires_at": 9999999999,
+                        "transcript": "Yes, I am.",
+                    }
+                },
+            )
+            return ChatResult(generations=[ChatGeneration(message=ai_msg)])
+
+        @property
+        def _llm_type(self):
+            return "openai-audio-model"
+
+        @property
+        def _identifying_params(self):
+            return {
+                "model": "gpt-4o-audio-preview",
+                "audio": {"voice": "alloy", "format": "wav"},
+            }
+
+    mlflow.langchain.autolog()
+    model = OpenAIAudioModelWithFormat()
+    model.invoke([("human", "Are you an AI?")])
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = next(s for s in trace.data.spans if s.span_type == "CHAT_MODEL")
+
+    content = span.outputs["choices"][0]["message"]["content"]
+    assert isinstance(content, list)
+    assert content[0] == {"type": "text", "text": "Yes, I am."}
+    assert content[1]["type"] == "input_audio"
+    assert content[1]["input_audio"]["data"] == audio_b64
+    assert content[1]["input_audio"]["format"] == "wav"
+
+
+def test_chat_model_autolog_openai_audio_transcript_fallback():
+
+    class OpenAIAudioModel(BaseChatModel):
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            ai_msg = AIMessage(
+                content="",
+                additional_kwargs={
+                    "audio": {
+                        "id": "audio_abc123",
+                        "data": "SGVsbG8=",
+                        "expires_at": 9999999999,
+                        "transcript": "Yes, I am.",
+                    }
+                },
+            )
+            return ChatResult(generations=[ChatGeneration(message=ai_msg)])
+
+        @property
+        def _llm_type(self):
+            return "openai-audio-model"
+
+    mlflow.langchain.autolog()
+    model = OpenAIAudioModel()
+    model.invoke([("human", "Are you an AI?")])
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = next(s for s in trace.data.spans if s.span_type == "CHAT_MODEL")
+
+    assert span.outputs["choices"][0]["message"]["content"] == "Yes, I am."
+
+
+def test_chat_model_autolog_openai_audio_transcript_no_override():
+    class AudioModelWithContent(BaseChatModel):
+        def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+            ai_msg = AIMessage(
+                content="I have text content.",
+                additional_kwargs={
+                    "audio": {
+                        "id": "audio_abc123",
+                        "data": "SGVsbG8=",
+                        "expires_at": 9999999999,
+                        "transcript": "Different transcript.",
+                    }
+                },
+            )
+            return ChatResult(generations=[ChatGeneration(message=ai_msg)])
+
+        @property
+        def _llm_type(self):
+            return "audio-model-with-content"
+
+    mlflow.langchain.autolog()
+    model = AudioModelWithContent()
+    model.invoke([("human", "Say something")])
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    span = next(s for s in trace.data.spans if s.span_type == "CHAT_MODEL")
+
+    assert span.outputs["choices"][0]["message"]["content"] == "I have text content."
+
+
 def test_chat_model_bind_tool_autolog():
     mlflow.langchain.autolog()
 
