@@ -175,7 +175,6 @@ jobs:
           PROMPT: ${{ needs.precheck.outputs.prompt }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
-          set -o pipefail
           OUTPUT_FILE="/tmp/output.json"
 
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
