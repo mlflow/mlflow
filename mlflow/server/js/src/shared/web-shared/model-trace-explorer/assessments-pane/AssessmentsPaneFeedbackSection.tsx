@@ -23,6 +23,7 @@ import { invalidateMlflowSearchTracesCache } from '../hooks/invalidateMlflowSear
 import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import { isEvaluatingTracesInDetailsViewEnabled } from '../FeatureUtils';
 import { INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE } from '../constants';
+import { NOTES_ASSESSMENT_NAME } from './AssessmentsPaneNotesSection';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -138,7 +139,10 @@ export const AssessmentsPaneFeedbackSection = ({
   sessionId?: string;
 }) => {
   const visibleFeedbacks = useMemo(
-    () => feedbacks.filter((f) => f.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE),
+    () =>
+      feedbacks.filter(
+        (f) => f.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE && f.assessment_name !== NOTES_ASSESSMENT_NAME,
+      ),
     [feedbacks],
   );
   const groupedFeedbacks = useMemo(() => groupFeedbacks(visibleFeedbacks), [visibleFeedbacks]);

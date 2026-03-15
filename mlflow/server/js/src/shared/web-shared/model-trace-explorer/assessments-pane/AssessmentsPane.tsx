@@ -17,6 +17,7 @@ import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
 import { AssessmentsPaneExpectationsSection } from './AssessmentsPaneExpectationsSection';
 import { AssessmentsPaneFeedbackSection } from './AssessmentsPaneFeedbackSection';
 import { AssessmentsPaneIssuesSection } from './AssessmentsPaneIssuesSection';
+import { AssessmentsPaneNotesSection } from './AssessmentsPaneNotesSection';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 
 export const AssessmentsPane = ({
@@ -141,6 +142,8 @@ export const AssessmentsPane = ({
           <AssessmentsPaneIssuesSection issues={issues} />
         </>
       )}
+      <Spacer size="sm" shrinks={false} />
+      <AssessmentsPaneNotesSection traceId={traceId} feedbacks={feedbacks} />
     </div>
   );
 };
