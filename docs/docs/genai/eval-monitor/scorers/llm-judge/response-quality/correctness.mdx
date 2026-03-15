@@ -29,7 +29,7 @@ correctness_judge = Correctness()
 # Example 1: Response contains expected facts
 feedback = correctness_judge(
     inputs={"request": "What is MLflow?"},
-    outputs={"response": "MLflow is an open-source AI engineering platform."},
+    outputs={"response": "MLflow is an open-source AI engineering platform for agents and LLMs."},
     expectations={
         "expected_facts": [
             "MLflow is open-source",
@@ -65,7 +65,9 @@ eval_dataset = [
     # Example 1: Response contains expected facts
     {
         "inputs": {"request": "What is MLflow?"},
-        "outputs": {"response": "MLflow is an open-source AI engineering platform."},
+        "outputs": {
+            "response": "MLflow is an open-source AI engineering platform for agents and LLMs."
+        },
         "expectations": {
             "expected_facts": [
                 "MLflow is open-source",
