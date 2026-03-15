@@ -111,7 +111,7 @@ The default permission for all users is `READ`. It can be changed in the [config
 
 Permissions can be granted on individual resources for each user. For workspace-wide access
 controls, see [Workspace Permissions](/self-hosting/workspaces/permissions).
-Supported resources include `Experiment`, `Registered Model`, and `Scorer`.
+Supported resources include `Experiment`, `Registered Model`, `Registered Prompt`, and `Scorer`.
 To access an API endpoint, an user must have the required permission.
 Otherwise, a `403 Forbidden` response will be returned.
 
@@ -873,6 +873,8 @@ Required Permissions for accessing scorers:
 </table>
 
 MLflow Authentication provides API endpoints to manage users and permissions.
+To manage prompt permissions, use the registered-model permission endpoints with the
+prompt name in the `name` field.
 
 <table>
   <thead>
@@ -1344,6 +1346,29 @@ experiment_id = client.create_experiment(name="experiment")
 
 auth_client.create_experiment_permission(
     experiment_id=experiment_id, username="user2", permission="MANAGE"
+)
+```
+
+#### Granting Prompt Permissions
+
+Use the registered-model permission APIs with the prompt name in the `name` field.
+For example, use <APILink fn="mlflow.server.auth.client.AuthServiceClient.create_registered_model_permission" />
+to grant prompt permissions.
+
+```bash title="Example"
+export MLFLOW_TRACKING_USERNAME=admin
+export MLFLOW_TRACKING_PASSWORD=password
+```
+
+```python
+from mlflow.server import get_app_client
+
+tracking_uri = "http://localhost:5000/"
+
+auth_client = get_app_client("basic-auth", tracking_uri=tracking_uri)
+auth_client.create_user(username="user2", password="pw2")
+auth_client.create_registered_model_permission(
+    name="my-prompt", username="user2", permission="READ"
 )
 ```
 

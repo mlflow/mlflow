@@ -432,6 +432,8 @@ class AuthServiceClient:
         """
         Create a permission on an registered model for a user.
 
+        This method is also used for registered prompts by passing the prompt name in ``name``.
+
         Args:
             name: The name of the registered model.
             username: The username.
@@ -457,6 +459,8 @@ class AuthServiceClient:
     def get_registered_model_permission(self, name: str, username: str):
         """
         Get an registered model permission for a user.
+
+        This method is also used for registered prompts by passing the prompt name in ``name``.
 
         Args:
             name: The name of the registered model.
@@ -507,6 +511,8 @@ class AuthServiceClient:
         """
         Update an existing registered model permission for a user.
 
+        This method is also used for registered prompts by passing the prompt name in ``name``.
+
         Args:
             name: The name of the registered model.
             username: The username.
@@ -541,6 +547,8 @@ class AuthServiceClient:
     def delete_registered_model_permission(self, name: str, username: str):
         """
         Delete an existing registered model permission for a user.
+
+        This method is also used for registered prompts by passing the prompt name in ``name``.
 
         Args:
             name: The name of the registered model.
