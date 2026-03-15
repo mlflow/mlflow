@@ -303,6 +303,7 @@ from mlflow.utils.crypto import KEKManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
+from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.providers import (
@@ -2673,6 +2674,23 @@ def _create_model_version():
             _validate_source_run(request_message.source, request_message.run_id)
 
     store = _get_model_registry_store()
+    user_id = None
+    run_id_for_user = request_message.run_id
+    if not run_id_for_user and request_message.model_id:
+        try:
+            tracking_store = _get_tracking_store()
+            logged_model = tracking_store.get_logged_model(request_message.model_id)
+            run_id_for_user = logged_model.source_run_id
+        except Exception as e:
+            _logger.warning(
+                "Failed to fetch logged model %s for user_id: %s", request_message.model_id, e
+            )
+    if run_id_for_user:
+        try:
+            run = _get_tracking_store().get_run(run_id_for_user)
+            user_id = run.data.tags.get(MLFLOW_USER)
+        except Exception as e:
+            _logger.warning("Failed to fetch run %s for user_id: %s", run_id_for_user, e)
     model_version = store.create_model_version(
         name=request_message.name,
         source=request_message.source,
@@ -2681,6 +2699,7 @@ def _create_model_version():
         tags=request_message.tags,
         description=request_message.description,
         model_id=request_message.model_id,
+        user_id=user_id,
     )
     if not is_prompt and request_message.model_id:
         tracking_store = _get_tracking_store()
