@@ -828,3 +828,27 @@ def test_submit_job_without_extra_envs(monkeypatch, tmp_path):
         job = get_job(job_id)
         assert job.status == JobStatus.SUCCEEDED
         assert job.parsed_result is None
+
+
+@job(name="workspace_env_checker", max_workers=1)
+def workspace_env_checker():
+    from mlflow.environment_variables import MLFLOW_WORKSPACE
+
+    return os.environ.get(MLFLOW_WORKSPACE.name)
+
+
+def test_submit_job_workspace_propagation(monkeypatch, tmp_path, workspaces_enabled):
+    expected_workspace = DEFAULT_WORKSPACE_NAME if workspaces_enabled else None
+
+    with _setup_job_runner(
+        monkeypatch,
+        tmp_path,
+        supported_job_functions=["tests.server.jobs.test_jobs.workspace_env_checker"],
+        allowed_job_names=["workspace_env_checker"],
+    ):
+        submitted_job = submit_job(workspace_env_checker, {})
+        wait_job_finalize(submitted_job.job_id)
+
+        job = get_job(submitted_job.job_id)
+        assert job.status == JobStatus.SUCCEEDED
+        assert job.parsed_result == expected_workspace

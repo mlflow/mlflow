@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -58,6 +57,7 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_ISSUE_DETECTION
 
 _logger = logging.getLogger(__name__)
 
@@ -314,6 +314,7 @@ def _merge_singleton_issues(
     analyses: list[_ConversationAnalysis],
     model: str,
     max_issues: int,
+    categories: list[str] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
     singletons = [i for i in identified if len(i.example_indices) == 1]
@@ -327,6 +328,7 @@ def _merge_singleton_issues(
         analyses,
         model,
         max_issues,
+        categories=categories,
         token_counter=token_counter,
     )
     return multi_member + merged
@@ -336,6 +338,7 @@ def _cluster_and_identify(
     analyses: list[_ConversationAnalysis],
     model: str,
     max_issues: int,
+    categories: list[str] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
     """Cluster analyses into identified issues via LLM-based labeling and grouping."""
@@ -351,7 +354,12 @@ def _cluster_and_identify(
 
     def summarize_fn(group: list[int]) -> _IdentifiedIssue:
         return summarize_cluster(
-            group, analyses, model, label_to_analysis=label_to_analysis, token_counter=token_counter
+            group,
+            analyses,
+            model,
+            label_to_analysis=label_to_analysis,
+            categories=categories,
+            token_counter=token_counter,
         )
 
     max_workers = min(MLFLOW_GENAI_EVAL_MAX_WORKERS.get(), len(cluster_groups))
@@ -372,7 +380,13 @@ def _cluster_and_identify(
     for label, analysis_idx in zip(labels, label_to_analysis):
         analysis_labels.setdefault(analysis_idx, label)
     return _merge_singleton_issues(
-        identified, analysis_labels, analyses, model, max_issues, token_counter=token_counter
+        identified,
+        analysis_labels,
+        analyses,
+        model,
+        max_issues,
+        categories=categories,
+        token_counter=token_counter,
     )
 
 
@@ -389,28 +403,25 @@ def _build_issues(
         A tuple of (issues, issue_trace_ids) where issue_trace_ids maps
         issue_id to the list of example trace IDs for annotation.
     """
+    from mlflow.tracing.client import TracingClient
+
     issues: list[Issue] = []
     issue_trace_ids: dict[str, list[str]] = {}
     for ident in identified:
-        example_ids = collect_example_trace_ids(ident, analyses)
+        # TODO: this doesn't include all affected traces, but at max 10 examples
+        example_trace_ids = collect_example_trace_ids(ident, analyses)
         name = ident.name.removeprefix("Issue: ").removeprefix("issue: ")
-        issue_id = str(uuid.uuid4())
-        now_ms = int(time.time() * 1000)
-        issues.append(
-            Issue(
-                issue_id=issue_id,
-                experiment_id=exp_id or "",
-                name=name,
-                description=ident.description,
-                status="open",
-                created_timestamp=now_ms,
-                last_updated_timestamp=now_ms,
-                severity=ident.severity,
-                root_causes=[ident.root_cause],
-                source_run_id=source_run_id,
-            )
+        issue = TracingClient()._create_issue(
+            experiment_id=exp_id,
+            name=name,
+            description=ident.description,
+            severity=ident.severity,
+            categories=ident.categories,
+            root_causes=[ident.root_cause],
+            source_run_id=source_run_id,
         )
-        issue_trace_ids[issue_id] = example_ids
+        issues.append(issue)
+        issue_trace_ids[issue.issue_id] = example_trace_ids
 
     issues.sort(
         key=lambda i: i.severity,
@@ -445,6 +456,8 @@ def discover_issues(
     model: str | None = None,
     max_issues: int = 20,
     filter_string: str | None = None,
+    run_id: str | None = None,
+    categories: list[str] | None = None,
 ) -> DiscoverIssuesResult:
     """
     Discover quality and operational issues in traces.
@@ -471,6 +484,8 @@ def discover_issues(
         max_issues: Maximum distinct issues to identify.
         filter_string: Filter string passed to ``search_traces``.
             Ignored when ``traces`` is provided.
+        run_id: Run ID to attach issues to. If not provided, a new run will be created.
+        categories: Issue categories to search for.
 
     Returns:
         A :class:`DiscoverIssuesResult` with discovered issues, run IDs,
@@ -526,6 +541,7 @@ def discover_issues(
             triage_run_id="",
             summary="No traces to analyze.",
             total_traces_analyzed=0,
+            total_cost_usd=0.0,
         )
 
     use_conversation = False
@@ -533,12 +549,8 @@ def discover_issues(
         use_conversation = any(get_session_id(trace) for trace in triage_traces)
         if not use_conversation:
             _logger.debug("No session IDs found, falling back to trace-level scorer")
-        instructions = build_satisfaction_instructions(use_conversation=use_conversation)
-        default_scorer = make_judge(
-            name=DEFAULT_SCORER_NAME,
-            instructions=instructions,
-            model=model,
-            feedback_value_type=bool,
+        default_scorer = build_issue_discovery_scorer(
+            categories=categories, model=model, use_conversation=use_conversation
         )
         scorers = [default_scorer]
 
@@ -555,7 +567,7 @@ def discover_issues(
         scorers[0], test_session[0] if test_session else triage_traces[0], session=test_session
     )
 
-    with mlflow.start_run(run_name="discover_issues"):
+    with mlflow.start_run(run_id=run_id, tags={MLFLOW_RUN_IS_ISSUE_DETECTION: "true"}):
         triage_eval = mlflow.genai.evaluate(
             data=triage_traces,
             scorers=scorers,
@@ -596,13 +608,16 @@ def discover_issues(
             triage_run_id=triage_eval.run_id,
             summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
+            total_cost_usd=token_counter.cost_usd or None,
         )
 
     # ---- Phase 2: Build analyses ----
     analyses, session_groups = _build_analyses(triage_traces, rationale_map, scorer_name)
 
     # ---- Phase 3: Cluster & identify ----
-    identified = _cluster_and_identify(analyses, model, max_issues, token_counter=token_counter)
+    identified = _cluster_and_identify(
+        analyses, model, max_issues, categories=categories, token_counter=token_counter
+    )
 
     if not identified:
         return DiscoverIssuesResult(
@@ -610,6 +625,7 @@ def discover_issues(
             triage_run_id=triage_eval.run_id,
             summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
+            total_cost_usd=token_counter.cost_usd or None,
         )
 
     # ---- Phase 4: Build issues & annotate ----
@@ -646,6 +662,7 @@ def discover_issues(
         triage_run_id=triage_eval.run_id,
         summary=summary,
         total_traces_analyzed=len(triage_traces),
+        total_cost_usd=token_counter.cost_usd or None,
     )
 
     # Log artifacts to the triage run
