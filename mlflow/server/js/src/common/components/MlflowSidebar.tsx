@@ -252,12 +252,31 @@ export function MlflowSidebar({
         display: 'inline-flex',
         flexDirection: 'column',
         gap: theme.spacing.md,
+        '@media (max-width: 768px)': {
+          // On mobile, the sidebar should act as a collapsible top navigation or off-canvas element
+          width: '100%',
+          flexDirection: showSidebar ? 'column' : 'row',
+          alignItems: showSidebar ? 'stretch' : 'center',
+          paddingRight: theme.spacing.sm,
+          maxHeight: showSidebar ? '100vh' : 'auto',
+          // Hide underlying items if collapsed to preserve screen space
+          overflow: showSidebar ? 'auto' : 'hidden',
+          zIndex: 100,
+          borderBottom: !showSidebar ? `1px solid ${theme.colors.borderDecorative}` : 'none',
+        },
       }}
     >
       <div css={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-        {showSidebar && (
-          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-            <Link componentId="mlflow.sidebar.logo_home_link" to={ExperimentTrackingRoutes.rootRoute}>
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Link componentId="mlflow.sidebar.logo_home_link" to={ExperimentTrackingRoutes.rootRoute}>
+            <div
+              css={{
+                display: showSidebar ? 'block' : 'none',
+                '@media (max-width: 768px)': {
+                  display: 'block', // Always show logo on mobile
+                },
+              }}
+            >
               <MlflowLogo
                 css={{
                   display: 'block',
@@ -265,14 +284,19 @@ export function MlflowSidebar({
                   color: theme.colors.textPrimary,
                   marginLeft: -(theme.spacing.sm + theme.spacing.xs),
                   marginRight: -theme.spacing.lg,
+                  '@media (max-width: 768px)': {
+                    marginRight: 0,
+                  },
                 }}
               />
-            </Link>
+            </div>
+          </Link>
+          {showSidebar && (
             <Typography.Text size="sm" css={{ paddingLeft: theme.spacing.sm }} color="secondary">
               {Version}
             </Typography.Text>
-          </div>
-        )}
+          )}
+        </div>
         <Button
           componentId="mlflow_header.toggle_sidebar_button"
           onClick={toggleSidebar}
@@ -304,6 +328,9 @@ export function MlflowSidebar({
           justifyContent: 'space-between',
           height: '100%',
           overflow: 'auto',
+          '@media (max-width: 768px)': {
+            display: showSidebar ? 'flex' : 'none',
+          },
         }}
       >
         <ul
@@ -311,6 +338,12 @@ export function MlflowSidebar({
             listStyleType: 'none',
             padding: 0,
             margin: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            '@media (max-width: 768px)': {
+              flexDirection: showSidebar ? 'column' : 'row',
+              gap: showSidebar ? 0 : theme.spacing.sm,
+            },
           }}
         >
           {showWorkspaceMenuItems &&
@@ -330,7 +363,15 @@ export function MlflowSidebar({
                 ),
             )}
         </ul>
-        <div>
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            '@media (max-width: 768px)': {
+              flexDirection: showSidebar ? 'column' : 'row',
+            },
+          }}
+        >
           {isLocalServer && (
             <Tooltip
               componentId="mlflow.sidebar.assistant_tooltip"

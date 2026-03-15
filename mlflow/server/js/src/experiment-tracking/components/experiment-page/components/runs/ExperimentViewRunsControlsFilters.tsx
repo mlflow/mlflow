@@ -148,7 +148,8 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           display: 'flex',
           gap: theme.spacing.sm,
           justifyContent: 'space-between',
-          [theme.responsive.mediaQueries.xs]: {
+          flexWrap: 'wrap',
+          '@media (max-width: 768px)': {
             flexDirection: 'column',
           },
         }}
@@ -379,6 +380,10 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             display: 'flex',
             gap: theme.spacing.sm,
             alignItems: 'flex-start',
+            flexWrap: 'wrap',
+            '@media (max-width: 768px)': {
+              justifyContent: 'flex-start',
+            },
           }}
         >
           <DropdownMenu.Root modal={false}>

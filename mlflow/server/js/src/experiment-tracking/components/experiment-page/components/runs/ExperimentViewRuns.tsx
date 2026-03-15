@@ -296,6 +296,10 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
             height: '100%',
             position: 'relative',
             display: 'flex',
+            '@media (max-width: 768px)': {
+              flexDirection: 'column',
+              height: 'auto',
+            },
           }}
         >
           {isComparingRuns ? (
