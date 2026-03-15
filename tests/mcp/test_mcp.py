@@ -184,6 +184,23 @@ def test_fn_wrapper_handles_unset_defaults(monkeypatch):
     assert "None" in result
 
 
+def test_fn_wrapper_uses_empty_tuples_for_missing_array_params():
+    captured = {}
+
+    @click.command()
+    @click.option("--items", multiple=True)
+    @click.argument("names", nargs=-1)
+    def cmd(items, names):
+        captured["items"] = items
+        captured["names"] = names
+
+    wrapper = fn_wrapper(cmd)
+    wrapper()
+
+    assert captured["items"] == ()
+    assert captured["names"] == ()
+
+
 def test_fn_wrapper_converts_repeatable_custom_types():
     with patch.object(python_api, "predict") as mock_predict:
         wrapper = fn_wrapper(model_commands.commands["predict"])

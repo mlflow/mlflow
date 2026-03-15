@@ -102,7 +102,12 @@ def fn_wrapper(command: click.Command) -> Callable[..., str]:
             # Fill in defaults for missing optional arguments
             for param in command.params:
                 if param.name not in kwargs:
-                    if param.default is click_unset:
+                    if param.multiple or param.nargs == -1:
+                        if param.default in (None, click_unset):
+                            kwargs[param.name] = ()
+                        else:
+                            kwargs[param.name] = tuple(param.default)
+                    elif param.default is click_unset:
                         kwargs[param.name] = None
                     else:
                         kwargs[param.name] = param.default
