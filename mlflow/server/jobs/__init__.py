@@ -6,6 +6,7 @@ from types import FunctionType
 from typing import Any, Callable, ParamSpec, TypeVar
 
 from mlflow.entities._job import Job as JobEntity
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 from mlflow.utils.environment import _PythonEnv
@@ -216,7 +217,8 @@ def submit_job(
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     job = job_store.create_job(fn_meta.name, serialized_params, timeout)
-    workspace = job.workspace
+    # Only propagate workspace to subprocess when workspaces are enabled
+    workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
 
     # enqueue job
     huey_instance = _get_or_init_huey_instance(fn_meta.name)
