@@ -406,6 +406,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Tools',
   },
   {
+    id: 'cursor',
+    name: 'Cursor',
+    logoPath: '/images/logos/cursor-logo.png',
+    link: '/genai/tracing/integrations/listing/cursor',
+    category: 'Tools',
+  },
+  {
     id: 'opencode',
     name: 'Opencode',
     logoPath: '/images/logos/opencode-logo.png',
