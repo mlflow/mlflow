@@ -28,6 +28,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.entities.gateway_guardrail import GuardrailConfig, GuardrailHook, GuardrailOperation
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -55,6 +56,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpointTag,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
+    SqlGuardrailConfig,
     SqlSpanMetrics,
     SqlTraceInfo,
     SqlTraceMetadata,
@@ -1353,3 +1355,101 @@ class SqlAlchemyGatewayStoreMixin:
                 ).filter(SqlExperiment.workspace == workspace)
 
             return float(query.scalar())
+
+    # ─── Guardrail CRUD ─────────────────────────────────────────────────
+
+    def add_guardrail(
+        self,
+        scorer_name: str,
+        hook: GuardrailHook,
+        operation: GuardrailOperation,
+        endpoint_name: str | None = None,
+        order: int = 0,
+        config_json: str | None = None,
+    ) -> GuardrailConfig:
+        with self.ManagedSessionMaker() as session:
+            guardrail_id = f"gr-{uuid.uuid4().hex}"
+            sql_guardrail = self._with_workspace_field(
+                SqlGuardrailConfig(
+                    guardrail_id=guardrail_id,
+                    endpoint_name=endpoint_name,
+                    scorer_name=scorer_name,
+                    hook=hook.value if isinstance(hook, GuardrailHook) else hook,
+                    operation=operation.value
+                    if isinstance(operation, GuardrailOperation)
+                    else operation,
+                    order=order,
+                    enabled=True,
+                    config_json=config_json,
+                )
+            )
+            session.add(sql_guardrail)
+            session.flush()
+            return sql_guardrail.to_mlflow_entity()
+
+    def remove_guardrail(self, guardrail_id: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            sql_guardrail = self._get_entity_or_raise(
+                session,
+                SqlGuardrailConfig,
+                {"guardrail_id": guardrail_id},
+                "GuardrailConfig",
+            )
+            session.delete(sql_guardrail)
+
+    def list_guardrails(
+        self,
+        endpoint_name: str | None = None,
+    ) -> list[GuardrailConfig]:
+        with self.ManagedSessionMaker() as session:
+            query = self._get_query(session, SqlGuardrailConfig).filter(
+                SqlGuardrailConfig.enabled.is_(True)
+            )
+            if endpoint_name is not None:
+                # Return guardrails for this endpoint + global guardrails (endpoint_name IS NULL)
+                query = query.filter(
+                    (SqlGuardrailConfig.endpoint_name == endpoint_name)
+                    | (SqlGuardrailConfig.endpoint_name.is_(None))
+                )
+            query = query.order_by(SqlGuardrailConfig.order)
+            return [row.to_mlflow_entity() for row in query.all()]
+
+    def update_guardrail(
+        self,
+        guardrail_id: str,
+        scorer_name: str | None = None,
+        hook: GuardrailHook | None = None,
+        operation: GuardrailOperation | None = None,
+        config_json: str | None = ...,
+    ) -> GuardrailConfig:
+        with self.ManagedSessionMaker() as session:
+            sql_guardrail = self._get_entity_or_raise(
+                session,
+                SqlGuardrailConfig,
+                {"guardrail_id": guardrail_id},
+                "GuardrailConfig",
+            )
+            if scorer_name is not None:
+                sql_guardrail.scorer_name = scorer_name
+            if hook is not None:
+                sql_guardrail.hook = hook.value if isinstance(hook, GuardrailHook) else hook
+            if operation is not None:
+                sql_guardrail.operation = (
+                    operation.value if isinstance(operation, GuardrailOperation) else operation
+                )
+            if config_json is not ...:
+                sql_guardrail.config_json = config_json
+            session.flush()
+            return sql_guardrail.to_mlflow_entity()
+
+    def reorder_guardrails(self, guardrail_ids: list[str]) -> None:
+        """Update the order of guardrails based on the provided list of IDs."""
+        with self.ManagedSessionMaker() as session:
+            for order, guardrail_id in enumerate(guardrail_ids):
+                sql_guardrail = self._get_entity_or_raise(
+                    session,
+                    SqlGuardrailConfig,
+                    {"guardrail_id": guardrail_id},
+                    "GuardrailConfig",
+                )
+                sql_guardrail.order = order

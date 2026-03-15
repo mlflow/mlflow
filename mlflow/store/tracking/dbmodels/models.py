@@ -2986,3 +2986,54 @@ class SqlGatewayBudgetPolicy(Base):
             last_updated_by=self.last_updated_by,
             workspace=self.workspace,
         )
+
+
+class SqlGuardrailConfig(Base):
+    """
+    DB model for guardrail configurations. Recorded in ``guardrail_configs`` table.
+    Links a scorer (judge) to a gateway endpoint for pre/post invocation guardrails.
+    """
+
+    __tablename__ = "guardrail_configs"
+
+    guardrail_id = Column(String(36), nullable=False)
+    endpoint_name = Column(String(255), nullable=True)
+    scorer_name = Column(String(255), nullable=False)
+    hook = Column(String(32), nullable=False)
+    operation = Column(String(32), nullable=False)
+    order = Column(Integer, nullable=False, default=0)
+    enabled = Column(Boolean, nullable=False, default=True)
+    config_json = Column(Text, nullable=True)
+    workspace = Column(
+        String(63),
+        nullable=False,
+        default=DEFAULT_WORKSPACE_NAME,
+        server_default=sa.text(f"'{DEFAULT_WORKSPACE_NAME}'"),
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("guardrail_id", name="guardrail_configs_pk"),
+        Index("idx_guardrail_configs_endpoint", "endpoint_name"),
+        Index("idx_guardrail_configs_workspace", "workspace"),
+    )
+
+    def __repr__(self):
+        return f"<SqlGuardrailConfig ({self.guardrail_id})>"
+
+    def to_mlflow_entity(self):
+        from mlflow.entities.gateway_guardrail import (
+            GuardrailConfig,
+            GuardrailHook,
+            GuardrailOperation,
+        )
+
+        return GuardrailConfig(
+            guardrail_id=self.guardrail_id,
+            endpoint_name=self.endpoint_name,
+            scorer_name=self.scorer_name,
+            hook=GuardrailHook(self.hook),
+            operation=GuardrailOperation(self.operation),
+            order=self.order,
+            enabled=self.enabled,
+            config_json=self.config_json,
+        )

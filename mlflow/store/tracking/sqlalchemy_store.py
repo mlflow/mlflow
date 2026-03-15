@@ -309,6 +309,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         # DB migrations
         if not mlflow.store.db.utils._all_tables_exist(self.engine):
             mlflow.store.db.utils._initialize_tables(self.engine)
+        else:
+            # For existing databases, run any pending migrations (e.g. tables added after initial
+            # setup). _upgrade_db is idempotent: alembic is a no-op when already at the head.
+            mlflow.store.db.utils._upgrade_db(self.engine)
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
             SessionMaker, self.db_type
