@@ -6,6 +6,7 @@
  */
 
 import React, { Component } from 'react';
+import DOMPurify from "dompurify";
 import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import './ShowArtifactMapView.css';
 import 'leaflet/dist/leaflet.css';
@@ -21,7 +22,7 @@ import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetch
 function onEachFeature(feature: any, layer: any) {
   if (feature.properties && feature.properties.popupContent) {
     const { popupContent } = feature.properties;
-    layer.bindPopup(popupContent);
+    layer.bindPopup(DOMPurify.sanitize(popupContent));
   }
 }
 
