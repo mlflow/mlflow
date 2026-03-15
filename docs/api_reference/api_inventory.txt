@@ -864,7 +864,6 @@ mlflow.genai.delete_prompt_tag
 mlflow.genai.delete_prompt_version_tag
 mlflow.genai.delete_scorer
 mlflow.genai.disable_git_model_versioning
-mlflow.genai.discover_issues
 mlflow.genai.enable_git_model_versioning
 mlflow.genai.evaluate
 mlflow.genai.get_dataset
