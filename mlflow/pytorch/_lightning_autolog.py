@@ -22,7 +22,8 @@ from mlflow.utils.autologging_utils import (
 )
 from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
 
-logging.basicConfig(level=logging.ERROR)
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.ERROR)
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
 MAX_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["maximum"])
 
@@ -39,8 +40,6 @@ from pytorch_lightning.utilities import rank_zero_only
 # tracking uri, experiment_id and run_id which may lead to a race condition.
 # TODO: Replace __MlflowPLCallback with Pytorch Lightning's built-in MlflowLogger
 # once the above mentioned issues have been addressed
-
-_logger = logging.getLogger(__name__)
 
 _pl_version = Version(pl.__version__)
 if _pl_version < Version("1.5.0"):
