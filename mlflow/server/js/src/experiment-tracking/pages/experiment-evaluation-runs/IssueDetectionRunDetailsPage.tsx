@@ -67,11 +67,12 @@ export const IssueDetectionRunDetailsPage = () => {
       }}
       onDeleteSuccess={handleDeleteSuccess}
       hideTracesCompareSelector
-      renderCustomOverview={({ runInfo, tags }) => (
+      renderCustomOverview={({ runInfo, tags, onRunDataUpdated }) => (
         <IssueDetectionRunOverview
           runInfo={runInfo}
           tags={tags}
           jobId={tags[MLFLOW_ISSUE_DETECTION_JOB_ID_TAG]?.value}
+          onRunDataUpdated={onRunDataUpdated}
         />
       )}
     />

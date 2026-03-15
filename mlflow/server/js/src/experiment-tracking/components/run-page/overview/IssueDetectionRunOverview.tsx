@@ -45,11 +45,9 @@ export const IssueDetectionRunOverview = ({
   });
 
   const model = tags['model']?.value;
-  const provider = tags['provider']?.value;
   const categoriesStr = tags['categories']?.value;
   const categories = categoriesStr ? categoriesStr.split(',').map((c) => c.trim()) : undefined;
   const totalTraces = tags['total_traces']?.value ? parseInt(tags['total_traces'].value, 10) : undefined;
-  const modelDisplay = model && provider ? `${provider}:/${model}` : undefined;
 
   const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
   const prevJobCompleteRef = useRef(jobComplete);
@@ -83,13 +81,13 @@ export const IssueDetectionRunOverview = ({
           })}
           value={<RunViewUserLinkBox runInfo={runInfo} tags={tags} />}
         />
-        {modelDisplay && (
+        {model && (
           <KeyValueProperty
             keyValue={intl.formatMessage({
               defaultMessage: 'Model',
               description: 'Run page > Overview > Model used for issue detection',
             })}
-            value={modelDisplay}
+            value={model}
           />
         )}
         {categories && categories.length > 0 && (
