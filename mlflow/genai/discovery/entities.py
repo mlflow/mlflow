@@ -14,6 +14,7 @@ class DiscoverIssuesResult:
     triage_run_id: str
     summary: str
     total_traces_analyzed: int
+    total_cost_usd: float | None = None
 
 
 @dataclass
@@ -54,4 +55,7 @@ class _IdentifiedIssue(pydantic.BaseModel):
             "not_an_issue=not a real issue, low=minor issue, "
             "medium=moderate issue, high=critical issue"
         ),
+    )
+    categories: list[str] = pydantic.Field(
+        description="Categories of this issue",
     )

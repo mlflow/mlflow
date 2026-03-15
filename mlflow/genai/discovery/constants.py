@@ -140,9 +140,10 @@ Then cite specific evidence from the APPLICATION OUTPUT above.\
 CATEGORIES_INSTRUCTIONS = """\
 
 
-The following issue categories are relevant to this evaluation. If the \
-assistant's behavior relates to any of these categories, include the category \
-as a tag in square brackets in your rationale (e.g. [hallucination]):
+The following issue categories are the ONLY valid categories for this evaluation. \
+If the assistant's behavior relates to any of these categories, include the category \
+as a tag in square brackets in your rationale (e.g. [low_quality]). Do NOT include \
+any categories that are not in this list:
 {categories}\
 """
 
@@ -212,7 +213,7 @@ Return ONLY the symptom(s), one per line, nothing else."""
 
 NO_ISSUE_KEYWORD = "NO_ISSUE_DETECTED"
 
-CLUSTER_SUMMARY_SYSTEM_PROMPT = (
+CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE = (
     "You are an expert at analyzing AI application failures. You will be given a group of "
     "per-conversation failure analyses that were pre-clustered by semantic similarity.\n\n"
     "Your job is to:\n"
@@ -237,8 +238,33 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "based on observed symptoms.\n"
     f"- A severity level from: {', '.join(str(level) for level in IssueSeverity)}. "
     "Use medium or high only if the analyses clearly share the same failure "
-    "pattern. Use not_an_issue if they do NOT belong together or represent no real issue."
+    "pattern. Use not_an_issue if they do NOT belong together or represent no real issue.\n"
 )
+
+CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION = (
+    "- Categories: Extract any category tags enclosed in square brackets "
+    "(e.g. [low_quality], [negative_ux]) from the rationales and include them "
+    "in the categories field. If no category tags are found, return an empty list."
+)
+
+CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST = (
+    "- Categories: Extract any category tags enclosed in square brackets from the rationales. "
+    "ONLY include categories from this list: {categories}. "
+    "If no matching category tags are found, return an empty list."
+)
+
+
+def build_cluster_summary_prompt(categories: list[str] | None = None) -> str:
+    """Build the cluster summary system prompt with optional category filtering."""
+    if categories:
+        cat_list = ", ".join(categories)
+        cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST.format(
+            categories=cat_list
+        )
+    else:
+        cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION
+    return CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE + cat_instruction
+
 
 # ---- Label clustering prompt ----
 
