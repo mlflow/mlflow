@@ -181,7 +181,7 @@ jobs:
           ARGS=("/resolve")
           [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
           # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
-          timeout 10m claude --model claude-opus-4-6 --print --verbose --output-format stream-json "${ARGS[*]}" 2>&1 | .claude/scripts/stream.sh "$OUTPUT_FILE" || true
+          timeout 10m claude --model claude-opus-4-6 --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || true
 
       - name: Upload Claude output
         if: always()
@@ -258,7 +258,7 @@ jobs:
             // Extract and display Claude's result and raw output
             if (claudeOutput) {
               try {
-                const events = claudeOutput.trim().split('\n').map(JSON.parse);
+                const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
                 const resultEvent = events.find(({ type }) => type === 'result');
                 if (resultEvent) {
                   resultMessage += `\n\n<details>\n<summary>Claude Output</summary>\n\n${resultEvent.result}\n\n</details>`;

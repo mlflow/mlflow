@@ -114,7 +114,7 @@ jobs:
 
           EXIT_CODE=0
           # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
-          timeout 20m claude --model claude-opus-4-6 --print --verbose --output-format stream-json "${ARGS[*]}" 2>&1 | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
+          timeout 20m claude --model claude-opus-4-6 --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
@@ -149,7 +149,7 @@ jobs:
             // Extract and display Claude's result from JSON output
             if (claudeOutput) {
               try {
-                const events = claudeOutput.trim().split('\n').map(JSON.parse);
+                const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
                 const resultEvent = events.findLast(({ type }) => type === 'result');
                 if (resultEvent) {
                   resultMessage += `\n\n<details>\n<summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
