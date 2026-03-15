@@ -64,9 +64,26 @@ export function useTryIt({ tryItRequestUrl, options }: UseTryItParams) {
         const text = await response.text();
         return formatResponseText(text);
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        const rawText = err instanceof NetworkRequestError ? (await err.response?.text()) || '' : undefined;
+        let message = err instanceof Error ? err.message : String(err);
+        const isNetworkError = err instanceof NetworkRequestError;
+        const rawText = isNetworkError ? (await err.response?.text()) || '' : undefined;
         const responseBody = rawText !== undefined ? formatResponseText(rawText) : undefined;
+
+        // Use the server's error detail if available (e.g. budget limit exceeded messages)
+        if (rawText) {
+          try {
+            const parsed = JSON.parse(rawText);
+            if (typeof parsed.detail === 'string') {
+              const status = isNetworkError ? err.status : undefined;
+              if (status) {
+                message = `Error ${status}`;
+              }
+            }
+          } catch {
+            // ignore parse failures, keep original message
+          }
+        }
+
         throw createTryItError(message, responseBody);
       }
     },
