@@ -34,11 +34,10 @@ MLFLOW_LOGGED_ARTIFACTS = "mlflow.loggedArtifacts"
 MLFLOW_LOGGED_IMAGES = "mlflow.loggedImages"
 MLFLOW_RUN_SOURCE_TYPE = "mlflow.runSourceType"
 
-# Indicates that an MLflow run was created by an evaluation
-MLFLOW_RUN_IS_EVALUATION = "mlflow.run.isEval"
-
-# Indicates that an MLflow run is for issue detection
-MLFLOW_RUN_IS_ISSUE_DETECTION = "mlflow.run.isIssueDetection"
+# Enum tag for classifying run types (e.g. "genai_evaluate", "issue_detection")
+MLFLOW_RUN_TYPE = "mlflow.runType"
+MLFLOW_RUN_TYPE_GENAI_EVALUATE = "genai_evaluate"
+MLFLOW_RUN_TYPE_ISSUE_DETECTION = "issue_detection"
 
 MLFLOW_DATABRICKS_NOTEBOOK_ID = "mlflow.databricks.notebookID"
 MLFLOW_DATABRICKS_NOTEBOOK_PATH = "mlflow.databricks.notebookPath"
