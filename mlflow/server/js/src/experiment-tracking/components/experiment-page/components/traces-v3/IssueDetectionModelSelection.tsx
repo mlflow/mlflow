@@ -21,7 +21,7 @@ const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
   },
 };
 
-// Default to cheaper models for each provider
+// Default to recommended models for each provider
 const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
   openai: 'gpt-5.4',
   anthropic: 'claude-sonnet-4-6',
