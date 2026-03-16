@@ -5,31 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.server.jobs import job
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-
-# Mapping of provider names to their environment variable names for API keys
-# Providers that don't use API keys are not included in this mapping
-_PROVIDER_ENV_VARS = {
-    "openai": "OPENAI_API_KEY",
-    "azure": "AZURE_API_KEY",  # Azure OpenAI
-    "anthropic": "ANTHROPIC_API_KEY",
-    "cohere": "COHERE_API_KEY",
-    "ai21labs": "AI21_API_KEY",
-    "mistral": "MISTRAL_API_KEY",
-    "togetherai": "TOGETHERAI_API_KEY",
-    "mosaicml": "MOSAICML_API_KEY",
-    "palm": "PALM_API_KEY",
-    "gemini": "GEMINI_API_KEY",
-    "bedrock": {
-        "aws_access_key_id": "AWS_ACCESS_KEY_ID",
-        "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
-        "aws_session_token": "AWS_SESSION_TOKEN",  # Optional
-    },
-    "amazon-bedrock": {  # Alias for bedrock
-        "aws_access_key_id": "AWS_ACCESS_KEY_ID",
-        "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
-        "aws_session_token": "AWS_SESSION_TOKEN",
-    },
-}
+from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
 
 
 def _fetch_provider_credentials(
@@ -42,11 +18,12 @@ def _fetch_provider_credentials(
         provider: The provider name (e.g., "openai", "anthropic").
         secret_id: The ID of the secret containing the credentials.
     """
-    env_var_config = _PROVIDER_ENV_VARS.get(provider.lower())
+    env_var_config = _CORE_PROVIDER_ENV_VARS.get(provider.lower())
     if env_var_config is None:
         raise MlflowException(
             f"Unknown provider '{provider}'. "
-            f"Supported providers: {', '.join(_PROVIDER_ENV_VARS.keys())}"
+            f"Supported providers: {', '.join(_CORE_PROVIDER_ENV_VARS.keys())}. "
+            "To use other providers, create an AI Gateway endpoint instead."
         )
 
     secret_value = store._get_decrypted_secret(secret_id)

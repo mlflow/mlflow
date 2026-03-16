@@ -5,7 +5,6 @@ import pytest
 from mlflow.entities.run_status import RunStatus
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.job import (
-    _PROVIDER_ENV_VARS,
     _fetch_provider_credentials,
     invoke_issue_detection_job,
 )
@@ -16,8 +15,8 @@ from mlflow.genai.discovery.job import (
     [
         ("openai", {"api_key": "test-key"}, {"OPENAI_API_KEY": "test-key"}),
         ("anthropic", {"api_key": "test-key"}, {"ANTHROPIC_API_KEY": "test-key"}),
-        ("cohere", {"api_key": "test-key"}, {"COHERE_API_KEY": "test-key"}),
-        ("mistral", {"api_key": "test-key"}, {"MISTRAL_API_KEY": "test-key"}),
+        ("gemini", {"api_key": "test-key"}, {"GEMINI_API_KEY": "test-key"}),
+        ("azure", {"api_key": "test-key"}, {"AZURE_OPENAI_API_KEY": "test-key"}),
         (
             "bedrock",
             {
@@ -30,11 +29,6 @@ from mlflow.genai.discovery.job import (
                 "AWS_SECRET_ACCESS_KEY": "secret-key",
                 "AWS_SESSION_TOKEN": "session-token",
             },
-        ),
-        (
-            "amazon-bedrock",
-            {"aws_access_key_id": "access-key", "aws_secret_access_key": "secret-key"},
-            {"AWS_ACCESS_KEY_ID": "access-key", "AWS_SECRET_ACCESS_KEY": "secret-key"},
         ),
     ],
 )
@@ -209,15 +203,3 @@ def test_invoke_issue_detection_job_failure_marks_run_failed():
         mock_client.set_terminated.assert_called_once_with(
             "run-123", RunStatus.to_string(RunStatus.FAILED)
         )
-
-
-def test_provider_env_vars_contains_expected_providers():
-    assert "openai" in _PROVIDER_ENV_VARS
-    assert "anthropic" in _PROVIDER_ENV_VARS
-    assert "bedrock" in _PROVIDER_ENV_VARS
-    assert "amazon-bedrock" in _PROVIDER_ENV_VARS
-    assert "cohere" in _PROVIDER_ENV_VARS
-    assert "mistral" in _PROVIDER_ENV_VARS
-    assert _PROVIDER_ENV_VARS["openai"] == "OPENAI_API_KEY"
-    assert _PROVIDER_ENV_VARS["anthropic"] == "ANTHROPIC_API_KEY"
-    assert isinstance(_PROVIDER_ENV_VARS["bedrock"], dict)
