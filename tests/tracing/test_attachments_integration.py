@@ -2,11 +2,7 @@ import mlflow
 from mlflow.tracing.attachments import Attachment
 
 
-def test_attachment_roundtrip_with_local_tracking(tmp_path):
-    tracking_uri = str(tmp_path / "mlruns")
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.set_experiment("attachment-integration-test")
-
+def test_attachment_roundtrip_with_local_tracking():
     image_bytes = b"\x89PNG\r\n\x1a\n fake png content"
     audio_bytes = b"RIFF fake wav content"
 
@@ -42,6 +38,7 @@ def test_attachment_roundtrip_with_local_tracking(tmp_path):
     # Verify the attachment files were written to the artifact repo
     from mlflow.tracing.client import TracingClient
 
+    tracking_uri = mlflow.get_tracking_uri()
     client = TracingClient(tracking_uri)
     trace_info = client.get_trace_info(trace_id)
     artifact_repo = client._get_artifact_repo_for_trace(trace_info)
