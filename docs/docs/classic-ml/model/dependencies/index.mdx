@@ -155,9 +155,24 @@ When you log a model, MLflow checks for a `uv.lock` and `pyproject.toml` in the 
 
 MLflow also copies the uv project files (`uv.lock` and `pyproject.toml`) and, if present, the `.python-version` file into the model artifact directory. These files enable exact environment restoration with `uv sync` when the model is loaded later.
 
+This works with all MLflow model flavors. For example, logging a scikit-learn model in a uv-managed project:
+
+```python
+import mlflow
+from sklearn.linear_model import LinearRegression
+from sklearn.datasets import make_regression
+
+X, y = make_regression(n_samples=100, n_features=4)
+model = LinearRegression().fit(X, y)
+
+# uv.lock is auto-detected in the current directory
+mlflow.sklearn.log_model(model, name="model")
+# Requirements are exported from uv.lock, not inferred from imports
+```
+
 ### Auto-Detection
 
-By default, uv project detection is enabled. MLflow looks for `uv.lock` and `pyproject.toml` in the current working directory every time you call <APILink fn="mlflow.pyfunc.log_model" /> or <APILink fn="mlflow.pyfunc.save_model" />.
+By default, uv project detection is enabled. MLflow looks for `uv.lock` and `pyproject.toml` in the current working directory when you log a model with any flavor, including <APILink fn="mlflow.sklearn.log_model" />, <APILink fn="mlflow.pytorch.log_model" />, <APILink fn="mlflow.transformers.log_model" />, <APILink fn="mlflow.pyfunc.log_model" />, and others. All flavors that call `infer_pip_requirements` benefit from uv auto-detection.
 
 To disable auto-detection, set the `MLFLOW_UV_AUTO_DETECT` environment variable:
 
@@ -226,7 +241,7 @@ This maps to `uv export --extra gpu --extra serving`.
 For a complete, runnable example with a uv project (including `pyproject.toml`, `uv.lock`, and a script demonstrating auto-detection, explicit paths, groups, and extras), see the [full example code](https://github.com/mlflow/mlflow/tree/master/examples/uv-dependency-management).
 
 :::tip
-These parameters are available on both <APILink fn="mlflow.pyfunc.log_model" /> and <APILink fn="mlflow.pyfunc.save_model" />.
+The `uv_project_path`, `uv_groups`, and `uv_extras` parameters are available on <APILink fn="mlflow.pyfunc.log_model" /> and <APILink fn="mlflow.pyfunc.save_model" />. For other flavors (sklearn, pytorch, transformers, etc.), uv auto-detection works automatically when `uv.lock` and `pyproject.toml` exist in the current working directory.
 :::
 
 :::warning
