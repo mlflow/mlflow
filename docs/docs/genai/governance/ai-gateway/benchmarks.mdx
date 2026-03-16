@@ -4,59 +4,92 @@ MLflow AI Gateway is designed to add minimal overhead when proxying requests to 
 
 ## Methodology
 
-Our benchmark suite follows [LiteLLM's benchmark methodology](https://docs.litellm.ai/docs/benchmarks) for direct comparability:
+Our benchmark suite measures **pure proxy overhead** — the extra latency each gateway adds on top of the upstream provider call. Both MLflow and LiteLLM are tested under identical conditions for direct comparability.
 
-- **Load generator**: [Locust](https://locust.io/) with configurable concurrent users
-- **Backend**: Fake OpenAI-compatible server returning canned responses with configurable latency
-- **Measurement**: ASGI middleware captures per-request gateway overhead via `X-MLflow-Gateway-Overhead-Ms` header
-- **Resource monitoring**: CPU and memory sampled every 1 second via `psutil`
+- **Benchmark client**: `aiohttp` with connection pooling (matching [LiteLLM's own benchmark methodology](https://docs.litellm.ai/docs/benchmarks))
+- **Backend**: Fake OpenAI-compatible server returning canned responses with configurable delay (`FAKE_RESPONSE_DELAY_MS`, default 50ms)
+- **Measurement**: Client-side `time.perf_counter()` timestamps (high-resolution monotonic clock)
+- **Warmup**: 50 requests discarded before each timed run to establish connection pools and warm caches
+- **Environment**: Both proxies run on the same machine, same number of workers, hitting the same fake backend
 
-### Traffic Mix
+By controlling for network and provider latency (everything runs on `127.0.0.1`), the benchmark isolates what each gateway adds to the request path.
 
-| Endpoint Type | Weight | Description |
-|--------------|--------|-------------|
-| Chat completions | 80% | `/gateway/benchmark-chat/invocations` |
-| Text completions | 10% | `/gateway/benchmark-completions/invocations` |
-| Embeddings | 10% | `/gateway/benchmark-embeddings/invocations` |
+## Results: MLflow vs LiteLLM
 
-### Test Configurations
+With config caching enabled (the default since [#21660](https://github.com/mlflow/mlflow/pull/21660)) and usage tracking off, the MLflow AI Gateway outperforms LiteLLM across all metrics.
 
-| Config | Workers | Simulated Provider Latency | Purpose |
-|--------|---------|---------------------------|---------|
-| Overhead | 2 | 0 ms | Isolate pure proxy overhead |
-| Default | 2 | 50 ms | Default gateway behavior |
-| Scaled | 4 | 50 ms | Match LiteLLM's 4-instance setup |
-| Realistic | 4 | 100 ms | Simulate real API latency |
+**Head-to-head (4 workers, 50 concurrent, 50ms fake delay, 2000 requests/run, 3 runs):**
 
-## Running Benchmarks
+| Metric | MLflow AI Gateway | LiteLLM |
+| --- | --- | --- |
+| **P50 latency** | 55 ms | 81 ms |
+| **P95 latency** | 74 ms | 123 ms |
+| **P99 latency** | 105 ms | 298 ms |
+| **Throughput** | 844 rps | 577 rps |
+| **Failures** | 0 | 0 |
 
-The benchmark suite lives in [`benchmarks/gateway/`](https://github.com/mlflow/mlflow/tree/master/benchmarks/gateway) in the MLflow repository.
+With `FAKE_RESPONSE_DELAY_MS=0` (measuring pure proxy overhead with no simulated provider latency):
+
+| Metric | MLflow AI Gateway | LiteLLM |
+| --- | --- | --- |
+| **P50 latency** | 10 ms | 41 ms |
+| **P95 latency** | 61 ms | 98 ms |
+| **P99 latency** | 72 ms | 254 ms |
+| **Throughput** | 3,483 rps | 1,062 rps |
+
+MLflow's core proxy path adds ~10ms of overhead vs LiteLLM's ~41ms — **3.3x faster** when measuring raw proxy speed.
+
+:::note
+Results were collected on a MacBook Pro (Apple Silicon). Run the benchmark on your own hardware for environment-specific numbers.
+:::
+
+## Bottleneck Analysis
+
+The MLflow AI Gateway has two configurable bottlenecks that affect performance:
+
+### 1. Endpoint config resolution
+
+MLflow treats the database as the source of truth for endpoint configuration, resolving it with 3-5 SQL queries per request. LiteLLM loads config from YAML at startup and keeps it in memory.
+
+**Config caching** (enabled by default via [#21660](https://github.com/mlflow/mlflow/pull/21660)) caches the result of `get_endpoint_config()` after the first DB lookup, eliminating per-request SQL queries and giving a **3.4x throughput improvement**.
+
+### 2. Usage tracking / tracing
+
+When usage tracking is enabled, every request is wrapped with `mlflow.trace()` for observability. This adds span creation, metadata recording, and async trace persistence.
+
+### Impact breakdown
+
+The following table shows how each bottleneck affects throughput (PostgreSQL, 4 workers, 50 concurrent):
+
+| Configuration | MLflow (rps) | LiteLLM (rps) |
+| --- | --- | --- |
+| No cache, usage tracking ON (worst case) | 14 | 430 |
+| Cache ON, usage tracking ON | 67 | 521 |
+| **Cache ON, usage tracking OFF** | **841** | **539** |
+
+With config caching enabled (the default) and usage tracking turned off, MLflow is **1.6x faster** than LiteLLM. Both bottlenecks are independent and compound — together they reduce throughput from 841 rps to 14 rps.
+
+### Perspective: does proxy overhead matter?
+
+With a real provider adding 200-2000ms of inference time, a 10-50ms proxy overhead is 0.5-5% of total latency. The benchmarks are most useful for identifying optimization opportunities and comparing architectures under controlled conditions.
+
+## Running Benchmarks Yourself
+
+The benchmark suite lives in [`benchmarks/gateway/`](https://github.com/mlflow/mlflow/tree/master/benchmarks/gateway).
 
 ```bash
 # Install dependencies
-pip install -r benchmarks/gateway/requirements.txt
+pip install mlflow[gateway] 'litellm[proxy]'
 
-# Smoke test (5 users, 10 seconds)
+# Head-to-head comparison (MLflow vs LiteLLM)
 cd benchmarks/gateway
-LOCUST_USERS=5 LOCUST_RUN_TIME=10s bash run_benchmark.sh
+GATEWAY_WORKERS=4 REQUESTS=2000 MAX_CONCURRENT=50 RUNS=3 bash run_comparison.sh
 
-# Full benchmark (1000 users, 60 seconds, 4 workers)
-GATEWAY_WORKERS=4 bash run_benchmark.sh
+# MLflow-only tracking server benchmark
+bash run_tracking_server_benchmark.sh
+
+# Full-stack comparison with PostgreSQL (requires Docker)
+bash run_full_stack_comparison.sh
 ```
 
-See the [benchmark README](https://github.com/mlflow/mlflow/tree/master/benchmarks/gateway/README.md) for full configuration options.
-
-## LiteLLM Comparison
-
-LiteLLM's published numbers (4-instance, 4 CPU / 8GB RAM each):
-
-| Metric | LiteLLM |
-|--------|---------|
-| Median latency | 100 ms |
-| P95 latency | 150 ms |
-| P99 latency | 240 ms |
-| Requests/sec | 1,170 |
-| Proxy overhead (p50) | 2 ms |
-| Proxy overhead (p99) | 13 ms |
-
-Run the benchmark suite on your own hardware to generate comparable numbers for the MLflow AI Gateway.
+See the [benchmark README](https://github.com/mlflow/mlflow/tree/master/benchmarks/gateway/README.md) for full configuration options, deployment guides, and detailed methodology.
