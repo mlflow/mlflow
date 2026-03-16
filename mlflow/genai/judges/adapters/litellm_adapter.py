@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     import litellm
 
     from mlflow.entities.trace import Trace
+    from mlflow.genai.skills import SkillSet
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
@@ -199,7 +200,7 @@ def _invoke_litellm_and_handle_tools(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
-    skill_set: Any = None,
+    skill_set: SkillSet | None = None,
 ) -> InvokeLiteLLMOutput:
     """
     Invoke litellm with retry support and handle tool calling loop.

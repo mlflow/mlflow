@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     import litellm
 
     from mlflow.entities.trace import Trace
+    from mlflow.genai.skills import SkillSet
     from mlflow.types.llm import ChatMessage, ToolDefinition
 
 T = TypeVar("T")  # Generic type for agentic loop return value
@@ -246,7 +247,7 @@ def _run_databricks_agentic_loop(
     trace: "Trace | None",
     on_final_answer: Callable[[str | None], T],
     use_case: str | None = None,
-    skill_set: Any = None,
+    skill_set: SkillSet | None = None,
 ) -> T:
     """
     Run an agentic loop with Databricks chat completions.

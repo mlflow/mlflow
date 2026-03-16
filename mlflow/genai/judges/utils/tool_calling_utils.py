@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 if TYPE_CHECKING:
     import litellm
 
     from mlflow.entities.trace import Trace
+    from mlflow.genai.skills import SkillSet
     from mlflow.types.llm import ToolCall
 
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
@@ -40,7 +41,7 @@ def _raise_iteration_limit_exceeded(max_iterations: int) -> NoReturn:
 def _process_tool_calls(
     tool_calls: list["litellm.ChatCompletionMessageToolCall"],
     trace: Trace | None,
-    skill_set: Any = None,
+    skill_set: SkillSet | None = None,
 ) -> list["litellm.Message"]:
     """
     Process tool calls and return tool response messages.
