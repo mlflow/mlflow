@@ -9,6 +9,7 @@ import {
 } from './core/api';
 import { flushTraces } from './core/provider';
 import { MlflowClient } from './clients';
+import { InMemoryTraceManager } from './core/trace_manager';
 
 export {
   getLastActiveTraceId,
@@ -20,6 +21,7 @@ export {
   trace,
   withSpan,
   MlflowClient,
+  InMemoryTraceManager,
 };
 
 // Export entities

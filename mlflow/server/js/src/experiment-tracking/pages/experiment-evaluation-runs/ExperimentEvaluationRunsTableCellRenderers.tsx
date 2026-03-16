@@ -35,6 +35,7 @@ import {
 } from '../../../common/utils/FeatureUtils';
 import { MLFLOW_RUN_IS_ISSUE_DETECTION_TAG } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
+import { RunStatusIcon } from '../../components/RunStatusIcon';
 
 export const CheckboxCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   row,
@@ -135,6 +136,7 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
           }}
         >
           <Link
+            componentId="mlflow.experiment_tracking.evaluation_runs.run_link"
             target="_blank"
             rel="noreferrer"
             to={Routes.getRunPageTabRoute(row.original.info.experimentId, runUuid, RunPageTabName.EVALUATIONS)}
@@ -252,6 +254,7 @@ export const ModelVersionCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row 
         css={{ maxWidth: '100%', marginRight: 0, cursor: 'pointer' }}
       >
         <Link
+          componentId="mlflow.experiment_tracking.evaluation_runs.model_version_link"
           to={Routes.getExperimentLoggedModelDetailsPageRoute(row.original.info.experimentId, modelId)}
           target="_blank"
           css={{ maxWidth: '100%' }}
@@ -352,4 +355,17 @@ export const VisiblityCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row, ta
       css={{ cursor: 'pointer' }}
     />
   );
+};
+
+export const StatusCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({ row }) => {
+  if ('subRuns' in row.original) {
+    return <div>-</div>;
+  }
+
+  const status = row.original.info.status;
+  if (!status) {
+    return <div>-</div>;
+  }
+
+  return <RunStatusIcon status={status} />;
 };

@@ -142,7 +142,10 @@ const GatewayPage = () => {
                       <ChainIcon />
                       <FormattedMessage defaultMessage="Endpoints" description="Endpoints page title" />
                     </Typography.Title>
-                    <Link to={GatewayRoutes.createEndpointPageRoute}>
+                    <Link
+                      componentId="mlflow.gateway.page.create_endpoint_link"
+                      to={GatewayRoutes.createEndpointPageRoute}
+                    >
                       <Button componentId="mlflow.gateway.endpoints.create-button" type="primary" icon={<PlusIcon />}>
                         <FormattedMessage
                           defaultMessage="Create endpoint"

@@ -50,6 +50,7 @@ from mlflow.entities import (
     InputTag,
     Issue,
     IssueReference,
+    IssueSeverity,
     IssueStatus,
     Metric,
     Param,
@@ -66,6 +67,7 @@ from mlflow.entities import (
 from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -1050,6 +1052,7 @@ class SqlAssessments(Base):
                 source=source,
                 trace_id=self.trace_id,
                 run_id=self.run_id,
+                rationale=self.rationale,
                 metadata=parsed_metadata,
                 span_id=self.span_id,
                 create_time_ms=self.created_timestamp,
@@ -1144,9 +1147,9 @@ class SqlIssue(Base):
     """
     Issue status: `String` (limit 50 characters).
     """
-    confidence = Column(String(50), nullable=True)
+    severity = Column(String(50), nullable=True)
     """
-    Confidence level: `String` (limit 50 characters). Optional indicator of detection confidence.
+    Severity level: `String` (limit 50 characters). Optional indicator of issue severity.
     """
     root_causes = Column(Text, nullable=True)
     """
@@ -1160,6 +1163,11 @@ class SqlIssue(Base):
     Source run ID that discovered this issue: `String` (limit 32 characters).
     *Foreign Key* into ``runs`` table. Nullable for manually created issues.
     When the source run is deleted, this field is set to NULL.
+    """
+    categories = Column(Text, nullable=True)
+    """
+    Categories stored as JSON array: `Text`. Nullable if categories are not yet
+    determined.
     """
     created_timestamp = Column(BigInteger, nullable=False)
     """
@@ -1203,9 +1211,10 @@ class SqlIssue(Base):
             name=self.name,
             description=self.description,
             status=IssueStatus(self.status),
-            confidence=self.confidence,
+            severity=IssueSeverity(self.severity) if self.severity else None,
             root_causes=json.loads(self.root_causes) if self.root_causes else None,
             source_run_id=self.source_run_id,
+            categories=json.loads(self.categories) if self.categories else None,
             created_timestamp=self.created_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
             created_by=self.created_by,
@@ -2965,8 +2974,10 @@ class SqlGatewayBudgetPolicy(Base):
             budget_policy_id=self.budget_policy_id,
             budget_unit=BudgetUnit(self.budget_unit),
             budget_amount=self.budget_amount,
-            duration_unit=BudgetDurationUnit(self.duration_unit),
-            duration_value=self.duration_value,
+            duration=BudgetDuration(
+                unit=BudgetDurationUnit(self.duration_unit),
+                value=self.duration_value,
+            ),
             target_scope=BudgetTargetScope(self.target_scope),
             budget_action=BudgetAction(self.budget_action),
             created_at=self.created_at,

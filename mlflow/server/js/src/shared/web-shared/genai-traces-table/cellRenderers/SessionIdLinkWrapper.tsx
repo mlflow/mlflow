@@ -25,6 +25,7 @@ export const SessionIdLinkWrapper = ({
 
   return (
     <Link
+      componentId="mlflow.genai-traces-table.session_id_link"
       // prettier-ignore
       to={url}
     >

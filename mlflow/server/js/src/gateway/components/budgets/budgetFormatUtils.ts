@@ -1,8 +1,8 @@
 import type { BudgetAction, BudgetPolicy, BudgetUnit, DurationUnit } from '../../types';
 
-export function formatBudgetAmount(amount: number, budgetUnit: BudgetUnit): string {
+export function formatBudgetAmount(amount: number, budgetUnit: BudgetUnit, digits: number = 2): string {
   if (budgetUnit === 'USD') {
-    return `$${amount.toFixed(2)}`;
+    return `$${amount.toLocaleString(undefined, { maximumFractionDigits: digits })}`;
   }
   return `${amount}`;
 }
@@ -35,5 +35,5 @@ export function formatOnExceeded(action: BudgetAction): string {
 }
 
 export function formatBudgetPolicySummary(policy: BudgetPolicy): string {
-  return `${formatBudgetAmount(policy.budget_amount, policy.budget_unit)} / ${formatDuration(policy.duration_value, policy.duration_unit)} — ${formatOnExceeded(policy.budget_action)}`;
+  return `${formatBudgetAmount(policy.budget_amount, policy.budget_unit)} / ${formatDuration(policy.duration.value, policy.duration.unit)} — ${formatOnExceeded(policy.budget_action)}`;
 }

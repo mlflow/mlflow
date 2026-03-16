@@ -170,6 +170,10 @@ See [OpenAI Agents SDK Tracing](/genai/tracing/integrations/listing/openai-agent
 | :----: | :---: |
 |   ✅   |  ✅   |
 
+:::tip Image and Audio Support for OpenAI Traces
+MLflow automatically captures images and audio sent to OpenAI models. See [Image and Audio (Multimodal) Content in Traces](/genai/tracing/observe-with-traces/multimodal) for examples and supported formats.
+:::
+
 ## Streaming
 
 MLflow Tracing supports streaming API of the OpenAI SDK. With the same set up of auto tracing, MLflow automatically traces the streaming response and render the concatenated output in the span UI. The actual chunks in the response stream can be found in the `Event` tab as well.

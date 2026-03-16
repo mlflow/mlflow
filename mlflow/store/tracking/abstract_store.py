@@ -8,6 +8,7 @@ from mlflow.entities import (
     DatasetInput,
     DatasetRecord,
     Issue,
+    IssueSeverity,
     IssueStatus,
     LoggedModel,
     LoggedModelInput,
@@ -607,9 +608,10 @@ class AbstractStore(GatewayStoreMixin):
         name: str,
         description: str,
         status: IssueStatus = IssueStatus.PENDING,
-        confidence: str | None = None,
+        severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
+        categories: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
         """
@@ -620,9 +622,10 @@ class AbstractStore(GatewayStoreMixin):
             name: Short descriptive name for the issue.
             description: Detailed description of the issue.
             status: Issue status. Defaults to IssueStatus.PENDING.
-            confidence: Optional confidence level indicator.
+            severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
 
         Returns:
@@ -648,7 +651,7 @@ class AbstractStore(GatewayStoreMixin):
         status: IssueStatus | None = None,
         name: str | None = None,
         description: str | None = None,
-        confidence: str | None = None,
+        severity: IssueSeverity | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -658,7 +661,7 @@ class AbstractStore(GatewayStoreMixin):
             status: Optional new status.
             name: Optional new name for the issue.
             description: Optional new description.
-            confidence: Optional new confidence level.
+            severity: Optional new severity level.
 
         Returns:
             The updated Issue entity.

@@ -1,4 +1,4 @@
-import { LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
+import { Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
@@ -41,6 +41,9 @@ const TAB_LABELS: Record<RunPageTabName, ReactNode> = {
   ),
   [RunPageTabName.TRACES]: (
     <FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />
+  ),
+  [RunPageTabName.ISSUES]: (
+    <FormattedMessage defaultMessage="Issues" description="Run details page > tab selector > issues tab" />
   ),
   [RunPageTabName.ARTIFACTS]: (
     <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />
@@ -91,11 +94,24 @@ export const RunViewModeSwitch = ({
   };
 
   return (
-    // @ts-expect-error TS(2322)
-    <LegacyTabs activeKey={currentTab} onChange={onTabChanged} tabBarStyle={{ margin: removeTabMargin && '0px' }}>
-      {visibleTabs.map((tabName) => (
-        <LegacyTabs.TabPane tab={TAB_LABELS[tabName]} key={tabName} />
-      ))}
-    </LegacyTabs>
+    <Tabs.Root
+      componentId="mlflow.run-page.view-mode-switch"
+      value={currentTab}
+      onValueChange={onTabChanged}
+      valueHasNoPii
+      css={{
+        '& > div:nth-of-type(1)': {
+          marginBottom: removeTabMargin ? 0 : undefined,
+        },
+      }}
+    >
+      <Tabs.List>
+        {visibleTabs.map((tabName) => (
+          <Tabs.Trigger key={tabName} value={tabName}>
+            {TAB_LABELS[tabName]}
+          </Tabs.Trigger>
+        ))}
+      </Tabs.List>
+    </Tabs.Root>
   );
 };

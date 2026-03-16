@@ -1,7 +1,16 @@
+from __future__ import annotations
+
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.experiment_tag import ExperimentTag
+from mlflow.entities.trace_location import UnityCatalog
 from mlflow.protos.service_pb2 import Experiment as ProtoExperiment
 from mlflow.protos.service_pb2 import ExperimentTag as ProtoExperimentTag
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE,
+    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE,
+)
 from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 
@@ -22,6 +31,7 @@ class Experiment(_MlflowObject):
         creation_time=None,
         last_update_time=None,
         workspace=None,
+        trace_location=None,
     ):
         super().__init__()
         self._experiment_id = experiment_id
@@ -32,6 +42,7 @@ class Experiment(_MlflowObject):
         self._creation_time = creation_time
         self._last_update_time = last_update_time
         self._workspace = resolve_entity_workspace_name(workspace)
+        self._trace_location = trace_location
 
     @property
     def experiment_id(self):
@@ -77,6 +88,38 @@ class Experiment(_MlflowObject):
 
     def _set_last_update_time(self, last_update_time):
         self._last_update_time = last_update_time
+
+    @property
+    def trace_location(self) -> UnityCatalog | None:
+        """Trace storage location, if configured."""
+        if self._trace_location is None:
+            self._trace_location = self._resolve_trace_location_from_tags()
+        return self._trace_location
+
+    @trace_location.setter
+    def trace_location(self, trace_location):
+        self._trace_location = trace_location
+
+    def _resolve_trace_location_from_tags(self) -> UnityCatalog | None:
+        destination_path = self._tags.get(MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH)
+        if not destination_path:
+            return None
+
+        match destination_path.split("."):
+            case [catalog, schema, table_prefix]:
+                location = UnityCatalog(catalog, schema, table_prefix)
+                location._otel_spans_table_name = self._tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE
+                )
+                location._otel_logs_table_name = self._tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE
+                )
+                location._annotations_table_name = self._tags.get(
+                    MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE
+                )
+                return location
+            case _:
+                return None
 
     @property
     def workspace(self):
