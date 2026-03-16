@@ -11,9 +11,6 @@ serving = ["flask"]
 [dependency-groups]
 ml = ["xgboost"]
 
-[tool.hatch.build.targets.wheel]
-packages = ["."]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
