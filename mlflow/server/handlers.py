@@ -305,7 +305,11 @@ from mlflow.utils.crypto import KEKManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
-from mlflow.utils.mlflow_tags import MLFLOW_ISSUE_DETECTION_JOB_ID, MLFLOW_RUN_IS_ISSUE_DETECTION
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_ISSUE_DETECTION_JOB_ID,
+    MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+)
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.providers import (
@@ -4187,7 +4191,7 @@ def _invoke_issue_detection_handler():
     run = mlflow.start_run(
         experiment_id=experiment_id,
         tags={
-            MLFLOW_RUN_IS_ISSUE_DETECTION: "true",
+            MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
             "categories": ",".join(categories),
             "model": model_name,
             "total_traces": len(trace_ids),
