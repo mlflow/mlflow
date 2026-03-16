@@ -32,6 +32,7 @@ from mlflow.entities import (
     GatewayEndpointTag,
     GatewayResourceType,
     InputTag,
+    IssueSeverity,
     IssueStatus,
     Metric,
     Param,
@@ -46,6 +47,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -139,6 +141,7 @@ from mlflow.protos.prompt_optimization_pb2 import (
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
+    BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
@@ -279,6 +282,7 @@ from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTracki
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
 from mlflow.telemetry import get_telemetry_client
+from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.telemetry.utils import (
     FALLBACK_UI_CONFIG,
@@ -3564,6 +3568,19 @@ def _batch_get_traces() -> Response:
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _batch_get_trace_infos() -> Response:
+    request_message = _get_request_message(
+        BatchGetTraceInfos(),
+        schema={"trace_ids": [_assert_array, _assert_required, _assert_item_type_string]},
+    )
+    trace_infos = _get_tracking_store().batch_get_trace_infos(request_message.trace_ids)
+    response_message = BatchGetTraceInfos.Response()
+    response_message.trace_infos.extend([ti.to_proto() for ti in trace_infos])
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_trace() -> Response:
     """
     A request handler for `GET /mlflow/traces/get` to get a trace with spans for given trace id.
@@ -4034,12 +4051,14 @@ def _create_issue():
         "description": request_message.description,
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
-        "severity": request_message.severity or None,
+        "categories": list(request_message.categories) or None,
         "created_by": request_message.created_by or None,
     }
 
     if request_message.HasField("status"):
         create_kwargs["status"] = IssueStatus(request_message.status)
+    if request_message.HasField("severity"):
+        create_kwargs["severity"] = IssueSeverity(request_message.severity)
 
     created_issue = _get_tracking_store().create_issue(**create_kwargs)
 
@@ -4061,13 +4080,16 @@ def _update_issue(issue_id):
     )
 
     status = IssueStatus(request_message.status) if request_message.HasField("status") else None
+    severity = (
+        IssueSeverity(request_message.severity) if request_message.HasField("severity") else None
+    )
 
     updated_issue = _get_tracking_store().update_issue(
         issue_id=issue_id,
         status=status,
         name=request_message.name or None,
         description=request_message.description or None,
-        severity=request_message.severity or None,
+        severity=severity,
     )
 
     response_message = UpdateIssue.Response(issue=updated_issue.to_proto())
@@ -5192,8 +5214,7 @@ def _create_budget_policy():
         schema={
             "budget_unit": [_assert_required],
             "budget_amount": [_assert_required],
-            "duration_unit": [_assert_required],
-            "duration_value": [_assert_required],
+            "duration": [_assert_required],
             "target_scope": [_assert_required],
             "budget_action": [_assert_required],
             "created_by": [_assert_string],
@@ -5205,10 +5226,16 @@ def _create_budget_policy():
             message=f"Invalid budget_unit: {request_message.budget_unit}",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    duration_unit = BudgetDurationUnit.from_proto(request_message.duration_unit)
+    duration_unit = BudgetDurationUnit.from_proto(request_message.duration.unit)
     if duration_unit is None:
         raise MlflowException(
-            message=f"Invalid duration_unit: {request_message.duration_unit}",
+            message=f"Invalid duration.unit: {request_message.duration.unit}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if request_message.duration.value <= 0:
+        raise MlflowException(
+            message=f"duration.value must be a positive integer, got "
+            f"{request_message.duration.value}",
             error_code=INVALID_PARAMETER_VALUE,
         )
     target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
@@ -5227,8 +5254,7 @@ def _create_budget_policy():
     policy = store.create_budget_policy(
         budget_unit=budget_unit,
         budget_amount=request_message.budget_amount,
-        duration_unit=duration_unit,
-        duration_value=request_message.duration_value,
+        duration=BudgetDuration(unit=duration_unit, value=request_message.duration.value),
         target_scope=target_scope,
         budget_action=budget_action,
         created_by=request_message.created_by or None,
@@ -5275,14 +5301,21 @@ def _update_budget_policy():
                 message=f"Invalid budget_unit: {request_message.budget_unit}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-    duration_unit = None
-    if request_message.HasField("duration_unit"):
-        duration_unit = BudgetDurationUnit.from_proto(request_message.duration_unit)
+    duration = None
+    if request_message.HasField("duration"):
+        duration_unit = BudgetDurationUnit.from_proto(request_message.duration.unit)
         if duration_unit is None:
             raise MlflowException(
-                message=f"Invalid duration_unit: {request_message.duration_unit}",
+                message=f"Invalid duration.unit: {request_message.duration.unit}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if request_message.duration.value <= 0:
+            raise MlflowException(
+                message=f"duration.value must be a positive integer, got "
+                f"{request_message.duration.value}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        duration = BudgetDuration(unit=duration_unit, value=request_message.duration.value)
     target_scope = None
     if request_message.HasField("target_scope"):
         target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
@@ -5306,10 +5339,7 @@ def _update_budget_policy():
         budget_amount=request_message.budget_amount
         if request_message.HasField("budget_amount")
         else None,
-        duration_unit=duration_unit,
-        duration_value=request_message.duration_value
-        if request_message.HasField("duration_value")
-        else None,
+        duration=duration,
         target_scope=target_scope,
         budget_action=budget_action,
         updated_by=request_message.updated_by or None,
@@ -6054,6 +6084,7 @@ def post_ui_telemetry_handler():
         if config.get("disable_ui_telemetry", True) or config.get("disable_telemetry", True):
             return jsonify({"status": "disabled"})
 
+        server_installation_id = get_or_create_installation_id()
         records = [
             Record(
                 event_name=event["event_name"],
@@ -6062,6 +6093,7 @@ def post_ui_telemetry_handler():
                 status=Status.SUCCESS,
                 installation_id=event["installation_id"],
                 session_id=event["session_id"],
+                server_installation_id=server_installation_id,
                 duration_ms=0,
             )
             for event in data
@@ -6496,6 +6528,7 @@ HANDLERS = {
     LinkTracesToRun: _link_traces_to_run,
     LinkPromptsToTrace: _link_prompts_to_trace,
     BatchGetTraces: _batch_get_traces,
+    BatchGetTraceInfos: _batch_get_trace_infos,
     GetTrace: _get_trace,
     QueryTraceMetrics: _query_trace_metrics,
     # Assessment APIs

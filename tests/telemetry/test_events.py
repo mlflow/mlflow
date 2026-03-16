@@ -5,6 +5,7 @@ import pytest
 from mlflow.entities.evaluation_dataset import DatasetGranularity, EvaluationDataset
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -65,6 +66,22 @@ from mlflow.telemetry.events import (
             None,
         ),
         ({}, None),
+        (
+            {"flavor": "mlflow.pyfunc", "uses_uv": True},
+            {"flavor": "pyfunc", "uses_uv": True},
+        ),
+        (
+            {"flavor": "mlflow.pyfunc", "uses_uv": False},
+            {"flavor": "pyfunc"},
+        ),
+        (
+            {"uses_uv": True},
+            {"uses_uv": True},
+        ),
+        (
+            {"flavor": "sklearn", "serialization_format": "cloudpickle", "uses_uv": True},
+            {"flavor": "sklearn", "serialization_format": "cloudpickle", "uses_uv": True},
+        ),
     ],
 )
 def test_logged_model_parse_params(arguments, expected_params):
@@ -429,7 +446,7 @@ def test_gateway_list_secrets_parse_params(arguments, expected_params):
         (
             {
                 "budget_unit": "USD",
-                "duration_unit": "DAYS",
+                "duration": BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
                 "target_scope": "GLOBAL",
                 "budget_action": "ALERT",
             },
@@ -443,7 +460,7 @@ def test_gateway_list_secrets_parse_params(arguments, expected_params):
         (
             {
                 "budget_unit": BudgetUnit.USD,
-                "duration_unit": BudgetDurationUnit.MONTHS,
+                "duration": BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
                 "target_scope": BudgetTargetScope.WORKSPACE,
                 "budget_action": BudgetAction.REJECT,
             },

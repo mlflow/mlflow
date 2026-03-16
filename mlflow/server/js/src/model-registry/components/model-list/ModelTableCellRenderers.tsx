@@ -96,7 +96,14 @@ export const ModelListVersionLinkCell = ({ versionNumber, name }: { versionNumbe
       description="Row entry for version columns in the registered model page"
       values={{
         versionNumber,
-        link: (text: any) => <Link to={ModelRegistryRoutes.getModelVersionPageRoute(name, versionNumber)}>{text}</Link>,
+        link: (text: any) => (
+          <Link
+            componentId="mlflow.model_registry.model_list.version_link"
+            to={ModelRegistryRoutes.getModelVersionPageRoute(name, versionNumber)}
+          >
+            {text}
+          </Link>
+        ),
       }}
     />
   );

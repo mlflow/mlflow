@@ -16,7 +16,11 @@ from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvalItem, EvaluationResult
-from mlflow.genai.evaluation.harness import _get_new_expectations, _log_assessments
+from mlflow.genai.evaluation.harness import (
+    _get_new_expectations,
+    _log_assessments,
+    _should_clone_trace,
+)
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.genai.simulators import ConversationSimulator
@@ -1525,3 +1529,69 @@ def test_log_assessments_preserves_existing_span_id(server_config):
     logged = {a.name: a.span_id for a in trace.info.assessments}
     assert logged["with_span_id"] == retriever.span_id
     assert logged["without_span_id"] == root.span_id
+
+
+def test_evaluate_fetches_traces_using_experiment_id(server_config):
+    exp1 = mlflow.set_experiment("eval_experiment_1")
+
+    @mlflow.trace(span_type=SpanType.AGENT)
+    def predict(question: str) -> str:
+        return "MLflow is a tool for ML"
+
+    predict("What is MLflow?")
+    trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_response",
+        value="MLflow is a tool for ML",
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="max_length",
+        value=100,
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+
+    traces_from_exp1 = mlflow.search_traces(locations=[exp1.experiment_id], return_type="list")
+    assert len(traces_from_exp1) == 1
+    assert (
+        traces_from_exp1[0].info.trace_location.mlflow_experiment.experiment_id
+        == exp1.experiment_id
+    )
+
+    # Switch to a different experiment
+    exp2 = mlflow.set_experiment("eval_experiment_2")
+    assert exp2.experiment_id != exp1.experiment_id
+
+    # Run evaluation with traces from exp1 while exp2 is active
+    result = mlflow.genai.evaluate(
+        data=traces_from_exp1,
+        scorers=[exact_match, is_concise],
+    )
+
+    assert "exact_match/mean" in result.metrics
+    assert "is_concise/mean" in result.metrics
+    run = mlflow.get_run(result.run_id)
+    assert run.info.experiment_id == exp2.experiment_id
+    traces_in_eval_run = mlflow.search_traces(run_id=result.run_id, return_type="list")
+    assert len(traces_in_eval_run) > 0
+
+
+def test_should_clone_trace_respects_run_id():
+    mlflow.set_experiment("should_clone_exp_1")
+    with mlflow.start_run() as run1:
+        with mlflow.start_span():
+            pass
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+    mlflow.set_experiment("should_clone_exp_2")
+    with mlflow.start_run() as run:
+        assert not _should_clone_trace(
+            trace, run_id=run1.info.run_id, experiment_id=run1.info.experiment_id
+        )
+        assert _should_clone_trace(
+            trace, run_id=run.info.run_id, experiment_id=run.info.experiment_id
+        )
+        assert _should_clone_trace(trace, run_id=None, experiment_id=run.info.experiment_id)
+        assert _should_clone_trace(trace, run_id=None)

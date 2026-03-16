@@ -165,7 +165,9 @@ const PromptsDetailsPage = ({ experimentId }: { experimentId?: string } = {}) =>
   const breadcrumbs = !experimentId ? (
     <Breadcrumb>
       <Breadcrumb.Item>
-        <Link to={Routes.promptsPageRoute}>Prompts</Link>
+        <Link componentId="mlflow.prompts.details.breadcrumb_link" to={Routes.promptsPageRoute}>
+          Prompts
+        </Link>
       </Breadcrumb.Item>
     </Breadcrumb>
   ) : undefined;

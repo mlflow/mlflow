@@ -1,0 +1,102 @@
+---
+title: Deploying MLflow to Azure
+---
+
+# Deploying MLflow to Azure
+
+MLflow core components include MLflow server, backend store, and artifact store. The MLflow server is the backend for experiment tracking, model registry management, tracing for LLM observability, job scheduling, and AI Gateway endpoints.
+
+This guide walks you through deploying the MLflow server to Azure Container App, the backend store to Azure Database for PostgreSQL flexible servers, and the artifact store to Azure blob storage. The guide also covers virtual network, container app environment settings. Once deployment is complete, you can access the MLflow web UI through an Azure application URL like `https://<app-name>.<unique-id>.<region-name>.azurecontainerapps.io/`, and your MLflow client code can connect to the MLflow server by setting the tracking URI to this URL.
+
+The overall deployment architecture is as follows:
+
+![overall architecture](/images/self-hosting/azure-self-hosting-arch.png)
+
+The deployment architecture has a couple of advantages:
+
+- **High Availability**
+  - The Azure blob storage provides built-in multi-AZ durability and extremely high availability for MLflow artifact storage.
+  - Azure Database for PostgreSQL flexible servers supports automatic failover to a standby instance in a different Availability Zone, minimizing database downtime for MLflow backend store.
+  - Azure Container App automatically restarts failed tasks needed, minimizing MLflow service downtime.
+
+- **Security by design**
+  - Public traffic is encrypted using HTTPS, ensuring secure communication between clients and the application endpoint.
+  - The Azure blob data container blocks all public access and MLflow server uses access key for secure access to the blob storage.
+  - Virtual network isolation and NSG-based access control: The Azure Container Apps environment runs in a dedicated subnet within an Azure virtual network. The MLflow server is only reachable via the Azure Container Apps ingress endpoint (which can be limited to internal VNet access), and the underlying containers are not directly exposed to the public internet. Network Security Groups and optional private endpoints for PostgreSQL and Blob Storage can further restrict inbound and outbound traffic.
+  - The architecture can integrate with MLflow authentication configurations.
+
+- **Operational Simplicity**
+  - Serverless Compute (Azure Container App), no virtual machine instances to manage, patch, or scale manually.
+  - Managed Database (Azure Database for PostgreSQL flexible servers): Automated backups, patching, and failover.
+
+## Step 1: Create an Azure blob container
+
+Select menu: Storage center -> Object storage -> Blob Storage -> Resources -> Create, create a storage account with name like "mlflowblob1".
+In the created storage account, select menu: Data storage -> Containers -> Add container, add a container with name like "mlflowartifacts1". The container URL used by MLflow server is like: `wasbs://<container-name>@<storage-account-name>.blob.core.windows.net`
+In the created storage account, select menu: Security + Networking -> Access keys, copy the access key. There are 2 available keys "key1" and "key2". When you want to rotate the key, you can update your MLflow server to use another key.
+
+The created storage account and blob data container are as follows:
+
+![azure blob storage](/images/self-hosting/azure-blob-storage.png)
+
+## Step 2: Create a virtual network
+
+Select menu: Network foundation -> Virtual networks -> Create, create a virtual network with name like "mlflow-vnet". We need to add 2 subnets ("aca-infra-subnet" for the container app, "db-subnet" for the database) as follows:
+
+![azure vnet](/images/self-hosting/azure-vnet.png)
+
+## Step 3: Create an instance of Azure Database
+
+Select menu: Azure Database for PostgreSQL flexible servers -> Create, set server name like "mlflow-db1", administrator login name and password, and set network connectivity to "Private access (VNet integration)", then select the VNet and the "db-subnet" subnet as follows:
+
+![azure db vnet](/images/self-hosting/azure-db-vnet.png)
+
+The database URL used by MLflow is like:
+
+`postgresql://<admin-login-name>:<password>@<database-server-name>.postgres.database.azure.com:5432/<database-name>`
+
+## Step 4: Create an Azure Container App and corresponding Azure Container App environment
+
+Select menu: Container Apps -> Create, create a container application with name like "mlflow-app1", fill configuration values as follows:
+
+Basic configurations:
+
+- Deployment source: Container image
+- Container Apps environment: Create a new environment, and in the environment networking setting page, enable public network access, and select the VNet and the "aca-infra-subnet" subnet.
+
+Container configurations:
+
+- Image source: Docker hub or other registries
+- Image type: Public
+- Registry login server: ghcr.io
+- Image and tag: `ghcr.io/mlflow/mlflow:<version>-full` (The version is value like `v3.10.0`, you can find available MLflow images in this [page](https://github.com/mlflow/mlflow/pkgs/container/mlflow))
+- Command override: /bin/bash
+- Arguments override: `-c, pip install azure-storage-blob==12.28.0 && mlflow server --backend-store-uri <database-URL> --artifacts-destination wasbs://<container-name>@<storage-account-name>.blob.core.windows.net --host 0.0.0.0 --port 5000 --disable-security-middleware`, note that a space must follow the comma.
+- CPU and memory: It requires at least 1 CPU core and 2Gi memory
+- Environment variables: name "AZURE_STORAGE_ACCESS_KEY", value: the access key of the blob storage configured in the step 1.
+
+Ingress configurations:
+
+- Enable ingress (limited to Container App environment)
+- Ingress type: HTTP
+- Target port: 5000
+
+After creating the container application, in the container app configuration page, select menu Application -> Scale, and set both "Min replicas" and "Max replicas" to 1, and then click "Save as a new revision" button to make this configuration effective. We only need to run 1 MLflow server task at a time. This replica configuration guarantees that only one replica is running at a time. If a replica crashes, a new replica will be automatically started to replace it.
+
+### Integration with MLflow authentication
+
+MLflow supports [basic authentication](https://mlflow.org/docs/latest/self-hosting/security/basic-http-auth/) and [authentication with OIDC plugin](https://mlflow.org/docs/latest/self-hosting/security/sso/#using-oidc-plugin), the 2 kinds of authentication settings require:
+
+- Additional pip package installation: Inject it as a `pip install` command into the "Basic configurations / Arguments override" setting.
+- Additional environment variable settings: Set them as the environment variables of the Azure container app.
+- Additional mlflow server CLI options: Append them in the "Basic configurations / Arguments override" setting.
+
+## Step 5: Validate the deployment
+
+Use [MLflow demo](https://mlflow.org/docs/latest/api_reference/cli.html#mlflow-demo) CLI to validate the deployment. Run the command from your own laptop as follows:
+
+```
+mlflow demo --tracking-uri <Azure-Container-App-URL>
+```
+
+then open the application URL in your browser, view the experiment with name "MLflow Demo", and explore GenAI features like traces, evaluation runs, prompt management etc.

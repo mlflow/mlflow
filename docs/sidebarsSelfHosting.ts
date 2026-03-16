@@ -102,10 +102,25 @@ const sidebarsSelfHosting: SidebarsConfig = {
       items: [
         {
           type: 'doc',
+          id: 'deploy-to-cloud/aws',
+          label: 'AWS',
+        },
+        {
+          type: 'doc',
+          id: 'deploy-to-cloud/azure',
+          label: 'Azure',
+        },
+        {
+          type: 'doc',
           id: 'deploy-to-cloud/gcp',
           label: 'GCP',
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'webhooks/index',
+      label: 'Webhooks',
     },
     {
       type: 'doc',

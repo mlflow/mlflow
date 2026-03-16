@@ -4,8 +4,8 @@ from dataclasses import dataclass
 
 import pydantic
 
-from mlflow.entities.issue import Issue
-from mlflow.genai.discovery.constants import SeverityLevel
+from mlflow.entities.issue import Issue, IssueSeverity
+from mlflow.genai.discovery.constants import RATIONALE_TRUNCATION_LIMIT
 
 
 @dataclass
@@ -21,17 +21,19 @@ class _ConversationAnalysis:
     """Per-session analysis built from triage rationales and span errors.
 
     Args:
-        rationale_summary: Truncated combined rationale shown to the LLM for labeling.
-        full_rationale: Full untruncated combined rationale for summarization.
+        full_rationale: Combined rationale from all failing traces in this session.
         affected_trace_ids: Trace IDs of failing traces in this session.
         execution_path: Compact path of sub-agents/tools called (e.g.
             ``"ask_sports > get_scores, web_search"``).
     """
 
-    rationale_summary: str
     full_rationale: str
     affected_trace_ids: list[str]
     execution_path: str = ""
+
+    @property
+    def rationale_summary(self) -> str:
+        return self.full_rationale[:RATIONALE_TRUNCATION_LIMIT]
 
 
 class _IdentifiedIssue(pydantic.BaseModel):
@@ -46,7 +48,7 @@ class _IdentifiedIssue(pydantic.BaseModel):
     example_indices: list[int] = pydantic.Field(
         description="Indices into the input trace summary list that exemplify this issue"
     )
-    severity: SeverityLevel = pydantic.Field(
+    severity: IssueSeverity = pydantic.Field(
         description=(
             "Severity of this issue. "
             "not_an_issue=not a real issue, low=minor issue, "

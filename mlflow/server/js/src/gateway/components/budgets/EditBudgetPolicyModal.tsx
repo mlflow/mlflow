@@ -62,7 +62,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
     if (policy) {
       setFormData({
         budgetAmount: String(policy.budget_amount),
-        duration: toDurationPreset(policy.duration_unit, policy.duration_value),
+        duration: toDurationPreset(policy.duration.unit, policy.duration.value),
         budgetAction: policy.budget_action,
       });
       resetMutation();
@@ -96,8 +96,7 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
       budget_policy_id: policy.budget_policy_id,
       budget_unit: 'USD',
       budget_amount: parseFloat(formData.budgetAmount),
-      duration_unit: unit,
-      duration_value: value,
+      duration: { unit, value },
       target_scope: getWorkspacesEnabledSync() ? 'WORKSPACE' : 'GLOBAL',
       budget_action: formData.budgetAction,
     }).then(() => {
@@ -169,9 +168,34 @@ export const EditBudgetPolicyModal = ({ open, policy, onClose, onSuccess }: Edit
         </div>
 
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          <Typography.Text bold>
-            <FormattedMessage defaultMessage="Reset period" description="Budget reset period label" />
-          </Typography.Text>
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <Typography.Text bold>
+              <FormattedMessage defaultMessage="Reset period" description="Budget reset period label" />
+            </Typography.Text>
+            <Tooltip
+              componentId="mlflow.gateway.edit-budget-policy-modal.reset-period-tooltip"
+              content={
+                <FormattedMessage
+                  defaultMessage="<link>Learn more about budget time windows.</link>"
+                  description="Tooltip with link to budget time windows documentation"
+                  values={{
+                    link: (chunks: React.ReactNode) => (
+                      <a
+                        href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/budget-alerts-limits#time-windows"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        css={{ color: 'inherit', textDecoration: 'underline' }}
+                      >
+                        {chunks}
+                      </a>
+                    ),
+                  }}
+                />
+              }
+            >
+              <InfoSmallIcon css={{ color: theme.colors.textSecondary, cursor: 'help' }} />
+            </Tooltip>
+          </div>
           <SimpleSelect
             id="edit-budget-policy-duration"
             componentId="mlflow.gateway.edit-budget-policy-modal.duration"

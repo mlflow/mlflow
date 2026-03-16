@@ -73,7 +73,7 @@ jobs:
               throw new Error(`User not allowed to trigger workflow: ${comment.user.login} (association: ${authorAssociation})`);
             }
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
+      - uses: astral-sh/setup-uv@e06108dd0aef18192324c70427afc47652e63a82 # v7.5.0
         with:
           resolution-strategy: "lowest"
       - name: Install Claude CLI
@@ -114,7 +114,7 @@ jobs:
 
           EXIT_CODE=0
           # Note: ARGS[*] is intentional - claude CLI expects a single prompt string
-          timeout 20m claude --model claude-opus-4-6 --print --verbose --output-format json "${ARGS[*]}" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
+          timeout 20m claude --model claude-opus-4-6 --print --verbose --output-format stream-json "${ARGS[*]}" | .claude/scripts/stream.sh "$OUTPUT_FILE" || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
@@ -122,17 +122,6 @@ jobs:
             cat "$OUTPUT_FILE"
             exit $EXIT_CODE
           fi
-
-          # Display output in workflow logs (pretty print if valid JSON)
-          echo "=== Claude Output ==="
-          if [ ! -s "$OUTPUT_FILE" ]; then
-            echo "(empty output)"
-          elif jq empty "$OUTPUT_FILE" 2>/dev/null; then
-            jq . "$OUTPUT_FILE"
-          else
-            cat "$OUTPUT_FILE"
-          fi
-          echo "===================="
 
       - name: Report review results
         if: ${{ github.event_name == 'issue_comment' }}
@@ -160,7 +149,7 @@ jobs:
             // Extract and display Claude's result from JSON output
             if (claudeOutput) {
               try {
-                const events = JSON.parse(claudeOutput);
+                const events = claudeOutput.trim().split('\n').filter(Boolean).map(JSON.parse);
                 const resultEvent = events.findLast(({ type }) => type === 'result');
                 if (resultEvent) {
                   resultMessage += `\n\n<details>\n<summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;

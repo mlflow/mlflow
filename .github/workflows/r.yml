@@ -63,7 +63,7 @@ jobs:
           os_name=$(lsb_release -ds | sed 's/\s/-/g')
           echo "os-name=$os_name" >> $GITHUB_OUTPUT
       - name: Cache R packages
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         continue-on-error: true
         # https://github.com/actions/cache/issues/810
         env:
