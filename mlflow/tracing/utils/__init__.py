@@ -7,7 +7,7 @@ import logging
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, fields, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
@@ -86,7 +86,14 @@ class TraceJSONEncoder(json.JSONEncoder):
         if is_dataclass(obj):
             try:
                 return asdict(obj)
-            except TypeError:
+            except Exception:
+                pass
+            # asdict() calls copy.deepcopy() on non-dataclass fields, which can fail for
+            # objects with asyncio internals (e.g. HTTP clients). Fall back to shallow
+            # field extraction via getattr() to avoid partially-constructed copies.
+            try:
+                return {f.name: getattr(obj, f.name) for f in fields(obj)}
+            except Exception:
                 pass
 
         # Some object has dangerous side effect in __str__ method, so we use class name instead.

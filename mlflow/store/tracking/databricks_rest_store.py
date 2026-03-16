@@ -314,6 +314,11 @@ class DatabricksTracingRestStore(RestStore):
         )
         return [trace_from_proto(proto, location) for proto in response_proto.traces]
 
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        raise MlflowNotImplementedException()
+
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
         Get the trace info matching the `trace_id`.

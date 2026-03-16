@@ -6,6 +6,7 @@ import { getTracer } from './provider';
 import { InMemoryTraceManager } from './trace_manager';
 import { convertNanoSecondsToHrTime, mapArgsToObject } from './utils';
 import { SpanStatusCode } from './entities/span_status';
+import { isTracingEnabledInContext } from './context';
 
 /*
  * Options for starting a span
@@ -86,6 +87,10 @@ export interface TraceOptions
  *
  */
 export function startSpan(options: SpanOptions): LiveSpan {
+  if (isTracingEnabledInContext() === false) {
+    return new NoOpSpan();
+  }
+
   try {
     const tracer = getTracer('default');
 
@@ -132,6 +137,10 @@ export function withSpan<T>(
   callback: (span: LiveSpan) => T | Promise<T>,
   options?: Omit<SpanOptions, 'parent'>,
 ): T | Promise<T> {
+  if (isTracingEnabledInContext() === false) {
+    return callback(new NoOpSpan());
+  }
+
   const spanOptions: Omit<SpanOptions, 'parent'> = options ?? { name: DEFAULT_SPAN_NAME };
 
   // Generate a default span name if not provided
