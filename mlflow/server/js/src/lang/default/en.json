@@ -6289,6 +6289,10 @@
     "defaultMessage": "Fetching traces failed",
     "description": "Error message for fetching traces failed"
   },
+  "dM8NOe": {
+    "defaultMessage": "{count} selected",
+    "description": "Label for tool selector showing count of selected tools"
+  },
   "dMKo75": {
     "defaultMessage": "Search experiments",
     "description": "Placeholder text inside experiments search bar"
@@ -7291,6 +7295,10 @@
   "jwALGI": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
+  },
+  "jxMFKl": {
+    "defaultMessage": "Select All",
+    "description": "Option to select all tools in the tool selector"
   },
   "jzNMBH": {
     "defaultMessage": "This key is currently in use. After deleting, you will need to attach a different API key to continue using the endpoints currently using this key.",

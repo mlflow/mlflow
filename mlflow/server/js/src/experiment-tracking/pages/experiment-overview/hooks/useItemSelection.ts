@@ -45,8 +45,8 @@ export function useItemSelection(
   const displayedItems = isAllSelected ? allItems : selectedItems.filter((item) => allItems.includes(item));
 
   const handleSelectAllToggle = useCallback(() => {
-    setSelectedItems((prev) => (prev === null ? [] : null));
-  }, []);
+    setSelectedItems(isAllSelected ? [] : null);
+  }, [isAllSelected]);
 
   const handleItemToggle = useCallback(
     (itemName: string) => {
