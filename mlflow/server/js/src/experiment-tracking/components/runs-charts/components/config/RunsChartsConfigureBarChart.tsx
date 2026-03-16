@@ -99,6 +99,7 @@ export const RunsChartsConfigureBarChart = ({
           <LegacySelect
             css={styles.selectFull}
             mode="multiple"
+            placeholder={emptyMetricsList ? 'No metrics available' : 'Select metrics'}
             value={emptyMetricsList ? [] : (state.selectedMetricKeys ?? (state.metricKey ? [state.metricKey] : []))}
             onChange={updateSelectedMetrics}
             disabled={emptyMetricsList}

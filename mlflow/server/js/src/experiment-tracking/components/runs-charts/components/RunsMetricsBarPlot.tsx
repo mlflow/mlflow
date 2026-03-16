@@ -1,5 +1,5 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import type { Config, Data, Layout } from 'plotly.js';
+import type { Config, Layout, PlotData } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { LazyPlot } from '../../LazyPlot';
@@ -24,6 +24,21 @@ import { RunsChartCardLoadingPlaceholder } from './cards/ChartCard.common';
 
 // We're not using params in bar plot
 export type BarPlotRunData = Omit<RunsChartsRunData, 'params' | 'tags' | 'images'>;
+
+/**
+ * Shared trace data shape for bar plots, supporting both single and multi-metric modes.
+ */
+type BarTraceData = Partial<PlotData> & {
+  names: string[];
+  metrics: MetricEntity[];
+};
+
+/**
+ * Helper to build a BarTraceData object. We use this instead of a direct
+ * `as BarTraceData` cast because plotly's type definitions don't fully
+ * match what the runtime API accepts (e.g. `textposition` as an array).
+ */
+const barTrace = (trace: Record<string, unknown>): BarTraceData => trace as unknown as BarTraceData;
 
 export interface RunsMetricsBarPlotHoverData {
   xValue: string;
@@ -169,7 +184,7 @@ export const RunsMetricsBarPlot = React.memo(
         const colors = runsData.map((d) => d.color);
 
         return [
-          {
+          barTrace({
             y: ids,
             x: values,
             names,
@@ -177,20 +192,21 @@ export const RunsMetricsBarPlot = React.memo(
             textposition: values.map((value) => (value === 0 ? 'outside' : 'auto')),
             textfont: { size: 11 },
             metrics: runsData.map((d) => d.metrics[metricKey]),
-            type: 'bar' as any,
+            type: 'bar',
             hovertemplate: useDefaultHoverBox ? '%{label}<extra></extra>' : undefined,
             hoverinfo: useDefaultHoverBox ? 'y' : 'none',
             hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
             width: barWidth,
             orientation: 'h',
             marker: { color: colors },
-          } as Data & { names: string[] },
+          }),
         ];
       }
 
       // Multi-metric mode: one trace per metric, grouped by run
       const ids = runsData.map((d) => d.uuid);
       const names = runsData.map(({ displayName }) => displayName);
+      const groupedBarWidth = barWidth / metricKeys.length;
 
       return metricKeys.map((mKey, metricIdx) => {
         const values = runsData.map((d) => normalizeChartValue(d.metrics[mKey]?.value));
@@ -202,7 +218,7 @@ export const RunsMetricsBarPlot = React.memo(
           return getFixedPointValue(d.metrics[mKey]?.value);
         });
 
-        return {
+        return barTrace({
           y: ids,
           x: values,
           name: mKey,
@@ -211,13 +227,14 @@ export const RunsMetricsBarPlot = React.memo(
           textposition: values.map((value) => (value === 0 ? 'outside' : 'auto')),
           textfont: { size: 11 },
           metrics: runsData.map((d) => d.metrics[mKey]),
-          type: 'bar' as any,
+          type: 'bar',
           hovertemplate: useDefaultHoverBox ? `${mKey}: %{x}<extra>%{label}</extra>` : undefined,
           hoverinfo: useDefaultHoverBox ? 'y' : 'none',
           hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
+          width: groupedBarWidth,
           orientation: 'h',
           marker: { color: METRIC_COLORS[metricIdx % METRIC_COLORS.length] },
-        } as Data & { names: string[]; name: string };
+        });
       });
     }, [runsData, metricKey, metricKeys, isMultiMetric, barWidth, useDefaultHoverBox]);
 
@@ -338,7 +355,7 @@ export const RunsMetricsBarPlot = React.memo(
       const dataToExport = plotData.map((trace) => ({
         ...trace,
         // In exported image, use names for Y axes
-        y: (trace as any).names,
+        y: (trace as BarTraceData).names,
       }));
       onSetDownloadHandler?.(createChartImageDownloadHandler(dataToExport, layoutToExport));
     }, [layout, onSetDownloadHandler, plotData]);
