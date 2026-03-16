@@ -418,6 +418,7 @@ CREATE TABLE issues (
 	severity VARCHAR(50),
 	root_causes TEXT,
 	source_run_id VARCHAR(32),
+	categories TEXT,
 	created_timestamp BIGINT NOT NULL,
 	last_updated_timestamp BIGINT NOT NULL,
 	created_by VARCHAR(255),

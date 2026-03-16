@@ -15,6 +15,10 @@
     "defaultMessage": "Registered At",
     "description": "Label name for registered timestamp metadata in model version page"
   },
+  "+2J6oE": {
+    "defaultMessage": "Medium",
+    "description": "Issue severity tag label for medium severity"
+  },
   "+33ShX": {
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
@@ -1129,6 +1133,10 @@
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
   },
+  "5yjgeu": {
+    "defaultMessage": "This key will be saved for reuse.",
+    "description": "Text indicating API key will be saved for reuse"
+  },
   "60b0vW": {
     "defaultMessage": "Always show spans with exceptions, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing spans with exceptions"
@@ -2069,6 +2077,10 @@
     "defaultMessage": "Response",
     "description": "Column label for response"
   },
+  "BWH8UR": {
+    "defaultMessage": "API key name:",
+    "description": "Label for API key name input"
+  },
   "BWpQZ7": {
     "defaultMessage": "You have <strong>{unsyncedDataEntriesCount}</strong> unsaved evaluated {unsyncedDataEntriesCount, plural, =1 {value} other {values}}. Click \"Save\" button or press {keyCombination} keys to synchronize the artifact data.",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > pending changes indicator"
@@ -2707,6 +2719,10 @@
   "FpjDSq": {
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
+  },
+  "Ft2NsS": {
+    "defaultMessage": "High",
+    "description": "Issue severity tag label for high severity"
   },
   "FxQYyX": {
     "defaultMessage": "Select your workflow type. Choose GenAI when working on apps and agents, and select model training when working on classical ML or deep learning problems.",
@@ -4160,6 +4176,10 @@
     "defaultMessage": "Scatter chart",
     "description": "Experiment tracking > runs charts > add chart menu > scatter plot"
   },
+  "Q0tqO9": {
+    "defaultMessage": "Not an issue",
+    "description": "Issue severity tag label for not an issue"
+  },
   "Q5CR/y": {
     "defaultMessage": "Create a new key if a different name is needed.",
     "description": "Tooltip suggestion to create new key for different name"
@@ -4251,6 +4271,10 @@
   "QcEYpD": {
     "defaultMessage": "Add to evaluation dataset",
     "description": "Add traces to evaluation dataset action"
+  },
+  "QevoXx": {
+    "defaultMessage": "Error details",
+    "description": "Issue detection error details > Title"
   },
   "Qg12xQ": {
     "defaultMessage": "Register prompts",
@@ -5067,6 +5091,10 @@
     "defaultMessage": "Usage example",
     "description": "A title of the modal showing the usage example of the prompt"
   },
+  "Vvs+79": {
+    "defaultMessage": "Low",
+    "description": "Issue severity tag label for low severity"
+  },
   "VwxvII": {
     "defaultMessage": "forecasting",
     "description": "A short label for experiments focused on time series forecasting"
@@ -5590,6 +5618,10 @@
     "defaultMessage": "{count, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Time duration in minutes"
   },
+  "ZOV936": {
+    "defaultMessage": "Resolved",
+    "description": "Issue status tag label for resolved issues"
+  },
   "ZOsiNc": {
     "defaultMessage": "just now",
     "description": "Indicates a time duration that just passed"
@@ -6045,10 +6077,6 @@
     "defaultMessage": "Compare by",
     "description": "Runs charts > components > charts > DifferenceViewPlot > Compare by column heading"
   },
-  "c8EovS": {
-    "defaultMessage": "Save this key for reuse",
-    "description": "Checkbox to save API key for reuse"
-  },
   "cAKSkQ": {
     "defaultMessage": "Select a cell to display preview",
     "description": "Experiment page > table view > preview sidebar > nothing selected"
@@ -6068,6 +6096,10 @@
   "cBSSLp": {
     "defaultMessage": "String",
     "description": "String select menu option for assessment data type"
+  },
+  "cBlZb0": {
+    "defaultMessage": "Status",
+    "description": "Column header for run status in the evaluation runs table"
   },
   "cEj56l": {
     "defaultMessage": "Step",
@@ -6208,6 +6240,10 @@
   "d1Ou4x": {
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
+  },
+  "d34yzQ": {
+    "defaultMessage": "Rejected",
+    "description": "Issue status tag label for rejected issues"
   },
   "d44IPd": {
     "defaultMessage": "Reopen review",
@@ -8906,6 +8942,10 @@
   "ubeHow": {
     "defaultMessage": "Input",
     "description": "Column header for the input in the runs table on the logged model details page"
+  },
+  "ue/dsm": {
+    "defaultMessage": "Pending",
+    "description": "Issue status tag label for pending issues"
   },
   "ufamzi": {
     "defaultMessage": "Comparing {runs} MLflow Runs",

@@ -3704,6 +3704,7 @@ def test_create_issue():
             "severity": "high",
             "root_causes": ["cause1", "cause2"],
             "source_run_id": "run-789",
+            "categories": ["hallucination", "tool_error"],
             "created_timestamp": 1234567890000,
             "last_updated_timestamp": 1234567890000,
             "created_by": "test_user",
@@ -3719,6 +3720,7 @@ def test_create_issue():
             severity=IssueSeverity.HIGH,
             root_causes=["cause1", "cause2"],
             source_run_id="run-789",
+            categories=["hallucination", "tool_error"],
             created_by="test_user",
         )
 
@@ -3730,6 +3732,7 @@ def test_create_issue():
         "severity": "high",
         "root_causes": ["cause1", "cause2"],
         "source_run_id": "run-789",
+        "categories": ["hallucination", "tool_error"],
         "created_by": "test_user",
     })
     _verify_requests(mock_http, creds, "issues", "POST", expected_request_json, use_v3=True)
@@ -3743,6 +3746,7 @@ def test_create_issue():
     assert issue.severity == IssueSeverity.HIGH
     assert issue.root_causes == ["cause1", "cause2"]
     assert issue.source_run_id == "run-789"
+    assert issue.categories == ["hallucination", "tool_error"]
     assert issue.created_by == "test_user"
 
 

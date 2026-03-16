@@ -18,6 +18,45 @@ import { FormattedMessage, useIntl, type IntlShape } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 import { ExpectationValuePreview } from '../../model-trace-explorer/assessments-pane/ExpectationValuePreview';
 import { useModelTraceExplorerRunJudgesContext } from '../../model-trace-explorer/contexts/RunJudgesContext';
+import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
+import { RunPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { getIssue } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useGetIssueQuery';
+import { SELECTED_ISSUE_ID_PARAM } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+
+const IssueTag = ({ issue }: { issue: { id: string; name: string } }) => {
+  const navigate = useNavigate();
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const issueData = await getIssue(issue.id);
+      if (issueData.source_run_id && issueData.experiment_id) {
+        const baseUrl = Routes.getIssueDetectionRunDetailsTabRoute(
+          issueData.experiment_id,
+          issueData.source_run_id,
+          RunPageTabName.ISSUES,
+        );
+        const params = new URLSearchParams({ [SELECTED_ISSUE_ID_PARAM]: issue.id });
+        const url = `${baseUrl}?${params.toString()}`;
+        navigate(url);
+      }
+    } catch (error) {
+      console.error('Failed to fetch issue:', error);
+    }
+  };
+
+  return (
+    <Tag
+      componentId="mlflow.genai-traces-table.issue-tag"
+      color="coral"
+      css={{ width: 'min-content', maxWidth: '100%', cursor: 'pointer' }}
+      onClick={handleClick}
+    >
+      {issue.name}
+    </Tag>
+  );
+};
 
 import { GenAITracesTableContext } from '../GenAITracesTableContext';
 
@@ -903,22 +942,15 @@ export const traceInfoCellRenderer = (
     const issues = comparisonEntry.currentRunValue?.issues;
     const otherIssues = comparisonEntry.otherRunValue?.issues;
 
-    const renderIssues = (issueList: string[] | undefined) => {
+    const renderIssues = (issueList: { id: string; name: string }[] | undefined) => {
       if (!issueList || issueList.length === 0) {
         return <NullCell isComparing={isComparing} />;
       }
 
       return (
         <Overflow>
-          {issueList.map((issueName, index) => (
-            <Tag
-              key={index}
-              componentId="mlflow.genai-traces-table.issue-tag"
-              color="coral"
-              css={{ width: 'min-content', maxWidth: '100%' }}
-            >
-              {issueName}
-            </Tag>
+          {issueList.map((issue) => (
+            <IssueTag key={issue.id} issue={issue} />
           ))}
         </Overflow>
       );

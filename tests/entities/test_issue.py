@@ -150,6 +150,7 @@ def test_issue_creation_required_fields():
     assert issue.severity is None
     assert issue.root_causes is None
     assert issue.source_run_id is None
+    assert issue.categories is None
     assert issue.created_by is None
 
 
@@ -165,6 +166,7 @@ def test_issue_creation_all_fields():
         severity=IssueSeverity.HIGH,
         root_causes=["Input prompts are too long", "Context window exceeded"],
         source_run_id="run-789",
+        categories=["hallucination", "context_limit"],
         created_by="user@example.com",
     )
 
@@ -178,6 +180,7 @@ def test_issue_creation_all_fields():
     assert issue.severity == IssueSeverity.HIGH
     assert issue.root_causes == ["Input prompts are too long", "Context window exceeded"]
     assert issue.source_run_id == "run-789"
+    assert issue.categories == ["hallucination", "context_limit"]
     assert issue.created_by == "user@example.com"
 
 
@@ -193,6 +196,7 @@ def test_issue_to_dictionary():
         severity=IssueSeverity.MEDIUM,
         root_causes=["API key rotation issue", "Token expired"],
         source_run_id="run-abc",
+        categories=["authentication", "security"],
         created_by="system",
     )
 
@@ -208,6 +212,7 @@ def test_issue_to_dictionary():
     assert issue_dict["severity"] == "medium"
     assert issue_dict["root_causes"] == ["API key rotation issue", "Token expired"]
     assert issue_dict["source_run_id"] == "run-abc"
+    assert issue_dict["categories"] == ["authentication", "security"]
     assert issue_dict["created_by"] == "system"
 
 
@@ -221,6 +226,7 @@ def test_issue_from_dictionary_all_fields():
         "severity": "low",
         "root_causes": ["Training data quality issues", "Model drift"],
         "source_run_id": "run-xyz",
+        "categories": ["accuracy", "model_drift"],
         "created_timestamp": 1111111111,
         "last_updated_timestamp": 2222222222,
         "created_by": "admin@example.com",
@@ -236,6 +242,7 @@ def test_issue_from_dictionary_all_fields():
     assert issue.severity == IssueSeverity.LOW
     assert issue.root_causes == ["Training data quality issues", "Model drift"]
     assert issue.source_run_id == "run-xyz"
+    assert issue.categories == ["accuracy", "model_drift"]
     assert issue.created_timestamp == 1111111111
     assert issue.last_updated_timestamp == 2222222222
     assert issue.created_by == "admin@example.com"
@@ -264,6 +271,7 @@ def test_issue_from_dictionary_required_fields_only():
     assert issue.severity is None
     assert issue.root_causes is None
     assert issue.source_run_id is None
+    assert issue.categories is None
     assert issue.created_by is None
 
 
@@ -279,6 +287,7 @@ def test_issue_roundtrip_conversion():
         severity=IssueSeverity.HIGH,
         root_causes=["Test root cause", "Another cause"],
         source_run_id="run-test",
+        categories=["test_category", "roundtrip"],
         created_by="test-user",
     )
 
@@ -295,6 +304,7 @@ def test_issue_roundtrip_conversion():
     assert recovered.severity == original.severity
     assert recovered.root_causes == original.root_causes
     assert recovered.source_run_id == original.source_run_id
+    assert recovered.categories == original.categories
     assert recovered.created_by == original.created_by
 
 
@@ -321,6 +331,7 @@ def test_issue_to_proto_required_fields():
     assert proto.severity == ""
     assert len(proto.root_causes) == 0
     assert proto.source_run_id == ""
+    assert len(proto.categories) == 0
     assert proto.created_by == ""
 
 
@@ -336,6 +347,7 @@ def test_issue_to_proto_all_fields():
         severity=IssueSeverity.HIGH,
         root_causes=["Proto test root cause", "Another root cause"],
         source_run_id="run-proto-2",
+        categories=["proto_test", "conversion"],
         created_by="proto-user@example.com",
     )
 
@@ -351,6 +363,7 @@ def test_issue_to_proto_all_fields():
     assert proto.severity == "high"
     assert list(proto.root_causes) == ["Proto test root cause", "Another root cause"]
     assert proto.source_run_id == "run-proto-2"
+    assert list(proto.categories) == ["proto_test", "conversion"]
     assert proto.created_by == "proto-user@example.com"
 
 
@@ -377,6 +390,7 @@ def test_issue_from_proto_required_fields():
     assert issue.severity is None
     assert issue.root_causes is None
     assert issue.source_run_id is None
+    assert issue.categories is None
     assert issue.created_by is None
 
 
@@ -394,6 +408,7 @@ def test_issue_from_proto_all_fields():
         created_by="from-proto-user@example.com",
     )
     proto.root_causes.extend(["From proto root cause", "Another cause"])
+    proto.categories.extend(["from_proto", "full_fields"])
 
     issue = Issue.from_proto(proto)
 
@@ -407,6 +422,7 @@ def test_issue_from_proto_all_fields():
     assert issue.severity == IssueSeverity.LOW
     assert issue.root_causes == ["From proto root cause", "Another cause"]
     assert issue.source_run_id == "run-from-proto-2"
+    assert issue.categories == ["from_proto", "full_fields"]
     assert issue.created_by == "from-proto-user@example.com"
 
 
@@ -434,6 +450,7 @@ def test_issue_proto_roundtrip_required_fields():
     assert recovered.severity == original.severity
     assert recovered.root_causes == original.root_causes
     assert recovered.source_run_id == original.source_run_id
+    assert recovered.categories == original.categories
     assert recovered.created_by == original.created_by
 
 
@@ -449,6 +466,7 @@ def test_issue_proto_roundtrip_all_fields():
         severity=IssueSeverity.MEDIUM,
         root_causes=["Proto roundtrip root cause", "Secondary cause", "Tertiary cause"],
         source_run_id="run-proto-roundtrip-2",
+        categories=["roundtrip", "all_fields", "testing"],
         created_by="roundtrip-user@example.com",
     )
 
@@ -465,4 +483,5 @@ def test_issue_proto_roundtrip_all_fields():
     assert recovered.severity == original.severity
     assert recovered.root_causes == original.root_causes
     assert recovered.source_run_id == original.source_run_id
+    assert recovered.categories == original.categories
     assert recovered.created_by == original.created_by

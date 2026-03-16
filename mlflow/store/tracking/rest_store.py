@@ -60,6 +60,7 @@ from mlflow.protos.issues_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
@@ -537,6 +538,17 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         return [Trace.from_proto(proto) for proto in response_proto.traces]
 
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        req_body = message_to_json(BatchGetTraceInfos(trace_ids=trace_ids))
+        response_proto = self._call_endpoint(
+            BatchGetTraceInfos,
+            req_body,
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGetInfos",
+        )
+        return [TraceInfo.from_proto(proto) for proto in response_proto.trace_infos]
+
     def search_traces(
         self,
         experiment_ids: list[str] | None = None,
@@ -833,6 +845,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
+        categories: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
         """
@@ -846,6 +859,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
 
         Returns:
@@ -860,6 +874,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 severity=str(severity) if severity is not None else None,
                 root_causes=root_causes or [],
                 source_run_id=source_run_id,
+                categories=categories or [],
                 created_by=created_by,
             )
         )

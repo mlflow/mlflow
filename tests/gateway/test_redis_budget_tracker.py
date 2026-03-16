@@ -5,6 +5,7 @@ import pytest
 
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -18,8 +19,7 @@ fakeredis = pytest.importorskip("fakeredis")
 def _make_policy(
     budget_policy_id="bp-test",
     budget_amount=100.0,
-    duration_unit=BudgetDurationUnit.DAYS,
-    duration_value=1,
+    duration=None,
     target_scope=BudgetTargetScope.GLOBAL,
     budget_action=BudgetAction.ALERT,
     workspace=None,
@@ -28,8 +28,7 @@ def _make_policy(
         budget_policy_id=budget_policy_id,
         budget_unit=BudgetUnit.USD,
         budget_amount=budget_amount,
-        duration_unit=duration_unit,
-        duration_value=duration_value,
+        duration=duration or BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=target_scope,
         budget_action=budget_action,
         created_at=0,
@@ -309,7 +308,7 @@ def test_window_rollover_resets_spend():
     tracker = _make_tracker()
     tracker.refresh_policies([
         _make_policy(
-            budget_amount=100.0, duration_unit=BudgetDurationUnit.MINUTES, duration_value=1
+            budget_amount=100.0, duration=BudgetDuration(unit=BudgetDurationUnit.MINUTES, value=1)
         )
     ])
 

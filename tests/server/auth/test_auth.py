@@ -1810,8 +1810,7 @@ def test_gateway_budget_policy_admin_only(client, monkeypatch):
             json={
                 "budget_unit": "USD",
                 "budget_amount": 100.0,
-                "duration_unit": "DAYS",
-                "duration_value": 30,
+                "duration": {"unit": "DAYS", "value": 30},
                 "target_scope": "GLOBAL",
                 "budget_action": "ALERT",
             },
@@ -1844,8 +1843,7 @@ def test_gateway_budget_policy_admin_only(client, monkeypatch):
             json={
                 "budget_unit": "USD",
                 "budget_amount": 50.0,
-                "duration_unit": "DAYS",
-                "duration_value": 7,
+                "duration": {"unit": "DAYS", "value": 7},
                 "target_scope": "GLOBAL",
                 "budget_action": "REJECT",
             },

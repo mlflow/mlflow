@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from mlflow.entities.gateway_budget_policy import (
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     GatewayBudgetPolicy,
@@ -148,85 +149,83 @@ class BudgetTracker(ABC):
 
 
 def _compute_window_start(
-    duration_unit: BudgetDurationUnit,
-    duration_value: int,
+    duration: BudgetDuration,
     now: datetime,
 ) -> datetime:
     """Compute the start of the current fixed window for a given policy.
 
     Windows are aligned to:
     - MINUTES: aligned to epoch minutes
-    - HOURS: aligned to epoch hours (e.g., duration_value=2 → 0:00, 2:00, 4:00, …)
-    - DAYS: aligned to epoch days (e.g., duration_value=7 → weekly from epoch)
-    - WEEKS: aligned to Sunday-based weeks (e.g., duration_value=1 → every Sunday from epoch)
-    - MONTHS: aligned to first of months (e.g., duration_value=3 → Jan 1, Apr 1, Jul 1, …)
+    - HOURS: aligned to epoch hours (e.g., duration.value=2 → 0:00, 2:00, 4:00, …)
+    - DAYS: aligned to epoch days (e.g., duration.value=7 → weekly from epoch)
+    - WEEKS: aligned to Sunday-based weeks (e.g., duration.value=1 → every Sunday from epoch)
+    - MONTHS: aligned to first of months (e.g., duration.value=3 → Jan 1, Apr 1, Jul 1, …)
     """
-    if duration_value <= 0:
-        raise ValueError(f"duration_value must be positive, got {duration_value}")
+    if duration.value <= 0:
+        raise ValueError(f"duration.value must be positive, got {duration.value}")
 
-    if duration_unit == BudgetDurationUnit.MINUTES:
+    if duration.unit == BudgetDurationUnit.MINUTES:
         epoch = _EPOCH
         minutes_since_epoch = (now - epoch).total_seconds() / 60
-        window_index = int(minutes_since_epoch) // duration_value
-        window_start_minutes = window_index * duration_value
+        window_index = int(minutes_since_epoch) // duration.value
+        window_start_minutes = window_index * duration.value
         return epoch + timedelta(minutes=window_start_minutes)
 
-    elif duration_unit == BudgetDurationUnit.HOURS:
+    elif duration.unit == BudgetDurationUnit.HOURS:
         epoch = _EPOCH
         hours_since_epoch = (now - epoch).total_seconds() / 3600
-        window_index = int(hours_since_epoch) // duration_value
-        window_start_hours = window_index * duration_value
+        window_index = int(hours_since_epoch) // duration.value
+        window_start_hours = window_index * duration.value
         return epoch + timedelta(hours=window_start_hours)
 
-    elif duration_unit == BudgetDurationUnit.DAYS:
+    elif duration.unit == BudgetDurationUnit.DAYS:
         epoch = _EPOCH
         days_since_epoch = (now - epoch).days
-        window_index = days_since_epoch // duration_value
-        window_start_days = window_index * duration_value
+        window_index = days_since_epoch // duration.value
+        window_start_days = window_index * duration.value
         return epoch + timedelta(days=window_start_days)
 
-    elif duration_unit == BudgetDurationUnit.WEEKS:
+    elif duration.unit == BudgetDurationUnit.WEEKS:
         days_since_sunday_epoch = (now - _EPOCH_SUNDAY).days
-        window_index = days_since_sunday_epoch // (7 * duration_value)
-        window_start_days = window_index * (7 * duration_value)
+        window_index = days_since_sunday_epoch // (7 * duration.value)
+        window_start_days = window_index * (7 * duration.value)
         return _EPOCH_SUNDAY + timedelta(days=window_start_days)
 
-    elif duration_unit == BudgetDurationUnit.MONTHS:
+    elif duration.unit == BudgetDurationUnit.MONTHS:
         year = now.year
         month = now.month
         total_months = (year - 1970) * 12 + (month - 1)
-        window_index = total_months // duration_value
-        window_start_months = window_index * duration_value
+        window_index = total_months // duration.value
+        window_start_months = window_index * duration.value
         start_year = 1970 + window_start_months // 12
         start_month = (window_start_months % 12) + 1
         return datetime(start_year, start_month, 1, tzinfo=timezone.utc)
 
-    raise ValueError(f"Unknown duration type: {duration_unit}")
+    raise ValueError(f"Unknown duration type: {duration.unit}")
 
 
 def _compute_window_end(
-    duration_unit: BudgetDurationUnit,
-    duration_value: int,
+    duration: BudgetDuration,
     window_start: datetime,
 ) -> datetime:
     """Compute the end of the current fixed window."""
-    if duration_unit == BudgetDurationUnit.MINUTES:
-        return window_start + timedelta(minutes=duration_value)
-    elif duration_unit == BudgetDurationUnit.HOURS:
-        return window_start + timedelta(hours=duration_value)
-    elif duration_unit == BudgetDurationUnit.DAYS:
-        return window_start + timedelta(days=duration_value)
-    elif duration_unit == BudgetDurationUnit.WEEKS:
-        return window_start + timedelta(weeks=duration_value)
-    elif duration_unit == BudgetDurationUnit.MONTHS:
+    if duration.unit == BudgetDurationUnit.MINUTES:
+        return window_start + timedelta(minutes=duration.value)
+    elif duration.unit == BudgetDurationUnit.HOURS:
+        return window_start + timedelta(hours=duration.value)
+    elif duration.unit == BudgetDurationUnit.DAYS:
+        return window_start + timedelta(days=duration.value)
+    elif duration.unit == BudgetDurationUnit.WEEKS:
+        return window_start + timedelta(weeks=duration.value)
+    elif duration.unit == BudgetDurationUnit.MONTHS:
         year = window_start.year
-        month = window_start.month + duration_value
+        month = window_start.month + duration.value
         while month > 12:
             month -= 12
             year += 1
         return datetime(year, month, 1, tzinfo=timezone.utc)
 
-    raise ValueError(f"Unknown duration type: {duration_unit}")
+    raise ValueError(f"Unknown duration type: {duration.unit}")
 
 
 def _policy_applies(policy: GatewayBudgetPolicy, workspace: str | None) -> bool:

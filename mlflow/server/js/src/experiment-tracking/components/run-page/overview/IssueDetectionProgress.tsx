@@ -30,6 +30,8 @@ export interface IssueDetectionProgressProps {
   isLoadingJobStatus?: boolean;
   /** Error from job status fetch */
   jobStatusError?: Error | null;
+  /** Error message from backend when job failed */
+  jobErrorMessage?: string;
 }
 
 export const IssueDetectionProgress = ({
@@ -39,6 +41,7 @@ export const IssueDetectionProgress = ({
   result,
   isLoadingJobStatus,
   jobStatusError,
+  jobErrorMessage,
 }: IssueDetectionProgressProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -247,6 +250,26 @@ export const IssueDetectionProgress = ({
           )}
         </div>
       </div>
+
+      {isJobFailed && jobErrorMessage && (
+        <>
+          <Typography.Title level={4} css={{ marginTop: theme.spacing.lg, marginBottom: theme.spacing.sm }}>
+            <FormattedMessage defaultMessage="Error details" description="Issue detection error details > Title" />
+          </Typography.Title>
+          <div
+            css={{
+              border: `1px solid ${theme.colors.actionDangerPrimaryBackgroundDefault}`,
+              borderRadius: theme.borders.borderRadiusMd,
+              padding: theme.spacing.md,
+              backgroundColor: `${theme.colors.actionDangerPrimaryBackgroundDefault}15`,
+            }}
+          >
+            <Typography.Text css={{ color: theme.colors.textValidationDanger, wordBreak: 'break-word' }}>
+              {jobErrorMessage}
+            </Typography.Text>
+          </div>
+        </>
+      )}
 
       {isJobSucceeded && result?.summary && (
         <>

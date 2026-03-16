@@ -26,6 +26,7 @@ from mlflow.entities._job import Job as JobEntity
 from mlflow.entities._job_status import JobStatus
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -91,6 +92,7 @@ from mlflow.protos.prompt_optimization_pb2 import (
     OPTIMIZER_TYPE_UNSPECIFIED,
 )
 from mlflow.protos.service_pb2 import (
+    BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateExperiment,
@@ -124,6 +126,7 @@ from mlflow.server.handlers import (
     ARTIFACT_STREAM_CHUNK_SIZE,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
+    _batch_get_trace_infos,
     _batch_get_traces,
     _calculate_trace_filter_correlation,
     _cancel_prompt_optimization_job,
@@ -2289,6 +2292,44 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
     assert response.status_code == 200
 
 
+def test_batch_get_trace_infos_handler(mock_get_request_message, mock_tracking_store):
+    trace_id_1 = "test-trace-123"
+    trace_id_2 = "test-trace-456"
+
+    mock_get_request_message.return_value = BatchGetTraceInfos(trace_ids=[trace_id_1, trace_id_2])
+
+    mock_trace_info_1 = TraceInfo(
+        trace_id=trace_id_1,
+        trace_location=EntityTraceLocation.from_experiment_id("1"),
+        request_time=1234567890,
+        execution_duration=5000,
+        state=TraceState.OK,
+    )
+    mock_trace_info_2 = TraceInfo(
+        trace_id=trace_id_2,
+        trace_location=EntityTraceLocation.from_experiment_id("1"),
+        request_time=1234567890,
+        execution_duration=3000,
+        state=TraceState.OK,
+    )
+
+    mock_tracking_store.batch_get_trace_infos.return_value = [
+        mock_trace_info_1,
+        mock_trace_info_2,
+    ]
+
+    response = _batch_get_trace_infos()
+
+    mock_tracking_store.batch_get_trace_infos.assert_called_once_with([trace_id_1, trace_id_2])
+
+    assert response is not None
+    assert response.status_code == 200
+    trace_infos = json.loads(response.get_data())["trace_infos"]
+    assert len(trace_infos) == 2
+    assert trace_infos[0]["trace_id"] == trace_id_1
+    assert trace_infos[1]["trace_id"] == trace_id_2
+
+
 def test_get_trace_handler(mock_get_request_message, mock_tracking_store):
     trace_id = "test-trace-123"
 
@@ -4195,15 +4236,13 @@ def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(
 def _make_budget_policy(
     budget_policy_id="bp-test",
     budget_amount=100.0,
-    duration_unit=None,
-    duration_value=1,
+    duration=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
         budget_unit=BudgetUnit.USD,
         budget_amount=budget_amount,
-        duration_unit=duration_unit or BudgetDurationUnit.DAYS,
-        duration_value=duration_value,
+        duration=duration or BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
         created_at=0,
@@ -4299,6 +4338,7 @@ def test_create_issue_with_all_fields():
     request_message.status = "pending"
     request_message.source_run_id = "run-123"
     request_message.root_causes.extend(["Database query inefficiency", "Network latency"])
+    request_message.categories.extend(["performance", "database"])
     request_message.severity = IssueSeverity.HIGH.value
     request_message.created_by = "user@example.com"
 
@@ -4310,6 +4350,7 @@ def test_create_issue_with_all_fields():
         status=IssueStatus.PENDING,
         source_run_id="run-123",
         root_causes=["Database query inefficiency", "Network latency"],
+        categories=["performance", "database"],
         severity=IssueSeverity.HIGH,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
@@ -4332,6 +4373,7 @@ def test_create_issue_with_all_fields():
         assert call_kwargs["status"] == IssueStatus.PENDING
         assert call_kwargs["source_run_id"] == "run-123"
         assert call_kwargs["root_causes"] == ["Database query inefficiency", "Network latency"]
+        assert call_kwargs["categories"] == ["performance", "database"]
         assert call_kwargs["severity"] == IssueSeverity.HIGH.value
         assert call_kwargs["created_by"] == "user@example.com"
 
@@ -4341,6 +4383,7 @@ def test_create_issue_with_all_fields():
             "Database query inefficiency",
             "Network latency",
         ]
+        assert json_response["issue"]["categories"] == ["performance", "database"]
 
 
 def test_create_issue_without_optional_fields():

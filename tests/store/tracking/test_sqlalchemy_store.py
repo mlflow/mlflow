@@ -82,6 +82,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlEvaluationDatasetRecord,
     SqlExperiment,
     SqlExperimentTag,
+    SqlGatewaySecret,
     SqlInput,
     SqlInputTag,
     SqlLatestMetric,
@@ -409,6 +410,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlOnlineScoringConfig,
             SqlScorerVersion,
             SqlScorer,
+            SqlGatewaySecret,
             SqlExperiment,
         ):
             session.query(model).delete()
@@ -13865,3 +13867,70 @@ def test_find_completed_sessions_with_filter_string(store: SqlAlchemyStore):
     )
     assert len(completed) == 1
     assert completed[0].session_id == "session-c"
+
+
+def test_get_decrypted_secret_integration_simple(store):
+    secret_info = store.create_gateway_secret(
+        secret_name="test-simple-secret",
+        secret_value={"api_key": "sk-test-123456"},
+        provider="openai",
+    )
+
+    decrypted = store._get_decrypted_secret(secret_info.secret_id)
+
+    assert decrypted == {"api_key": "sk-test-123456"}
+
+
+def test_get_decrypted_secret_integration_compound(store):
+    secret_info = store.create_gateway_secret(
+        secret_name="test-compound-secret",
+        secret_value={
+            "aws_access_key_id": "AKIA1234567890",
+            "aws_secret_access_key": "secret-key-value",
+        },
+        provider="bedrock",
+    )
+
+    decrypted = store._get_decrypted_secret(secret_info.secret_id)
+
+    assert decrypted == {
+        "aws_access_key_id": "AKIA1234567890",
+        "aws_secret_access_key": "secret-key-value",
+    }
+
+
+def test_get_decrypted_secret_integration_with_auth_config(store):
+    secret_info = store.create_gateway_secret(
+        secret_name="test-auth-config-secret",
+        secret_value={"api_key": "aws-secret"},
+        provider="bedrock",
+        auth_config={"region": "us-east-1", "profile": "default"},
+    )
+
+    decrypted = store._get_decrypted_secret(secret_info.secret_id)
+
+    assert decrypted == {"api_key": "aws-secret"}
+
+
+def test_get_decrypted_secret_integration_not_found(store):
+    with pytest.raises(MlflowException, match="not found"):
+        store._get_decrypted_secret("nonexistent-secret-id")
+
+
+def test_get_decrypted_secret_integration_multiple_secrets(store):
+    secret1 = store.create_gateway_secret(
+        secret_name="secret-1",
+        secret_value={"api_key": "key-1"},
+        provider="openai",
+    )
+    secret2 = store.create_gateway_secret(
+        secret_name="secret-2",
+        secret_value={"api_key": "key-2"},
+        provider="anthropic",
+    )
+
+    decrypted1 = store._get_decrypted_secret(secret1.secret_id)
+    decrypted2 = store._get_decrypted_secret(secret2.secret_id)
+
+    assert decrypted1 == {"api_key": "key-1"}
+    assert decrypted2 == {"api_key": "key-2"}

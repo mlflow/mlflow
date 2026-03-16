@@ -314,6 +314,11 @@ class DatabricksTracingRestStore(RestStore):
         )
         return [trace_from_proto(proto, location) for proto in response_proto.traces]
 
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        raise MlflowNotImplementedException()
+
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
         Get the trace info matching the `trace_id`.
@@ -1094,6 +1099,7 @@ class DatabricksTracingRestStore(RestStore):
         severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
+        categories: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
         """
@@ -1107,6 +1113,7 @@ class DatabricksTracingRestStore(RestStore):
             severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
 
         Returns:

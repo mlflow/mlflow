@@ -413,6 +413,7 @@ CREATE TABLE issues (
 	severity VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	root_causes VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	source_run_id VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	categories VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_timestamp BIGINT NOT NULL,
 	last_updated_timestamp BIGINT NOT NULL,
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",

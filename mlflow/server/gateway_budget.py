@@ -122,8 +122,8 @@ def fire_budget_exceeded_webhooks(
             budget_unit=policy.budget_unit.value,
             budget_amount=policy.budget_amount,
             current_spend=window.cumulative_spend,
-            duration_unit=policy.duration_unit.value,
-            duration_value=policy.duration_value,
+            duration_unit=policy.duration.unit.value,
+            duration_value=policy.duration.value,
             target_scope=policy.target_scope.value,
             workspace=workspace or (policy.workspace or DEFAULT_WORKSPACE_NAME),
             window_start=int(window.window_start.timestamp() * 1000),
@@ -168,14 +168,14 @@ def check_budget_limit(
     exceeded, window = tracker.should_reject_request(workspace=workspace)
     if exceeded:
         policy = window.policy
-        unit = policy.duration_unit.value.lower()
-        if policy.duration_value == 1:
+        unit = policy.duration.unit.value.lower()
+        if policy.duration.value == 1:
             unit = unit.rstrip("s")
         reset_time = window.window_end.strftime("%Y-%m-%dT%H:%M:%SZ")
         detail = (
             f"Budget limit exceeded. "
             f"Limit: ${policy.budget_amount:.2f} USD per "
-            f"{policy.duration_value} {unit}. "
+            f"{policy.duration.value} {unit}. "
             f"Budget resets at {reset_time}. "
             "Request rejected."
         )
