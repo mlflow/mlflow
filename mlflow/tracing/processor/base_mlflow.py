@@ -6,7 +6,11 @@ from typing import Any
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
+from opentelemetry.sdk.trace.export import (
+    BatchSpanProcessor,
+    SimpleSpanProcessor,
+    SpanExporter,
+)
 
 from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
@@ -51,8 +55,23 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         self,
         span_exporter: SpanExporter,
         export_metrics: bool,
+        use_batch_processor: bool = False,
     ):
-        super().__init__(span_exporter)
+        # When use_batch_processor is True, export spans in a background thread
+        # instead of inline during on_end. This prevents trace export from blocking
+        # request handling under concurrent load (e.g., in the gateway).
+        self._use_batch_processor = use_batch_processor
+        if use_batch_processor:
+            # Initialize BatchSpanProcessor (skip SimpleSpanProcessor.__init__)
+            self._batch_delegate = BatchSpanProcessor(
+                span_exporter,
+                schedule_delay_millis=500,
+                max_export_batch_size=128,
+            )
+            # SimpleSpanProcessor expects span_exporter attribute
+            SimpleSpanProcessor.__init__(self, span_exporter)
+        else:
+            super().__init__(span_exporter)
         self.span_exporter = span_exporter
         self._export_metrics = export_metrics
         self._env_metadata = resolve_env_metadata()
@@ -119,13 +138,29 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
                 else:
                     _logger.debug(f"Trace data with request ID {trace_id} not found.")
 
-        # Export the span (outside the per-trace lock)
-        super().on_end(span)
+        # Export the span (outside the per-trace lock).
+        # In batch mode, this queues the span for background export instead of
+        # calling the exporter inline, so the request handler isn't blocked.
+        if self._use_batch_processor:
+            self._batch_delegate.on_end(span)
+        else:
+            super().on_end(span)
 
         # Clean up the per-trace lock when the root span ends (trace is complete)
         if span._parent is None and trace_id is not None:
             with self._trace_locks_lock:
                 self._trace_locks.pop(trace_id, None)
+
+    def shutdown(self) -> None:
+        if self._use_batch_processor:
+            self._batch_delegate.shutdown()
+        else:
+            super().shutdown()
+
+    def force_flush(self, timeout_millis: int = 30000) -> bool:
+        if self._use_batch_processor:
+            return self._batch_delegate.force_flush(timeout_millis)
+        return super().force_flush(timeout_millis)
 
     def _get_basic_trace_metadata(self) -> dict[str, Any]:
         metadata = self._env_metadata.copy()
