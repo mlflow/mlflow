@@ -86,8 +86,22 @@ class TraceJSONEncoder(json.JSONEncoder):
         if is_dataclass(obj):
             try:
                 return asdict(obj)
-            except TypeError:
-                pass
+            except Exception:
+                # asdict() calls copy.deepcopy() on every non-dataclass field, which can
+                # fail for fields holding HTTP clients, asyncio transports, or other
+                # non-copyable objects. A failed deepcopy may leave partially-constructed
+                # objects alive, causing AttributeError crashes in their __del__ methods
+                # (e.g. OpenAI Agents SDK RunConfig with an AsyncOpenAI client).
+                #
+                # Fall back to a shallow extraction: read each field value directly via
+                # getattr() without copying. Non-serializable values are left for the
+                # encoder's subsequent default() calls to convert to str.
+                import dataclasses as _dc
+
+                try:
+                    return {f.name: getattr(obj, f.name, None) for f in _dc.fields(obj)}
+                except Exception:
+                    pass
 
         # Some object has dangerous side effect in __str__ method, so we use class name instead.
         if not self._is_safe_to_encode_str(obj):
