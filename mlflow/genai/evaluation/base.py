@@ -339,7 +339,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         simulator = data
 
     with (
-        _start_run_or_reuse_active_run() as run_id,
+        _start_run_or_reuse_active_run() as run,
         _set_active_model(model_id=model_id) if model_id else nullcontext(),
         # NB: Auto-logging should be enabled outside the thread pool to avoid race conditions.
         configure_autologging_for_evaluation(enable_tracing=True),
@@ -417,10 +417,12 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
             _log_error("Failed to get evaluation data size and fields for GenAIEvaluateEvent")
             telemetry_data = {}
 
+        run_id = run.info.run_id
         _log_dataset_input(mlflow_dataset, run_id, model_id)
 
         # NB: Set this tag before run finishes to suppress the generic run URL printing.
-        MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
+        if run.data.tags.get(MLFLOW_RUN_TYPE) is None:
+            MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
 
         result = harness.run(
             predict_fn=predict_fn,

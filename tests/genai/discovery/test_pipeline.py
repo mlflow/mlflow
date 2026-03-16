@@ -21,7 +21,7 @@ from mlflow.genai.discovery.pipeline import (
 from mlflow.genai.discovery.utils import verify_scorer
 from mlflow.genai.evaluation.context import NoneContext, _set_context
 from mlflow.genai.evaluation.entities import EvaluationResult
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_ISSUE_DETECTION
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
 from tests.genai.discovery.conftest import _TestScorer
 
@@ -109,13 +109,16 @@ def test_discover_issues_full_pipeline(make_trace):
 
     mock_issue = _make_issue(name="slow_response", description="Responses take too long")
 
+    with mlflow.start_run() as run:
+        triage_run_id = run.info.run_id
+
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="0"),
         patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=_triage_eval("run-triage"),
+            return_value=_triage_eval(triage_run_id),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
@@ -148,7 +151,7 @@ def test_discover_issues_full_pipeline(make_trace):
     mock_annotate.assert_called_once()
     assert len(result.issues) == 1
     assert result.issues[0].name == "slow_response"
-    assert result.triage_run_id == "run-triage"
+    assert result.triage_run_id == triage_run_id
 
 
 def test_discover_issues_low_severity_issues_filtered(make_trace):
@@ -335,13 +338,16 @@ def test_discover_issues_filters_non_issues(make_trace, issue_name):
         categories=[],
     )
 
+    with mlflow.start_run() as run:
+        triage_run_id = run.info.run_id
+
     with (
         patch("mlflow.genai.discovery.pipeline._get_experiment_id", return_value="exp-1"),
         patch("mlflow.genai.discovery.pipeline.sample_traces", return_value=traces),
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=_triage_eval("run-triage"),
+            return_value=_triage_eval(triage_run_id),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
@@ -844,7 +850,7 @@ def test_discover_issues_with_custom_run_id(make_trace):
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=_triage_eval("eval-run-id"),
+            return_value=_triage_eval(custom_run_id),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
@@ -852,7 +858,7 @@ def test_discover_issues_with_custom_run_id(make_trace):
         ),
     ):
         result = discover_issues(traces=traces, run_id=custom_run_id)
-        assert result.triage_run_id == "eval-run-id"
+        assert result.triage_run_id == custom_run_id
         mlflow.get_run(custom_run_id)
 
 
@@ -870,7 +876,7 @@ def test_discover_issues_tags_run_with_issue_detection_marker(make_trace):
         result = discover_issues(traces=traces, scorers=[scorer])
 
     run = mlflow.get_run(result.triage_run_id)
-    assert run.data.tags[MLFLOW_RUN_IS_ISSUE_DETECTION] == "true"
+    assert run.data.tags[MLFLOW_RUN_TYPE] == MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
 
 def test_discover_issues_returns_total_cost_usd_field(make_trace):
@@ -881,6 +887,9 @@ def test_discover_issues_returns_total_cost_usd_field(make_trace):
     traces = [make_trace() for _ in range(5)]
     failing = traces[:2]
     rationale_map = {t.info.trace_id: "bad" for t in failing}
+
+    with mlflow.start_run() as run:
+        triage_run_id = run.info.run_id
 
     mock_traces_with_cost = []
     for trace in traces:
@@ -894,7 +903,7 @@ def test_discover_issues_returns_total_cost_usd_field(make_trace):
                 trace_id=trace.info.trace_id,
                 rationale="test",
                 metadata={
-                    AssessmentMetadataKey.SOURCE_RUN_ID: "run-triage",
+                    AssessmentMetadataKey.SOURCE_RUN_ID: triage_run_id,
                     AssessmentMetadataKey.JUDGE_COST: 0.01,
                     AssessmentMetadataKey.JUDGE_INPUT_TOKENS: 100,
                     AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS: 50,
@@ -918,7 +927,7 @@ def test_discover_issues_returns_total_cost_usd_field(make_trace):
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=_triage_eval("run-triage"),
+            return_value=_triage_eval(triage_run_id),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.get_trace",
@@ -964,6 +973,9 @@ def test_discover_issues_returns_cost_when_all_pass(make_trace):
 
     traces = [make_trace() for _ in range(5)]
 
+    with mlflow.start_run() as run:
+        triage_run_id = run.info.run_id
+
     mock_traces_with_cost = []
     for trace in traces:
         mock_trace = MagicMock()
@@ -976,7 +988,7 @@ def test_discover_issues_returns_cost_when_all_pass(make_trace):
                 trace_id=trace.info.trace_id,
                 rationale="test",
                 metadata={
-                    AssessmentMetadataKey.SOURCE_RUN_ID: "run-triage",
+                    AssessmentMetadataKey.SOURCE_RUN_ID: triage_run_id,
                     AssessmentMetadataKey.JUDGE_COST: 0.005,
                     AssessmentMetadataKey.JUDGE_INPUT_TOKENS: 50,
                     AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS: 25,
@@ -989,7 +1001,7 @@ def test_discover_issues_returns_cost_when_all_pass(make_trace):
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=_triage_eval("run-triage"),
+            return_value=_triage_eval(triage_run_id),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.get_trace",
@@ -1026,11 +1038,14 @@ def test_discover_issues_filters_invalid_categories(make_trace):
         name="issue_with_categories", description="Issue with mixed categories"
     )
 
+    with mlflow.start_run() as run:
+        triage_run_id = run.info.run_id
+
     with (
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
-            return_value=_triage_eval("run-triage"),
+            return_value=_triage_eval(triage_run_id),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",

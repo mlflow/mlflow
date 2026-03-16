@@ -57,7 +57,7 @@ from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_ISSUE_DETECTION
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
 _logger = logging.getLogger(__name__)
 
@@ -549,7 +549,7 @@ def discover_issues(
         scorers[0], test_session[0] if test_session else triage_traces[0], session=test_session
     )
 
-    with mlflow.start_run(run_id=run_id, tags={MLFLOW_RUN_IS_ISSUE_DETECTION: "true"}):
+    with mlflow.start_run(run_id=run_id, tags={MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION}):
         triage_eval = mlflow.genai.evaluate(
             data=triage_traces,
             scorers=scorers,
