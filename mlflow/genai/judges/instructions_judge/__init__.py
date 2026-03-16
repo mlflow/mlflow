@@ -531,17 +531,15 @@ class InstructionsJudge(Judge):
             )
             if missing_inputs or missing_outputs:
                 is_fallback_to_trace_mode = True
+                missing_fields = []
+                if missing_inputs:
+                    missing_fields.append("inputs")
+                if missing_outputs:
+                    missing_fields.append("outputs")
                 _logger.info(
                     "Could not extract %s from the trace root span. "
                     "Falling back to trace-based judge mode.",
-                    " and ".join(
-                        field
-                        for field, missing in [
-                            ("inputs", missing_inputs),
-                            ("outputs", missing_outputs),
-                        ]
-                        if missing
-                    ),
+                    " and ".join(missing_fields),
                 )
 
         if not is_fallback_to_trace_mode:
@@ -555,10 +553,7 @@ class InstructionsJudge(Judge):
                 and expectations is None
             ):
                 missing_params.append("expectations")
-            if (
-                self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables
-                and session is None
-            ):
+            if self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables and session is None:
                 missing_params.append("session")
             if missing_params:
                 missing_str = "', '".join(missing_params)
@@ -575,6 +570,13 @@ class InstructionsJudge(Judge):
         is_trace_based = (
             self._TEMPLATE_VARIABLE_TRACE in self.template_variables or is_fallback_to_trace_mode
         )
+
+        if is_fallback_to_trace_mode:
+            _logger.debug("Using trace-based (agentic) judge mode via fallback.")
+        elif is_trace_based:
+            _logger.debug("Using trace-based (agentic) judge mode.")
+        else:
+            _logger.debug("Using standard (non-agentic) judge mode.")
 
         system_content = self._build_system_message(is_trace_based)
         user_content = self._build_user_message(inputs, outputs, expectations, conversation)
