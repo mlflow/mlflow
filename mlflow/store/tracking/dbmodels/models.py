@@ -398,6 +398,7 @@ class SqlMetric(Base):
             "key", "timestamp", "step", "run_uuid", "value", "is_nan", name="metric_pk"
         ),
         Index(f"index_{__tablename__}_run_uuid", "run_uuid"),
+        Index(f"index_{__tablename__}_run_uuid_key_step", "run_uuid", "key", "step"),
     )
 
     key = Column(String(250))
