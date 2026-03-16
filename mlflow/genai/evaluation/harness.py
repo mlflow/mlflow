@@ -42,7 +42,6 @@ from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
-    MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT,
     MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
     MLFLOW_GENAI_EVAL_MAX_RETRIES,
     MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS,
@@ -212,10 +211,7 @@ def _get_pool_sizes(
 
 
 class _Heartbeat:
-    """Periodic debug-level heartbeat for the pipeline loop.
-
-    Only active when ``MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT`` is set to True.
-    """
+    """Periodic debug-level heartbeat for the pipeline loop."""
 
     def __init__(
         self,
@@ -224,7 +220,6 @@ class _Heartbeat:
         total_items: int,
         interval_secs: float = 15,
     ):
-        self._enabled = MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT.get()
         self._predictor = predictor
         self._scorer = scorer
         self._total = total_items
@@ -241,8 +236,6 @@ class _Heartbeat:
         return f"{rps:.1f}" if rps is not None else "off"
 
     def tick(self, items_predicted: int, items_scored: int) -> None:
-        if not self._enabled:
-            return
         now = time.monotonic()
         if now - self._last_time < self._interval:
             return
@@ -615,8 +608,10 @@ def _run_pipeline(
 
         predictor.join()
 
-        # Multi-turn scorers run after single-turn scoring completes because they
-        # operate on session groups and need fully scored traces.
+        # Multi-turn scorers run after single-turn scoring completes. When predict_fn
+        # is provided (simulation mode), single-turn scoring creates the traces that
+        # multi-turn scorers consume. The traces must exist before they can be grouped
+        # into sessions, so the two phases cannot overlap.
         scorer.run_multi_turn(multi_turn_assessments, progress_bar)
 
         return predictor.predict_times, scorer.score_times
