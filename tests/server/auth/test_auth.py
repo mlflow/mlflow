@@ -32,7 +32,8 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
-from mlflow.server.auth import _authenticate_fastapi_request
+from mlflow.server.auth import _authenticate_fastapi_request, _re_compile_path
+from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_ajax_path
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     CREATE_REGISTERED_MODEL_PERMISSION,
@@ -813,6 +814,51 @@ def test_logged_model_artifact_authorization(client: MlflowClient, monkeypatch: 
         auth=(username2, password2),
     )
     assert response.status_code == 403
+
+    # Also verify the list-artifacts (directories) endpoint
+    # user1 (owner) should be able to list artifacts
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + f"/api/2.0/mlflow/logged-models/{model.model_id}/artifacts/directories"
+        ),
+        auth=(username1, password1),
+    )
+    assert response.status_code != 403
+
+    # user2 has no permission — expect 403
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + f"/api/2.0/mlflow/logged-models/{model.model_id}/artifacts/directories"
+        ),
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
+def test_logged_model_artifact_validator_respects_static_prefix():
+    base = "/mlflow/logged-models/<model_id>/artifacts/files"
+
+    # Without prefix — should match the bare path
+    pat_no_prefix = _re_compile_path(_get_ajax_path(base))
+    assert pat_no_prefix.fullmatch(
+        "/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files"
+    )
+
+    # With prefix — should match the prefixed path
+    with mock.patch.dict("os.environ", {STATIC_PREFIX_ENV_VAR: "/custom-prefix"}):
+        _re_compile_path.cache_clear()
+        pat_with_prefix = _re_compile_path(_get_ajax_path(base))
+        assert pat_with_prefix.fullmatch(
+            "/custom-prefix/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files"
+        )
+        # bare path should NOT match the prefixed pattern
+        assert not pat_with_prefix.fullmatch(
+            "/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files"
+        )
+
+    _re_compile_path.cache_clear()
 
 
 def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
