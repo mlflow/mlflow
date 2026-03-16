@@ -39,49 +39,47 @@ from mlflow.genai.discovery.job import (
     ],
 )
 def test_fetch_provider_credentials_success(provider, secret_value, expected_credentials):
-    with mock.patch(
-        "mlflow.genai.discovery.job.get_decrypted_secret", return_value=secret_value
-    ) as mock_get_secret:
-        credentials = _fetch_provider_credentials(provider, "secret-123")
-        mock_get_secret.assert_called_once_with("secret-123")
-        assert credentials == expected_credentials
+    mock_store = mock.MagicMock()
+    mock_store._get_decrypted_secret.return_value = secret_value
+    credentials = _fetch_provider_credentials(mock_store, provider, "secret-123")
+    mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    assert credentials == expected_credentials
 
 
 def test_fetch_provider_credentials_unknown_provider():
+    mock_store = mock.MagicMock()
     with pytest.raises(MlflowException, match="Unknown provider 'unknown'. Supported providers:"):
-        _fetch_provider_credentials("unknown", "secret-123")
+        _fetch_provider_credentials(mock_store, "unknown", "secret-123")
 
 
 def test_fetch_provider_credentials_case_insensitive():
-    with mock.patch(
-        "mlflow.genai.discovery.job.get_decrypted_secret",
-        return_value={"api_key": "test-key"},
-    ) as mock_get_secret:
-        credentials = _fetch_provider_credentials("OpenAI", "secret-123")
-        mock_get_secret.assert_called_once_with("secret-123")
-        assert credentials == {"OPENAI_API_KEY": "test-key"}
+    mock_store = mock.MagicMock()
+    mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
+    credentials = _fetch_provider_credentials(mock_store, "OpenAI", "secret-123")
+    mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    assert credentials == {"OPENAI_API_KEY": "test-key"}
 
 
 def test_fetch_provider_credentials_missing_api_key():
-    with mock.patch(
-        "mlflow.genai.discovery.job.get_decrypted_secret", return_value={}
-    ) as mock_get_secret:
-        credentials = _fetch_provider_credentials("openai", "secret-123")
-        mock_get_secret.assert_called_once_with("secret-123")
-        assert credentials == {}
+    mock_store = mock.MagicMock()
+    mock_store._get_decrypted_secret.return_value = {}
+    credentials = _fetch_provider_credentials(mock_store, "openai", "secret-123")
+    mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    assert credentials == {}
 
 
 def test_fetch_provider_credentials_bedrock_missing_optional_token():
-    with mock.patch(
-        "mlflow.genai.discovery.job.get_decrypted_secret",
-        return_value={"aws_access_key_id": "access-key", "aws_secret_access_key": "secret-key"},
-    ) as mock_get_secret:
-        credentials = _fetch_provider_credentials("bedrock", "secret-123")
-        mock_get_secret.assert_called_once_with("secret-123")
-        assert credentials == {
-            "AWS_ACCESS_KEY_ID": "access-key",
-            "AWS_SECRET_ACCESS_KEY": "secret-key",
-        }
+    mock_store = mock.MagicMock()
+    mock_store._get_decrypted_secret.return_value = {
+        "aws_access_key_id": "access-key",
+        "aws_secret_access_key": "secret-key",
+    }
+    credentials = _fetch_provider_credentials(mock_store, "bedrock", "secret-123")
+    mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    assert credentials == {
+        "AWS_ACCESS_KEY_ID": "access-key",
+        "AWS_SECRET_ACCESS_KEY": "secret-key",
+    }
 
 
 def test_invoke_issue_detection_job_has_metadata():
