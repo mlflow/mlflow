@@ -31,7 +31,11 @@ async function getRecentActivitySection(github, username) {
   const sortedRepos = [...repoBreakdown.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, MAX_REPOS_TO_DISPLAY);
-  const tableRows = sortedRepos.map(([repo, count]) => `| ${repo} | ${count} |`).join("\n");
+  const tableRows = sortedRepos
+    .map(
+      ([repo, count]) => `| [${repo}](https://github.com/${repo}/pulls/${username}) | ${count} |`
+    )
+    .join("\n");
   const topNote = repoCount > MAX_REPOS_TO_DISPLAY ? ` (showing top ${MAX_REPOS_TO_DISPLAY})` : "";
   return `
 <details><summary>PR author recent activity</summary>
