@@ -4858,7 +4858,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not trace_ids:
             return []
 
-        traces = []
         order_case = case(
             {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
             value=SqlTraceInfo.request_id,
