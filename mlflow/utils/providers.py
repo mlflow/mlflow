@@ -499,27 +499,6 @@ def get_provider_config_response(provider: str) -> ProviderConfigResponse:
     }
 
 
-def auth_mode_requires_secret_fields(provider: str, auth_mode: str | None) -> bool:
-    """Check if a provider's auth mode has any required secret fields.
-
-    Returns True (secrets required) when the provider or auth_mode is unknown,
-    so callers default to the stricter validation path.
-    """
-    if not provider or not auth_mode:
-        return True
-
-    config_provider = "bedrock" if provider in _BEDROCK_PROVIDERS else provider
-    modes = _PROVIDER_AUTH_MODES.get(config_provider)
-    if not modes:
-        return True
-
-    mode_config = modes.get(auth_mode)
-    if not mode_config:
-        return True
-
-    return any(f.get("secret") and f.get("required", True) for f in mode_config.get("fields", []))
-
-
 _EXCLUDED_PROVIDERS = {"bedrock_converse"}
 
 # Providers that should be consolidated into a single provider.

@@ -4792,17 +4792,6 @@ def _create_gateway_secret():
     auth_config = dict(request_message.auth_config) or None
     secret_value = dict(request_message.secret_value)
 
-    if not secret_value:
-        from mlflow.utils.providers import auth_mode_requires_secret_fields
-
-        provider = request_message.provider or None
-        auth_mode = auth_config.get("auth_mode") if auth_config else None
-        if auth_mode_requires_secret_fields(provider, auth_mode):
-            raise MlflowException(
-                message="Missing value for required parameter 'secret_value'.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
         secret_value=secret_value,
