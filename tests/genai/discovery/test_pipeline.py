@@ -625,7 +625,9 @@ def test_recluster_merges_similar_singletons():
             return_value=merged_issue,
         ) as mock_summarize,
     ):
-        result = recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
+        result = recluster_singletons(
+            singletons, labels, analyses, "openai:/gpt-5", 25, categories=[]
+        )
 
     mock_cluster.assert_called_once()
     mock_summarize.assert_called_once()
@@ -668,7 +670,9 @@ def test_recluster_keeps_unmerged_singletons():
         "mlflow.genai.discovery.clustering.cluster_by_llm",
         return_value=[[0], [1]],
     ) as mock_cluster:
-        result = recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
+        result = recluster_singletons(
+            singletons, labels, analyses, "openai:/gpt-5", 25, categories=[]
+        )
 
     mock_cluster.assert_called_once()
     assert len(result) == 2
@@ -685,7 +689,7 @@ def test_recluster_single_singleton_returns_as_is():
             categories=[],
         ),
     ]
-    result = recluster_singletons(singletons, {0: "label"}, [], "m", 25)
+    result = recluster_singletons(singletons, {0: "label"}, [], "m", 25, categories=[])
     assert len(result) == 1
     assert result[0].name == "Solo"
 
@@ -740,7 +744,9 @@ def test_recluster_low_severity_merge_keeps_originals():
             return_value=low_severity_merged,
         ),
     ):
-        result = recluster_singletons(singletons, labels, analyses, "openai:/gpt-5", 25)
+        result = recluster_singletons(
+            singletons, labels, analyses, "openai:/gpt-5", 25, categories=[]
+        )
 
     assert len(result) == 2
     assert result[0].name == "A"
@@ -826,12 +832,6 @@ def test_build_satisfaction_instructions_categories_trace():
     instructions = build_satisfaction_instructions(use_conversation=False, categories=["latency"])
     assert "latency" in instructions
     assert "issue categories" in instructions
-
-
-@pytest.mark.parametrize("categories", [None, []])
-def test_build_satisfaction_instructions_no_categories(categories):
-    instructions = build_satisfaction_instructions(use_conversation=True, categories=categories)
-    assert "issue categories" not in instructions
 
 
 def test_discover_issues_with_custom_run_id(make_trace):

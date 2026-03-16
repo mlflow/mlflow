@@ -96,8 +96,8 @@ def summarize_cluster(
     cluster_label_indices: list[int],
     analyses: list[_ConversationAnalysis],
     model: str,
+    categories: list[str],
     label_to_analysis: list[int] | None = None,
-    categories: list[str] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> _IdentifiedIssue:
     """
@@ -111,10 +111,9 @@ def summarize_cluster(
         cluster_label_indices: Label indices that form this cluster.
         analyses: All conversation analyses from the pipeline.
         model: Model URI for the summarization LLM.
+        categories: List of valid category names to filter extracted categories.
         label_to_analysis: Mapping from label index to analysis index.
             When ``None``, label indices are used as analysis indices directly.
-        categories: Optional list of valid category names. If provided,
-            extracted categories will be filtered to only include these.
         token_counter: Optional token counter for tracking LLM usage.
 
     Returns:
@@ -167,7 +166,7 @@ def recluster_singletons(
     analyses: list[_ConversationAnalysis],
     model: str,
     max_issues: int,
-    categories: list[str] | None = None,
+    categories: list[str],
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
     """
@@ -179,7 +178,7 @@ def recluster_singletons(
         analyses: All conversation analyses from the pipeline.
         model: Model URI for clustering and summarization.
         max_issues: Maximum number of groups to produce.
-        categories: Optional list of valid category names to filter extracted categories.
+        categories: List of valid category names to filter extracted categories.
         token_counter: Optional token counter for tracking LLM usage.
 
     Returns:

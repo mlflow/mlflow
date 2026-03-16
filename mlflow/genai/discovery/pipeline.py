@@ -21,6 +21,7 @@ from mlflow.genai.discovery.clustering import (
     summarize_cluster,
 )
 from mlflow.genai.discovery.constants import (
+    DEFAULT_CATEGORIES,
     DEFAULT_MODEL,
     DEFAULT_SCORER_NAME,
     NO_ISSUE_KEYWORD,
@@ -313,7 +314,7 @@ def _merge_singleton_issues(
     analyses: list[_ConversationAnalysis],
     model: str,
     max_issues: int,
-    categories: list[str] | None = None,
+    categories: list[str],
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
     singletons = [i for i in identified if len(i.example_indices) == 1]
@@ -337,7 +338,7 @@ def _cluster_and_identify(
     analyses: list[_ConversationAnalysis],
     model: str,
     max_issues: int,
-    categories: list[str] | None = None,
+    categories: list[str],
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
     """Cluster analyses into identified issues via LLM-based labeling and grouping."""
@@ -435,6 +436,7 @@ def build_issue_discovery_scorer(
     use_conversation: bool = True,
 ) -> Scorer:
     model = model or DEFAULT_MODEL
+    categories = categories if categories is not None else DEFAULT_CATEGORIES
     instructions = build_satisfaction_instructions(
         use_conversation=use_conversation, categories=categories
     )
@@ -454,7 +456,7 @@ def discover_issues(
     max_issues: int = 20,
     filter_string: str | None = None,
     run_id: str | None = None,
-    categories: list[str] | None = None,
+    categories: list[str] = DEFAULT_CATEGORIES,
 ) -> DiscoverIssuesResult:
     """
     Discover quality and operational issues in traces.

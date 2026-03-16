@@ -21,6 +21,7 @@ TRACE_CONTENT_TRUNCATION = 1000
 
 DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
+DEFAULT_CATEGORIES = ["low_quality", "negative_ux", "safety", "performance"]
 
 
 # ---- Satisfaction scorer instructions ----
@@ -148,16 +149,12 @@ any categories that are not in this list:
 """
 
 
-def _format_categories(categories: list[str] | None) -> str:
-    if not categories:
-        return ""
+def _format_categories(categories: list[str]) -> str:
     items = "\n".join(f"- {cat}" for cat in categories)
     return CATEGORIES_INSTRUCTIONS.format(categories=items)
 
 
-def build_satisfaction_instructions(
-    *, use_conversation: bool, categories: list[str] | None = None
-) -> str:
+def build_satisfaction_instructions(*, use_conversation: bool, categories: list[str]) -> str:
     if not use_conversation:
         return TRACE_QUALITY_INSTRUCTIONS + _format_categories(categories)
 
@@ -241,12 +238,6 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE = (
     "pattern. Use not_an_issue if they do NOT belong together or represent no real issue.\n"
 )
 
-CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION = (
-    "- Categories: Extract any category tags enclosed in square brackets "
-    "(e.g. [low_quality], [negative_ux]) from the rationales and include them "
-    "in the categories field. If no category tags are found, return an empty list."
-)
-
 CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST = (
     "- Categories: Extract any category tags enclosed in square brackets from the rationales. "
     "ONLY include categories from this list: {categories}. "
@@ -254,15 +245,10 @@ CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST = (
 )
 
 
-def build_cluster_summary_prompt(categories: list[str] | None = None) -> str:
-    """Build the cluster summary system prompt with optional category filtering."""
-    if categories:
-        cat_list = ", ".join(categories)
-        cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST.format(
-            categories=cat_list
-        )
-    else:
-        cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION
+def build_cluster_summary_prompt(categories: list[str]) -> str:
+    """Build the cluster summary system prompt with category filtering."""
+    cat_list = ", ".join(categories)
+    cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST.format(categories=cat_list)
     return CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE + cat_instruction
 
 

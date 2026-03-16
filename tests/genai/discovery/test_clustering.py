@@ -104,7 +104,7 @@ def test_summarize_cluster():
     with patch(
         "mlflow.genai.discovery.clustering._call_llm", return_value=mock_response
     ) as mock_call:
-        result = summarize_cluster([0, 1], analyses, "openai:/gpt-5")
+        result = summarize_cluster([0, 1], analyses, "openai:/gpt-5", categories=[])
 
     mock_call.assert_called_once()
     assert result.name == "hallucination"
@@ -180,39 +180,6 @@ def test_summarize_cluster_filters_invalid_categories():
     assert "another_invalid" not in result.categories
 
 
-def test_summarize_cluster_no_category_filtering_when_none():
-    analyses = [
-        _ConversationAnalysis(
-            full_rationale="some issue",
-            affected_trace_ids=["t-1"],
-        ),
-    ]
-
-    mock_response = MagicMock()
-    mock_response.choices = [
-        MagicMock(
-            message=MagicMock(
-                content=json.dumps({
-                    "name": "Issue: Test",
-                    "description": "Test issue",
-                    "root_cause": "Test cause",
-                    "example_indices": [],
-                    "severity": "medium",
-                    "categories": ["any_category", "another_category"],
-                })
-            )
-        )
-    ]
-
-    with patch(
-        "mlflow.genai.discovery.clustering._call_llm", return_value=mock_response
-    ) as mock_call:
-        result = summarize_cluster([0], analyses, "openai:/gpt-5", categories=None)
-
-    mock_call.assert_called_once()
-    assert set(result.categories) == {"any_category", "another_category"}
-
-
 def test_build_cluster_summary_prompt_with_categories():
     categories = ["hallucination", "tool_error", "latency"]
     prompt = build_cluster_summary_prompt(categories=categories)
@@ -221,10 +188,3 @@ def test_build_cluster_summary_prompt_with_categories():
     assert "tool_error" in prompt
     assert "latency" in prompt
     assert "ONLY include categories from this list" in prompt
-
-
-def test_build_cluster_summary_prompt_without_categories():
-    prompt = build_cluster_summary_prompt(categories=None)
-
-    assert "Extract any category tags" in prompt
-    assert "ONLY include categories from this list" not in prompt
