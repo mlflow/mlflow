@@ -4877,10 +4877,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             traces = []
             for sql_trace_info in sql_trace_infos:
                 trace_info = sql_trace_info.to_mlflow_entity()
-                spans = self._get_spans_with_trace_info(
+                if spans := self._get_spans_with_trace_info(
                     trace_info, sql_trace_info.spans, allow_partial=False
-                )
-                if spans:
+                ):
                     traces.append(Trace(info=trace_info, data=TraceData(spans=spans)))
 
             return traces
