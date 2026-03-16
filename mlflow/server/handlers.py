@@ -4219,7 +4219,7 @@ def _invoke_issue_detection_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_issue_detection_job(job_id):
+def _get_job(job_id):
     from mlflow.server.jobs import get_job
 
     job = get_job(job_id)
@@ -5767,11 +5767,6 @@ def get_issues_detection_endpoints():
             _invoke_issue_detection_handler,
             ["POST"],
         ),
-        (
-            _get_ajax_path("/mlflow/issues/job/<job_id>", version=3),
-            _get_issue_detection_job,
-            ["GET"],
-        ),
     ]
 
 
@@ -5781,6 +5776,11 @@ def get_job_endpoints():
             _get_ajax_path("/mlflow/jobs/cancel/<job_id>", version=3),
             _cancel_job,
             ["PATCH"],
+        ),
+        (
+            _get_ajax_path("/mlflow/jobs/<job_id>", version=3),
+            _get_job,
+            ["GET"],
         ),
     ]
 

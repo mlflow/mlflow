@@ -4847,7 +4847,7 @@ def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):
         )
 
 
-def test_get_issue_detection_job_success(mock_job_store):
+def test_get_job_success(mock_job_store):
     mock_job = JobEntity(
         job_id="job-123",
         creation_time=1234567890000,
@@ -4864,7 +4864,7 @@ def test_get_issue_detection_job_success(mock_job_store):
         mock.patch("mlflow.server.jobs.get_job", return_value=mock_job),
         app.test_client() as c,
     ):
-        resp = c.get("/ajax-api/3.0/mlflow/issues/job/job-123")
+        resp = c.get("/ajax-api/3.0/mlflow/jobs/job-123")
         assert resp.status_code == 200
         json_response = resp.get_json()
 
@@ -4874,7 +4874,7 @@ def test_get_issue_detection_job_success(mock_job_store):
         assert json_response["result"]["total_traces_analyzed"] == 10
 
 
-def test_get_issue_detection_job_pending(mock_job_store):
+def test_get_job_pending(mock_job_store):
     mock_job = JobEntity(
         job_id="job-pending",
         creation_time=1234567890000,
@@ -4891,7 +4891,7 @@ def test_get_issue_detection_job_pending(mock_job_store):
         mock.patch("mlflow.server.jobs.get_job", return_value=mock_job),
         app.test_client() as c,
     ):
-        resp = c.get("/ajax-api/3.0/mlflow/issues/job/job-pending")
+        resp = c.get("/ajax-api/3.0/mlflow/jobs/job-pending")
         assert resp.status_code == 200
         json_response = resp.get_json()
 
