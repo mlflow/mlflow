@@ -2,7 +2,7 @@
 sidebar_label: Goose
 ---
 
-import { Users, BookOpen, Scale } from "lucide-react";
+import { Users, Search, Scale } from "lucide-react";
 
 import ImageBox from "@site/src/components/ImageBox";
 import TilesGrid from "@site/src/components/TilesGrid";
@@ -86,7 +86,7 @@ Or run a one-off task:
 goose run -t "What is 2 + 2?"
 ```
 
-Goose will automatically export traces to MLflow. All interactions — including LLM calls, tool executions, and agent decisions — are traced automatically.
+Goose will automatically export traces to MLflow. All interactions, including LLM calls, tool executions, and agent decisions, are traced automatically.
 
 ## Step 5: View Traces in MLflow
 
@@ -102,7 +102,7 @@ You will see detailed traces showing:
 
 ### Traces Not Appearing in MLflow
 
-1. **Check backend store**: Ensure MLflow is using a SQL backend, not file-based storage
+1. **Check backend store**: Ensure MLflow is using a SQL backend, not file-based storage. If you see `"POST /v1/traces HTTP/1.1" 501 Not Implemented` in the server logs, the server is running with a file-based backend that does not support tracing
 2. **Verify endpoint**: Confirm the MLflow server is running and accessible at the configured endpoint
 3. **Check OTel is enabled**: Run `echo $OTEL_EXPORTER_OTLP_ENDPOINT` to verify the environment variable is set in the same shell session where Goose is running
 4. **Check OTel is not disabled**: Ensure `OTEL_SDK_DISABLED` is not set to `true`
@@ -115,24 +115,24 @@ You will see detailed traces showing:
     icon={Scale}
     iconSize={48}
     title="Evaluate the Agent"
-    description="Learn how to evaluate the agent's performance with LLM judges."
-    href="/genai/eval-monitor/running-evaluation/agents"
-    linkText="Evaluate agents →"
-  />
-  <TileCard
-    icon={BookOpen}
-    iconSize={48}
-    title="Manage Prompts"
-    description="Learn how to manage prompts with MLflow's prompt registry."
-    href="/genai/prompt-registry"
-    linkText="Manage prompts →"
+    description="Learn how to evaluate the agent's performance."
+    href="/genai/eval-monitor/running-evaluation/traces/"
+    linkText="Evaluate traces →"
   />
   <TileCard
     icon={Users}
     iconSize={48}
-    title="Automatic Agent Optimization"
-    description="Automatically optimize the agent end-to-end with state-of-the-art algorithms."
-    href="/genai/prompt-registry/optimize-prompts"
-    linkText="Optimize prompts →"
+    title="Collect User Feedback"
+    description="Learn how to collect user feedback on traces for improving the agent."
+    href="/genai/tracing/collect-user-feedback"
+    linkText="Collect feedback →"
+  />
+  <TileCard
+    icon={Search}
+    iconSize={48}
+    title="Search Traces"
+    description="Learn how to search and analyze traces for insights."
+    href="/genai/tracing/search-traces"
+    linkText="Search traces →"
   />
 </TilesGrid>
