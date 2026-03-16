@@ -4731,6 +4731,7 @@ def test_invoke_issue_detection_handler_success(monkeypatch):
     }
 
     with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
         mock.patch(
             "mlflow.genai.discovery.job._fetch_provider_credentials",
             return_value={"OPENAI_API_KEY": "test-key"},
@@ -4751,7 +4752,7 @@ def test_invoke_issue_detection_handler_success(monkeypatch):
         assert json_response["job_id"] == "job-123"
         assert json_response["run_id"] == "run-123"
 
-        mock_fetch_creds.assert_called_once_with("openai", "secret-123")
+        mock_fetch_creds.assert_called_once_with(mock_store.return_value, "openai", "secret-123")
         mock_submit_job.assert_called_once()
         call_kwargs = mock_submit_job.call_args.kwargs
         assert call_kwargs["params"]["experiment_id"] == "exp-123"
