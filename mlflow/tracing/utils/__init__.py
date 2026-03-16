@@ -88,6 +88,9 @@ class TraceJSONEncoder(json.JSONEncoder):
                 return asdict(obj)
             except Exception:
                 pass
+            # asdict() calls copy.deepcopy() on non-dataclass fields, which can fail for
+            # objects with asyncio internals (e.g. HTTP clients). Fall back to shallow
+            # field extraction via getattr() to avoid partially-constructed copies.
             try:
                 return {f.name: getattr(obj, f.name) for f in fields(obj)}
             except Exception:
