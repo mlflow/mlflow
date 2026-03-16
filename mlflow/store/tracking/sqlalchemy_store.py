@@ -3243,12 +3243,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         )
         return SqlTraceTag(request_id=trace_id, key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
 
-    def start_trace(self, trace_info: "TraceInfo") -> TraceInfo:
+    def start_trace(self, trace_info: "TraceInfo", spans: list[Span] | None = None) -> TraceInfo:
         """
         Create a trace using the V3 API format with a complete Trace object.
 
         Args:
             trace_info: The TraceInfo object to create in the backend.
+            spans: Optional list of spans to write in the same transaction.
 
         Returns:
             The created TraceInfo object from the backend.
@@ -3358,6 +3359,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 session.merge(sql_trace_info)
                 session.flush()
+
+            # Write spans in the same transaction if provided, avoiding the
+            # race between separate log_spans and start_trace async tasks.
+            if spans:
+                self._write_spans_to_session(session, spans, trace_id, trace_info.experiment_id)
 
             return sql_trace_info.to_mlflow_entity()
 
@@ -4464,6 +4470,60 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             filter1_count=filter1_count,
             filter2_count=filter2_count,
             joint_count=joint_count,
+        )
+
+    def _write_spans_to_session(
+        self,
+        session: Session,
+        spans: list[Span],
+        trace_id: str,
+        experiment_id: str,
+    ) -> None:
+        """Write span rows into the given session and set the SPANS_LOCATION tag."""
+        for span in spans:
+            span_dict = translate_span_when_storing(span)
+            content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
+
+            span_attributes = span_dict.get("attributes", {})
+            dimension_attribute_keys = [SpanAttributeKey.MODEL, SpanAttributeKey.MODEL_PROVIDER]
+            dimension_attributes = {}
+            for key in dimension_attribute_keys:
+                if value := span_attributes.get(key):
+                    dimension_attributes[key] = _try_parse_json_string(value)
+
+            sql_span = SqlSpan(
+                trace_id=trace_id,
+                experiment_id=experiment_id,
+                span_id=span.span_id,
+                parent_span_id=span.parent_id,
+                name=span.name,
+                type=span.span_type,
+                status=span.status.status_code,
+                start_time_unix_nano=span.start_time_ns,
+                end_time_unix_nano=span.end_time_ns,
+                content=content_json,
+                dimension_attributes=dimension_attributes or None,
+            )
+            session.merge(sql_span)
+
+            if span_cost_raw := span_attributes.get(SpanAttributeKey.LLM_COST):
+                span_cost = json.loads(span_cost_raw)
+                for cost_key, cost_value in span_cost.items():
+                    session.merge(
+                        SqlSpanMetrics(
+                            trace_id=trace_id,
+                            span_id=span.span_id,
+                            key=cost_key,
+                            value=float(cost_value),
+                        )
+                    )
+
+        session.merge(
+            SqlTraceTag(
+                request_id=trace_id,
+                key=TraceTagKey.SPANS_LOCATION,
+                value=SpansLocation.TRACKING_STORE.value,
+            )
         )
 
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:

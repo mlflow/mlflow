@@ -36,7 +36,9 @@ class MlflowV3SpanExporter(SpanExporter):
     using the V3 trace schema and API.
     """
 
-    def __init__(self, tracking_uri: str | None = None) -> None:
+    def __init__(
+        self, tracking_uri: str | None = None, write_spans_with_trace: bool = False
+    ) -> None:
         self._client = TracingClient(tracking_uri)
         self._is_async_enabled = self._should_enable_async_logging()
         if self._is_async_enabled:
@@ -44,6 +46,11 @@ class MlflowV3SpanExporter(SpanExporter):
 
         # Display handler is no-op when running outside of notebooks.
         self._display_handler = get_display_handler()
+
+        # When True, skip incremental span export and instead write spans alongside
+        # the trace in a single start_trace transaction. This eliminates the race
+        # between log_spans and start_trace that causes DB contention under load.
+        self._write_spans_with_trace = write_spans_with_trace
 
         # A flag to cache the failure of exporting spans so that the client will not try to export
         # spans again and trigger excessive server side errors. Default to True (optimistically
@@ -59,7 +66,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 a span processor. All spans (root and non-root) are exported.
         """
 
-        if self._should_export_spans_incrementally:
+        if self._should_export_spans_incrementally and not self._write_spans_with_trace:
             self._export_spans_incrementally(spans)
 
         self._export_traces(spans)
@@ -201,7 +208,10 @@ class MlflowV3SpanExporter(SpanExporter):
         try:
             if trace:
                 add_size_stats_to_trace_metadata(trace)
-                returned_trace_info = self._client.start_trace(trace.info)
+                returned_trace_info = self._client.start_trace(
+                    trace.info,
+                    spans=trace.data.spans if self._write_spans_with_trace else None,
+                )
                 if self._should_log_spans_to_artifacts(returned_trace_info):
                     self._client._upload_trace_data(returned_trace_info, trace.data)
             else:
