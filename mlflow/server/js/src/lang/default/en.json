@@ -127,6 +127,10 @@
     "defaultMessage": "None",
     "description": "A short label for experiments with no experiment kind"
   },
+  "+lNppY": {
+    "defaultMessage": "Notes",
+    "description": "Header for the notes section in the assessments pane"
+  },
   "+mAXPc": {
     "defaultMessage": "No traces found. Try clearing your active filters to see more traces.",
     "description": "Text displayed when no traces are found in the trace review page"
@@ -4431,6 +4435,10 @@
   "Rs+SVS": {
     "defaultMessage": "Ready",
     "description": "Label for ready state of a experiment logged model"
+  },
+  "RsTIRk": {
+    "defaultMessage": "Add personal notes about this trace.",
+    "description": "Tooltip describing the notes section in the assessments pane"
   },
   "RtKhwd": {
     "defaultMessage": "Dataset",
@@ -9550,6 +9558,10 @@
   "yltiK8": {
     "defaultMessage": "No prompts match your search",
     "description": "No search results message for linked prompts table on logged model details page"
+  },
+  "ymnL+t": {
+    "defaultMessage": "Save",
+    "description": "Button to save notes assessment"
   },
   "ynkoR7": {
     "defaultMessage": "No models versions are registered yet. <link>Learn more</link> about how to register a model version.",

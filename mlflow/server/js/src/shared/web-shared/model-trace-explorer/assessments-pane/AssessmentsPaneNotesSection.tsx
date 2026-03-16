@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react';
 
-import { Button, CheckIcon, InfoSmallIcon, Input, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  CheckIcon,
+  InfoSmallIcon,
+  Input,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { FeedbackAssessment } from '../ModelTrace.types';
@@ -71,7 +79,10 @@ const AssessmentsPaneNotesSectionInner = ({
       <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
           <Typography.Text bold>
-            <FormattedMessage defaultMessage="Notes" description="Header for the notes section in the assessments pane" />
+            <FormattedMessage
+              defaultMessage="Notes"
+              description="Header for the notes section in the assessments pane"
+            />
           </Typography.Text>
           <Tooltip
             componentId="shared.model-trace-explorer.assessment-notes-info-tooltip"

@@ -141,7 +141,9 @@ export const AssessmentsPaneFeedbackSection = ({
   const visibleFeedbacks = useMemo(
     () =>
       feedbacks.filter(
-        (f) => f.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE && f.assessment_name !== NOTES_ASSESSMENT_NAME,
+        (f) =>
+          f.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE &&
+          f.assessment_name !== NOTES_ASSESSMENT_NAME,
       ),
     [feedbacks],
   );
