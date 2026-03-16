@@ -542,10 +542,10 @@ All benchmarks: 2000 requests/run, 3 runs, 4 workers, 50 concurrency.
 | 50ms delay                   | **P99 latency** | **108.3 ms**   | 282.3 ms  | 60.6 ms       |
 |                              | **Throughput**  | **816 rps**    | 530 rps   | **944 rps**   |
 |                              |                 |                |           |               |
-| **Full-stack, tracking ON**  | **P50 latency** | 626.9 ms       | 84.5 ms   | **52.4 ms**   |
-| PostgreSQL, tracking ON      | **P95 latency** | 1,208.4 ms     | 122.7 ms  | **56.2 ms**   |
-| 50ms delay                   | **P99 latency** | 1,430.2 ms     | 281.5 ms  | **61.2 ms**   |
-|                              | **Throughput**  | 77 rps         | 574 rps   | **938 rps**   |
+| **Full-stack, tracking ON**  | **P50 latency** | 295.6 ms       | 84.5 ms   | **52.4 ms**   |
+| PostgreSQL, tracking ON      | **P95 latency** | 404.5 ms       | 122.7 ms  | **56.2 ms**   |
+| 50ms delay                   | **P99 latency** | 441.5 ms       | 281.5 ms  | **61.2 ms**   |
+|                              | **Throughput**  | 220 rps        | 574 rps   | **938 rps**   |
 
 **Key observations:**
 
@@ -560,12 +560,14 @@ The full-stack benchmark runs LiteLLM both with and without PostgreSQL spend tra
 
 | Gateway     | With tracking | Without tracking | Overhead               |
 | ----------- | ------------- | ---------------- | ---------------------- |
-| **MLflow**  | 77 rps        | 816 rps          | **10.6x slower**       |
+| **MLflow**  | 220 rps       | 816 rps          | **3.7x slower**        |
 | **LiteLLM** | 574 rps       | 598 rps          | **1.04x slower** (~4%) |
 
-MLflow's `mlflow.trace()` overhead (spans, metadata, async persistence) causes a **10.6x throughput drop**. LiteLLM's spend tracking callbacks with async DB writes add only ~4% overhead. This confirms tracing is MLflow's dominant bottleneck.
+MLflow's `mlflow.trace()` overhead (spans, metadata, async persistence) causes a **3.7x throughput drop**. LiteLLM's spend tracking callbacks with async DB writes add only ~4% overhead.
 
 > **Note**: Portkey's OSS version has no usage/spend tracking, so it runs at the same speed regardless of configuration.
+>
+> **Historical note**: Before the trace export contention fix (see below), MLflow with tracking was **10.6x slower** (77 rps). The fix consolidated two racing async DB tasks into a single transaction, improving throughput from 77 to 220 rps.
 
 ### Historical results (pre-config-cache)
 
@@ -613,11 +615,11 @@ To verify the bottleneck hypothesis, endpoint config caching was added to `confi
 
 | Bottleneck                        | Overhead factor | Evidence                             |
 | --------------------------------- | --------------- | ------------------------------------ |
-| **Usage tracking / tracing**      | ~10.6x          | 77 rps → 816 rps when disabled       |
+| **Usage tracking / tracing**      | ~3.7x           | 220 rps → 816 rps when disabled      |
 | **Uncached config DB queries**    | ~5x             | 14 rps → 67 rps when cached          |
 | **Core proxy path** (no overhead) | 1x (baseline)   | 816 rps — faster than LiteLLM at 530 |
 
-The two bottlenecks are orthogonal and compound. The usage tracking / tracing path is the dominant factor.
+The two bottlenecks are orthogonal and compound. The usage tracking / tracing path is the dominant remaining factor, though significantly improved by the trace export contention fix (see below).
 
 > **Note**: Endpoint config caching is now enabled by default via `SecretCache` in `config_resolver.py` ([#21660](https://github.com/mlflow/mlflow/pull/21660)). No special configuration is needed to reproduce the cached results above.
 
@@ -738,6 +740,57 @@ When `usage_tracking=true` (the server default), an experiment is auto-created a
 When `usage_tracking=false`, `maybe_traced_gateway_call()` returns the raw provider function (line 189-190 in `tracing_utils.py`), bypassing all tracing overhead. The per-request DB queries for config resolution still happen.
 
 Key: there are **no synchronous database writes** on the hot path. Traces go to an in-memory manager and are persisted asynchronously. Budget tracking is entirely in-memory.
+
+---
+
+## Trace Export DB Contention Fix
+
+### Problem
+
+With usage tracking enabled on PostgreSQL, profiling revealed severe tail latency (P99=1700ms vs P50=361ms) and server logs showed `DeadlockDetected` and `UniqueViolation` errors on `trace_request_metadata_pk`.
+
+**Root cause**: For each gateway request, `MlflowV3SpanExporter.export()` enqueued **two independent async tasks** that raced on the same DB rows:
+
+1. **`_export_spans_incrementally()` → `log_spans()`**: INSERT/MERGE span rows + UPDATE `trace_info` + MERGE `trace_tag`
+2. **`_export_traces()` → `start_trace()`**: INSERT `trace_info` + INSERT tags + INSERT metadata (14 rows) + INSERT metrics
+
+Both tasks target the same `trace_info`, `trace_request_metadata`, and `trace_tag` rows for the same `trace_id`. With 10 async worker threads and 50 concurrent requests, the `start_trace` task would INSERT → catch `IntegrityError` → rollback → SELECT → merge, which is expensive under contention. Meanwhile `log_spans` is also writing to the same rows, causing PostgreSQL deadlocks.
+
+```
+                      ┌─ async task 1: log_spans()   ──┐
+export() ─┤                                             ├─ RACE on same trace_id rows
+                      └─ async task 2: start_trace() ──┘
+```
+
+### Fix
+
+Gateway traces are short-lived (2 spans, ~50-100ms). The trace completes before the first `log_spans` task even runs, so incremental span export adds no value.
+
+The fix adds a `write_spans_with_trace` flag that consolidates both writes into a single `start_trace()` transaction:
+
+```
+Before:  export() → async task 1: log_spans()     ←─ RACE ─→  async task 2: start_trace()
+After:   export() → async task: start_trace(spans=...)    (single transaction, no race)
+```
+
+This is auto-enabled when `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true` (set by the gateway server at startup) with a non-Databricks SQL backend.
+
+### Impact
+
+| Metric       | Before fix | After fix | Improvement |
+| ------------ | ---------- | --------- | ----------- |
+| **P50**      | 627 ms     | 296 ms    | 2.1x        |
+| **P99**      | 1,430 ms   | 442 ms    | 3.2x        |
+| **RPS**      | 77         | 220       | 2.9x        |
+| **Failures** | DB errors  | 0         | Eliminated  |
+
+Files changed:
+
+- `mlflow/tracing/export/mlflow_v3.py` — skip incremental export, pass spans to `start_trace`
+- `mlflow/tracing/client.py` — thread `spans` parameter
+- `mlflow/store/tracking/sqlalchemy_store.py` — write spans in `start_trace` transaction
+- `mlflow/store/tracking/abstract_store.py` — update interface
+- `mlflow/tracing/provider.py` — auto-enable when async logging is set
 
 ---
 
