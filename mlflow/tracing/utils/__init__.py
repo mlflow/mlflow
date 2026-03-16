@@ -41,9 +41,14 @@ if TYPE_CHECKING:
     from mlflow.types.chat import ChatTool
 
 
+@lru_cache(maxsize=256)
+def _cached_signature(func):
+    return inspect.signature(func)
+
+
 def capture_function_input_args(func, args, kwargs) -> dict[str, Any] | None:
     try:
-        func_signature = inspect.signature(func)
+        func_signature = _cached_signature(func)
         bound_arguments = func_signature.bind(*args, **kwargs)
         bound_arguments.apply_defaults()
 
