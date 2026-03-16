@@ -23,9 +23,10 @@ const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
 
 // Default to cheaper models for each provider
 const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
-  openai: 'gpt-5-mini',
-  anthropic: 'claude-haiku-4-20250514',
-  databricks: 'databricks-gpt-5-mini',
+  openai: 'gpt-5.4',
+  anthropic: 'claude-sonnet-4-6',
+  gemini: 'gemini-2.5-pro',
+  databricks: 'databricks-gpt-5-1',
 };
 
 export interface ModelSelectionValues {

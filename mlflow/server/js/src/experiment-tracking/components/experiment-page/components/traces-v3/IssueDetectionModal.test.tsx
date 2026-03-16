@@ -152,7 +152,7 @@ describe('IssueDetectionModal', () => {
     await navigateToStep2();
     await userEvent.selectOptions(screen.getByTestId('provider-select'), 'openai');
 
-    expect(screen.getByText(/Model: gpt-5-mini/)).toBeInTheDocument();
+    expect(screen.getByText(/Model: gpt-5.4/)).toBeInTheDocument();
   });
 
   test('shows message when provider without defaults is selected', async () => {
