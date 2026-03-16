@@ -25,6 +25,8 @@ from sqlalchemy.orm import Query, Session, aliased, joinedload
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
 
+from mlflow.utils.crypto import KEKManager, _decrypt_secret
+
 _SqlAlchemyStatement = TypeVar("_SqlAlchemyStatement", Select, Query)
 
 import mlflow.store.db.utils
@@ -130,6 +132,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperimentTag,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
+    SqlGatewaySecret,
     SqlInput,
     SqlInputTag,
     SqlIssue,
@@ -6275,6 +6278,36 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 resource_type=resource_type, resource_id=resource_id
             ),
         ).delete(synchronize_session=False)
+
+    def _get_decrypted_secret(self, secret_id: str) -> dict[str, Any]:
+        """
+        Get decrypted secret value by ID.
+
+        This is a privileged operation that decrypts a secret stored in the database.
+        It should only be called server-side and never exposed to clients.
+
+        Args:
+            secret_id: ID of the secret to decrypt.
+
+        Returns:
+            Decrypted secret value as a dict.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_secret = self._get_entity_or_raise(
+                session,
+                SqlGatewaySecret,
+                {"secret_id": secret_id},
+                "GatewaySecret",
+            )
+
+            kek_manager = KEKManager()
+            return _decrypt_secret(
+                encrypted_value=sql_secret.encrypted_value,
+                wrapped_dek=sql_secret.wrapped_dek,
+                kek_manager=kek_manager,
+                secret_id=sql_secret.secret_id,
+                secret_name=sql_secret.secret_name,
+            )
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

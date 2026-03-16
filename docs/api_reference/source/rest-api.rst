@@ -5141,6 +5141,22 @@ AuthConfigEntry
 | value      | ``STRING`` |             |
 +------------+------------+-------------+
 
+.. _mlflowBatchGetTraceInfos:
+
+BatchGetTraceInfos
+------------------
+
+
+
+
+
+
++------------+------------------------+-----------------------------------------------+
+| Field Name |          Type          |                  Description                  |
++============+========================+===============================================+
+| trace_ids  | An array of ``STRING`` | IDs of the traces to fetch. Must be provided. |
++------------+------------------------+-----------------------------------------------+
+
 .. _mlflowBatchGetTraces:
 
 BatchGetTraces
@@ -7515,6 +7531,22 @@ Response
 +============+================================+================================+
 | traces     | An array of :ref:`mlflowtrace` | The fetched trace information. |
 +------------+--------------------------------+--------------------------------+
+
+.. _mlflowBatchGetTraceInfosResponse:
+
+Response
+--------
+
+
+
+
+
+
++-------------+--------------------------------------+-----------------------------+
+| Field Name  |                 Type                 |         Description         |
++=============+======================================+=============================+
+| trace_infos | An array of :ref:`mlflowtraceinfov3` | The fetched trace metadata. |
++-------------+--------------------------------------+-----------------------------+
 
 .. _mlflowGetTraceResponse:
 

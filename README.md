@@ -5,8 +5,8 @@
 </h1>
 <h2 align="center" style="border-bottom: none">The Open Source AI Engineering Platform</h2>
 
-MLflow is the largest open source **AI engineering platform**. MLflow enables teams of all sizes to [debug](https://mlflow.org/llm-tracing),
-[evaluate](https://mlflow.org/llm-evaluation), [monitor](https://mlflow.org/ai-monitoring), and [optimize](https://mlflow.org/prompt-optimization) production-quality AI agents, LLM applications, and ML models while
+MLflow is the largest open source **AI engineering platform for agents, LLMs, and ML models**. MLflow enables teams of all sizes to [debug](https://mlflow.org/llm-tracing),
+[evaluate](https://mlflow.org/llm-evaluation), [monitor](https://mlflow.org/ai-monitoring), and [optimize](https://mlflow.org/prompt-optimization) production-quality AI applications while
 controlling costs and managing access to models and data. With over 30 million monthly downloads,
 thousands of organizations rely on MLflow each day to ship AI to production with confidence.
 
@@ -61,7 +61,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
 
 <table>
   <tr>
-    <td>
+    <td width="50%">
     <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-tracing.png" alt="Tracing" width=100%>
     <div align="center">
         <br>
@@ -72,7 +72,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
         <br><br>
     </div>
     </td>
-    <td>
+    <td width="50%">
     <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-llm-eval.png" alt="LLM Evaluation" width=100%>
     <div align="center">
         <br>
@@ -85,8 +85,8 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
     </td>
   </tr>
   <tr>
-    <td>
-      <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-prompt.png" alt="Prompt Management">
+    <td width="50%">
+      <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-prompt.png" alt="Prompt Management" width=100%>
     <div align="center">
         <br>
         <a href="https://mlflow.org/docs/latest/genai/prompt-version-mgmt/prompt-registry/"><strong>🤖 Prompt Management</strong></a>
@@ -96,7 +96,7 @@ MLflow is **the only platform that provides a unified solution for all your AI/M
         <br><br>
     </div>
     </td>
-    <td>
+    <td width="50%">
       <img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/readme-gateway.png" alt="AI Gateway" width=100%>
     <div align="center">
         <br>

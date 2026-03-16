@@ -42,7 +42,7 @@ from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 from mlflow.utils.databricks_utils import invoke_databricks_app
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvaluationResult
@@ -420,7 +420,7 @@ def _run_harness(data, scorers, predict_fn, model_id) -> tuple["EvaluationResult
         _log_dataset_input(mlflow_dataset, run_id, model_id)
 
         # NB: Set this tag before run finishes to suppress the generic run URL printing.
-        MlflowClient().set_tag(run_id, MLFLOW_RUN_IS_EVALUATION, "true")
+        MlflowClient().set_tag(run_id, MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_GENAI_EVALUATE)
 
         result = harness.run(
             predict_fn=predict_fn,
