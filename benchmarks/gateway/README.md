@@ -518,11 +518,61 @@ MLflow and LiteLLM use the same PostgreSQL instance (separate databases). Portke
 
 ## Preliminary Results
 
-All results: MacBook Pro (Apple Silicon), 4 workers, 50 concurrent users, 50ms fake delay.
+All results: MacBook Pro (Apple Silicon), 4 workers, 50 concurrent users. Config caching is enabled (the default since [#21660](https://github.com/mlflow/mlflow/pull/21660)).
 
-### Head-to-head: MLflow AI Gateway vs LiteLLM (barebone)
+### Combined results
 
-MLflow AI Gateway with SQLite (usage tracking OFF) vs LiteLLM with YAML config (no DB, `callbacks: []`). 2000 requests/run, 3 runs.
+All benchmarks: 2000 requests/run, 3 runs, 4 workers, 50 concurrency.
+
+| Configuration                | Metric          | MLflow Gateway | LiteLLM   | Portkey       |
+| ---------------------------- | --------------- | -------------- | --------- | ------------- |
+| **Barebone**                 | **P50 latency** | 56.7 ms        | 76.8 ms   | **52.5 ms**   |
+| SQLite, no tracking          | **P95 latency** | 77.1 ms        | 104.0 ms  | **55.8 ms**   |
+| 50ms delay                   | **P99 latency** | 110.8 ms       | 256.7 ms  | **59.0 ms**   |
+|                              | **Throughput**  | **818 rps**    | 616 rps   | **941 rps**   |
+|                              |                 |                |           |               |
+| **Zero delay**               | **P50 latency** | 13.6 ms        | 40.1 ms   | **8.0 ms**    |
+| SQLite, no tracking          | **P95 latency** | 57.5 ms        | 77.1 ms   | **14.2 ms**   |
+| 0ms delay (pure overhead)    | **P99 latency** | 64.5 ms        | 232.5 ms  | **18.1 ms**   |
+|                              | **Throughput**  | **3,306 rps**  | 1,181 rps | **5,575 rps** |
+|                              |                 |                |           |               |
+| **Full-stack, tracking OFF** | **P50 latency** | **56.2 ms**    | 92.0 ms   | 52.2 ms       |
+| PostgreSQL, no tracking      | **P95 latency** | **79.9 ms**    | 128.6 ms  | 55.0 ms       |
+| 50ms delay                   | **P99 latency** | **108.3 ms**   | 282.3 ms  | 60.6 ms       |
+|                              | **Throughput**  | **816 rps**    | 530 rps   | **944 rps**   |
+|                              |                 |                |           |               |
+| **Full-stack, tracking ON**  | **P50 latency** | 626.9 ms       | 84.5 ms   | **52.4 ms**   |
+| PostgreSQL, tracking ON      | **P95 latency** | 1,208.4 ms     | 122.7 ms  | **56.2 ms**   |
+| 50ms delay                   | **P99 latency** | 1,430.2 ms     | 281.5 ms  | **61.2 ms**   |
+|                              | **Throughput**  | 77 rps         | 574 rps   | **938 rps**   |
+
+**Key observations:**
+
+- **Portkey is consistently ~940 rps** across all configs — it's stateless with no features to slow it down
+- **MLflow without tracking (816-818 rps) beats LiteLLM (530-616 rps)** by ~1.4x in every config
+- **Pure proxy overhead** (zero delay): Portkey 8ms < MLflow 14ms < LiteLLM 40ms
+- **PostgreSQL vs SQLite** makes little difference for MLflow when tracking is off (818 vs 816 rps)
+
+### Usage/spend tracking overhead
+
+The full-stack benchmark runs LiteLLM both with and without PostgreSQL spend tracking in the same invocation, allowing direct measurement of tracking overhead for each gateway.
+
+| Gateway     | With tracking | Without tracking | Overhead               |
+| ----------- | ------------- | ---------------- | ---------------------- |
+| **MLflow**  | 77 rps        | 816 rps          | **10.6x slower**       |
+| **LiteLLM** | 574 rps       | 598 rps          | **1.04x slower** (~4%) |
+
+MLflow's `mlflow.trace()` overhead (spans, metadata, async persistence) causes a **10.6x throughput drop**. LiteLLM's spend tracking callbacks with async DB writes add only ~4% overhead. This confirms tracing is MLflow's dominant bottleneck.
+
+> **Note**: Portkey's OSS version has no usage/spend tracking, so it runs at the same speed regardless of configuration.
+
+### Historical results (pre-config-cache)
+
+These results were collected before endpoint config caching was added. They are preserved to show the impact of the config cache optimization.
+
+#### Head-to-head: MLflow AI Gateway vs LiteLLM (barebone, no cache)
+
+MLflow AI Gateway with SQLite (usage tracking OFF, **config cache OFF**) vs LiteLLM with YAML config (no DB, `callbacks: []`). 2000 requests/run, 3 runs.
 
 | Metric          | MLflow AI Gateway | LiteLLM |
 | --------------- | ----------------- | ------- |
@@ -534,9 +584,9 @@ MLflow AI Gateway with SQLite (usage tracking OFF) vs LiteLLM with YAML config (
 
 The MLflow AI Gateway resolves endpoint config from the database on every request (3-5 SQL queries). With SQLite's single-writer lock, this serializes under concurrency, producing ~21 rps with multi-second latencies. LiteLLM keeps config in memory from startup.
 
-### Full-stack: MLflow (PostgreSQL) vs LiteLLM (PostgreSQL)
+#### Full-stack: MLflow (PostgreSQL) vs LiteLLM (PostgreSQL, no cache)
 
-Both proxies with PostgreSQL backend and usage/spend tracking enabled. 2000 requests/run, 3 runs.
+Both proxies with PostgreSQL backend and usage/spend tracking enabled, **config cache OFF**. 2000 requests/run, 3 runs.
 
 | Metric          | MLflow AI Gateway | LiteLLM |
 | --------------- | ----------------- | ------- |
@@ -546,33 +596,9 @@ Both proxies with PostgreSQL backend and usage/spend tracking enabled. 2000 requ
 | **Throughput**  | 14 rps            | 430 rps |
 | **Failures**    | 0                 | 0       |
 
-PostgreSQL is actually _slower_ for MLflow than SQLite (14 rps vs 21 rps) because the per-request SQL queries now incur network round-trip latency. The bottleneck is the uncached endpoint config resolution pattern, not the DB engine. LiteLLM loads config from YAML at startup and only uses DB for spend tracking.
-
-### MLflow AI Gateway: SQLite vs PostgreSQL
-
-Same AI Gateway code path, different DB backends (usage tracking ON). 2000 requests/run, 3 runs.
-
-| Metric          | SQLite   | PostgreSQL |
-| --------------- | -------- | ---------- |
-| **P50 latency** | 1,504 ms | 4,770 ms   |
-| **P95 latency** | 6,537 ms | 7,681 ms   |
-| **P99 latency** | 6,850 ms | 8,066 ms   |
-| **Throughput**  | 18 rps   | 14 rps     |
-
-> **Key takeaway**: The dominant bottleneck in the MLflow AI Gateway is the **uncached per-request endpoint config resolution** (3-5 SQL queries per request). Switching from SQLite to PostgreSQL does not improve performance — it adds network latency to each query. Caching the endpoint config would be the most impactful optimization.
-
-### Bottleneck isolation: config cache + usage tracking
+#### Config cache impact
 
 To verify the bottleneck hypothesis, endpoint config caching was added to `config_resolver.py` via the `SecretCache` ([#21660](https://github.com/mlflow/mlflow/pull/21660)). This caches the result of `get_endpoint_config()` after the first DB lookup, eliminating per-request SQL queries. This cache is now enabled by default.
-
-**Tracking server benchmark (SQLite, 4 workers, 50 concurrent, 1000 req/run, 2 runs):**
-
-| Configuration                   | Throughput | P50      | P99      |
-| ------------------------------- | ---------- | -------- | -------- |
-| No cache, usage tracking ON     | 22 rps     | 1,211 ms | 5,414 ms |
-| **Cache ON**, usage tracking ON | **75 rps** | 654 ms   | 1,565 ms |
-
-Caching the endpoint config alone gives a **3.4x throughput improvement**.
 
 **Full-stack comparison (PostgreSQL, 4 workers, 50 concurrent, 2000 req/run, 3 runs):**
 
@@ -582,41 +608,15 @@ Caching the endpoint config alone gives a **3.4x throughput improvement**.
 | Cache ON, usage tracking ON             | 67         | 763 ms     | 521         | 86 ms       |
 | **Cache ON, usage tracking OFF**        | **841**    | **56 ms**  | 539         | 88 ms       |
 
-**With both optimizations, MLflow is 1.6x faster than LiteLLM** (841 vs 539 rps) — the core proxy path is not the bottleneck.
-
-**Barebone comparison with cache (SQLite, usage tracking OFF, 50ms delay, 2000 req/run, 3 runs):**
-
-| Metric          | MLflow AI Gateway | LiteLLM |
-| --------------- | ----------------- | ------- |
-| **P50 latency** | 55 ms             | 81 ms   |
-| **P95 latency** | 74 ms             | 123 ms  |
-| **P99 latency** | 105 ms            | 298 ms  |
-| **Throughput**  | 844 rps           | 577 rps |
-| **Failures**    | 0                 | 0       |
-
-**Zero-delay full-stack comparison (PostgreSQL, cache ON, usage tracking OFF, 0ms delay, 2000 req/run, 3 runs):**
-
-With `FAKE_RESPONSE_DELAY_MS=0`, the benchmark measures pure proxy overhead with no simulated provider latency.
-
-| Metric          | MLflow AI Gateway | LiteLLM   |
-| --------------- | ----------------- | --------- |
-| **P50 latency** | 10 ms             | 41 ms     |
-| **P95 latency** | 61 ms             | 98 ms     |
-| **P99 latency** | 72 ms             | 254 ms    |
-| **Throughput**  | 3,483 rps         | 1,062 rps |
-| **Failures**    | 0                 | 0         |
-
-MLflow's core proxy path adds ~10ms of overhead vs LiteLLM's ~41ms. At 3,483 rps, MLflow is **3.3x faster** than LiteLLM when both bottlenecks are removed.
-
 ### Bottleneck breakdown
 
 | Bottleneck                        | Overhead factor | Evidence                             |
 | --------------------------------- | --------------- | ------------------------------------ |
-| **Usage tracking / tracing**      | ~12x            | 75 rps → 841 rps when disabled       |
+| **Usage tracking / tracing**      | ~10.6x          | 77 rps → 816 rps when disabled       |
 | **Uncached config DB queries**    | ~5x             | 14 rps → 67 rps when cached          |
-| **Core proxy path** (no overhead) | 1x (baseline)   | 841 rps — faster than LiteLLM at 539 |
+| **Core proxy path** (no overhead) | 1x (baseline)   | 816 rps — faster than LiteLLM at 530 |
 
-The two bottlenecks are orthogonal and compound: together they reduce throughput from 841 rps to 14 rps (~60x total overhead). The usage tracking / tracing path is the dominant factor.
+The two bottlenecks are orthogonal and compound. The usage tracking / tracing path is the dominant factor.
 
 > **Note**: Endpoint config caching is now enabled by default via `SecretCache` in `config_resolver.py` ([#21660](https://github.com/mlflow/mlflow/pull/21660)). No special configuration is needed to reproduce the cached results above.
 
