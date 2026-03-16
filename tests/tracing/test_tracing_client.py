@@ -64,12 +64,13 @@ def test_batch_get_traces():
 
 def test_batch_get_traces_without_location():
     mock_store = Mock()
-    trace_info = Mock()
-    trace_info.trace_id = "id1"
-    trace_info.trace_location.mlflow_experiment = Mock()
-    trace_info.trace_location.uc_schema = None
-    trace_info.trace_location.uc_table_prefix = None
-    trace_info.tags = {TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE}
+    trace_info = TraceInfo(
+        trace_id="id1",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        state=TraceState.OK,
+        tags={TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE},
+    )
     mock_store.batch_get_trace_infos.return_value = [trace_info]
     mock_store.batch_get_traces.return_value = ["trace1"]
 
