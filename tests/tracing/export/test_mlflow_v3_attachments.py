@@ -55,7 +55,6 @@ def test_log_trace_uploads_attachments():
 
 
 def test_log_trace_uploads_attachments_in_tracking_store_mode():
-    """Attachments must be uploaded even when spans are stored in the database."""
     att = Attachment(content_type="image/png", content_bytes=b"img")
     trace = _make_trace({att.id: att})
     # Override to TRACKING_STORE mode
@@ -84,7 +83,6 @@ def test_log_trace_uploads_attachments_in_tracking_store_mode():
 
 
 def test_trace_data_still_lands_when_attachment_upload_fails():
-    """Trace data should be persisted even if attachment upload raises."""
     att = Attachment(content_type="image/png", content_bytes=b"img")
     trace = _make_trace({att.id: att})
 

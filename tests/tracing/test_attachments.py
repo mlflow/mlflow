@@ -87,7 +87,7 @@ def test_parse_ref_invalid():
 
 
 def test_from_file_nonexistent_path():
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError, match="nonexistent"):
         Attachment.from_file("/nonexistent/path/image.png")
 
 

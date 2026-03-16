@@ -3,7 +3,6 @@ from mlflow.tracing.attachments import Attachment
 
 
 def test_attachment_roundtrip_with_local_tracking(tmp_path):
-    """Full integration test: create a trace with attachments, verify they're stored and readable."""
     tracking_uri = str(tmp_path / "mlruns")
     mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment("attachment-integration-test")

@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Any, Sequence
+from typing import Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
@@ -37,6 +37,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import (
     GET_TRACE_V4_RETRY_TIMEOUT_SECONDS,
     SpansLocation,
@@ -690,7 +691,7 @@ class TracingClient:
     def _upload_attachments(
         self,
         trace_info: TraceInfo,
-        attachments: dict[str, "Attachment"],
+        attachments: dict[str, Attachment],
     ) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         for attachment_id, attachment in attachments.items():
