@@ -158,12 +158,10 @@ def evaluate_session_level_scorers(
         max_workers=len(multi_turn_scorers),
         thread_name_prefix="MlflowGenAIEvalMultiTurnScorer",
     ) as executor:
-        futures = {
-            scorer.name: executor.submit(run_scorer, scorer) for scorer in multi_turn_scorers
-        }
+        futures = {executor.submit(run_scorer, scorer): scorer for scorer in multi_turn_scorers}
 
         try:
-            results = {scorer_name: future.result() for scorer_name, future in futures.items()}
+            results = [(scorer, future.result()) for future, scorer in futures.items()]
         except KeyboardInterrupt:
             executor.shutdown(cancel_futures=True)
             raise
@@ -171,7 +169,8 @@ def evaluate_session_level_scorers(
     # Track scorer stats
     scorer_stats: dict[str, ScorerStat] = {}
     all_feedbacks = []
-    for scorer_name, feedbacks in results.items():
+    for scorer, feedbacks in results:
+        scorer_name = scorer.name
         if scorer_name not in scorer_stats:
             scorer_stats[scorer_name] = ScorerStat()
         failed = len(feedbacks) == 1 and feedbacks[0].error is not None

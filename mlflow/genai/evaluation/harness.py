@@ -90,9 +90,7 @@ from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 _logger = logging.getLogger(__name__)
 
 
-def _merge_scorer_stats_dicts(
-    target: dict[str, ScorerStat], source: dict[str, ScorerStat]
-) -> None:
+def _merge_scorer_stats_dicts(target: dict[str, ScorerStat], source: dict[str, ScorerStat]) -> None:
     """Merge scorer stats from source into target dictionary.
 
     Args:
@@ -520,10 +518,10 @@ def _compute_eval_scores(
         max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
-        futures = {scorer.name: executor.submit(run_scorer, scorer) for scorer in scorers}
+        futures = {executor.submit(run_scorer, scorer): scorer for scorer in scorers}
 
         try:
-            results = {scorer_name: future.result() for scorer_name, future in futures.items()}
+            results = [(scorer, future.result()) for future, scorer in futures.items()]
         except KeyboardInterrupt:
             # Cancel pending futures
             executor.shutdown(cancel_futures=True)
@@ -532,7 +530,8 @@ def _compute_eval_scores(
     # Track scorer stats and collect assessments
     scorer_stats: dict[str, ScorerStat] = {}
     assessments = []
-    for scorer_name, feedbacks in results.items():
+    for scorer, feedbacks in results:
+        scorer_name = scorer.name
         if scorer_name not in scorer_stats:
             scorer_stats[scorer_name] = ScorerStat()
         failed = len(feedbacks) == 1 and feedbacks[0].error is not None

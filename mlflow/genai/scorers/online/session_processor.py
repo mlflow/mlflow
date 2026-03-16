@@ -317,7 +317,7 @@ class OnlineSessionScoringProcessor:
         trace_map = {t.info.trace_id: t for t in full_traces}
         session_items = [EvalItem.from_trace(t) for t in full_traces]
 
-        result = evaluate_session_level_scorers(
+        result, _ = evaluate_session_level_scorers(
             session_id=session.session_id,
             session_items=session_items,
             multi_turn_scorers=task.scorers,

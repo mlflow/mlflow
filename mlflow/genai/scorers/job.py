@@ -251,13 +251,12 @@ def _run_session_scorer(
     first_trace_id = first_trace.info.trace_id
 
     try:
-        result = evaluate_session_level_scorers(
+        result, _ = evaluate_session_level_scorers(
             session_id=session_id,
             session_items=session_items,
             multi_turn_scorers=[scorer],
         )
 
-        # result is {first_trace_id: [feedbacks]}
         feedbacks = result[first_trace_id]
 
         failures = _extract_failures_from_feedbacks(feedbacks)
@@ -309,10 +308,10 @@ def _run_single_turn_scorer_batch(
         try:
             # Use _compute_eval_scores from harness - supports scorer tracing,
             # captures stack traces on errors
-            feedbacks = _compute_eval_scores(
+            feedbacks, _ = _compute_eval_scores(
                 eval_item=eval_item,
                 scorers=[scorer],
-            )
+            )  # Unpack tuple, discard scorer_stats
 
             failures = _extract_failures_from_feedbacks(feedbacks)
 
