@@ -7,7 +7,6 @@ from mlflow.exceptions import MlflowException
 
 @pytest.fixture
 def skill_dir(tmp_path):
-    """Create a minimal valid skill directory."""
     skill_path = tmp_path / "test-skill"
     skill_path.mkdir()
     (skill_path / "SKILL.md").write_text(

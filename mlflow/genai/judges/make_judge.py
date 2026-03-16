@@ -140,6 +140,11 @@ def make_judge(
                         fine-grained control over the model's behavior during evaluation.
                         For example, setting a lower temperature can produce more
                         deterministic and reproducible evaluation results.
+        skills: Optional list of skill paths (directories containing SKILL.md files or
+                        direct paths to SKILL.md files), or a pre-constructed SkillSet
+                        object. Skills provide reusable evaluation criteria that the judge
+                        can load on demand via tool calls during trace evaluation. Requires
+                        ``{{ trace }}`` in the instructions template.
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters

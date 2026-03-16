@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import os
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any
 
 from mlflow.genai.judges.tools.base import JudgeTool
@@ -48,10 +48,11 @@ class ReadSkillReferenceTool(JudgeTool):
             available = [s.name for s in skill_set.skills]
             return f"Error: No skill named '{skill_name}'. Available: {available}"
 
-        normalized = os.path.normpath(file_path)
-        if normalized.startswith("..") or os.path.isabs(normalized):
+        path = PurePosixPath(file_path)
+        if path.is_absolute() or ".." in path.parts:
             return f"Error: Invalid file path '{file_path}'. Must be relative within the skill."
 
+        normalized = str(path)
         if normalized in skill.references:
             return skill.references[normalized]
 

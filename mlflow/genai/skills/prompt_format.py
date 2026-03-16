@@ -15,7 +15,7 @@ _SKILL_USAGE_INSTRUCTIONS = (
 
 def _is_claude_model(model: str) -> bool:
     model_lower = model.lower()
-    return any(prefix in model_lower for prefix in ("anthropic:/", "anthropic/", "claude"))
+    return model_lower.startswith(("anthropic:/", "anthropic/"))
 
 
 def to_prompt(skills: list[Skill], model: str | None = None) -> str:
