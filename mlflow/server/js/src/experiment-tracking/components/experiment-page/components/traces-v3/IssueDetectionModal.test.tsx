@@ -39,9 +39,10 @@ let mockModelSelectionValues: {
 };
 let mockModelSelectionValid = false;
 
-jest.mock('./IssueDetectionModelSelection', () => ({
-  IssueDetectionModelSelection: require('react').forwardRef(
-    (
+jest.mock('./IssueDetectionModelSelection', () => {
+  const React = jest.requireActual<typeof import('react')>('react');
+  return {
+    IssueDetectionModelSelection: React.forwardRef(function IssueDetectionModelSelection(
       {
         selectedTraceIds,
         onSelectTracesClick,
@@ -52,8 +53,8 @@ jest.mock('./IssueDetectionModelSelection', () => ({
         onValidityChange: (isValid: boolean) => void;
       },
       ref: any,
-    ) => {
-      require('react').useImperativeHandle(ref, () => ({
+    ) {
+      React.useImperativeHandle(ref, () => ({
         getValues: () => mockModelSelectionValues,
         isValid: mockModelSelectionValid,
         reset: () => {
@@ -129,9 +130,9 @@ jest.mock('./IssueDetectionModelSelection', () => ({
           </button>
         </div>
       );
-    },
-  ),
-}));
+    }),
+  };
+});
 
 jest.mock('../../../SelectTracesModal', () => ({
   SelectTracesModal: ({ onClose, onSuccess }: { onClose: () => void; onSuccess: (traceIds: string[]) => void }) => (
