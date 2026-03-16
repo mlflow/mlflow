@@ -1741,10 +1741,6 @@
     "defaultMessage": "MLflow runs:",
     "description": "A label for the associated MLflow runs in the prompt details page"
   },
-  "9ZzOhu": {
-    "defaultMessage": "API Keys",
-    "description": "Sidebar link for gateway API keys"
-  },
   "9cTaBs": {
     "defaultMessage": "Fail",
     "description": "Failing assessment label"
@@ -3921,10 +3917,6 @@
   "O3RheJ": {
     "defaultMessage": "Link prompts to traces",
     "description": "Heading describing how to add prompts when no prompt records are available"
-  },
-  "O6uYS1": {
-    "defaultMessage": "Saved API keys can be managed in AI Gateway → API Keys tab",
-    "description": "Tooltip explaining where saved API keys can be found"
   },
   "O9r1RR": {
     "defaultMessage": "Start Time:",
@@ -6868,6 +6860,10 @@
     "defaultMessage": "Issue detection completed",
     "description": "Issue detection progress > Step label when completed"
   },
+  "h/3Qs1": {
+    "defaultMessage": "Saved API keys can be managed in API Keys tab",
+    "description": "Tooltip explaining where saved API keys can be found"
+  },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
@@ -7055,6 +7051,10 @@
   "i7UTwK": {
     "defaultMessage": "Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
+  },
+  "i7hyJK": {
+    "defaultMessage": "API Keys",
+    "description": "Sidebar link for API keys"
   },
   "i9OADf": {
     "defaultMessage": "Params",
