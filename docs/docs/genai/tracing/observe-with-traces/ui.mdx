@@ -1,84 +1,108 @@
 import { APILink } from "@site/src/components/APILink";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-import useBaseUrl from '@docusaurus/useBaseUrl';
+import ImageBox from "@site/src/components/ImageBox";
+import { Funnel, Search } from "lucide-react";
 
-# MLflow Tracing UI
+# View Traces
 
-## GenAI Experiment Overview
+After logging your traces, you can view them in the MLflow UI, under the "Traces" page in your experiment. The page is for browsing the list of traces with rich search and filtering capabilities,
+as well as inspecting the details of each trace.
 
-The **Overview** tab in GenAI experiments provides comprehensive analytics and visualizations for your GenAI application traces. This tab is organized into three sub-tabs to help you monitor different aspects of your application.
+<ImageBox src="/images/llms/tracing/trace-experiment-ui.png" alt="MLflow Tracking UI" />
 
-All tabs include a **time range selector** and **time unit selector** to customize the granularity and range of the displayed data.
+## Trace Table
 
-<video src={useBaseUrl("/images/llms/tracing/overview_demo.mp4")} controls loop autoPlay muted aria-label="Experiment Overview Tab" />
+The trace table you see first when you open the "Traces" page includes high-level information about the traces, such as the trace ID, the inputs / outputs of the root span, and more. The table displays the following columns.
 
-### Usage
+:::tip Not Seeing All Columns?
 
-The Usage tab displays key metrics about your trace requests over time:
+Trace table does not display all fields by default. Some columns are hidden by default and can be enabled via the column selector.
 
-- **Requests**: Shows the total number of trace requests, with an average reference line
-- **Latency**: Visualizes response time distribution to help identify performance bottlenecks
-- **Errors**: Tracks error rates to quickly spot issues
-- **Token Usage & Token Stats**: Monitors token consumption across your traces
+:::
 
-![Experiment Overview Usage Tab](/images/llms/tracing/overview_usage_tab.png)
+| Column         | Description                                                                                                                                                   | Data Source                                                                                                                                                                                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Trace ID       | Unique identifier                                                                                                                                             | Trace `trace_id` field                                                                                                                                                                                                                                               |
+| Request        | Input to the root span                                                                                                                                        | Derived from the root span's `mlflow.spanInputs` attribute, or customized via the `request_preview` parameter of the <APILink fn="mlflow.update_current_trace" /> API                                                                                                |
+| Response       | Output of the root span                                                                                                                                       | Derived from the root span's `mlflow.spanOutputs` attribute, or customized via the `response_preview` parameter of the <APILink fn="mlflow.update_current_trace" /> API                                                                                              |
+| Session        | Conversation/session grouper                                                                                                                                  | `mlflow.trace.session` metadata. See [Track Users and Sessions](/genai/tracing/track-users-sessions/) for how to set this.                                                                                                                                           |
+| User           | Application user who triggered the trace                                                                                                                      | `mlflow.trace.user` metadata. See [Track Users and Sessions](/genai/tracing/track-users-sessions/) for how to set this.                                                                                                                                              |
+| Trace name     | Name of the trace                                                                                                                                             | Derived from the root span's name, or customized through the `mlflow.traceName` tag                                                                                                                                                                                  |
+| Tokens         | Aggregated input/output/total tokens                                                                                                                          | `mlflow.trace.tokenUsage` metadata. See [Token Usage and Cost Tracking](/genai/tracing/token-usage-cost) for more details.                                                                                                                                           |
+| Execution time | Total trace duration                                                                                                                                          | Computed at runtime.                                                                                                                                                                                                                                                 |
+| Request time   | When the trace was created                                                                                                                                    | Computed at runtime.                                                                                                                                                                                                                                                 |
+| State          | `OK`, `ERROR`, or `IN_PROGRESS`                                                                                                                               | Derived from the root span's execution status.                                                                                                                                                                                                                       |
+| Run name       | Associated MLflow run                                                                                                                                         | If the trace was logged within an MLflow run context, the run name is automatically displayed here.                                                                                                                                                                  |
+| Prompt         | Linked prompt versions                                                                                                                                        | If a prompt in [MLflow Prompt Registry](/genai/prompt-registry) is loaded during the trace scope, the prompt name and version are displayed here. See [Linking Prompts with Traces](/genai/prompt-registry/use-prompts-in-apps#linking-with-trace) for more details. |
+| Source         | The entry point or script that generated the trace. If it is from a Git repository, the field links to the repository URL with the commit hash and file path. | Derived from Git metadata at runtime if available.                                                                                                                                                                                                                   |
+| Tags           | User-defined key-value pairs                                                                                                                                  | [Trace tags](/genai/tracing/attach-tags) (excluding `mlflow.*` system keys) if set.                                                                                                                                                                                  |
+| Assessments    | Feedback scores logged to the trace, either by a human or an automated evaluation.                                                                            | See [Collecting User Feedback](/genai/tracing/collect-user-feedback) and [Evaluating Traces](/genai/eval-monitor) for how to log assessments.                                                                                                                        |
+| Expectations   | Ground truth values annotated to the trace.                                                                                                                   | See [Ground Truth Expectations](/genai/assessments/expectations) for how to log expectations.                                                                                                                                                                        |
 
-### Quality
+:::info Traces ingested via OTLP
 
-The Quality tab provides insights into the quality of your GenAI outputs:
+Traces ingested through the [OTLP endpoint](/genai/tracing/opentelemetry/ingest) go through automatic attribute translation to derive these columns from framework-specific OpenTelemetry attributes. MLflow supports translation for OpenTelemetry GenAI Semantic Conventions, and various frameworks including OpenLLMetry, OpenInference, Langfuse, and more. Please see the [Attribute Mapping Reference](/genai/tracing/opentelemetry/attribute-mapping) for details on how each framework's attributes are mapped to these columns.
 
-- **Quality Summary**: Provides overview of scorers result
-- **Quality Insights**: Displays metrics computed by [scorers](/genai/eval-monitor/scorers/), with a dedicated chart for each assessment type
-- Charts are dynamically generated based on the assessments available in your traces
+:::
 
-![Experiment Overview Quality Tab](/images/llms/tracing/overview_quality_tab.png)
+## Browsing Single Trace
 
-### Tool Calls
+By clicking on a trace ID `tr-...` or the request link in the trace table, you can open the detailed trace view. The detailed trace view contains rich information about your AI agent or LLM application execution, such as:
 
-The Tool Calls tab provides insights into agent tool usage:
+- The span tree that represents the execution flow of the trace.
+- Latency of each span and the overall timeline.
+- Input and output of each span.
+- Tool definitions and calls.
+- Exception details if the execution failed.
+- Token counts and cost breakdown.
+- Feedback scores and ground truth annotated on the trace.
 
-- **Statistics Cards**: Shows at-a-glance metrics including total tool calls, average latency, success rate, and failed calls
-- **Tool Performance Summary**: Provides an overview of how each tool is performing
-- **Tool Usage & Latency**: Visualizes tool invocation patterns and response times
-- **Tool Error Rate**: Tracks error rates per tool
+<ImageBox src="/images/llms/tracing/trace-ui-detail-view.png" alt="Browsing single trace" />
 
-![Experiment Overview Tool Calls Tab](/images/llms/tracing/overview_tool_calls_tab.png)
+:::tip Image and Audio Content
+MLflow renders images and audio inline in the trace viewer. For supported formats,
+framework examples, and how to attach multimodal content to traces, see
+[Image and Audio (Multimodal) Content in Traces](/genai/tracing/observe-with-traces/multimodal).
+:::
 
-## Traces within MLflow Experiments
+## Performing Actions
 
-After logging your traces, you can view them in the [MLflow UI](/genai/tracing/observe-with-traces/ui), under the "Traces" tab in the main experiment page. This tab is also available within the individual run pages, if your trace was logged within a run context.
+From this page, you can also perform a few actions to manage your traces.
 
-![MLflow Tracking UI](/images/llms/tracing/trace-experiment-ui.png)
+### Searching Traces
 
-This table includes high-level information about the traces, such as the trace ID, the inputs / outputs of the root span, and more. From this page, you can also perform a few actions to manage your traces:
+Using the <Search className="inline-block w-6" /> search bar in the UI, you can easily filter your traces based on name, tags, or other metadata. Check out the [Searching Traces](/genai/tracing/search-traces) for details about the query string format.
 
-<Tabs>
-  <TabItem value="search" label="Search" default>
-    Using the search bar in the UI, you can easily filter your traces based on name, tags, or other metadata. Check out the [search docs](/genai/tracing/search-traces) for details about the query string format.
+<ImageBox src="/images/llms/tracing/trace-ui-search.png" alt="Searching traces" />
 
-    <video src={useBaseUrl("/images/llms/tracing/trace-session-id.mp4")} controls loop autoPlay muted aria-label="Searching traces" />
+### Filtering Traces
 
-  </TabItem>
-  <TabItem value="delete" label="Delete">
-    The UI supports bulk deletion of traces. Simply select the traces you want to delete by checking the checkboxes, and then pressing the "Delete" button.
+The <Funnel className="inline-block w-6" /> filter dropdown allows you to filter the traces table by various criteria, such as state, name, user, session, tags, feedback values, and more. See [Filtering Traces](/genai/tracing/search-traces#filtering-traces-in-the-ui) for details.
 
-    <video src={useBaseUrl("/images/llms/tracing/trace-delete.mp4")} controls loop autoPlay muted aria-label="Deleting traces" />
+<ImageBox src="/images/llms/tracing/trace-ui-filter.png" alt="Searching traces" />
 
-  </TabItem>
-  <TabItem value="edit-tags" label="Edit Tags">
-    You can also edit key-value tags on your traces via the UI.
+### Deleting Traces
 
-    <video src={useBaseUrl("/images/llms/tracing/trace-set-tag.mp4")} controls loop autoPlay muted aria-label="Traces tag update" />
+The UI supports bulk deletion of traces. Simply select the traces you want to delete by checking the checkboxes, and then pressing the "Delete" button. See [Delete Traces](/genai/tracing/observe-with-traces/delete-traces) for how to delete traces programmatically.
 
-  </TabItem>
-</Tabs>
+<ImageBox src="/images/llms/tracing/trace-ui-delete.png" alt="Deleting traces" />
 
-## Browsing span data
+:::tip
 
-In order to browse the span data of an individual trace, simply click on the link in the "Trace ID" or "Trace name" columns to open the trace viewer:
+Shift+click to select all traces in a range quickly.
 
-<video src={useBaseUrl("/images/llms/tracing/tracing-top.mp4")} controls loop autoPlay muted aria-label="MLflow Tracing" />
+:::
+
+### Editing Tags
+
+You can also edit key-value tags on your traces via the UI. See [Trace Tags](/genai/tracing/attach-tags) for more details about trace tags.
+
+<ImageBox src="/images/llms/tracing/trace-ui-tags.png" alt="Editing tags" />
+
+### Exporting Traces to Datasets
+
+You can export the traces to [Evaluation Datasets](/genai/datasets) by clicking the "Add to evaluation dataset" action from the actions dropdown.
+
+<ImageBox src="/images/llms/tracing/trace-ui-export-to-dataset.png" alt="Adding traces to evaluation dataset" />
 
 ## Jupyter Notebook integration
 

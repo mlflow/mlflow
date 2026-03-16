@@ -424,11 +424,9 @@ async def _run_test_chat_stream(resp, provider):
             assert len(chunk["choices"]) == 1
             assert "delta" in chunk["choices"][0]
 
-        mock_build_client.assert_called_once_with(
-            headers={
-                "Authorization": "Bearer key",
-            }
-        )
+        mock_build_client.assert_called_once()
+        call_headers = mock_build_client.call_args.kwargs["headers"]
+        assert call_headers.get("Authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.mistral.ai/v1/chat/completions",
             json={

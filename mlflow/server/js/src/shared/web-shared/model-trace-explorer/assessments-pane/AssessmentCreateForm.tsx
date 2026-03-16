@@ -10,7 +10,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { getUser } from '@databricks/web-shared/global-settings';
+import { getUser } from '../../global-settings/getUser';
 
 import { AssessmentCreateNameTypeahead } from './AssessmentCreateNameTypeahead';
 import type { AssessmentFormInputDataType } from './AssessmentsPane.utils';

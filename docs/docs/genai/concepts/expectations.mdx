@@ -8,7 +8,7 @@ import { Target, Users, Shield, GitCompare, MessageSquare, FileText } from "luci
 
 ## What are Expectations?
 
-**Expectations** in MLflow represent the ground truth or desired outputs for your GenAI application. They provide a standardized way to capture what your AI system should produce for a given input, establishing the reference point against which actual performance is measured.
+**Expectations** in MLflow represent the ground truth or desired outputs for your LLM application or AI agent. They provide a standardized way to capture what your AI system should produce for a given input, establishing the reference point against which actual performance is measured.
 
 Expectations serve as the foundation for systematic evaluation, enabling you to define clear quality standards and measure how well your application meets them across different scenarios and use cases.
 
@@ -20,7 +20,7 @@ Expectations serve as the foundation for systematic evaluation, enabling you to 
   {
     icon: Target,
     title: "Ground Truth Definition",
-    description: "Establish clear, measurable standards for what your GenAI application should produce. For example, define expected answers for factual questions or desired formats for structured outputs."
+    description: "Establish clear, measurable standards for what your LLM application or AI agent should produce. For example, define expected answers for factual questions or desired formats for structured outputs."
   },
   {
     icon: Users,
@@ -154,7 +154,7 @@ Expectations work hand-in-hand with MLflow's evaluation capabilities:
     icon={Target}
     iconSize={48}
     title="Annotating Expectations"
-    description="Learn how to annotate ground truth expectations for your GenAI applications"
+    description="Learn how to annotate ground truth expectations for your LLM applications and AI agents"
     href="/genai/assessments/expectations"
     linkText="Start annotating →"
     containerHeight={64}

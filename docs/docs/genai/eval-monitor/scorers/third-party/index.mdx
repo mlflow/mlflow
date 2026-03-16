@@ -1,3 +1,6 @@
+import TileCard from '@site/src/components/TileCard';
+import TilesGrid from '@site/src/components/TilesGrid';
+
 # Third-party Scorers
 
 MLflow integrates with popular third-party evaluation frameworks, allowing you to leverage their specialized metrics within MLflow's evaluation workflow. This provides access to third party library's evaluation metrics while maintaining a consistent MLflow interface.
@@ -11,9 +14,6 @@ MLflow's third-party scorer integrations provide:
 Click an integration below to get started with detailed setup instructions.
 
 ## Available Integrations
-
-import TileCard from '@site/src/components/TileCard';
-import TilesGrid from '@site/src/components/TilesGrid';
 
 <TilesGrid>
   <TileCard
@@ -33,6 +33,18 @@ import TilesGrid from '@site/src/components/TilesGrid';
     imageHeight={40}
     title="Arize Phoenix"
     href="/genai/eval-monitor/scorers/third-party/phoenix"
+  />
+  <TileCard
+    image="/images/logos/trulens-logo.png"
+    imageHeight={40}
+    title="TruLens"
+    href="/genai/eval-monitor/scorers/third-party/trulens"
+  />
+  <TileCard
+    image="/images/logos/guardrails-ai-logo.jpeg"
+    imageHeight={40}
+    title="Guardrails AI"
+    href="/genai/eval-monitor/scorers/third-party/guardrails"
   />
 </TilesGrid>
 

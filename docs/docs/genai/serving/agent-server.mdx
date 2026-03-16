@@ -1,12 +1,13 @@
+---
+title: MLflow Agent Server | MLflow AI Platform
+description: Serve agents as production REST APIs with MLflow's FastAPI-based agent server. Automatic tracing, validation, and streaming support.
+---
+
 import { APILink } from "@site/src/components/APILink";
 
 # MLflow Agent Server
 
 ## Agent Server Features
-
-:::note
-The MLflow Agent Server was released with MLflow 3.6.0. It is currently under active development and is marked as Experimental. Public APIs are subject to change, and new features are being added to enhance its functionality.
-:::
 
 - Simple FastAPI server to host agents at `/invocations` endpoint
 - Decorator-based function registration (`@invoke`, `@stream`) for easy agent development
@@ -41,9 +42,7 @@ In this example, we'll use the openai-agents-sdk to define our Responses API com
    async def non_streaming(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
        msgs = [i.model_dump() for i in request.input]
        result = await Runner.run(agent, msgs)
-       return ResponsesAgentResponse(
-           output=[item.to_input_item() for item in result.new_items]
-       )
+       return ResponsesAgentResponse(output=[item.to_input_item() for item in result.new_items])
 
 
    # You can also optionally register a @stream function to support streaming responses
@@ -129,11 +128,7 @@ You can use <APILink fn="mlflow.genai.evaluate" /> to evaluate your agent. See t
    eval_dataset = [
        {
            "inputs": {
-               "request": {
-                   "input": [
-                       {"role": "user", "content": "What's the 15th Fibonacci number"}
-                   ]
-               }
+               "request": {"input": [{"role": "user", "content": "What's the 15th Fibonacci number"}]}
            },
            "expected_response": "The 15th Fibonacci number is 610.",
        }

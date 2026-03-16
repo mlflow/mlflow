@@ -12,7 +12,7 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.anthropic import AnthropicProvider
+from mlflow.gateway.providers.anthropic import AnthropicAdapter, AnthropicProvider
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -270,7 +270,7 @@ async def test_chat():
                 {
                     "message": {
                         "role": "assistant",
-                        "content": [{"text": "Response message", "type": "text"}],
+                        "content": "Response message",
                         "tool_calls": None,
                         "refusal": None,
                     },
@@ -391,7 +391,7 @@ async def test_chat_function_calling():
                     "index": 0,
                     "message": {
                         "role": "assistant",
-                        "content": [],
+                        "content": None,
                         "tool_calls": [
                             {
                                 "id": "toolu_001",
@@ -464,6 +464,65 @@ async def test_chat_function_calling_with_tool_choice(openai_tool_choice, anthro
 
         call_kwargs = mock_post.call_args[1]
         assert call_kwargs["json"]["tool_choice"] == anthropic_tool_choice
+
+
+def test_model_to_chat_content_normalization():
+    config = chat_config()
+    provider = AnthropicProvider(EndpointConfig(**config))
+
+    # 1. Pure-text response → content collapsed to a plain string
+    text_only_resp = {
+        "id": "msg-1",
+        "model": "claude-2.1",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "content": [{"type": "text", "text": "Hello"}, {"type": "text", "text": " world"}],
+        "usage": {"input_tokens": 5, "output_tokens": 5},
+    }
+    result = provider.adapter_class.model_to_chat(text_only_resp, provider.config)
+    assert result.choices[0].message.content == "Hello world"
+    assert result.choices[0].message.tool_calls is None
+
+    # 2. Tool-only response → content is None (empty text after filtering)
+    tool_only_resp = {
+        "id": "msg-2",
+        "model": "claude-2.1",
+        "role": "assistant",
+        "stop_reason": "tool_use",
+        "content": [
+            {
+                "type": "tool_use",
+                "id": "toolu_001",
+                "name": "get_weather",
+                "input": {"location": "Singapore"},
+            }
+        ],
+        "usage": {"input_tokens": 5, "output_tokens": 5},
+    }
+    result = provider.adapter_class.model_to_chat(tool_only_resp, provider.config)
+    assert result.choices[0].message.content is None
+    assert len(result.choices[0].message.tool_calls) == 1
+
+    # 3. Mixed text + tool call → content is the text preamble, tool_calls populated
+    mixed_resp = {
+        "id": "msg-3",
+        "model": "claude-2.1",
+        "role": "assistant",
+        "stop_reason": "tool_use",
+        "content": [
+            {"type": "text", "text": "Sure, let me check that."},
+            {
+                "type": "tool_use",
+                "id": "toolu_002",
+                "name": "get_weather",
+                "input": {"location": "Tokyo"},
+            },
+        ],
+        "usage": {"input_tokens": 5, "output_tokens": 5},
+    }
+    result = provider.adapter_class.model_to_chat(mixed_resp, provider.config)
+    assert result.choices[0].message.content == "Sure, let me check that."
+    assert len(result.choices[0].message.tool_calls) == 1
 
 
 @pytest.mark.asyncio
@@ -987,22 +1046,23 @@ async def test_chat_with_structured_output():
         }
         response = await provider.chat(chat.RequestPayload(**payload))
 
-        assert len(response.choices[0].message.content) == 1
         assert (
-            response.choices[0].message.content[0].text
+            response.choices[0].message.content
             == '{"name": "John Doe", "email": "john@example.com"}'
         )
         assert response.choices[0].finish_reason == "stop"
 
         call_kwargs = mock_session_client.post.call_args[1]
-        assert call_kwargs["json"]["output_format"] == {
-            "type": "json_schema",
-            "schema": json_schema,
+        assert call_kwargs["json"]["output_config"] == {
+            "format": {
+                "type": "json_schema",
+                "schema": json_schema["schema"],
+            }
         }
 
         assert captured_session_headers["x-api-key"] == "key"
         assert captured_session_headers["anthropic-version"] == "2023-06-01"
-        assert captured_session_headers["anthropic-beta"] == "structured-outputs-2025-11-13"
+        assert "anthropic-beta" not in captured_session_headers
 
 
 def test_anthropic_extract_passthrough_token_usage():
@@ -1127,3 +1187,98 @@ def test_anthropic_extract_streaming_token_usage_done_chunk():
     chunk = b"data: [DONE]\n"
     result = provider._extract_streaming_token_usage(chunk)
     assert result == {}
+
+
+def test_anthropic_extract_passthrough_token_usage_with_cached_tokens():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    result = {
+        "id": "msg_123",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "cache_read_input_tokens": 25,
+            "cache_creation_input_tokens": 15,
+        },
+    }
+    token_usage = provider._extract_passthrough_token_usage(
+        PassthroughAction.ANTHROPIC_MESSAGES, result
+    )
+    assert token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_read_input_tokens": 25,
+        "cache_creation_input_tokens": 15,
+    }
+
+
+def test_anthropic_extract_streaming_token_usage_message_start_with_cached_tokens():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    chunk = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":100,"cache_read_input_tokens":25,'
+        b'"cache_creation_input_tokens":15}}}\n'
+    )
+    result = provider._extract_streaming_token_usage(chunk)
+    assert result == {
+        "input_tokens": 100,
+        "cache_read_input_tokens": 25,
+        "cache_creation_input_tokens": 15,
+    }
+
+
+def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
+    provider = AnthropicProvider(EndpointConfig(**chat_config()))
+    accumulated_usage = {}
+
+    # message_start with input_tokens and cached tokens
+    chunk1 = (
+        b"event: message_start\n"
+        b'data: {"type":"message_start","message":{"id":"msg_123",'
+        b'"usage":{"input_tokens":100,"cache_read_input_tokens":25}}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
+    assert accumulated_usage == {"input_tokens": 100, "cache_read_input_tokens": 25}
+
+    # message_delta with output_tokens
+    chunk2 = (
+        b"event: message_delta\n"
+        b'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},'
+        b'"usage":{"output_tokens":50}}\n'
+    )
+    accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
+    assert accumulated_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "cache_read_input_tokens": 25,
+    }
+
+
+def test_anthropic_adapter_build_chat_usage_with_cached_tokens():
+    usage_data = {
+        "input_tokens": 50,
+        "output_tokens": 20,
+        "cache_read_input_tokens": 30,
+        "cache_creation_input_tokens": 10,
+    }
+    usage = AnthropicAdapter._build_chat_usage(usage_data)
+    assert usage.prompt_tokens == 50
+    assert usage.completion_tokens == 20
+    assert usage.total_tokens == 70
+    assert usage.prompt_tokens_details is not None
+    assert usage.prompt_tokens_details.cached_tokens == 30
+    assert getattr(usage, "cache_creation_input_tokens") == 10
+
+
+def test_anthropic_adapter_build_chat_usage_without_cached_tokens():
+    usage_data = {
+        "input_tokens": 50,
+        "output_tokens": 20,
+    }
+    usage = AnthropicAdapter._build_chat_usage(usage_data)
+    assert usage.prompt_tokens == 50
+    assert usage.completion_tokens == 20
+    assert usage.total_tokens == 70
+    assert usage.prompt_tokens_details is None
+    assert not hasattr(usage, "cache_creation_input_tokens")

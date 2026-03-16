@@ -1,7 +1,7 @@
 /**
  * Tests for no-absolute-ajax-urls custom ESLint rule
  */
-
+// eslint-disable-next-line import/no-extraneous-dependencies
 const { RuleTester } = require('eslint');
 const rule = require('./no-absolute-ajax-urls');
 

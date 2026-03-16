@@ -9,7 +9,7 @@ import { Zap, BookOpen, Search } from "lucide-react";
 
 # Manual Tracing
 
-In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your GenAI application by using MLflow's manual tracing APIs.
+In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your LLM application or AI agent by using MLflow's manual tracing APIs.
 
 ## Decorator
 
@@ -73,7 +73,7 @@ Decorator requires TypeScript version 5.0+ and it can only be applied to class m
 :::
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 class MyClass {
     @mlflow.trace({ spanType: mlflow.SpanType.LLM })
@@ -131,7 +131,7 @@ invocation(4, 2)
 **Named Function**:
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 const getWeather = async (city: string) => {
     return `The weather in ${city} is sunny`;
@@ -150,7 +150,7 @@ await tracedGetWeather('San Francisco');
 **Anonymous Function**:
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 const getWeather = mlflow.trace(
     (city: string) => {
@@ -185,13 +185,9 @@ The `mlflow.trace` decorator accepts following arguments to customize the span t
 from mlflow.entities import SpanType
 
 
-@mlflow.trace(
-    name="call-local-llm", span_type=SpanType.LLM, attributes={"model": "gpt-4o-mini"}
-)
+@mlflow.trace(name="call-local-llm", span_type=SpanType.LLM, attributes={"model": "gpt-4o-mini"})
 def invoke(prompt: str):
-    return client.invoke(
-        messages=[{"role": "user", "content": prompt}], model="gpt-4o-mini"
-    )
+    return client.invoke(messages=[{"role": "user", "content": prompt}], model="gpt-4o-mini")
 ```
 
 </TabItem>
@@ -199,7 +195,7 @@ def invoke(prompt: str):
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 class MyClass {
     @mlflow.trace({
@@ -247,7 +243,7 @@ def invoke(prompt: str):
 Use the `mlflow.getCurrentActiveSpan` API.
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 class MyClass {
     @mlflow.trace({ spanType: mlflow.SpanType.LLM })
@@ -285,7 +281,7 @@ def my_func(x):
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 class MyClass {
     @mlflow.trace({ spanType: mlflow.SpanType.LLM })
@@ -342,8 +338,7 @@ def summarize_document(document_content: str, user_instructions: str):
 
 # Example Call
 long_document = (
-    "This is a very long document that contains many details about various topics..."
-    * 10
+    "This is a very long document that contains many details about various topics..." * 10
 )
 instructions = "Focus on the key takeaways regarding topic X."
 summary_result = summarize_document(long_document, instructions)
@@ -354,7 +349,7 @@ summary_result = summarize_document(long_document, instructions)
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 class MyClass {
     @mlflow.trace({ name: "Summarization Pipeline" })
@@ -389,6 +384,31 @@ class MyClass {
 
 By setting `request_preview` and `response_preview` on the trace (typically the root span), you control how the overall interaction is summarized in the main trace list view, making it easier to identify and understand traces at a glance.
 
+:::tip Images and Audio Content in MLflow Traces
+You can attach images and audio to spans using content parts lists in `set_inputs()` and `set_outputs()`:
+
+```python
+with mlflow.start_span(name="multimodal-call") as span:
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What's in this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/photo.png"},
+                },
+            ],
+        }
+    ]
+    span.set_inputs({"messages": messages})
+    result = "A photo of a cat."
+    span.set_outputs({"content": result})
+```
+
+See [Image and Audio (Multimodal) Content in Traces](/genai/tracing/observe-with-traces/multimodal#manual-tracing) for more examples.
+:::
+
 ## Code Block
 
 In addition to the decorator, MLflow allows for creating a span that can then be accessed within any encapsulated arbitrary code block. It can be useful for capturing complex interactions within your code in finer detail than what is possible by capturing the boundaries of a single function.
@@ -417,7 +437,7 @@ with mlflow.start_span(name="my_span") as span:
 Use the `mlflow.withSpan` function wrapper.
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
+import * as mlflow from "@mlflow/core";
 
 const result = await mlflow.withSpan(
     async (span: mlflow.Span) => {
@@ -486,8 +506,8 @@ start_session()
 <TabItem value="typescript" label="TypeScript">
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
-import { tracedOpenAI } from "mlflow-openai";
+import * as mlflow from "@mlflow/core";
+import { tracedOpenAI } from "@mlflow/openai";
 import { OpenAI } from "openai";
 import * as readline from "readline";
 

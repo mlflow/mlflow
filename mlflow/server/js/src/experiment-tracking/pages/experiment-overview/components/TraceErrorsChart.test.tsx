@@ -9,6 +9,7 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create an error count data point
 const createErrorCountDataPoint = (timeBucket: string, count: number) => ({
@@ -77,7 +78,7 @@ describe('TraceErrorsChart', () => {
   // Helper to setup MSW handler for trace metrics endpoint with routing based on filters
   const setupTraceMetricsHandler = (errorDataPoints: any[], totalDataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
         const body = await req.json();
         // Check if this is an error count request (has error filter) or total count request
         const hasErrorFilter = body.filters?.some((f: string) => f.includes('ERROR'));
@@ -98,7 +99,7 @@ describe('TraceErrorsChart', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -113,7 +114,7 @@ describe('TraceErrorsChart', () => {
   describe('error state', () => {
     it('should render error message when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error_code: 'INTERNAL_ERROR', message: 'API Error' }));
         }),
       );
@@ -248,7 +249,7 @@ describe('TraceErrorsChart', () => {
       let capturedErrorRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           const hasErrorFilter = body.filters?.some((f: string) => f.includes('ERROR'));
           if (hasErrorFilter) {
@@ -269,7 +270,7 @@ describe('TraceErrorsChart', () => {
       let capturedTotalRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           const body = await req.json();
           const hasErrorFilter = body.filters?.some((f: string) => f.includes('ERROR'));
           if (!hasErrorFilter) {
@@ -291,7 +292,7 @@ describe('TraceErrorsChart', () => {
       let capturedRequest: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedRequest = await req.json();
           return res(ctx.json({ data_points: [] }));
         }),

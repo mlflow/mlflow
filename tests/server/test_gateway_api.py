@@ -2521,13 +2521,13 @@ async def test_openai_passthrough_responses_token_usage_tracking(store: SqlAlche
                 "content": [{"type": "output_text", "text": "Hello!"}],
             }
         ],
-        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+        "usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
     }
 
     with mock.patch("mlflow.gateway.providers.openai.send_request", return_value=mock_response):
         response = await openai_passthrough_responses(mock_request)
-        assert response["usage"]["prompt_tokens"] == 10
-        assert response["usage"]["completion_tokens"] == 5
+        assert response["usage"]["input_tokens"] == 10
+        assert response["usage"]["output_tokens"] == 5
         assert response["usage"]["total_tokens"] == 15
 
     # Verify trace was created with token usage

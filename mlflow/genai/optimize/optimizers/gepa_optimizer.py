@@ -326,19 +326,17 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                                 for span in trace.data.spans
                             ]
 
-                        component_data.append(
-                            {
-                                "component_name": component_name,
-                                "current_text": candidate.get(component_name, ""),
-                                "trace": spans,
-                                "score": score,
-                                "inputs": trajectory.inputs,
-                                "outputs": trajectory.outputs,
-                                "expectations": trajectory.expectations,
-                                "rationales": trajectory.rationales,
-                                "index": i,
-                            }
-                        )
+                        component_data.append({
+                            "component_name": component_name,
+                            "current_text": candidate.get(component_name, ""),
+                            "trace": spans,
+                            "score": score,
+                            "inputs": trajectory.inputs,
+                            "outputs": trajectory.outputs,
+                            "expectations": trajectory.expectations,
+                            "rationales": trajectory.rationales,
+                            "index": i,
+                        })
 
                     reflective_datasets[component_name] = component_data
 

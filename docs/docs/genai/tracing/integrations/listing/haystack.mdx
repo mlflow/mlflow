@@ -50,13 +50,11 @@ mlflow.set_experiment("Haystack Tracing")
 
 # Write documents to InMemoryDocumentStore
 document_store = InMemoryDocumentStore()
-document_store.write_documents(
-    [
-        Document(content="My name is Jean and I live in Paris."),
-        Document(content="My name is Mark and I live in Berlin."),
-        Document(content="My name is Giorgio and I live in Rome."),
-    ]
-)
+document_store.write_documents([
+    Document(content="My name is Jean and I live in Paris."),
+    Document(content="My name is Mark and I live in Berlin."),
+    Document(content="My name is Giorgio and I live in Rome."),
+])
 
 # Build a RAG pipeline
 prompt_template = [
@@ -86,12 +84,10 @@ rag_pipeline.connect("prompt_builder", "llm.messages")
 
 # Ask a question
 question = "Who lives in Paris?"
-results = rag_pipeline.run(
-    {
-        "retriever": {"query": question},
-        "prompt_builder": {"question": question},
-    }
-)
+results = rag_pipeline.run({
+    "retriever": {"query": question},
+    "prompt_builder": {"question": question},
+})
 
 print(results["llm"]["replies"])
 ```

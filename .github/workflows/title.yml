@@ -39,7 +39,7 @@ jobs:
       REPO: ${{ github.repository }}
       COMMENT_ID: ${{ github.event.comment.id }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           sparse-checkout: .github/workflows/title.js
           sparse-checkout-cone-mode: false
@@ -59,6 +59,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           IS_PR: ${{ github.event_name == 'pull_request' || github.event.issue.pull_request != null }}
         with:
+          retries: 3
           script: |
             const script = require('./.github/workflows/title.js');
             await script({ github, context, core });

@@ -13,11 +13,17 @@ import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   isRunningScorersEnabled: () => true,
   isEvaluatingSessionsInScorersEnabled: () => true,
+  isScorerModelSelectionEnabled: () => true,
 }));
 
 // Mock the endpoint selector to avoid API calls (forbidden in unit tests)
 jest.mock('../../components/EndpointSelector', () => ({
   EndpointSelector: () => <div data-testid="endpoint-selector" />,
+}));
+
+// Mock useExperimentIds used by ModelSectionRenderer for cache invalidation
+jest.mock('../../components/experiment-page/hooks/useExperimentIds', () => ({
+  useExperimentIds: () => ['exp-123'],
 }));
 
 const queryClient = new QueryClient({

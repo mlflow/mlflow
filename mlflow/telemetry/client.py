@@ -24,7 +24,12 @@ from mlflow.telemetry.constant import (
 )
 from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
-from mlflow.telemetry.utils import _get_config_url, _log_error, is_telemetry_disabled
+from mlflow.telemetry.utils import (
+    _detect_environment,
+    _get_config_url,
+    _log_error,
+    is_telemetry_disabled,
+)
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 from mlflow.utils.rest_utils import http_request
@@ -109,6 +114,7 @@ class TelemetryClient:
         self.info = asdict(
             TelemetryInfo(
                 session_id=_MLFLOW_TELEMETRY_SESSION_ID.get() or uuid.uuid4().hex,
+                environment=_detect_environment(),
                 installation_id=get_or_create_installation_id(),
             )
         )

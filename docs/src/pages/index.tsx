@@ -5,6 +5,7 @@ import Layout from '@theme/Layout';
 import clsx from 'clsx';
 import styles from './index.module.css';
 import useBaseUrl from '@docusaurus/useBaseUrl';
+import Link from '@docusaurus/Link';
 
 interface PathSelectorProps {
   title: string;
@@ -67,17 +68,42 @@ export default function Home(): JSX.Element {
       <main className={styles.homeContainer}>
         <div className={styles.contentGrid}>
           <div className={styles.textColumn}>
-            <h1 className={styles.megaHeading}>Documentation</h1>
+            <h1 className={styles.megaHeading}>MLflow Documentation</h1>
             <p className={styles.introText}>
               Welcome to the MLflow Documentation. Our documentation is organized into two sections to help you find
-              exactly what you need. Choose Model Training for traditional ML workflows, or select GenAI Apps & Agents
-              for generative AI applications, tracing, and evaluation tools.
+              exactly what you need. Choose{' '}
+              <Link to="/genai/">
+                <strong>LLMs & Agents</strong>
+              </Link>{' '}
+              for agent and LLM application development, tracing, and evaluation tools, or select{' '}
+              <Link to="/ml/">
+                <strong>Machine Learning</strong>
+              </Link>{' '}
+              for traditional ML workflows.
             </p>
           </div>
 
           <div className={styles.cardsColumn}>
             <PathSelector
-              title="Model Training"
+              title="LLMs & Agents"
+              description="Explore tools for LLM and agent observability, prompt management, foundation model deployment,
+              and evaluation frameworks. Learn how to track, evaluate, and optimize your
+              LLM applications and agent workflows with MLflow."
+              color="red"
+              buttons={[
+                {
+                  text: 'Open Source',
+                  link: useBaseUrl('/genai/'),
+                },
+                {
+                  text: 'MLflow on Databricks',
+                  link: 'https://docs.databricks.com/aws/en/mlflow3/genai/',
+                },
+              ]}
+            />
+
+            <PathSelector
+              title="Machine Learning"
               description="Access comprehensive guides for experiment tracking, model packaging, registry management,
               and deployment. Get started with MLflow's core functionality for traditional machine
               learning workflows, hyperparameter tuning, and model lifecycle management."
@@ -90,24 +116,6 @@ export default function Home(): JSX.Element {
                 {
                   text: 'MLflow on Databricks',
                   link: 'https://docs.databricks.com/aws/en/mlflow/',
-                },
-              ]}
-            />
-
-            <PathSelector
-              title="GenAI Apps & Agents"
-              description="Explore tools for GenAI tracing, prompt management, foundation model deployment,
-              and evaluation frameworks. Learn how to track, evaluate, and optimize your generative
-              AI applications and agent workflows with MLflow."
-              color="red"
-              buttons={[
-                {
-                  text: 'Open Source',
-                  link: useBaseUrl('/genai/'),
-                },
-                {
-                  text: 'MLflow on Databricks',
-                  link: 'https://docs.databricks.com/aws/en/mlflow3/genai/',
                 },
               ]}
             />

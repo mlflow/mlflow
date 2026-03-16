@@ -63,7 +63,7 @@ export const OpenAICompatibleTracingDoc: React.FC<Props> = ({ providerId }) => {
             <CodeBlock language="bash">pip install 'mlflow[genai]' openai</CodeBlock>
           </TabItem>
           <TabItem value="typescript" label="JS / TS">
-            <CodeBlock language="bash">npm install mlflow-openai openai</CodeBlock>
+            <CodeBlock language="bash">npm install @mlflow/openai openai</CodeBlock>
           </TabItem>
         </Tabs>
       </TabsWrapper>
@@ -106,7 +106,7 @@ response = client.chat.completions.create(
           <TabItem value="typescript" label="JS / TS">
             <CodeBlock language="typescript">
               {`import { OpenAI } from "openai";
-import { tracedOpenAI } from "mlflow-openai";
+import { tracedOpenAI } from "@mlflow/openai";
 
 // Wrap the OpenAI client and point to ${codeRefName} endpoint
 const client = tracedOpenAI(
@@ -204,9 +204,9 @@ answer = answer_question("What is the capital of France?")`}
           </TabItem>
           <TabItem value="typescript" label="JS / TS">
             <CodeBlock language="typescript">
-              {`import * as mlflow from "mlflow-tracing";
+              {`import * as mlflow from "@mlflow/core";
 import { OpenAI } from "openai";
-import { tracedOpenAI } from "mlflow-openai";
+import { tracedOpenAI } from "@mlflow/openai";
 
 mlflow.init({
   trackingUri: "http://localhost:5000",

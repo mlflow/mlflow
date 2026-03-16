@@ -5,7 +5,7 @@ import { isRunningScorersEnabled } from '../../../common/utils/FeatureUtils';
 import ScorerFormCreateContainer from './ScorerFormCreateContainer';
 import ScorerFormEditContainer from './ScorerFormEditContainer';
 import type { ScorerEvaluationScope } from './constants';
-import { COMPONENT_ID_PREFIX, SCORER_FORM_MODE, type ScorerFormMode } from './constants';
+import { SCORER_FORM_MODE, type ScorerFormMode } from './constants';
 import type { ScheduledScorer } from './types';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
 

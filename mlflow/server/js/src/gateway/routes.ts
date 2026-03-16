@@ -4,10 +4,13 @@ export enum GatewayPageId {
   gatewayPage = 'mlflow.gateway',
   apiKeysPage = 'mlflow.gateway.api-keys',
   usagePage = 'mlflow.gateway.usage',
+  budgetsPage = 'mlflow.gateway.budgets',
   createEndpointPage = 'mlflow.gateway.create',
   endpointDetailsPage = 'mlflow.gateway.endpoint-details',
 }
 
+// following same pattern as other routes files
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class GatewayRoutePaths {
   static get gatewayPage() {
     return createMLflowRoutePath('/gateway');
@@ -21,6 +24,10 @@ export class GatewayRoutePaths {
     return createMLflowRoutePath('/gateway/usage');
   }
 
+  static get budgetsPage() {
+    return createMLflowRoutePath('/gateway/budgets');
+  }
+
   static get createEndpointPage() {
     return createMLflowRoutePath('/gateway/endpoints/create');
   }
@@ -30,6 +37,8 @@ export class GatewayRoutePaths {
   }
 }
 
+// following same pattern as other routes files
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class GatewayRoutes {
   static get gatewayPageRoute() {
     return GatewayRoutePaths.gatewayPage;
@@ -41,6 +50,10 @@ class GatewayRoutes {
 
   static get usagePageRoute() {
     return GatewayRoutePaths.usagePage;
+  }
+
+  static get budgetsPageRoute() {
+    return GatewayRoutePaths.budgetsPage;
   }
 
   static get createEndpointPageRoute() {

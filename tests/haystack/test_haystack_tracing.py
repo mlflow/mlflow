@@ -9,6 +9,7 @@ import mlflow
 from mlflow.entities import SpanType
 from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -113,12 +114,13 @@ def test_token_usage_parsed_for_llm_component(mock_litellm_cost):
         "total_tokens": 3,
     }
     assert span.model_name == "gpt-4"
-    # Verify cost is calculated (1 input token * 1.0 + 2 output tokens * 2.0)
-    assert span.llm_cost == {
-        "input_cost": 1.0,
-        "output_cost": 4.0,
-        "total_cost": 5.0,
-    }
+    if not IS_TRACING_SDK_ONLY:
+        # Verify cost is calculated (1 input token * 1.0 + 2 output tokens * 2.0)
+        assert span.llm_cost == {
+            "input_cost": 1.0,
+            "output_cost": 4.0,
+            "total_cost": 5.0,
+        }
 
     mlflow.haystack.autolog(disable=True)
 

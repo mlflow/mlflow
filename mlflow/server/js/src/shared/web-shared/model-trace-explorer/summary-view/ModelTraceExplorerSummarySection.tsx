@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 
+import type { Assessment } from '../ModelTrace.types';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import {
   ModelTraceExplorerFieldRenderer,
@@ -19,6 +20,7 @@ export const ModelTraceExplorerSummarySection = ({
   maxVisibleChatMessages = DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
   className,
   chatMessageFormat,
+  assessments,
 }: {
   title: React.ReactElement;
   data: { key: string; value: string }[];
@@ -28,6 +30,7 @@ export const ModelTraceExplorerSummarySection = ({
   maxVisibleChatMessages?: number;
   className?: string;
   chatMessageFormat?: string;
+  assessments?: Assessment[];
 }) => {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
@@ -56,6 +59,7 @@ export const ModelTraceExplorerSummarySection = ({
             renderMode={renderMode}
             chatMessageFormat={chatMessageFormat}
             maxVisibleMessages={maxVisibleChatMessages}
+            assessments={assessments}
           />
         ))}
       </div>

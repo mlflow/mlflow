@@ -4,4 +4,4 @@ WORKDIR /app
 ADD . /app
 
 # Install MLflow from the current directory with extras
-RUN pip install --no-cache-dir .[extras,db,databricks,gateway,genai]
+RUN pip install --no-cache-dir .[extras,azure,db,databricks,gateway,genai]

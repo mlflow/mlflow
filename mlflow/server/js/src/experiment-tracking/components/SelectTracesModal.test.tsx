@@ -7,7 +7,7 @@ import { SelectTracesModal } from './SelectTracesModal';
 import { useGenAiTraceTableRowSelection } from '../../shared/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
 import { useActiveEvaluation } from '../../shared/web-shared/genai-traces-table/hooks/useActiveEvaluation';
 import { TracesV3Logs } from './experiment-page/components/traces-v3/TracesV3Logs';
-import { TestRouter, testRoute } from '../../common/utils/RoutingTestUtils';
+import { TestRouter, setupTestRouter, testRoute, waitForRoutesToBeRendered } from '../../common/utils/RoutingTestUtils';
 
 // Mock TracesV3Logs to keep this test simple
 jest.mock('./experiment-page/components/traces-v3/TracesV3Logs', () => ({
@@ -18,6 +18,7 @@ const testExperimentId = 'test-experiment-123';
 
 describe('SelectTracesModal', () => {
   const mockWindowOpen = jest.fn();
+  const { history } = setupTestRouter();
 
   beforeAll(() => {
     // Mock the TracesV3Logs component to return a simple mock traces table
@@ -77,6 +78,7 @@ describe('SelectTracesModal', () => {
     return render(
       <IntlProvider locale="en">
         <TestRouter
+          history={history}
           routes={[
             testRoute(
               <DesignSystemProvider>
@@ -98,6 +100,7 @@ describe('SelectTracesModal', () => {
   test('should call onSuccess with selected trace IDs when OK is clicked', async () => {
     const onSuccessMock = jest.fn();
     renderTestComponent({ onSuccess: onSuccessMock });
+    await waitForRoutesToBeRendered();
 
     // Select two traces
     await userEvent.click(screen.getByTestId('checkbox-trace-1'));
@@ -114,6 +117,7 @@ describe('SelectTracesModal', () => {
 
   test('should disable OK button if all traces are deselected', async () => {
     renderTestComponent({});
+    await waitForRoutesToBeRendered();
 
     // Select a trace
     await userEvent.click(screen.getByTestId('checkbox-trace-1'));
@@ -132,6 +136,7 @@ describe('SelectTracesModal', () => {
 
   test('should disable OK button when max trace count is exceeded', async () => {
     renderTestComponent({ maxTraceCount: 2 });
+    await waitForRoutesToBeRendered();
 
     // Select 3 traces (exceeds max of 2)
     await userEvent.click(screen.getByTestId('checkbox-trace-1'));
@@ -144,6 +149,7 @@ describe('SelectTracesModal', () => {
 
   test('should enable OK button when selection is within max trace count', async () => {
     renderTestComponent({ maxTraceCount: 2 });
+    await waitForRoutesToBeRendered();
 
     // Select 2 traces (within max of 2)
     await userEvent.click(screen.getByTestId('checkbox-trace-1'));
@@ -155,6 +161,7 @@ describe('SelectTracesModal', () => {
 
   test('should open trace in new tab when clicking a trace', async () => {
     renderTestComponent({});
+    await waitForRoutesToBeRendered();
 
     // Click to view a trace
     await userEvent.click(screen.getByTestId('view-trace-trace-1'));

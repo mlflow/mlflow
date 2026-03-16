@@ -91,6 +91,29 @@ def _parse_model_uri(model_uri: str) -> tuple[str, str]:
             )
 
 
+def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
+    """
+    Convert MLflow model URI format to LiteLLM format.
+
+    MLflow uses URIs like 'openai:/gpt-4' while LiteLLM expects 'openai/gpt-4'.
+    For Databricks endpoints, MLflow uses 'endpoints:/endpoint-name' which needs
+    to be converted to 'databricks/endpoints/endpoint-name' for LiteLLM.
+
+    Args:
+        model_uri: MLflow model URI (e.g., 'openai:/gpt-4', 'endpoints:/my-endpoint')
+
+    Returns:
+        LiteLLM-compatible model string (e.g., 'openai/gpt-4', 'databricks/endpoints/my-endpoint')
+    """
+    try:
+        scheme, path = _parse_model_uri(model_uri)
+    except Exception as e:
+        raise MlflowException(f"Failed to convert MLflow model URI to LiteLLM format: {e}")
+    if scheme in ("endpoints", "databricks"):
+        return f"databricks/{path}"
+    return f"{scheme}/{path}"
+
+
 _PREDICT_ERROR_MSG = """\
 Failed to call the deployment endpoint. Please check the deployment URL \
 is set correctly and the input payload is valid.\n

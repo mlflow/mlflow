@@ -24,6 +24,7 @@ from mlflow.tracing.utils import (
     get_mlflow_span_for_otel_span,
     get_otel_attribute,
     set_span_cost_attribute,
+    should_compute_cost_client_side,
 )
 
 _logger = logging.getLogger(__name__)
@@ -124,6 +125,7 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         # re-entering this method and causing infinite recursion.
         if getattr(self._processing_local, "in_on_end", False):
             return
+
         self._processing_local.in_on_end = True
         try:
             # Detach the span from MLflow's runtime context
@@ -140,8 +142,8 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
                 set_span_type(mlflow_span)
                 set_model(mlflow_span)
                 set_token_usage(mlflow_span)
-                # set cost here explicitly because it doesn't go through mlflow_span.end method
-                set_span_cost_attribute(mlflow_span)
+                if should_compute_cost_client_side():
+                    set_span_cost_attribute(mlflow_span)
 
             # Export the span using MLflow's span processor
             tracer = _get_tracer(__name__)

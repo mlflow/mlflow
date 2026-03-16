@@ -9,7 +9,10 @@ import {
   getBarChartData,
   getUniqueValueCountsBySourceId,
 } from './AggregationUtils';
-import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
+import {
+  ASSESSMENT_SESSION_METADATA_KEY,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
+} from '../../model-trace-explorer/constants';
 import type {
   AssessmentAggregates,
   AssessmentDType,
@@ -288,6 +291,25 @@ describe('getAssessmentInfos', () => {
     );
   });
 
+  it('should exclude _issue_discovery_judge from assessment infos', () => {
+    const currentEvaluationResults = makeTracesFromAssessments([
+      {
+        responseAssessmentsByName: {
+          [INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE]: [
+            { name: INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, booleanValue: false },
+          ],
+          quality: [{ name: 'quality', booleanValue: true }],
+        },
+      },
+    ]);
+
+    const result = getAssessmentInfos(intl, currentEvaluationResults, undefined);
+
+    const names = result.map((info) => info.name);
+    expect(names).not.toContain(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE);
+    expect(names).toContain('quality');
+  });
+
   it('should exclude overall assessment if it has no valid values', () => {
     const currentEvaluationResults = makeTracesFromAssessments([
       { overallAssessments: [{ name: 'overall_assessment', stringValue: null }] },
@@ -346,34 +368,79 @@ describe('getAssessmentInfos', () => {
     );
   });
 
-  it('should collect all unique values from assessments even when some have errors', () => {
+  it('should set isSessionLevelAssessment to true when any assessment has session metadata', () => {
     const currentEvaluationResults = makeTracesFromAssessments([
       {
         responseAssessmentsByName: {
-          mixedAssessment: [
-            { name: 'mixedAssessment', errorMessage: 'Some error occurred' },
-            { name: 'mixedAssessment', stringValue: 'yes' },
+          sessionAssessment: [
+            {
+              name: 'sessionAssessment',
+              stringValue: 'yes',
+              metadata: { [ASSESSMENT_SESSION_METADATA_KEY]: 'session-123' },
+            },
           ],
         },
       },
       {
         responseAssessmentsByName: {
-          mixedAssessment: [{ name: 'mixedAssessment', stringValue: 'no' }],
-        },
-      },
-      {
-        responseAssessmentsByName: {
-          mixedAssessment: [{ name: 'mixedAssessment', errorMessage: 'Another error' }],
+          sessionAssessment: [{ name: 'sessionAssessment', stringValue: 'no' }],
         },
       },
     ]);
 
     const result = getAssessmentInfos(intl, currentEvaluationResults, undefined);
+    const sessionAssessmentInfo = result.find((info) => info.name === 'sessionAssessment');
+
+    expect(sessionAssessmentInfo?.isSessionLevelAssessment).toBe(true);
+  });
+
+  it('should set isSessionLevelAssessment to false when no assessments have session metadata', () => {
+    const currentEvaluationResults = makeTracesFromAssessments([
+      {
+        responseAssessmentsByName: {
+          regularAssessment: [{ name: 'regularAssessment', stringValue: 'yes' }],
+        },
+      },
+      {
+        responseAssessmentsByName: {
+          regularAssessment: [{ name: 'regularAssessment', stringValue: 'no' }],
+        },
+      },
+    ]);
+
+    const result = getAssessmentInfos(intl, currentEvaluationResults, undefined);
+    const regularAssessmentInfo = result.find((info) => info.name === 'regularAssessment');
+
+    expect(regularAssessmentInfo?.isSessionLevelAssessment).toBe(false);
+  });
+
+  it('should set isSessionLevelAssessment correctly when merging current and other evaluation results', () => {
+    const currentEvaluationResults = makeTracesFromAssessments([
+      {
+        responseAssessmentsByName: {
+          mixedAssessment: [{ name: 'mixedAssessment', stringValue: 'yes' }],
+        },
+      },
+    ]);
+
+    const otherEvaluationResults = makeTracesFromAssessments([
+      {
+        responseAssessmentsByName: {
+          mixedAssessment: [
+            {
+              name: 'mixedAssessment',
+              stringValue: 'no',
+              metadata: { [ASSESSMENT_SESSION_METADATA_KEY]: 'session-456' },
+            },
+          ],
+        },
+      },
+    ]);
+
+    const result = getAssessmentInfos(intl, currentEvaluationResults, otherEvaluationResults);
     const mixedAssessmentInfo = result.find((info) => info.name === 'mixedAssessment');
 
-    expect(mixedAssessmentInfo?.uniqueValues).toEqual(new Set(['yes', 'no', undefined]));
-    expect(mixedAssessmentInfo?.dtype).toBe('pass-fail');
-    expect(mixedAssessmentInfo?.containsErrors).toBe(true);
+    expect(mixedAssessmentInfo?.isSessionLevelAssessment).toBe(true);
   });
 
   it('should set isSessionLevelAssessment to true when any assessment has session metadata', () => {

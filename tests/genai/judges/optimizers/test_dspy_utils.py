@@ -11,7 +11,6 @@ from mlflow.genai.judges.optimizers.dspy_utils import (
     append_input_fields_section,
     construct_dspy_lm,
     convert_litellm_to_mlflow_uri,
-    convert_mlflow_uri_to_litellm,
     create_dspy_signature,
     format_demos_as_examples,
     trace_to_dspy_example,
@@ -21,6 +20,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )
+from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 
 from tests.genai.judges.optimizers.conftest import MockJudge
 
@@ -254,7 +254,7 @@ def test_convert_mlflow_uri_to_litellm(mlflow_uri, expected_litellm_uri):
     ],
 )
 def test_convert_mlflow_uri_to_litellm_invalid(invalid_uri):
-    with pytest.raises(MlflowException, match="Failed to convert MLflow URI"):
+    with pytest.raises(MlflowException, match="Failed to convert MLflow model URI"):
         convert_mlflow_uri_to_litellm(invalid_uri)
 
 

@@ -9,7 +9,6 @@ import {
   assessmentValueToSerializedString,
   serializedStringToAssessmentValueV2,
 } from '../../hooks/useAssessmentFilters';
-import { ERROR_KEY } from '../../utils/AggregationUtils';
 import { useExperimentVersionsQuery } from '../../hooks/useExperimentVersionsQuery';
 import { useGenAiExperimentRunsForComparison } from '../../hooks/useGenAiExperimentRunsForComparison';
 import {
@@ -22,6 +21,7 @@ import {
 } from '../../hooks/useTableColumns';
 import type { AssessmentInfo, TableFilter, TableFilterOption, TableFilterOptions } from '../../types';
 import { TracesTableColumnGroup } from '../../types';
+import { ERROR_KEY } from '../../utils/AggregationUtils';
 import { getAssessmentValueLabel } from '../GenAiEvaluationTracesReview.utils';
 
 export const TableFilterItemValueInput = ({
@@ -36,7 +36,7 @@ export const TableFilterItemValueInput = ({
   tableFilter: TableFilter;
   assessmentInfos: AssessmentInfo[];
   onChange: (tableFilter: TableFilter, index: number) => void;
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
 }) => {
   const intl = useIntl();

@@ -10,9 +10,12 @@ You are role-playing as a real user interacting with an AI assistant.
 - Do not reveal understanding or expertise the persona would not plausibly have.
 - Be concise (within 1-3 sentences), conversational, straightforward and not overly formal
   or verbose. Avoid structured explanations, lists, or polished phrasing.
-- Do NOT reveal all persona details upfront. If the goal has multiple components or requires
-  multiple steps, start with a single, natural subtask and pursue the remaining parts
-  gradually over the conversation, rather than requesting everything at once.
+- Do NOT reveal all persona details upfront.
+- **CRITICAL**: Your first message must NOT directly state, ask about, or summarize your goal.
+  Real users never open with "I want to [exact goal]." Instead, start with a specific,
+  concrete question or request that is a natural *first step* toward the goal. If the goal
+  has multiple components, pursue them gradually across turns — never request everything at
+  once. The full goal should only become apparent over multiple turns.
 - If simulation guidelines are provided, strictly follow them as requirements for how to
   conduct the conversation. They take precedence over default behavior. The guidelines
   describe how YOU (the user) should behave, not how the assistant should respond.
@@ -27,7 +30,8 @@ Your underlying goal in this conversation is:
 {goal}
 </goal>
 {guidelines_section}
-Begin the conversation with a concise, natural opening message."""
+Begin the conversation with a concise, natural opening message. Remember: do NOT state your
+goal directly — start with a concrete, narrow question that naturally leads toward it."""
 
 # NB: We embed history into the prompt instead of passing a message list directly to reduce
 #     noise, since the prompt only cares about message content and sender role.

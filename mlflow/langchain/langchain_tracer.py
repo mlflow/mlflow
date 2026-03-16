@@ -22,7 +22,7 @@ from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.utils.chat import parse_token_usage
+from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message, parse_token_usage
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
@@ -302,12 +302,31 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             kwargs.update({"metadata": metadata})
         kwargs[SpanAttributeKey.MESSAGE_FORMAT] = "langchain"
 
+        try:
+            match messages:
+                case [msg_list]:
+                    normalized_inputs = {
+                        "messages": [
+                            convert_lc_message_to_chat_message(msg).model_dump() for msg in msg_list
+                        ]
+                    }
+                case _:
+                    # Batched invocations (len > 1) are rare in autolog usage.
+                    # Fall back to the raw nested-list format rather than flattening
+                    # multiple conversations into a single messages array, which would
+                    # lose the batch boundary. This matches the pre-normalization
+                    # behavior so it is non-regressive for callers using batching.
+                    normalized_inputs = messages
+        except Exception as e:
+            _logger.debug(f"Failed to normalize chat model inputs: {e}", exc_info=True)
+            normalized_inputs = messages
+
         span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
             parent_run_id=parent_run_id,
             span_type=SpanType.CHAT_MODEL,
             run_id=run_id,
-            inputs=messages,
+            inputs=normalized_inputs,
             attributes=kwargs,
         )
 
@@ -348,8 +367,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._extract_and_set_model_name(span, kwargs)
 
     def _extract_and_set_model_name(self, span: LiveSpan, kwargs: dict[str, Any]):
-        if model := kwargs.get("invocation_params", {}).get("model"):
+        invocation_params = kwargs.get("invocation_params", {})
+        if model := invocation_params.get("model"):
             span.set_attribute(SpanAttributeKey.MODEL, model)
+        if _type := invocation_params.get("_type"):
+            # LangChain's _type field follows the pattern "<provider>" or "<provider>-chat"
+            provider = _type.removesuffix("-chat")
+            span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
     def _extract_tool_definitions(self, kwargs: dict[str, Any]) -> list[ChatTool]:
         raw_tools = kwargs.get("invocation_params", {}).get("tools", [])
@@ -438,7 +462,29 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         except Exception as e:
             _logger.debug(f"Failed to log token usage for LangChain: {e}", exc_info=True)
 
-        self._end_span(run_id, llm_span, outputs=response)
+        try:
+            match response.generations:
+                case [gen_list]:
+                    choices = []
+                    for g in gen_list:
+                        if hasattr(g, "message"):
+                            msg_dict = convert_lc_message_to_chat_message(g.message).model_dump()
+                        else:
+                            msg_dict = {"role": "assistant", "content": g.text}
+                        choices.append({"message": msg_dict, "finish_reason": None})
+                    normalized_outputs = {"choices": choices}
+                case _:
+                    # Batched invocations (len > 1) are rare in autolog usage.
+                    # Fall back to the raw LLMResult rather than flattening multiple
+                    # generation lists into a single choices array, which would lose
+                    # the batch boundary. This matches the pre-normalization behavior
+                    # so it is non-regressive for callers using batching.
+                    normalized_outputs = response
+        except Exception as e:
+            _logger.debug(f"Failed to normalize chat model outputs: {e}", exc_info=True)
+            normalized_outputs = response
+
+        self._end_span(run_id, llm_span, outputs=normalized_outputs)
 
     def on_llm_error(
         self,

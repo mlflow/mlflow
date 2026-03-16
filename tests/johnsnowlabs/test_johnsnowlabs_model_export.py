@@ -37,14 +37,12 @@ def setup_env():
         nlp.install(access_token=os.environ["JSL_ACCESS_KEY"])
         # Write json secret to env
         secrets = JslSecrets.from_jsl_home()
-        os.environ[mlflow.johnsnowlabs._JOHNSNOWLABS_ENV_JSON_LICENSE_KEY] = json.dumps(
-            {
-                "SECRET": secrets.HC_SECRET,
-                "AWS_ACCESS_KEY_ID": secrets.AWS_ACCESS_KEY_ID,
-                "AWS_SECRET_ACCESS_KEY": secrets.AWS_SECRET_ACCESS_KEY,
-                "SPARK_NLP_LICENSE": secrets.HC_LICENSE,
-            }
-        )
+        os.environ[mlflow.johnsnowlabs._JOHNSNOWLABS_ENV_JSON_LICENSE_KEY] = json.dumps({
+            "SECRET": secrets.HC_SECRET,
+            "AWS_ACCESS_KEY_ID": secrets.AWS_ACCESS_KEY_ID,
+            "AWS_SECRET_ACCESS_KEY": secrets.AWS_SECRET_ACCESS_KEY,
+            "SPARK_NLP_LICENSE": secrets.HC_LICENSE,
+        })
     # mlflow.johnsnowlabs._JOHNSNOWLABS_JSON_VARS needs to be present now either from CI or from
     # JSL_ACCESS_KEY
     mlflow.johnsnowlabs._set_env_vars()
@@ -90,7 +88,8 @@ def validate_model(original_model, new_model):
     df2 = new_model.predict("Hello World")
     if isinstance(df2, str):
         df2 = (
-            pd.DataFrame(json.loads(df2))
+            pd
+            .DataFrame(json.loads(df2))
             .drop(columns=["index"])
             .reset_index()
             .drop(columns=["index"])
@@ -148,7 +147,8 @@ def test_model_export(jsl_model, model_path):
     # 3. score and compare reloaded pyfunc Spark udf
     preds3 = score_model_as_udf(model_uri=model_path)
     df1 = (
-        pd.DataFrame(json.loads(preds3[0]))
+        pd
+        .DataFrame(json.loads(preds3[0]))
         .drop(columns=["index"])
         .reset_index()
         .drop(columns=["index"])

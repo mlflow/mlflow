@@ -421,6 +421,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
           ...(llmScorer.model && { model: llmScorer.model }),
           ...(feedbackValueType && { feedback_value_type: feedbackValueType }),
         },
+        is_session_level_scorer: scorer.isSessionLevelScorer || false,
       });
       config.custom = {};
     } else if (llmScorer.llmTemplate) {
@@ -445,6 +446,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
         name: llmScorer.name,
         builtin_scorer_class: llmScorer.llmTemplate,
         builtin_scorer_pydantic_data: pydanticData,
+        is_session_level_scorer: scorer.isSessionLevelScorer || false,
       });
       config.builtin = {
         name: llmScorer.name,
@@ -462,6 +464,7 @@ export function transformScheduledScorer(scorer: ScheduledScorer): ScorerConfig 
       call_source: customCodeScorer.code,
       call_signature: customCodeScorer.callSignature,
       original_func_name: customCodeScorer.originalFuncName,
+      is_session_level_scorer: scorer.isSessionLevelScorer || false,
     });
     config.custom = {}; // this is needed for custom scorers
   }

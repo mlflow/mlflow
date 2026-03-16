@@ -1,6 +1,6 @@
 # Custom ESLint Rules
 
-This directory contains custom ESLint rules specific to the MLflow UI codebase.
+This directory contains custom ESLint rules specific to the MLflow OSS UI codebase.
 
 ## How It Works
 

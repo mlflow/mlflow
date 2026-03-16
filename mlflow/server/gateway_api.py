@@ -42,6 +42,7 @@ from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.server.gateway_budget import check_budget_limit, make_budget_on_complete
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
 from mlflow.store.tracking.gateway.entities import (
@@ -54,6 +55,7 @@ from mlflow.telemetry.events import GatewayInvocationEvent, GatewayInvocationTyp
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking._tracking_service.utils import _get_store
+from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
 
@@ -316,7 +318,7 @@ def _create_provider(
         ]
 
         if not fallback_models:
-            _logger.warning(
+            _logger.debug(
                 f"Endpoint '{endpoint_config.endpoint_name}' has fallback_config "
                 "but no FALLBACK models configured"
             )
@@ -425,8 +427,11 @@ async def invocations(endpoint_name: str, request: Request):
     headers = dict(request.headers)
 
     store = _get_store()
+    workspace = get_request_workspace()
 
     _validate_store(store)
+    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
+    check_budget_limit(store, endpoint_config, workspace=workspace)
 
     # Detect request type based on payload structure
     if "messages" in body:
@@ -449,6 +454,7 @@ async def invocations(endpoint_name: str, request: Request):
                 output_reducer=aggregate_chat_stream_chunks,
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
+                on_complete=make_budget_on_complete(store, workspace),
             )(payload)
             return StreamingResponse(
                 safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
@@ -461,6 +467,7 @@ async def invocations(endpoint_name: str, request: Request):
                 user_metadata,
                 request_headers=headers,
                 request_type=GatewayRequestType.UNIFIED_CHAT,
+                on_complete=make_budget_on_complete(store, workspace),
             )(payload)
 
     elif "input" in body:
@@ -481,6 +488,7 @@ async def invocations(endpoint_name: str, request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_EMBEDDINGS,
+            on_complete=make_budget_on_complete(store, workspace),
         )(payload)
 
     else:
@@ -517,17 +525,18 @@ async def chat_completions(request: Request):
     body.pop("model")
 
     store = _get_store()
+    workspace = get_request_workspace()
 
     _validate_store(store)
+    provider, endpoint_config = _create_provider_from_endpoint_name(
+        store, endpoint_name, EndpointType.LLM_V1_CHAT
+    )
+    check_budget_limit(store, endpoint_config, workspace=workspace)
 
     try:
         payload = chat.RequestPayload(**body)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
-
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
 
     if payload.stream:
         stream = maybe_traced_gateway_call(
@@ -537,6 +546,7 @@ async def chat_completions(request: Request):
             output_reducer=aggregate_chat_stream_chunks,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_CHAT,
+            on_complete=make_budget_on_complete(store, workspace),
         )(payload)
         return StreamingResponse(
             safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
@@ -549,6 +559,7 @@ async def chat_completions(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.UNIFIED_CHAT,
+            on_complete=make_budget_on_complete(store, workspace),
         )(payload)
 
 
@@ -580,12 +591,13 @@ async def openai_passthrough_chat(request: Request):
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
-
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    check_budget_limit(store, endpoint_config, workspace=workspace)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -603,6 +615,7 @@ async def openai_passthrough_chat(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
+            on_complete=make_budget_on_complete(store, workspace),
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
@@ -614,6 +627,7 @@ async def openai_passthrough_chat(request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_CHAT,
+        on_complete=make_budget_on_complete(store, workspace),
     )
     return await traced_passthrough(
         action=PassthroughAction.OPENAI_CHAT, payload=body, headers=headers
@@ -644,12 +658,13 @@ async def openai_passthrough_embeddings(request: Request):
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
-
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
     )
+    check_budget_limit(store, endpoint_config, workspace=workspace)
 
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
@@ -657,6 +672,7 @@ async def openai_passthrough_embeddings(request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_EMBEDDINGS,
+        on_complete=make_budget_on_complete(store, workspace),
     )
     return await traced_passthrough(
         action=PassthroughAction.OPENAI_EMBEDDINGS, payload=body, headers=headers
@@ -691,12 +707,13 @@ async def openai_passthrough_responses(request: Request):
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
-
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    check_budget_limit(store, endpoint_config, workspace=workspace)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -714,6 +731,7 @@ async def openai_passthrough_responses(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+            on_complete=make_budget_on_complete(store, workspace),
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
@@ -725,6 +743,7 @@ async def openai_passthrough_responses(request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_OPENAI_RESPONSES,
+        on_complete=make_budget_on_complete(store, workspace),
     )
     return await traced_passthrough(
         action=PassthroughAction.OPENAI_RESPONSES, payload=body, headers=headers
@@ -759,12 +778,13 @@ async def anthropic_passthrough_messages(request: Request):
     endpoint_name = _extract_endpoint_name_from_model(body)
     body.pop("model")
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
-
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    check_budget_limit(store, endpoint_config, workspace=workspace)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -782,6 +802,7 @@ async def anthropic_passthrough_messages(request: Request):
             user_metadata,
             request_headers=headers,
             request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
+            on_complete=make_budget_on_complete(store, workspace),
         )
         return StreamingResponse(
             safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"
@@ -793,6 +814,7 @@ async def anthropic_passthrough_messages(request: Request):
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_ANTHROPIC_MESSAGES,
+        on_complete=make_budget_on_complete(store, workspace),
     )
     return await traced_passthrough(
         action=PassthroughAction.ANTHROPIC_MESSAGES, payload=body, headers=headers
@@ -827,19 +849,20 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     user_metadata = _get_user_metadata(request)
 
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
-
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
-
+    check_budget_limit(store, endpoint_config, workspace=workspace)
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
         endpoint_config,
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
+        on_complete=make_budget_on_complete(store, workspace),
     )
     return await traced_passthrough(
         action=PassthroughAction.GEMINI_GENERATE_CONTENT, payload=body, headers=headers
@@ -874,12 +897,13 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     user_metadata = _get_user_metadata(request)
 
     store = _get_store()
+    workspace = get_request_workspace()
     _validate_store(store)
-
     headers = dict(request.headers)
     provider, endpoint_config = _create_provider_from_endpoint_name(
         store, endpoint_name, EndpointType.LLM_V1_CHAT
     )
+    check_budget_limit(store, endpoint_config, workspace=workspace)
 
     stream = await provider.passthrough(
         action=PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload=body, headers=headers
@@ -896,6 +920,7 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
         user_metadata,
         request_headers=headers,
         request_type=GatewayRequestType.PASSTHROUGH_MODEL_GEMINI_GENERATE_CONTENT,
+        on_complete=make_budget_on_complete(store, workspace),
     )
     return StreamingResponse(
         safe_stream(traced_stream(body), as_bytes=True), media_type="text/event-stream"

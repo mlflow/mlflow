@@ -2,7 +2,6 @@ from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.tracing.utils.processor import validate_span_processors
-from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
     from mlflow.entities.span import LiveSpan
@@ -61,7 +60,6 @@ def reset_config():
     _MLFLOW_TRACING_CONFIG = TracingConfig()
 
 
-@experimental(version="3.2.0")
 def configure(
     span_processors: list[Callable[["LiveSpan"], None]] | None = None,
 ) -> TracingConfigContext:

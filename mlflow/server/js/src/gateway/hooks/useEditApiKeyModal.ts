@@ -107,7 +107,7 @@ export const useEditApiKeyModal = ({ secret, onClose, onSuccess }: UseEditApiKey
 
     try {
       const effectiveAuthMode = formData.authMode || selectedAuthMode?.mode;
-      const authConfig: Record<string, string> = { ...formData.configFields };
+      const authConfig = { ...formData.configFields } satisfies Record<string, string>;
       if (effectiveAuthMode) {
         authConfig['auth_mode'] = effectiveAuthMode;
       }

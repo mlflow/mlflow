@@ -121,7 +121,9 @@ class OtelSchemaTranslator:
         Returns:
             Model name string or None if not found
         """
-        return self.get_attribute_value(attributes, self.MODEL_NAME_KEYS)
+        if value := self.get_attribute_value(attributes, self.MODEL_NAME_KEYS):
+            return self._try_decode_if_json(value)
+        return None
 
     def get_model_provider(self, attributes: dict[str, Any]) -> str | None:
         """
@@ -133,9 +135,19 @@ class OtelSchemaTranslator:
         Returns:
             Model provider string or None if not found
         """
-
         if self.LLM_PROVIDER_KEY:
-            return self._get_and_check_attribute_value(attributes, self.LLM_PROVIDER_KEY)
+            if value := self._get_and_check_attribute_value(attributes, self.LLM_PROVIDER_KEY):
+                return self._try_decode_if_json(value)
+        return None
+
+    @staticmethod
+    def _try_decode_if_json(value: Any) -> Any:
+        if isinstance(value, str):
+            try:
+                return json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return value
 
     def get_input_value(self, attributes: dict[str, Any]) -> Any:
         """
