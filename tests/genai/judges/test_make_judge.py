@@ -1821,17 +1821,19 @@ def test_unused_parameters_warning(
     with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
         judge(**provided_params)
 
+        # Filter debug calls to find the "unused parameters" warning,
+        # ignoring the mode-selection debug log.
+        unused_param_calls = [
+            call
+            for call in mock_logger.debug.call_args_list
+            if "parameters were provided but are not used" in str(call)
+        ]
+
         if "{{ trace }}" in instructions:
-            assert not mock_logger.debug.called
+            assert len(unused_param_calls) == 0
         else:
-            assert mock_logger.debug.called
-
-            debug_call_args = mock_logger.debug.call_args
-            assert debug_call_args is not None
-
-            warning_msg = debug_call_args[0][0]
-
-            assert "parameters were provided but are not used" in warning_msg
+            assert len(unused_param_calls) == 1
+            warning_msg = unused_param_calls[0][0][0]
             assert expected_warning in warning_msg
 
 
@@ -2739,10 +2741,12 @@ def test_warning_shown_for_explicitly_provided_unused_fields(mock_invoke_judge_m
     with mock.patch("mlflow.genai.judges.instructions_judge._logger.debug") as mock_debug:
         judge(inputs="What is AI?", outputs="This output is not used by the template")
 
-        mock_debug.assert_called_once()
-        debug_message = mock_debug.call_args[0][0]
+        unused_param_calls = [
+            call for call in mock_debug.call_args_list if "not used by this judge" in str(call)
+        ]
+        assert len(unused_param_calls) == 1
+        debug_message = unused_param_calls[0][0][0]
         assert "outputs" in debug_message
-        assert "not used by this judge" in debug_message
 
 
 def test_no_warning_for_trace_based_judge_with_extra_fields(mock_invoke_judge_model):
@@ -3628,10 +3632,14 @@ def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
     with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
         judge(outputs={"answer": "Test"}, session=[trace1])
 
-        mock_logger.debug.assert_called_once()
-        warning_msg = mock_logger.debug.call_args[0][0]
+        unused_param_calls = [
+            call
+            for call in mock_logger.debug.call_args_list
+            if "not used by this judge" in str(call)
+        ]
+        assert len(unused_param_calls) == 1
+        warning_msg = unused_param_calls[0][0][0]
         assert "conversation" in warning_msg or "session" in warning_msg
-        assert "not used by this judge" in warning_msg
 
 
 def test_conversation_no_warning_when_used(mock_invoke_judge_model):
