@@ -19,6 +19,7 @@ from mlflow.genai.discovery.pipeline import (
     discover_issues,
 )
 from mlflow.genai.discovery.utils import verify_scorer
+from mlflow.genai.evaluation.context import NoneContext, _set_context
 from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_ISSUE_DETECTION
 
@@ -29,6 +30,7 @@ from tests.genai.discovery.conftest import _TestScorer
 def _mock_set_experiment():
     with patch("mlflow.genai.discovery.pipeline.mlflow.set_experiment"):
         yield
+    _set_context(NoneContext())
 
 
 def _mock_start_run(**kwargs):
