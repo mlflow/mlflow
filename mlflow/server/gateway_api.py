@@ -6,14 +6,26 @@ rather than from a static YAML configuration file. It integrates the AI Gateway
 functionality directly into the MLflow tracking server.
 """
 
+import atexit
 import functools
 import logging
+import os
+import statistics
 import time
+from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
+
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
+
+# The gateway is a long-running server process where synchronous trace logging
+# blocks request threads and kills throughput. Enable async logging by default
+# unless the user has explicitly configured it otherwise.
+if not MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set():
+    os.environ[MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name] = "true"
 
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
@@ -58,6 +70,127 @@ from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.workspace_context import get_request_workspace
 
 _logger = logging.getLogger(__name__)
+
+# ── Per-phase request profiling (enable with MLFLOW_GATEWAY_PROFILE=1) ──
+_PROFILING = os.environ.get("MLFLOW_GATEWAY_PROFILE", "").lower() in ("1", "true")
+_PROFILE_OUTPUT = os.environ.get("MLFLOW_GATEWAY_PROFILE_OUTPUT", "/tmp/gateway_profile.txt")
+_profile_timings: dict[str, list[float]] = defaultdict(list)
+_profile_request_count = 0
+
+
+class _PhaseTimer:
+    __slots__ = ("phase", "start", "duration_ms")
+
+    def __init__(self, phase: str):
+        self.phase = phase
+        self.start = 0.0
+        self.duration_ms = 0.0
+
+    def __enter__(self):
+        self.start = time.perf_counter()
+        return self
+
+    def __exit__(self, *exc):
+        self.duration_ms = (time.perf_counter() - self.start) * 1000
+        _profile_timings[self.phase].append(self.duration_ms)
+        return False
+
+
+class _NoOpTimer:
+    __slots__ = ("duration_ms",)
+
+    def __init__(self, phase: str = ""):
+        self.duration_ms = 0.0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _timer(phase: str):
+    return _PhaseTimer(phase) if _PROFILING else _NoOpTimer(phase)
+
+
+def _write_profile_summary():
+    if not _profile_timings:
+        return
+    lines = []
+    lines.append(f"\n{'=' * 90}")
+    lines.append(f" Gateway Request Profiling Summary  ({_profile_request_count} requests)")
+    lines.append(f"{'=' * 90}")
+    lines.append(
+        f"{'Phase':<25} {'Count':>6} {'Mean':>8} {'P50':>8} {'P90':>8} "
+        f"{'P99':>8} {'Min':>8} {'Max':>8}"
+    )
+    lines.append("-" * 90)
+    phase_order = [
+        "total",
+        "parse_body",
+        "get_store",
+        "validate_store",
+        "get_config",
+        "budget_check",
+        "parse_payload",
+        "create_provider",
+        "build_trace_wrapper",
+        "provider_call",
+    ]
+    all_phases = phase_order + [p for p in sorted(_profile_timings) if p not in phase_order]
+    for phase in all_phases:
+        if phase not in _profile_timings:
+            continue
+        values = sorted(_profile_timings[phase])
+        n = len(values)
+        mean = statistics.mean(values)
+        p50 = values[int(n * 0.50)]
+        p90 = values[int(n * 0.90)] if n >= 10 else values[-1]
+        p99 = values[int(n * 0.99)] if n >= 100 else values[-1]
+        marker = " ***" if phase != "total" and mean > 1.0 else ""
+        lines.append(
+            f"{phase:<25} {n:>6} {mean:>7.2f}ms {p50:>7.2f}ms {p90:>7.2f}ms "
+            f"{p99:>7.2f}ms {values[0]:>7.2f}ms {values[-1]:>7.2f}ms{marker}"
+        )
+    if "total" in _profile_timings and "provider_call" in _profile_timings:
+        total_mean = statistics.mean(_profile_timings["total"])
+        provider_mean = statistics.mean(_profile_timings["provider_call"])
+        overhead = total_mean - provider_mean
+        lines.append(
+            f"\n  Overhead per request: {overhead:.2f}ms "
+            f"(total {total_mean:.2f}ms - provider_call {provider_mean:.2f}ms)"
+        )
+        lines.append("  Breakdown:")
+        for phase in all_phases:
+            if phase in ("total", "provider_call") or phase not in _profile_timings:
+                continue
+            phase_mean = statistics.mean(_profile_timings[phase])
+            pct = (phase_mean / overhead * 100) if overhead > 0 else 0
+            lines.append(f"    {phase:<23} {phase_mean:>7.2f}ms ({pct:>5.1f}%)")
+    lines.append(f"{'=' * 90}\n")
+    output = "\n".join(lines)
+    with open(_PROFILE_OUTPUT, "w") as f:
+        f.write(output)
+    _logger.warning("Gateway profiling summary written to %s", _PROFILE_OUTPUT)
+
+
+_PROFILE_WRITE_INTERVAL = 50  # Write summary every N requests
+
+
+def _maybe_write_profile():
+    if _profile_request_count > 0 and _profile_request_count % _PROFILE_WRITE_INTERVAL == 0:
+        _write_profile_summary()
+
+
+_logger.warning(
+    "Gateway profiling: enabled=%s, output=%s, env=%s",
+    _PROFILING,
+    _PROFILE_OUTPUT,
+    os.environ.get("MLFLOW_GATEWAY_PROFILE", "(not set)"),
+)
+
+if _PROFILING:
+    atexit.register(_write_profile_summary)
 
 gateway_router = APIRouter(prefix="/gateway", tags=["gateway"])
 
@@ -422,74 +555,98 @@ async def invocations(endpoint_name: str, request: Request):
     - If payload has "messages" field -> chat endpoint
     - If payload has "input" field -> embeddings endpoint
     """
-    body = await _get_request_body(request)
+    global _profile_request_count
+    t_total = time.perf_counter() if _PROFILING else 0
+
+    with _timer("parse_body"):
+        body = await _get_request_body(request)
     user_metadata = _get_user_metadata(request)
     headers = dict(request.headers)
 
-    store = _get_store()
+    with _timer("get_store"):
+        store = _get_store()
     workspace = get_request_workspace()
 
-    _validate_store(store)
-    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
-    check_budget_limit(store, endpoint_config, workspace=workspace)
+    with _timer("validate_store"):
+        _validate_store(store)
+    with _timer("get_config"):
+        endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
+    with _timer("budget_check"):
+        check_budget_limit(store, endpoint_config, workspace=workspace)
 
     # Detect request type based on payload structure
     if "messages" in body:
         # Chat request
         endpoint_type = EndpointType.LLM_V1_CHAT
-        try:
-            payload = chat.RequestPayload(**body)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
+        with _timer("parse_payload"):
+            try:
+                payload = chat.RequestPayload(**body)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Invalid chat payload: {e!s}")
 
-        provider, endpoint_config = _create_provider_from_endpoint_name(
-            store, endpoint_name, endpoint_type
-        )
+        with _timer("create_provider"):
+            provider = _create_provider(endpoint_config, endpoint_type, enable_tracing=True)
 
         if payload.stream:
-            stream = maybe_traced_gateway_call(
-                provider.chat_stream,
-                endpoint_config,
-                user_metadata,
-                output_reducer=aggregate_chat_stream_chunks,
-                request_headers=headers,
-                request_type=GatewayRequestType.UNIFIED_CHAT,
-                on_complete=make_budget_on_complete(store, workspace),
-            )(payload)
+            with _timer("build_trace_wrapper"):
+                stream = maybe_traced_gateway_call(
+                    provider.chat_stream,
+                    endpoint_config,
+                    user_metadata,
+                    output_reducer=aggregate_chat_stream_chunks,
+                    request_headers=headers,
+                    request_type=GatewayRequestType.UNIFIED_CHAT,
+                    on_complete=make_budget_on_complete(store, workspace),
+                )(payload)
             return StreamingResponse(
                 safe_stream(to_sse_chunk(chunk.model_dump_json()) async for chunk in stream),
                 media_type="text/event-stream",
             )
         else:
-            return await maybe_traced_gateway_call(
-                provider.chat,
-                endpoint_config,
-                user_metadata,
-                request_headers=headers,
-                request_type=GatewayRequestType.UNIFIED_CHAT,
-                on_complete=make_budget_on_complete(store, workspace),
-            )(payload)
+            with _timer("build_trace_wrapper"):
+                traced_fn = maybe_traced_gateway_call(
+                    provider.chat,
+                    endpoint_config,
+                    user_metadata,
+                    request_headers=headers,
+                    request_type=GatewayRequestType.UNIFIED_CHAT,
+                    on_complete=make_budget_on_complete(store, workspace),
+                )
+            with _timer("provider_call"):
+                result = await traced_fn(payload)
+            if _PROFILING:
+                _profile_timings["total"].append((time.perf_counter() - t_total) * 1000)
+                _profile_request_count += 1
+                _maybe_write_profile()
+            return result
 
     elif "input" in body:
         # Embeddings request
         endpoint_type = EndpointType.LLM_V1_EMBEDDINGS
-        try:
-            payload = embeddings.RequestPayload(**body)
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
+        with _timer("parse_payload"):
+            try:
+                payload = embeddings.RequestPayload(**body)
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Invalid embeddings payload: {e!s}")
 
-        provider, endpoint_config = _create_provider_from_endpoint_name(
-            store, endpoint_name, endpoint_type
-        )
+        with _timer("create_provider"):
+            provider = _create_provider(endpoint_config, endpoint_type, enable_tracing=True)
 
-        return await maybe_traced_gateway_call(
-            provider.embeddings,
-            endpoint_config,
-            user_metadata,
-            request_headers=headers,
-            request_type=GatewayRequestType.UNIFIED_EMBEDDINGS,
-            on_complete=make_budget_on_complete(store, workspace),
-        )(payload)
+        with _timer("build_trace_wrapper"):
+            traced_fn = maybe_traced_gateway_call(
+                provider.embeddings,
+                endpoint_config,
+                user_metadata,
+                request_headers=headers,
+                request_type=GatewayRequestType.UNIFIED_EMBEDDINGS,
+                on_complete=make_budget_on_complete(store, workspace),
+            )
+        with _timer("provider_call"):
+            result = await traced_fn(payload)
+        if _PROFILING:
+            _profile_timings["total"].append((time.perf_counter() - t_total) * 1000)
+            _profile_request_count += 1
+        return result
 
     else:
         raise HTTPException(
@@ -528,10 +685,9 @@ async def chat_completions(request: Request):
     workspace = get_request_workspace()
 
     _validate_store(store)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT, enable_tracing=True)
 
     try:
         payload = chat.RequestPayload(**body)
@@ -594,10 +750,9 @@ async def openai_passthrough_chat(request: Request):
     workspace = get_request_workspace()
     _validate_store(store)
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT, enable_tracing=True)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -661,10 +816,11 @@ async def openai_passthrough_embeddings(request: Request):
     workspace = get_request_workspace()
     _validate_store(store)
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_EMBEDDINGS
-    )
+    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    provider = _create_provider(
+        endpoint_config, EndpointType.LLM_V1_EMBEDDINGS, enable_tracing=True
+    )
 
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
@@ -710,10 +866,9 @@ async def openai_passthrough_responses(request: Request):
     workspace = get_request_workspace()
     _validate_store(store)
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT, enable_tracing=True)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -781,10 +936,9 @@ async def anthropic_passthrough_messages(request: Request):
     workspace = get_request_workspace()
     _validate_store(store)
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT, enable_tracing=True)
 
     if body.get("stream", False):
         stream = await provider.passthrough(
@@ -852,10 +1006,9 @@ async def gemini_passthrough_generate_content(endpoint_name: str, request: Reque
     workspace = get_request_workspace()
     _validate_store(store)
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT, enable_tracing=True)
     traced_passthrough = maybe_traced_gateway_call(
         provider.passthrough,
         endpoint_config,
@@ -900,10 +1053,9 @@ async def gemini_passthrough_stream_generate_content(endpoint_name: str, request
     workspace = get_request_workspace()
     _validate_store(store)
     headers = dict(request.headers)
-    provider, endpoint_config = _create_provider_from_endpoint_name(
-        store, endpoint_name, EndpointType.LLM_V1_CHAT
-    )
+    endpoint_config = get_endpoint_config(endpoint_name=endpoint_name, store=store)
     check_budget_limit(store, endpoint_config, workspace=workspace)
+    provider = _create_provider(endpoint_config, EndpointType.LLM_V1_CHAT, enable_tracing=True)
 
     stream = await provider.passthrough(
         action=PassthroughAction.GEMINI_STREAM_GENERATE_CONTENT, payload=body, headers=headers
