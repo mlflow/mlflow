@@ -15,6 +15,7 @@ import type { MessageDescriptor } from 'react-intl';
 import Utils from '../../../common/utils/Utils';
 import { type Issue, type IssueStatus, type IssueSeverity } from './hooks/useSearchIssuesQuery';
 import { useUpdateIssue } from './hooks/useUpdateIssue';
+import { ISSUE_CATEGORY_DEFINITIONS } from '../experiment-page/components/traces-v3/IssueDetectionCategories';
 
 interface IssueCardProps {
   issue: Issue;
@@ -54,6 +55,15 @@ const SEVERITY_TAG_CONFIG: Record<IssueSeverity, { color: TagColors; label: Mess
     color: 'coral',
     label: defineMessage({ defaultMessage: 'High', description: 'Issue severity tag label for high severity' }),
   },
+};
+
+const parseCategoryId = (category: string): string => {
+  return category.replace(/^\[|\]$/g, '');
+};
+
+const getCategoryLabel = (categoryId: string): React.ReactNode => {
+  const definition = ISSUE_CATEGORY_DEFINITIONS.find((def) => def.id === categoryId);
+  return definition?.title ?? categoryId;
 };
 
 export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
@@ -160,51 +170,73 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
         <div
           css={{
             display: 'flex',
-            gap: theme.spacing.xs,
+            alignItems: 'center',
+            justifyContent: 'space-between',
             marginTop: theme.spacing.sm,
             flexWrap: 'wrap',
-            justifyContent: 'flex-end',
+            gap: theme.spacing.sm,
           }}
-          onClick={(e) => e.stopPropagation()}
         >
-          {issue.status === 'pending' && (
-            <Button
-              componentId="mlflow.issues.resolve-button"
-              type="tertiary"
-              size="small"
-              icon={<CheckCircleIcon />}
-              onClick={handleStatusChange('resolved')}
-              loading={isUpdating}
-            >
-              <FormattedMessage defaultMessage="Resolve" description="Button to resolve an issue" />
-            </Button>
+          {issue.categories && issue.categories.length > 0 && (
+            <div css={{ display: 'flex', gap: theme.spacing.xs, flexWrap: 'wrap' }}>
+              {issue.categories.map((category) => {
+                const categoryId = parseCategoryId(category);
+                return (
+                  <Tag key={category} componentId="mlflow.issues.category-tag" color="turquoise">
+                    {getCategoryLabel(categoryId)}
+                  </Tag>
+                );
+              })}
+            </div>
           )}
-          {issue.status === 'pending' && (
-            <Button
-              componentId="mlflow.issues.reject-button"
-              type="tertiary"
-              size="small"
-              icon={<CloseIcon />}
-              onClick={handleStatusChange('rejected')}
-              loading={isUpdating}
-            >
-              <FormattedMessage defaultMessage="Reject" description="Button to reject an issue" />
-            </Button>
-          )}
-          {(issue.status === 'resolved' || issue.status === 'rejected') && (
-            <Button
-              componentId="mlflow.issues.move-to-pending-button"
-              type="tertiary"
-              size="small"
-              onClick={handleStatusChange('pending')}
-              loading={isUpdating}
-            >
-              <FormattedMessage
-                defaultMessage="Move to pending"
-                description="Button to move an issue back to pending status"
-              />
-            </Button>
-          )}
+          <div
+            css={{
+              display: 'flex',
+              gap: theme.spacing.xs,
+              flexWrap: 'wrap',
+              marginLeft: 'auto',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {issue.status === 'pending' && (
+              <Button
+                componentId="mlflow.issues.resolve-button"
+                type="tertiary"
+                size="small"
+                icon={<CheckCircleIcon />}
+                onClick={handleStatusChange('resolved')}
+                loading={isUpdating}
+              >
+                <FormattedMessage defaultMessage="Resolve" description="Button to resolve an issue" />
+              </Button>
+            )}
+            {issue.status === 'pending' && (
+              <Button
+                componentId="mlflow.issues.reject-button"
+                type="tertiary"
+                size="small"
+                icon={<CloseIcon />}
+                onClick={handleStatusChange('rejected')}
+                loading={isUpdating}
+              >
+                <FormattedMessage defaultMessage="Reject" description="Button to reject an issue" />
+              </Button>
+            )}
+            {(issue.status === 'resolved' || issue.status === 'rejected') && (
+              <Button
+                componentId="mlflow.issues.move-to-pending-button"
+                type="tertiary"
+                size="small"
+                onClick={handleStatusChange('pending')}
+                loading={isUpdating}
+              >
+                <FormattedMessage
+                  defaultMessage="Move to pending"
+                  description="Button to move an issue back to pending status"
+                />
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </Card>
