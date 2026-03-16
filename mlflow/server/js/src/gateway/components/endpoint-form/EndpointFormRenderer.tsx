@@ -70,7 +70,7 @@ export const EndpointFormRenderer = ({
   onSubmit,
   onCancel,
   onNameBlur,
-  componentIdPrefix = `mlflow.gateway.endpoint`,
+  componentIdPrefix = `mlflow.gateway.${mode}-endpoint`,
   embedded = false,
 }: EndpointFormRendererProps) => {
   const { theme } = useDesignSystemTheme();
@@ -216,7 +216,7 @@ export const EndpointFormRenderer = ({
                   <UsageTrackingConfigurator
                     value={field.value}
                     onChange={field.onChange}
-                    componentIdPrefix="mlflow.gateway.create-endpoint.usage-tracking"
+                    componentIdPrefix={`${componentIdPrefix}.usage-tracking`}
                   />
                 )}
               />
