@@ -1666,6 +1666,11 @@ LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
     for http_path, handler, methods in get_endpoints(get_logged_model_before_request_handler)
     for method in methods
 }
+# The AJAX artifact download endpoint is a plain Flask route with a path parameter, so it
+# can't go in routes.py/BEFORE_REQUEST_VALIDATORS (exact match) and must be added here.
+LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS[
+    (_re_compile_path("/ajax-api/2.0/mlflow/logged-models/<model_id>/artifacts/files"), "GET")
+] = validate_can_read_logged_model
 
 WEBHOOK_BEFORE_REQUEST_HANDLERS = {
     CreateWebhook: sender_is_admin,

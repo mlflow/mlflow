@@ -783,6 +783,38 @@ def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
             client.delete_logged_model(model_id=model.model_id)
 
 
+def test_logged_model_artifact_authorization(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("logged-model-artifact-authz-test")
+        model = client.create_logged_model(experiment_id=exp_id)
+
+    # user1 (owner) should be able to access the artifact endpoint (may 404 since no artifact
+    # exists, but should NOT be 403)
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + f"/ajax-api/2.0/mlflow/logged-models/{model.model_id}/artifacts/files"
+        ),
+        params={"artifact_file_path": "test.txt"},
+        auth=(username1, password1),
+    )
+    assert response.status_code != 403
+
+    # user2 has no permission on the experiment — expect 403
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + f"/ajax-api/2.0/mlflow/logged-models/{model.model_id}/artifacts/files"
+        ),
+        params={"artifact_file_path": "test.txt"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
 def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
