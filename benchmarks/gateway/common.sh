@@ -20,6 +20,7 @@ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 FAKE_SERVER_PORT=9000
 MLFLOW_PORT=5000
 LITELLM_PORT=4000
+LITELLM_NOTRACK_PORT=4001
 PORTKEY_PORT=8787
 ENDPOINT_NAME="benchmark-chat"
 
@@ -191,6 +192,7 @@ run_benchmark() {
     local mlflow_url="${2:-}"
     local litellm_url="${3:-}"
     local portkey_url="${4:-}"
+    local litellm_notrack_url="${5:-}"
     echo ""
     echo "=== Running benchmark ==="
     local args=(
@@ -207,6 +209,9 @@ run_benchmark() {
     fi
     if [ -n "$portkey_url" ]; then
         args+=(--portkey-url "$portkey_url")
+    fi
+    if [ -n "$litellm_notrack_url" ]; then
+        args+=(--litellm-notrack-url "$litellm_notrack_url")
     fi
     $RUN_PREFIX python benchmark_compare.py "${args[@]}"
 }

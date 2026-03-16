@@ -121,6 +121,17 @@ LITELLM_SALT_KEY="sk-bench-salt-key-1234" \
 PIDS+=($!)
 wait_for_port "$LITELLM_PORT" "LiteLLM proxy" "/health/liveliness"
 
+# Start LiteLLM proxy WITHOUT DB (no tracking baseline)
+echo ""
+echo "=== Starting LiteLLM proxy without tracking (port $LITELLM_NOTRACK_PORT, $WORKERS workers, no DB) ==="
+$RUN_PREFIX litellm \
+    --config "litellm_config.yaml" \
+    --port "$LITELLM_NOTRACK_PORT" \
+    --num_workers "$WORKERS" \
+    > /dev/null 2>&1 &
+PIDS+=($!)
+wait_for_port "$LITELLM_NOTRACK_PORT" "LiteLLM proxy (no tracking)" "/health/liveliness"
+
 # Start Portkey AI Gateway (if npx available)
 PORTKEY_URL=""
 if [ "$HAS_NPX" = "true" ]; then
@@ -133,10 +144,20 @@ echo ""
 echo "=== Sanity check ==="
 MLFLOW_INVOKE_URL="http://127.0.0.1:$MLFLOW_PORT/gateway/$ENDPOINT_NAME/mlflow/invocations"
 LITELLM_URL="http://127.0.0.1:$LITELLM_PORT/chat/completions"
+LITELLM_NOTRACK_URL="http://127.0.0.1:$LITELLM_NOTRACK_PORT/chat/completions"
 sanity_check_mlflow "$MLFLOW_INVOKE_URL"
 sanity_check_litellm "$LITELLM_URL"
+echo -n "LiteLLM (no tracking): "
+http_code=$(curl -s -o /dev/null -w "%{http_code}" "$LITELLM_NOTRACK_URL" \
+    -X POST -H "Content-Type: application/json" -H "Authorization: Bearer sk-1234" \
+    -d '{"model":"benchmark-chat","messages":[{"role":"user","content":"test"}]}')
+echo "$http_code"
+if [ "$http_code" != "200" ]; then
+    echo "ERROR: LiteLLM (no tracking) sanity check failed (expected 200, got $http_code)"
+    exit 1
+fi
 if [ -n "$PORTKEY_URL" ]; then
     sanity_check_portkey "$PORTKEY_URL"
 fi
 
-run_benchmark "$BENCH_TARGET" "$MLFLOW_INVOKE_URL" "$LITELLM_URL" "$PORTKEY_URL"
+run_benchmark "$BENCH_TARGET" "$MLFLOW_INVOKE_URL" "$LITELLM_URL" "$PORTKEY_URL" "$LITELLM_NOTRACK_URL"
