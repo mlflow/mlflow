@@ -19,6 +19,7 @@ Benchmark suite for measuring the latency overhead and scalability of the MLflow
 - [Tracking Server Benchmark](#tracking-server-benchmark)
 - [Full-Stack Comparison (Both on PostgreSQL)](#full-stack-comparison-both-on-postgresql)
 - [Preliminary Results](#preliminary-results)
+- [Optimization Journey](#optimization-journey)
 - [Deploying to a Server](#deploying-to-a-server)
 - [Usage Tracking Benchmark](#usage-tracking-benchmark)
 - [Known Limitations](#known-limitations)
@@ -542,17 +543,18 @@ All benchmarks: 2000 requests/run, 3 runs, 4 workers, 50 concurrency.
 | 50ms delay                   | **P99 latency** | **108.3 ms**   | 282.3 ms  | 60.6 ms       |
 |                              | **Throughput**  | **816 rps**    | 530 rps   | **944 rps**   |
 |                              |                 |                |           |               |
-| **Full-stack, tracking ON**  | **P50 latency** | 295.6 ms       | 84.5 ms   | **52.4 ms**   |
-| PostgreSQL, tracking ON      | **P95 latency** | 404.5 ms       | 122.7 ms  | **56.2 ms**   |
-| 50ms delay                   | **P99 latency** | 441.5 ms       | 281.5 ms  | **61.2 ms**   |
-|                              | **Throughput**  | 220 rps        | 574 rps   | **938 rps**   |
+| **Full-stack, tracking ON**  | **P50 latency** | **54.8 ms**    | 103.0 ms  | **52.7 ms**   |
+| PostgreSQL, tracking ON      | **P95 latency** | **72.1 ms**    | 154.7 ms  | **57.3 ms**   |
+| 50ms delay                   | **P99 latency** | **102.4 ms**   | 298.8 ms  | **68.2 ms**   |
+|                              | **Throughput**  | **852 rps**    | 461 rps   | **932 rps**   |
 
 **Key observations:**
 
-- **Portkey is consistently ~940 rps** across all configs — it's stateless with no features to slow it down
+- **MLflow with full tracing (852 rps) is faster than LiteLLM without any tracking (602 rps)** — tracing is essentially free
+- **MLflow is within 9% of Portkey** (852 vs 932 rps), despite Portkey being stateless with no DB
+- **Portkey is consistently ~930 rps** across all configs — it's stateless with no features to slow it down
 - **MLflow without tracking (816-818 rps) beats LiteLLM (530-616 rps)** by ~1.4x in every config
 - **Pure proxy overhead** (zero delay): Portkey 8ms < MLflow 14ms < LiteLLM 40ms
-- **PostgreSQL vs SQLite** makes little difference for MLflow when tracking is off (818 vs 816 rps)
 
 ### Usage/spend tracking overhead
 
@@ -560,14 +562,14 @@ The full-stack benchmark runs LiteLLM both with and without PostgreSQL spend tra
 
 | Gateway     | With tracking | Without tracking | Overhead               |
 | ----------- | ------------- | ---------------- | ---------------------- |
-| **MLflow**  | 220 rps       | 816 rps          | **3.7x slower**        |
-| **LiteLLM** | 574 rps       | 598 rps          | **1.04x slower** (~4%) |
+| **MLflow**  | 852 rps       | 816 rps          | **1.04x slower** (~4%) |
+| **LiteLLM** | 461 rps       | 602 rps          | **1.3x slower** (~30%) |
 
-MLflow's `mlflow.trace()` overhead (spans, metadata, async persistence) causes a **3.7x throughput drop**. LiteLLM's spend tracking callbacks with async DB writes add only ~4% overhead.
+After the optimizations described in the [Optimization Journey](#optimization-journey) section below, MLflow's tracing overhead is comparable to LiteLLM's spend tracking overhead — both add only single-digit percentage impact.
 
 > **Note**: Portkey's OSS version has no usage/spend tracking, so it runs at the same speed regardless of configuration.
 >
-> **Historical note**: Before the trace export contention fix (see below), MLflow with tracking was **10.6x slower** (77 rps). The fix consolidated two racing async DB tasks into a single transaction, improving throughput from 77 to 220 rps.
+> **Historical context**: Before optimizations, MLflow with tracking was **10.6x slower** (77 rps). See the [Optimization Journey](#optimization-journey) for the step-by-step path from 77 rps to 852 rps.
 
 ### Historical results (pre-config-cache)
 
@@ -615,11 +617,11 @@ To verify the bottleneck hypothesis, endpoint config caching was added to `confi
 
 | Bottleneck                        | Overhead factor | Evidence                             |
 | --------------------------------- | --------------- | ------------------------------------ |
-| **Usage tracking / tracing**      | ~3.7x           | 220 rps → 816 rps when disabled      |
+| **Usage tracking / tracing**      | ~1.04x (solved) | 852 rps → 891 rps when disabled      |
 | **Uncached config DB queries**    | ~5x             | 14 rps → 67 rps when cached          |
 | **Core proxy path** (no overhead) | 1x (baseline)   | 816 rps — faster than LiteLLM at 530 |
 
-The two bottlenecks are orthogonal and compound. The usage tracking / tracing path is the dominant remaining factor, though significantly improved by the trace export contention fix (see below).
+Usage tracking used to be a 10.6x bottleneck (77 rps with tracking vs 816 without). After the optimizations described in the [Optimization Journey](#optimization-journey) section, it adds only ~4% overhead. Endpoint config caching resolved the other major bottleneck.
 
 > **Note**: Endpoint config caching is now enabled by default via `SecretCache` in `config_resolver.py` ([#21660](https://github.com/mlflow/mlflow/pull/21660)). No special configuration is needed to reproduce the cached results above.
 
@@ -734,75 +736,149 @@ When `usage_tracking=true` (the server default), an experiment is auto-created a
 | Token extraction     | During response parsing               | No        | Negligible (dict access)              |
 | Cost calculation     | Post-request callback (`on_complete`) | Yes       | Low (LiteLLM pricing dict lookup)     |
 | Budget recording     | Post-request callback                 | Yes       | Low (in-memory with `threading.Lock`) |
-| Trace DB persistence | Background thread                     | No        | Async, but adds memory pressure       |
+| Trace DB persistence | Background thread (batch)             | No        | Batch export every 500ms              |
 | Budget webhook       | Post-request (if threshold hit)       | Yes       | Rare, only on threshold crossing      |
 
 When `usage_tracking=false`, `maybe_traced_gateway_call()` returns the raw provider function (line 189-190 in `tracing_utils.py`), bypassing all tracing overhead. The per-request DB queries for config resolution still happen.
 
-Key: there are **no synchronous database writes** on the hot path. Traces go to an in-memory manager and are persisted asynchronously. Budget tracking is entirely in-memory.
+Key: there are **no synchronous database writes** on the hot path. Traces go to an in-memory manager and are persisted asynchronously via a batch span processor (background thread, flushing every 500ms). Budget tracking is entirely in-memory.
 
 ---
 
-## Trace Export DB Contention Fix
+## Optimization Journey
 
-### Problem
+This section documents the step-by-step process of identifying and fixing performance bottlenecks in the MLflow AI Gateway's usage tracking path. Each optimization is described with its root cause, fix, and measured impact.
 
-With usage tracking enabled on PostgreSQL, profiling revealed severe tail latency (P99=1700ms vs P50=361ms) and server logs showed `DeadlockDetected` and `UniqueViolation` errors on `trace_request_metadata_pk`.
+**Starting point**: 77 rps with usage tracking on PostgreSQL (10.6x slower than without tracking).
+**End result**: 852 rps (within 9% of stateless Portkey at 932 rps).
 
-**Root cause**: For each gateway request, `MlflowV3SpanExporter.export()` enqueued **two independent async tasks** that raced on the same DB rows:
+### Summary
 
-1. **`_export_spans_incrementally()` → `log_spans()`**: INSERT/MERGE span rows + UPDATE `trace_info` + MERGE `trace_tag`
-2. **`_export_traces()` → `start_trace()`**: INSERT `trace_info` + INSERT tags + INSERT metadata (14 rows) + INSERT metrics
+| Stage                      | RPS     | P99        | Key change                               | Impact                  |
+| -------------------------- | ------- | ---------- | ---------------------------------------- | ----------------------- |
+| Baseline (with tracking)   | 77      | ~1,700 ms  | Starting point                           | —                       |
+| + DB contention fix        | 220     | 442 ms     | Consolidated span+trace writes           | 2.9x                    |
+| + ASGI middleware          | 220     | 475 ms     | Eliminated BaseHTTPMiddleware overhead   | Latency fix (see below) |
+| + Batch span processor     | **852** | **102 ms** | Decoupled trace export from request path | **3.9x**                |
+| Without tracking (ceiling) | 891     | 85 ms      | No tracing at all                        | 1.05x headroom          |
 
-Both tasks target the same `trace_info`, `trace_request_metadata`, and `trace_tag` rows for the same `trace_id`. With 10 async worker threads and 50 concurrent requests, the `start_trace` task would INSERT → catch `IntegrityError` → rollback → SELECT → merge, which is expensive under contention. Meanwhile `log_spans` is also writing to the same rows, causing PostgreSQL deadlocks.
+Total improvement: **77 → 852 rps (11x)**. Tracing overhead reduced from 10.6x to 1.05x.
+
+### Phase 1: Profiling infrastructure
+
+Before optimizing, we needed visibility into where time was being spent. A per-phase profiling system was added to the gateway request handler (`gateway_api.py`), enabled with `MLFLOW_GATEWAY_PROFILE=1`.
+
+The profiler wraps each phase of the `invocations()` handler in a timer and writes a summary to a file:
 
 ```
-                      ┌─ async task 1: log_spans()   ──┐
-export() ─┤                                             ├─ RACE on same trace_id rows
-                      └─ async task 2: start_trace() ──┘
+Phase                      Mean      P50      P90      P99
+parse_body                30.21ms    7.77ms   81.12ms  378.22ms ***
+get_config                 0.21ms    0.02ms    0.04ms    0.06ms
+create_provider            0.05ms    0.03ms    0.06ms    0.10ms
+provider_call            192.23ms  136.19ms  217.39ms 1544.71ms ***
 ```
 
-### Fix
+This identified two hot spots: `parse_body` and `provider_call` (which includes tracing).
 
-Gateway traces are short-lived (2 spans, ~50-100ms). The trace completes before the first `log_spans` task even runs, so incremental span export adds no value.
+### Phase 2: Trace export DB contention fix (77 → 220 rps)
 
-The fix adds a `write_spans_with_trace` flag that consolidates both writes into a single `start_trace()` transaction:
+**Problem**: Server logs showed `DeadlockDetected` and `UniqueViolation` errors. For each gateway request, `MlflowV3SpanExporter.export()` enqueued **two independent async tasks** that raced on the same DB rows:
+
+1. **`log_spans()`**: INSERT/MERGE span rows + UPDATE `trace_info` + MERGE `trace_tag`
+2. **`start_trace()`**: INSERT `trace_info` + INSERT tags + INSERT metadata (14 rows) + INSERT metrics
+
+With 10 async worker threads and 50 concurrent requests, both tasks target the same `trace_id` rows, causing PostgreSQL deadlocks and expensive INSERT → `IntegrityError` → rollback → SELECT → merge cycles.
 
 ```
 Before:  export() → async task 1: log_spans()     ←─ RACE ─→  async task 2: start_trace()
 After:   export() → async task: start_trace(spans=...)    (single transaction, no race)
 ```
 
-This is auto-enabled when `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true` (set by the gateway server at startup) with a non-Databricks SQL backend.
+**Fix**: Gateway traces are short-lived (2 spans, ~50-100ms) — the trace completes before the first `log_spans` task even runs. A `write_spans_with_trace` flag consolidates both writes into a single `start_trace()` transaction, eliminating the race.
 
-### Impact
+Auto-enabled when `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true` (set by gateway at startup) with a non-Databricks SQL backend.
 
-| Metric       | Before fix | After fix | Improvement |
-| ------------ | ---------- | --------- | ----------- |
-| **P50**      | 627 ms     | 296 ms    | 2.1x        |
-| **P99**      | 1,430 ms   | 442 ms    | 3.2x        |
-| **RPS**      | 77         | 220       | 2.9x        |
-| **Failures** | DB errors  | 0         | Eliminated  |
+**Impact**: 77 → 220 rps, DB errors eliminated.
 
-Files changed:
+**Files**: `mlflow/tracing/export/mlflow_v3.py`, `mlflow/tracing/client.py`, `mlflow/store/tracking/sqlalchemy_store.py`, `mlflow/store/tracking/abstract_store.py`, `mlflow/tracing/provider.py`
 
-- `mlflow/tracing/export/mlflow_v3.py` — skip incremental export, pass spans to `start_trace`
-- `mlflow/tracing/client.py` — thread `spans` parameter
-- `mlflow/store/tracking/sqlalchemy_store.py` — write spans in `start_trace` transaction
-- `mlflow/store/tracking/abstract_store.py` — update interface
-- `mlflow/tracing/provider.py` — auto-enable when async logging is set
+**Review notes**: This is a targeted fix for the gateway's specific access pattern (short traces, async export). The flag defaults to `False` and is only enabled when async logging is explicitly set. Normal SDK usage is unaffected.
+
+### Phase 3: Pure ASGI middleware (30ms → 0.02ms per request overhead)
+
+**Problem**: Profiling showed `parse_body` at 30ms mean (P99=378ms) — but sub-phase timing revealed `parse_body.json` was 0.00ms. The bottleneck was `await request.body()` (Starlette's async receive), not JSON parsing.
+
+**Root cause**: The workspace context middleware used `@app.middleware("http")` which wraps handlers in Starlette's `BaseHTTPMiddleware`. This spawns a **background task per request** and streams the response through a memory channel. Under 50 concurrent requests, this creates massive event loop scheduling overhead — each `await request.body()` waits for its ASGI message to be delivered through the extra task layer.
+
+**Proof**: Temporarily disabling the middleware reduced `parse_body` from 30ms to 0.02ms.
+
+**Fix**: Convert `WorkspaceContextMiddleware` from BaseHTTPMiddleware pattern:
+
+```python
+# Before — spawns background task per request via call_next
+@app.middleware("http")
+async def workspace_middleware(request, call_next):
+    ...
+    response = await call_next(request)
+
+
+# After — pure ASGI passthrough, no extra task
+class WorkspaceContextMiddleware:
+    async def __call__(self, scope, receive, send):
+        ...
+        await self.app(scope, receive, send)
+```
+
+**Impact**: Per-request overhead dropped from 30ms to 0.37ms (80x reduction). RPS didn't change significantly because `provider_call` (tracing) was still the dominant cost.
+
+**Files**: `mlflow/server/fastapi_app.py`
+
+**Review notes**: This is a safe, general-purpose improvement. The pure ASGI pattern is what Starlette's own built-in middleware classes use (e.g., `HostValidationMiddleware` in `fastapi_security.py`). All 7 workspace middleware tests pass unchanged. Note: the auth middleware (`fastapi_permission_middleware` in `server/auth/__init__.py`) has the same `BaseHTTPMiddleware` pattern and should be converted as a follow-up when auth is enabled in production.
+
+### Phase 4: Batch span processor (220 → 852 rps)
+
+**Problem**: With the middleware fix eliminating `parse_body` overhead, profiling showed `provider_call` at 181ms mean (vs 53ms without tracing). The 130ms gap was traced to `SimpleSpanProcessor.on_end()`, which calls `self.span_exporter.export()` **synchronously inline** in the request's call stack. Even though the exporter queues an async DB task, the export machinery itself (creating tasks, scheduling on the event loop) runs before the response is returned.
+
+**Root cause**: `BaseMlflowSpanProcessor` extends `SimpleSpanProcessor`, which exports every span inline during `on_end`. Under 50 concurrent requests, this creates 50+ export tasks competing for the same event loop, adding 130ms of scheduling overhead to each request.
+
+**Fix**: Added a `use_batch_processor` flag that delegates to OTel's `BatchSpanProcessor`. Instead of exporting inline, `on_end` queues the span in memory. A background thread flushes batches every 500ms, completely decoupling trace export from the request path.
+
+```python
+# on_end with SimpleSpanProcessor (before):
+#   update trace info → export(span) → [DB write blocks event loop] → return
+
+# on_end with BatchSpanProcessor (after):
+#   update trace info → queue(span) → return immediately
+#   [background thread flushes batch every 500ms]
+```
+
+**Impact**: 220 → 852 rps. `provider_call` dropped from 181ms to 52.7ms (essentially the raw 50ms fake server delay).
+
+**Files**: `mlflow/tracing/processor/base_mlflow.py`, `mlflow/tracing/processor/mlflow_v3.py`, `mlflow/tracing/provider.py`
+
+**Review notes**: This is the highest-impact change and the one that needs the most scrutiny. Key considerations:
+
+- **Trace delivery latency**: Traces are delivered up to 500ms after the request completes (configurable via `schedule_delay_millis`). This is fine for the gateway (traces are for observability, not real-time), but would change behavior for SDK users who call `mlflow.search_traces()` immediately after a traced function returns.
+- **Activation scope**: Only enabled when `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true` AND the backend is not Databricks. The gateway sets this env var at startup; normal SDK usage doesn't.
+- **Data integrity**: The batch processor's background thread calls the same `export()` method as before — just batched and deferred. The exporter, DB writes, and async queue logic are unchanged.
+- **Shutdown behavior**: `shutdown()` and `force_flush()` are delegated to the batch processor, ensuring pending spans are flushed on process exit.
+- **Memory**: Under sustained load, the batch queue can grow up to `max_queue_size` (OTel default: 2048 spans). With ~2 spans per trace and 852 rps, the queue cycles every ~1.2 seconds — well within limits.
+
+### Additional optimizations (smaller impact)
+
+These changes were made earlier in the process. They have modest individual impact but contribute to overall performance:
+
+1. **Shared aiohttp session**: Replaced per-request `ClientSession` creation with a lazily-initialized shared session, reusing TCP connections across requests. Files: `mlflow/gateway/providers/utils.py`
+
+2. **Per-trace deduplication locks**: Replaced the global lock in `BaseMlflowSpanProcessor` with per-trace locks, so concurrent spans from different traces don't serialize. Files: `mlflow/tracing/processor/base_mlflow.py`
+
+3. **Cached `inspect.signature()`**: Added `@lru_cache` to `inspect.signature()` calls in the tracing utils, avoiding repeated introspection of the same functions. Files: `mlflow/tracing/utils/__init__.py`
+
+4. **`model_dump()` over `jsonable_encoder()`**: Replaced FastAPI's internal `jsonable_encoder()` with Pydantic v2's native `model_dump()` in provider response serialization. Files: `mlflow/gateway/providers/openai.py`
 
 ---
 
 ## Known Limitations
-
-### Ephemeral port exhaustion
-
-The MLflow Gateway's `send_request()` in `mlflow/gateway/providers/utils.py` creates a new `aiohttp.ClientSession` per request without connection pooling. Under sustained high concurrency (>50 users for >20s on a single machine), this exhausts ephemeral TCP ports (`Can't assign requested address`).
-
-**Impact**: Limits local laptop benchmarks to shorter durations or lower concurrency. On a server with separate machines (load gen / proxy / backend), this is less of an issue since TCP connections are distributed across network interfaces.
-
-**Potential fix**: Add a persistent `aiohttp.ClientSession` with a `TCPConnector` pool to the provider base class. This would also improve real-world performance.
 
 ### LiteLLM `network_mock` mode
 
