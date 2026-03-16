@@ -41,19 +41,39 @@ class AsyncArtifactsLoggingQueue:
         self._stop_data_logging_thread_event = threading.Event()
         self._is_activated = False
 
+    # Maximum seconds to wait for background threads/pools to drain at process exit.
+    _ATEXIT_TIMEOUT_SECONDS = 30
+
     def _at_exit_callback(self) -> None:
         """Callback function to be executed when the program is exiting.
 
         Stops the data processing thread and waits for the queue to be drained. Finally, shuts down
         the thread pools used for data logging and artifact processing status check.
+
+        All blocking operations are capped by ``_ATEXIT_TIMEOUT_SECONDS`` so that the process can
+        exit even when worker threads are blocked on slow or hung network I/O.
         """
         try:
+            timeout = self._ATEXIT_TIMEOUT_SECONDS
             # Stop the data processing thread
             self._stop_data_logging_thread_event.set()
-            # Waits till logging queue is drained.
-            self._artifact_logging_thread.join()
-            self._artifact_logging_worker_threadpool.shutdown(wait=True)
-            self._artifact_status_check_threadpool.shutdown(wait=True)
+            # Waits till logging queue is drained (bounded wait).
+            self._artifact_logging_thread.join(timeout=timeout)
+            if self._artifact_logging_thread.is_alive():
+                _logger.warning(
+                    "AsyncArtifactsLoggingQueue: logging thread did not finish within "
+                    f"{timeout}s at exit; some artifacts may not have been uploaded."
+                )
+            self._artifact_logging_worker_threadpool.shutdown(wait=True, timeout=timeout)
+            self._artifact_status_check_threadpool.shutdown(wait=True, timeout=timeout)
+        except TypeError:
+            # Python < 3.9 does not support the timeout kwarg for ThreadPoolExecutor.shutdown().
+            # Fall back to shutdown without timeout to avoid crashing the exit handler.
+            try:
+                self._artifact_logging_worker_threadpool.shutdown(wait=False)
+                self._artifact_status_check_threadpool.shutdown(wait=False)
+            except Exception as e:
+                _logger.error(f"Encountered error while trying to finish logging: {e}")
         except Exception as e:
             _logger.error(f"Encountered error while trying to finish logging: {e}")
 
