@@ -1585,10 +1585,6 @@
     "defaultMessage": "Select output type",
     "description": "Placeholder for output type selection"
   },
-  "8cK5xK": {
-    "defaultMessage": "{count} selected",
-    "description": "Label for selector showing count of selected items"
-  },
   "8eVxXM": {
     "defaultMessage": "Cancel",
     "description": "Cancel delete webhook button"
@@ -2504,6 +2500,10 @@
     "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
     "description": "Try it description for unified"
   },
+  "ECkDrg": {
+    "defaultMessage": "{count} selected",
+    "description": "Label for item selector showing count of selected items"
+  },
   "ED1+Xu": {
     "defaultMessage": "Prompts & versions",
     "description": "Label for the versions section in the MLflow experiment navbar"
@@ -3037,6 +3037,10 @@
   "I2UqCo": {
     "defaultMessage": "Search registered models",
     "description": "Placeholder text inside model search bar"
+  },
+  "I9bJ/T": {
+    "defaultMessage": "Select All",
+    "description": "Option to select all items in the item selector"
   },
   "IAyAgH": {
     "defaultMessage": "Move up",
@@ -4831,10 +4835,6 @@
     "defaultMessage": "Guidelines should not be empty",
     "description": "Tooltip message when guidelines are empty"
   },
-  "UJWipj": {
-    "defaultMessage": "Select All",
-    "description": "Option to select all items in the selector"
-  },
   "ULljUX": {
     "defaultMessage": "Filter: {filterString}",
     "description": "Filter display for scorer"
@@ -6289,10 +6289,6 @@
     "defaultMessage": "Fetching traces failed",
     "description": "Error message for fetching traces failed"
   },
-  "dM8NOe": {
-    "defaultMessage": "{count} selected",
-    "description": "Label for tool selector showing count of selected tools"
-  },
   "dMKo75": {
     "defaultMessage": "Search experiments",
     "description": "Placeholder text inside experiments search bar"
@@ -7295,10 +7291,6 @@
   "jwALGI": {
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
-  },
-  "jxMFKl": {
-    "defaultMessage": "Select All",
-    "description": "Option to select all tools in the tool selector"
   },
   "jzNMBH": {
     "defaultMessage": "This key is currently in use. After deleting, you will need to attach a different API key to continue using the endpoints currently using this key.",

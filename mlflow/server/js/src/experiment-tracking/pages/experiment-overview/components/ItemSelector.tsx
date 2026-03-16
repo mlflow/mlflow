@@ -9,11 +9,11 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 
-interface ToolSelectorProps {
+interface ItemSelectorProps {
   /** Component ID for telemetry */
   componentId: string;
-  /** All available tool names */
-  toolNames: string[];
+  /** All available item names */
+  itemNames: string[];
   /** Items currently displayed */
   displayedItems: string[];
   /** Whether all items are selected */
@@ -24,24 +24,27 @@ interface ToolSelectorProps {
   onSelectAllToggle: () => void;
   /** Handler to toggle a single item */
   onItemToggle: (itemName: string) => void;
+  /** Optional test ID for the trigger element */
+  'data-testid'?: string;
 }
 
-export const ToolSelector: React.FC<ToolSelectorProps> = ({
+export const ItemSelector: React.FC<ItemSelectorProps> = ({
   componentId,
-  toolNames,
+  itemNames,
   displayedItems,
   isAllSelected,
   selectorLabel,
   onSelectAllToggle,
   onItemToggle,
+  'data-testid': dataTestId,
 }) => {
-  if (toolNames.length === 0) {
+  if (itemNames.length === 0) {
     return null;
   }
 
   return (
     <DialogCombobox componentId={componentId} label={selectorLabel} multiSelect value={[]}>
-      <DialogComboboxTrigger allowClear={false} css={{ minWidth: 120 }} />
+      <DialogComboboxTrigger allowClear={false} css={{ minWidth: 120 }} data-testid={dataTestId} />
       <DialogComboboxContent maxHeight={300} align="end">
         <DialogComboboxOptionList>
           <DialogComboboxOptionListSearch>
@@ -53,17 +56,17 @@ export const ToolSelector: React.FC<ToolSelectorProps> = ({
             >
               <FormattedMessage
                 defaultMessage="Select All"
-                description="Option to select all tools in the tool selector"
+                description="Option to select all items in the item selector"
               />
             </DialogComboboxOptionListCheckboxItem>
-            {toolNames.map((toolName) => (
+            {itemNames.map((itemName) => (
               <DialogComboboxOptionListCheckboxItem
-                key={toolName}
-                value={toolName}
-                checked={isAllSelected || displayedItems.includes(toolName)}
-                onChange={() => onItemToggle(toolName)}
+                key={itemName}
+                value={itemName}
+                checked={isAllSelected || displayedItems.includes(itemName)}
+                onChange={() => onItemToggle(itemName)}
               >
-                {toolName}
+                {itemName}
               </DialogComboboxOptionListCheckboxItem>
             ))}
           </DialogComboboxOptionListSearch>

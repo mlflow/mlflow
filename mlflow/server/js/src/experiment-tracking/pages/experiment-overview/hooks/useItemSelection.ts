@@ -1,7 +1,7 @@
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useIntl } from 'react-intl';
 
-export interface UseToolSelectionResult {
+export interface UseItemSelectionResult {
   /** Items currently selected for display (subset of allItems) */
   displayedItems: string[];
   /** Whether all items are selected */
@@ -15,17 +15,31 @@ export interface UseToolSelectionResult {
 }
 
 /**
- * Reusable hook for managing tool selection state in chart components.
- * Follows the same pattern as TraceCostOverTimeChart's item selector.
+ * Reusable hook for managing item selection state in chart components.
  *
- * @param allItems - The full sorted list of available tool names
+ * @param allItems - The full sorted list of available item names
+ * @param labels - Label strings for the selector (allSelected and noneSelected)
+ * @param resetKey - When this value changes, selection resets to all selected
  * @returns Selection state and handlers
  */
-export function useToolSelection(allItems: string[]): UseToolSelectionResult {
+export function useItemSelection(
+  allItems: string[],
+  labels: { allSelected: string; noneSelected: string },
+  resetKey?: unknown,
+): UseItemSelectionResult {
   const intl = useIntl();
 
   // null means all selected (default), array means specific selection
   const [selectedItems, setSelectedItems] = useState<string[] | null>(null);
+
+  // Reset selection when resetKey changes
+  const prevResetKey = useRef(resetKey);
+  useEffect(() => {
+    if (prevResetKey.current !== resetKey) {
+      prevResetKey.current = resetKey;
+      setSelectedItems(null);
+    }
+  }, [resetKey]);
 
   const isAllSelected = selectedItems === null;
   const displayedItems = isAllSelected ? allItems : selectedItems.filter((item) => allItems.includes(item));
@@ -49,25 +63,19 @@ export function useToolSelection(allItems: string[]): UseToolSelectionResult {
 
   const selectorLabel = useMemo(() => {
     if (isAllSelected) {
-      return intl.formatMessage({
-        defaultMessage: 'All tools',
-        description: 'Label for tool selector when all tools are selected',
-      });
+      return labels.allSelected;
     }
     if (displayedItems.length === 0) {
-      return intl.formatMessage({
-        defaultMessage: 'No tools selected',
-        description: 'Label for tool selector when no tools are selected',
-      });
+      return labels.noneSelected;
     }
     return intl.formatMessage(
       {
         defaultMessage: '{count} selected',
-        description: 'Label for tool selector showing count of selected tools',
+        description: 'Label for item selector showing count of selected items',
       },
       { count: displayedItems.length },
     );
-  }, [isAllSelected, displayedItems, intl]);
+  }, [isAllSelected, displayedItems, intl, labels]);
 
   return {
     displayedItems,

@@ -1,9 +1,9 @@
 import React, { useCallback } from 'react';
 import { ChartLineIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useToolUsageChartData } from '../hooks/useToolUsageChartData';
-import { useToolSelection } from '../hooks/useToolSelection';
+import { useItemSelection } from '../hooks/useItemSelection';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -15,7 +15,7 @@ import {
   useChartYAxisProps,
   useScrollableLegendProps,
 } from './OverviewChartComponents';
-import { ToolSelector } from './ToolSelector';
+import { ItemSelector } from './ItemSelector';
 import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
 
 /**
@@ -24,6 +24,7 @@ import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartU
  */
 export const ToolUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
@@ -34,8 +35,19 @@ export const ToolUsageChart: React.FC = () => {
   const { chartData, toolNames, isLoading, error, hasData } = useToolUsageChartData();
 
   // Tool selection state
-  const { displayedItems, isAllSelected, selectorLabel, handleSelectAllToggle, handleItemToggle } =
-    useToolSelection(toolNames);
+  const { displayedItems, isAllSelected, selectorLabel, handleSelectAllToggle, handleItemToggle } = useItemSelection(
+    toolNames,
+    {
+      allSelected: intl.formatMessage({
+        defaultMessage: 'All tools',
+        description: 'Label for tool selector when all tools are selected',
+      }),
+      noneSelected: intl.formatMessage({
+        defaultMessage: 'No tools selected',
+        description: 'Label for tool selector when no tools are selected',
+      }),
+    },
+  );
 
   const tooltipFormatter = useCallback(
     (value: number, name: string) => [formatCount(value), name] as [string, string],
@@ -60,9 +72,9 @@ export const ToolUsageChart: React.FC = () => {
           }
         />
         {hasData && (
-          <ToolSelector
+          <ItemSelector
             componentId="mlflow.charts.tool_usage.tool_selector"
-            toolNames={toolNames}
+            itemNames={toolNames}
             displayedItems={displayedItems}
             isAllSelected={isAllSelected}
             selectorLabel={selectorLabel}
