@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.exceptions import MlflowException
-from mlflow.genai.evaluation.entities import ScorerStat
 from mlflow.genai.evaluation.rate_limiter import (
     NoOpRateLimiter,
     RateLimiter,
@@ -25,7 +24,7 @@ from mlflow.genai.scorers import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
 
 if TYPE_CHECKING:
-    from mlflow.genai.evaluation.entities import EvalItem
+    from mlflow.genai.evaluation.entities import EvalItem, ScorerStat
 
 
 def classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]]:
@@ -102,7 +101,7 @@ def evaluate_session_level_scorers(
     multi_turn_scorers: list[Scorer],
     scorer_rate_limiter: RateLimiter = NoOpRateLimiter(),
     max_retries: int = 0,
-) -> tuple[dict[str, list[Feedback]], dict[str, ScorerStat]]:
+) -> tuple[dict[str, list[Feedback]], dict[str, "ScorerStat"]]:
     """
     Evaluate all multi-turn scorers for a single session.
 
@@ -118,6 +117,9 @@ def evaluate_session_level_scorers(
         - assessments: {first_trace_id: [feedback1, feedback2, ...]}
         - scorer_stats: {scorer_name: ScorerStat}
     """
+    # Import lazily to avoid pulling in pandas at module load time
+    from mlflow.genai.evaluation.entities import ScorerStat
+
     first_item = get_first_trace_in_session(session_items)
     first_trace_id = first_item.trace.info.trace_id
     session_traces = [item.trace for item in session_items]
