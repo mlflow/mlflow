@@ -48,6 +48,7 @@ def _ensure_gateway_uri(request: Request) -> None:
     os.environ[MLFLOW_GATEWAY_URI.name] = base
     _logger.debug("Set %s=%s from request", MLFLOW_GATEWAY_URI.name, base)
 
+
 guardrail_router = APIRouter(prefix="/gateway/guardrails", tags=["gateway-guardrails"])
 
 
@@ -456,9 +457,20 @@ def _run_regex_scorer(pattern: str, text: str) -> dict:
         return {"score": "yes", "rationale": f"Invalid regex pattern: {e}"}
 
 
+# Builtin scorers that use on_fail=FIX (modify guardrails)
+_FIX_SCORER_MAP: dict[str, str] = {
+    "AnonymizePII": "AnonymizePII",
+    "SanitizeWeb": "SanitizeWeb",
+    "CompetitorFilter": "CompetitorFilter",
+}
+
+
 def _run_builtin_scorer(builtin_name: str, text: str, is_mutation: bool = False, **kwargs) -> dict:
-    """Run a GuardrailsScorer builtin (ToxicLanguage, DetectPII, etc.)."""
+    """Run a GuardrailsScorer or GuardrailsFixScorer builtin."""
     try:
+        if builtin_name in _FIX_SCORER_MAP:
+            return _run_fix_scorer(builtin_name, text, **kwargs)
+
         from mlflow.genai.scorers.guardrails import get_scorer
 
         scorer = get_scorer(builtin_name, **kwargs)
@@ -480,6 +492,34 @@ def _run_builtin_scorer(builtin_name: str, text: str, is_mutation: bool = False,
         }
     except Exception as e:
         _logger.exception(f"Error running builtin scorer '{builtin_name}'")
+        return {"score": "yes", "rationale": f"Error running scorer (pass): {e}"}
+
+
+def _run_fix_scorer(builtin_name: str, text: str, **kwargs) -> dict:
+    """Run a GuardrailsFixScorer builtin (AnonymizePII, SanitizeWeb, etc.)."""
+    try:
+        import mlflow.genai.scorers.guardrails as guardrails_mod
+
+        scorer_class = getattr(guardrails_mod, builtin_name)
+        scorer = scorer_class(**kwargs)
+        feedback = scorer(outputs=text)
+
+        raw_value = feedback.value
+        # "yes" means no fix was needed
+        if raw_value == "yes" or raw_value is None:
+            return {
+                "score": "yes",
+                "rationale": feedback.rationale or "No issues found",
+            }
+
+        # The value contains the fixed text
+        return {
+            "score": "yes",
+            "rationale": feedback.rationale or "Content modified by guardrail",
+            "modified_text": str(raw_value),
+        }
+    except Exception as e:
+        _logger.exception(f"Error running fix scorer '{builtin_name}'")
         return {"score": "yes", "rationale": f"Error running scorer (pass): {e}"}
 
 

@@ -12,6 +12,8 @@ _SUPPORTED_VALIDATORS = [
     "SecretsPresent",
     "GibberishText",
     "RegexMatch",
+    "WebSanitization",
+    "CompetitorCheck",
 ]
 
 # Some hub validators trigger a circular import when loaded via guardrails.hub.__init__

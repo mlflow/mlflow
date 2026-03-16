@@ -323,6 +323,187 @@ class GibberishText(GuardrailsScorer):
 
 
 @experimental(version="3.10.0")
+class GuardrailsFixScorer(Scorer):
+    """
+    Base class for Guardrails AI validators that *fix* (modify) content.
+
+    Unlike ``GuardrailsScorer`` (which validates and returns yes/no),
+    this class uses ``on_fail=FIX`` so the validator rewrites the text
+    in-place.  The returned ``Feedback.value`` contains the fixed text
+    (or the original text when no fix was needed).
+    """
+
+    _guard: Any = PrivateAttr()
+
+    def __init__(
+        self,
+        validator_name: str | None = None,
+        **validator_kwargs: Any,
+    ):
+        check_guardrails_installed()
+
+        if validator_name is None:
+            validator_name = getattr(self.__class__, "validator_name", None)
+            if validator_name is None:
+                raise ValueError("validator_name must be provided")
+
+        super().__init__(name=validator_name)
+
+        from guardrails import Guard, OnFailAction
+
+        validator_class = get_validator_class(validator_name)
+        validator = validator_class(on_fail=OnFailAction.FIX, **validator_kwargs)
+        try:
+            self._guard = Guard().use(validator)
+        except TypeError:
+            self._guard = Guard().use(validator_class, on_fail=OnFailAction.FIX, **validator_kwargs)
+
+    def __call__(
+        self,
+        *,
+        inputs: Any = None,
+        outputs: Any = None,
+        expectations: dict[str, Any] | None = None,
+        trace: Trace | None = None,
+    ) -> Feedback:
+        assessment_source = AssessmentSource(
+            source_type=AssessmentSourceType.CODE,
+            source_id=f"guardrails/{self.name}",
+        )
+
+        try:
+            text = map_scorer_inputs_to_text(
+                inputs=inputs,
+                outputs=outputs,
+                trace=trace,
+            )
+            result = self._guard.validate(text)
+
+            # The validated_output is the fixed text (or None if no fix)
+            fixed = result.validated_output
+            if fixed is None or fixed == text:
+                return Feedback(
+                    name=self.name,
+                    value="yes",
+                    rationale="No issues found — text unchanged",
+                    source=assessment_source,
+                    metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
+                )
+
+            return Feedback(
+                name=self.name,
+                value=fixed,
+                rationale="Content modified by guardrail",
+                source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
+            )
+        except Exception as e:
+            _logger.error(f"Error running fix guardrail {self.name}: {e}")
+            return Feedback(
+                name=self.name,
+                error=e,
+                source=assessment_source,
+                metadata={FRAMEWORK_METADATA_KEY: _FRAMEWORK_NAME},
+            )
+
+
+@experimental(version="3.10.0")
+class AnonymizePII(GuardrailsFixScorer):
+    """
+    Anonymizes personally identifiable information in text.
+
+    Uses ``DetectPII`` with ``on_fail=FIX`` to automatically replace
+    detected PII (emails, phone numbers, names, etc.) with anonymized
+    placeholders.
+
+    Args:
+        pii_entities: PII types to anonymize. Defaults to common types.
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.guardrails import AnonymizePII
+
+            scorer = AnonymizePII()
+            feedback = scorer(outputs="Contact john@email.com or 555-1234")
+            # feedback.value → "Contact <EMAIL_ADDRESS> or <PHONE_NUMBER>"
+    """
+
+    validator_name: ClassVar[str] = "DetectPII"
+
+    def __init__(self, pii_entities: list[str] | None = None, **kwargs: Any):
+        entities = pii_entities or [
+            "EMAIL_ADDRESS",
+            "PHONE_NUMBER",
+            "PERSON",
+            "LOCATION",
+            "US_SSN",
+            "CREDIT_CARD",
+            "IP_ADDRESS",
+        ]
+        super().__init__(validator_name="DetectPII", pii_entities=entities, **kwargs)
+        # Override the name so it shows as AnonymizePII, not DetectPII
+        self.name = "AnonymizePII"
+
+
+@experimental(version="3.10.0")
+class SanitizeWeb(GuardrailsFixScorer):
+    """
+    Removes web injection attacks (XSS) from text.
+
+    Uses ``WebSanitization`` with ``on_fail=FIX`` to strip script tags,
+    event handlers, and other potentially dangerous HTML from LLM outputs.
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.guardrails import SanitizeWeb
+
+            scorer = SanitizeWeb()
+            feedback = scorer(outputs="Hello <script>alert('xss')</script> world")
+            # feedback.value → "Hello  world"
+    """
+
+    validator_name: ClassVar[str] = "WebSanitization"
+
+    def __init__(self, **kwargs: Any):
+        super().__init__(validator_name="WebSanitization", **kwargs)
+        self.name = "SanitizeWeb"
+
+
+@experimental(version="3.10.0")
+class CompetitorFilter(GuardrailsFixScorer):
+    """
+    Removes competitor names from LLM responses.
+
+    Uses ``CompetitorCheck`` with ``on_fail=FIX`` to automatically
+    filter out mentions of specified competitor products or companies.
+
+    Args:
+        competitors: List of competitor names to filter out.
+
+    Examples:
+        .. code-block:: python
+
+            from mlflow.genai.scorers.guardrails import CompetitorFilter
+
+            scorer = CompetitorFilter(competitors=["Competitor A", "Competitor B"])
+            feedback = scorer(outputs="Try Competitor A for a better experience")
+            # feedback.value → "Try  for a better experience"
+    """
+
+    validator_name: ClassVar[str] = "CompetitorCheck"
+
+    def __init__(self, competitors: list[str], **kwargs: Any):
+        super().__init__(
+            validator_name="CompetitorCheck",
+            competitors=competitors,
+            **kwargs,
+        )
+        self.name = "CompetitorFilter"
+
+
+@experimental(version="3.10.0")
 class RegexMatch(GuardrailsScorer):
     """
     Blocks text matching a regular expression pattern using Guardrails AI.
@@ -350,6 +531,7 @@ class RegexMatch(GuardrailsScorer):
 
 __all__ = [
     "GuardrailsScorer",
+    "GuardrailsFixScorer",
     "get_scorer",
     "ToxicLanguage",
     "NSFWText",
@@ -358,4 +540,7 @@ __all__ = [
     "SecretsPresent",
     "GibberishText",
     "RegexMatch",
+    "AnonymizePII",
+    "SanitizeWeb",
+    "CompetitorFilter",
 ]

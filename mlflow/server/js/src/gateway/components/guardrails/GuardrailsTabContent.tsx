@@ -409,6 +409,10 @@ export const GuardrailsTabContent = ({ endpointName, experimentId }: GuardrailsT
         open={isModalOpen}
         onClose={handleModalClose}
         onSuccess={() => refetch()}
+        onDelete={(guardrailId) => {
+          handleRemove(guardrailId);
+          handleModalClose();
+        }}
         endpointName={endpointName}
         editingGuardrail={editingGuardrail}
         experimentId={experimentId}
