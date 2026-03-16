@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
@@ -49,14 +50,17 @@ _logger = logging.getLogger(__name__)
 _DISABLE_RATE_LIMIT_RETRIES = ContextVar("_DISABLE_RATE_LIMIT_RETRIES", default=False)
 
 
-def disable_litellm_rate_limit_retries() -> ContextVar:
-    """Return the ContextVar that controls litellm rate-limit retry suppression.
+@contextlib.contextmanager
+def disable_litellm_rate_limit_retries():
+    token = _DISABLE_RATE_LIMIT_RETRIES.set(True)
+    try:
+        yield
+    finally:
+        _DISABLE_RATE_LIMIT_RETRIES.reset(token)
 
-    Callers should use ``token = _DISABLE_RATE_LIMIT_RETRIES.set(True)`` and
-    ``_DISABLE_RATE_LIMIT_RETRIES.reset(token)`` (or a context manager) to
-    temporarily disable litellm's RateLimitErrorRetries.
-    """
-    return _DISABLE_RATE_LIMIT_RETRIES
+
+def is_litellm_rate_limit_retries_disabled() -> bool:
+    return _DISABLE_RATE_LIMIT_RETRIES.get()
 
 
 # Global cache to track model capabilities across function calls

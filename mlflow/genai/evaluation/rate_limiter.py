@@ -23,13 +23,8 @@ def eval_retry_context():
     from mlflow.genai.judges.adapters.litellm_adapter import disable_litellm_rate_limit_retries
     from mlflow.utils.rest_utils import disable_429_retry
 
-    litellm_flag = disable_litellm_rate_limit_retries()
-    litellm_token = litellm_flag.set(True)
-    try:
-        with disable_429_retry():
-            yield
-    finally:
-        litellm_flag.reset(litellm_token)
+    with disable_litellm_rate_limit_retries(), disable_429_retry():
+        yield
 
 
 def is_rate_limit_error(exc: BaseException) -> bool:

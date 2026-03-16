@@ -7,7 +7,7 @@ from mlflow.genai.evaluation.rate_limiter import (
     eval_retry_context,
     is_rate_limit_error,
 )
-from mlflow.genai.judges.adapters.litellm_adapter import disable_litellm_rate_limit_retries
+from mlflow.genai.judges.adapters.litellm_adapter import is_litellm_rate_limit_retries_disabled
 from mlflow.utils.rest_utils import is_429_retry_disabled
 
 
@@ -331,8 +331,7 @@ def test_call_with_retry_reports_throttle_and_success():
 
 def _retry_flags_active():
     """Check that both downstream retry-suppression flags are set."""
-    litellm_flag = disable_litellm_rate_limit_retries()
-    return litellm_flag.get() and is_429_retry_disabled()
+    return is_litellm_rate_limit_retries_disabled() and is_429_retry_disabled()
 
 
 def test_eval_retry_context_sets_and_resets():
