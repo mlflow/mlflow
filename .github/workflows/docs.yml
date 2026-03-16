@@ -33,7 +33,7 @@ defaults:
 
 jobs:
   check:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
@@ -52,7 +52,7 @@ jobs:
           npm run prettier:check
 
   build:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
@@ -111,7 +111,7 @@ jobs:
           VERSION="$(uv version | cut -d' ' -f2)"
           echo "{\"versions\": [\"$VERSION\"]}" > /tmp/docs-build/docs/versions.json
       - name: Upload build artifacts
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: docs-build-${{ github.run_id }}
           path: /tmp/docs-build
@@ -119,7 +119,7 @@ jobs:
           if-no-files-found: error
 
   test-examples:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 30
@@ -142,7 +142,7 @@ jobs:
           uv run pytest .examples
 
   r:
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     permissions:
       contents: read
     timeout-minutes: 15

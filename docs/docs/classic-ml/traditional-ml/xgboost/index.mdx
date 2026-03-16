@@ -354,13 +354,11 @@ Make predictions via REST API:
 import requests
 import pandas as pd
 
-data = pd.DataFrame(
-    {
-        "feature1": [1.2, 2.3],
-        "feature2": [0.8, 1.5],
-        "feature3": [3.4, 4.2],
-    }
-)
+data = pd.DataFrame({
+    "feature1": [1.2, 2.3],
+    "feature2": [0.8, 1.5],
+    "feature3": [3.4, 4.2],
+})
 
 response = requests.post(
     "http://localhost:5000/invocations",

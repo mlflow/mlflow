@@ -40,16 +40,14 @@ from langchain_openai import ChatOpenAI
 prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
 # Create LangChain prompt object
-langchain_prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            # IMPORTANT: Convert prompt template from double to single curly braces format
-            "system",
-            prompt.to_single_brace_format(),
-        ),
-        ("placeholder", "{messages}"),
-    ]
-)
+langchain_prompt = ChatPromptTemplate.from_messages([
+    (
+        # IMPORTANT: Convert prompt template from double to single curly braces format
+        "system",
+        prompt.to_single_brace_format(),
+    ),
+    ("placeholder", "{messages}"),
+])
 
 # Define the LangChain chain
 llm = ChatOpenAI()
@@ -66,9 +64,7 @@ Then log the chain to MLflow and specify the prompt URL in the `prompts` paramet
 
 ```python
 with mlflow.start_run(run_name="summarizer-model"):
-    mlflow.langchain.log_model(
-        chain, name="model", prompts=["prompts:/summarization-prompt/2"]
-    )
+    mlflow.langchain.log_model(chain, name="model", prompts=["prompts:/summarization-prompt/2"])
 ```
 
 Now you can view the associated prompts to the model in MLflow UI:
@@ -187,16 +183,14 @@ mlflow.langchain.autolog()
 # Load the graph
 graph = mlflow.langchain.load_model(model_info.model_uri)
 
-graph.invoke(
-    {
-        "messages": [
-            {
-                "role": "user",
-                "content": "What is the difference between multi-threading and multi-processing?",
-            }
-        ]
-    }
-)
+graph.invoke({
+    "messages": [
+        {
+            "role": "user",
+            "content": "What is the difference between multi-threading and multi-processing?",
+        }
+    ]
+})
 ```
 
 ![Chatbot](/images/llms/prompt-registry/prompt-logged-trace.png)

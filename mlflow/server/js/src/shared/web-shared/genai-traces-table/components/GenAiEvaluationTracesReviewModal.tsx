@@ -218,7 +218,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
         {/* Only show skeleton for the first fetch to avoid flickering when polling new spans */}
         {!shouldUseModelTraceExplorerDrawerUI() &&
           !currentTraceQueryResult.data &&
-          currentTraceQueryResult.isFetching && (
+          currentTraceQueryResult.isLoading && (
             <GenericSkeleton
               label="Loading trace..."
               style={{
@@ -240,12 +240,11 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
               {/* prettier-ignore */}
               <ModelTraceExplorerModalBody
                 traceData={currentTraceQueryResult.data}
-                showLoadingState={shouldUseModelTraceExplorerDrawerUI() && (currentTraceQueryResult.isFetching)}
               />
             </div>
           ) : (
             evaluation?.currentRunValue &&
-            (shouldUseModelTraceExplorerDrawerUI() && currentTraceQueryResult.isFetching ? (
+            (shouldUseModelTraceExplorerDrawerUI() && currentTraceQueryResult.isLoading ? (
               <div css={{ marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
                 <ModelTraceExplorerSkeleton />
               </div>
@@ -289,7 +288,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           selectNextEval={selectNextEval}
           selectPreviousEval={selectPreviousEval}
           renderModalTitle={renderModalTitle}
-          isLoading={currentTraceQueryResult.isFetching}
+          isLoading={currentTraceQueryResult.isLoading}
           experimentId={experimentId}
           traceInfo={currentTraceInfo}
         >
@@ -307,7 +306,6 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
         selectNextEval={selectNextEval}
         selectPreviousEval={selectPreviousEval}
         renderModalTitle={renderModalTitle}
-        isLoading={currentTraceQueryResult.isFetching}
       >
         {content}
         {renderExportTracesToDatasetsModal?.({
@@ -329,7 +327,6 @@ const ModalWrapper = ({
   renderModalTitle,
   handleClose,
   children,
-  isLoading,
 }: {
   children: React.ReactNode;
   selectPreviousEval: () => void;
@@ -338,7 +335,6 @@ const ModalWrapper = ({
   isNextAvailable: boolean;
   renderModalTitle: () => React.ReactNode;
   handleClose: () => void;
-  isLoading?: boolean;
 }) => {
   const { theme, classNamePrefix } = useDesignSystemTheme();
   const useRadixModal = false;
@@ -442,10 +438,8 @@ const ModalWrapper = ({
 // prettier-ignore
 const ModelTraceExplorerModalBody = ({
   traceData,
-  showLoadingState,
 }: {
   traceData: ModelTrace;
-  showLoadingState: boolean;
 }) => {
   return (
     <ModelTraceExplorer

@@ -775,8 +775,9 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
 def clean_up_extra_traces(
     traces: list[Trace],
     eval_start_time: int,
+    experiment_id: str,
     input_trace_ids: set[str] | None = None,
-) -> list[Trace]:
+) -> None:
     """
     Clean up noisy traces generated outside predict function.
 
@@ -788,14 +789,10 @@ def clean_up_extra_traces(
     Args:
         traces: List of traces to clean up.
         eval_start_time: The start time of the evaluation run.
+        experiment_id: The experiment ID of the evaluation run.
         input_trace_ids: Set of trace IDs that were passed in the input DataFrame.
             These traces should never be deleted.
-
-    Returns:
-        List of traces that are kept after cleaning up extra traces.
     """
-    from mlflow.tracking.fluent import _get_experiment_id
-
     try:
         extra_trace_ids = [
             trace.info.trace_id
@@ -810,9 +807,7 @@ def clean_up_extra_traces(
             # Import MlflowClient locally to avoid issues with tracing-only SDK
             from mlflow.tracking.client import MlflowClient
 
-            MlflowClient().delete_traces(
-                experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
-            )
+            MlflowClient().delete_traces(experiment_id=experiment_id, trace_ids=extra_trace_ids)
             for trace_id in extra_trace_ids:
                 IPythonTraceDisplayHandler.get_instance().traces_to_display.pop(trace_id, None)
         else:

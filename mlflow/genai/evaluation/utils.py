@@ -156,7 +156,8 @@ def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     df = _convert_eval_set_to_df(data)
 
     return (
-        df.pipe(_deserialize_trace_column_if_needed)
+        df
+        .pipe(_deserialize_trace_column_if_needed)
         .pipe(_extract_request_response_from_trace)
         .pipe(_extract_expectations_from_trace)
     )

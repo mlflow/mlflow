@@ -13,13 +13,11 @@ def test_keras_mlflow_callback_log_every_epoch():
     data = np.random.uniform(size=(20, 28, 28, 3))
     label = np.random.randint(2, size=20)
 
-    model = keras.Sequential(
-        [
-            keras.Input([28, 28, 3]),
-            keras.layers.Flatten(),
-            keras.layers.Dense(2),
-        ]
-    )
+    model = keras.Sequential([
+        keras.Input([28, 28, 3]),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2),
+    ])
 
     model.compile(
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),
@@ -65,13 +63,11 @@ def test_keras_mlflow_callback_log_every_n_steps():
     data = np.random.uniform(size=(20, 28, 28, 3))
     label = np.random.randint(2, size=20)
 
-    model = keras.Sequential(
-        [
-            keras.Input([28, 28, 3]),
-            keras.layers.Flatten(),
-            keras.layers.Dense(2),
-        ]
-    )
+    model = keras.Sequential([
+        keras.Input([28, 28, 3]),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2),
+    ])
 
     model.compile(
         loss=keras.losses.SparseCategoricalCrossentropy(from_logits=True),

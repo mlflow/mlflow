@@ -143,9 +143,7 @@ MLFLOW_TRACKING_URI = "http://localhost:5000"
 MLFLOW_EXPERIMENT_ID = "123"
 
 os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = f"{MLFLOW_TRACKING_URI}/v1/traces"
-os.environ[
-    "OTEL_EXPORTER_OTLP_TRACES_HEADERS"
-] = f"x-mlflow-experiment-id={MLFLOW_EXPERIMENT_ID}"
+os.environ["OTEL_EXPORTER_OTLP_TRACES_HEADERS"] = f"x-mlflow-experiment-id={MLFLOW_EXPERIMENT_ID}"
 
 app = FastAPI()
 FastAPIInstrumentor.instrument_app(app)
@@ -169,6 +167,12 @@ For a deeper dive into using MLflow together with OpenTelemetry, see the [OpenTe
 ## View Your Traces on the MLflow UI
 
 After running the code above, go to the MLflow UI and select the "My Application" experiment, and then select the "Traces" tab. It should show the newly created trace.
+
+:::tip Learn More About Tracing UI
+
+The "Traces" page includes rich information about the trace and supports various actions such as searching, filtering, adding feedbacks, and more. See [View Traces](/genai/tracing/observe-with-traces/ui) for comprehensive guide about how to get the most out of the MLflow Tracing UI.
+
+:::
 
 <ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-list.png" alt="Single Trace" />
 

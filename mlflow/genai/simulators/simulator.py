@@ -787,13 +787,11 @@ class ConversationSimulator:
                 ]
             mlflow.update_current_trace(metadata=metadata)
             if span := mlflow.get_current_active_span():
-                span.set_attributes(
-                    {
-                        "mlflow.simulation.goal": goal,
-                        "mlflow.simulation.persona": persona or DEFAULT_PERSONA,
-                        "mlflow.simulation.context": context,
-                    }
-                )
+                span.set_attributes({
+                    "mlflow.simulation.goal": goal,
+                    "mlflow.simulation.persona": persona or DEFAULT_PERSONA,
+                    "mlflow.simulation.context": context,
+                })
             return predict_fn(**kwargs)
 
         sig = inspect.signature(predict_fn)

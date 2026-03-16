@@ -70,6 +70,12 @@ export class RoutePaths {
   static get experimentPageTabEvaluationRuns() {
     return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs');
   }
+  static get experimentPageTabIssueDetectionRunDetails() {
+    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid');
+  }
+  static get experimentPageTabIssueDetectionRunDetailsWithTab() {
+    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs/:runUuid/*');
+  }
   static get experimentPageTabDatasets() {
     return createMLflowRoutePath('/experiments/:experimentId/datasets');
   }
@@ -222,6 +228,14 @@ class Routes {
       runUuid,
       '*': tabPath,
     });
+  }
+
+  static getIssueDetectionRunDetailsRoute(experimentId: string, runUuid: string) {
+    return generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid });
+  }
+
+  static getIssueDetectionRunDetailsTabRoute(experimentId: string, runUuid: string, tabName: string) {
+    return `${generatePath(RoutePaths.experimentPageTabIssueDetectionRunDetails, { experimentId, runUuid })}/${tabName}`;
   }
 
   /**

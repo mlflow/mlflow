@@ -1,4 +1,5 @@
 import { describe, jest, beforeEach, test, expect } from '@jest/globals';
+import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '../../../common/utils/TestUtils.react18';
 import { EditBudgetPolicyModal } from './EditBudgetPolicyModal';
 import { useUpdateBudgetPolicy } from '../../hooks/useUpdateBudgetPolicy';
@@ -15,8 +16,7 @@ const mockPolicy: BudgetPolicy = {
   budget_policy_id: 'bp-1',
   budget_unit: 'USD',
   budget_amount: 200,
-  duration_unit: 'WEEKS',
-  duration_value: 1,
+  duration: { unit: 'WEEKS', value: 1 },
   target_scope: 'GLOBAL',
   budget_action: 'ALERT',
   created_at: Date.now() / 1000,
@@ -49,7 +49,6 @@ describe('EditBudgetPolicyModal', () => {
   });
 
   test('submits with correct payload mapping duration preset', async () => {
-    const userEvent = (await import('@testing-library/user-event')).default;
     const onClose = jest.fn();
     const onSuccess = jest.fn();
 
@@ -64,8 +63,7 @@ describe('EditBudgetPolicyModal', () => {
       budget_policy_id: 'bp-1',
       budget_unit: 'USD',
       budget_amount: 200,
-      duration_unit: 'WEEKS',
-      duration_value: 1,
+      duration: { unit: 'WEEKS', value: 1 },
       target_scope: 'GLOBAL',
       budget_action: 'ALERT',
     });

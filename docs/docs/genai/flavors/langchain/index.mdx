@@ -357,9 +357,7 @@ this saved script directly when defining the model:
 ```python
 import mlflow
 
-input_example = {
-    "messages": [{"role": "user", "content": "what is the weather in seattle today?"}]
-}
+input_example = {"messages": [{"role": "user", "content": "what is the weather in seattle today?"}]}
 
 with mlflow.start_run():
     model_info = mlflow.langchain.log_model(
@@ -401,9 +399,9 @@ import os
 from operator import itemgetter
 from langchain.schema.runnable import RunnablePassthrough
 
-model = RunnablePassthrough.assign(
-    problem=lambda x: x["messages"][-1]["content"]
-) | itemgetter("problem")
+model = RunnablePassthrough.assign(problem=lambda x: x["messages"][-1]["content"]) | itemgetter(
+    "problem"
+)
 
 input_example = {
     "messages": [
@@ -419,9 +417,7 @@ assert model.invoke(input_example) == "Hello"
 # set this environment variable to avoid input conversion
 os.environ["MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN"] = "false"
 with mlflow.start_run():
-    model_info = mlflow.langchain.log_model(
-        model, name="model", input_example=input_example
-    )
+    model_info = mlflow.langchain.log_model(model, name="model", input_example=input_example)
 
 pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
 assert pyfunc_model.predict(input_example) == ["Hello"]

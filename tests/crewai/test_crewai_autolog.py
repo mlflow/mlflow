@@ -57,33 +57,31 @@ def create_sample_llm_response(content, tool_calls=None):
     if tool_calls:
         message["tool_calls"] = tool_calls
 
-    return ModelResponse(
-        **{
-            "id": "chatcmpl-123",
-            "object": "chat.completion",
-            "created": 1677652288,
-            "model": "gpt-4o",
-            "system_fingerprint": "fp_44709d6fcb",
-            "choices": [
-                {
-                    "index": 0,
-                    "message": message,
-                    "logprobs": None,
-                    "finish_reason": "tool_calls" if tool_calls else "stop",
-                }
-            ],
-            "usage": {
-                "prompt_tokens": 9,
-                "completion_tokens": 12,
-                "total_tokens": 21,
-                "completion_tokens_details": {
-                    "reasoning_tokens": 0,
-                    "accepted_prediction_tokens": 0,
-                    "rejected_prediction_tokens": 0,
-                },
+    return ModelResponse(**{
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1677652288,
+        "model": "gpt-4o",
+        "system_fingerprint": "fp_44709d6fcb",
+        "choices": [
+            {
+                "index": 0,
+                "message": message,
+                "logprobs": None,
+                "finish_reason": "tool_calls" if tool_calls else "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": 9,
+            "completion_tokens": 12,
+            "total_tokens": 21,
+            "completion_tokens_details": {
+                "reasoning_tokens": 0,
+                "accepted_prediction_tokens": 0,
+                "rejected_prediction_tokens": 0,
             },
-        }
-    )
+        },
+    })
 
 
 def _simple_chat_completion(*args, **kwargs):

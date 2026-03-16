@@ -195,13 +195,11 @@ def test_translate_token_usage_from_otel(translator: OtelSchemaTranslator, total
         ),
         (
             {
-                SpanAttributeKey.CHAT_USAGE: json.dumps(
-                    {
-                        TokenUsageKey.INPUT_TOKENS: 200,
-                        TokenUsageKey.OUTPUT_TOKENS: 100,
-                        TokenUsageKey.TOTAL_TOKENS: 300,
-                    }
-                ),
+                SpanAttributeKey.CHAT_USAGE: json.dumps({
+                    TokenUsageKey.INPUT_TOKENS: 200,
+                    TokenUsageKey.OUTPUT_TOKENS: 100,
+                    TokenUsageKey.TOTAL_TOKENS: 300,
+                }),
                 "gen_ai.usage.input_tokens": 50,
                 "gen_ai.usage.output_tokens": 25,
             },

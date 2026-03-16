@@ -8,16 +8,11 @@ pipeline = transformers.pipeline(
     tokenizer=transformers.AutoTokenizer.from_pretrained("distilbert-base-uncased"),
 )
 
-signature = mlflow.models.infer_signature(
-    "MLflow is [MASK]!",
-    mlflow.transformers.generate_signature_output(pipeline, "MLflow is [MASK]!"),
-)
-
 with mlflow.start_run():
     model_info = mlflow.transformers.log_model(
         transformers_model=pipeline,
         name="mask_filler",
-        signature=signature,
+        input_example="MLflow is [MASK]!",
     )
 
 components = mlflow.transformers.load_model(model_info.model_uri, return_type="components")

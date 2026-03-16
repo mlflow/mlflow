@@ -46,36 +46,30 @@ def test_assessment_creation():
     for key, value in default_params.items():
         assert getattr(assessment, key) == value
 
-    assessment_with_error = Assessment(
-        **{
-            **default_params,
-            "feedback": FeedbackValue(
-                None, AssessmentError(error_code="E001", error_message="An error occurred.")
-            ),
-        }
-    )
+    assessment_with_error = Assessment(**{
+        **default_params,
+        "feedback": FeedbackValue(
+            None, AssessmentError(error_code="E001", error_message="An error occurred.")
+        ),
+    })
     assert assessment_with_error.feedback.error.error_code == "E001"
     assert assessment_with_error.feedback.error.error_message == "An error occurred."
 
     # Both feedback value and error can be set. For example, a default fallback value can
     # be set when LLM judge fails to provide a value.
-    assessment_with_value_and_error = Assessment(
-        **{
-            **default_params,
-            "feedback": FeedbackValue(value=1, error=AssessmentError(error_code="E001")),
-        }
-    )
+    assessment_with_value_and_error = Assessment(**{
+        **default_params,
+        "feedback": FeedbackValue(value=1, error=AssessmentError(error_code="E001")),
+    })
     assert assessment_with_value_and_error.feedback.value == 1
     assert assessment_with_value_and_error.feedback.error.error_code == "E001"
 
     # Backward compatibility. "error" was previously in the Assessment class.
-    assessment_legacy_error = Assessment(
-        **{
-            **default_params,
-            "error": AssessmentError(error_code="E001", error_message="An error occurred."),
-            "feedback": FeedbackValue(None),
-        }
-    )
+    assessment_legacy_error = Assessment(**{
+        **default_params,
+        "error": AssessmentError(error_code="E001", error_message="An error occurred."),
+        "feedback": FeedbackValue(None),
+    })
     assert assessment_legacy_error.feedback.error.error_code == "E001"
     assert assessment_legacy_error.feedback.error.error_message == "An error occurred."
 

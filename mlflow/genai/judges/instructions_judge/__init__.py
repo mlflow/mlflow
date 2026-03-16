@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import asdict
-from typing import Any, Literal, get_origin
+from typing import Any, Literal
 
 import pydantic
 from pydantic import PrivateAttr
@@ -24,6 +24,7 @@ from mlflow.genai.judges.instructions_judge.constants import (
 from mlflow.genai.judges.utils import (
     add_output_format_instructions,
     format_prompt,
+    format_type,
     get_default_model,
     invoke_judge_model,
     validate_judge_model,
@@ -336,12 +337,10 @@ class InstructionsJudge(Judge):
         if is_trace_based:
             # include the value type in the description too so that models that don't support
             # structured outputs with tool calls can still understand the type.
-            evaluation_rating_fields = "\n".join(
-                [
-                    f"- {field.name} ({self._format_type(field.value_type)}): {field.description}"
-                    for field in output_fields
-                ]
-            )
+            evaluation_rating_fields = "\n".join([
+                f"- {field.name} ({format_type(field.value_type)}): {field.description}"
+                for field in output_fields
+            ])
             return INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
                 evaluation_rating_fields=evaluation_rating_fields,
                 instructions=self._instructions,
@@ -371,14 +370,6 @@ class InstructionsJudge(Judge):
             if self._generate_rationale_first
             else [result_field, rationale_field]
         )
-
-    def _format_type(self, value_type: Any) -> str:
-        if value_type in (str, int, float, bool):
-            return value_type.__name__
-        elif get_origin(value_type) is Literal:
-            return str(value_type).replace("typing.", "")
-        # dict and list
-        return str(value_type)
 
     def _build_user_message(
         self,
@@ -527,12 +518,65 @@ class InstructionsJudge(Judge):
             if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
                 expectations = resolve_expectations_from_session(expectations, session)
 
-        self._check_required_parameters(inputs, outputs, expectations, trace, conversation)
+        # Detect if we need to fall back to agentic (trace-based) mode.
+        # This handles OTel-based traces (e.g. Google ADK, LangChain JS, Vercel AI SDK)
+        # where root spans don't have explicit inputs/outputs.
+        is_fallback_to_trace_mode = False
+        if trace is not None and self._TEMPLATE_VARIABLE_TRACE not in self.template_variables:
+            missing_inputs = (
+                self._TEMPLATE_VARIABLE_INPUTS in self.template_variables and inputs is None
+            )
+            missing_outputs = (
+                self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables and outputs is None
+            )
+            if missing_inputs or missing_outputs:
+                is_fallback_to_trace_mode = True
+                missing_fields = []
+                if missing_inputs:
+                    missing_fields.append("inputs")
+                if missing_outputs:
+                    missing_fields.append("outputs")
+                _logger.info(
+                    "Could not extract %s from the trace root span. "
+                    "Falling back to trace-based judge mode.",
+                    " and ".join(missing_fields),
+                )
+
+        if not is_fallback_to_trace_mode:
+            self._check_required_parameters(inputs, outputs, expectations, trace, session or None)
+        else:
+            # In fallback mode, inputs/outputs will be discovered by the agentic judge
+            # via tools. But we still need to validate other required parameters.
+            missing_params = []
+            if (
+                self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables
+                and expectations is None
+            ):
+                missing_params.append("expectations")
+            if self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables and session is None:
+                missing_params.append("session")
+            if missing_params:
+                missing_str = "', '".join(missing_params)
+                raise MlflowException(
+                    f"Must specify '{missing_str}' - required by template variables "
+                    "in instructions.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
         self._warn_unused_parameters(
             original_inputs, original_outputs, original_expectations, conversation
         )
 
-        is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
+        is_trace_based = (
+            self._TEMPLATE_VARIABLE_TRACE in self.template_variables or is_fallback_to_trace_mode
+        )
+
+        if is_fallback_to_trace_mode:
+            _logger.debug("Using trace-based (agentic) judge mode via fallback.")
+        elif is_trace_based:
+            _logger.debug("Using trace-based (agentic) judge mode.")
+        else:
+            _logger.debug("Using standard (non-agentic) judge mode.")
 
         system_content = self._build_system_message(is_trace_based)
         user_content = self._build_user_message(inputs, outputs, expectations, conversation)

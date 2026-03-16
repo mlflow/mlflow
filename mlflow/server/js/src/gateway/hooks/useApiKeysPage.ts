@@ -1,9 +1,15 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { useSecretsQuery } from './useSecretsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
 import { useBindingsQuery } from './useBindingsQuery';
 import { useModelDefinitionsQuery } from './useModelDefinitionsQuery';
 import type { SecretInfo, Endpoint, EndpointBinding, ModelDefinition } from '../types';
+import { useLogTelemetryEvent } from '@mlflow/mlflow/src/telemetry/hooks/useLogTelemetryEvent';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+} from '@databricks/design-system';
 
 export interface DeleteModalData {
   secret: SecretInfo;
@@ -31,6 +37,8 @@ export function useApiKeysPage() {
   const { data: allEndpoints, refetch: refetchEndpoints } = useEndpointsQuery();
   const { data: allBindings } = useBindingsQuery();
   const { data: allModelDefinitions, refetch: refetchModelDefinitions } = useModelDefinitionsQuery();
+  const logTelemetryEvent = useLogTelemetryEvent();
+  const viewId = useMemo(() => uuidv4(), []);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedSecret, setSelectedSecret] = useState<SecretInfo | null>(null);
@@ -86,9 +94,19 @@ export function useApiKeysPage() {
   }, [refetchSecrets]);
 
   // Details drawer handlers
-  const handleKeyClick = useCallback((secret: SecretInfo) => {
-    setSelectedSecret(secret);
-  }, []);
+  const handleKeyClick = useCallback(
+    (secret: SecretInfo) => {
+      setSelectedSecret(secret);
+      logTelemetryEvent({
+        componentId: 'mlflow.gateway.api-keys.list.row',
+        componentViewId: viewId,
+        componentType: DesignSystemEventProviderComponentTypes.Button,
+        componentSubType: null,
+        eventType: DesignSystemEventProviderAnalyticsEventTypes.OnClick,
+      });
+    },
+    [logTelemetryEvent, viewId],
+  );
 
   const handleDrawerClose = useCallback(() => {
     setSelectedSecret(null);

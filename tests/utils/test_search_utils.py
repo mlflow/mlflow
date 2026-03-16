@@ -110,6 +110,29 @@ from mlflow.utils.search_utils import SearchTraceUtils, SearchUtils
             "dataset.name = 'my_dataset'",
             [{"type": "dataset", "comparator": "=", "key": "name", "value": "my_dataset"}],
         ),
+        (
+            "tags.version IS NULL",
+            [{"comparator": "IS NULL", "key": "version", "type": "tag", "value": None}],
+        ),
+        (
+            "tags.version IS NOT NULL",
+            [{"comparator": "IS NOT NULL", "key": "version", "type": "tag", "value": None}],
+        ),
+        (
+            "params.lr IS NULL",
+            [{"comparator": "IS NULL", "key": "lr", "type": "parameter", "value": None}],
+        ),
+        (
+            "params.lr IS NOT NULL",
+            [{"comparator": "IS NOT NULL", "key": "lr", "type": "parameter", "value": None}],
+        ),
+        (
+            "tags.a IS NULL AND params.b = 'val'",
+            [
+                {"comparator": "IS NULL", "key": "a", "type": "tag", "value": None},
+                {"comparator": "=", "key": "b", "type": "parameter", "value": "val"},
+            ],
+        ),
     ],
 )
 def test_filter(filter_string, parsed_filter):
@@ -157,6 +180,8 @@ def test_correct_quote_trimming(filter_string, parsed_filter):
         ("attribute.status = true", "Invalid clause(s) in filter string"),
         ("dataset.status = 'true'", "Invalid dataset key"),
         ("dataset.profile = 'num_rows: 10'", "Invalid dataset key"),
+        ("metrics.acc IS NULL", "IS NULL / IS NOT NULL is only supported for tags and params"),
+        ("attribute.status IS NULL", "IS NULL / IS NOT NULL is only supported for tags and params"),
     ],
 )
 def test_error_filter(filter_string, error_message):
@@ -208,7 +233,7 @@ def test_bad_quotes(filter_string, error_message):
         ("params.acc LR", "Invalid clause(s) in filter string"),
         ("metric.acc !=", "Invalid clause(s) in filter string"),
         ("acc != 1.0", "Invalid attribute key"),
-        ("foo is null", "Invalid clause(s) in filter string"),
+        ("foo is null", "Invalid attribute key"),
         ("1=1", "Expected 'Identifier' found"),
         ("1==2", "Expected 'Identifier' found"),
     ],
@@ -695,6 +720,39 @@ def test_like_pattern_with_plus_character(tmp_path):
 
     exps = mlflow.search_experiments(filter_string='name LIKE "jamie-foo C+%"')
     assert len(exps) == 1
+
+
+def test_filter_runs_by_tag_and_param_is_null():
+    run_with_tag = Run(
+        run_info=RunInfo(
+            run_id="run1",
+            experiment_id=0,
+            user_id="user",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+        run_data=RunData(tags=[RunTag("env", "prod")], params=[], metrics=[]),
+    )
+    run_with_param = Run(
+        run_info=RunInfo(
+            run_id="run2",
+            experiment_id=0,
+            user_id="user",
+            status=RunStatus.to_string(RunStatus.FINISHED),
+            start_time=0,
+            end_time=1,
+            lifecycle_stage=LifecycleStage.ACTIVE,
+        ),
+        run_data=RunData(tags=[], params=[Param("lr", "0.01")], metrics=[]),
+    )
+    runs = [run_with_tag, run_with_param]
+
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "tags.env IS NOT NULL")] == ["run1"]
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "tags.env IS NULL")] == ["run2"]
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "params.lr IS NOT NULL")] == ["run2"]
+    assert [r.info.run_id for r in SearchUtils.filter(runs, "params.lr IS NULL")] == ["run1"]
 
 
 def test_search_trace_utils_filter_tag_is_null():

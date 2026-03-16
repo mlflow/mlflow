@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { LLMScorer } from '../types';
 import { LLM_TEMPLATE } from '../types';
 import { useGetScheduledScorers } from './useGetScheduledScorers';
@@ -13,6 +13,7 @@ import {
   PlusIcon,
   Checkbox,
   SearchIcon,
+  Spinner,
   TableSkeleton,
   Typography,
   useDesignSystemTheme,
@@ -22,7 +23,7 @@ import ScorerModalRenderer from '../ScorerModalRenderer';
 import { SCORER_FORM_MODE, ScorerEvaluationScope } from '../constants';
 import { useRunSerializedScorer } from './useRunSerializedScorer';
 import type { ModelTraceExplorerRunJudgeConfig } from '@databricks/web-shared/model-trace-explorer';
-import type { ScorerFinishedEvent } from '../useEvaluateTracesAsync';
+import type { ScorerEvaluation, ScorerFinishedEvent } from '../useEvaluateTracesAsync';
 import { useTemplateOptions } from '../llmScorerUtils';
 import { EndpointSelector } from '../../../components/EndpointSelector';
 import {
@@ -31,14 +32,17 @@ import {
 } from '../../../../gateway/utils/gatewayUtils';
 import { TEMPLATE_INSTRUCTIONS_MAP } from '../prompts';
 import { isEmpty } from 'lodash';
+import { useQueryClient } from '@tanstack/react-query';
+import { invalidateMlflowSearchTracesCache } from '../../../../shared/web-shared/model-trace-explorer/hooks/invalidateMlflowSearchTracesCache';
 
 interface UseRunScorerInTracesViewConfigurationReturnType extends ModelTraceExplorerRunJudgeConfig {
-  RunJudgeModalElement: React.ReactNode;
+  evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
+  allEvaluations: Record<string, ScorerEvaluation>;
 }
 
 export const useRunScorerInTracesViewConfiguration = (
   scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
-): ModelTraceExplorerRunJudgeConfig => {
+): UseRunScorerInTracesViewConfigurationReturnType => {
   const [experimentId] = useExperimentIds();
 
   const scorerFinishSubscribers = useRef<((event: ScorerFinishedEvent) => void)[]>([]);
@@ -68,7 +72,7 @@ export const useRunScorerInTracesViewConfiguration = (
         <RunJudgeModalImpl
           scope={scope}
           visible={visible}
-          itemId={itemId}
+          itemIds={[itemId]}
           evaluateTraces={evaluateTraces}
           onClose={onClose}
         />
@@ -79,24 +83,103 @@ export const useRunScorerInTracesViewConfiguration = (
 
   return {
     renderRunJudgeModal,
-    evaluations: allEvaluations,
-    subscribeToScorerFinished,
+    evaluations: allEvaluations as ModelTraceExplorerRunJudgeConfig['evaluations'],
+    evaluateTraces,
+    allEvaluations: allEvaluations ?? {},
+    subscribeToScorerFinished:
+      subscribeToScorerFinished as ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
     reset,
     scope,
-  } as UseRunScorerInTracesViewConfigurationReturnType;
+  };
 };
 
 /**
- * Dropdown for selecting a judge to run against a trace.
+ * Returns helpers for running judges on multiple selected traces from the table toolbar.
+ * Accepts `evaluateTraces` and `allEvaluations` from a shared scorer instance so that
+ * bulk evaluations are visible in `ModelTraceExplorerRunJudgesContext` (used by AssessmentCell).
+ */
+export const useRunJudgesOnTracesConfiguration = (
+  evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void,
+  allEvaluations: Record<string, ScorerEvaluation> | undefined,
+  subscribeToScorerFinished?: ModelTraceExplorerRunJudgeConfig['subscribeToScorerFinished'],
+  scope: ScorerEvaluationScope = ScorerEvaluationScope.TRACES,
+) => {
+  const queryClient = useQueryClient();
+  const [pendingTraceIds, setPendingTraceIds] = useState<string[]>([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [dismissedKeys, setDismissedKeys] = useState<Set<string>>(new Set());
+
+  const showRunJudgesModal = useCallback((traceIds: string[]) => {
+    setPendingTraceIds(traceIds);
+    setIsModalVisible(true);
+  }, []);
+
+  const handleClose = useCallback(() => {
+    setIsModalVisible(false);
+    setPendingTraceIds([]);
+  }, []);
+
+  // Prune dismissed keys that no longer exist in allEvaluations to prevent unbounded growth
+  useEffect(() => {
+    if (!allEvaluations) return;
+    const currentKeys = new Set(Object.values(allEvaluations).map((e) => e.requestKey));
+    setDismissedKeys((prev) => {
+      const pruned = new Set([...prev].filter((key) => currentKeys.has(key)));
+      return pruned.size === prev.size ? prev : pruned;
+    });
+  }, [allEvaluations]);
+
+  const activeEvaluations = useMemo(
+    () => Object.values(allEvaluations ?? {}).filter((e) => !dismissedKeys.has(e.requestKey)),
+    [allEvaluations, dismissedKeys],
+  );
+
+  const dismiss = useCallback((requestKey: string) => {
+    setDismissedKeys((prev) => new Set([...prev, requestKey]));
+  }, []);
+
+  const JudgesStatusBanner = useMemo(
+    () =>
+      activeEvaluations.length > 0 ? (
+        <JudgesEvaluationStatusBanner evaluations={activeEvaluations} onDismiss={dismiss} />
+      ) : null,
+    [activeEvaluations, dismiss],
+  );
+
+  const RunJudgesModal = useMemo(
+    () => (
+      <RunJudgeModalImpl
+        scope={scope}
+        visible={isModalVisible}
+        itemIds={pendingTraceIds}
+        evaluateTraces={evaluateTraces}
+        onClose={handleClose}
+      />
+    ),
+    [scope, isModalVisible, pendingTraceIds, evaluateTraces, handleClose],
+  );
+
+  // Invalidate the traces search cache when a scorer finishes
+  useEffect(() => {
+    return subscribeToScorerFinished?.(() => {
+      invalidateMlflowSearchTracesCache({ queryClient });
+    });
+  }, [subscribeToScorerFinished, queryClient]);
+
+  return { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner };
+};
+
+/**
+ * Dropdown for selecting a judge to run against one or more traces.
  */
 const RunJudgeModalImpl = ({
-  itemId,
+  itemIds,
   evaluateTraces,
   visible,
   onClose,
   scope = ScorerEvaluationScope.TRACES,
 }: {
-  itemId: string;
+  itemIds: string[];
   evaluateTraces: (scorer: LLMScorer | LLM_TEMPLATE, traceIds: string[], endpointName?: string) => void;
   visible: boolean;
   onClose: () => void;
@@ -161,8 +244,8 @@ const RunJudgeModalImpl = ({
     }
     setError(undefined);
     try {
-      selectedScorers.forEach((scorer) => evaluateTraces(scorer, [itemId], currentEndpointName));
-      selectedTemplates.forEach((template) => evaluateTraces(template, [itemId], currentEndpointName));
+      selectedScorers.forEach((scorer) => evaluateTraces(scorer, itemIds, currentEndpointName));
+      selectedTemplates.forEach((template) => evaluateTraces(template, itemIds, currentEndpointName));
       onClose();
     } catch (error) {
       setError(error as Error);
@@ -183,6 +266,12 @@ const RunJudgeModalImpl = ({
             <FormattedMessage
               defaultMessage="Run judge on session"
               description="Title for run judge modal in sessions view"
+            />
+          ) : itemIds.length > 1 ? (
+            <FormattedMessage
+              defaultMessage="Run judge on {count} traces"
+              description="Title for run judge modal when running on multiple traces"
+              values={{ count: itemIds.length }}
             />
           ) : (
             <FormattedMessage
@@ -338,7 +427,7 @@ const RunJudgeModalImpl = ({
           mode={SCORER_FORM_MODE.CREATE}
           initialScorerType="llm"
           initialScope={scope}
-          initialItemId={itemId}
+          initialItemId={itemIds[0]}
         />
       )}
     </>
@@ -415,6 +504,91 @@ const TemplateOption = ({
           </Typography.Hint>
         </div>
       </Checkbox>
+    </div>
+  );
+};
+
+/**
+ * A banner shown below the traces toolbar while judges are being evaluated
+ * on selected traces. Shows one row per in-flight or completed evaluation,
+ * with a spinner while loading and success/error states on completion.
+ */
+const JudgesEvaluationStatusBanner = ({
+  evaluations,
+  onDismiss,
+}: {
+  evaluations: ScorerEvaluation[];
+  onDismiss: (requestKey: string) => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
+
+  return (
+    <div
+      css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, padding: `0 0 ${theme.spacing.xs}px` }}
+    >
+      {evaluations.map((evaluation) => {
+        if (evaluation.isLoading) {
+          return (
+            <Alert
+              key={evaluation.requestKey}
+              componentId="mlflow.experiment-scorers.judges-running-banner"
+              type="info"
+              closable={false}
+              message={
+                <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+                  <Spinner size="small" />
+                  <span>
+                    {intl.formatMessage(
+                      {
+                        defaultMessage: 'Running judge "{label}"…',
+                        description: 'Banner message shown while a judge is running on selected traces',
+                      },
+                      { label: evaluation.label },
+                    )}
+                  </span>
+                </div>
+              }
+            />
+          );
+        }
+
+        if (evaluation.error) {
+          return (
+            <Alert
+              key={evaluation.requestKey}
+              componentId="mlflow.experiment-scorers.judges-error-banner"
+              type="error"
+              closable
+              onClose={() => onDismiss(evaluation.requestKey)}
+              message={intl.formatMessage(
+                {
+                  defaultMessage: 'Judge "{label}" failed: {error}',
+                  description: 'Banner message shown when a judge run fails',
+                },
+                { label: evaluation.label, error: evaluation.error.message },
+              )}
+            />
+          );
+        }
+
+        return (
+          <Alert
+            key={evaluation.requestKey}
+            componentId="mlflow.experiment-scorers.judges-success-banner"
+            type="info"
+            closable
+            onClose={() => onDismiss(evaluation.requestKey)}
+            message={intl.formatMessage(
+              {
+                defaultMessage: 'Judge "{label}" completed successfully.',
+                description: 'Banner message shown when a judge run completes successfully',
+              },
+              { label: evaluation.label },
+            )}
+          />
+        );
+      })}
     </div>
   );
 };

@@ -149,9 +149,7 @@ data = [
     {
         "inputs": {"question": "How to learn Python?"},
         "outputs": "You can read a book or take a course.",
-        "expectations": {
-            "guidelines": ["The response must be helpful and encouraging"]
-        },
+        "expectations": {"guidelines": ["The response must be helpful and encouraging"]},
     },
 ]
 
@@ -416,9 +414,7 @@ document_extraction_data = [
 ]
 
 
-results = mlflow.genai.evaluate(
-    data=document_extraction_data, scorers=[ExpectationsGuidelines()]
-)
+results = mlflow.genai.evaluate(data=document_extraction_data, scorers=[ExpectationsGuidelines()])
 ```
 
 <SelectJudgeModel />

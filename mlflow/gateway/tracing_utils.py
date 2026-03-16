@@ -319,13 +319,11 @@ def aggregate_chat_stream_chunks(chunks: list[StreamResponsePayload]) -> dict[st
                 }
                 for tc in state["tool_calls_by_index"].values()
             ]
-        aggregated_choices.append(
-            {
-                "index": choice_index,
-                "message": message,
-                "finish_reason": state["finish_reason"] or "stop",
-            }
-        )
+        aggregated_choices.append({
+            "index": choice_index,
+            "message": message,
+            "finish_reason": state["finish_reason"] or "stop",
+        })
 
     last_chunk = chunks[-1]
     result = {

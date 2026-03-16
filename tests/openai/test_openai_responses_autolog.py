@@ -303,6 +303,7 @@ async def test_responses_autolog_with_cached_tokens(client):
 
         async def send_patch(self, request, *args, **kwargs):
             return httpx.Response(status_code=200, request=request, json=mock_response)
+
     else:
         patch_target = "httpx.Client.send"
 

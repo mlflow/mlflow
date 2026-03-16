@@ -576,3 +576,17 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         }
 
     return list(models_dict.values())
+
+
+# Mapping of core providers to their environment variable names for API keys
+_CORE_PROVIDER_ENV_VARS = {
+    "openai": "OPENAI_API_KEY",
+    "azure": "AZURE_OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "bedrock": {
+        "aws_access_key_id": "AWS_ACCESS_KEY_ID",
+        "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
+        "aws_session_token": "AWS_SESSION_TOKEN",  # Optional
+    },
+}

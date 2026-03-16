@@ -183,9 +183,10 @@ class BaseProvider(ABC):
                 async def passthrough():
                     span = mlflow.get_current_active_span()
                     if span is not None:
-                        span.set_attributes(
-                            {**self._get_provider_attributes(), "action": action.value}
-                        )
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "action": action.value,
+                        })
                     async for chunk in result:
                         yield chunk
 
@@ -196,9 +197,10 @@ class BaseProvider(ABC):
                 async def passthrough():
                     span = mlflow.get_current_active_span()
                     if span is not None:
-                        span.set_attributes(
-                            {**self._get_provider_attributes(), "action": action.value}
-                        )
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "action": action.value,
+                        })
                     if span is not None:
                         if token_usage := self._extract_passthrough_token_usage(action, result):
                             span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)

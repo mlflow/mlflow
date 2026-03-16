@@ -7,69 +7,43 @@ import type { AuthMode } from '../../../../../gateway/types';
 
 interface IssueDetectionAdvancedSettingsProps {
   provider: string;
-  analysisModel: string;
-  onAnalysisModelChange: (model: string) => void;
-  judgeModel: string;
-  onJudgeModelChange: (model: string) => void;
+  model: string;
+  onModelChange: (model: string) => void;
   apiKeyConfig: ApiKeyConfiguration;
   onApiKeyConfigChange: (config: ApiKeyConfiguration) => void;
   authModes: AuthMode[];
   defaultAuthMode: string | undefined;
+  showModelSelector?: boolean;
 }
 
 export function IssueDetectionAdvancedSettings({
   provider,
-  analysisModel,
-  onAnalysisModelChange,
-  judgeModel,
-  onJudgeModelChange,
+  model,
+  onModelChange,
   apiKeyConfig,
   onApiKeyConfigChange,
   authModes,
   defaultAuthMode,
+  showModelSelector = true,
 }: IssueDetectionAdvancedSettingsProps) {
   const { theme } = useDesignSystemTheme();
-  const analysisModelComponentId = `mlflow.traces.issue-detection-modal.analysis-model`;
-  const judgeModelComponentId = `mlflow.traces.issue-detection-modal.judge-model`;
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <div css={{ display: 'flex', gap: theme.spacing.md }}>
-        <div css={{ flex: 1 }}>
-          <ModelSelect
-            provider={provider}
-            value={analysisModel}
-            onChange={onAnalysisModelChange}
-            componentIdPrefix={analysisModelComponentId}
-            label={
-              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                <FormattedMessage
-                  defaultMessage="Analysis Model *"
-                  description="Label for analysis model selection (required)"
-                />
-              </Typography.Text>
-            }
-            hideCapabilities
-          />
-        </div>
-        <div css={{ flex: 1 }}>
-          <ModelSelect
-            provider={provider}
-            value={judgeModel}
-            onChange={onJudgeModelChange}
-            componentIdPrefix={judgeModelComponentId}
-            label={
-              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                <FormattedMessage
-                  defaultMessage="Judge Model *"
-                  description="Label for judge model selection (required)"
-                />
-              </Typography.Text>
-            }
-            hideCapabilities
-          />
-        </div>
-      </div>
+      {showModelSelector && (
+        <ModelSelect
+          provider={provider}
+          value={model}
+          onChange={onModelChange}
+          componentIdPrefix="mlflow.traces.issue-detection-modal.model"
+          label={
+            <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+              <FormattedMessage defaultMessage="Model *" description="Label for model selection (required)" />
+            </Typography.Text>
+          }
+          hideCapabilities
+        />
+      )}
       {provider && apiKeyConfig.mode === 'new' && (
         <IssueDetectionAdvancedApiKeySettings
           value={apiKeyConfig}

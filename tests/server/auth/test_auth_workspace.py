@@ -337,14 +337,12 @@ def test_filter_list_workspaces_includes_default_when_autogrant(monkeypatch):
     monkeypatch.setattr(auth_module, "store", DummyStore(), raising=False)
 
     response = Response(
-        json.dumps(
-            {
-                "workspaces": [
-                    {"name": default_workspace},
-                    {"name": "other-workspace"},
-                ]
-            }
-        ),
+        json.dumps({
+            "workspaces": [
+                {"name": default_workspace},
+                {"name": "other-workspace"},
+            ]
+        }),
         mimetype="application/json",
     )
 

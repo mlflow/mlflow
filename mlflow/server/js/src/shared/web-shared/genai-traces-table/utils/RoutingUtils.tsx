@@ -6,7 +6,12 @@
  */
 /* eslint-disable no-restricted-imports */
 import type { ComponentProps } from 'react';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
+import {
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  useDesignSystemEventComponentCallbacks,
+} from '@databricks/design-system';
 /**
  * Import React Router V6 parts
  */
@@ -266,11 +271,26 @@ const Outlet = OutletDirect;
 
 const Link = React.forwardRef<
   HTMLAnchorElement,
-  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean }
+  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean; componentId: string }
 >(function Link(props, ref) {
-  const { to, disableWorkspacePrefix, ...rest } = props;
+  const { to, disableWorkspacePrefix, componentId, onClick, ...rest } = props;
   const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
-  return <LinkDirect ref={ref} to={finalTo} {...rest} />;
+  const events = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId,
+    analyticsEvents: events,
+  });
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      eventContext?.onClick(e);
+      onClick?.(e);
+    },
+    [eventContext, onClick],
+  );
+
+  return <LinkDirect ref={ref} to={finalTo} onClick={handleClick} {...rest} />;
 });
 
 const NavLink = React.forwardRef<

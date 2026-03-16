@@ -298,6 +298,11 @@ const config: Config = {
             to: '/',
             from: ['/new-features'],
           },
+          // Redirect webhooks from classic-ml to self-hosting
+          {
+            to: '/self-hosting/webhooks',
+            from: ['/ml/webhooks'],
+          },
           // Redirect to the new self-hosting guide
           {
             to: '/self-hosting/architecture/tracking-server',

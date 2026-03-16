@@ -9,15 +9,13 @@ chat_model = ChatDatabricks(
     temperature=0.1,
     max_tokens=2000,
 )
-prompt = ChatPromptTemplate.from_messages(
-    [
-        (
-            "system",
-            "You are a chatbot that can answer questions about Databricks.",
-        ),
-        ("user", "{question}"),
-    ]
-)
+prompt = ChatPromptTemplate.from_messages([
+    (
+        "system",
+        "You are a chatbot that can answer questions about Databricks.",
+    ),
+    ("user", "{question}"),
+])
 
 chain = prompt | chat_model
 
@@ -52,12 +50,10 @@ import pandas as pd
 with mlflow.start_run() as evaluation_run:
     # Load the evaluation dataset with MLflow. We will link evaluation metrics to this dataset.
     eval_dataset: mlflow.data.pandas_dataset.PandasDataset = mlflow.data.from_pandas(
-        df=pd.DataFrame.from_dict(
-            {
-                "question": ["Question1", "Question2", "..."],
-                "ground_truth": ["Answer1", "Answer2", "..."],
-            }
-        ),
+        df=pd.DataFrame.from_dict({
+            "question": ["Question1", "Question2", "..."],
+            "ground_truth": ["Answer1", "Answer2", "..."],
+        }),
         name="eval_dataset",
     )
 

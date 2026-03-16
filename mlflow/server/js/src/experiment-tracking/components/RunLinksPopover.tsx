@@ -34,7 +34,7 @@ export class RunLinksPopover extends React.Component<Props> {
           const key = `${runId}-${index}`;
           const to = Routes.getRunPageRoute(experimentId, runId);
           return (
-            <Link key={key} to={to}>
+            <Link componentId="mlflow.experiment_tracking.run_links.run_link" key={key} to={to}>
               <p style={{ color }}>
                 <i className="fa fa-external-link-o" style={{ marginRight: 5 }} />
                 {`${name}, ${Utils.formatMetric(y)}`}
