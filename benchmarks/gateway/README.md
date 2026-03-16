@@ -539,7 +539,7 @@ Same AI Gateway code path, different DB backends (usage tracking ON). 2000 reque
 
 ### Bottleneck isolation: config cache + usage tracking
 
-To verify the bottleneck hypothesis, a benchmark-only config cache was added to `config_resolver.py` (enabled via `MLFLOW_GATEWAY_CACHE_CONFIG=true`). This caches the result of `get_endpoint_config()` after the first DB lookup, eliminating per-request SQL queries.
+To verify the bottleneck hypothesis, endpoint config caching was added to `config_resolver.py` via the `SecretCache` ([#21660](https://github.com/mlflow/mlflow/pull/21660)). This caches the result of `get_endpoint_config()` after the first DB lookup, eliminating per-request SQL queries. This cache is now enabled by default.
 
 **Tracking server benchmark (SQLite, 4 workers, 50 concurrent, 1000 req/run, 2 runs):**
 
@@ -594,7 +594,7 @@ MLflow's core proxy path adds ~10ms of overhead vs LiteLLM's ~41ms. At 3,483 rps
 
 The two bottlenecks are orthogonal and compound: together they reduce throughput from 841 rps to 14 rps (~60x total overhead). The usage tracking / tracing path is the dominant factor.
 
-> **How to reproduce**: Set `MLFLOW_GATEWAY_CACHE_CONFIG=true` when launching `mlflow server` to enable the benchmark config cache. This is a benchmark-only change in `mlflow/store/tracking/gateway/config_resolver.py` and should not be used in production (it bypasses config updates).
+> **Note**: Endpoint config caching is now enabled by default via `SecretCache` in `config_resolver.py` ([#21660](https://github.com/mlflow/mlflow/pull/21660)). No special configuration is needed to reproduce the cached results above.
 
 ---
 

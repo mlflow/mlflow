@@ -7,14 +7,8 @@ called server-side and never exposed to clients via MlflowClient.
 """
 
 import json
-import os
 
 from mlflow.exceptions import MlflowException
-
-# Benchmark-only: cache endpoint configs to skip per-request DB queries.
-# Set MLFLOW_GATEWAY_CACHE_CONFIG=true to enable.
-_endpoint_config_cache: dict[str, "GatewayEndpointConfig"] = {}
-_CACHE_ENABLED = os.environ.get("MLFLOW_GATEWAY_CACHE_CONFIG", "").lower() == "true"
 from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
@@ -178,9 +172,6 @@ def get_endpoint_config(
         MlflowException: If the tracking store is not a SqlAlchemyStore,
             or if the endpoint, model definition, or secret is not found.
     """
-    if _CACHE_ENABLED and endpoint_name in _endpoint_config_cache:
-        return _endpoint_config_cache[endpoint_name]
-
     if store is None:
         store = _get_store()
     if not isinstance(store, SqlAlchemyStore):
