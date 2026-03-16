@@ -43,7 +43,7 @@ def test_model_dump_includes_skills(skill_dir):
     assert skill["name"] == "ser-skill"
     assert skill["description"] == "Skill for serialization test."
     assert "Skill body for serialization" in skill["body"]
-    assert "references/GUIDE.md" in skill["references"]
+    assert "references/GUIDE.md" in skill["files"]
 
 
 def test_model_dump_without_skills():

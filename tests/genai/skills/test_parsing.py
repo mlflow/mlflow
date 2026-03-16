@@ -57,8 +57,8 @@ def test_load_skill_from_directory(skill_dir):
     assert skill.name == "test-skill"
     assert skill.description == "A test skill for evaluation."
     assert "skill body" in skill.body
-    assert "references/RUBRIC.md" in skill.references
-    assert "Detailed scoring guide" in skill.references["references/RUBRIC.md"]
+    assert "references/RUBRIC.md" in skill.files
+    assert "Detailed scoring guide" in skill.files["references/RUBRIC.md"]
 
 
 def test_load_skill_from_file_path(skill_dir):
@@ -75,14 +75,16 @@ def test_load_skill_with_metadata(skill_with_metadata):
     assert skill.metadata == {"author": "test-org", "version": "1.0", "category": "compliance"}
 
 
-def test_load_skill_no_references(tmp_path):
-    skill_path = tmp_path / "no-refs"
+def test_load_skill_no_extra_files(tmp_path):
+    skill_path = tmp_path / "no-files"
     skill_path.mkdir()
-    (skill_path / "SKILL.md").write_text("---\nname: no-refs\ndescription: No refs.\n---\nBody.")
+    (skill_path / "SKILL.md").write_text(
+        "---\nname: no-files\ndescription: No extra files.\n---\nBody."
+    )
     from mlflow.genai.skills.parsing import load_skill
 
     skill = load_skill(skill_path)
-    assert skill.references == {}
+    assert skill.files == {}
 
 
 @pytest.mark.parametrize(

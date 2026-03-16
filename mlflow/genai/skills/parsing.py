@@ -20,8 +20,7 @@ class Skill:
     path: Path
     metadata: dict[str, str] = field(default_factory=dict)
     body: str = ""
-    references: dict[str, str] = field(default_factory=dict)
-    assets: list[str] = field(default_factory=list)
+    files: dict[str, str] = field(default_factory=dict)
 
 
 class SkillSet:
@@ -31,10 +30,10 @@ class SkillSet:
     def get_skill(self, name: str) -> Skill | None:
         return next((s for s in self.skills if s.name == name), None)
 
-    def to_prompt(self, model: str | None = None) -> str:
+    def to_prompt(self) -> str:
         from mlflow.genai.skills.prompt_format import to_prompt
 
-        return to_prompt(self.skills, model)
+        return to_prompt(self.skills)
 
 
 def load_skill(path: str | Path) -> Skill:
@@ -75,8 +74,7 @@ def load_skill(path: str | Path) -> Skill:
     if not isinstance(metadata, dict):
         metadata = {}
 
-    references = _load_references(skill_dir)
-    assets = _catalog_assets(skill_dir)
+    files = _load_files(skill_dir)
 
     return Skill(
         name=name,
@@ -84,8 +82,7 @@ def load_skill(path: str | Path) -> Skill:
         path=skill_dir.resolve(),
         metadata={str(k): str(v) for k, v in metadata.items()},
         body=body.strip(),
-        references=references,
-        assets=assets,
+        files=files,
     )
 
 
@@ -130,23 +127,14 @@ def _validate_name(name: str | None) -> None:
         )
 
 
-def _load_references(skill_dir: Path) -> dict[str, str]:
-    refs_dir = skill_dir / "references"
-    if not refs_dir.is_dir():
-        return {}
+def _load_files(skill_dir: Path) -> dict[str, str]:
     result = {}
-    for f in sorted(refs_dir.rglob("*")):
-        if f.is_file():
-            try:
-                rel = str(f.relative_to(skill_dir))
-                result[rel] = f.read_text(encoding="utf-8")
-            except (UnicodeDecodeError, ValueError):
-                pass
+    for f in sorted(skill_dir.rglob("*")):
+        if not f.is_file() or f.name == "SKILL.md":
+            continue
+        try:
+            rel = str(f.relative_to(skill_dir))
+            result[rel] = f.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, ValueError):
+            pass
     return result
-
-
-def _catalog_assets(skill_dir: Path) -> list[str]:
-    assets_dir = skill_dir / "assets"
-    if not assets_dir.is_dir():
-        return []
-    return sorted(str(f.relative_to(skill_dir)) for f in assets_dir.rglob("*") if f.is_file())

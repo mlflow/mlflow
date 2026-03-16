@@ -53,20 +53,20 @@ def test_read_skill_has_valid_definition():
     assert "skill_name" in defn.function.parameters.properties
 
 
-def test_read_skill_reference_returns_content(skill_set):
-    from mlflow.genai.judges.tools.read_skill_reference import ReadSkillReferenceTool
+def test_read_skill_file_returns_content(skill_set):
+    from mlflow.genai.judges.tools.read_skill_file import ReadSkillFileTool
 
-    tool = ReadSkillReferenceTool()
+    tool = ReadSkillFileTool()
     result = tool.invoke(
         skill_set=skill_set, skill_name="test-skill", file_path="references/RUBRIC.md"
     )
     assert "Detailed guide" in result
 
 
-def test_read_skill_reference_unknown_file(skill_set):
-    from mlflow.genai.judges.tools.read_skill_reference import ReadSkillReferenceTool
+def test_read_skill_file_unknown_file(skill_set):
+    from mlflow.genai.judges.tools.read_skill_file import ReadSkillFileTool
 
-    tool = ReadSkillReferenceTool()
+    tool = ReadSkillFileTool()
     result = tool.invoke(
         skill_set=skill_set, skill_name="test-skill", file_path="references/MISSING.md"
     )
@@ -75,20 +75,20 @@ def test_read_skill_reference_unknown_file(skill_set):
 
 
 @pytest.mark.parametrize("bad_path", ["../../../etc/passwd", "/etc/passwd", "../../secret.txt"])
-def test_read_skill_reference_path_traversal(skill_set, bad_path):
-    from mlflow.genai.judges.tools.read_skill_reference import ReadSkillReferenceTool
+def test_read_skill_file_path_traversal(skill_set, bad_path):
+    from mlflow.genai.judges.tools.read_skill_file import ReadSkillFileTool
 
-    tool = ReadSkillReferenceTool()
+    tool = ReadSkillFileTool()
     result = tool.invoke(skill_set=skill_set, skill_name="test-skill", file_path=bad_path)
     assert "Error" in result
     assert "Invalid" in result or "relative" in result.lower()
 
 
-def test_read_skill_reference_has_valid_definition():
-    from mlflow.genai.judges.tools.read_skill_reference import ReadSkillReferenceTool
+def test_read_skill_file_has_valid_definition():
+    from mlflow.genai.judges.tools.read_skill_file import ReadSkillFileTool
 
-    tool = ReadSkillReferenceTool()
+    tool = ReadSkillFileTool()
     defn = tool.get_definition()
-    assert defn.function.name == "read_skill_reference"
+    assert defn.function.name == "read_skill_file"
     assert "skill_name" in defn.function.parameters.properties
     assert "file_path" in defn.function.parameters.properties

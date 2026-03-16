@@ -17,25 +17,12 @@ def two_skills(tmp_path):
     return SkillSet([tmp_path / "compliance", tmp_path / "api-schema"])
 
 
-def test_to_prompt_xml_for_claude(two_skills):
-    prompt = two_skills.to_prompt(model="anthropic:/claude-sonnet-4-6")
-    assert "<available_skills>" in prompt
-    assert "<name>compliance</name>" in prompt
-    assert "<name>api-schema</name>" in prompt
+def test_to_prompt_lists_skills(two_skills):
+    prompt = two_skills.to_prompt()
+    assert "Available Skills" in prompt
+    assert "compliance" in prompt
+    assert "api-schema" in prompt
     assert "read_skill" in prompt
-
-
-def test_to_prompt_markdown_for_openai(two_skills):
-    prompt = two_skills.to_prompt(model="openai:/gpt-4.1")
-    assert "## Available Skills" in prompt
-    assert "**compliance**" in prompt
-    assert "**api-schema**" in prompt
-    assert "<available_skills>" not in prompt
-
-
-def test_to_prompt_default_is_markdown(two_skills):
-    prompt = two_skills.to_prompt(model=None)
-    assert "## Available Skills" in prompt
 
 
 def test_to_prompt_empty_skillset():

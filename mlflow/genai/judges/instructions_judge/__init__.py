@@ -366,7 +366,7 @@ class InstructionsJudge(Judge):
                 instructions=self._instructions,
             )
             if self._skill_set:
-                system_content += "\n\n" + self._skill_set.to_prompt(self._model)
+                system_content += "\n\n" + self._skill_set.to_prompt()
             return system_content
         else:
             base_prompt = format_prompt(
@@ -765,7 +765,7 @@ class InstructionsJudge(Judge):
                     "description": skill.description,
                     "metadata": skill.metadata,
                     "body": skill.body,
-                    "references": skill.references,
+                    "files": skill.files,
                 }
                 for skill in self._skill_set.skills
             ]

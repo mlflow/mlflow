@@ -169,7 +169,7 @@ _judge_tool_registry.register(SearchTraceRegexTool())
 _judge_tool_registry.register(GetSpanPerformanceAndTimingReportTool())
 
 from mlflow.genai.judges.tools.read_skill import ReadSkillTool
-from mlflow.genai.judges.tools.read_skill_reference import ReadSkillReferenceTool
+from mlflow.genai.judges.tools.read_skill_file import ReadSkillFileTool
 
 _judge_tool_registry.register(ReadSkillTool())
-_judge_tool_registry.register(ReadSkillReferenceTool())
+_judge_tool_registry.register(ReadSkillFileTool())

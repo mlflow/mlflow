@@ -10,17 +10,17 @@ if TYPE_CHECKING:
     from mlflow.genai.skills import SkillSet
 
 
-class ReadSkillReferenceTool(JudgeTool):
+class ReadSkillFileTool(JudgeTool):
     @property
     def name(self) -> str:
-        return "read_skill_reference"
+        return "read_skill_file"
 
     def get_definition(self) -> ToolDefinition:
         return ToolDefinition(
             function=FunctionToolDefinition(
-                name="read_skill_reference",
+                name="read_skill_file",
                 description=(
-                    "Read a reference document from a skill for detailed information "
+                    "Read a file from a skill for detailed information "
                     "like rubrics, edge cases, or technical specifications."
                 ),
                 parameters=ToolParamsSchema(
@@ -53,11 +53,11 @@ class ReadSkillReferenceTool(JudgeTool):
             return f"Error: Invalid file path '{file_path}'. Must be relative within the skill."
 
         normalized = str(path)
-        if normalized in skill.references:
-            return skill.references[normalized]
+        if normalized in skill.files:
+            return skill.files[normalized]
 
-        available_refs = list(skill.references.keys())
+        available_files = list(skill.files.keys())
         return (
             f"Error: File '{file_path}' not found in skill '{skill_name}'. "
-            f"Available: {available_refs}"
+            f"Available: {available_files}"
         )
