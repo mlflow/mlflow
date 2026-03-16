@@ -29,16 +29,12 @@ Benchmark suite for measuring the latency overhead and scalability of the MLflow
 
 ### Head-to-head comparison (`run_comparison.sh`)
 
-```
-                ┌──────────────────────┐
-           ┌───▶│  MLflow AI Gateway   │───┐
-           │    │  (gunicorn + uvicorn) │   │
-┌─────────┐│    └──────────────────────┘   │    ┌──────────────────┐
-│ aiohttp  ││                               ├───▶│  Fake OpenAI     │
-│ benchmark││    ┌──────────────────────┐   │    │  Server           │
-└─────────┘└───▶│  LiteLLM Proxy       │───┘    └──────────────────┘
-                │  (gunicorn + uvicorn) │
-                └──────────────────────┘
+```mermaid
+graph LR
+    A[aiohttp\nbenchmark] --> B[MLflow AI Gateway\ngunicorn + uvicorn]
+    A --> C[LiteLLM Proxy\ngunicorn + uvicorn]
+    B --> D[Fake OpenAI\nServer]
+    C --> D
 ```
 
 Both proxies run on the same machine, same number of workers, hitting the same fake backend. The benchmark client uses `aiohttp` with connection pooling (matching LiteLLM's own `benchmark_mock.py` methodology).
@@ -51,46 +47,46 @@ To understand what the benchmark measures, it helps to compare the request lifec
 
 ### 1. Direct to provider (baseline — not benchmarked)
 
-```
-Client ──HTTP──▶ OpenAI API ──HTTP──▶ Client
-         (1 round-trip)
+```mermaid
+graph LR
+    Client -- HTTP --> OpenAI[OpenAI API] -- HTTP --> Client
 ```
 
 Steps: DNS + TLS handshake + send request + provider inference + receive response. This is the minimum latency for any LLM call. The gateway cannot reduce this.
 
 ### 2. Through MLflow AI Gateway
 
-```
-Client ──HTTP──▶ MLflow Server ──HTTP──▶ Provider ──HTTP──▶ Client
-                 │                       ▲
-                 │  (server-side steps)  │
-                 ▼                       │
-          ┌──────────────┐               │
-          │ 1. Budget check (in-memory)  │
-          │ 2. Config resolution (DB)  ◀─┤ 3-5 SQL queries
-          │ 3. Secret decrypt (cached)   │
-          │ 4. Provider instantiation    │
-          │ 5. Tracing (if enabled)      │
-          │ 6. litellm.acompletion()  ───┘  ◀── calls upstream provider
-          │ 7. Budget callback           │
-          └──────────────┘
+```mermaid
+graph LR
+    Client -- HTTP --> MLflow[MLflow Server] -- HTTP --> Provider -- HTTP --> Client
+
+    subgraph MLflow["MLflow Server (server-side steps)"]
+        S1["1. Budget check (in-memory)"]
+        S2["2. Config resolution (DB) — 3-5 SQL queries"]
+        S3["3. Secret decrypt (cached)"]
+        S4["4. Provider instantiation"]
+        S5["5. Tracing (if enabled)"]
+        S6["6. litellm.acompletion() → calls upstream provider"]
+        S7["7. Budget callback"]
+        S1 --> S2 --> S3 --> S4 --> S5 --> S6 --> S7
+    end
 ```
 
 **7 server-side steps** per request. Steps 2 (config resolution) and 5 (tracing) are the dominant bottlenecks — see [Bottleneck isolation](#bottleneck-isolation-config-cache--usage-tracking). When both are eliminated, steps 1/3/4/6/7 add only ~10ms of overhead (see [zero-delay results](#preliminary-results)).
 
 ### 3. Through LiteLLM Proxy
 
-```
-Client ──HTTP──▶ LiteLLM Proxy ──HTTP──▶ Provider ──HTTP──▶ Client
-                 │                        ▲
-                 │  (server-side steps)   │
-                 ▼                        │
-          ┌──────────────┐                │
-          │ 1. Route lookup (in-memory)   │
-          │ 2. Auth check                 │
-          │ 3. httpx / aiohttp call  ─────┘  ◀── calls upstream provider
-          │ 4. Spend tracking callback    │
-          └──────────────┘
+```mermaid
+graph LR
+    Client -- HTTP --> LiteLLM[LiteLLM Proxy] -- HTTP --> Provider -- HTTP --> Client
+
+    subgraph LiteLLM["LiteLLM Proxy (server-side steps)"]
+        L1["1. Route lookup (in-memory)"]
+        L2["2. Auth check"]
+        L3["3. httpx / aiohttp call → calls upstream provider"]
+        L4["4. Spend tracking callback"]
+        L1 --> L2 --> L3 --> L4
+    end
 ```
 
 **4 server-side steps** per request. Config is loaded from YAML at startup and kept in memory — no per-request DB queries. When spend tracking is DB-backed (PostgreSQL mode), step 4 involves async DB writes.
@@ -114,33 +110,21 @@ The key architectural difference: MLflow treats the database as the source of tr
 
 The name "LiteLLM" appears in two different roles in this benchmark, which can be confusing:
 
-```
-┌──────────────────────────────────────────────────────┐
-│  MLflow AI Gateway (the server being benchmarked)    │
-│                                                      │
-│  gateway_api.py                                      │
-│       │                                              │
-│       ▼                                              │
-│  LiteLLMProvider                                     │
-│       │                                              │
-│       ▼                                              │
-│  litellm.acompletion()  ◀── LiteLLM the LIBRARY     │
-│       │                     (Python package)         │
-│       ▼                                              │
-│  HTTP call to upstream provider                      │
-└──────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    subgraph mlflow["MLflow AI Gateway (the server being benchmarked)"]
+        direction TB
+        A1[gateway_api.py] --> A2[LiteLLMProvider]
+        A2 --> A3["litellm.acompletion()\n— LiteLLM the LIBRARY (Python package)"]
+        A3 --> A4[HTTP call to upstream provider]
+    end
 
-┌──────────────────────────────────────────────────────┐
-│  LiteLLM Proxy (the server being compared against)   │
-│                                                      │
-│  litellm --config litellm_config.yaml                │
-│       │                     ◀── LiteLLM the SERVER   │
-│       ▼                         (CLI proxy process)  │
-│  Route request to configured model                   │
-│       │                                              │
-│       ▼                                              │
-│  HTTP call to upstream provider                      │
-└──────────────────────────────────────────────────────┘
+    subgraph litellm_proxy["LiteLLM Proxy (the server being compared against)"]
+        direction TB
+        B1["litellm --config litellm_config.yaml\n— LiteLLM the SERVER (CLI proxy process)"]
+        B1 --> B2[Route request to configured model]
+        B2 --> B3[HTTP call to upstream provider]
+    end
 ```
 
 ### LiteLLM the library (used inside MLflow)
@@ -172,14 +156,9 @@ When the two MLflow-specific bottlenecks are removed (config cached + tracing di
 
 Latency is measured **client-side** using `time.perf_counter()` (high-resolution monotonic clock) in the benchmark client (`benchmark_compare.py`):
 
-```
-           measured latency
-    ◀──────────────────────────────▶
-    │                              │
- t_start                        t_end
-    │                              │
-    ▼                              ▼
-  POST request sent ─────▶ response body fully read
+```mermaid
+graph LR
+    A["t_start\nPOST request sent"] -->|measured latency| B["t_end\nresponse body fully read"]
 ```
 
 Each measurement includes: client-side serialization, network round-trip (loopback in local benchmarks), full server processing, and response deserialization. Only HTTP 200 responses are counted; failures are tracked separately.
@@ -211,11 +190,11 @@ The benchmark runs everything on `127.0.0.1` (loopback), which eliminates severa
 
 By controlling for network and provider latency, the benchmark measures **pure proxy overhead** — the extra time added by each gateway on top of the upstream provider call. The `FAKE_RESPONSE_DELAY_MS` parameter (default: 50ms) simulates a realistic provider response time.
 
-```
-measured latency = proxy overhead + fake delay + loopback RTT (~0ms)
-                   ▲                ▲
-                   │                └── controlled via FAKE_RESPONSE_DELAY_MS
-                   └── this is what we're comparing
+```mermaid
+graph LR
+    subgraph measured["measured latency"]
+        A["proxy overhead\n⬆ this is what we're comparing"] --- B["fake delay\n⬆ controlled via FAKE_RESPONSE_DELAY_MS"] --- C["loopback RTT\n(~0ms)"]
+    end
 ```
 
 Setting `FAKE_RESPONSE_DELAY_MS=0` isolates the proxy overhead entirely. In the [zero-delay results](#preliminary-results), MLflow adds ~10ms and LiteLLM adds ~41ms of pure proxy overhead.
@@ -425,15 +404,17 @@ USAGE_TRACKING=false bash run_tracking_server_benchmark.sh
 
 ### Architecture
 
-```
-                                    ┌───────────────────────────────┐
-┌─────────┐     ┌──────────────────┤  MLflow Tracking Server       │     ┌──────────────────┐
-│ aiohttp  │────▶│  FastAPI Router  │  gateway_api.py               │────▶│  Fake OpenAI     │
-│ benchmark│◀────│  /gateway/...    │  ┌─────────────────────────┐  │◀────│  Server          │
-└─────────┘     └──────────────────┤  │ SQLite: secrets, models, │  │     └──────────────────┘
-                                    │  │ endpoints, configs       │  │
-                                    │  └─────────────────────────┘  │
-                                    └───────────────────────────────┘
+```mermaid
+graph LR
+    A[aiohttp\nbenchmark] <--> B
+
+    subgraph B[MLflow Tracking Server]
+        direction TB
+        R[FastAPI Router\n/gateway/...] --- G[gateway_api.py]
+        G --- DB["SQLite: secrets, models,\nendpoints, configs"]
+    end
+
+    B <--> C[Fake OpenAI\nServer]
 ```
 
 ### What it does
@@ -482,23 +463,14 @@ USAGE_TRACKING=false bash run_full_stack_comparison.sh
 
 ### Architecture
 
-```
-                ┌───────────────────────────────┐
-           ┌───▶│  MLflow Tracking Server       │───┐
-           │    │  (PostgreSQL, usage tracking)  │   │
-┌─────────┐│    └──────────┬────────────────────┘   │    ┌──────────────────┐
-│ aiohttp  ││              │                        ├───▶│  Fake OpenAI     │
-│ benchmark││    ┌─────────┼────────────────────┐   │    │  Server          │
-└─────────┘└───▶│  LiteLLM │Proxy               │───┘    └──────────────────┘
-                │  (PostgreSQL, spend tracking)  │
-                └──────────┼────────────────────┘
-                           │
-                   ┌───────▼───────┐
-                   │  PostgreSQL   │
-                   │  (Docker)     │
-                   │  DB: mlflow   │
-                   │  DB: litellm  │
-                   └───────────────┘
+```mermaid
+graph LR
+    A[aiohttp\nbenchmark] --> B[MLflow Tracking Server\nPostgreSQL, usage tracking]
+    A --> C[LiteLLM Proxy\nPostgreSQL, spend tracking]
+    B --> D[Fake OpenAI\nServer]
+    C --> D
+    B --> E["PostgreSQL (Docker)\nDB: mlflow\nDB: litellm"]
+    C --> E
 ```
 
 ### What each side does per request
@@ -656,13 +628,9 @@ GATEWAY_WORKERS=4 REQUESTS=10000 MAX_CONCURRENT=200 RUNS=5 bash run_comparison.s
 
 Use 3 machines to eliminate resource contention:
 
-```
-┌─────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│ Machine A    │────▶│ Machine B       │────▶│ Machine C        │
-│ Load Gen     │     │ Proxy Under Test│     │ Fake OpenAI      │
-│ (aiohttp)    │◀────│ (MLflow or      │◀────│ Server           │
-│              │     │  LiteLLM)       │     │                  │
-└─────────────┘     └─────────────────┘     └──────────────────┘
+```mermaid
+graph LR
+    A["Machine A\nLoad Gen\n(aiohttp)"] <--> B["Machine B\nProxy Under Test\n(MLflow or LiteLLM)"] <--> C["Machine C\nFake OpenAI\nServer"]
 ```
 
 **Machine C — Fake OpenAI server:**
