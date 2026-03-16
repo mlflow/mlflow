@@ -392,13 +392,12 @@ class TracingClient:
             return self._load_traces_by_location(trace_infos_by_location, executor)
 
     def _download_spans_from_batch_get_traces(
-        self, trace_infos: list[TraceInfo], location: str, executor: ThreadPoolExecutor
+        self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
     ) -> list[Trace]:
         """
         Fetch full traces including spans from the BatchGetTrace v4 endpoint.
         BatchGetTrace endpoint only support up to 10 traces in a single call.
         """
-        trace_ids = [t.trace_id for t in trace_infos]
         traces = []
 
         def _fetch_minibatch(ids: list[str]) -> list[Trace]:
@@ -429,7 +428,7 @@ class TracingClient:
             else:
                 traces.extend(
                     self._download_spans_from_batch_get_traces(
-                        location_trace_infos, location, executor
+                        [t.trace_id for t in location_trace_infos], location, executor
                     )
                 )
         return traces
