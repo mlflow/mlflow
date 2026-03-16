@@ -177,11 +177,8 @@ const ExperimentGenAIOverviewPageImpl = () => {
                 defaultMessage: 'Detect issues in traces',
                 description: 'Aria label for the detect issues button in the traces table toolbar',
               })}
-              icon={<SparkleIcon color="ai" />}
-              css={{
-                border: '1px solid transparent !important',
-                background: `linear-gradient(${theme.colors.backgroundPrimary}, ${theme.colors.backgroundPrimary}) padding-box, ${theme.gradients.aiBorderGradient} border-box`,
-              }}
+              type="primary"
+              icon={<SparkleIcon />}
             >
               <FormattedMessage
                 defaultMessage="Detect Issues"
