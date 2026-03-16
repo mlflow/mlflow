@@ -385,7 +385,7 @@ class TracingClient:
 
         trace_infos_by_location = self._group_trace_infos_by_location(trace_infos)
 
-        max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
+        max_workers = min(len(trace_ids), MLFLOW_SEARCH_TRACES_MAX_THREADS.get())
         with ThreadPoolExecutor(
             max_workers=max_workers, thread_name_prefix="MlflowTracingBatchGet"
         ) as executor:
