@@ -4,7 +4,10 @@ title: Deploying MLflow to Google Cloud platform
 
 # Deploying MLflow to Google Cloud platform
 
-MLflow core components include MLflow server, backend store, and artifact store. The MLflow server is the backend for experiment tracking, model registry management, tracing for LLM observability, job scheduling, and AI Gateway endpoints.
+MLflow core components include:
+- **MLflow server**: This is the Python backend for experiment tracking, model registry management, tracing for LLM observability, job scheduling, and AI Gateway endpoints.
+- **Backend store**: The database in which entity metadata (e.g. trace info, experiment tracking metadata) is stored.
+- **Artifact store**: Blob storage for larger pieces of persisted data (e.g. model weights, trace span data).
 
 This guide walks you through deploying the MLflow server to Google Cloud Run, the backend store to Cloud SQL (PostgreSQL), and the artifact store to Google Cloud Storage (GCS). The guide also covers IAM service accounts, Cloud SQL connectivity, and Cloud Run networking settings. Once deployment is complete, you can access the MLflow web UI through a Cloud Run service URL such as: `https://mlflow-<unique-id>.<region>.run.app`. Your MLflow client code can connect to the MLflow server by setting the tracking URI to this URL.
 
