@@ -20,6 +20,7 @@ Benchmark suite for measuring the latency overhead and scalability of the MLflow
 - [Full-Stack Comparison (Both on PostgreSQL)](#full-stack-comparison-both-on-postgresql)
 - [Preliminary Results](#preliminary-results)
 - [Optimization Journey](#optimization-journey)
+  - [Tradeoff Assessment](#tradeoff-assessment)
 - [Deploying to a Server](#deploying-to-a-server)
 - [Usage Tracking Benchmark](#usage-tracking-benchmark)
 - [Known Limitations](#known-limitations)
@@ -875,6 +876,71 @@ These changes were made earlier in the process. They have modest individual impa
 3. **Cached `inspect.signature()`**: Added `@lru_cache` to `inspect.signature()` calls in the tracing utils, avoiding repeated introspection of the same functions. Files: `mlflow/tracing/utils/__init__.py`
 
 4. **`model_dump()` over `jsonable_encoder()`**: Replaced FastAPI's internal `jsonable_encoder()` with Pydantic v2's native `model_dump()` in provider response serialization. Files: `mlflow/gateway/providers/openai.py`
+
+### Tradeoff assessment
+
+Each optimization trades something for performance. This section is an honest accounting of what we gave up, what risks were introduced, and what reviewers should scrutinize before shipping to production.
+
+#### Summary
+
+| Change                 | Complexity        | Security  | Data integrity               | Recommendation       |
+| ---------------------- | ----------------- | --------- | ---------------------------- | -------------------- |
+| ASGI middleware        | Reduces           | No impact | No impact                    | **Ship as-is**       |
+| DB contention fix      | Slight increase   | No impact | No impact for gateway traces | **Ship as-is**       |
+| Batch span processor   | Moderate increase | No impact | 500ms loss window on crash   | **Needs discussion** |
+| Shared aiohttp session | No change         | No impact | No impact                    | **Ship as-is**       |
+
+#### ASGI middleware — no real tradeoffs
+
+The before/after behavior is identical: same workspace resolution logic, same error handling, same context management. The only difference is _how_ Starlette dispatches the call.
+
+One subtle difference: the old code used Starlette's `Request` object to read headers (case-insensitive lookup). The new code reads raw ASGI headers (always lowercase per ASGI spec). This is correct — ASGI servers always lowercase header names before passing them to the application. All 7 workspace middleware tests pass unchanged.
+
+This actually _reduces_ complexity. The pure ASGI pattern is simpler than `BaseHTTPMiddleware` (no hidden task spawning, no memory channel) and matches what the security middlewares (`HostValidationMiddleware`, `SecurityHeadersMiddleware`) already do.
+
+**Follow-up**: The auth middleware (`fastapi_permission_middleware` in `server/auth/__init__.py`) uses the same `@app.middleware("http")` pattern. Under load with auth enabled, it would add the same ~30ms overhead. Converting it to pure ASGI would be a valuable follow-up.
+
+#### DB contention fix — loses incremental span visibility
+
+**What we give up**: With `SimpleSpanProcessor` + `log_spans`, a long-running trace's spans appear in the DB as they complete. With the consolidated write, all spans appear at once when the trace finishes.
+
+**Why it doesn't matter for the gateway**: Gateway traces are 2 spans, ~50-100ms total. They complete before the first `log_spans` async task even starts executing. There is no window where partial spans would be visible.
+
+**Where it could matter**: If someone repurposed this flag for long-running SDK traces (minutes), they'd lose incremental visibility. But the flag is gated behind `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true` + non-Databricks, which only the gateway sets automatically. Normal SDK usage is unaffected.
+
+#### Batch span processor — real tradeoffs exist
+
+This is the highest-impact change (220 → 852 rps) and the one that deserves the most scrutiny.
+
+**1. Trace delivery latency (up to 500ms delay)**
+
+Traces are delivered up to 500ms after the request completes (the `schedule_delay_millis` setting) instead of immediately. For the gateway's observability use case, this is acceptable. But:
+
+- A monitoring system that polls for traces and expects them within milliseconds of request completion would see a delay.
+- `mlflow.search_traces()` called right after a traced gateway call might not find the trace yet.
+
+**2. Data loss window on hard crash**
+
+With `SimpleSpanProcessor`, if the process crashes, only the in-flight export is lost. With `BatchSpanProcessor`, up to 500ms of queued spans could be lost on hard crash (`kill -9`). OTel's batch processor calls `shutdown()` on graceful exit (flushing the queue), but ungraceful termination loses buffered data.
+
+At 852 rps with ~2 spans per trace, the batch queue holds ~850 spans at any moment. A hard crash loses up to ~425 traces — about 0.5 seconds of data.
+
+**3. Double-buffering concern**
+
+With `use_batch_processor=True` AND `_is_async_enabled=True` (which is always the case since both are gated on the same env var), traces pass through two layers of async queuing:
+
+1. OTel `BatchSpanProcessor` queue → background thread flushes every 500ms
+2. → `MlflowV3SpanExporter.export()` → `AsyncTraceExportQueue` → another thread pool
+
+This is redundant. A simplification would be to disable the `AsyncTraceExportQueue` when batch processing is active, since the `BatchSpanProcessor` already provides the decoupling. This is a candidate for follow-up cleanup.
+
+**4. Code complexity**
+
+The current implementation uses a delegation pattern (`_batch_delegate`) rather than a clean inheritance swap. The class still inherits from `SimpleSpanProcessor` but conditionally delegates `on_end`/`shutdown`/`force_flush` to a separate `BatchSpanProcessor` instance. This is slightly awkward — changing the base class directly would be cleaner but would affect all users, not just the gateway.
+
+#### Shared aiohttp session — minor tradeoff
+
+Session state (TCP connections) persists across requests. If the upstream server has connection limits or if a TCP connection enters a bad state, it could affect subsequent requests. The `if _session.closed` check mitigates the worst case. In practice, connection reuse is the standard pattern for HTTP clients and is a net positive for both performance and resource usage.
 
 ---
 
