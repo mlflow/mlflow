@@ -1025,6 +1025,10 @@
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
   },
+  "57rIQy": {
+    "defaultMessage": "Collapse graph",
+    "description": "Tooltip for the button that collapses the graph view to its default size"
+  },
   "58/xE7": {
     "defaultMessage": "Output /1M",
     "description": "Table header for output cost"
@@ -4156,6 +4160,10 @@
     "defaultMessage": "Model configuration",
     "description": "Label for model configuration section"
   },
+  "PtjdJS": {
+    "defaultMessage": "Graph",
+    "description": "Label for the graph toggle button in the trace explorer."
+  },
   "PuXTcZ": {
     "defaultMessage": "Welcome to MLflow",
     "description": "Workspace landing page title"
@@ -4508,6 +4516,10 @@
     "defaultMessage": "Invalid structured output JSON",
     "description": "Validation error message for the structured output JSON schema field in the prompt creation modal"
   },
+  "SJciqt": {
+    "defaultMessage": "Scroll to zoom, drag background to pan, drag nodes to reposition",
+    "description": "Navigation hint for graph view"
+  },
   "SJk8DQ": {
     "defaultMessage": "Pre-built LLM-as-a-judge ({templateCount})",
     "description": "Label for pre-built LLM judge type filter option"
@@ -4675,6 +4687,10 @@
   "TQ3N+4": {
     "defaultMessage": "Select",
     "description": "Label for the checkbox column in the evaluation runs table"
+  },
+  "TRutFE": {
+    "defaultMessage": "Click a graph node to navigate spans",
+    "description": "Hint text shown in graph view span navigator when no node is selected"
   },
   "TSXmaB": {
     "defaultMessage": "Create",
@@ -5877,6 +5893,10 @@
     "defaultMessage": "Track experiments with parameters, metrics, and artifacts.",
     "description": "Feature card summary for experiments"
   },
+  "ahnYpg": {
+    "defaultMessage": "Expand graph",
+    "description": "Tooltip for the button that expands the graph view to a larger size"
+  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -5944,6 +5964,10 @@
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
     "description": "Generic message for an unknown error"
+  },
+  "bNi9b/": {
+    "defaultMessage": "{count} {count, plural, one {node} other {nodes}}",
+    "description": "Count of workflow nodes displayed in graph view"
   },
   "bO0wxq": {
     "defaultMessage": "Advanced settings",
