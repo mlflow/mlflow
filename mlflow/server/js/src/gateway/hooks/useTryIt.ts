@@ -74,9 +74,9 @@ export function useTryIt({ tryItRequestUrl, options }: UseTryItParams) {
           try {
             const parsed = JSON.parse(rawText);
             if (typeof parsed.detail === 'string') {
-              const status = isNetworkError ? err.status : undefined;
-              if (status) {
-                message = `Error ${status}`;
+              if (isNetworkError && err.status) {
+                const statusText = err.response?.statusText || `Error ${err.status}`;
+                message = `${err.status} ${statusText}`;
               }
             }
           } catch {

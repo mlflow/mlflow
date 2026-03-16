@@ -66,6 +66,7 @@ describe('useTryIt', () => {
   test('sets error with response body when request fails with NetworkRequestError', async () => {
     const errorBody = { detail: 'The request was invalid.' };
     const mockResponse = {
+      statusText: 'Bad Request',
       text: () => Promise.resolve(JSON.stringify(errorBody)),
     } as unknown as Response;
     const networkError = new GenericNetworkRequestError({ status: 400, response: mockResponse });
@@ -84,7 +85,7 @@ describe('useTryIt', () => {
     expect(mockFetchOrFail).toHaveBeenCalledTimes(1);
     expect(result.current.data).toBeUndefined();
     expect(result.current.error).toBeDefined();
-    expect(result.current.error?.message).toBe('Error 400');
+    expect(result.current.error?.message).toBe('400 Bad Request');
     expect(result.current.error?.responseBody).toBe(JSON.stringify(errorBody, null, 2));
   });
 
@@ -94,6 +95,7 @@ describe('useTryIt', () => {
         'Budget limit exceeded. Limit: $5.00 USD per 1 day. Budget resets at 2026-03-12T00:00:00Z. Request rejected.',
     };
     const mockResponse = {
+      statusText: 'Too Many Requests',
       text: () => Promise.resolve(JSON.stringify(errorBody)),
     } as unknown as Response;
     const networkError = new GenericNetworkRequestError({ status: 429, response: mockResponse });
@@ -110,7 +112,7 @@ describe('useTryIt', () => {
     });
 
     expect(result.current.error).toBeDefined();
-    expect(result.current.error?.message).toBe('Error 429');
+    expect(result.current.error?.message).toBe('429 Too Many Requests');
     expect(result.current.error?.responseBody).toBe(JSON.stringify(errorBody, null, 2));
   });
 
