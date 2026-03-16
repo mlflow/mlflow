@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 #
-# Full-stack comparison: MLflow Tracking Server (PostgreSQL) vs LiteLLM (PostgreSQL)
+# Full-stack comparison: MLflow (PostgreSQL) vs LiteLLM (PostgreSQL) vs Portkey (stateless)
 #
 # Unlike run_comparison.sh which tests the AI Gateway without usage tracking,
-# this script tests both proxies with database-backed config and spend/usage
+# this script tests proxies with database-backed config and spend/usage
 # tracking enabled — the production code path.
 #
 # - MLflow: tracking server with PostgreSQL + gateway endpoint + usage tracking
 # - LiteLLM: proxy with PostgreSQL + spend tracking (auto-enabled with DB)
+# - Portkey: stateless proxy via npx (no DB mode in OSS — routing via per-request headers)
 #
 # Prerequisites:
 #   - Docker (for PostgreSQL container)
 #   - litellm[proxy] installed
+#   - Node.js / npx (optional, for Portkey — skipped if not found)
 #
 # Configuration via environment variables:
 #   WORKERS                - Workers for both proxies (default: 4)
@@ -41,8 +43,21 @@ USAGE_TRACKING="${USAGE_TRACKING:-true}"
 POSTGRES_CONTAINER="benchmark-postgres"
 DOCKER_CLEANUP_CMD="docker rm -f $POSTGRES_CONTAINER > /dev/null 2>&1"
 
+# Check for npx (needed for Portkey)
+HAS_NPX=false
+if command -v npx &>/dev/null; then
+    HAS_NPX=true
+fi
+
+if [ "$HAS_NPX" = "true" ]; then
+    BENCH_TARGET="all"
+else
+    echo "WARNING: npx not found — skipping Portkey AI Gateway (install Node.js to include it)"
+    BENCH_TARGET="both"
+fi
+
 echo "======================================================"
-echo " Full-Stack Comparison: MLflow (PostgreSQL) vs LiteLLM (PostgreSQL)"
+echo " Full-Stack: MLflow (PostgreSQL) vs LiteLLM (PostgreSQL) vs Portkey"
 echo "======================================================"
 echo "Workers:           $WORKERS"
 echo "Requests/run:      $REQUESTS"
@@ -52,6 +67,7 @@ echo "Fake delay:        ${FAKE_RESPONSE_DELAY_MS}ms"
 echo "Usage tracking:    $USAGE_TRACKING"
 echo "MLflow DB:         PostgreSQL (Docker container)"
 echo "LiteLLM DB:        PostgreSQL (Docker container)"
+echo "Portkey:           $([ "$HAS_NPX" = "true" ] && echo "enabled (stateless, no DB in OSS)" || echo "skipped (npx not found)")"
 echo ""
 
 # Start PostgreSQL via Docker
@@ -105,6 +121,13 @@ LITELLM_SALT_KEY="sk-bench-salt-key-1234" \
 PIDS+=($!)
 wait_for_port "$LITELLM_PORT" "LiteLLM proxy" "/health/liveliness"
 
+# Start Portkey AI Gateway (if npx available)
+PORTKEY_URL=""
+if [ "$HAS_NPX" = "true" ]; then
+    start_portkey_gateway
+    PORTKEY_URL="http://127.0.0.1:$PORTKEY_PORT/v1/chat/completions"
+fi
+
 # Sanity checks
 echo ""
 echo "=== Sanity check ==="
@@ -112,5 +135,8 @@ MLFLOW_INVOKE_URL="http://127.0.0.1:$MLFLOW_PORT/gateway/$ENDPOINT_NAME/mlflow/i
 LITELLM_URL="http://127.0.0.1:$LITELLM_PORT/chat/completions"
 sanity_check_mlflow "$MLFLOW_INVOKE_URL"
 sanity_check_litellm "$LITELLM_URL"
+if [ -n "$PORTKEY_URL" ]; then
+    sanity_check_portkey "$PORTKEY_URL"
+fi
 
-run_benchmark both "$MLFLOW_INVOKE_URL" "$LITELLM_URL"
+run_benchmark "$BENCH_TARGET" "$MLFLOW_INVOKE_URL" "$LITELLM_URL" "$PORTKEY_URL"

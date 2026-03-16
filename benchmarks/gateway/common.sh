@@ -20,6 +20,7 @@ export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 FAKE_SERVER_PORT=9000
 MLFLOW_PORT=5000
 LITELLM_PORT=4000
+PORTKEY_PORT=8787
 ENDPOINT_NAME="benchmark-chat"
 
 # Default env vars (scripts can override before calling functions)
@@ -153,10 +154,43 @@ sanity_check_litellm() {
     fi
 }
 
+start_portkey_gateway() {
+    echo ""
+    echo "=== Starting Portkey AI Gateway (port $PORTKEY_PORT) ==="
+    npx @portkey-ai/gateway > /dev/null 2>&1 &
+    PIDS+=($!)
+    wait_for_port "$PORTKEY_PORT" "Portkey AI Gateway" "/v1/health"
+}
+
+sanity_check_portkey() {
+    local url=$1
+    echo -n "Portkey: "
+    local http_code
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" "$url" \
+        -X POST \
+        -H "Content-Type: application/json" \
+        -H "x-portkey-provider: openai" \
+        -H "x-portkey-custom-host: http://127.0.0.1:$FAKE_SERVER_PORT/v1" \
+        -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"test"}]}')
+    echo "$http_code"
+    if [ "$http_code" != "200" ]; then
+        echo "ERROR: Portkey sanity check failed (expected 200, got $http_code)"
+        curl -s "$url" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "x-portkey-provider: openai" \
+            -H "x-portkey-custom-host: http://127.0.0.1:$FAKE_SERVER_PORT/v1" \
+            -d '{"model":"gpt-4o-mini","messages":[{"role":"user","content":"test"}]}'
+        echo ""
+        exit 1
+    fi
+}
+
 run_benchmark() {
     local target=$1
     local mlflow_url="${2:-}"
     local litellm_url="${3:-}"
+    local portkey_url="${4:-}"
     echo ""
     echo "=== Running benchmark ==="
     local args=(
@@ -170,6 +204,9 @@ run_benchmark() {
     fi
     if [ -n "$litellm_url" ]; then
         args+=(--litellm-url "$litellm_url")
+    fi
+    if [ -n "$portkey_url" ]; then
+        args+=(--portkey-url "$portkey_url")
     fi
     $RUN_PREFIX python benchmark_compare.py "${args[@]}"
 }

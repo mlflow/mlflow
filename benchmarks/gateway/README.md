@@ -1,6 +1,6 @@
 # MLflow AI Gateway Benchmark Suite
 
-Benchmark suite for measuring the latency overhead and scalability of the MLflow AI Gateway. Includes a head-to-head comparison tool against [LiteLLM](https://docs.litellm.ai/docs/benchmarks) using the same methodology for direct comparability.
+Benchmark suite for measuring the latency overhead and scalability of the MLflow AI Gateway. Includes a head-to-head comparison tool against [LiteLLM](https://docs.litellm.ai/docs/benchmarks) and [Portkey AI Gateway](https://github.com/Portkey-AI/gateway) using the same methodology for direct comparability.
 
 **Jira**: ML-61935
 
@@ -14,7 +14,7 @@ Benchmark suite for measuring the latency overhead and scalability of the MLflow
 - [Key Implementation Details](#key-implementation-details)
 - [Quick Start](#quick-start)
 - [Benchmark Configurations](#benchmark-configurations)
-- [Head-to-Head Comparison (MLflow vs LiteLLM)](#head-to-head-comparison-mlflow-vs-litellm)
+- [Head-to-Head Comparison (MLflow vs LiteLLM vs Portkey)](#head-to-head-comparison-mlflow-vs-litellm-vs-portkey)
 - [AI Gateway Per-Request Code Path](#ai-gateway-per-request-code-path)
 - [Tracking Server Benchmark](#tracking-server-benchmark)
 - [Full-Stack Comparison (Both on PostgreSQL)](#full-stack-comparison-both-on-postgresql)
@@ -33,17 +33,19 @@ Benchmark suite for measuring the latency overhead and scalability of the MLflow
 graph LR
     A[aiohttp\nbenchmark] --> B[MLflow AI Gateway\ngunicorn + uvicorn]
     A --> C[LiteLLM Proxy\ngunicorn + uvicorn]
+    A --> E[Portkey AI Gateway\nNode.js, stateless]
     B --> D[Fake OpenAI\nServer]
     C --> D
+    E --> D
 ```
 
-Both proxies run on the same machine, same number of workers, hitting the same fake backend. The benchmark client uses `aiohttp` with connection pooling (matching LiteLLM's own `benchmark_mock.py` methodology).
+All proxies run on the same machine, hitting the same fake backend. MLflow and LiteLLM use gunicorn workers; Portkey runs as a single Node.js process via `npx @portkey-ai/gateway`. The benchmark client uses `aiohttp` with connection pooling (matching LiteLLM's own `benchmark_mock.py` methodology).
 
 ---
 
-## Request Lifecycle: Direct vs MLflow vs LiteLLM
+## Request Lifecycle: Direct vs MLflow vs LiteLLM vs Portkey
 
-To understand what the benchmark measures, it helps to compare the request lifecycle across three scenarios: calling the provider directly, going through the MLflow AI Gateway, and going through LiteLLM Proxy.
+To understand what the benchmark measures, it helps to compare the request lifecycle across four scenarios: calling the provider directly, going through the MLflow AI Gateway, going through LiteLLM Proxy, and going through Portkey AI Gateway.
 
 ### 1. Direct to provider (baseline — not benchmarked)
 
@@ -91,18 +93,34 @@ graph LR
 
 **4 server-side steps** per request. Config is loaded from YAML at startup and kept in memory — no per-request DB queries. When spend tracking is DB-backed (PostgreSQL mode), step 4 involves async DB writes.
 
+### 4. Through Portkey AI Gateway
+
+```mermaid
+graph LR
+    Client -- HTTP --> Portkey[Portkey AI Gateway] -- HTTP --> Provider -- HTTP --> Client
+
+    subgraph Portkey["Portkey AI Gateway (server-side steps)"]
+        P1["1. Parse routing headers (x-portkey-provider, x-portkey-custom-host)"]
+        P2["2. Transform request to provider format"]
+        P3["3. HTTP call → calls upstream provider"]
+        P1 --> P2 --> P3
+    end
+```
+
+**3 server-side steps** per request. Portkey is stateless — all routing config is passed via per-request headers (`x-portkey-provider`, `x-portkey-custom-host`). No database, no config file, no spend tracking in the OSS version. This is the lightest-weight architecture of the three.
+
 ### Side-by-side step comparison
 
-| Step                   | MLflow AI Gateway                             | LiteLLM Proxy                         |
-| ---------------------- | --------------------------------------------- | ------------------------------------- |
-| Config lookup          | **3-5 SQL queries per request** (uncached)    | In-memory (loaded from YAML at start) |
-| Secret/auth access     | AES-256-GCM decrypt (60s cache)               | Read from YAML config (no encryption) |
-| Provider instantiation | Created fresh per request                     | Reused from startup                   |
-| Upstream HTTP call     | `litellm.acompletion()` via aiohttp           | `httpx` / `aiohttp`                   |
-| Usage/spend tracking   | `mlflow.trace()` spans + async DB persistence | Spend callbacks + optional async DB   |
-| Budget/rate limiting   | In-memory with periodic DB refresh            | In-memory with DB persistence         |
+| Step                   | MLflow AI Gateway                             | LiteLLM Proxy                         | Portkey AI Gateway                |
+| ---------------------- | --------------------------------------------- | ------------------------------------- | --------------------------------- |
+| Config lookup          | **3-5 SQL queries per request** (uncached)    | In-memory (loaded from YAML at start) | Per-request headers (no lookup)   |
+| Secret/auth access     | AES-256-GCM decrypt (60s cache)               | Read from YAML config (no encryption) | N/A (headers carry provider info) |
+| Provider instantiation | Created fresh per request                     | Reused from startup                   | Stateless (per-request routing)   |
+| Upstream HTTP call     | `litellm.acompletion()` via aiohttp           | `httpx` / `aiohttp`                   | Node.js HTTP client               |
+| Usage/spend tracking   | `mlflow.trace()` spans + async DB persistence | Spend callbacks + optional async DB   | N/A in OSS (cloud-only feature)   |
+| Budget/rate limiting   | In-memory with periodic DB refresh            | In-memory with DB persistence         | N/A in OSS (cloud-only feature)   |
 
-The key architectural difference: MLflow treats the database as the source of truth for endpoint config and resolves it on every request. LiteLLM treats YAML as the source of truth and loads it once at startup. This is why MLflow is slower by default (3-5 extra SQL queries per request), but equally fast or faster when the config is cached.
+The key architectural difference: MLflow treats the database as the source of truth for endpoint config and resolves it on every request. LiteLLM treats YAML as the source of truth and loads it once at startup. Portkey is fully stateless — routing is determined by per-request headers with no server-side state. This is why MLflow is slower by default (3-5 extra SQL queries per request), but equally fast or faster when the config is cached.
 
 ---
 
@@ -216,16 +234,16 @@ With a real provider adding 200-2000ms of inference time, a 10-50ms proxy overhe
 | **Shared**                         |                                                                                                                                               |
 | `common.sh`                        | Shared shell functions sourced by all benchmark scripts                                                                                       |
 | `fake_openai_server.py`            | FastAPI app returning canned OpenAI-compatible responses (chat, completions, embeddings) with configurable delay via `FAKE_RESPONSE_DELAY_MS` |
-| `benchmark_compare.py`             | aiohttp-based benchmark (matches LiteLLM's `benchmark_mock.py`), runs both proxies sequentially with warmup, prints comparison table          |
+| `benchmark_compare.py`             | aiohttp-based benchmark (matches LiteLLM's `benchmark_mock.py`), runs proxies sequentially with warmup, prints comparison table               |
 | `setup_tracking_server.py`         | Creates secret + model definition + endpoint via REST API in a running tracking server                                                        |
 | **Head-to-head comparison**        |                                                                                                                                               |
 | `litellm_config.yaml`              | LiteLLM proxy config pointing at the same fake server (YAML-only, no DB)                                                                      |
-| `run_comparison.sh`                | Starts fake server + MLflow AI Gateway (SQLite) + LiteLLM (YAML) + runs `benchmark_compare.py`                                                |
+| `run_comparison.sh`                | Starts fake server + MLflow AI Gateway (SQLite) + LiteLLM (YAML) + Portkey (npx) + runs `benchmark_compare.py`                                |
 | **Tracking server benchmark**      |                                                                                                                                               |
 | `run_tracking_server_benchmark.sh` | Starts fake server + `mlflow server` with SQLite + sets up endpoint + runs benchmark                                                          |
 | **Full-stack comparison**          |                                                                                                                                               |
 | `litellm_config_db.yaml`           | LiteLLM proxy config with PostgreSQL `database_url` for spend tracking                                                                        |
-| `run_full_stack_comparison.sh`     | Starts PostgreSQL (Docker) + MLflow AI Gateway (PostgreSQL) + LiteLLM (PostgreSQL) + runs comparison benchmark                                |
+| `run_full_stack_comparison.sh`     | Starts PostgreSQL (Docker) + MLflow AI Gateway (PostgreSQL) + LiteLLM (PostgreSQL) + Portkey (npx) + runs comparison benchmark                |
 | **Other**                          |                                                                                                                                               |
 | `.gitignore`                       | Ignores `results/` directory                                                                                                                  |
 
@@ -263,11 +281,12 @@ uv sync
 pip install mlflow[gateway]
 ```
 
-### Head-to-head vs LiteLLM
+### Head-to-head vs LiteLLM & Portkey
 
 ```bash
 cd benchmarks/gateway
 pip install 'litellm[proxy]'  # or: uv pip install 'litellm[proxy]'
+# Portkey requires Node.js/npx — automatically skipped if not found
 GATEWAY_WORKERS=4 REQUESTS=2000 MAX_CONCURRENT=50 RUNS=3 bash run_comparison.sh
 ```
 
@@ -325,12 +344,11 @@ bash run_full_stack_comparison.sh
 
 ---
 
-## Head-to-Head Comparison (MLflow vs LiteLLM)
+## Head-to-Head Comparison (MLflow vs LiteLLM vs Portkey)
 
-The `run_comparison.sh` script runs both proxies under identical conditions:
+The `run_comparison.sh` script runs all proxies under identical conditions:
 
 - Same fake OpenAI backend (8 gunicorn workers on port 9000)
-- Same number of proxy workers
 - Same aiohttp-based benchmark client with connection pooling
 - Warmup phase (50 requests) before timed measurement
 - Multiple runs to reduce variance
@@ -341,14 +359,17 @@ This mirrors LiteLLM's own `benchmark_mock.py` methodology for a fair comparison
 
 - **MLflow AI Gateway**: `mlflow server` with SQLite backend, endpoint created via REST API (`/api/3.0/mlflow/gateway/endpoints/create`). This is the production AI Gateway code path — every request resolves endpoint config from the database.
 - **LiteLLM Proxy**: `litellm --config litellm_config.yaml` — model list loaded from YAML, no database, `callbacks: []`.
+- **Portkey AI Gateway**: `npx @portkey-ai/gateway` — stateless Node.js proxy. No config file; routing is via per-request headers (`x-portkey-provider: openai`, `x-portkey-custom-host: http://127.0.0.1:9000/v1`). Portkey requires Node.js/npx and is automatically skipped if not available.
 
 Usage tracking is **disabled by default** (`USAGE_TRACKING=false`) to reduce DB overhead, but can be enabled with `USAGE_TRACKING=true`.
 
 ### Fairness note
 
-This comparison is **not symmetric** in terms of architecture: MLflow resolves endpoint config from the database on every request (3-5 SQL queries), while LiteLLM loads its config from YAML at startup and keeps it in memory. This reflects the real production code paths for each proxy.
+This comparison is **not symmetric** in terms of architecture: MLflow resolves endpoint config from the database on every request (3-5 SQL queries), LiteLLM loads its config from YAML at startup and keeps it in memory, and Portkey is fully stateless with per-request header-based routing. Each reflects the real production code path for that proxy.
 
-For a "full production stack" comparison where both sides use PostgreSQL, see [Full-Stack Comparison](#full-stack-comparison-both-on-postgresql).
+Portkey's OSS version has no database, spend tracking, or usage logging — it is a pure pass-through proxy. This gives it the lightest overhead but the fewest features.
+
+For a "full production stack" comparison where MLflow and LiteLLM use PostgreSQL, see [Full-Stack Comparison](#full-stack-comparison-both-on-postgresql).
 
 ---
 
@@ -467,28 +488,31 @@ USAGE_TRACKING=false bash run_full_stack_comparison.sh
 graph LR
     A[aiohttp\nbenchmark] --> B[MLflow Tracking Server\nPostgreSQL, usage tracking]
     A --> C[LiteLLM Proxy\nPostgreSQL, spend tracking]
+    A --> F[Portkey AI Gateway\nstateless, no DB]
     B --> D[Fake OpenAI\nServer]
     C --> D
+    F --> D
     B --> E["PostgreSQL (Docker)\nDB: mlflow\nDB: litellm"]
     C --> E
 ```
 
 ### What each side does per request
 
-| Operation      | MLflow (tracking server)                   | LiteLLM (PostgreSQL)                  |
-| -------------- | ------------------------------------------ | ------------------------------------- |
-| Config lookup  | 3-5 SQL queries (PostgreSQL, uncached)     | In-memory from startup YAML + DB sync |
-| Secret access  | Decrypt per request (60s cache)            | From YAML config (no encryption)      |
-| Usage tracking | `mlflow.trace()` spans + async persistence | Spend tracking callbacks + DB writes  |
-| Budget check   | In-memory with periodic DB refresh         | In-memory with DB persistence         |
-| Upstream HTTP  | `aiohttp`                                  | `httpx` / `aiohttp`                   |
+| Operation      | MLflow (tracking server)                   | LiteLLM (PostgreSQL)                  | Portkey (stateless)               |
+| -------------- | ------------------------------------------ | ------------------------------------- | --------------------------------- |
+| Config lookup  | 3-5 SQL queries (PostgreSQL, uncached)     | In-memory from startup YAML + DB sync | Per-request headers (no lookup)   |
+| Secret access  | Decrypt per request (60s cache)            | From YAML config (no encryption)      | N/A (headers carry provider info) |
+| Usage tracking | `mlflow.trace()` spans + async persistence | Spend tracking callbacks + DB writes  | N/A in OSS                        |
+| Budget check   | In-memory with periodic DB refresh         | In-memory with DB persistence         | N/A in OSS                        |
+| Upstream HTTP  | `aiohttp`                                  | `httpx` / `aiohttp`                   | Node.js HTTP client               |
 
 ### Fairness notes
 
-Both proxies use the same PostgreSQL instance (separate databases). Key architectural differences remain:
+MLflow and LiteLLM use the same PostgreSQL instance (separate databases). Portkey runs stateless with no database. Key architectural differences remain:
 
 - **MLflow queries the DB on every request** for endpoint config (3-5 SQL queries, uncached). LiteLLM loads config from YAML at startup and uses DB primarily for spend tracking.
-- Both sides have **usage/spend tracking enabled** by default, which is the intended production configuration for each.
+- MLflow and LiteLLM have **usage/spend tracking enabled** by default, which is the intended production configuration for each.
+- **Portkey has no DB mode in OSS** — it runs as a pure pass-through proxy. This gives it the lightest overhead but makes it not directly comparable on the "full-stack" dimension.
 
 ---
 

@@ -1,14 +1,16 @@
 """
-Head-to-head benchmark: MLflow Gateway vs LiteLLM proxy.
+Head-to-head benchmark: MLflow Gateway vs LiteLLM proxy vs Portkey AI Gateway.
 
 Uses the same aiohttp-based methodology as LiteLLM's benchmark_mock.py
-for a fair comparison. Both proxies hit the same fake OpenAI server.
+for a fair comparison. All proxies hit the same fake OpenAI server.
 
 Usage:
-    # Start fake server + both proxies first, then:
+    # Start fake server + proxies first, then:
     python benchmark_compare.py --target mlflow --requests 2000 --max-concurrent 50 --runs 3
     python benchmark_compare.py --target litellm --requests 2000 --max-concurrent 50 --runs 3
+    python benchmark_compare.py --target portkey --requests 2000 --max-concurrent 50 --runs 3
     python benchmark_compare.py --target both --requests 2000 --max-concurrent 50 --runs 3
+    python benchmark_compare.py --target all --requests 2000 --max-concurrent 50 --runs 3
 """
 
 import argparse
@@ -20,6 +22,7 @@ import aiohttp
 
 MLFLOW_URL = "http://127.0.0.1:5000/gateway/benchmark-chat/mlflow/invocations"
 LITELLM_URL = "http://127.0.0.1:4000/chat/completions"
+PORTKEY_URL = "http://127.0.0.1:8787/v1/chat/completions"
 
 MLFLOW_BODY = {
     "messages": [{"role": "user", "content": "benchmark request"}],
@@ -33,6 +36,12 @@ LITELLM_BODY = {
     "max_tokens": 50,
 }
 
+PORTKEY_BODY = {
+    "model": "gpt-4o-mini",
+    "messages": [{"role": "user", "content": "benchmark request"}],
+    "max_tokens": 50,
+}
+
 LITELLM_HEADERS = {
     "Authorization": "Bearer sk-1234",
     "Content-Type": "application/json",
@@ -40,6 +49,12 @@ LITELLM_HEADERS = {
 
 MLFLOW_HEADERS = {
     "Content-Type": "application/json",
+}
+
+PORTKEY_HEADERS = {
+    "Content-Type": "application/json",
+    "x-portkey-provider": "openai",
+    "x-portkey-custom-host": "http://127.0.0.1:9000/v1",
 }
 
 
@@ -140,7 +155,7 @@ def print_results(name, results):
         )
 
 
-def print_comparison(mlflow_results, litellm_results):
+def print_comparison(targets):
     def agg(results):
         lats = sorted(lat for r in results for lat in r["latencies"])
         n = len(lats)
@@ -154,22 +169,42 @@ def print_comparison(mlflow_results, litellm_results):
             "failures": sum(r["failures"] for r in results),
         }
 
-    m = agg(mlflow_results)
-    l = agg(litellm_results)
+    aggregated = [(name, agg(results)) for name, results in targets]
+    aggregated = [(name, a) for name, a in aggregated if a]
 
-    if not m or not l:
+    if len(aggregated) < 2:
         return
 
-    print(f"\n{'=' * 60}")
+    col_width = max(len(name) for name, _ in aggregated)
+    col_width = max(col_width, 15)
+    total_width = 20 + col_width * len(aggregated) + 2 * len(aggregated)
+    header_width = max(total_width, 60)
+
+    print(f"\n{'=' * header_width}")
     print("  HEAD-TO-HEAD COMPARISON")
-    print(f"{'=' * 60}")
-    print(f"  {'Metric':<20} {'MLflow Gateway':>15} {'LiteLLM':>15}")
-    print(f"  {'-' * 50}")
-    print(f"  {'P50 (ms)':<20} {m['p50']:>15.1f} {l['p50']:>15.1f}")
-    print(f"  {'P95 (ms)':<20} {m['p95']:>15.1f} {l['p95']:>15.1f}")
-    print(f"  {'P99 (ms)':<20} {m['p99']:>15.1f} {l['p99']:>15.1f}")
-    print(f"  {'RPS':<20} {m['throughput']:>15.0f} {l['throughput']:>15.0f}")
-    print(f"  {'Failures':<20} {m['failures']:>15} {l['failures']:>15}")
+    print(f"{'=' * header_width}")
+
+    header = f"  {'Metric':<20}"
+    for name, _ in aggregated:
+        header += f" {name:>{col_width}}"
+    print(header)
+    print(f"  {'-' * (total_width - 2)}")
+
+    for metric, key, fmt in [
+        ("P50 (ms)", "p50", ".1f"),
+        ("P95 (ms)", "p95", ".1f"),
+        ("P99 (ms)", "p99", ".1f"),
+        ("RPS", "throughput", ".0f"),
+    ]:
+        row = f"  {metric:<20}"
+        for _, a in aggregated:
+            row += f" {a[key]:{f'>{col_width}{fmt}'}}"
+        print(row)
+
+    row = f"  {'Failures':<20}"
+    for _, a in aggregated:
+        row += f" {a['failures']:>{col_width}}"
+    print(row)
 
 
 async def bench_target(name, url, body, headers, n_requests, max_concurrent, runs):
@@ -191,10 +226,10 @@ async def bench_target(name, url, body, headers, n_requests, max_concurrent, run
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="MLflow Gateway vs LiteLLM benchmark")
+    parser = argparse.ArgumentParser(description="MLflow Gateway vs LiteLLM vs Portkey benchmark")
     parser.add_argument(
         "--target",
-        choices=["mlflow", "litellm", "both"],
+        choices=["mlflow", "litellm", "portkey", "both", "all"],
         default="both",
     )
     parser.add_argument("--requests", type=int, default=2000)
@@ -202,12 +237,12 @@ async def main():
     parser.add_argument("--runs", type=int, default=3)
     parser.add_argument("--mlflow-url", default=MLFLOW_URL)
     parser.add_argument("--litellm-url", default=LITELLM_URL)
+    parser.add_argument("--portkey-url", default=PORTKEY_URL)
     args = parser.parse_args()
 
-    mlflow_results = None
-    litellm_results = None
+    comparison_targets = []
 
-    if args.target in ("mlflow", "both"):
+    if args.target in ("mlflow", "both", "all"):
         mlflow_results = await bench_target(
             "MLflow Gateway",
             args.mlflow_url,
@@ -217,8 +252,9 @@ async def main():
             args.max_concurrent,
             args.runs,
         )
+        comparison_targets.append(("MLflow Gateway", mlflow_results))
 
-    if args.target in ("litellm", "both"):
+    if args.target in ("litellm", "both", "all"):
         litellm_results = await bench_target(
             "LiteLLM",
             args.litellm_url,
@@ -228,9 +264,26 @@ async def main():
             args.max_concurrent,
             args.runs,
         )
+        comparison_targets.append(("LiteLLM", litellm_results))
 
-    if mlflow_results and litellm_results:
-        print_comparison(mlflow_results, litellm_results)
+    if args.target in ("portkey", "all"):
+        portkey_headers = {**PORTKEY_HEADERS}
+        # Allow overriding custom-host via URL to match fake server port
+        if args.portkey_url != PORTKEY_URL:
+            portkey_headers["x-portkey-custom-host"] = "http://127.0.0.1:9000/v1"
+        portkey_results = await bench_target(
+            "Portkey",
+            args.portkey_url,
+            PORTKEY_BODY,
+            portkey_headers,
+            args.requests,
+            args.max_concurrent,
+            args.runs,
+        )
+        comparison_targets.append(("Portkey", portkey_results))
+
+    if len(comparison_targets) >= 2:
+        print_comparison(comparison_targets)
 
 
 if __name__ == "__main__":
