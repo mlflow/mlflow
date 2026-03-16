@@ -8,6 +8,11 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
 from mlflow.entities.span import create_mlflow_span
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -90,12 +95,6 @@ def test_batch_get_traces_empty():
 
 @skip_when_testing_trace_sdk
 def test_batch_get_traces_with_artifact_repo_traces():
-    from mlflow.entities.trace import Trace
-    from mlflow.entities.trace_data import TraceData
-    from mlflow.entities.trace_info import TraceInfo
-    from mlflow.entities.trace_location import TraceLocation
-    from mlflow.entities.trace_state import TraceState
-
     # Create a trace with spans in the tracking store
     with mlflow.start_span("tracking_span"):
         tracking_trace_id = mlflow.get_active_trace_id()
