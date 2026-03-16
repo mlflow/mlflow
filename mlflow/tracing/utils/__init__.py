@@ -7,7 +7,7 @@ import logging
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
-from dataclasses import fields, is_dataclass
+from dataclasses import asdict, fields, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
@@ -84,6 +84,10 @@ class TraceJSONEncoder(json.JSONEncoder):
         # representation, so we use dict representation instead.
         # E.g. https://github.com/run-llama/llama_index/blob/29ece9b058f6b9a1cf29bc723ed4aa3a39879ad5/llama-index-core/llama_index/core/chat_engine/types.py#L63-L64
         if is_dataclass(obj):
+            try:
+                return asdict(obj)
+            except Exception:
+                pass
             try:
                 return {f.name: getattr(obj, f.name) for f in fields(obj)}
             except Exception:
