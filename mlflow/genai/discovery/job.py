@@ -4,7 +4,7 @@ from mlflow.environment_variables import MLFLOW_SERVER_JUDGE_INVOKE_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.server.jobs import job
-from mlflow.store.tracking.utils.secrets import get_decrypted_secret
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 # Mapping of provider names to their environment variable names for API keys
 # Providers that don't use API keys are not included in this mapping
@@ -32,7 +32,9 @@ _PROVIDER_ENV_VARS = {
 }
 
 
-def _fetch_provider_credentials(provider: str, secret_id: str) -> dict[str, str]:
+def _fetch_provider_credentials(
+    store: SqlAlchemyStore, provider: str, secret_id: str
+) -> dict[str, str]:
     """
     Retrieve and extract provider credentials from secret.
 
@@ -47,7 +49,7 @@ def _fetch_provider_credentials(provider: str, secret_id: str) -> dict[str, str]
             f"Supported providers: {', '.join(_PROVIDER_ENV_VARS.keys())}"
         )
 
-    secret_value = get_decrypted_secret(secret_id)
+    secret_value = store._get_decrypted_secret(secret_id)
     credentials = {}
     if isinstance(env_var_config, dict):
         for secret_key, env_var_name in env_var_config.items():

@@ -4176,7 +4176,11 @@ def _invoke_issue_detection_handler():
         )
 
     # Fetch credentials required for executing the job
-    credentials = _fetch_provider_credentials(provider, secret_id) if secret_id else None
+    if secret_id:
+        store = _get_tracking_store()
+        credentials = _fetch_provider_credentials(store, provider, secret_id)
+    else:
+        credentials = None
 
     # Create the run upfront so we can return run_id immediately
     model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
