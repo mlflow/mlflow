@@ -377,7 +377,7 @@ class TracingClient:
 
         # Get trace infos (metadata only) to determine where spans are stored.
         # Fall back to store.batch_get_traces directly if the store doesn't
-        # implement batch_get_trace_infos (e.g. RestStore, DatabricksRestStore).
+        # implement batch_get_trace_infos (e.g. DatabricksRestStore).
         try:
             trace_infos = self.store.batch_get_trace_infos(trace_ids)
         except MlflowNotImplementedException:
