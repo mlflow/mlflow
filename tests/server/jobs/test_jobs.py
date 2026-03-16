@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from mlflow.entities._job_status import JobStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import (
@@ -832,9 +832,7 @@ def test_submit_job_without_extra_envs(monkeypatch, tmp_path):
 
 @job(name="workspace_env_checker", max_workers=1)
 def workspace_env_checker():
-    from mlflow.environment_variables import MLFLOW_WORKSPACE
-
-    return os.environ.get(MLFLOW_WORKSPACE.name)
+    return MLFLOW_WORKSPACE.get()
 
 
 def test_submit_job_workspace_propagation(monkeypatch, tmp_path, workspaces_enabled):
