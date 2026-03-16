@@ -4873,11 +4873,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .all()
             )
 
-            # batch_get_traces is depended by search_traces, so we need to return
-            # complete traces only
             traces = []
             for sql_trace_info in sql_trace_infos:
                 trace_info = sql_trace_info.to_mlflow_entity()
+                # batch_get_traces is depended by search_traces, so we need to return
+                # complete traces only
                 if spans := self._get_spans_with_trace_info(
                     trace_info, sql_trace_info.spans, allow_partial=False
                 ):
