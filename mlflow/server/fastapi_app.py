@@ -6,12 +6,10 @@ using WSGIMiddleware to maintain 100% API compatibility while enabling future mi
 to FastAPI endpoints.
 """
 
-import json
-
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.wsgi import WSGIMiddleware
-from fastapi.responses import JSONResponse
 from flask import Flask
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from mlflow.exceptions import MlflowException
 from mlflow.server import app as flask_app
@@ -31,30 +29,58 @@ from mlflow.utils.workspace_context import (
 from mlflow.version import VERSION
 
 
-def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
-    if getattr(fastapi_app.state, "workspace_middleware_added", False):
-        return
+class WorkspaceContextMiddleware:
+    """Pure ASGI middleware for workspace context.
 
-    @fastapi_app.middleware("http")
-    async def workspace_context_middleware(request: Request, call_next):
+    Unlike @app.middleware("http") which uses Starlette's BaseHTTPMiddleware
+    (spawning a background task per request), this passes the ASGI scope/receive/send
+    directly — avoiding the task-spawning overhead that causes ~30ms latency under
+    concurrent load.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        # ASGI headers are list of (name, value) byte pairs, names are lowercase
+        workspace_header_key = WORKSPACE_HEADER_NAME.lower().encode()
+        workspace_header = None
+        for name, value in scope.get("headers", []):
+            if name == workspace_header_key:
+                workspace_header = value.decode("utf-8")
+                break
+        path = scope.get("path", "")
+
         try:
-            workspace = resolve_workspace_for_request_if_enabled(
-                request.url.path,
-                request.headers.get(WORKSPACE_HEADER_NAME),
-            )
+            workspace = resolve_workspace_for_request_if_enabled(path, workspace_header)
         except MlflowException as e:
-            return JSONResponse(
-                status_code=e.get_http_status_code(),
-                content=json.loads(e.serialize_as_json()),
-            )
+            status = e.get_http_status_code()
+            body = e.serialize_as_json().encode("utf-8")
+            await send({
+                "type": "http.response.start",
+                "status": status,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode()),
+                ],
+            })
+            await send({"type": "http.response.body", "body": body})
+            return
 
         set_server_request_workspace(workspace.name if workspace else None)
         try:
-            response = await call_next(request)
+            await self.app(scope, receive, send)
         finally:
             clear_server_request_workspace()
-        return response
 
+
+def add_fastapi_workspace_middleware(fastapi_app: FastAPI) -> None:
+    if getattr(fastapi_app.state, "workspace_middleware_added", False):
+        return
+    fastapi_app.add_middleware(WorkspaceContextMiddleware)
     fastapi_app.state.workspace_middleware_added = True
 
 
