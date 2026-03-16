@@ -736,11 +736,25 @@ def _get_mlflow_span_processor(tracking_uri: str):
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
-    # Databricks and SQL backends support V3 traces
+    from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
     from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
-    exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
+    # When async trace logging is explicitly enabled (e.g. gateway server) with a
+    # non-Databricks backend, consolidate span + trace writes into a single
+    # transaction to reduce DB contention from concurrent log_spans/start_trace
+    # async tasks. Databricks stores don't need this as they have their own
+    # contention handling.
+    write_spans_with_trace = (
+        MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
+        and MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+        and not is_databricks_uri(tracking_uri)
+    )
+
+    exporter = MlflowV3SpanExporter(
+        tracking_uri=tracking_uri,
+        write_spans_with_trace=write_spans_with_trace,
+    )
     return MlflowV3SpanProcessor(
         span_exporter=exporter,
         export_metrics=should_export_otlp_metrics(),

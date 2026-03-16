@@ -78,16 +78,21 @@ class TracingClient:
         return _get_store(self.tracking_uri)
 
     @record_usage_event(StartTraceEvent)
-    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo, spans: list[Span] | None = None) -> TraceInfo:
         """
         Create a new trace in the backend.
 
         Args:
             trace_info: The TraceInfo object to record in the backend.
+            spans: Optional list of spans to write in the same transaction as the trace.
+                When provided, spans are stored alongside the trace in a single DB write,
+                avoiding the race between separate log_spans and start_trace calls.
 
         Returns:
             The returned TraceInfoV3 object from the backend.
         """
+        if spans:
+            return self.store.start_trace(trace_info=trace_info, spans=spans)
         return self.store.start_trace(trace_info=trace_info)
 
     def log_spans(self, location: str, spans: list[Span]) -> list[Span]:

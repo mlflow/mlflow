@@ -273,12 +273,13 @@ class AbstractStore(GatewayStoreMixin):
 
         """
 
-    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo, spans=None) -> TraceInfo:
         """
         Create a trace using the V3 API format with a complete Trace object.
 
         Args:
             trace_info: The TraceInfo object to create in the backend.
+            spans: Optional list of spans to write in the same transaction.
 
         Returns:
             The returned TraceInfo object from the backend.
