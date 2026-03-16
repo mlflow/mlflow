@@ -114,6 +114,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
+    MAX_TRACE_LINKS_PER_REQUEST,
     SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -4216,14 +4217,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Raises:
             MlflowException: If more than 100 traces are provided.
         """
-        MAX_TRACES_PER_REQUEST = 100
-
         if not trace_ids:
             return
 
-        if len(trace_ids) > MAX_TRACES_PER_REQUEST:
+        if len(trace_ids) > MAX_TRACE_LINKS_PER_REQUEST:
             raise MlflowException(
-                f"Cannot link more than {MAX_TRACES_PER_REQUEST} traces to a run in "
+                f"Cannot link more than {MAX_TRACE_LINKS_PER_REQUEST} traces to a run in "
                 f"a single request. Provided {len(trace_ids)} traces.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
