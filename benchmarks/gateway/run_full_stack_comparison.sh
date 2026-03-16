@@ -132,6 +132,19 @@ $RUN_PREFIX litellm \
 PIDS+=($!)
 wait_for_port "$LITELLM_NOTRACK_PORT" "LiteLLM proxy (no tracking)" "/health/liveliness"
 
+# Start LiteLLM proxy with DB + payload logging (store_prompts_in_spend_logs)
+echo ""
+echo "=== Starting LiteLLM proxy with payload logging (port $LITELLM_PAYLOAD_PORT, $WORKERS workers, PostgreSQL) ==="
+DATABASE_URL="postgresql://postgres:benchmarkpass@127.0.0.1:5432/litellm" \
+LITELLM_SALT_KEY="sk-bench-salt-key-1234" \
+    $RUN_PREFIX litellm \
+    --config "litellm_config_db_payload.yaml" \
+    --port "$LITELLM_PAYLOAD_PORT" \
+    --num_workers "$WORKERS" \
+    > /dev/null 2>&1 &
+PIDS+=($!)
+wait_for_port "$LITELLM_PAYLOAD_PORT" "LiteLLM proxy (payload logging)" "/health/liveliness"
+
 # Start Portkey AI Gateway (if npx available)
 PORTKEY_URL=""
 if [ "$HAS_NPX" = "true" ]; then
@@ -145,6 +158,7 @@ echo "=== Sanity check ==="
 MLFLOW_INVOKE_URL="http://127.0.0.1:$MLFLOW_PORT/gateway/$ENDPOINT_NAME/mlflow/invocations"
 LITELLM_URL="http://127.0.0.1:$LITELLM_PORT/chat/completions"
 LITELLM_NOTRACK_URL="http://127.0.0.1:$LITELLM_NOTRACK_PORT/chat/completions"
+LITELLM_PAYLOAD_URL="http://127.0.0.1:$LITELLM_PAYLOAD_PORT/chat/completions"
 sanity_check_mlflow "$MLFLOW_INVOKE_URL"
 sanity_check_litellm "$LITELLM_URL"
 echo -n "LiteLLM (no tracking): "
@@ -156,8 +170,17 @@ if [ "$http_code" != "200" ]; then
     echo "ERROR: LiteLLM (no tracking) sanity check failed (expected 200, got $http_code)"
     exit 1
 fi
+echo -n "LiteLLM (payload logging): "
+http_code=$(curl -s -o /dev/null -w "%{http_code}" "$LITELLM_PAYLOAD_URL" \
+    -X POST -H "Content-Type: application/json" -H "Authorization: Bearer sk-1234" \
+    -d '{"model":"benchmark-chat","messages":[{"role":"user","content":"test"}]}')
+echo "$http_code"
+if [ "$http_code" != "200" ]; then
+    echo "ERROR: LiteLLM (payload logging) sanity check failed (expected 200, got $http_code)"
+    exit 1
+fi
 if [ -n "$PORTKEY_URL" ]; then
     sanity_check_portkey "$PORTKEY_URL"
 fi
 
-run_benchmark "$BENCH_TARGET" "$MLFLOW_INVOKE_URL" "$LITELLM_URL" "$PORTKEY_URL" "$LITELLM_NOTRACK_URL"
+run_benchmark "$BENCH_TARGET" "$MLFLOW_INVOKE_URL" "$LITELLM_URL" "$PORTKEY_URL" "$LITELLM_NOTRACK_URL" "$LITELLM_PAYLOAD_URL"

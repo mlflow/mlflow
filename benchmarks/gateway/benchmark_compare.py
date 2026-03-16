@@ -231,7 +231,15 @@ async def main():
     parser = argparse.ArgumentParser(description="MLflow Gateway vs LiteLLM vs Portkey benchmark")
     parser.add_argument(
         "--target",
-        choices=["mlflow", "litellm", "litellm-notrack", "portkey", "both", "all"],
+        choices=[
+            "mlflow",
+            "litellm",
+            "litellm-notrack",
+            "litellm-payload",
+            "portkey",
+            "both",
+            "all",
+        ],
         default="both",
     )
     parser.add_argument("--requests", type=int, default=2000)
@@ -241,6 +249,7 @@ async def main():
     parser.add_argument("--litellm-url", default=LITELLM_URL)
     parser.add_argument("--portkey-url", default=PORTKEY_URL)
     parser.add_argument("--litellm-notrack-url", default=None)
+    parser.add_argument("--litellm-payload-url", default=None)
     args = parser.parse_args()
 
     comparison_targets = []
@@ -296,6 +305,18 @@ async def main():
             args.runs,
         )
         comparison_targets.append(("LiteLLM (no tracking)", litellm_notrack_results))
+
+    if args.target in ("litellm-payload", "all") and args.litellm_payload_url:
+        litellm_payload_results = await bench_target(
+            "LiteLLM (payload logging)",
+            args.litellm_payload_url,
+            LITELLM_BODY,
+            LITELLM_HEADERS,
+            args.requests,
+            args.max_concurrent,
+            args.runs,
+        )
+        comparison_targets.append(("LiteLLM (payload logging)", litellm_payload_results))
 
     if len(comparison_targets) >= 2:
         print_comparison(comparison_targets)

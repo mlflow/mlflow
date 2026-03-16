@@ -21,6 +21,7 @@ FAKE_SERVER_PORT=9000
 MLFLOW_PORT=5000
 LITELLM_PORT=4000
 LITELLM_NOTRACK_PORT=4001
+LITELLM_PAYLOAD_PORT=4002
 PORTKEY_PORT=8787
 ENDPOINT_NAME="benchmark-chat"
 
@@ -193,6 +194,7 @@ run_benchmark() {
     local litellm_url="${3:-}"
     local portkey_url="${4:-}"
     local litellm_notrack_url="${5:-}"
+    local litellm_payload_url="${6:-}"
     echo ""
     echo "=== Running benchmark ==="
     local args=(
@@ -212,6 +214,9 @@ run_benchmark() {
     fi
     if [ -n "$litellm_notrack_url" ]; then
         args+=(--litellm-notrack-url "$litellm_notrack_url")
+    fi
+    if [ -n "$litellm_payload_url" ]; then
+        args+=(--litellm-payload-url "$litellm_payload_url")
     fi
     $RUN_PREFIX python benchmark_compare.py "${args[@]}"
 }

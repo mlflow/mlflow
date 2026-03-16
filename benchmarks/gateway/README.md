@@ -242,7 +242,8 @@ With a real provider adding 200-2000ms of inference time, a 10-50ms proxy overhe
 | **Tracking server benchmark**      |                                                                                                                                               |
 | `run_tracking_server_benchmark.sh` | Starts fake server + `mlflow server` with SQLite + sets up endpoint + runs benchmark                                                          |
 | **Full-stack comparison**          |                                                                                                                                               |
-| `litellm_config_db.yaml`           | LiteLLM proxy config with PostgreSQL `database_url` for spend tracking                                                                        |
+| `litellm_config_db.yaml`           | LiteLLM proxy config with PostgreSQL `database_url` for spend tracking (metadata only)                                                        |
+| `litellm_config_db_payload.yaml`   | LiteLLM proxy config with PostgreSQL + `store_prompts_in_spend_logs: true` for full payload logging                                           |
 | `run_full_stack_comparison.sh`     | Starts PostgreSQL (Docker) + MLflow AI Gateway (PostgreSQL) + LiteLLM (PostgreSQL) + Portkey (npx) + runs comparison benchmark                |
 | **Other**                          |                                                                                                                                               |
 | `.gitignore`                       | Ignores `results/` directory                                                                                                                  |
