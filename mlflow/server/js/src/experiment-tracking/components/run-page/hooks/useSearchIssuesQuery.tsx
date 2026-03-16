@@ -5,16 +5,20 @@ export const SEARCH_ISSUES_QUERY_KEY = 'SEARCH_ISSUES';
 
 export type IssueStatus = 'pending' | 'rejected' | 'resolved';
 
+export type IssueSeverity = 'not_an_issue' | 'low' | 'medium' | 'high';
+
 export interface Issue {
   issue_id: string;
   experiment_id: string;
   name: string;
   description?: string;
+  severity?: IssueSeverity;
   status: IssueStatus;
   source_run_id?: string;
   created_by?: string;
   created_timestamp: number;
   last_updated_timestamp: number;
+  categories?: string[];
 }
 
 type SearchIssuesResponse = {

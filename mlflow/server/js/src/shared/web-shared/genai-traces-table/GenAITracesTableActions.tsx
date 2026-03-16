@@ -127,12 +127,18 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   );
 
   const hasExportAction = Boolean(traceActions?.exportToEvals);
+  const hasRunJudgesAction = Boolean(traceActions?.runJudgesAction);
   const hasEditTagsAction = shouldEnableTagGrouping() && Boolean(traceActions?.editTags);
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
 
   const handleExportToDatasets = () => {
     showAddToEvaluationDatasetModal?.(selectedTraces);
   };
+
+  const handleRunJudges = useCallback(() => {
+    const traceIds = compact(selectedTraces.map((trace) => trace.traceInfo?.trace_id));
+    traceActions?.runJudgesAction?.showRunJudgesModal(traceIds);
+  }, [selectedTraces, traceActions]);
 
   const selectedSessionCount = useMemo(() => {
     if (!isGroupedBySession) {
@@ -150,7 +156,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
 
   const isEditTagsDisabled = selectedTraces.length > 1;
   const noTracesSelected = selectedTraces.length === 0;
-  const noActionsAvailable = !hasExportAction && !hasEditTagsAction && !hasDeleteAction;
+  const noActionsAvailable = !hasExportAction && !hasRunJudgesAction && !hasEditTagsAction && !hasDeleteAction;
   const canCompare = selectedTraces.length >= 2 && selectedTraces.length < 4;
 
   const groupLabelStyles = {
@@ -250,7 +256,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                   <DropdownMenu.Separator />
                 </>
               )}
-              {hasExportAction && (
+              {(hasExportAction || hasRunJudgesAction) && (
                 <>
                   <DropdownMenu.Group>
                     <DropdownMenu.Label css={groupLabelStyles}>
@@ -259,22 +265,36 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                         description: 'Trace actions dropdown group label',
                       })}
                     </DropdownMenu.Label>
-                    <DropdownMenu.Item
-                      componentId="mlflow.genai-traces-table.export-to-datasets"
-                      css={groupItemStyles}
-                      onClick={handleExportToDatasets}
-                    >
-                      {intl.formatMessage({
-                        defaultMessage: 'Add to evaluation dataset',
-                        description: 'Add traces to evaluation dataset action',
-                      })}
-                    </DropdownMenu.Item>
+                    {hasRunJudgesAction && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.genai-traces-table.run-judges"
+                        css={groupItemStyles}
+                        onClick={handleRunJudges}
+                      >
+                        {intl.formatMessage({
+                          defaultMessage: 'Run judges',
+                          description: 'Run judges on selected traces action',
+                        })}
+                      </DropdownMenu.Item>
+                    )}
+                    {hasExportAction && (
+                      <DropdownMenu.Item
+                        componentId="mlflow.genai-traces-table.export-to-datasets"
+                        css={groupItemStyles}
+                        onClick={handleExportToDatasets}
+                      >
+                        {intl.formatMessage({
+                          defaultMessage: 'Add to evaluation dataset',
+                          description: 'Add traces to evaluation dataset action',
+                        })}
+                      </DropdownMenu.Item>
+                    )}
                   </DropdownMenu.Group>
                 </>
               )}
               {(hasEditTagsAction || hasDeleteAction) && (
                 <>
-                  {hasExportAction && <DropdownMenu.Separator />}
+                  {(hasExportAction || hasRunJudgesAction) && <DropdownMenu.Separator />}
                   <DropdownMenu.Group>
                     <DropdownMenu.Label css={groupLabelStyles}>
                       {intl.formatMessage({
@@ -318,6 +338,7 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
       </DropdownMenu.Root>
 
       {traceActions?.editTags?.EditTagsModal}
+      {traceActions?.runJudgesAction?.RunJudgesModal}
 
       {showDeleteModal && traceActions?.deleteTracesAction && (
         <GenAiDeleteTraceModal

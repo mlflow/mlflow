@@ -181,7 +181,7 @@ def test_existing_uc_schema_destination_rejects_table_prefix():
             )
 
 
-def test_link_failure_on_new_experiment_includes_delete_guidance():
+def test_link_failure_on_new_experiment_includes_retry_guidance():
     with (
         mock.patch("mlflow.tracking.fluent.TrackingServiceClient") as mock_client_cls,
         mock.patch(
@@ -196,12 +196,15 @@ def test_link_failure_on_new_experiment_includes_delete_guidance():
         new_exp = _experiment()
         client.get_experiment.return_value = new_exp
 
-        with pytest.raises(MlflowException, match="delete the experiment before retrying"):
+        with pytest.raises(
+            MlflowException, match="fix the issue and call set_experiment again"
+        ) as exc_info:
             mlflow.set_experiment(
                 "new-exp",
                 trace_location=UnityCatalog("cat", "sch", "pfx"),
             )
 
+        assert "backend error" in exc_info.value.message
         mock_resolve.assert_called_once()
 
 

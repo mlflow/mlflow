@@ -16,6 +16,7 @@ import Routes from '../../../routes';
 import { useExperimentIds } from '../../experiment-page/hooks/useExperimentIds';
 import type { RunsChartsRunData } from './RunsCharts.common';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
+import Utils from '../../../../common/utils/Utils';
 import type { RunsChartsTooltipBodyProps } from '../hooks/useRunsChartsTooltip';
 import { RunsChartsTooltipMode, containsMultipleRunsTooltipData } from '../hooks/useRunsChartsTooltip';
 import type {
@@ -294,10 +295,11 @@ export const RunsChartsTooltipBody = ({
 
   const runName = activeRun.displayName || activeRun.uuid;
   const metricSuffix = singleTraceHoverData?.metricEntity ? ` (${singleTraceHoverData.metricEntity.key})` : '';
+  const description = Utils.getRunDescriptionFromTags(activeRun.tags);
 
   return (
-    <div>
-      <div css={styles.contentWrapper}>
+    <div css={styles.tooltipBody}>
+      <div css={[styles.contentWrapper, description && styles.contentWrapperCompact]}>
         <div css={styles.header}>
           <div css={styles.colorPill} style={{ backgroundColor: activeRun.color }} />
           {activeRun.groupParentInfo ? (
@@ -323,6 +325,14 @@ export const RunsChartsTooltipBody = ({
           />
         )}
       </div>
+
+      {description && (
+        <div css={styles.description}>
+          <Typography.Paragraph color="secondary" withoutMargins ellipsis={{ rows: 2, tooltip: description }}>
+            {description}
+          </Typography.Paragraph>
+        </div>
+      )}
 
       <ValuesBox
         isHovering={isHovering}
@@ -390,6 +400,9 @@ export const RunsChartsTooltipBody = ({
 };
 
 const styles = {
+  tooltipBody: {
+    maxWidth: 300,
+  },
   runLink: (theme: Theme) => ({
     color: theme.colors.primary,
     '&:hover': {},
@@ -404,6 +417,13 @@ const styles = {
     display: 'flex',
     gap: 8,
     alignItems: 'center',
+  },
+  contentWrapperCompact: {
+    marginBottom: 4,
+  },
+  description: {
+    marginBottom: 12,
+    wordBreak: 'break-word' as const,
   },
   value: {
     whiteSpace: 'nowrap' as const,

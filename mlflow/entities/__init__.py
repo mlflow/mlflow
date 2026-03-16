@@ -24,6 +24,7 @@ from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -154,6 +155,7 @@ __all__ = [
     "DatasetRecordSourceType",
     "EntityAssociationType",
     "BudgetAction",
+    "BudgetDuration",
     "BudgetDurationUnit",
     "BudgetTargetScope",
     "BudgetUnit",

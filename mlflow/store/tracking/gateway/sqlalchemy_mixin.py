@@ -23,7 +23,7 @@ from mlflow.entities import (
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
-    BudgetDurationUnit,
+    BudgetDuration,
     BudgetTargetScope,
     BudgetUnit,
     GatewayBudgetPolicy,
@@ -1192,8 +1192,7 @@ class SqlAlchemyGatewayStoreMixin:
         self,
         budget_unit: BudgetUnit,
         budget_amount: float,
-        duration_unit: BudgetDurationUnit,
-        duration_value: int,
+        duration: BudgetDuration,
         target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
@@ -1209,10 +1208,8 @@ class SqlAlchemyGatewayStoreMixin:
                     if isinstance(budget_unit, BudgetUnit)
                     else budget_unit,
                     budget_amount=budget_amount,
-                    duration_unit=duration_unit.value
-                    if isinstance(duration_unit, BudgetDurationUnit)
-                    else duration_unit,
-                    duration_value=duration_value,
+                    duration_unit=duration.unit.value,
+                    duration_value=duration.value,
                     target_scope=target_scope.value
                     if isinstance(target_scope, BudgetTargetScope)
                     else target_scope,
@@ -1250,8 +1247,7 @@ class SqlAlchemyGatewayStoreMixin:
         budget_policy_id: str,
         budget_unit: BudgetUnit | None = None,
         budget_amount: float | None = None,
-        duration_unit: BudgetDurationUnit | None = None,
-        duration_value: int | None = None,
+        duration: BudgetDuration | None = None,
         target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
@@ -1270,14 +1266,9 @@ class SqlAlchemyGatewayStoreMixin:
                 )
             if budget_amount is not None:
                 sql_budget_policy.budget_amount = budget_amount
-            if duration_unit is not None:
-                sql_budget_policy.duration_unit = (
-                    duration_unit.value
-                    if isinstance(duration_unit, BudgetDurationUnit)
-                    else duration_unit
-                )
-            if duration_value is not None:
-                sql_budget_policy.duration_value = duration_value
+            if duration is not None:
+                sql_budget_policy.duration_unit = duration.unit.value
+                sql_budget_policy.duration_value = duration.value
             if target_scope is not None:
                 sql_budget_policy.target_scope = (
                     target_scope.value

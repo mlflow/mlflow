@@ -226,6 +226,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/goose',
+                  label: 'Goose',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/langflow',
                   label: 'Langflow',
                 },

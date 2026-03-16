@@ -21,7 +21,7 @@ export interface IssueJobResult {
 
 export interface FetchIssueJobStatusResponse {
   status: IssueJobStatus;
-  result?: IssueJobResult;
+  result?: IssueJobResult | string;
 }
 
 const POLLING_INTERVAL_MS = 3000;
@@ -38,6 +38,7 @@ export const isJobComplete = (status: IssueJobStatus | undefined): boolean => {
 export interface UseFetchIssueJobStatusResult {
   status: IssueJobStatus | undefined;
   result: IssueJobResult | undefined;
+  errorMessage: string | undefined;
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => void;
@@ -71,9 +72,14 @@ export const useFetchIssueJobStatus = ({
     },
   });
 
+  const isFailed = data?.status === IssueJobStatus.FAILED || data?.status === IssueJobStatus.TIMEOUT;
+  const errorMessage = isFailed && typeof data?.result === 'string' ? data.result : undefined;
+  const result = !isFailed && typeof data?.result === 'object' ? data.result : undefined;
+
   return {
     status: data?.status,
-    result: data?.result,
+    result,
+    errorMessage,
     isLoading,
     isFetching,
     refetch,
