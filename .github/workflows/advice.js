@@ -21,6 +21,29 @@ async function getRecentActivity(github, username) {
   return { totalPRs: items.length, repoCount: repoCounts.size, repoBreakdown: repoCounts };
 }
 
+async function getRecentActivitySection(github, username) {
+  const { totalPRs, repoCount, repoBreakdown } = await getRecentActivity(github, username);
+  if (totalPRs === 0) {
+    return "";
+  }
+  const prLabel = totalPRs === 1 ? "PR" : "PRs";
+  const repoLabel = repoCount === 1 ? "repo" : "repos";
+  const sortedRepos = [...repoBreakdown.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_REPOS_TO_DISPLAY);
+  const tableRows = sortedRepos.map(([repo, count]) => `| ${repo} | ${count} |`).join("\n");
+  return `
+<details><summary>PR author recent activity</summary>
+
+In the last 14 days, @${username} opened **${totalPRs} ${prLabel}** across **${repoCount} ${repoLabel}**:
+
+| Repository | PRs |
+| ---------- | --- |
+${tableRows}
+
+</details>`;
+}
+
 async function getDcoCheck(github, owner, repo, sha) {
   const backoffs = [0, 2, 4, 6, 8];
   const numAttempts = backoffs.length;
@@ -59,26 +82,16 @@ module.exports = async ({ context, github }) => {
 
   if (!devToolsCommentExists) {
     let activitySection = "";
-    try {
-      const { totalPRs, repoCount, repoBreakdown } = await getRecentActivity(github, user.login);
-      const sortedRepos = [...repoBreakdown.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, MAX_REPOS_TO_DISPLAY);
-      const tableRows = sortedRepos.map(([repo, count]) => `| ${repo} | ${count} |`).join("\n");
-      activitySection = `
-<details><summary>PR author recent activity</summary>
-
-In the last 14 days, @${user.login} opened **${totalPRs} PR${
-        totalPRs === 1 ? "" : "s"
-      }** across **${repoCount} repo${repoCount === 1 ? "" : "s"}**:
-
-| Repository | PRs |
-| ---------- | --- |
-${tableRows}
-
-</details>`;
-    } catch (e) {
-      console.log("Failed to fetch recent activity:", e);
+    const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
+    if (
+      user.type !== "Bot" &&
+      !memberAssociations.includes(context.payload.pull_request.author_association)
+    ) {
+      try {
+        activitySection = await getRecentActivitySection(github, user.login);
+      } catch (e) {
+        console.log("Failed to fetch recent activity:", e);
+      }
     }
     const devToolsComment = `
 <details><summary>${title}</summary>
