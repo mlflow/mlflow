@@ -639,6 +639,7 @@ def run(
     eval_start_time = int(time.time() * 1000)
 
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
+    experiment_id = mlflow.get_run(run_id).info.experiment_id
 
     single_turn_scorers, multi_turn_scorers = classify_scorers(scorers)
     session_groups = group_traces_by_session(eval_items) if multi_turn_scorers else {}
@@ -710,7 +711,10 @@ def run(
 
     # Search for all traces in the run. We need to fetch the traces from backend here to include
     # all traces in the result.
-    traces = mlflow.search_traces(run_id=run_id, include_spans=False, return_type="list")
+    # Fetch the experiment ID from the run to ensure we search in the correct experiment.
+    traces = mlflow.search_traces(
+        locations=[experiment_id], run_id=run_id, include_spans=False, return_type="list"
+    )
 
     # Collect trace IDs from eval results to preserve them during cleanup.
     input_trace_ids = {
@@ -720,7 +724,7 @@ def run(
     }
 
     # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(traces, eval_start_time, input_trace_ids)
+    clean_up_extra_traces(traces, eval_start_time, experiment_id, input_trace_ids)
 
     return EvaluationResult(
         run_id=run_id,
