@@ -42,7 +42,7 @@ async def test_completions():
 
     with (
         mock.patch("time.time", return_value=1677858242),
-        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+        mock.patch("aiohttp.ClientSession", return_value=mock_client),
     ):
         provider = MlflowModelServingProvider(EndpointConfig(**config))
         payload = {
@@ -64,7 +64,6 @@ async def test_completions():
             ],
             "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
         }
-        mock_build_client.assert_called_once()
         mock_client.post.assert_called_once_with(
             "http://127.0.0.1:5000/invocations",
             json={
@@ -75,6 +74,7 @@ async def test_completions():
                 },
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -175,7 +175,7 @@ async def test_embeddings():
     config = embedding_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         provider = MlflowModelServingProvider(EndpointConfig(**config))
         payload = {"input": ["test1", "test2"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
@@ -202,11 +202,11 @@ async def test_embeddings():
             "model": "sentence-piece",
             "usage": {"prompt_tokens": None, "total_tokens": None},
         }
-        mock_build_client.assert_called_once()
         mock_client.post.assert_called_once_with(
             "http://127.0.0.1:2000/invocations",
             json={"inputs": ["test1", "test2"]},
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -256,7 +256,7 @@ async def test_chat():
 
     with (
         mock.patch("time.time", return_value=1700242674),
-        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+        mock.patch("aiohttp.ClientSession", return_value=mock_client),
     ):
         provider = MlflowModelServingProvider(EndpointConfig(**config))
         payload = {"messages": [{"role": "user", "content": "Is this a test?"}]}
@@ -284,7 +284,6 @@ async def test_chat():
                 "total_tokens": None,
             },
         }
-        mock_build_client.assert_called_once()
         mock_client.post.assert_called_once_with(
             "http://127.0.0.1:4000/invocations",
             json={
@@ -292,6 +291,7 @@ async def test_chat():
                 "params": {"n": 1},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 

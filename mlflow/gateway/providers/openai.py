@@ -391,9 +391,7 @@ class OpenAIProvider(BaseProvider):
     async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
-        from fastapi.encoders import jsonable_encoder
-
-        payload = jsonable_encoder(payload, exclude_none=True)
+        payload = payload.model_dump(exclude_none=True)
         self.check_for_model_field(payload)
 
         # Inject stream_options.include_usage=true to get usage in final chunk
@@ -413,9 +411,7 @@ class OpenAIProvider(BaseProvider):
             yield OpenAIAdapter.model_to_chat_streaming(resp, self.config)
 
     async def _send_chat_request(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        from fastapi.encoders import jsonable_encoder
-
-        payload = jsonable_encoder(payload, exclude_none=True)
+        payload = payload.model_dump(exclude_none=True)
         self.check_for_model_field(payload)
 
         return await send_request(
@@ -434,9 +430,7 @@ class OpenAIProvider(BaseProvider):
                 detail="DATABRICKS_WAREHOUSE_ID environment variable is not set",
             )
 
-        from fastapi.encoders import jsonable_encoder
-
-        payload = jsonable_encoder(payload, exclude_none=True)
+        payload = payload.model_dump(exclude_none=True)
         self.check_for_model_field(payload)
 
         token_usage_accumulator = TokenUsageAccumulator()
@@ -614,9 +608,7 @@ class OpenAIProvider(BaseProvider):
     async def _completions_stream(
         self, payload: completions.RequestPayload
     ) -> AsyncIterable[completions.StreamResponsePayload]:
-        from fastapi.encoders import jsonable_encoder
-
-        payload = jsonable_encoder(payload, exclude_none=True)
+        payload = payload.model_dump(exclude_none=True)
         self.check_for_model_field(payload)
 
         # Inject stream_options.include_usage=true to get usage in final chunk
@@ -638,9 +630,7 @@ class OpenAIProvider(BaseProvider):
     async def _completions(
         self, payload: completions.RequestPayload
     ) -> completions.ResponsePayload:
-        from fastapi.encoders import jsonable_encoder
-
-        payload = jsonable_encoder(payload, exclude_none=True)
+        payload = payload.model_dump(exclude_none=True)
         self.check_for_model_field(payload)
         resp = await send_request(
             headers=self.headers,
@@ -651,9 +641,7 @@ class OpenAIProvider(BaseProvider):
         return OpenAIAdapter.model_to_completions(resp, self.config)
 
     async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
-        from fastapi.encoders import jsonable_encoder
-
-        payload = jsonable_encoder(payload, exclude_none=True)
+        payload = payload.model_dump(exclude_none=True)
         self.check_for_model_field(payload)
         resp = await send_request(
             headers=self.headers,

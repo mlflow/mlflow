@@ -92,6 +92,7 @@ async def test_completions():
                 "stop_sequences": ["foobazbardiddly"],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -115,6 +116,7 @@ async def test_completions_with_default_max_tokens():
                 "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -298,6 +300,7 @@ async def test_chat():
                 "temperature": 0.25,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -434,6 +437,7 @@ async def test_chat_function_calling():
                 ],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -633,6 +637,7 @@ async def test_chat_stream():
                 "stream": True,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -804,6 +809,7 @@ async def test_chat_function_calling_stream():
                 "stream": True,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -888,14 +894,9 @@ async def test_passthrough_anthropic_messages():
     resp = passthrough_messages_response()
     config = chat_config()
 
-    captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
-        captured_session_headers.update(headers or {})
-        return mock_session_client
-
-    with mock.patch("aiohttp.ClientSession", mock_client_session):
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session_client):
         provider = AnthropicProvider(EndpointConfig(**config))
         payload = {
             "messages": [{"role": "user", "content": "Hello"}],
@@ -925,19 +926,21 @@ async def test_passthrough_anthropic_messages():
                 "model": "claude-2.1",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
         # Verify provider headers are propagated correctly
-        assert captured_session_headers["x-api-key"] == "key"
-        assert captured_session_headers["anthropic-version"] == "2023-06-01"
+        call_headers = mock_session_client.post.call_args.kwargs["headers"]
+        assert call_headers["x-api-key"] == "key"
+        assert call_headers["anthropic-version"] == "2023-06-01"
 
         # Verify custom headers are propagated correctly
-        assert captured_session_headers["X-Custom-Header"] == "custom-value"
-        assert captured_session_headers["X-Request-ID"] == "req-789"
+        assert call_headers["X-Custom-Header"] == "custom-value"
+        assert call_headers["X-Request-ID"] == "req-789"
 
         # Verify gateway specific headers are not propagated
-        assert "host" not in captured_session_headers
-        assert "content-length" not in captured_session_headers
+        assert "host" not in call_headers
+        assert "content-length" not in call_headers
 
 
 @pytest.mark.asyncio
@@ -945,14 +948,9 @@ async def test_passthrough_anthropic_messages_streaming():
     resp = passthrough_messages_stream_response()
     config = chat_config()
 
-    captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    def mock_client_session(headers=None):
-        captured_session_headers.update(headers or {})
-        return mock_session_client
-
-    with mock.patch("aiohttp.ClientSession", mock_client_session):
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session_client):
         provider = AnthropicProvider(EndpointConfig(**config))
         payload = {
             "messages": [{"role": "user", "content": "Hello"}],
@@ -987,14 +985,16 @@ async def test_passthrough_anthropic_messages_streaming():
                 "model": "claude-2.1",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
         # Verify provider headers are propagated correctly
-        assert captured_session_headers["x-api-key"] == "key"
-        assert captured_session_headers["anthropic-version"] == "2023-06-01"
+        call_headers = mock_session_client.post.call_args.kwargs["headers"]
+        assert call_headers["x-api-key"] == "key"
+        assert call_headers["anthropic-version"] == "2023-06-01"
 
         # Verify custom headers are propagated correctly
-        assert captured_session_headers["X-Stream-ID"] == "stream-123"
+        assert call_headers["X-Stream-ID"] == "stream-123"
 
 
 @pytest.mark.asyncio
@@ -1031,14 +1031,9 @@ async def test_chat_with_structured_output():
         "usage": {"input_tokens": 10, "output_tokens": 25},
     }
 
-    captured_session_headers = {}
     mock_session_client = mock_http_client(MockAsyncResponse(resp))
 
-    def mock_client_session(headers=None):
-        captured_session_headers.update(headers or {})
-        return mock_session_client
-
-    with mock.patch("aiohttp.ClientSession", mock_client_session):
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session_client):
         provider = AnthropicProvider(EndpointConfig(**config))
         payload = {
             "messages": [{"role": "user", "content": "Extract user info"}],
@@ -1060,9 +1055,10 @@ async def test_chat_with_structured_output():
             }
         }
 
-        assert captured_session_headers["x-api-key"] == "key"
-        assert captured_session_headers["anthropic-version"] == "2023-06-01"
-        assert "anthropic-beta" not in captured_session_headers
+        call_headers = mock_session_client.post.call_args.kwargs["headers"]
+        assert call_headers["x-api-key"] == "key"
+        assert call_headers["anthropic-version"] == "2023-06-01"
+        assert "anthropic-beta" not in call_headers
 
 
 def test_anthropic_extract_passthrough_token_usage():

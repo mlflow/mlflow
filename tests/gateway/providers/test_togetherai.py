@@ -109,6 +109,7 @@ async def test_completions():
                 "n": 1,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -224,6 +225,7 @@ async def test_completions_stream(resp):
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -368,6 +370,7 @@ async def test_embeddings():
                 "model": "togethercomputer/m2-bert-80M-8k-retrieval",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -447,6 +450,7 @@ async def test_chat():
                 "n": 1,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -584,4 +588,5 @@ async def test_chat_stream(resp):
                 "n": 1,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )

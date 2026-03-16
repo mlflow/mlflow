@@ -94,6 +94,7 @@ async def test_completions():
                 "model": "mistral-tiny",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -399,7 +400,7 @@ def chat_stream_response_incomplete():
 async def _run_test_chat_stream(resp, provider):
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = provider.chat_stream(chat.RequestPayload(**payload))
 
@@ -424,8 +425,7 @@ async def _run_test_chat_stream(resp, provider):
             assert len(chunk["choices"]) == 1
             assert "delta" in chunk["choices"][0]
 
-        mock_build_client.assert_called_once()
-        call_headers = mock_build_client.call_args.kwargs["headers"]
+        call_headers = mock_client.post.call_args.kwargs["headers"]
         assert call_headers.get("Authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.mistral.ai/v1/chat/completions",
@@ -435,6 +435,7 @@ async def _run_test_chat_stream(resp, provider):
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 

@@ -118,6 +118,7 @@ async def test_completions():
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 

@@ -1,3 +1,5 @@
+import asyncio
+import atexit
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
@@ -10,6 +12,36 @@ from mlflow.utils.uri import append_to_uri_path
 # Content-Encoding: br without the optional brotli package.
 SUPPORTED_ACCEPT_ENCODING = "gzip, deflate, identity"
 
+# Lazily-initialized shared aiohttp session to avoid TCP connection setup per request.
+_session = None
+
+
+async def _get_session():
+    import aiohttp
+
+    global _session
+    if _session is None or _session.closed:
+        _session = aiohttp.ClientSession()
+    return _session
+
+
+async def _close_session():
+    global _session
+    if _session is not None and not _session.closed:
+        await _session.close()
+        _session = None
+
+
+def _atexit_close_session():
+    try:
+        loop = asyncio.get_running_loop()
+        loop.create_task(_close_session())
+    except RuntimeError:
+        asyncio.run(_close_session())
+
+
+atexit.register(_atexit_close_session)
+
 
 @asynccontextmanager
 async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):
@@ -20,10 +52,12 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
     request_headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
     request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
     url = append_to_uri_path(base_url, path)
-    async with aiohttp.ClientSession(headers=request_headers) as session:
-        timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
-        async with session.post(url, json=payload, timeout=timeout) as response:
-            yield response
+    session = await _get_session()
+    timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
+    async with session.post(
+        url, json=payload, timeout=timeout, headers=request_headers
+    ) as response:
+        yield response
 
 
 async def send_request(headers: dict[str, str], base_url: str, path: str, payload: dict[str, Any]):

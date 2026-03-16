@@ -107,6 +107,7 @@ async def test_chat():
                 "temperature": 1.25,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -143,6 +144,7 @@ async def test_chat_with_system_messages():
                 "temperature": 1.25,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -272,6 +274,7 @@ async def test_chat_stream():
                 "stream": True,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -341,6 +344,7 @@ async def test_completions():
                 "stop_sequences": ["foobar"],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -456,6 +460,7 @@ async def test_completions_stream():
                 "stream": True,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 

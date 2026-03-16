@@ -86,7 +86,7 @@ async def _run_test_chat(provider):
     resp = chat_response()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         payload = {
             "messages": [{"role": "user", "content": "Tell me a joke"}],
             "temperature": 0.5,
@@ -118,8 +118,7 @@ async def _run_test_chat(provider):
                 "total_tokens": 20,
             },
         }
-        mock_build_client.assert_called_once()
-        call_headers = mock_build_client.call_args.kwargs["headers"]
+        call_headers = mock_client.post.call_args.kwargs["headers"]
         assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/chat/completions",
@@ -129,6 +128,7 @@ async def _run_test_chat(provider):
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -174,7 +174,7 @@ def chat_stream_response_incomplete():
 async def _run_test_chat_stream(resp, provider):
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
         response = provider.chat_stream(chat.RequestPayload(**payload))
 
@@ -236,8 +236,7 @@ async def _run_test_chat_stream(resp, provider):
             },
         ]
 
-        mock_build_client.assert_called_once()
-        call_headers = mock_build_client.call_args.kwargs["headers"]
+        call_headers = mock_client.post.call_args.kwargs["headers"]
         assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/chat/completions",
@@ -248,6 +247,7 @@ async def _run_test_chat_stream(resp, provider):
                 **payload,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -386,7 +386,7 @@ def completions_config():
 async def _run_test_completions(resp, provider):
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         payload = {
             "prompt": "This is a test",
         }
@@ -399,8 +399,7 @@ async def _run_test_completions(resp, provider):
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
-        mock_build_client.assert_called_once()
-        call_headers = mock_build_client.call_args.kwargs["headers"]
+        call_headers = mock_client.post.call_args.kwargs["headers"]
         assert call_headers.get("authorization") == "Bearer key"
         assert call_headers.get("OpenAI-Organization") == "test-organization"
         mock_client.post.assert_called_once_with(
@@ -411,6 +410,7 @@ async def _run_test_completions(resp, provider):
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -470,7 +470,7 @@ def completions_stream_response_incomplete():
 async def _run_test_completions_stream(resp, provider):
     mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         payload = {"prompt": "This is a test"}
         response = provider.completions_stream(completions.RequestPayload(**payload))
 
@@ -520,8 +520,7 @@ async def _run_test_completions_stream(resp, provider):
             },
         ]
 
-        mock_build_client.assert_called_once()
-        call_headers = mock_build_client.call_args.kwargs["headers"]
+        call_headers = mock_client.post.call_args.kwargs["headers"]
         assert call_headers.get("authorization") == "Bearer key"
         assert call_headers.get("OpenAI-Organization") == "test-organization"
         mock_client.post.assert_called_once_with(
@@ -533,6 +532,7 @@ async def _run_test_completions_stream(resp, provider):
                 "stream_options": {"include_usage": True},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -581,7 +581,7 @@ async def _run_test_embeddings(provider):
     }
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         payload = {"input": "This is a test"}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -600,13 +600,13 @@ async def _run_test_embeddings(provider):
             "model": "text-embedding-ada-002",
             "usage": {"prompt_tokens": 8, "total_tokens": 8},
         }
-        mock_build_client.assert_called_once()
-        call_headers = mock_build_client.call_args.kwargs["headers"]
+        call_headers = mock_client.post.call_args.kwargs["headers"]
         assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/embeddings",
             json={"model": "text-embedding-ada-002", "input": "This is a test"},
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -648,7 +648,7 @@ async def test_embeddings_batch_input():
     config = embedding_config()
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         provider = OpenAIProvider(EndpointConfig(**config))
         payload = {"input": ["1", "2"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
@@ -677,8 +677,7 @@ async def test_embeddings_batch_input():
             "model": "text-embedding-ada-002",
             "usage": {"prompt_tokens": 8, "total_tokens": 8},
         }
-        mock_build_client.assert_called_once()
-        call_headers = mock_build_client.call_args.kwargs["headers"]
+        call_headers = mock_client.post.call_args.kwargs["headers"]
         assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             "https://api.openai.com/v1/embeddings",
@@ -687,6 +686,7 @@ async def test_embeddings_batch_input():
                 "input": ["1", "2"],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -714,7 +714,7 @@ async def test_azure_openai():
     config = azure_config(api_type="azure")
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         provider = OpenAIProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -728,8 +728,7 @@ async def test_azure_openai():
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
-        mock_build_client.assert_called_once()
-        call_headers = mock_build_client.call_args.kwargs["headers"]
+        call_headers = mock_client.post.call_args.kwargs["headers"]
         assert call_headers.get("api-key") == "key"
         mock_client.post.assert_called_once_with(
             (
@@ -741,6 +740,7 @@ async def test_azure_openai():
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -750,7 +750,7 @@ async def test_azuread_openai():
     config = azure_config(api_type="azuread")
     mock_client = mock_http_client(MockAsyncResponse(resp))
 
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         provider = OpenAIProvider(EndpointConfig(**config))
         payload = {
             "prompt": "This is a test",
@@ -764,8 +764,7 @@ async def test_azuread_openai():
             "choices": [{"text": "\n\nThis is a test!", "index": 0, "finish_reason": "stop"}],
             "usage": {"prompt_tokens": 13, "completion_tokens": 7, "total_tokens": 20},
         }
-        mock_build_client.assert_called_once()
-        call_headers = mock_build_client.call_args.kwargs["headers"]
+        call_headers = mock_client.post.call_args.kwargs["headers"]
         assert call_headers.get("authorization") == "Bearer key"
         mock_client.post.assert_called_once_with(
             (
@@ -777,6 +776,7 @@ async def test_azuread_openai():
                 "prompt": "This is a test",
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 

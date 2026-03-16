@@ -45,7 +45,7 @@ def test_rename_payload_keys_parameterized(payload, mapping, expected):
 @pytest.mark.asyncio
 async def test_aiohttp_post_includes_supported_accept_encoding():
     mock_client = mock_http_client(MockAsyncResponse({}))
-    with mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_session_cls:
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
         async with _aiohttp_post(
             headers={"Authorization": "Bearer key"},
             base_url="https://api.example.com",
@@ -53,6 +53,5 @@ async def test_aiohttp_post_includes_supported_accept_encoding():
             payload={"model": "x"},
         ):
             pass
-        mock_session_cls.assert_called_once()
-        call_headers = mock_session_cls.call_args.kwargs["headers"]
+        call_headers = mock_client.post.call_args.kwargs["headers"]
         assert call_headers.get("Accept-Encoding") == SUPPORTED_ACCEPT_ENCODING

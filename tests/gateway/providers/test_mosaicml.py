@@ -69,6 +69,7 @@ async def test_completions():
                 "parameters": {"n": 1, "max_new_tokens": 1000},
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
@@ -197,6 +198,7 @@ async def test_chat(payload, expected_llm_input):
             "https://models.hosted-on.mosaicml.hosting/llama2-70b-chat/v1/predict",
             json=expected_llm_input,
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+            headers=mock.ANY,
         )
 
 
