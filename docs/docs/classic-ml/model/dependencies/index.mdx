@@ -153,7 +153,7 @@ Experimental: These parameters may change or be removed in a future release with
 
 When you log a model, MLflow checks for a `uv.lock` and `pyproject.toml` in the current working directory. If both files exist and uv (version 0.5.0 or later) is installed, MLflow runs `uv export` to produce a pinned requirements list from the lockfile. This list replaces the standard import-based dependency inference.
 
-MLflow also copies `uv.lock`, `pyproject.toml`, and `.python-version` (if present) into the model artifact directory. These files enable exact environment restoration with `uv sync` when the model is loaded later.
+MLflow also copies the uv project files (`uv.lock` and `pyproject.toml`) and, if present, the `.python-version` file into the model artifact directory. These files enable exact environment restoration with `uv sync` when the model is loaded later.
 
 ### Auto-Detection
 
