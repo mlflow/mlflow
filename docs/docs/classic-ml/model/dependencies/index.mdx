@@ -165,10 +165,10 @@ To disable auto-detection, set the `MLFLOW_UV_AUTO_DETECT` environment variable:
 export MLFLOW_UV_AUTO_DETECT=false
 ```
 
-You can also control whether uv project files are saved as model artifacts with `MLFLOW_LOG_UV_FILES`:
+You can also control whether uv project files (`uv.lock`, `pyproject.toml`, and `.python-version`) are saved as model artifacts with `MLFLOW_LOG_UV_FILES`:
 
 ```bash
-# Disable copying uv.lock and pyproject.toml into model artifacts
+# Disable copying uv.lock, pyproject.toml, and .python-version into model artifacts
 export MLFLOW_LOG_UV_FILES=false
 ```
 
