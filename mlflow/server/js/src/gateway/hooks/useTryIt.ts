@@ -69,15 +69,13 @@ export function useTryIt({ tryItRequestUrl, options }: UseTryItParams) {
         const rawText = isNetworkError ? (await err.response?.text()) || '' : undefined;
         const responseBody = rawText !== undefined ? formatResponseText(rawText) : undefined;
 
-        // Use the server's error detail if available (e.g. budget limit exceeded messages)
-        if (rawText) {
+        // Show HTTP status when the server returns a JSON detail (e.g. budget limit exceeded)
+        if (rawText && isNetworkError && err.status) {
           try {
             const parsed = JSON.parse(rawText);
             if (typeof parsed.detail === 'string') {
-              if (isNetworkError && err.status) {
-                const statusText = err.response?.statusText || `Error ${err.status}`;
-                message = `${err.status} ${statusText}`;
-              }
+              const statusText = err.response?.statusText || `Error ${err.status}`;
+              message = `${err.status} ${statusText}`;
             }
           } catch {
             // ignore parse failures, keep original message
