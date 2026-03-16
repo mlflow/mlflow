@@ -56,10 +56,10 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         self.span_exporter = span_exporter
         self._export_metrics = export_metrics
         self._env_metadata = resolve_env_metadata()
-        # Lock to prevent race conditions during concurrent span name deduplication
-        # This ensures that when multiple spans end simultaneously, their names are
-        # deduplicated atomically without interference
-        self._deduplication_lock = threading.RLock()
+        # Per-trace locks to prevent race conditions during concurrent span name
+        # deduplication within the same trace, without serializing independent traces.
+        self._trace_locks: dict[str, threading.RLock] = {}
+        self._trace_locks_lock = threading.Lock()
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         """
@@ -104,17 +104,28 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
 
         trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
 
-        # Acquire lock before accessing and modifying trace data to prevent race conditions
-        # during concurrent span endings. This ensures span name deduplication happens
-        # atomically without interference from other threads
-        with self._deduplication_lock:
+        # Use a per-trace lock so concurrent spans from different traces don't contend.
+        with self._trace_locks_lock:
+            trace_lock = self._trace_locks.get(trace_id)
+            if trace_lock is None:
+                trace_lock = threading.RLock()
+                self._trace_locks[trace_id] = trace_lock
+
+        with trace_lock:
             with self._trace_manager.get_trace(trace_id) as trace:
                 if trace is not None:
                     if span._parent is None:
                         self._update_trace_info(trace, span)
                 else:
                     _logger.debug(f"Trace data with request ID {trace_id} not found.")
+
+        # Export the span (outside the per-trace lock)
         super().on_end(span)
+
+        # Clean up the per-trace lock when the root span ends (trace is complete)
+        if span._parent is None and trace_id is not None:
+            with self._trace_locks_lock:
+                self._trace_locks.pop(trace_id, None)
 
     def _get_basic_trace_metadata(self) -> dict[str, Any]:
         metadata = self._env_metadata.copy()

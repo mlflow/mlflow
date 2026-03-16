@@ -131,12 +131,15 @@ class InMemoryTraceManager:
     @contextlib.contextmanager
     def get_trace(self, trace_id: str) -> Generator[_Trace | None, None, None]:
         """
-        Yield the trace info for the given trace ID..
-        This is designed to be used as a context manager to ensure the trace info is accessed
-        with the lock held.
+        Yield the trace for the given trace ID.
+
+        The global lock is only held while looking up the reference; the caller
+        can work with the returned _Trace object without holding it. Per-trace
+        serialization (e.g. span deduplication) is handled by the caller.
         """
         with self._lock:
-            yield self._traces.get(trace_id)
+            trace = self._traces.get(trace_id)
+        yield trace
 
     def get_span_from_id(self, trace_id: str, span_id: str) -> LiveSpan | None:
         """
