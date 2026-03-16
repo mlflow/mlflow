@@ -1,5 +1,24 @@
+const ACTIVITY_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+const MAX_REPOS_TO_DISPLAY = 10;
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function getRecentActivity(github, username) {
+  const windowStart = new Date(Date.now() - ACTIVITY_WINDOW_MS);
+  const dateString = windowStart.toISOString().slice(0, 10);
+  const query = `type:pr author:${username} created:>${dateString}`;
+  const items = await github.paginate(github.rest.search.issuesAndPullRequests, {
+    q: query,
+    per_page: 100,
+  });
+  const repoCounts = new Map();
+  for (const item of items) {
+    const repoFullName = item.repository_url.replace("https://api.github.com/repos/", "");
+    repoCounts.set(repoFullName, (repoCounts.get(repoFullName) || 0) + 1);
+  }
+  return { totalPRs: items.length, repoCount: repoCounts.size, repoBreakdown: repoCounts };
 }
 
 async function getDcoCheck(github, owner, repo, sha) {
@@ -39,6 +58,28 @@ module.exports = async ({ context, github }) => {
   const devToolsCommentExists = comments.some((comment) => comment.body.includes(title));
 
   if (!devToolsCommentExists) {
+    let activitySection = "";
+    try {
+      const { totalPRs, repoCount, repoBreakdown } = await getRecentActivity(github, user.login);
+      const sortedRepos = [...repoBreakdown.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, MAX_REPOS_TO_DISPLAY);
+      const tableRows = sortedRepos.map(([repo, count]) => `| ${repo} | ${count} |`).join("\n");
+      activitySection = `
+<details><summary>PR author recent activity</summary>
+
+In the last 14 days, @${user.login} opened **${totalPRs} PR${
+        totalPRs === 1 ? "" : "s"
+      }** across **${repoCount} repo${repoCount === 1 ? "" : "s"}**:
+
+| Repository | PRs |
+| ---------- | --- |
+${tableRows}
+
+</details>`;
+    } catch (e) {
+      console.log("Failed to fetch recent activity:", e);
+    }
     const devToolsComment = `
 <details><summary>${title}</summary>
 <p>
@@ -60,6 +101,7 @@ For Databricks, use the following command:
 
 </p>
 </details>
+${activitySection}
 `.trim();
     await github.rest.issues.createComment({
       owner,
