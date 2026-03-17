@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.config import Provider
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
     AdapterInvocationOutput,
@@ -20,7 +21,6 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
 )
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
 # "endpoints" is a special case for MLflow deployment endpoints (e.g. Databricks model serving).
@@ -40,6 +40,21 @@ def _invoke_via_gateway(
 
     Supports both string prompts (via ``score_model_on_payload``) and
     ChatMessage-style message lists (via the provider infrastructure).
+
+    Args:
+        model_uri: The full model URI.
+        provider_name: The provider name.
+        prompt: The prompt to evaluate. Either a string or a list of message dicts.
+        inference_params: Optional dictionary of inference parameters to pass to the
+            model (e.g., temperature, top_p, max_tokens).
+        response_format: Optional Pydantic model class for structured output.
+            Only used for ChatMessage-style prompts.
+
+    Returns:
+        The JSON response string from the model.
+
+    Raises:
+        MlflowException: If the provider is not natively supported or invocation fails.
     """
     if provider_name not in _NATIVE_PROVIDERS:
         raise MlflowException(
@@ -60,9 +75,12 @@ def _invoke_via_gateway(
             endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
         )
 
-    from mlflow.gateway.config import Provider
     from mlflow.genai.discovery.utils import _pydantic_to_response_format
-    from mlflow.metrics.genai.model_utils import _get_provider_instance, _send_request
+    from mlflow.metrics.genai.model_utils import (
+        _get_provider_instance,
+        _parse_model_uri,
+        _send_request,
+    )
 
     _, model_name = _parse_model_uri(model_uri)
     provider = _get_provider_instance(provider_name, model_name)
@@ -97,6 +115,8 @@ class GatewayAdapter(BaseJudgeAdapter):
         model_uri: str,
         prompt: str | list["ChatMessage"],
     ) -> bool:
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
         model_provider, _ = _parse_model_uri(model_uri)
         return model_provider in _NATIVE_PROVIDERS
 
