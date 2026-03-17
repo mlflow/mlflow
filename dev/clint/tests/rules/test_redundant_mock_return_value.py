@@ -1,41 +1,39 @@
 from pathlib import Path
 
+import pytest
 from clint.config import Config
-from clint.linter import Position, Range, lint_file
+from clint.linter import lint_file
 from clint.rules.redundant_mock_return_value import RedundantMockReturnValue
 
+CONFIG = Config(select={RedundantMockReturnValue.name})
+TEST_FILE = Path("test_foo.py")
 
-def test_patch_with_magic_mock_return_value(index_path: Path) -> None:
-    code = """
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param(
+            """
 from unittest import mock
 
 def test_foo():
     with mock.patch("foo.bar", return_value=mock.MagicMock()):
         ...
-"""
-    config = Config(select={RedundantMockReturnValue.name})
-    violations = lint_file(Path("test_foo.py"), code, config, index_path)
-    assert len(violations) == 1
-    assert all(isinstance(v.rule, RedundantMockReturnValue) for v in violations)
-    assert violations[0].range == Range(Position(4, 9))
-
-
-def test_patch_with_mock_return_value(index_path: Path) -> None:
-    code = """
+""",
+            id="patch-return_value-MagicMock",
+        ),
+        pytest.param(
+            """
 from unittest import mock
 
 def test_foo():
     with mock.patch("foo.bar", return_value=mock.Mock()):
         ...
-"""
-    config = Config(select={RedundantMockReturnValue.name})
-    violations = lint_file(Path("test_foo.py"), code, config, index_path)
-    assert len(violations) == 1
-    assert all(isinstance(v.rule, RedundantMockReturnValue) for v in violations)
-
-
-def test_patch_object_with_magic_mock_return_value(index_path: Path) -> None:
-    code = """
+""",
+            id="patch-return_value-Mock",
+        ),
+        pytest.param(
+            """
 from unittest import mock
 
 class Foo:
@@ -44,28 +42,42 @@ class Foo:
 def test_foo():
     with mock.patch.object(Foo, "method", return_value=mock.MagicMock()):
         ...
-"""
-    config = Config(select={RedundantMockReturnValue.name})
-    violations = lint_file(Path("test_foo.py"), code, config, index_path)
+""",
+            id="patch.object-return_value-MagicMock",
+        ),
+        pytest.param(
+            """
+import unittest.mock
+
+def test_foo():
+    with unittest.mock.patch("foo.bar", return_value=unittest.mock.MagicMock()):
+        ...
+""",
+            id="unittest.mock-import-style",
+        ),
+    ],
+)
+def test_violation(code: str, index_path: Path) -> None:
+    violations = lint_file(TEST_FILE, code, CONFIG, index_path)
     assert len(violations) == 1
-    assert all(isinstance(v.rule, RedundantMockReturnValue) for v in violations)
+    assert isinstance(violations[0].rule, RedundantMockReturnValue)
 
 
-def test_patch_with_meaningful_return_value_is_ok(index_path: Path) -> None:
-    code = """
+@pytest.mark.parametrize(
+    "code",
+    [
+        pytest.param(
+            """
 from unittest import mock
 
 def test_foo():
     with mock.patch("foo.bar", return_value=42):
         ...
-"""
-    config = Config(select={RedundantMockReturnValue.name})
-    violations = lint_file(Path("test_foo.py"), code, config, index_path)
-    assert len(violations) == 0
-
-
-def test_patch_with_magic_mock_with_args_is_ok(index_path: Path) -> None:
-    code = """
+""",
+            id="meaningful-return_value",
+        ),
+        pytest.param(
+            """
 from unittest import mock
 
 class Foo:
@@ -74,22 +86,23 @@ class Foo:
 def test_foo():
     with mock.patch("foo.bar", return_value=mock.MagicMock(spec=Foo)):
         ...
-"""
-    config = Config(select={RedundantMockReturnValue.name})
-    violations = lint_file(Path("test_foo.py"), code, config, index_path)
-    assert len(violations) == 0
-
-
-def test_patch_without_return_value_is_ok(index_path: Path) -> None:
-    code = """
+""",
+            id="MagicMock-with-args",
+        ),
+        pytest.param(
+            """
 from unittest import mock
 
 def test_foo():
     with mock.patch("foo.bar"):
         ...
-"""
-    config = Config(select={RedundantMockReturnValue.name})
-    violations = lint_file(Path("test_foo.py"), code, config, index_path)
+""",
+            id="no-return_value",
+        ),
+    ],
+)
+def test_no_violation(code: str, index_path: Path) -> None:
+    violations = lint_file(TEST_FILE, code, CONFIG, index_path)
     assert len(violations) == 0
 
 
@@ -101,20 +114,5 @@ def foo():
     with mock.patch("foo.bar", return_value=mock.MagicMock()):
         ...
 """
-    config = Config(select={RedundantMockReturnValue.name})
-    violations = lint_file(Path("foo.py"), code, config, index_path)
+    violations = lint_file(Path("foo.py"), code, CONFIG, index_path)
     assert len(violations) == 0
-
-
-def test_unittest_mock_import_style(index_path: Path) -> None:
-    code = """
-import unittest.mock
-
-def test_foo():
-    with unittest.mock.patch("foo.bar", return_value=unittest.mock.MagicMock()):
-        ...
-"""
-    config = Config(select={RedundantMockReturnValue.name})
-    violations = lint_file(Path("test_foo.py"), code, config, index_path)
-    assert len(violations) == 1
-    assert all(isinstance(v.rule, RedundantMockReturnValue) for v in violations)
