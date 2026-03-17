@@ -88,7 +88,7 @@ LANGCHAIN_V1_SKIP_REASON = "Pickle serialization is not supported for LangChain 
 skip_if_v1 = pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
 
 # The mock OAI completion endpoint returns payload as it is
-TEST_CONTENT = '[{"role": "user", "content": "What is MLflow?"}]'
+TEST_CONTENT = [{"role": "user", "content": "What is MLflow?"}]
 
 SIMPLE_MODEL_CODE_PATH = "tests/langchain/sample_code/simple_runnable.py"
 
