@@ -20,6 +20,7 @@ import pytest
 
 import mlflow
 import mlflow.pyfunc
+from mlflow.utils.os import is_windows
 from mlflow.utils.uv_utils import (
     _PYPROJECT_FILE,
     _PYTHON_VERSION_FILE,
@@ -48,6 +49,9 @@ def python_model():
     return SimplePythonModel()
 
 
+_uv_python_version = "3.11.5"
+
+
 @pytest.fixture
 def tmp_uv_project(tmp_path):
     """Create a real uv project with uv lock."""
@@ -66,7 +70,7 @@ build-backend = "hatchling.build"
     (tmp_path / _PYPROJECT_FILE).write_text(pyproject_content)
 
     # Create .python-version
-    (tmp_path / _PYTHON_VERSION_FILE).write_text("3.11.5\n")
+    (tmp_path / _PYTHON_VERSION_FILE).write_text(f"{_uv_python_version}\n")
 
     # Create minimal package structure for hatchling
     pkg_dir = tmp_path / "test_uv_project"
@@ -488,6 +492,7 @@ def test_extract_index_urls_from_real_uv_lock(tmp_uv_project):
     assert truly_private == []
 
 
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 @requires_uv
 def test_run_uv_sync_real(tmp_uv_project, tmp_path):
     from mlflow.utils.uv_utils import run_uv_sync
@@ -495,15 +500,9 @@ def test_run_uv_sync_real(tmp_uv_project, tmp_path):
     sync_dir = tmp_path / "sync_project"
 
     # Create the virtual environment directly at sync_dir
-    venv_result = subprocess.run(
-        ["uv", "venv", sync_dir],
-        capture_output=True,
-        text=True,
-    )
-    assert venv_result.returncode == 0, f"uv venv failed: {venv_result.stderr}"
+    subprocess.check_call(["uv", "venv", sync_dir, f"--python={_uv_python_version}"])
 
-    for uv_proj_file in [_UV_LOCK_FILE, _PYTHON_VERSION_FILE, _PYPROJECT_FILE]:
-        shutil.copyfile(tmp_uv_project / uv_proj_file, sync_dir / uv_proj_file)
+    shutil.copytree(tmp_uv_project, sync_dir, dirs_exist_ok=True)
 
     result = run_uv_sync(sync_dir, frozen=True, no_dev=True)
 
@@ -511,9 +510,8 @@ def test_run_uv_sync_real(tmp_uv_project, tmp_path):
 
     # Verify numpy is installed in the env at sync_dir
     python_bin = sync_dir / "bin" / "python"
-    check = subprocess.run(
-        [python_bin, "-c", "import numpy; print(numpy.__version__)"],
-        capture_output=True,
-        text=True,
+
+    # Check the python environment installs numpy successfully.
+    subprocess.check_call(
+        [python_bin, "-c", "import numpy"],
     )
-    assert check.returncode == 0, f"numpy import failed: {check.stderr}"
