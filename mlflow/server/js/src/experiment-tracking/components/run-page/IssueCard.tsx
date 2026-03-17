@@ -85,6 +85,7 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedDescription, setEditedDescription] = useState(issue.description || '');
   const [editedSeverity, setEditedSeverity] = useState<IssueSeverity>(issue.severity || 'medium');
+  const [severityChanged, setSeverityChanged] = useState(false);
   const [showUpdateHighlight, setShowUpdateHighlight] = useState(false);
   const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -107,25 +108,44 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
 
   const handleStatusChange = (newStatus: IssueStatus) => (e: React.MouseEvent) => {
     e.stopPropagation();
-    updateIssueAsync({ issueId: issue.issue_id, status: newStatus });
+    updateIssueAsync({ issueId: issue.issue_id, status: newStatus }).catch((error) => {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      Utils.displayGlobalErrorNotification(
+        intl.formatMessage(
+          {
+            defaultMessage: 'Failed to update issue status: {error}',
+            description: 'Error message when issue status update fails',
+          },
+          { error: errorMessage },
+        ),
+      );
+    });
   };
 
   const handleEditClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     setEditedDescription(issue.description || '');
     setEditedSeverity(issue.severity || 'medium');
+    setSeverityChanged(false);
     setIsEditing(true);
   };
 
   const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await updateIssueAsync({
+      const updates: any = {
         issueId: issue.issue_id,
         description: editedDescription,
-        severity: editedSeverity,
-      });
+      };
+
+      // Only include severity if it was originally set OR user explicitly changed it
+      if (issue.severity || severityChanged) {
+        updates.severity = editedSeverity;
+      }
+
+      await updateIssueAsync(updates);
       setIsEditing(false);
+      setSeverityChanged(false);
 
       // Show highlight for 2 seconds after successful update
       setShowUpdateHighlight(true);
@@ -153,6 +173,7 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
     e.stopPropagation();
     setEditedDescription(issue.description || '');
     setEditedSeverity(issue.severity || 'medium');
+    setSeverityChanged(false);
     setIsEditing(false);
   };
 
@@ -180,10 +201,13 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flexWrap: 'wrap', flex: 1 }}>
             {isEditing ? (
               <SimpleSelect
-                id="issue-severity-select"
+                id={`issue-severity-select-${issue.issue_id}`}
                 componentId="mlflow.issues.severity-select"
                 value={editedSeverity}
-                onChange={({ target }) => setEditedSeverity(target.value as IssueSeverity)}
+                onChange={({ target }) => {
+                  setEditedSeverity(target.value as IssueSeverity);
+                  setSeverityChanged(true);
+                }}
                 onClick={(e) => e.stopPropagation()}
                 css={{ width: '150px' }}
               >
@@ -334,15 +358,17 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
               </>
             ) : (
               <>
-                <Button
-                  componentId="mlflow.issues.edit-button"
-                  type="tertiary"
-                  size="small"
-                  icon={<PencilIcon />}
-                  onClick={handleEditClick}
-                >
-                  <FormattedMessage defaultMessage="Edit" description="Button to edit an issue" />
-                </Button>
+                {issue.status === 'pending' && (
+                  <Button
+                    componentId="mlflow.issues.edit-button"
+                    type="tertiary"
+                    size="small"
+                    icon={<PencilIcon />}
+                    onClick={handleEditClick}
+                  >
+                    <FormattedMessage defaultMessage="Edit" description="Button to edit an issue" />
+                  </Button>
+                )}
                 {issue.status === 'pending' && (
                   <Button
                     componentId="mlflow.issues.resolve-button"

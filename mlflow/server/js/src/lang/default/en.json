@@ -1809,6 +1809,10 @@
     "defaultMessage": "Reject",
     "description": "Button to reject an issue"
   },
+  "9w1lBO": {
+    "defaultMessage": "Failed to update issue status: {error}",
+    "description": "Error message when issue status update fails"
+  },
   "9wWapn": {
     "defaultMessage": "Click 'Add chart' or drag and drop to add charts here.",
     "description": "Runs compare page > Charts tab > No charts placeholder description"
