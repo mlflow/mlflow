@@ -8,6 +8,7 @@ from mlflow.entities.issue import Issue, IssueStatus
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.utils import (
     _lookup_model_cost,
+    _ModelCost,
     _pydantic_to_response_format,
     _TokenCounter,
     build_summary,
@@ -332,12 +333,9 @@ def test_pydantic_to_response_format():
 
 
 def test_lookup_model_cost_returns_calculated_cost():
-    info = {
-        "input_cost_per_token": 0.00001,
-        "output_cost_per_token": 0.00003,
-    }
+    cost_info = _ModelCost(input_cost_per_token=0.00001, output_cost_per_token=0.00003)
     with mock.patch(
-        "mlflow.genai.discovery.utils._fetch_model_cost", return_value=info
+        "mlflow.genai.discovery.utils._fetch_model_cost", return_value=cost_info
     ) as mock_fetch:
         cost = _lookup_model_cost("openai:/gpt-5-mini", 1000, 500)
 

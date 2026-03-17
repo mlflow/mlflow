@@ -5,6 +5,7 @@ import logging
 import threading
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Any
 
 import pydantic
@@ -206,8 +207,14 @@ def _pydantic_to_response_format(cls: type[pydantic.BaseModel]) -> dict[str, Any
     }
 
 
+@dataclass(frozen=True)
+class _ModelCost:
+    input_cost_per_token: float
+    output_cost_per_token: float
+
+
 @functools.lru_cache(maxsize=64)
-def _fetch_model_cost(model_name: str) -> dict[str, Any] | None:
+def _fetch_model_cost(model_name: str) -> _ModelCost | None:
     # In most cases, the model filter returns a small number of results
     # (e.g. 3 for "gpt-4.1-mini"), but we paginate to handle edge cases.
     page = 1
@@ -233,7 +240,10 @@ def _fetch_model_cost(model_name: str) -> dict[str, Any] | None:
         # "ft:gpt-4.1-mini-2025-04-14"), so we need to find the exact match.
         for entry in body.get("data", []):
             if entry.get("id") == model_name:
-                return entry
+                return _ModelCost(
+                    input_cost_per_token=entry.get("input_cost_per_token") or 0,
+                    output_cost_per_token=entry.get("output_cost_per_token") or 0,
+                )
 
         if not body.get("has_more", False):
             return None
@@ -243,10 +253,8 @@ def _fetch_model_cost(model_name: str) -> dict[str, Any] | None:
 def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) -> float | None:
     """Best-effort cost lookup using the LiteLLM model pricing data."""
     _, model_name = _parse_model_uri(model_uri)
-    if info := _fetch_model_cost(model_name):
-        input_cost = info.get("input_cost_per_token") or 0
-        output_cost = info.get("output_cost_per_token") or 0
-        return input_tokens * input_cost + output_tokens * output_cost
+    if cost := _fetch_model_cost(model_name):
+        return input_tokens * cost.input_cost_per_token + output_tokens * cost.output_cost_per_token
     return None
 
 
