@@ -66,16 +66,16 @@ module.exports = async ({ context, github }) => {
     `PR #${prNumber} is missing ${missingHeadings.length}/${templateHeadings.length} template section(s).`
   );
   if (missingRatio > 0.5) {
-    const missingList = missingHeadings.map((h) => `- ${h}`).join("\n");
+    const missingList = missingHeadings.map((h) => `- ${h.replace(/^#+\s*/, "")}`).join("\n");
     await github.rest.issues.createComment({
       owner,
       repo,
       issue_number: prNumber,
       body: [
         "This PR was automatically closed because it does not follow the PR template.",
-        `Missing sections:\n${missingList}`,
+        `<details>\n<summary>Missing sections</summary>\n\n${missingList}\n</details>`,
         `Please update your PR body to include all sections from the [PR template](https://github.com/${owner}/${repo}/blob/master/${PR_TEMPLATE_PATH}) and reopen this PR.`,
-      ].join("\n"),
+      ].join("\n\n"),
     });
 
     await github.rest.pulls.update({
