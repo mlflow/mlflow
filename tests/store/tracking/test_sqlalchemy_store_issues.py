@@ -932,3 +932,121 @@ def test_search_issues_trace_count_with_filters(store):
     assert len(result) == 1
     assert result[0].issue_id == issue_pending.issue_id
     assert result[0].trace_count == 1
+
+
+def test_search_issues_sorted_by_trace_count_within_severity(store):
+    exp_id = store.create_experiment("test")
+
+    issue_high_3_traces = store.create_issue(
+        experiment_id=exp_id,
+        name="High severity with 3 traces",
+        description="High severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.HIGH,
+    )
+
+    issue_high_1_trace = store.create_issue(
+        experiment_id=exp_id,
+        name="High severity with 1 trace",
+        description="High severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.HIGH,
+    )
+
+    issue_medium_2_traces = store.create_issue(
+        experiment_id=exp_id,
+        name="Medium severity with 2 traces",
+        description="Medium severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.MEDIUM,
+    )
+
+    issue_medium_0_traces = store.create_issue(
+        experiment_id=exp_id,
+        name="Medium severity with 0 traces",
+        description="Medium severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.MEDIUM,
+    )
+
+    timestamp_ms = get_current_time_millis()
+
+    for i in range(3):
+        trace = store.start_trace(
+            TraceInfo(
+                trace_id=f"tr-{uuid.uuid4()}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp_ms + i * 100,
+                execution_duration=100,
+                state=TraceState.OK,
+                tags={},
+                trace_metadata={},
+                client_request_id=f"tr-{uuid.uuid4()}",
+                request_preview=None,
+                response_preview=None,
+            ),
+        )
+        store.create_assessment(
+            IssueReference(
+                issue_id=issue_high_3_traces.issue_id,
+                issue_name=issue_high_3_traces.name,
+                trace_id=trace.request_id,
+            )
+        )
+
+    trace = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms + 300,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue_high_1_trace.issue_id,
+            issue_name=issue_high_1_trace.name,
+            trace_id=trace.request_id,
+        )
+    )
+
+    for i in range(2):
+        trace = store.start_trace(
+            TraceInfo(
+                trace_id=f"tr-{uuid.uuid4()}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp_ms + 400 + i * 100,
+                execution_duration=100,
+                state=TraceState.OK,
+                tags={},
+                trace_metadata={},
+                client_request_id=f"tr-{uuid.uuid4()}",
+                request_preview=None,
+                response_preview=None,
+            ),
+        )
+        store.create_assessment(
+            IssueReference(
+                issue_id=issue_medium_2_traces.issue_id,
+                issue_name=issue_medium_2_traces.name,
+                trace_id=trace.request_id,
+            )
+        )
+
+    result = store.search_issues(experiment_id=exp_id, include_trace_count=True)
+
+    assert len(result) == 4
+    assert result[0].issue_id == issue_high_3_traces.issue_id
+    assert result[0].trace_count == 3
+    assert result[1].issue_id == issue_high_1_trace.issue_id
+    assert result[1].trace_count == 1
+    assert result[2].issue_id == issue_medium_2_traces.issue_id
+    assert result[2].trace_count == 2
+    assert result[3].issue_id == issue_medium_0_traces.issue_id
+    assert result[3].trace_count == 0

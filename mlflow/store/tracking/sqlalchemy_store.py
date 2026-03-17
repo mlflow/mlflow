@@ -6144,11 +6144,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 value=SqlIssue.severity,
                 else_=-1,
             )
-            query = query.order_by(
-                severity_order.desc(),
+
+            order_clauses = [severity_order.desc()]
+            if include_trace_count:
+                order_clauses.append(trace_count_label.desc())
+            order_clauses.extend([
                 SqlIssue.created_timestamp.desc(),
                 SqlIssue.issue_id.desc(),
-            )
+            ])
+            query = query.order_by(*order_clauses)
 
             query = query.offset(offset).limit(max_results + 1)
 
