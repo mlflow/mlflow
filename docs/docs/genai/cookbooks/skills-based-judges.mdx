@@ -1,0 +1,547 @@
+---
+title: "Evaluate Agents with Skills-Based Judges"
+---
+
+# Evaluate Agents with Skills-Based Judges
+
+When you evaluate a tool-calling agent, not every trace needs the same evaluation criteria. Consider a SQL agent: a trace where the agent executes a complex multi-table join needs to be checked against SQL syntax rules, join patterns, and parameterization safety. But a trace where the agent simply looks up a table schema? Those SQL rules are irrelevant — what matters is whether it picked the right tool (`get_table_schema` vs. `execute_sql`).
+
+Flat instruction strings can't make this distinction. You either pack every rule into one giant prompt (wasting context and confusing the judge on simple traces) or create separate judges for each scenario (duplicating effort and missing cross-cutting concerns).
+
+**Skills-based judges solve this.** Each skill is a `SKILL.md` file containing domain knowledge — rubrics, reference docs, best practices — that the judge discovers and loads _on demand_ based on what it sees in the trace. The judge autonomously decides which skills matter for each evaluation:
+
+| Trace type | Skills the judge loads | Skills it skips |
+|---|---|---|
+| Multi-table join query | `sql-correctness`, `tool-selection`, `general-quality` | — |
+| Schema discovery (no SQL) | `tool-selection`, `general-quality` | `sql-correctness` |
+| Simple aggregation query | `sql-correctness` (rubric only) | Reference docs (not needed for simple queries) |
+
+This maps to what the evaluation literature calls the **static spine + adaptive layer** pattern ([AEMA framework](https://arxiv.org/html/2601.11903v1), [Anthropic evals guide](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)): keep a fixed set of criteria for comparability, but let the evaluator selectively apply domain knowledge based on what the agent actually did.
+
+## Prerequisites
+
+- Python 3.10+
+- MLflow 3.x with GenAI extras
+- An OpenAI API key (or any [supported judge model](/genai/eval-monitor/scorers/llm-judge/custom-judges/supported-models))
+
+```bash
+pip install 'mlflow[genai]' openai duckdb
+```
+
+## What You'll Build
+
+A three-judge evaluation suite for a SQL agent backed by real data (DuckDB + TPC-H). Each judge shares a common set of SKILL.md evaluation criteria — a general quality rubric, a tool selection rubric, and a SQL-specific rubric with reference docs — and loads only the knowledge relevant to each trace.
+
+## Step 1: Set Up the Environment
+
+```python
+import os
+
+import mlflow
+
+os.environ["OPENAI_API_KEY"] = "your-api-key"  # Replace with your key
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("skills-based-judges")
+```
+
+## Step 2: Create Evaluation Criteria as Skills
+
+Each skill is a directory containing a `SKILL.md` with YAML frontmatter and a markdown rubric body. Skills can also include reference files in subdirectories that the judge loads on demand.
+
+After this step, you'll have this directory structure:
+
+```
+eval-criteria/
+├── general-quality/
+│   └── SKILL.md
+├── tool-selection/
+│   ├── SKILL.md
+│   └── references/
+│       └── TOOL_CATALOG.md
+└── sql-correctness/
+    ├── SKILL.md
+    └── references/
+        └── SQL_PATTERNS.md
+```
+
+### General Quality Skill
+
+A universal rubric that applies to any agent.
+
+```python
+from pathlib import Path
+
+eval_dir = Path("eval-criteria")
+
+# General quality rubric
+general_dir = eval_dir / "general-quality"
+general_dir.mkdir(parents=True, exist_ok=True)
+(general_dir / "SKILL.md").write_text("""\
+---
+name: general-quality
+description: >-
+  General quality rubric covering actionable output, structured responses,
+  hallucination detection, conciseness, and error handling.
+---
+
+# General Quality Evaluation
+
+## Dimensions
+
+### Actionable Output
+- **Excellent**: Concrete, implementable guidance with specific code or commands.
+- **Acceptable**: General direction; user must fill in some details.
+- **Poor**: Vague advice ("consider using X") without showing how.
+
+### Structured Response
+- **Excellent**: Headings, lists, code blocks; scannable at a glance.
+- **Acceptable**: Some structure but could be better organized.
+- **Poor**: Wall of text with no visual hierarchy.
+
+### No Hallucination
+- **Excellent**: All APIs, functions, libraries exist; code is syntactically valid.
+- **Acceptable**: Minor inaccuracies that don't affect the solution.
+- **Poor**: Fabricated APIs, non-existent functions, or invalid syntax.
+
+### Conciseness
+- **Excellent**: Answers directly without preamble or repetition.
+- **Acceptable**: Mostly concise with minor verbosity.
+- **Poor**: Excessive repetition, restating the question, or filler.
+
+### Error Handling
+- **Excellent**: Acknowledges ambiguity, suggests alternatives, addresses all parts.
+- **Acceptable**: Handles main request but misses edge cases.
+- **Poor**: Silently ignores parts of the question.
+""")
+```
+
+### Tool Selection Skill (with Reference Doc)
+
+Evaluates tool usage patterns. Includes a reference catalog that the judge can load via `read_skill_file`.
+
+```python
+tool_dir = eval_dir / "tool-selection"
+tool_dir.mkdir(parents=True, exist_ok=True)
+(tool_dir / "SKILL.md").write_text("""\
+---
+name: tool-selection
+description: >-
+  Tool selection rubric evaluating correct tool choice, avoidance of shell
+  workarounds, call count efficiency, and error recovery.
+---
+
+# Tool Selection Evaluation
+
+Load `references/TOOL_CATALOG.md` for the complete list of available tools.
+
+## Dimensions
+
+### Correct Tool for Task
+- **Excellent**: Uses the most specific tool for each operation.
+- **Acceptable**: Uses a reasonable tool, even if a more specific one exists.
+- **Poor**: Wrong tool entirely or generic tools when specialized ones exist.
+
+### No Shell Workarounds
+- **Excellent**: Never uses bash to replicate tool functionality.
+- **Acceptable**: Minor shell usage for operations not covered by tools.
+- **Poor**: Uses curl, psql, etc. instead of available API tools.
+
+### Reasonable Call Count
+- **Excellent**: Minimal calls needed; no redundant or duplicate calls.
+- **Acceptable**: Slightly more calls than necessary.
+- **Poor**: Excessive redundant calls or repeated identical parameters.
+
+### Error Recovery
+- **Excellent**: Handles failures gracefully; retries with corrected parameters.
+- **Acceptable**: Recovers but provides poor user feedback.
+- **Poor**: Crashes on errors or switches to shell workarounds.
+""")
+
+# Reference document — the judge loads this on demand
+refs = tool_dir / "references"
+refs.mkdir(exist_ok=True)
+(refs / "TOOL_CATALOG.md").write_text("""\
+# Available Tool Catalog
+
+## Database Tools
+- `execute_sql`: Execute SQL queries. Use for SELECT, INSERT, UPDATE, DELETE, DDL.
+- `list_tables`: List tables in a schema. Use for discovery.
+- `get_table_schema`: Get column definitions. Use for understanding structure.
+
+## File Tools
+- `read_file`: Read file contents. Use for configs, data files.
+- `write_file`: Write to file. Use for saving results, reports.
+
+## Anti-patterns
+- Do NOT use `execute_sql` when `get_table_schema` would suffice.
+- Do NOT use bash commands like `cat`, `curl`, or `psql` when tools exist.
+""")
+```
+
+### SQL Correctness Skill (Domain-Specific)
+
+A domain-specific rubric for SQL-generating agents with approved query patterns as a reference doc.
+
+```python
+sql_dir = eval_dir / "sql-correctness"
+sql_dir.mkdir(parents=True, exist_ok=True)
+(sql_dir / "SKILL.md").write_text("""\
+---
+name: sql-correctness
+description: >-
+  SQL evaluation rubric covering schema qualification, modern syntax,
+  query safety, and syntax validity for database agents.
+metadata:
+  domain: sql
+---
+
+# SQL Correctness Evaluation
+
+Load `references/SQL_PATTERNS.md` for approved query patterns.
+
+## Dimensions
+
+### Schema Qualification
+- **Excellent**: All tables use `catalog.schema.table` format.
+- **Acceptable**: Most references qualified; unqualified only in obvious contexts.
+- **Poor**: Unqualified table names used frequently.
+
+### Modern Syntax
+- **Excellent**: Uses CREATE OR REPLACE, MERGE INTO for upserts. No deprecated patterns.
+- **Acceptable**: Mostly modern syntax with minor legacy patterns.
+- **Poor**: Deprecated syntax like manual DELETE+INSERT for upserts.
+
+### Query Safety
+- **Excellent**: No string interpolation; parameterized queries; no DROP without confirmation.
+- **Acceptable**: Minor safety issues that don't pose real risk.
+- **Poor**: String interpolation, unparameterized user input, or unconfirmed destructive ops.
+
+### Syntax Validity
+- **Excellent**: All SQL is syntactically correct; columns match schema.
+- **Acceptable**: Minor issues a linter would catch.
+- **Poor**: SQL would fail to execute.
+""")
+
+refs = sql_dir / "references"
+refs.mkdir(exist_ok=True)
+(refs / "SQL_PATTERNS.md").write_text("""\
+# Approved SQL Patterns
+
+## MERGE INTO (Upsert)
+```sql
+MERGE INTO catalog.schema.target AS t
+USING catalog.schema.source AS s
+ON t.id = s.id
+WHEN MATCHED THEN UPDATE SET *
+WHEN NOT MATCHED THEN INSERT *
+```
+
+## Safe Table Creation
+```sql
+CREATE TABLE IF NOT EXISTS catalog.schema.my_table (
+    id BIGINT GENERATED ALWAYS AS IDENTITY,
+    name STRING NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
+)
+```
+
+## Parameterized Queries
+```python
+# Good
+cursor.execute("SELECT * FROM t WHERE id = :id", {"id": user_id})
+
+# Bad — SQL injection risk
+cursor.execute(f"SELECT * FROM t WHERE id = {user_id}")
+```
+""")
+```
+
+### Verify the Skills Load
+
+```python
+from mlflow.genai.skills import SkillSet
+
+skill_set = SkillSet([
+    "eval-criteria/general-quality",
+    "eval-criteria/tool-selection",
+    "eval-criteria/sql-correctness",
+])
+
+for skill in skill_set.skills:
+    files = list(skill.files.keys())
+    files_str = f" | refs: {files}" if files else ""
+    print(f"  {skill.name}: {skill.description[:60]}...{files_str}")
+
+# Output:
+#   general-quality: General quality rubric covering actionable output, st...
+#   tool-selection: Tool selection rubric evaluating correct tool choice, ...  | refs: ['references/TOOL_CATALOG.md']
+#   sql-correctness: SQL evaluation rubric covering schema qualification, m...  | refs: ['references/SQL_PATTERNS.md']
+```
+
+## Step 3: Build a Sample Agent
+
+A simple SQL assistant that uses tool calls. The mock responses let us test the full evaluation pipeline without a real database.
+
+```python
+import json
+
+import openai
+
+mlflow.openai.autolog()
+client = openai.OpenAI()
+
+TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "execute_sql",
+            "description": "Execute a SQL query against the database.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "SQL query to execute"}
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_table_schema",
+            "description": "Get column definitions for a table.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "table_name": {
+                        "type": "string",
+                        "description": "Fully-qualified table name (catalog.schema.table)",
+                    }
+                },
+                "required": ["table_name"],
+            },
+        },
+    },
+]
+
+
+def mock_tool_call(name, args):
+    if name == "execute_sql":
+        return json.dumps(
+            {
+                "rows": [
+                    {"id": 1, "name": "Alice", "total": 150.00},
+                    {"id": 2, "name": "Bob", "total": 89.50},
+                ],
+                "row_count": 2,
+            }
+        )
+    elif name == "get_table_schema":
+        return json.dumps(
+            {
+                "columns": [
+                    {"name": "id", "type": "BIGINT"},
+                    {"name": "name", "type": "STRING"},
+                    {"name": "total", "type": "DECIMAL(10,2)"},
+                ]
+            }
+        )
+    return json.dumps({"error": "Unknown tool"})
+
+
+@mlflow.trace
+def sql_agent(question: str) -> str:
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are a SQL assistant for a Databricks environment. "
+                "Always use fully-qualified table names (catalog.schema.table). "
+                "Prefer get_table_schema over execute_sql for schema discovery."
+            ),
+        },
+        {"role": "user", "content": question},
+    ]
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini", messages=messages, tools=TOOLS
+    )
+    msg = response.choices[0].message
+
+    if msg.tool_calls:
+        messages.append(msg)
+        for tc in msg.tool_calls:
+            args = json.loads(tc.function.arguments)
+            result = mock_tool_call(tc.function.name, args)
+            messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini", messages=messages, tools=TOOLS
+        )
+        msg = response.choices[0].message
+
+    return msg.content
+```
+
+## Step 4: Create Skills-Based Judges
+
+Three focused judges, each targeting a different evaluation dimension. All share the same skill set, but their instructions focus them on different aspects. The `skills` parameter tells the judge about available domain knowledge; the judge loads what it needs via `read_skill` and `read_skill_file` tools during the agentic evaluation loop.
+
+```python
+from typing import Literal
+
+from mlflow.genai.judges import make_judge
+
+skill_paths = [
+    "eval-criteria/general-quality",
+    "eval-criteria/tool-selection",
+    "eval-criteria/sql-correctness",
+]
+
+correctness_judge = make_judge(
+    name="correctness",
+    instructions=(
+        "Evaluate the {{ trace }} for correctness. Is the agent's final output "
+        "factually correct and technically sound? Load the relevant eval criteria "
+        "skills based on what the trace does (e.g., sql-correctness for SQL agents)."
+    ),
+    skills=skill_paths,
+    model="openai:/gpt-4o-mini",
+    feedback_value_type=Literal["excellent", "acceptable", "poor"],
+)
+
+completeness_judge = make_judge(
+    name="completeness",
+    instructions=(
+        "Evaluate the {{ trace }} for completeness. Did the agent address all "
+        "parts of the user's request with sufficient detail? Use the "
+        "general-quality skill rubric to guide your assessment."
+    ),
+    skills=skill_paths,
+    model="openai:/gpt-4o-mini",
+    feedback_value_type=Literal["excellent", "acceptable", "poor"],
+)
+
+guideline_judge = make_judge(
+    name="guideline-adherence",
+    instructions=(
+        "Evaluate the {{ trace }} for adherence to best practices. Check tool "
+        "selection, SQL patterns, and response structure. Load the tool-selection "
+        "and sql-correctness skills and their reference documents to check against "
+        "specific guidelines."
+    ),
+    skills=skill_paths,
+    model="openai:/gpt-4o-mini",
+    feedback_value_type=Literal["excellent", "acceptable", "poor"],
+)
+```
+
+## Step 5: Prepare Test Data
+
+```python
+eval_dataset = [
+    {"inputs": {"question": "What are the top customers by total spend?"}},
+    {"inputs": {"question": "Show me the schema for the orders table."}},
+    {
+        "inputs": {
+            "question": "Create a table to store customer feedback with an auto-incrementing ID."
+        }
+    },
+    {
+        "inputs": {
+            "question": "Merge new sales data into the existing sales_summary table."
+        }
+    },
+]
+```
+
+## Step 6: Run the Evaluation
+
+```python
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=sql_agent,
+    scorers=[correctness_judge, completeness_judge, guideline_judge],
+)
+```
+
+## Results
+
+```python
+# Aggregate metrics
+print(results.metrics)
+
+# Per-row results with judge ratings and rationales
+print(results.result_df)
+```
+
+Each row shows the three judge ratings (`excellent` / `acceptable` / `poor`) plus rationales explaining how the judge applied the skill rubrics. Open the MLflow UI at http://127.0.0.1:5000 to see the full trace view with judge feedback attached.
+
+## How It Works
+
+When a skills-based judge evaluates a trace:
+
+1. **System prompt** includes the judge's instructions plus a skill inventory (names and descriptions only — not full content).
+2. **Agentic loop** — the judge LLM autonomously calls tools to explore the trace and load skills:
+   - `list_spans` / `get_span` — explore trace structure
+   - `read_skill` — load a skill's full rubric
+   - `read_skill_file` — load a reference doc from a skill
+   - `search_trace_regex` — search trace content
+3. **On-demand loading** — the judge decides which skills matter. For a SQL trace, it loads `sql-correctness` and maybe `tool-selection`, but skips `general-quality` if irrelevant.
+4. **Rating** — the judge produces a categorical rating and rationale grounded in the rubric dimensions.
+
+### Debugging Judge Behavior
+
+Enable debug logging to see exactly which tools the judge calls:
+
+```python
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logging.getLogger("mlflow.genai.judges").setLevel(logging.DEBUG)
+
+# Run a single judge to see tool calls
+answer = sql_agent("Show me total revenue by month")
+trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+feedback = correctness_judge(trace=trace)
+print(f"Rating: {feedback.value}")
+print(f"Rationale: {feedback.rationale}")
+```
+
+You'll see output showing `read_skill("sql-correctness")`, `read_skill_file("sql-correctness", "references/SQL_PATTERNS.md")`, etc.
+
+## Advanced: Share a Pre-Constructed SkillSet
+
+Parse skills once and reuse across judges to avoid re-reading files:
+
+```python
+from mlflow.genai.skills import SkillSet
+
+shared_skills = SkillSet([
+    "eval-criteria/general-quality",
+    "eval-criteria/tool-selection",
+    "eval-criteria/sql-correctness",
+])
+
+safety_judge = make_judge(
+    name="safety",
+    instructions=(
+        "Evaluate the {{ trace }} for safety. Focus on SQL injection risks, "
+        "destructive operations without confirmation, and improper error handling."
+    ),
+    skills=shared_skills,
+    model="openai:/gpt-4o-mini",
+    feedback_value_type=Literal["safe", "warning", "unsafe"],
+)
+
+answer = sql_agent("Drop the users table and recreate it")
+trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+feedback = safety_judge(trace=trace)
+print(f"Safety: {feedback.value} — {feedback.rationale}")
+```
+
+## Next Steps
+
+- [Create a Custom Judge](/genai/eval-monitor/scorers/llm-judge/custom-judges/create-custom-judge) — custom judges without skills
+- [Align Judges with Human Feedback](/genai/eval-monitor/scorers/llm-judge/alignment) — calibrate judge accuracy
+- [Evaluate Agents](/genai/eval-monitor/running-evaluation/agents) — full agent evaluation workflows

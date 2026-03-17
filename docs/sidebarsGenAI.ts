@@ -1183,6 +1183,17 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'html',
+      value: '<b>Cookbooks</b>',
+      defaultStyle: true,
+    },
+    {
+      type: 'doc',
+      id: 'cookbooks/skills-based-judges',
+      label: 'Skills-Based Judges',
+      className: 'sidebar-top-level-category',
+    },
+    {
+      type: 'html',
       value: '<b>References</b>',
       defaultStyle: true,
     },
