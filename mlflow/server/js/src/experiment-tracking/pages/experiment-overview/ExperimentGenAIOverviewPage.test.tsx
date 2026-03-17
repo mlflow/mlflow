@@ -15,7 +15,26 @@ jest.mock('../../../common/utils/FetchUtils', () => ({
   getAjaxUrl: (url: string) => url,
 }));
 
+// Mock FeatureUtils
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  shouldEnableIssueDetection: jest.fn(),
+}));
+
+// Mock IssueDetectionModal
+jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionModal', () => ({
+  IssueDetectionModal: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="issue-detection-modal">
+      <button data-testid="close-modal" onClick={onClose}>
+        Close
+      </button>
+    </div>
+  ),
+}));
+
 const mockFetchOrFail = jest.mocked(fetchOrFail);
+
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
+const mockShouldEnableIssueDetection = jest.mocked(shouldEnableIssueDetection);
 
 describe('ExperimentGenAIOverviewPage', () => {
   const { history } = setupTestRouter();
@@ -51,6 +70,8 @@ describe('ExperimentGenAIOverviewPage', () => {
     mockFetchOrFail.mockResolvedValue({
       json: () => Promise.resolve({ data_points: [] }),
     } as Response);
+    // Default mock for shouldEnableIssueDetection
+    mockShouldEnableIssueDetection.mockReturnValue(false);
   });
 
   describe('page rendering', () => {
@@ -238,6 +259,66 @@ describe('ExperimentGenAIOverviewPage', () => {
         // Latency and Errors charts should be present (side by side)
         expect(screen.getByText('Latency')).toBeInTheDocument();
         expect(screen.getByText('Errors')).toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('detect issues button', () => {
+    it('should not render detect issues button when feature is disabled', async () => {
+      mockShouldEnableIssueDetection.mockReturnValue(false);
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByRole('tablist')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByRole('button', { name: 'Detect issues in traces' })).not.toBeInTheDocument();
+    });
+
+    it('should render detect issues button when feature is enabled', async () => {
+      mockShouldEnableIssueDetection.mockReturnValue(true);
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeInTheDocument();
+      });
+    });
+
+    it('should open issue detection modal when button is clicked', async () => {
+      mockShouldEnableIssueDetection.mockReturnValue(true);
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Detect issues in traces' }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('issue-detection-modal')).toBeInTheDocument();
+      });
+    });
+
+    it('should close issue detection modal when close is triggered', async () => {
+      mockShouldEnableIssueDetection.mockReturnValue(true);
+      const user = userEvent.setup();
+      renderComponent();
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Detect issues in traces' })).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByRole('button', { name: 'Detect issues in traces' }));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('issue-detection-modal')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByTestId('close-modal'));
+
+      await waitFor(() => {
+        expect(screen.queryByTestId('issue-detection-modal')).not.toBeInTheDocument();
       });
     });
   });

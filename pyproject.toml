@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.10.2.dev0"
+version = "3.11.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -471,6 +471,7 @@ example-rules = [
 
 # typos
 [tool.typos.default.extend-words]
+aimd = "aimd"                      # additive increase multiplicative decrease
 als = "als"                        # alternating least squares
 mape = "mape"                      # mean absolute percentage error
 fpr = "fpr"                        # false positive rate

@@ -19,6 +19,7 @@ from mlflow.genai.discovery.constants import (
 from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.provider import trace_disabled
 
 if TYPE_CHECKING:
     import litellm
@@ -85,6 +86,7 @@ class _TokenCounter:
         return result
 
 
+@trace_disabled
 def _call_llm(
     model: str,
     messages: list[dict[str, str]],
@@ -104,7 +106,7 @@ def _call_llm(
         num_retries=NUM_RETRIES,
         response_format=use_format,
         include_response_format=use_format is not None,
-        inference_params={"max_tokens": LLM_MAX_TOKENS},
+        inference_params={"max_completion_tokens": LLM_MAX_TOKENS},
     )
     if token_counter is not None:
         token_counter.track(response)
@@ -113,10 +115,9 @@ def _call_llm(
 
 def build_summary(issues: list[Issue], total_traces: int) -> str:
     if not issues:
-        return f"## Issue Discovery Summary\n\nAnalyzed {total_traces} traces. No issues found."
+        return f"Analyzed {total_traces} traces. No issues found."
 
     lines = [
-        "## Issue Discovery Summary\n",
         f"Analyzed **{total_traces}** traces. Found **{len(issues)}** issues:\n",
     ]
     for i, issue in enumerate(issues, 1):
@@ -140,6 +141,7 @@ def log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:
             _logger.warning("Failed to log %s to run %s", filename, run_id, exc_info=True)
 
 
+@trace_disabled
 def verify_scorer(
     scorer: Scorer,
     trace: Trace,

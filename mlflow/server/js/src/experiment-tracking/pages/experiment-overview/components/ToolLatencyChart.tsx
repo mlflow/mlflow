@@ -1,8 +1,9 @@
 import React, { useCallback } from 'react';
 import { LightningIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useToolLatencyChartData } from '../hooks/useToolLatencyChartData';
+import { useItemSelection } from '../hooks/useItemSelection';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -13,8 +14,8 @@ import {
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
-  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
+import { ItemSelector } from './ItemSelector';
 import { formatLatency, useLegendHighlight, useChartColors, getLineDotStyle } from '../utils/chartUtils';
 
 /**
@@ -23,6 +24,7 @@ import { formatLatency, useLegendHighlight, useChartColors, getLineDotStyle } fr
  */
 export const ToolLatencyChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
@@ -31,6 +33,21 @@ export const ToolLatencyChart: React.FC = () => {
 
   // Fetch and process tool latency chart data
   const { chartData, toolNames, isLoading, error, hasData } = useToolLatencyChartData();
+
+  // Tool selection state
+  const { displayedItems, isAllSelected, selectorLabel, handleSelectAllToggle, handleItemToggle } = useItemSelection(
+    toolNames,
+    {
+      allSelected: intl.formatMessage({
+        defaultMessage: 'All tools',
+        description: 'Label for tool selector when all tools are selected',
+      }),
+      noneSelected: intl.formatMessage({
+        defaultMessage: 'No tools selected',
+        description: 'Label for tool selector when no tools are selected',
+      }),
+    },
+  );
 
   const tooltipFormatter = useCallback(
     (value: number, name: string) => [formatLatency(value), name] as [string, string],
@@ -47,19 +64,32 @@ export const ToolLatencyChart: React.FC = () => {
 
   return (
     <OverviewChartContainer componentId="mlflow.charts.tool_latency">
-      <OverviewChartHeader
-        icon={<LightningIcon />}
-        title={
-          <FormattedMessage
-            defaultMessage="Latency Comparison"
-            description="Title for the tool latency comparison chart"
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <OverviewChartHeader
+          icon={<LightningIcon />}
+          title={
+            <FormattedMessage
+              defaultMessage="Latency Comparison"
+              description="Title for the tool latency comparison chart"
+            />
+          }
+        />
+        {hasData && (
+          <ItemSelector
+            componentId="mlflow.charts.tool_latency.tool_selector"
+            itemNames={toolNames}
+            displayedItems={displayedItems}
+            isAllSelected={isAllSelected}
+            selectorLabel={selectorLabel}
+            onSelectAllToggle={handleSelectAllToggle}
+            onItemToggle={handleItemToggle}
           />
-        }
-      />
+        )}
+      </div>
 
       {/* Chart */}
-      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
-        {hasData ? (
+      <div css={{ height: 300, marginTop: theme.spacing.sm }}>
+        {hasData && displayedItems.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis dataKey="timestamp" {...xAxisProps} />
@@ -68,17 +98,20 @@ export const ToolLatencyChart: React.FC = () => {
                 content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ stroke: theme.colors.actionTertiaryBackgroundHover }}
               />
-              {toolNames.map((toolName, index) => (
-                <Line
-                  key={toolName}
-                  type="monotone"
-                  dataKey={toolName}
-                  stroke={getChartColor(index)}
-                  strokeWidth={2}
-                  strokeOpacity={getOpacity(toolName)}
-                  dot={getLineDotStyle(getChartColor(index))}
-                />
-              ))}
+              {displayedItems.map((toolName) => {
+                const originalIndex = toolNames.indexOf(toolName);
+                return (
+                  <Line
+                    key={toolName}
+                    type="monotone"
+                    dataKey={toolName}
+                    stroke={getChartColor(originalIndex)}
+                    strokeWidth={2}
+                    strokeOpacity={getOpacity(toolName)}
+                    dot={getLineDotStyle(getChartColor(originalIndex))}
+                  />
+                );
+              })}
               <Legend
                 verticalAlign="bottom"
                 iconType="plainline"
