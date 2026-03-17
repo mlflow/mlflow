@@ -418,6 +418,7 @@ class GatewayCreateEndpointEvent(Event):
             if arguments.get("routing_strategy")
             else None,
             "num_model_configs": len(arguments.get("model_configs") or []),
+            "usage_tracking": arguments.get("usage_tracking"),
         }
 
 
@@ -434,6 +435,7 @@ class GatewayUpdateEndpointEvent(Event):
             "num_model_configs": len(arguments.get("model_configs"))
             if arguments.get("model_configs") is not None
             else None,
+            "usage_tracking": arguments.get("usage_tracking"),
         }
 
 
