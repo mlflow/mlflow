@@ -16,7 +16,17 @@ async function getRecentActivity(github, username) {
   const repoCounts = new Map();
   for (const item of items) {
     const repoFullName = item.repository_url.replace("https://api.github.com/repos/", "");
-    repoCounts.set(repoFullName, (repoCounts.get(repoFullName) || 0) + 1);
+    if (!repoCounts.has(repoFullName)) {
+      repoCounts.set(repoFullName, { open: 0, closed: 0, merged: 0 });
+    }
+    const counts = repoCounts.get(repoFullName);
+    if (item.pull_request?.merged_at) {
+      counts.merged++;
+    } else if (item.state === "closed") {
+      counts.closed++;
+    } else {
+      counts.open++;
+    }
   }
   return { totalPRs: items.length, repoCount: repoCounts.size, repoBreakdown: repoCounts };
 }
@@ -28,22 +38,26 @@ async function getRecentActivitySection(github, username) {
   }
   const prLabel = totalPRs === 1 ? "PR" : "PRs";
   const repoLabel = repoCount === 1 ? "repo" : "repos";
+  const total = ({ open, closed, merged }) => open + closed + merged;
   const sortedRepos = [...repoBreakdown.entries()]
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => total(b[1]) - total(a[1]))
     .slice(0, MAX_REPOS_TO_DISPLAY);
   const tableRows = sortedRepos
     .map(
-      ([repo, count]) => `| [${repo}](https://github.com/${repo}/pulls/${username}) | ${count} |`
+      ([repo, counts]) =>
+        `| [${repo}](https://github.com/${repo}/pulls/${username}) | ${counts.open} | ${
+          counts.closed
+        } | ${counts.merged} | ${total(counts)} |`
     )
     .join("\n");
   const topNote = repoCount > MAX_REPOS_TO_DISPLAY ? ` (showing top ${MAX_REPOS_TO_DISPLAY})` : "";
   return `
-<details><summary>PR author recent activity</summary>
+<details><summary>PR author's recent activity</summary>
 
 In the last 14 days, @${username} opened **${totalPRs} ${prLabel}** across **${repoCount} ${repoLabel}**${topNote}:
 
-| Repository | PRs |
-| ---------- | --- |
+| Repository | Open | Closed | Merged | Total |
+| ---------- | ---- | ------ | ------ | ----- |
 ${tableRows}
 
 </details>`;
@@ -76,16 +90,16 @@ module.exports = async ({ context, github }) => {
   const { user, body } = context.payload.pull_request;
   const messages = [];
 
-  const title = "&#x1F6E0 DevTools &#x1F6E0";
-  // Check if a DevTools comment already exists
+  const title = "Install mlflow from this PR";
+  // Check if an install comment already exists
   const comments = await github.paginate(github.rest.issues.listComments, {
     owner,
     repo,
     issue_number,
   });
-  const devToolsCommentExists = comments.some((comment) => comment.body.includes(title));
+  const installCommentExists = comments.some((comment) => comment.body.includes(title));
 
-  if (!devToolsCommentExists) {
+  if (!installCommentExists) {
     let activitySection = "";
     const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
     if (
