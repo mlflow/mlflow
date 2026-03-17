@@ -6,6 +6,7 @@ via ``uv export`` for automatic dependency inference during model logging.
 """
 
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -406,6 +407,7 @@ def setup_uv_sync_environment(
 
 def run_uv_sync(
     project_dir: str | Path,
+    python_env_dir: str | Path,
     frozen: bool = True,
     no_dev: bool = True,
     capture_output: bool = False,
@@ -418,6 +420,7 @@ def run_uv_sync(
 
     Args:
         project_dir: Directory containing pyproject.toml and uv.lock.
+        python_env_dir: The python environment directory that the python packages are installed in.
         frozen: Use frozen lockfile without updating. Defaults to True.
         no_dev: Exclude development dependencies. Defaults to True.
         capture_output: Whether to capture stdout/stderr. Defaults to False.
@@ -447,6 +450,7 @@ def run_uv_sync(
             capture_output=capture_output,
             check=True,
             text=True,
+            env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(python_env_dir)},
         )
 
         _logger.info("uv sync completed successfully")
