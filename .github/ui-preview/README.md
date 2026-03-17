@@ -18,7 +18,7 @@ Preview apps are only accessible to core maintainers with workspace access.
 To query or add data to a preview app, set the following environment variables:
 
 ```bash
-export DATABRICKS_HOST="..."
+export DATABRICKS_HOST="https://..."
 export DATABRICKS_CLIENT_ID="..."
 export DATABRICKS_CLIENT_SECRET="..."
 export APP_URL="..."
@@ -27,7 +27,7 @@ export APP_URL="..."
 Then, obtain an access token:
 
 ```bash
-export TOKEN=$(curl -s -X POST "https://$DATABRICKS_HOST/oidc/v1/token" \
+export TOKEN=$(curl -s -X POST "$DATABRICKS_HOST/oidc/v1/token" \
   -d "grant_type=client_credentials&client_id=$DATABRICKS_CLIENT_ID&client_secret=$DATABRICKS_CLIENT_SECRET&scope=all-apis" \
   | jq -r '.access_token')
 ```
