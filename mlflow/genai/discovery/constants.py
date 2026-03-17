@@ -322,23 +322,3 @@ TRACE_ANNOTATION_SYSTEM_PROMPT = (
     "definition. A developer should immediately understand what went wrong.\n\n"
     "Return ONLY the rationale text, nothing else."
 )
-
-# ---- Semantic dedup prompt ----
-
-SEMANTIC_DEDUP_PROMPT_TEMPLATE = (
-    "Below are {num_issues} issues discovered from an AI application.\n"
-    "Some may describe the SAME underlying problem with different wording.\n\n"
-    "For each issue:\n{numbered_issues}\n\n"
-    "Identify groups of issues that are duplicates of each other — i.e. they "
-    "describe the same root cause and failure pattern, just with different names "
-    "or slightly different descriptions.\n\n"
-    "Rules:\n"
-    "- Only merge issues that genuinely describe the same problem\n"
-    "- Issues with different root causes or affecting different components are NOT duplicates\n"
-    "- When merging, keep the index of the issue with the higher severity (or the first one if tied)\n"
-    "- Issues that are unique should appear as singleton groups\n\n"
-    'Return a JSON object with a "groups" key containing an array of objects, '
-    'each with "keep_index" (int, the index to keep) and "merge_indices" '
-    "(list of ints, indices to merge into keep_index, may be empty).\n"
-    "Return ONLY the JSON, no explanation."
-)

@@ -19,7 +19,6 @@ from mlflow.environment_variables import (
 from mlflow.genai.discovery.clustering import (
     cluster_by_llm,
     recluster_singletons,
-    semantic_dedup_issues,
     summarize_cluster,
 )
 from mlflow.genai.discovery.constants import (
@@ -428,7 +427,7 @@ def _cluster_and_identify(
     analysis_labels: dict[int, str] = {}
     for label, analysis_idx in zip(labels, label_to_analysis):
         analysis_labels.setdefault(analysis_idx, label)
-    merged = _merge_singleton_issues(
+    return _merge_singleton_issues(
         identified,
         analysis_labels,
         analyses,
@@ -437,7 +436,6 @@ def _cluster_and_identify(
         categories=categories,
         token_counter=token_counter,
     )
-    return semantic_dedup_issues(merged, model, token_counter=token_counter)
 
 
 def _build_issues(

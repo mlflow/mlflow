@@ -8,7 +8,6 @@ from pydantic import BaseModel as _BaseModel
 from mlflow.entities.issue import IssueSeverity
 from mlflow.genai.discovery.constants import (
     CLUSTER_LABELS_PROMPT_TEMPLATE,
-    SEMANTIC_DEDUP_PROMPT_TEMPLATE,
     _format_cluster_categories,
     build_cluster_summary_prompt,
 )
@@ -19,15 +18,6 @@ from mlflow.genai.discovery.entities import (
 from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
 
 _logger = logging.getLogger(__name__)
-
-
-class _DedupGroup(_BaseModel):
-    keep_index: int
-    merge_indices: list[int]
-
-
-class _DedupResponse(_BaseModel):
-    groups: list[_DedupGroup]
 
 
 class _ClusterGroup(_BaseModel):
@@ -226,90 +216,3 @@ def recluster_singletons(
             result.extend(singletons[group_idx] for group_idx in group)
 
     return result
-
-
-def semantic_dedup_issues(
-    issues: list[_IdentifiedIssue],
-    model: str,
-    token_counter: _TokenCounter | None = None,
-) -> list[_IdentifiedIssue]:
-    """
-    Final dedup pass: ask an LLM to identify semantically duplicate issues.
-
-    Presents all issue names + descriptions to the LLM and asks it to group
-    duplicates. For each group of duplicates, keeps the issue with the highest
-    severity (or first if tied) and merges example_indices from the others.
-
-    Args:
-        issues: Issues to deduplicate.
-        model: Model URI for the dedup LLM.
-        token_counter: Optional token counter for tracking LLM usage.
-
-    Returns:
-        Deduplicated list of issues with merged example_indices.
-    """
-    if len(issues) < 2:
-        return issues
-
-    numbered = "\n".join(
-        f"[{i}] Name: {issue.name}\n    Description: {issue.description}\n"
-        f"    Root cause: {issue.root_cause}\n    Severity: {issue.severity}"
-        for i, issue in enumerate(issues)
-    )
-    prompt = SEMANTIC_DEDUP_PROMPT_TEMPLATE.format(
-        num_issues=len(issues),
-        numbered_issues=numbered,
-    )
-
-    try:
-        response = _call_llm(
-            model,
-            [{"role": "user", "content": prompt}],
-            response_format=_DedupResponse,
-            token_counter=token_counter,
-        )
-        content = (response.choices[0].message.content or "").strip()
-        if not content:
-            _logger.debug("LLM returned empty content for semantic dedup, skipping")
-            return issues
-        result = _DedupResponse(**json.loads(content))
-    except Exception:
-        _logger.debug("Semantic dedup LLM call failed, skipping", exc_info=True)
-        return issues
-
-    # Validate and apply merges
-    consumed: set[int] = set()
-    deduped: list[_IdentifiedIssue] = []
-
-    for group in result.groups:
-        keep = group.keep_index
-        if keep < 0 or keep >= len(issues) or keep in consumed:
-            continue
-
-        valid_merges = [
-            m
-            for m in group.merge_indices
-            if 0 <= m < len(issues) and m != keep and m not in consumed
-        ]
-
-        kept_issue = issues[keep]
-        for merge_idx in valid_merges:
-            merged = issues[merge_idx]
-            # Combine example_indices (deduplicated, preserving order)
-            kept_issue.example_indices = list(
-                dict.fromkeys(kept_issue.example_indices + merged.example_indices)
-            )
-            # Keep highest severity
-            kept_issue.severity = max(kept_issue.severity, merged.severity)
-            consumed.add(merge_idx)
-
-        consumed.add(keep)
-        deduped.append(kept_issue)
-
-    # Add any issues not covered by the LLM response (safety net)
-    for i, issue in enumerate(issues):
-        if i not in consumed:
-            deduped.append(issue)
-
-    _logger.debug("Semantic dedup: %d issues -> %d issues", len(issues), len(deduped))
-    return deduped
