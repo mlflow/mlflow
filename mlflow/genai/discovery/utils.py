@@ -19,11 +19,7 @@ from mlflow.genai.discovery.constants import (
     NUM_RETRIES,
     TRACE_CONTENT_TRUNCATION,
 )
-from mlflow.genai.discovery.entities import (
-    Issue,
-    _ConversationAnalysis,
-    _IdentifiedIssue,
-)
+from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _invoke_litellm,
     _is_litellm_available,
@@ -186,9 +182,9 @@ def _call_llm_via_gateway(
                     payload=chat_payload,
                 )
             break
-        except Exception as e:
+        except (requests.exceptions.RequestException, mlflow.exceptions.MlflowException) as e:
             last_error = e
-            if not _is_retryable(e) or attempt >= NUM_RETRIES:
+            if attempt >= NUM_RETRIES:
                 raise
             time.sleep(2**attempt)
     else:
@@ -198,18 +194,6 @@ def _call_llm_via_gateway(
     if token_counter is not None:
         token_counter.track(response, model=model)
     return response
-
-
-_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
-
-
-def _is_retryable(error: Exception) -> bool:
-    if isinstance(error, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
-        return True
-    if isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
-        return error.response.status_code in _RETRYABLE_STATUS_CODES
-    # _send_request wraps HTTPError into MlflowException with the status code in the message
-    return any(str(code) in str(error) for code in _RETRYABLE_STATUS_CODES)
 
 
 def _pydantic_to_response_format(cls: type[pydantic.BaseModel]) -> dict[str, Any]:
@@ -222,29 +206,47 @@ def _pydantic_to_response_format(cls: type[pydantic.BaseModel]) -> dict[str, Any
     }
 
 
-@functools.cache
-def _fetch_model_catalog() -> dict[str, Any] | None:
-    try:
-        resp = requests.get("https://api.litellm.ai/model_catalog", timeout=10)
-        resp.raise_for_status()
-        return resp.json()
-    except Exception:
-        return None
+@functools.lru_cache(maxsize=64)
+def _fetch_model_cost(model_name: str) -> dict[str, Any] | None:
+    # In most cases, the model filter returns a small number of results
+    # (e.g. 3 for "gpt-4.1-mini"), but we paginate to handle edge cases.
+    page = 1
+    while True:
+        for attempt in range(NUM_RETRIES + 1):
+            try:
+                resp = requests.get(
+                    "https://api.litellm.ai/model_catalog",
+                    params={"model": model_name, "mode": "chat", "page": page, "page_size": 50},
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                body = resp.json()
+                break
+            except requests.exceptions.RequestException:
+                if attempt >= NUM_RETRIES:
+                    return None
+                time.sleep(2**attempt)
+        else:
+            return None
+
+        # The API does a substring match (e.g. "gpt-4.1-mini" also returns
+        # "ft:gpt-4.1-mini-2025-04-14"), so we need to find the exact match.
+        for entry in body.get("data", []):
+            if entry.get("id") == model_name:
+                return entry
+
+        if not body.get("has_more", False):
+            return None
+        page += 1
 
 
 def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) -> float | None:
     """Best-effort cost lookup using the LiteLLM model pricing data."""
-    catalog = _fetch_model_catalog()
-    if catalog is None:
-        return None
-
-    provider, model_name = _parse_model_uri(model_uri)
-    for key in (f"{provider}/{model_name}", model_name):
-        if key in catalog:
-            info = catalog[key]
-            input_cost = info.get("input_cost_per_token", 0)
-            output_cost = info.get("output_cost_per_token", 0)
-            return input_tokens * input_cost + output_tokens * output_cost
+    _, model_name = _parse_model_uri(model_uri)
+    if info := _fetch_model_cost(model_name):
+        input_cost = info.get("input_cost_per_token") or 0
+        output_cost = info.get("output_cost_per_token") or 0
+        return input_tokens * input_cost + output_tokens * output_cost
     return None
 
 
@@ -336,10 +338,7 @@ def collect_affected_trace_ids(
 
 
 def format_trace_content(trace: Trace) -> str:
-    from mlflow.genai.discovery.extraction import (
-        extract_execution_path,
-        extract_span_errors,
-    )
+    from mlflow.genai.discovery.extraction import extract_execution_path, extract_span_errors
 
     parts = []
     if request := trace.data.request:

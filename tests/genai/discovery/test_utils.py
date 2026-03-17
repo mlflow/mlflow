@@ -72,6 +72,9 @@ def test_collect_affected_trace_ids_skips_out_of_bounds():
 # ---- get_session_id ----
 
 
+# ---- get_session_id ----
+
+
 @pytest.mark.parametrize(
     ("session_id", "expected"),
     [
@@ -82,6 +85,9 @@ def test_collect_affected_trace_ids_skips_out_of_bounds():
 def test_get_session_id(make_trace, session_id, expected):
     trace = make_trace(session_id=session_id)
     assert get_session_id(trace) == expected
+
+
+# ---- log_discovery_artifacts ----
 
 
 def test_log_discovery_artifacts_logs_text():
@@ -105,6 +111,9 @@ def test_log_discovery_artifacts_handles_exception():
     mock_client.log_text.assert_called_once()
 
 
+# ---- format_annotation_prompt ----
+
+
 def test_format_annotation_prompt():
     issue = Issue(
         issue_id="i1",
@@ -125,6 +134,9 @@ def test_format_annotation_prompt():
     assert "trace content here" in result
     assert "=== TRIAGE JUDGE RATIONALE ===" in result
     assert "triage rationale here" in result
+
+
+# ---- build_summary ----
 
 
 def test_build_summary_no_issues():
@@ -320,14 +332,12 @@ def test_pydantic_to_response_format():
 
 
 def test_lookup_model_cost_returns_calculated_cost():
-    catalog = {
-        "openai/gpt-5-mini": {
-            "input_cost_per_token": 0.00001,
-            "output_cost_per_token": 0.00003,
-        },
+    info = {
+        "input_cost_per_token": 0.00001,
+        "output_cost_per_token": 0.00003,
     }
     with mock.patch(
-        "mlflow.genai.discovery.utils._fetch_model_catalog", return_value=catalog
+        "mlflow.genai.discovery.utils._fetch_model_cost", return_value=info
     ) as mock_fetch:
         cost = _lookup_model_cost("openai:/gpt-5-mini", 1000, 500)
 
@@ -337,8 +347,7 @@ def test_lookup_model_cost_returns_calculated_cost():
 
 def test_lookup_model_cost_returns_none_on_missing_model():
     with mock.patch(
-        "mlflow.genai.discovery.utils._fetch_model_catalog",
-        return_value={"some/other-model": {}},
+        "mlflow.genai.discovery.utils._fetch_model_cost", return_value=None
     ) as mock_fetch:
         assert _lookup_model_cost("openai:/gpt-5-mini", 100, 50) is None
 
@@ -347,7 +356,7 @@ def test_lookup_model_cost_returns_none_on_missing_model():
 
 def test_lookup_model_cost_returns_none_on_network_error():
     with mock.patch(
-        "mlflow.genai.discovery.utils._fetch_model_catalog", return_value=None
+        "mlflow.genai.discovery.utils._fetch_model_cost", return_value=None
     ) as mock_fetch:
         assert _lookup_model_cost("openai:/gpt-5-mini", 100, 50) is None
 
