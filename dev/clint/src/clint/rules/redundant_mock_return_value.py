@@ -24,15 +24,13 @@ class RedundantMockReturnValue(Rule):
                 return False
 
         for keyword in node.keywords:
-            if keyword.arg != "return_value":
-                continue
-            value = keyword.value
-            if not isinstance(value, ast.Call):
-                continue
-            match resolver.resolve(value.func):
-                case ["unittest", "mock", "Mock" | "MagicMock"] if (
-                    not value.args and not value.keywords
+            match keyword:
+                case ast.keyword(
+                    arg="return_value",
+                    value=ast.Call(args=[], keywords=[]) as value,
                 ):
-                    return True
+                    match resolver.resolve(value.func):
+                        case ["unittest", "mock", "Mock" | "MagicMock"]:
+                            return True
 
         return False
