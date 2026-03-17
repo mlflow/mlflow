@@ -63,9 +63,6 @@ def test_fetch_traces_empty_list(trace_loader, mock_store):
 
 
 def test_fetch_traces_falls_back_to_artifact_repo(trace_loader, mock_store):
-    """When batch_get_traces returns nothing (spans in artifact repo), the loader
-    should fetch trace info and download span data from the artifact repo.
-    """
     mock_store.batch_get_traces.return_value = []
 
     trace_info = MagicMock(spec=TraceInfo)
@@ -100,9 +97,6 @@ def test_fetch_traces_falls_back_to_artifact_repo(trace_loader, mock_store):
 
 
 def test_fetch_traces_mixed_storage_locations(trace_loader, mock_store):
-    """When some traces are in the SQL store and some in artifact storage,
-    the loader should fetch from both and return all in the correct order.
-    """
     # trace_0 returned by batch_get_traces (in SQL store)
     sql_trace = MagicMock(spec=Trace)
     sql_trace.info = MagicMock(spec=TraceInfo)
@@ -139,9 +133,6 @@ def test_fetch_traces_mixed_storage_locations(trace_loader, mock_store):
 
 
 def test_fetch_traces_artifact_download_failure_skips_trace(trace_loader, mock_store):
-    """If downloading from artifact repo fails for one trace, that trace
-    should be skipped and others should still be returned.
-    """
     mock_store.batch_get_traces.return_value = []
 
     trace_info_ok = MagicMock(spec=TraceInfo)
@@ -189,9 +180,6 @@ def test_fetch_traces_artifact_download_failure_skips_trace(trace_loader, mock_s
 
 
 def test_fetch_traces_skips_tracking_store_traces_in_fallback(trace_loader, mock_store):
-    """Traces marked as TRACKING_STORE that weren't returned by batch_get_traces
-    (e.g. partially exported) should be skipped in the artifact fallback.
-    """
     mock_store.batch_get_traces.return_value = []
 
     trace_info = MagicMock(spec=TraceInfo)
