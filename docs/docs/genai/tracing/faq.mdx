@@ -477,6 +477,10 @@ Yes, MLflow Tracing is built on OpenTelemetry standards and can integrate with o
 
 For production monitoring, see [Production Tracing](/genai/tracing/prod-tracing) for integration patterns.
 
+### Q: Does the MLflow TypeScript SDK work in frontend (browser) environments?
+
+No, the MLflow TypeScript SDK (`@mlflow/core`, `@mlflow/openai`, etc.) works in **Node.js backend environments only**. It is not compatible with frontend JavaScript environments (e.g., browser, Edge Runtime) because it depends on OpenTelemetry's Node.js SDK internally.
+
 ### Q: Can I create custom manual traces and spans?
 
 Yes, MLflow provides comprehensive manual tracing capabilities. Please refer to the [Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing) guide for detailed information on creating traces and spans manually using decorators, context managers, and low-level APIs.

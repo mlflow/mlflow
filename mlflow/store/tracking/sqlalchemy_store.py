@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import bisect
 import hashlib
 import json
 import logging
@@ -18,11 +19,13 @@ from urllib.parse import urlparse
 import sqlalchemy
 import sqlalchemy.orm
 import sqlalchemy.sql.expression as sql
-from sqlalchemy import and_, case, exists, func, or_, select, sql
+from sqlalchemy import and_, case, distinct, exists, func, or_, select, sql
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Query, Session, aliased, joinedload
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
+
+from mlflow.utils.crypto import KEKManager, _decrypt_secret
 
 _SqlAlchemyStatement = TypeVar("_SqlAlchemyStatement", Select, Query)
 
@@ -37,6 +40,7 @@ from mlflow.entities import (
     Experiment,
     Feedback,
     Issue,
+    IssueSeverity,
     IssueStatus,
     Run,
     RunInputs,
@@ -108,7 +112,9 @@ from mlflow.store.analytics import trace_correlation
 from mlflow.store.db.db_types import MSSQL, MYSQL
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
+    MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
+    MAX_TRACE_LINKS_PER_REQUEST,
     SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -127,6 +133,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperimentTag,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
+    SqlGatewaySecret,
     SqlInput,
     SqlInputTag,
     SqlIssue,
@@ -1431,6 +1438,91 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 for metric in metrics
             ]
+
+    def get_metric_history_bulk_interval(
+        self,
+        run_ids: list[str],
+        metric_key: str,
+        max_results: int,
+        start_step: int,
+        end_step: int,
+    ) -> list[MetricWithRunId]:
+        """Override the base implementation to avoid loading all metric rows into Python.
+
+        The base class implementation calls get_metric_history() for each run, which loads
+        every metric row (potentially hundreds of thousands) into Python just to extract
+        distinct steps for downsampling. This override performs the step discovery via a
+        SELECT DISTINCT query in SQL, which is dramatically faster when metrics tables
+        are large.
+        """
+        with self.ManagedSessionMaker() as session:
+            for run_id in run_ids:
+                self._validate_run_accessible(session, run_id)
+
+            # Get distinct steps across all runs using SQL instead of loading all rows
+            all_steps = [
+                row[0]
+                for row in session
+                .query(distinct(SqlMetric.step))
+                .filter(
+                    SqlMetric.key == metric_key,
+                    SqlMetric.run_uuid.in_(run_ids),
+                )
+                .order_by(SqlMetric.step)
+                .all()
+            ]
+
+            if not all_steps:
+                return []
+
+            # Preserve min/max steps per run for data boundary accuracy
+            all_mins_and_maxes = set()
+            for min_step, max_step in (
+                session
+                .query(func.min(SqlMetric.step), func.max(SqlMetric.step))
+                .filter(SqlMetric.key == metric_key, SqlMetric.run_uuid.in_(run_ids))
+                .group_by(SqlMetric.run_uuid)
+                .all()
+            ):
+                all_mins_and_maxes.add(min_step)
+                all_mins_and_maxes.add(max_step)
+
+            if start_step is None and end_step is None:
+                start_step = 0
+                end_step = all_steps[-1]
+
+            all_mins_and_maxes = {
+                step for step in all_mins_and_maxes if start_step <= step <= end_step
+            }
+
+            start_idx = bisect.bisect_left(all_steps, start_step)
+            end_idx = bisect.bisect_right(all_steps, end_step)
+
+            if end_idx - start_idx <= max_results:
+                sampled_steps = set(all_steps[start_idx:end_idx])
+            else:
+                num_steps = end_idx - start_idx
+                interval = num_steps / max_results
+                sampled_steps = set()
+                for i in range(max_results):
+                    idx = start_idx + int(i * interval)
+                    if idx < end_idx:
+                        sampled_steps.add(all_steps[idx])
+                sampled_steps.add(all_steps[end_idx - 1])
+
+            steps = sorted(sampled_steps.union(all_mins_and_maxes))
+
+        metrics_with_run_ids = []
+        for run_id in run_ids:
+            metrics_with_run_ids.extend(
+                self.get_metric_history_bulk_interval_from_steps(
+                    run_id=run_id,
+                    metric_key=metric_key,
+                    steps=steps,
+                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
+                )
+            )
+        return metrics_with_run_ids
 
     def _search_datasets(self, experiment_ids):
         """
@@ -4125,14 +4217,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Raises:
             MlflowException: If more than 100 traces are provided.
         """
-        MAX_TRACES_PER_REQUEST = 100
-
         if not trace_ids:
             return
 
-        if len(trace_ids) > MAX_TRACES_PER_REQUEST:
+        if len(trace_ids) > MAX_TRACE_LINKS_PER_REQUEST:
             raise MlflowException(
-                f"Cannot link more than {MAX_TRACES_PER_REQUEST} traces to a run in "
+                f"Cannot link more than {MAX_TRACE_LINKS_PER_REQUEST} traces to a run in "
                 f"a single request. Provided {len(trace_ids)} traces.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -4767,7 +4857,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not trace_ids:
             return []
 
-        traces = []
         order_case = case(
             {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
             value=SqlTraceInfo.request_id,
@@ -5856,9 +5945,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         name: str,
         description: str,
         status: IssueStatus = IssueStatus.PENDING,
-        confidence: str | None = None,
+        severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
+        categories: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
         """
@@ -5869,9 +5959,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             name: Short descriptive name for the issue.
             description: Detailed description of the issue.
             status: Issue status. Defaults to IssueStatus.PENDING.
-            confidence: Optional confidence level indicator.
+            severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
 
         Returns:
@@ -5887,8 +5978,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Get current timestamp
             current_time = get_current_time_millis()
 
-            # Serialize root_causes to JSON
+            # Serialize root_causes and categories to JSON
             root_causes_json = json.dumps(root_causes) if root_causes else None
+            categories_json = json.dumps(categories) if categories else None
 
             # Create SqlIssue record
             sql_issue = SqlIssue(
@@ -5897,9 +5989,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 name=name,
                 description=description,
                 status=status.value,
-                confidence=confidence,
+                severity=severity.value if severity else None,
                 root_causes=root_causes_json,
                 source_run_id=source_run_id,
+                categories=categories_json,
                 created_timestamp=current_time,
                 last_updated_timestamp=current_time,
                 created_by=created_by,
@@ -5938,7 +6031,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         status: IssueStatus | None = None,
         name: str | None = None,
         description: str | None = None,
-        confidence: str | None = None,
+        severity: IssueSeverity | None = None,
     ) -> Issue:
         """
         Update an existing issue.
@@ -5948,14 +6041,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             status: Optional new status.
             name: Optional new name for the issue.
             description: Optional new description.
-            confidence: Optional new confidence level.
+            severity: Optional new severity level.
 
         Returns:
             The updated Issue entity.
         """
         with self.ManagedSessionMaker() as session:
-            status_str = status.value if status else None
-
             # Fetch the existing issue
             sql_issue = (
                 self._get_query(session, SqlIssue).filter(SqlIssue.issue_id == issue_id).first()
@@ -5967,14 +6058,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
 
             # Update fields if provided
-            if status_str is not None:
-                sql_issue.status = status_str
+            if status is not None:
+                sql_issue.status = status.value
             if name is not None:
                 sql_issue.name = name
             if description is not None:
                 sql_issue.description = description
-            if confidence is not None:
-                sql_issue.confidence = confidence
+            if severity is not None:
+                sql_issue.severity = severity.value
 
             # Update last_updated_timestamp
             sql_issue.last_updated_timestamp = get_current_time_millis()
@@ -5999,9 +6090,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 Supported filters: status, source_run_id
                 Supported comparators: =, !=
                 Examples:
-                    - "status = 'accepted'"
+                    - "status = 'resolved'"
                     - "source_run_id = 'run123'"
-                    - "status = 'draft' AND source_run_id != 'run456'"
+                    - "status = 'pending' AND source_run_id != 'run456'"
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
 
@@ -6027,7 +6118,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 )
                 query = query.filter(*filter_clauses)
 
+            # IssueSeverity enum is ordered from lowest to highest severity
+            severity_priorities = {severity.value: severity._rank for severity in IssueSeverity}
+            severity_order = case(
+                severity_priorities,
+                value=SqlIssue.severity,
+                else_=-1,
+            )
             query = query.order_by(
+                severity_order.desc(),
                 SqlIssue.created_timestamp.desc(),
                 SqlIssue.issue_id.desc(),
             )
@@ -6177,6 +6276,36 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 resource_type=resource_type, resource_id=resource_id
             ),
         ).delete(synchronize_session=False)
+
+    def _get_decrypted_secret(self, secret_id: str) -> dict[str, Any]:
+        """
+        Get decrypted secret value by ID.
+
+        This is a privileged operation that decrypts a secret stored in the database.
+        It should only be called server-side and never exposed to clients.
+
+        Args:
+            secret_id: ID of the secret to decrypt.
+
+        Returns:
+            Decrypted secret value as a dict.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_secret = self._get_entity_or_raise(
+                session,
+                SqlGatewaySecret,
+                {"secret_id": secret_id},
+                "GatewaySecret",
+            )
+
+            kek_manager = KEKManager()
+            return _decrypt_secret(
+                encrypted_value=sql_secret.encrypted_value,
+                wrapped_dek=sql_secret.wrapped_dek,
+                kek_manager=kek_manager,
+                secret_id=sql_secret.secret_id,
+                secret_name=sql_secret.secret_name,
+            )
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
@@ -6516,6 +6645,26 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
         value = sql_statement.get("value")
         comparator = sql_statement.get("comparator").upper()
 
+        # Check if this is an issue filter (stored in assessments table)
+        # Note: Issue filters use the format 'issue.id = "issue-123"', which differs
+        # from assessment filters that use 'feedback/expectation.<key_name> <operator> <value>'.
+        # Issue filters match on issue ID, which is the assessment name instead of value.
+        if SearchTraceUtils.is_issue(key_type, key_name, comparator):
+            # Query assessments table for issue references
+            # IssueReference assessments have assessment_type='issue' and name=issue_id
+            issue_subquery = (
+                session
+                .query(SqlAssessments.trace_id.label("request_id"))
+                .filter(
+                    SqlAssessments.assessment_type == "issue",
+                    SqlAssessments.name == value,
+                )
+                .distinct()
+                .subquery()
+            )
+            span_filters.append(issue_subquery)
+            continue
+
         if SearchTraceUtils.is_attribute(key_type, key_name, comparator):
             if key_name in ("end_time_ms", "end_time"):
                 # end_time = timestamp_ms + execution_time_ms
@@ -6649,6 +6798,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         SqlAssessments.trace_id == SqlTraceInfo.request_id,
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
+                        SqlAssessments.valid == sqlalchemy.true(),
                     )
                     exists_clause = assessment_exists_subquery.exists()
                     attribute_filters.append(
@@ -6666,6 +6816,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     .filter(
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
+                        SqlAssessments.valid == sqlalchemy.true(),
                         value_filter,
                     )
                     .distinct()

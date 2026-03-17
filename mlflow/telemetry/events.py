@@ -160,9 +160,14 @@ class CreateLoggedModelEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        data: dict[str, Any] = {}
         if flavor := arguments.get("flavor"):
-            return {"flavor": flavor.removeprefix("mlflow.")}
-        return None
+            data["flavor"] = flavor.removeprefix("mlflow.")
+        if serialization_format := arguments.get("serialization_format"):
+            data["serialization_format"] = serialization_format
+        if arguments.get("uses_uv"):
+            data["uses_uv"] = True
+        return data or None
 
 
 class GetLoggedModelEvent(Event):
@@ -461,9 +466,10 @@ class GatewayCreateBudgetPolicyEvent(Event):
                 return None
             return val.value if hasattr(val, "value") else str(val)
 
+        duration = arguments.get("duration")
         return {
             "budget_unit": _enum_str(arguments.get("budget_unit")),
-            "duration_unit": _enum_str(arguments.get("duration_unit")),
+            "duration_unit": _enum_str(duration.unit if duration is not None else None),
             "target_scope": _enum_str(arguments.get("target_scope")),
             "budget_action": _enum_str(arguments.get("budget_action")),
         }

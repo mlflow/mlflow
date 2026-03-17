@@ -384,6 +384,31 @@ class MyClass {
 
 By setting `request_preview` and `response_preview` on the trace (typically the root span), you control how the overall interaction is summarized in the main trace list view, making it easier to identify and understand traces at a glance.
 
+:::tip Images and Audio Content in MLflow Traces
+You can attach images and audio to spans using content parts lists in `set_inputs()` and `set_outputs()`:
+
+```python
+with mlflow.start_span(name="multimodal-call") as span:
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "What's in this image?"},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "https://example.com/photo.png"},
+                },
+            ],
+        }
+    ]
+    span.set_inputs({"messages": messages})
+    result = "A photo of a cat."
+    span.set_outputs({"content": result})
+```
+
+See [Image and Audio (Multimodal) Content in Traces](/genai/tracing/observe-with-traces/multimodal#manual-tracing) for more examples.
+:::
+
 ## Code Block
 
 In addition to the decorator, MLflow allows for creating a span that can then be accessed within any encapsulated arbitrary code block. It can be useful for capturing complex interactions within your code in finer detail than what is possible by capturing the boundaries of a single function.

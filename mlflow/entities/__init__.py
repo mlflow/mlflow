@@ -24,6 +24,7 @@ from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -44,7 +45,7 @@ from mlflow.entities.gateway_endpoint import (
 )
 from mlflow.entities.gateway_secrets import GatewaySecretInfo
 from mlflow.entities.input_tag import InputTag
-from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -108,6 +109,7 @@ __all__ = [
     "Dataset",
     "InputTag",
     "Issue",
+    "IssueSeverity",
     "IssueStatus",
     "DatasetInput",
     "RunInputs",
@@ -153,6 +155,7 @@ __all__ = [
     "DatasetRecordSourceType",
     "EntityAssociationType",
     "BudgetAction",
+    "BudgetDuration",
     "BudgetDurationUnit",
     "BudgetTargetScope",
     "BudgetUnit",

@@ -17,6 +17,7 @@ import { RunPageTabName } from '../../constants';
 import { RenameRunModal } from '../modals/RenameRunModal';
 import { RunViewArtifactTab } from './RunViewArtifactTab';
 import { RunViewHeader, type RunViewHeaderProps } from './RunViewHeader';
+import { RunViewIssuesTab } from './RunViewIssuesTab';
 import { RunViewOverview } from './RunViewOverview';
 import { useRunDetailsPageData } from './hooks/useRunDetailsPageData';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
@@ -68,10 +69,12 @@ export interface RunPageProps {
     tags: Record<string, KeyValueEntity>;
     onRunDataUpdated: () => void;
   }) => React.ReactNode;
+  /** Hide the compare selector in the traces tab */
+  hideTracesCompareSelector?: boolean;
 }
 
 export const RunPage = (props: RunPageProps) => {
-  const { customBreadcrumbs, tabSwitchProps, onDeleteSuccess, renderCustomOverview } = props;
+  const { customBreadcrumbs, tabSwitchProps, onDeleteSuccess, renderCustomOverview, hideTracesCompareSelector } = props;
   const { runUuid, experimentId } = useParams<{
     runUuid: string;
     experimentId: string;
@@ -162,6 +165,7 @@ export const RunPage = (props: RunPageProps) => {
         experiment={experiment}
         experimentId={safeExperimentId}
         runDisplayName={Utils.getRunDisplayName(runInfo, safeRunUuid)}
+        hideCompareSelector={hideTracesCompareSelector}
       />
     );
     switch (activeTab) {
@@ -204,6 +208,8 @@ export const RunPage = (props: RunPageProps) => {
         );
       case RunPageTabName.TRACES:
         return renderEvaluationTab();
+      case RunPageTabName.ISSUES:
+        return <RunViewIssuesTab runUuid={safeRunUuid} experimentId={safeExperimentId} />;
     }
 
     if (renderCustomOverview) {

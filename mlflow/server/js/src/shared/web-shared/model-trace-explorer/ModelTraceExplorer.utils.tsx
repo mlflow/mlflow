@@ -400,9 +400,21 @@ const getChatMessagesFromSpan = (
     return messagesFromInputs.concat([{ role: 'assistant', content: outputs }]);
   }
 
-  // when either input or output is not chat messages, we do not set the chat message fiels.
+  // when either input or output is not chat messages, we do not set the chat message field.
   if (messagesFromInputs.length === 0 || messagesFromOutputs.length === 0) {
     return undefined;
+  }
+
+  // LangGraph (and similar frameworks) accumulate all messages in the output state,
+  // so outputs already contain the input messages as a prefix. Detect this overlap
+  // and use only the output messages to avoid duplication.
+  if (
+    messagesFromOutputs.length >= messagesFromInputs.length &&
+    messagesFromInputs.every(
+      (msg, i) => msg.role === messagesFromOutputs[i].role && msg.content === messagesFromOutputs[i].content,
+    )
+  ) {
+    return messagesFromOutputs;
   }
 
   return messagesFromInputs.concat(messagesFromOutputs);
@@ -1125,7 +1137,8 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (voltAgentMessages) return voltAgentMessages;
         break;
       default:
-        const chatMessages = normalizeOpenAIFormats(input);
+        const chatMessages =
+          normalizeOpenAIFormats(input) ?? normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
         if (chatMessages) return chatMessages;
         const geminiFallbackMessages = normalizeGeminiChatInput(input) ?? normalizeGeminiChatOutput(input);
         if (geminiFallbackMessages) return geminiFallbackMessages;

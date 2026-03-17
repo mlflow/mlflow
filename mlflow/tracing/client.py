@@ -8,6 +8,7 @@ from typing import Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
+from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, Span
 from mlflow.entities.trace import Trace
@@ -37,6 +38,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import (
     GET_TRACE_V4_RETRY_TIMEOUT_SECONDS,
     SpansLocation,
@@ -344,30 +346,7 @@ class TracingClient:
 
                 if include_spans:
                     trace_infos_by_location = self._group_trace_infos_by_location(trace_infos)
-                    for (
-                        location,
-                        location_trace_infos,
-                    ) in trace_infos_by_location.items():
-                        if location == SpansLocation.ARTIFACT_REPO:
-                            # download traces from artifact repository if spans are
-                            # stored in the artifact repository
-                            traces.extend(
-                                trace
-                                for trace in executor.map(
-                                    self._download_spans_from_artifact_repo,
-                                    location_trace_infos,
-                                )
-                                if trace
-                            )
-                        else:
-                            # Get full traces with BatchGetTraces, all traces in a single call
-                            # must be located in the same table.
-                            trace_ids = [t.trace_id for t in location_trace_infos]
-                            traces.extend(
-                                self._download_spans_from_batch_get_traces(
-                                    trace_ids, location, executor
-                                )
-                            )
+                    traces.extend(self._load_traces_by_location(trace_infos_by_location, executor))
 
                 else:
                     traces.extend(Trace(t, TraceData(spans=[])) for t in trace_infos)
@@ -378,6 +357,40 @@ class TracingClient:
                 next_max_results = max_results - len(traces)
 
         return PagedList(traces, next_token)
+
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+        """
+        Retrieve multiple traces by their IDs.
+
+        Args:
+            trace_ids: List of trace IDs to retrieve.
+            location: Optional location (e.g., "catalog.schema" for UC schema) to search for traces.
+
+        Returns:
+            List of Trace objects.
+        """
+        if not trace_ids:
+            return []
+
+        # If location is provided, this is a UC schema/v4 call - delegate directly
+        if location is not None:
+            return self.store.batch_get_traces(trace_ids, location)
+
+        # Get trace infos (metadata only) to determine where spans are stored.
+        # Fall back to store.batch_get_traces directly if the store doesn't
+        # implement batch_get_trace_infos (e.g. DatabricksRestStore).
+        try:
+            trace_infos = self.store.batch_get_trace_infos(trace_ids)
+        except MlflowNotImplementedException:
+            return self.store.batch_get_traces(trace_ids, location)
+
+        trace_infos_by_location = self._group_trace_infos_by_location(trace_infos)
+
+        max_workers = min(len(trace_ids), MLFLOW_SEARCH_TRACES_MAX_THREADS.get())
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix="MlflowTracingBatchGet"
+        ) as executor:
+            return self._load_traces_by_location(trace_infos_by_location, executor)
 
     def _download_spans_from_batch_get_traces(
         self, trace_ids: list[str], location: str, executor: ThreadPoolExecutor
@@ -395,6 +408,30 @@ class TracingClient:
         batches = [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
         for minibatch_traces in executor.map(_fetch_minibatch, batches):
             traces.extend(minibatch_traces)
+        return traces
+
+    def _load_traces_by_location(
+        self,
+        trace_infos_by_location: dict[str, list[TraceInfo]],
+        executor: ThreadPoolExecutor,
+    ) -> list[Trace]:
+        traces = []
+        for location, location_trace_infos in trace_infos_by_location.items():
+            if location == SpansLocation.ARTIFACT_REPO:
+                traces.extend(
+                    tr
+                    for tr in executor.map(
+                        self._download_spans_from_artifact_repo,
+                        location_trace_infos,
+                    )
+                    if tr
+                )
+            else:
+                traces.extend(
+                    self._download_spans_from_batch_get_traces(
+                        [t.trace_id for t in location_trace_infos], location, executor
+                    )
+                )
         return traces
 
     def _download_spans_from_artifact_repo(self, trace_info: TraceInfo) -> Trace | None:
@@ -687,6 +724,18 @@ class TracingClient:
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
 
+    def _upload_attachments(
+        self,
+        trace_info: TraceInfo,
+        attachments: dict[str, Attachment],
+    ) -> None:
+        artifact_repo = self._get_artifact_repo_for_trace(trace_info)
+        for attachment_id, attachment in attachments.items():
+            try:
+                artifact_repo.upload_attachment(attachment_id, attachment.content_bytes)
+            except Exception as e:
+                _logger.warning(f"Failed to upload attachment {attachment_id}: {e}")
+
     def link_prompt_versions_to_trace(
         self, trace_id: str, prompts: Sequence[PromptVersion]
     ) -> None:
@@ -747,3 +796,56 @@ class TracingClient:
             raise MlflowException(
                 "Clearing storage location is not supported on non-Databricks backends."
             )
+
+    def _create_issue(
+        self,
+        experiment_id: str,
+        name: str,
+        description: str,
+        status: IssueStatus = IssueStatus.PENDING,
+        severity: IssueSeverity | None = None,
+        root_causes: list[str] | None = None,
+        source_run_id: str | None = None,
+        categories: list[str] | None = None,
+        created_by: str | None = None,
+    ) -> Issue:
+        """
+        Create a new issue in the tracking store.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: Short descriptive name for the issue.
+            description: Detailed description of the issue.
+            status: Issue status. Defaults to IssueStatus.PENDING if not provided.
+            severity: Optional severity level indicator.
+            root_causes: Optional list of root cause analyses.
+            source_run_id: Optional MLflow run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
+            created_by: Optional identifier for who created this issue.
+
+        Returns:
+            The created Issue entity.
+        """
+        return self.store.create_issue(
+            experiment_id=experiment_id,
+            name=name,
+            description=description,
+            status=status,
+            severity=severity,
+            root_causes=root_causes,
+            source_run_id=source_run_id,
+            categories=categories,
+            created_by=created_by,
+        )
+
+    def _get_issue(self, issue_id: str) -> Issue:
+        """
+        Get an issue by ID.
+
+        Args:
+            issue_id: The ID of the issue to retrieve.
+
+        Returns:
+            The Issue entity.
+        """
+        return self.store.get_issue(issue_id)
