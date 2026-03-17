@@ -2,7 +2,6 @@
 import io
 import json
 import logging
-import mimetypes
 import os
 import pathlib
 import posixpath
@@ -3872,17 +3871,21 @@ def get_trace_artifact_handler() -> Response:
             error_code=BAD_REQUEST,
         )
 
+    store = _get_tracking_store()
+
     if path:
-        store = _get_tracking_store()
+        path = validate_path_is_safe(path)
         trace_info = store.get_trace_info(request_id)
+        if trace_info is None:
+            raise MlflowException(
+                f"Trace with ID '{request_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
         repo = _get_trace_artifact_repo(trace_info)
         content_bytes = repo.download_trace_attachment(path)
         buf = io.BytesIO(content_bytes)
-        mimetype, _ = mimetypes.guess_type(path)
-        mimetype = mimetype or "application/octet-stream"
-        return send_file(buf, mimetype=mimetype)
+        return send_file(buf, mimetype="application/octet-stream")
 
-    store = _get_tracking_store()
     trace_data = _fetch_trace_data_from_store(store, request_id)
     if trace_data is None:
         trace_info = store.get_trace_info(request_id)
