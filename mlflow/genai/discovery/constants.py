@@ -19,7 +19,7 @@ TRACE_CONTENT_TRUNCATION = 1000
 
 DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
-DEFAULT_CATEGORIES = ["low_quality", "negative_ux", "safety", "performance"]
+DEFAULT_CATEGORIES = ["correctness", "latency", "execution", "adherence", "relevance", "safety"]
 
 
 # ---- Satisfaction scorer instructions ----
