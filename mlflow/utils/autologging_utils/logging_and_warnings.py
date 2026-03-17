@@ -7,9 +7,6 @@ from threading import get_ident as get_current_thread_id
 import mlflow
 from mlflow.utils import logging_utils
 
-ORIGINAL_SHOWWARNING = warnings.showwarning
-
-
 class _WarningsController:
     """
     Provides threadsafe utilities to modify warning behavior for MLflow autologging, including:
@@ -26,6 +23,7 @@ class _WarningsController:
         self._state_lock = RLock()
 
         self._did_patch_showwarning = False
+        self._original_showwarning = None
 
         self._disabled_threads = set()
         self._rerouted_threads = set()
@@ -70,7 +68,8 @@ class _WarningsController:
                 message,
             )
         else:
-            ORIGINAL_SHOWWARNING(message, category, filename, lineno, *args, **kwargs)
+            _orig = self._original_showwarning or warnings.showwarning
+            _orig(message, category, filename, lineno, *args, **kwargs)
 
     def _should_patch_showwarning(self):
         return (
@@ -96,13 +95,17 @@ class _WarningsController:
             if self._should_patch_showwarning() and not self._did_patch_showwarning:
                 # NB: guard to prevent patching an instance of a patch
                 if warnings.showwarning != self._patched_showwarning:
+                    # Capture the current showwarning lazily (at patch time, not import time)
+                    # so that user customizations applied after importing MLflow are preserved.
+                    self._original_showwarning = warnings.showwarning
                     warnings.showwarning = self._patched_showwarning
                 self._did_patch_showwarning = True
             elif not self._should_patch_showwarning() and self._did_patch_showwarning:
                 # NB: only unpatch iff the patched function is active
                 if warnings.showwarning == self._patched_showwarning:
-                    warnings.showwarning = ORIGINAL_SHOWWARNING
+                    warnings.showwarning = self._original_showwarning or warnings.showwarning
                 self._did_patch_showwarning = False
+                self._original_showwarning = None
 
     def set_mlflow_warnings_disablement_state_globally(self, disabled=True):
         """Disables (or re-enables) MLflow warnings globally across all threads.
