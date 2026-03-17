@@ -205,11 +205,13 @@ jobs:
           URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
           echo "url=$URL" >> $GITHUB_OUTPUT
 
-      - name: Configure CORS
+      - name: Configure app environment
         env:
           APP_URL: ${{ steps.app.outputs.url }}
         run: |
+          set +x
           sed -i "s|__APP_URL__|$APP_URL|" /tmp/app-deploy/app.yaml
+          sed -i "s|__KEK_PASSPHRASE__|$(openssl rand -hex 32)|" /tmp/app-deploy/app.yaml
 
       - name: Upload files and deploy
         env:
