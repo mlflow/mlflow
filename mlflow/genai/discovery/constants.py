@@ -20,6 +20,17 @@ TRACE_CONTENT_TRUNCATION = 1000
 DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
 DEFAULT_CATEGORIES = ["correctness", "latency", "execution", "adherence", "relevance", "safety"]
+DEFAULT_CATEGORY_DESCRIPTIONS = {
+    "correctness": "Output is factually accurate and grounded in provided data",
+    "latency": "Agent responds within acceptable time bounds",
+    "execution": "Agent successfully completes actions (tool calls, API steps)",
+    "adherence": "Response follows instructions, constraints, policies, and formatting",
+    "relevance": (
+        "Output is useful, directly addresses the user's request, "
+        "and leaves the user satisfied with the interaction"
+    ),
+    "safety": "Response avoids harmful, sensitive, or inappropriate content",
+}
 
 
 # ---- Satisfaction scorer instructions ----
@@ -148,8 +159,11 @@ any categories that are not in this list:
 
 
 def _format_categories(categories: list[str]) -> str:
-    items = "\n".join(f"- {cat}" for cat in categories)
-    return CATEGORIES_INSTRUCTIONS.format(categories=items)
+    lines = []
+    for cat in categories:
+        desc = DEFAULT_CATEGORY_DESCRIPTIONS.get(cat)
+        lines.append(f"- {cat}: {desc}" if desc else f"- {cat}")
+    return CATEGORIES_INSTRUCTIONS.format(categories="\n".join(lines))
 
 
 def build_satisfaction_instructions(*, use_conversation: bool, categories: list[str]) -> str:
@@ -256,7 +270,11 @@ CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST = (
 
 def build_cluster_summary_prompt(categories: list[str]) -> str:
     """Build the cluster summary system prompt with category filtering."""
-    cat_list = ", ".join(categories)
+    parts = []
+    for cat in categories:
+        desc = DEFAULT_CATEGORY_DESCRIPTIONS.get(cat)
+        parts.append(f"{cat} ({desc})" if desc else cat)
+    cat_list = ", ".join(parts)
     cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST.format(categories=cat_list)
     return CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE + cat_instruction
 
@@ -275,8 +293,11 @@ def _format_cluster_categories(categories: list[str] | None) -> str:
     """Format category list for injection into clustering/summary prompts."""
     if not categories:
         return ""
-    items = "\n".join(f"- {cat}" for cat in categories)
-    return CLUSTER_CATEGORIES_CONTEXT.format(categories=items)
+    lines = []
+    for cat in categories:
+        desc = DEFAULT_CATEGORY_DESCRIPTIONS.get(cat)
+        lines.append(f"- {cat}: {desc}" if desc else f"- {cat}")
+    return CLUSTER_CATEGORIES_CONTEXT.format(categories="\n".join(lines))
 
 
 # ---- Label clustering prompt ----
