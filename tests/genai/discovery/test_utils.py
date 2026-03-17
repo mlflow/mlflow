@@ -7,6 +7,7 @@ import pytest
 from mlflow.entities.issue import Issue, IssueStatus
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.utils import (
+    _call_llm,
     _lookup_model_cost,
     _ModelCost,
     _pydantic_to_response_format,
@@ -291,8 +292,6 @@ def test_call_llm_uses_gateway_when_litellm_unavailable():
             "mlflow.genai.discovery.utils._call_llm_via_gateway",
         ) as mock_gw,
     ):
-        from mlflow.genai.discovery.utils import _call_llm
-
         _call_llm("openai:/gpt-5-mini", [{"role": "user", "content": "hi"}])
 
     mock_avail.assert_called_once()
@@ -308,8 +307,6 @@ def test_call_llm_uses_litellm_when_available():
             "mlflow.genai.discovery.utils._call_llm_via_litellm",
         ) as mock_ll,
     ):
-        from mlflow.genai.discovery.utils import _call_llm
-
         _call_llm("openai:/gpt-5-mini", [{"role": "user", "content": "hi"}])
 
     mock_avail.assert_called_once()

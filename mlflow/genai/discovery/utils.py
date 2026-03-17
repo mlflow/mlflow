@@ -5,6 +5,7 @@ import logging
 import threading
 import time
 from collections import defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -231,9 +232,8 @@ class _ModelCost:
         )
 
 
-@functools.lru_cache(maxsize=64)
-def _fetch_model_cost(model_name: str) -> _ModelCost | None:
-    """Fetch per-token cost for a model from the LiteLLM model catalog API.
+def _iter_model_catalog(model_name: str) -> Iterator[dict[str, Any]]:
+    """Yield entries from the LiteLLM model catalog API with pagination and retry.
 
     Note: This endpoint is not formally documented as a public API, but is
     referenced at https://docs.litellm.ai/docs/completion/token_usage
@@ -265,26 +265,32 @@ def _fetch_model_cost(model_name: str) -> _ModelCost | None:
                     and e.response.status_code < 500
                     and e.response.status_code != 429
                 ):
-                    return None
+                    return
                 if attempt >= NUM_RETRIES:
-                    return None
+                    return
                 time.sleep(2**attempt)
             except requests.exceptions.RequestException:
                 if attempt >= NUM_RETRIES:
-                    return None
+                    return
                 time.sleep(2**attempt)
         if body is None:
-            return None
+            return
 
-        # The API does a substring match (e.g. "gpt-4.1-mini" also returns
-        # "ft:gpt-4.1-mini-2025-04-14"), so we need to find the exact match.
-        for entry in body.get("data", []):
-            if entry.get("id") == model_name:
-                return _ModelCost.from_dict(entry)
+        yield from body.get("data", [])
 
         if not body.get("has_more", False):
-            return None
+            return
         page += 1
+
+
+@functools.lru_cache(maxsize=64)
+def _fetch_model_cost(model_name: str) -> _ModelCost | None:
+    # The API does a substring match (e.g. "gpt-4.1-mini" also returns
+    # "ft:gpt-4.1-mini-2025-04-14"), so we need to find the exact match.
+    for entry in _iter_model_catalog(model_name):
+        if entry.get("id") == model_name:
+            return _ModelCost.from_dict(entry)
+    return None
 
 
 def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) -> float | None:
