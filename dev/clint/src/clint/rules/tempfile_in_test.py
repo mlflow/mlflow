@@ -6,11 +6,18 @@ from clint.rules.base import Rule
 
 class TempfileInTest(Rule):
     def _message(self) -> str:
-        return "Do not use `tempfile.TemporaryDirectory` in test directly. Use `tmp_path` fixture (https://docs.pytest.org/en/stable/reference/reference.html#tmp-path)."
+        return (
+            "Do not use `tempfile` in tests. Use the `tmp_path` fixture instead "
+            "(https://docs.pytest.org/en/stable/reference/reference.html#tmp-path)."
+        )
 
     @staticmethod
     def check(node: ast.Call, resolver: Resolver) -> bool:
-        """
-        Returns True if the call is to tempfile.TemporaryDirectory().
-        """
-        return resolver.resolve(node) == ["tempfile", "TemporaryDirectory"]
+        match resolver.resolve(node):
+            case [
+                "tempfile",
+                "TemporaryDirectory" | "NamedTemporaryFile" | "TemporaryFile" | "mkdtemp",
+            ]:
+                return True
+            case _:
+                return False
