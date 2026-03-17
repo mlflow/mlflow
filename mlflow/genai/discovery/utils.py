@@ -175,7 +175,6 @@ def _call_llm_via_gateway(
 
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
 
-    last_error = None
     for attempt in range(NUM_RETRIES + 1):
         try:
             if provider_name in (Provider.AMAZON_BEDROCK, Provider.BEDROCK):
@@ -190,13 +189,10 @@ def _call_llm_via_gateway(
         except (
             requests.exceptions.RequestException,
             mlflow.exceptions.MlflowException,
-        ) as e:
-            last_error = e
+        ):
             if attempt >= NUM_RETRIES:
                 raise
             time.sleep(2**attempt)
-    else:
-        raise last_error
 
     response = provider.adapter_class.model_to_chat(raw_response, provider.config)
     if token_counter is not None:
