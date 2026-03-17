@@ -130,11 +130,10 @@ async function getCloseReason({ github, context }) {
 }
 
 module.exports = async ({ context, github }) => {
-  const prNumber = context.payload.pull_request.number;
-  const { owner, repo } = context.repo;
-
   const commentBody = await getCloseReason({ github, context });
   if (commentBody !== undefined) {
+    const prNumber = context.payload.pull_request.number;
+    const { owner, repo } = context.repo;
     await github.rest.issues.createComment({
       owner,
       repo,
