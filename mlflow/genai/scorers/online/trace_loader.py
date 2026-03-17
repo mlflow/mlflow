@@ -39,8 +39,7 @@ class OnlineTraceLoader:
         # Identify traces that were not returned by batch_get_traces. This
         # happens when span data lives in the artifact repo (e.g. S3) instead
         # of the SQL tracking store.
-        missing_ids = [tid for tid in trace_ids if tid not in trace_map]
-        if missing_ids:
+        if missing_ids := [tid for tid in trace_ids if tid not in trace_map]:
             artifact_traces = self._fetch_traces_from_artifact_repo(missing_ids)
             trace_map.update({t.info.trace_id: t for t in artifact_traces})
 
