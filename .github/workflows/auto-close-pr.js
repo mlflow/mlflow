@@ -4,6 +4,9 @@
 // Skips PRs that reference multiple issues (ambiguous intent).
 // Only enforces on issues created on or after 2026-03-10.
 
+const fs = require("fs");
+const path = require("path");
+
 const READY_LABEL = "ready";
 // The date we introduced the "ready" label policy; skip older issues.
 const CUTOFF_DATE = new Date("2026-03-10T00:00:00Z");
@@ -29,10 +32,69 @@ const QUERY = `
   }
 `;
 
+function getTemplateHeadings() {
+  const templatePath = path.join(
+    process.env.GITHUB_WORKSPACE,
+    ".github",
+    "pull_request_template.md"
+  );
+  try {
+    return fs
+      .readFileSync(templatePath, "utf8")
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => /^#+\s/.test(line));
+  } catch (err) {
+    throw new Error(`Failed to read PR template at ${templatePath}: ${err.message}`);
+  }
+}
+
+function getMissingHeadings(body, headings) {
+  if (!body) return headings;
+  const bodyLines = new Set(body.split("\n").map((line) => line.trim()));
+  return headings.filter((h) => !bodyLines.has(h));
+}
+
 module.exports = async ({ context, github }) => {
   const prNumber = context.payload.pull_request.number;
   const prAuthor = context.payload.pull_request.user.login;
   const { owner, repo } = context.repo;
+
+  // Check that the PR body follows the PR template
+  const templateHeadings = getTemplateHeadings();
+  const prBody = context.payload.pull_request.body;
+  const missingHeadings = getMissingHeadings(prBody, templateHeadings);
+  if (missingHeadings.length > 0) {
+    console.log(
+      `PR #${prNumber} is missing ${missingHeadings.length} template section(s). Closing.`
+    );
+
+    const missingList = missingHeadings.map((h) => `- ${h}`).join("\n");
+    await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: prNumber,
+      body: [
+        "This PR was automatically closed because it does not follow the PR template.",
+        `Missing sections:\n${missingList}`,
+        "Please update your PR body to include all sections from the [PR template](https://github.com/" +
+          owner +
+          "/" +
+          repo +
+          "/blob/master/.github/pull_request_template.md) and reopen this PR.",
+      ].join("\n"),
+    });
+
+    await github.rest.pulls.update({
+      owner,
+      repo,
+      pull_number: prNumber,
+      state: "closed",
+    });
+
+    console.log(`PR #${prNumber} closed.`);
+    return;
+  }
 
   const response = await github.graphql(QUERY, { owner, repo, number: prNumber });
   const issues = response.repository.pullRequest.closingIssuesReferences.nodes;
