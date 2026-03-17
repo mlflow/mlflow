@@ -8,7 +8,7 @@ import threading
 from contextlib import ContextDecorator
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterator
 
 import pydantic
 
@@ -51,7 +51,7 @@ _DISABLE_RATE_LIMIT_RETRIES = ContextVar("_DISABLE_RATE_LIMIT_RETRIES", default=
 
 
 @contextlib.contextmanager
-def disable_litellm_rate_limit_retries():
+def disable_litellm_rate_limit_retries() -> Iterator[None]:
     token = _DISABLE_RATE_LIMIT_RETRIES.set(True)
     try:
         yield

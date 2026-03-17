@@ -20,6 +20,7 @@ def eval_retry_context():
     adapter so that rate-limit errors propagate to the evaluate pipeline's
     own retry/AIMD logic.
     """
+    # Lazy imports to avoid circular dependency: genai.evaluation → genai.judges/utils.
     from mlflow.genai.judges.adapters.litellm_adapter import disable_litellm_rate_limit_retries
     from mlflow.utils.rest_utils import disable_429_retry
 
