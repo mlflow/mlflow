@@ -80,9 +80,21 @@ def test_get_adapter_with_litellm(
 
 
 @pytest.mark.parametrize(
+    "model_uri",
+    ["openai:/gpt-4", "endpoints:/my-endpoint"],
+)
+def test_get_adapter_gateway_with_list(model_uri, list_prompt):
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
+        return_value=False,
+    ):
+        adapter = get_adapter(model_uri, list_prompt)
+        assert isinstance(adapter, GatewayAdapter)
+
+
+@pytest.mark.parametrize(
     ("model_uri", "expected_error"),
     [
-        ("openai:/gpt-4", "No suitable adapter found for model_uri='openai:/gpt-4'"),
         (
             "vertex_ai:/gemini-pro",
             "No suitable adapter found for model_uri='vertex_ai:/gemini-pro'",
@@ -90,10 +102,6 @@ def test_get_adapter_with_litellm(
         (
             "databricks:/my-endpoint",
             "No suitable adapter found for model_uri='databricks:/my-endpoint'",
-        ),
-        (
-            "endpoints:/my-endpoint",
-            "No suitable adapter found for model_uri='endpoints:/my-endpoint'",
         ),
     ],
 )

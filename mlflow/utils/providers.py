@@ -1,7 +1,12 @@
 import importlib.util
+import logging
+from collections.abc import Iterator
 from typing import Any, TypedDict
 
+import requests
 from typing_extensions import NotRequired
+
+_logger = logging.getLogger(__name__)
 
 _PROVIDER_BACKEND_AVAILABLE = importlib.util.find_spec("litellm") is not None
 
@@ -471,6 +476,38 @@ def _normalize_provider(provider: str) -> str:
     return provider
 
 
+def _iter_model_catalog_api(
+    *,
+    provider: str | None = None,
+    mode: str | None = None,
+) -> Iterator[dict[str, Any]]:
+    """Yield entries from the LiteLLM model catalog API with pagination."""
+    page = 1
+    while True:
+        params: dict[str, Any] = {"page": page, "page_size": 500}
+        if provider:
+            params["provider"] = provider
+        if mode:
+            params["mode"] = mode
+        try:
+            resp = requests.get(
+                "https://api.litellm.ai/model_catalog",
+                params=params,
+                timeout=10,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+        except Exception:
+            _logger.debug("Failed to fetch model catalog from API", exc_info=True)
+            return
+
+        yield from body.get("data", [])
+
+        if not body.get("has_more", False):
+            return
+        page += 1
+
+
 def get_all_providers() -> list[str]:
     """
     Get a list of all LiteLLM providers that have chat, completion, or embedding capabilities.
@@ -484,18 +521,22 @@ def get_all_providers() -> list[str]:
     Returns:
         List of provider names that support chat/completion/embedding
     """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
+    if _PROVIDER_BACKEND_AVAILABLE:
+        model_cost = _get_model_cost()
+        providers = set()
+        for _, info in model_cost.items():
+            mode = info.get("mode")
+            if mode in _SUPPORTED_MODEL_MODES:
+                if provider := info.get("litellm_provider"):
+                    if provider not in _EXCLUDED_PROVIDERS:
+                        providers.add(_normalize_provider(provider))
+        return list(providers)
 
-    model_cost = _get_model_cost()
     providers = set()
-    for _, info in model_cost.items():
-        mode = info.get("mode")
-        if mode in _SUPPORTED_MODEL_MODES:
-            if provider := info.get("litellm_provider"):
-                if provider not in _EXCLUDED_PROVIDERS:
-                    providers.add(_normalize_provider(provider))
-
+    for entry in _iter_model_catalog_api():
+        if provider := entry.get("provider"):
+            if provider not in _EXCLUDED_PROVIDERS:
+                providers.add(_normalize_provider(provider))
     return list(providers)
 
 
@@ -527,55 +568,80 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - output_cost_per_token: Cost per output token (USD)
             - deprecation_date: Date when model will be deprecated (if known)
     """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
+    if _PROVIDER_BACKEND_AVAILABLE:
+        model_cost = _get_model_cost()
+        models_dict: dict[tuple[str, str], dict[str, Any]] = {}
+        for model_name, info in model_cost.items():
+            litellm_provider = info.get("litellm_provider")
+            normalized = _normalize_provider(litellm_provider) if litellm_provider else None
 
-    model_cost = _get_model_cost()
-    # Use dict to dedupe models by (provider, model_name) key
-    models_dict: dict[tuple[str, str], dict[str, Any]] = {}
-    for model_name, info in model_cost.items():
-        litellm_provider = info.get("litellm_provider")
-        normalized_provider = _normalize_provider(litellm_provider) if litellm_provider else None
+            if provider and normalized != provider:
+                continue
 
-        # Filter by provider (matching against the normalized provider name)
+            mode = info.get("mode")
+            if mode not in _SUPPORTED_MODEL_MODES:
+                continue
+
+            if normalized and model_name.startswith(f"{normalized}/"):
+                model_name = model_name.removeprefix(f"{normalized}/")
+
+            if model_name.startswith("ft:"):
+                continue
+
+            key = (normalized, model_name)
+            if key in models_dict:
+                continue
+
+            models_dict[key] = _build_model_dict(model_name, normalized, mode, info)
+
+        return list(models_dict.values())
+
+    models_dict: dict[tuple[str | None, str], dict[str, Any]] = {}
+    for entry in _iter_model_catalog_api(provider=provider):
+        model_name = entry.get("id", "")
+        entry_provider = entry.get("provider")
+        normalized_provider = _normalize_provider(entry_provider) if entry_provider else None
+
         if provider and normalized_provider != provider:
             continue
 
-        mode = info.get("mode")
+        mode = entry.get("mode")
         if mode not in _SUPPORTED_MODEL_MODES:
             continue
 
-        # Model names sometimes include the provider prefix, e.g. "gemini/gemini-2.5-flash"
-        # Strip the normalized provider prefix if present
         if normalized_provider and model_name.startswith(f"{normalized_provider}/"):
             model_name = model_name.removeprefix(f"{normalized_provider}/")
 
-        # LiteLLM contains fine-tuned models with the prefix "ft:"
         if model_name.startswith("ft:"):
             continue
 
-        # Dedupe by (provider, model_name) - keep the first occurrence
         key = (normalized_provider, model_name)
         if key in models_dict:
             continue
 
-        models_dict[key] = {
-            "model": model_name,
-            "provider": normalized_provider,
-            "mode": mode,
-            "supports_function_calling": info.get("supports_function_calling", False),
-            "supports_vision": info.get("supports_vision", False),
-            "supports_reasoning": info.get("supports_reasoning", False),
-            "supports_prompt_caching": info.get("supports_prompt_caching", False),
-            "supports_response_schema": info.get("supports_response_schema", False),
-            "max_input_tokens": info.get("max_input_tokens"),
-            "max_output_tokens": info.get("max_output_tokens"),
-            "input_cost_per_token": info.get("input_cost_per_token"),
-            "output_cost_per_token": info.get("output_cost_per_token"),
-            "deprecation_date": info.get("deprecation_date"),
-        }
+        models_dict[key] = _build_model_dict(model_name, normalized_provider, mode, entry)
 
     return list(models_dict.values())
+
+
+def _build_model_dict(
+    model_name: str, provider: str | None, mode: str | None, info: dict[str, Any]
+) -> dict[str, Any]:
+    return {
+        "model": model_name,
+        "provider": provider,
+        "mode": mode,
+        "supports_function_calling": info.get("supports_function_calling", False),
+        "supports_vision": info.get("supports_vision", False),
+        "supports_reasoning": info.get("supports_reasoning", False),
+        "supports_prompt_caching": info.get("supports_prompt_caching", False),
+        "supports_response_schema": info.get("supports_response_schema", False),
+        "max_input_tokens": info.get("max_input_tokens"),
+        "max_output_tokens": info.get("max_output_tokens"),
+        "input_cost_per_token": info.get("input_cost_per_token"),
+        "output_cost_per_token": info.get("output_cost_per_token"),
+        "deprecation_date": info.get("deprecation_date"),
+    }
 
 
 # Mapping of core providers to their environment variable names for API keys

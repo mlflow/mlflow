@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
+import pydantic
+
 if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
@@ -70,6 +72,45 @@ def _invoke_via_gateway(
     )
 
 
+def _invoke_chat_via_gateway(
+    model_uri: str,
+    messages: list[dict[str, str]],
+    response_format: type[pydantic.BaseModel] | None = None,
+    inference_params: dict[str, Any] | None = None,
+) -> str:
+    """Invoke the judge model via the gateway provider infrastructure with ChatMessage support."""
+    from mlflow.gateway.config import Provider
+    from mlflow.genai.discovery.utils import _pydantic_to_response_format
+    from mlflow.metrics.genai.model_utils import (
+        _get_provider_instance,
+        _parse_model_uri,
+        _send_request,
+    )
+
+    provider_name, model_name = _parse_model_uri(model_uri)
+    provider = _get_provider_instance(provider_name, model_name)
+
+    payload: dict[str, Any] = {"messages": messages}
+    if inference_params:
+        payload.update(inference_params)
+    if response_format is not None:
+        payload["response_format"] = _pydantic_to_response_format(response_format)
+
+    chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
+
+    if provider_name in (Provider.AMAZON_BEDROCK, Provider.BEDROCK):
+        raw_response = provider._request(chat_payload)
+    else:
+        raw_response = _send_request(
+            endpoint=provider.get_endpoint_url("llm/v1/chat"),
+            headers=provider.headers,
+            payload=chat_payload,
+        )
+
+    response = provider.adapter_class.model_to_chat(raw_response, provider.config)
+    return response.choices[0].message.content or ""
+
+
 class GatewayAdapter(BaseJudgeAdapter):
     """Adapter for native AI Gateway providers (fallback when LiteLLM is not available)."""
 
@@ -82,7 +123,7 @@ class GatewayAdapter(BaseJudgeAdapter):
         from mlflow.metrics.genai.model_utils import _parse_model_uri
 
         model_provider, _ = _parse_model_uri(model_uri)
-        return model_provider in _NATIVE_PROVIDERS and isinstance(prompt, str)
+        return model_provider in _NATIVE_PROVIDERS
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         if input_params.trace is not None:
@@ -91,32 +132,34 @@ class GatewayAdapter(BaseJudgeAdapter):
                 "Please install it with `pip install litellm`.",
             )
 
-        # Validate structured output support
-        if input_params.response_format is not None:
-            raise MlflowException(
-                "Structured output is not supported by native LLM providers. "
-                "Please install LiteLLM with `pip install litellm` to use structured output.",
-            )
+        if isinstance(input_params.prompt, str):
+            # base_url and extra_headers are not supported for deployment endpoints
+            if input_params.model_provider == "endpoints" and (
+                input_params.base_url is not None or input_params.extra_headers is not None
+            ):
+                raise MlflowException(
+                    "base_url and extra_headers are not supported for deployment "
+                    "endpoints (endpoints:/...). The endpoint URL is determined by the "
+                    "deployment target configuration.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
 
-        # base_url and extra_headers are not supported for deployment endpoints
-        if input_params.model_provider == "endpoints" and (
-            input_params.base_url is not None or input_params.extra_headers is not None
-        ):
-            raise MlflowException(
-                "base_url and extra_headers are not supported for deployment "
-                "endpoints (endpoints:/...). The endpoint URL is determined by the "
-                "deployment target configuration.",
-                error_code=INVALID_PARAMETER_VALUE,
+            response = _invoke_via_gateway(
+                input_params.model_uri,
+                input_params.model_provider,
+                input_params.prompt,
+                input_params.inference_params,
+                input_params.base_url,
+                input_params.extra_headers,
             )
-
-        response = _invoke_via_gateway(
-            input_params.model_uri,
-            input_params.model_provider,
-            input_params.prompt,
-            input_params.inference_params,
-            input_params.base_url,
-            input_params.extra_headers,
-        )
+        else:
+            messages = [{"role": msg.role, "content": msg.content} for msg in input_params.prompt]
+            response = _invoke_chat_via_gateway(
+                input_params.model_uri,
+                messages,
+                response_format=input_params.response_format,
+                inference_params=input_params.inference_params,
+            )
 
         cleaned_response = _strip_markdown_code_blocks(response)
 
