@@ -810,20 +810,20 @@ def get_databricks_host_creds(server_uri=None):
             #
             # Note: Only pass profile if explicitly set. Passing profile=None may cause the SDK
             # to skip environment variable-based auth methods like OIDC (file-oidc auth type).
-            ws_client = WorkspaceClient(profile=profile) if profile else WorkspaceClient()
-            sdk_config = ws_client.config
-            if sdk_config and sdk_config.host:
-                # When SDK auth succeeds, return early with SDK-based credentials.
-                # This supports auth methods like OIDC that the legacy providers don't handle.
-                return MlflowHostCreds(
-                    sdk_config.host,
-                    use_databricks_sdk=True,
-                    databricks_auth_profile=profile,
-                )
+            if profile:
+                WorkspaceClient(profile=profile)
+            else:
+                WorkspaceClient()
+            use_databricks_sdk = True
+            databricks_auth_profile = profile
         except Exception as e:
             _logger.debug(f"Failed to create databricks SDK workspace client, error: {e!r}")
+            use_databricks_sdk = False
+            databricks_auth_profile = None
+    else:
+        use_databricks_sdk = False
+        databricks_auth_profile = None
 
-    # Fall back to legacy authentication methods when SDK auth is not enabled or fails
     config = _get_databricks_creds_config(server_uri)
 
     return MlflowHostCreds(
@@ -834,6 +834,8 @@ def get_databricks_host_creds(server_uri=None):
         token=config.token,
         client_id=config.client_id,
         client_secret=config.client_secret,
+        use_databricks_sdk=use_databricks_sdk,
+        databricks_auth_profile=databricks_auth_profile,
     )
 
 

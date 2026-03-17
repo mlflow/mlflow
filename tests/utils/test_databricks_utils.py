@@ -76,18 +76,11 @@ def test_databricks_no_creds_found():
 
 def test_databricks_host_creds_uses_sdk_when_enabled(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "true")
+    monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
 
-    mock_config = mock.MagicMock()
-    mock_config.host = "https://test.databricks.com"
-    mock_client_instance = mock.MagicMock()
-    mock_client_instance.config = mock_config
-
-    with (
-        mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_client_instance) as mock_ws,
-        mock.patch("mlflow.utils.databricks_utils._get_databricks_creds_config") as mock_get_config,
-    ):
-        mock_get_config.side_effect = MlflowException("should not be called")
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_ws:
         creds = databricks_utils.get_databricks_host_creds("databricks")
         # When profile is None, WorkspaceClient() should be called without arguments
         # to allow env-based auth (like OIDC) to work properly
@@ -95,8 +88,6 @@ def test_databricks_host_creds_uses_sdk_when_enabled(monkeypatch):
         assert creds.host == "https://test.databricks.com"
         assert creds.use_databricks_sdk
         assert creds.databricks_auth_profile is None
-        # Should not fall back to legacy config when SDK succeeds
-        mock_get_config.assert_not_called()
 
 
 def test_databricks_host_creds_with_oidc_env_vars(monkeypatch):
@@ -104,14 +95,10 @@ def test_databricks_host_creds_with_oidc_env_vars(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "https://test.databricks.com")
     monkeypatch.setenv("DATABRICKS_AUTH_TYPE", "file-oidc")
     monkeypatch.setenv("DATABRICKS_CLIENT_ID", "test-client-id")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "test-token")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
 
-    mock_config = mock.MagicMock()
-    mock_config.host = "https://test.databricks.com"
-    mock_client_instance = mock.MagicMock()
-    mock_client_instance.config = mock_config
-
-    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_client_instance) as mock_ws:
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_ws:
         creds = databricks_utils.get_databricks_host_creds("databricks")
         # WorkspaceClient() should be called without profile arg to allow OIDC auth
         mock_ws.assert_called_once_with()
@@ -125,10 +112,19 @@ def test_databricks_host_creds_with_profile_uses_sdk(monkeypatch):
 
     mock_config = mock.MagicMock()
     mock_config.host = "https://test.databricks.com"
-    mock_client_instance = mock.MagicMock()
-    mock_client_instance.config = mock_config
+    mock_config.token = "test-token"
+    mock_config.username = None
+    mock_config.password = None
+    mock_config.insecure = None
+    mock_config.client_id = None
+    mock_config.client_secret = None
 
-    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_client_instance) as mock_ws:
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_ws,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_databricks_creds_config", return_value=mock_config
+        ),
+    ):
         creds = databricks_utils.get_databricks_host_creds("databricks")
         # When profile is set, it should be passed to WorkspaceClient
         mock_ws.assert_called_once_with(profile="my-profile")
@@ -157,12 +153,7 @@ def test_sdk_respects_env_var_priority(monkeypatch):
     monkeypatch.setenv("DATABRICKS_TOKEN", "env-token")
     monkeypatch.delenv("DATABRICKS_CONFIG_PROFILE", raising=False)
 
-    mock_config = mock.MagicMock()
-    mock_config.host = "https://env-var-host.databricks.com"
-    mock_client_instance = mock.MagicMock()
-    mock_client_instance.config = mock_config
-
-    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_client_instance) as mock_ws:
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_ws:
         creds = databricks_utils.get_databricks_host_creds("databricks")
         # SDK should be called without profile (uses env vars)
         mock_ws.assert_called_once_with()
@@ -176,10 +167,19 @@ def test_sdk_respects_config_profile_env_var(monkeypatch):
 
     mock_config = mock.MagicMock()
     mock_config.host = "https://profile-host.databricks.com"
-    mock_client_instance = mock.MagicMock()
-    mock_client_instance.config = mock_config
+    mock_config.token = "test-token"
+    mock_config.username = None
+    mock_config.password = None
+    mock_config.insecure = None
+    mock_config.client_id = None
+    mock_config.client_secret = None
 
-    with mock.patch("databricks.sdk.WorkspaceClient", return_value=mock_client_instance) as mock_ws:
+    with (
+        mock.patch("databricks.sdk.WorkspaceClient") as mock_ws,
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_databricks_creds_config", return_value=mock_config
+        ),
+    ):
         creds = databricks_utils.get_databricks_host_creds("databricks")
         # SDK should be called with the profile from env var
         mock_ws.assert_called_once_with(profile="my-profile")
