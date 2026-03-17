@@ -401,7 +401,7 @@ def _build_issues(
 
     Returns:
         A tuple of (issues, issue_trace_ids) where issue_trace_ids maps
-        issue_id to the list of example trace IDs for annotation.
+        issue_id to the list of affected trace IDs for annotation.
     """
     from mlflow.tracing.client import TracingClient
 
