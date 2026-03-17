@@ -493,9 +493,27 @@ def test_run_uv_sync_real(tmp_uv_project, tmp_path):
     from mlflow.utils.uv_utils import run_uv_sync
 
     sync_dir = tmp_path / "sync_project"
-    shutil.copytree(tmp_uv_project, sync_dir)
+
+    # Create the virtual environment directly at sync_dir (not at sync_dir/.venv)
+    venv_result = subprocess.run(
+        ["uv", "venv", sync_dir],
+        capture_output=True,
+        text=True,
+    )
+    assert venv_result.returncode == 0, f"uv venv failed: {venv_result.stderr}"
+
+    for uv_proj_file in [_UV_LOCK_FILE, _PYTHON_VERSION_FILE, _PYPROJECT_FILE]:
+        shutil.copyfile(tmp_uv_project / uv_proj_file, sync_dir / uv_proj_file)
 
     result = run_uv_sync(sync_dir, frozen=True, no_dev=True)
 
     assert result is True
-    assert (sync_dir / ".venv").exists()
+
+    # Verify numpy is installed in the env at sync_dir (not sync_dir/.venv)
+    python_bin = sync_dir / "bin" / "python"
+    check = subprocess.run(
+        [python_bin, "-c", "import numpy; print(numpy.__version__)"],
+        capture_output=True,
+        text=True,
+    )
+    assert check.returncode == 0, f"numpy import failed: {check.stderr}"

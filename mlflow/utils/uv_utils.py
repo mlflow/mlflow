@@ -444,10 +444,12 @@ def run_uv_sync(
 
         subprocess.run(
             cmd,
-            cwd=project_dir,
             capture_output=capture_output,
             check=True,
             text=True,
+            # by default, `uv sync` installs python packages into python environment at `.venv`,
+            # but in this place, we need to install packages into python environment at
+            # `project_dir`, so that set `UV_PROJECT_ENVIRONMENT` to `project_dir`.
             env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(project_dir)},
         )
 
