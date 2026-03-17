@@ -39,3 +39,16 @@ curl -s "$APP_URL/api/2.0/mlflow/experiments/search" \
   -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"max_results": 10}' | jq .
 ```
+
+You can also use the MLflow Python client:
+
+```bash
+export MLFLOW_TRACKING_URI="$APP_URL"
+export MLFLOW_TRACKING_TOKEN="$TOKEN"
+```
+
+```python
+import mlflow
+
+mlflow.search_experiments(max_results=10)
+```
