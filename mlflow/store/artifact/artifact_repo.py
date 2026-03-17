@@ -524,13 +524,14 @@ def verify_artifact_path(artifact_path):
         )
 
 
-_ATTACHMENT_PATH_PATTERN = re.compile(r"^[a-f0-9\-]+$")
+_ATTACHMENT_PATH_PATTERN = re.compile(
+    r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
+)
 
 
 def _validate_attachment_path(path: str) -> None:
     if not path or not _ATTACHMENT_PATH_PATTERN.match(path):
         raise MlflowException(
-            f"Invalid attachment path: '{path}'. "
-            "Attachment path must be a UUID (lowercase hex and hyphens only).",
+            f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,
         )
