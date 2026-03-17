@@ -2,9 +2,9 @@ import json
 import logging
 import os
 import posixpath
-import re
 import tempfile
 import traceback
+import uuid
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
@@ -526,13 +526,10 @@ def verify_artifact_path(artifact_path):
 
 # Attachment IDs are auto-generated as UUID4 by Attachment.__init__.
 # Strict UUID validation doubles as path traversal prevention.
-_ATTACHMENT_PATH_PATTERN = re.compile(
-    r"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"
-)
-
-
 def _validate_attachment_path(path: str) -> None:
-    if not path or not _ATTACHMENT_PATH_PATTERN.match(path):
+    try:
+        uuid.UUID(path)
+    except (ValueError, AttributeError):
         raise MlflowException(
             f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,
