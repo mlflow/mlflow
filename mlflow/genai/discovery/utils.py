@@ -1,27 +1,42 @@
 from __future__ import annotations
 
+import functools
 import logging
 import threading
+import time
 from collections import defaultdict
-from typing import TYPE_CHECKING
+from typing import Any
 
 import pydantic
+import requests
 
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
+from mlflow.gateway.config import Provider
 from mlflow.genai.discovery.constants import (
     LLM_MAX_TOKENS,
     NUM_RETRIES,
     TRACE_CONTENT_TRUNCATION,
 )
-from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
+from mlflow.genai.discovery.entities import (
+    Issue,
+    _ConversationAnalysis,
+    _IdentifiedIssue,
+)
+from mlflow.genai.judges.adapters.litellm_adapter import (
+    _invoke_litellm,
+    _is_litellm_available,
+)
 from mlflow.genai.scorers.base import Scorer
+from mlflow.metrics.genai.model_utils import (
+    _get_provider_instance,
+    _parse_model_uri,
+    _send_request,
+    convert_mlflow_uri_to_litellm,
+)
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
-
-if TYPE_CHECKING:
-    import litellm
 
 _logger = logging.getLogger(__name__)
 
@@ -58,14 +73,17 @@ def group_traces_by_session(
 class _TokenCounter:
     """Thread-safe accumulator for LLM token usage across pipeline phases."""
 
-    def __init__(self):
+    def __init__(self, input_tokens: int = 0, output_tokens: int = 0, cost_usd: float = 0.0):
         self._lock = threading.Lock()
-        self.input_tokens = 0
-        self.output_tokens = 0
-        self.cost_usd = 0.0
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+        self.cost_usd = cost_usd
+        self._model = None
 
-    def track(self, response: litellm.ModelResponse) -> None:
+    def track(self, response: Any, *, model: str | None = None) -> None:
         with self._lock:
+            if model and not self._model:
+                self._model = model
             if response.usage:
                 self.input_tokens += response.usage.prompt_tokens or 0
                 self.output_tokens += response.usage.completion_tokens or 0
@@ -80,6 +98,8 @@ class _TokenCounter:
             result["input_tokens"] = self.input_tokens
             result["output_tokens"] = self.output_tokens
             result["total_tokens"] = total
+        if self.cost_usd == 0 and total > 0 and self._model:
+            self.cost_usd = _lookup_model_cost(self._model, self.input_tokens, self.output_tokens)
         if self.cost_usd > 0:
             result["cost_usd"] = round(self.cost_usd, 6)
         return result
@@ -93,10 +113,32 @@ def _call_llm(
     json_mode: bool = False,
     response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
-) -> litellm.ModelResponse:
-    from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
-    from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
+) -> Any:
+    if _is_litellm_available():
+        return _call_llm_via_litellm(
+            model,
+            messages,
+            json_mode=json_mode,
+            response_format=response_format,
+            token_counter=token_counter,
+        )
+    return _call_llm_via_gateway(
+        model,
+        messages,
+        json_mode=json_mode,
+        response_format=response_format,
+        token_counter=token_counter,
+    )
 
+
+def _call_llm_via_litellm(
+    model: str,
+    messages: list[dict[str, str]],
+    *,
+    json_mode: bool = False,
+    response_format: type[pydantic.BaseModel] | None = None,
+    token_counter: _TokenCounter | None = None,
+) -> Any:
     use_format = response_format or ({"type": "json_object"} if json_mode else None)
     response = _invoke_litellm(
         litellm_model=convert_mlflow_uri_to_litellm(model),
@@ -110,6 +152,86 @@ def _call_llm(
     if token_counter is not None:
         token_counter.track(response)
     return response
+
+
+def _call_llm_via_gateway(
+    model: str,
+    messages: list[dict[str, str]],
+    *,
+    json_mode: bool = False,
+    response_format: type[pydantic.BaseModel] | None = None,
+    token_counter: _TokenCounter | None = None,
+) -> Any:
+    provider_name, model_name = _parse_model_uri(model)
+    provider = _get_provider_instance(provider_name, model_name)
+
+    payload = {"messages": messages, "max_completion_tokens": LLM_MAX_TOKENS}
+    if response_format is not None:
+        payload["response_format"] = _pydantic_to_response_format(response_format)
+    elif json_mode:
+        payload["response_format"] = {"type": "json_object"}
+
+    chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
+
+    last_error = None
+    for attempt in range(NUM_RETRIES + 1):
+        try:
+            if provider_name in (Provider.AMAZON_BEDROCK, Provider.BEDROCK):
+                raw_response = provider._request(chat_payload)
+            else:
+                raw_response = _send_request(
+                    endpoint=provider.get_endpoint_url("llm/v1/chat"),
+                    headers=provider.headers,
+                    payload=chat_payload,
+                )
+            break
+        except Exception as e:
+            last_error = e
+            if attempt < NUM_RETRIES:
+                time.sleep(2**attempt)
+    else:
+        raise last_error
+
+    response = provider.adapter_class.model_to_chat(raw_response, provider.config)
+    if token_counter is not None:
+        token_counter.track(response, model=model)
+    return response
+
+
+def _pydantic_to_response_format(cls: type[pydantic.BaseModel]) -> dict[str, Any]:
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": cls.__name__,
+            "schema": cls.model_json_schema(),
+        },
+    }
+
+
+@functools.cache
+def _fetch_model_catalog() -> dict[str, Any] | None:
+    try:
+        resp = requests.get("https://api.litellm.ai/model_catalog", timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        return None
+
+
+def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) -> float:
+    """Best-effort cost lookup using the LiteLLM model pricing data."""
+    catalog = _fetch_model_catalog()
+    if catalog is None:
+        return 0.0
+
+    provider, model_name = _parse_model_uri(model_uri)
+    for key in (f"{provider}/{model_name}", model_name):
+        if key in catalog:
+            info = catalog[key]
+            input_cost = info.get("input_cost_per_token", 0)
+            output_cost = info.get("output_cost_per_token", 0)
+            return input_tokens * input_cost + output_tokens * output_cost
+    return 0.0
 
 
 def build_summary(issues: list[Issue], total_traces: int) -> str:
@@ -200,7 +322,10 @@ def collect_affected_trace_ids(
 
 
 def format_trace_content(trace: Trace) -> str:
-    from mlflow.genai.discovery.extraction import extract_execution_path, extract_span_errors
+    from mlflow.genai.discovery.extraction import (
+        extract_execution_path,
+        extract_span_errors,
+    )
 
     parts = []
     if request := trace.data.request:
