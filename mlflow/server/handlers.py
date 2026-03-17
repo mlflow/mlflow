@@ -4132,6 +4132,9 @@ def _search_issues():
     if request_message.HasField("max_results"):
         search_kwargs["max_results"] = request_message.max_results
 
+    if request_message.HasField("include_trace_count"):
+        search_kwargs["include_trace_count"] = request_message.include_trace_count
+
     issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]
