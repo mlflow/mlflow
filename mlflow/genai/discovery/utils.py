@@ -20,7 +20,11 @@ from mlflow.genai.discovery.constants import (
     NUM_RETRIES,
     TRACE_CONTENT_TRUNCATION,
 )
-from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
+from mlflow.genai.discovery.entities import (
+    Issue,
+    _ConversationAnalysis,
+    _IdentifiedIssue,
+)
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _invoke_litellm,
     _is_litellm_available,
@@ -183,7 +187,10 @@ def _call_llm_via_gateway(
                     payload=chat_payload,
                 )
             break
-        except (requests.exceptions.RequestException, mlflow.exceptions.MlflowException) as e:
+        except (
+            requests.exceptions.RequestException,
+            mlflow.exceptions.MlflowException,
+        ) as e:
             last_error = e
             if attempt >= NUM_RETRIES:
                 raise
@@ -212,38 +219,64 @@ class _ModelCost:
     input_cost_per_token: float
     output_cost_per_token: float
 
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> _ModelCost:
+        return cls(
+            input_cost_per_token=data.get("input_cost_per_token") or 0,
+            output_cost_per_token=data.get("output_cost_per_token") or 0,
+        )
+
 
 @functools.lru_cache(maxsize=64)
 def _fetch_model_cost(model_name: str) -> _ModelCost | None:
+    """Fetch per-token cost for a model from the LiteLLM model catalog API.
+
+    Note: This endpoint is not formally documented as a public API, but is
+    referenced at https://docs.litellm.ai/docs/completion/token_usage
+    """
     # In most cases, the model filter returns a small number of results
     # (e.g. 3 for "gpt-4.1-mini"), but we paginate to handle edge cases.
     page = 1
     while True:
+        body: dict[str, Any] | None = None
         for attempt in range(NUM_RETRIES + 1):
             try:
                 resp = requests.get(
                     "https://api.litellm.ai/model_catalog",
-                    params={"model": model_name, "mode": "chat", "page": page, "page_size": 50},
+                    params={
+                        "model": model_name,
+                        "mode": "chat",
+                        "page": page,
+                        "page_size": 50,
+                    },
                     timeout=10,
                 )
                 resp.raise_for_status()
                 body = resp.json()
                 break
+            except requests.exceptions.HTTPError as e:
+                # Don't retry on client errors (4xx) except 429 (rate limit).
+                if (
+                    e.response is not None
+                    and e.response.status_code < 500
+                    and e.response.status_code != 429
+                ):
+                    return None
+                if attempt >= NUM_RETRIES:
+                    return None
+                time.sleep(2**attempt)
             except requests.exceptions.RequestException:
                 if attempt >= NUM_RETRIES:
                     return None
                 time.sleep(2**attempt)
-        else:
+        if body is None:
             return None
 
         # The API does a substring match (e.g. "gpt-4.1-mini" also returns
         # "ft:gpt-4.1-mini-2025-04-14"), so we need to find the exact match.
         for entry in body.get("data", []):
             if entry.get("id") == model_name:
-                return _ModelCost(
-                    input_cost_per_token=entry.get("input_cost_per_token") or 0,
-                    output_cost_per_token=entry.get("output_cost_per_token") or 0,
-                )
+                return _ModelCost.from_dict(entry)
 
         if not body.get("has_more", False):
             return None
@@ -346,7 +379,10 @@ def collect_affected_trace_ids(
 
 
 def format_trace_content(trace: Trace) -> str:
-    from mlflow.genai.discovery.extraction import extract_execution_path, extract_span_errors
+    from mlflow.genai.discovery.extraction import (
+        extract_execution_path,
+        extract_span_errors,
+    )
 
     parts = []
     if request := trace.data.request:
