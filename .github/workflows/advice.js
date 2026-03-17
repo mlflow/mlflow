@@ -38,15 +38,16 @@ async function getRecentActivitySection(github, username) {
   }
   const prLabel = totalPRs === 1 ? "PR" : "PRs";
   const repoLabel = repoCount === 1 ? "repo" : "repos";
+  const total = ({ open, closed, merged }) => open + closed + merged;
   const sortedRepos = [...repoBreakdown.entries()]
-    .sort((a, b) => b[1].open + b[1].closed + b[1].merged - (a[1].open + a[1].closed + a[1].merged))
+    .sort((a, b) => total(b[1]) - total(a[1]))
     .slice(0, MAX_REPOS_TO_DISPLAY);
   const tableRows = sortedRepos
     .map(
-      ([repo, { open, closed, merged }]) =>
-        `| [${repo}](https://github.com/${repo}/pulls/${username}) | ${open} | ${closed} | ${merged} | ${
-          open + closed + merged
-        } |`
+      ([repo, counts]) =>
+        `| [${repo}](https://github.com/${repo}/pulls/${username}) | ${counts.open} | ${
+          counts.closed
+        } | ${counts.merged} | ${total(counts)} |`
     )
     .join("\n");
   const topNote = repoCount > MAX_REPOS_TO_DISPLAY ? ` (showing top ${MAX_REPOS_TO_DISPLAY})` : "";
