@@ -4,40 +4,60 @@ MLflow AI Gateway is designed to add minimal overhead when proxying requests to 
 
 ## Methodology
 
-Our benchmark suite measures **pure proxy overhead** — the extra latency each gateway adds on top of the upstream provider call. Both MLflow and LiteLLM are tested under identical conditions for direct comparability.
+Our benchmark suite measures **pure proxy overhead** — the extra latency each gateway adds on top of the upstream provider call. MLflow, LiteLLM, and Portkey are tested under identical conditions for direct comparability.
 
 - **Benchmark client**: `aiohttp` with connection pooling (matching [LiteLLM's own benchmark methodology](https://docs.litellm.ai/docs/benchmarks))
 - **Backend**: Fake OpenAI-compatible server returning canned responses with configurable delay (`FAKE_RESPONSE_DELAY_MS`, default 50ms)
 - **Measurement**: Client-side `time.perf_counter()` timestamps (high-resolution monotonic clock)
 - **Warmup**: 50 requests discarded before each timed run to establish connection pools and warm caches
-- **Environment**: Both proxies run on the same machine, same number of workers, hitting the same fake backend
+- **Environment**: All proxies run on the same machine, same number of workers, hitting the same fake backend
+- **Competitors**: [LiteLLM Proxy](https://docs.litellm.ai/docs/) (Python, PostgreSQL) and [Portkey AI Gateway](https://github.com/Portkey-AI/gateway) (Node.js, stateless)
 
 By controlling for network and provider latency (everything runs on `127.0.0.1`), the benchmark isolates what each gateway adds to the request path.
 
-## Results: MLflow vs LiteLLM
+## Results
 
-With config caching enabled (the default since [#21660](https://github.com/mlflow/mlflow/pull/21660)) and usage tracking off, the MLflow AI Gateway outperforms LiteLLM across all metrics.
+All results: MacBook Pro (Apple Silicon), 4 workers, 50 concurrent, 2000 requests/run, 3 runs.
 
-**Head-to-head (4 workers, 50 concurrent, 50ms fake delay, 2000 requests/run, 3 runs):**
+### Head-to-head (SQLite, no tracking, 50ms delay)
 
-| Metric | MLflow AI Gateway | LiteLLM |
-| --- | --- | --- |
-| **P50 latency** | 55 ms | 81 ms |
-| **P95 latency** | 74 ms | 123 ms |
-| **P99 latency** | 105 ms | 298 ms |
-| **Throughput** | 844 rps | 577 rps |
-| **Failures** | 0 | 0 |
+With config caching enabled (the default since [#21660](https://github.com/mlflow/mlflow/pull/21660)) and usage tracking off — the "core proxy overhead" comparison:
 
-With `FAKE_RESPONSE_DELAY_MS=0` (measuring pure proxy overhead with no simulated provider latency):
+| Metric | MLflow AI Gateway | LiteLLM | Portkey |
+| --- | --- | --- | --- |
+| **P50 latency** | 56.7 ms | 76.8 ms | **52.5 ms** |
+| **P95 latency** | 77.1 ms | 104.0 ms | **55.8 ms** |
+| **P99 latency** | 110.8 ms | 256.7 ms | **59.0 ms** |
+| **Throughput** | **818 rps** | 616 rps | **941 rps** |
 
-| Metric | MLflow AI Gateway | LiteLLM |
-| --- | --- | --- |
-| **P50 latency** | 10 ms | 41 ms |
-| **P95 latency** | 61 ms | 98 ms |
-| **P99 latency** | 72 ms | 254 ms |
-| **Throughput** | 3,483 rps | 1,062 rps |
+### Pure proxy overhead (zero delay)
 
-MLflow's core proxy path adds ~10ms of overhead vs LiteLLM's ~41ms — **3.3x faster** when measuring raw proxy speed.
+With `FAKE_RESPONSE_DELAY_MS=0`, measuring raw proxy speed:
+
+| Metric | MLflow AI Gateway | LiteLLM | Portkey |
+| --- | --- | --- | --- |
+| **P50 latency** | 13.6 ms | 40.1 ms | **8.0 ms** |
+| **P99 latency** | 64.5 ms | 232.5 ms | **18.1 ms** |
+| **Throughput** | **3,306 rps** | 1,181 rps | **5,575 rps** |
+
+MLflow's core proxy path adds ~14ms of overhead vs LiteLLM's ~40ms — **2.9x faster** when measuring raw proxy speed. Portkey, being a stateless Node.js proxy with no database, achieves the lowest overhead at ~8ms.
+
+### Full-stack with PostgreSQL and tracking
+
+The production configuration: PostgreSQL backend, usage tracking / spend tracking enabled for both MLflow and LiteLLM. Portkey's OSS version has no tracking or database.
+
+| Metric | MLflow AI Gateway | LiteLLM | Portkey |
+| --- | --- | --- | --- |
+| **P50 latency** | **54.8 ms** | 103.0 ms | **52.7 ms** |
+| **P95 latency** | **72.1 ms** | 154.7 ms | **57.3 ms** |
+| **P99 latency** | **102.4 ms** | 298.8 ms | **68.2 ms** |
+| **Throughput** | **852 rps** | 461 rps | **932 rps** |
+
+MLflow with full tracing enabled (852 rps) is faster than LiteLLM without any tracking (602 rps), and within 9% of stateless Portkey (932 rps).
+
+:::note
+The full-stack tracking-ON results include performance optimizations that are under review and not yet merged to `master`. On current `master`, MLflow achieves ~77 rps with tracking enabled. See the [benchmark README](https://github.com/mlflow/mlflow/tree/master/benchmarks/gateway/README.md) for the full optimization journey (77 → 852 rps).
+:::
 
 :::note
 Results were collected on a MacBook Pro (Apple Silicon). Run the benchmark on your own hardware for environment-specific numbers.
@@ -55,7 +75,11 @@ MLflow treats the database as the source of truth for endpoint configuration, re
 
 ### 2. Usage tracking / tracing
 
-When usage tracking is enabled, every request is wrapped with `mlflow.trace()` for observability. This adds span creation, metadata recording, and async trace persistence.
+When usage tracking is enabled, every request is wrapped with `mlflow.trace()` for observability. This adds span creation, metadata recording, and async trace persistence. Several optimizations have been developed to minimize this overhead:
+
+- **DB contention fix**: Consolidate span + trace writes into a single transaction (eliminates `UniqueViolation` and `DeadlockDetected` errors)
+- **Pure ASGI middleware**: Convert Starlette's `BaseHTTPMiddleware` to raw ASGI (eliminates 30ms event loop overhead per request)
+- **Batch span processor**: Decouple trace export from the request path via OTel's `BatchSpanProcessor` (exports in background thread instead of inline)
 
 ### Impact breakdown
 
@@ -64,10 +88,11 @@ The following table shows how each bottleneck affects throughput (PostgreSQL, 4 
 | Configuration | MLflow (rps) | LiteLLM (rps) |
 | --- | --- | --- |
 | No cache, usage tracking ON (worst case) | 14 | 430 |
-| Cache ON, usage tracking ON | 67 | 521 |
+| Cache ON, usage tracking ON (current `master`) | ~77 | 521 |
+| Cache ON, usage tracking ON (with optimizations) | **852** | 461 |
 | **Cache ON, usage tracking OFF** | **841** | **539** |
 
-With config caching enabled (the default) and usage tracking turned off, MLflow is **1.6x faster** than LiteLLM. Both bottlenecks are independent and compound — together they reduce throughput from 841 rps to 14 rps.
+With all optimizations applied, usage tracking adds only ~4% overhead (852 vs 891 rps without tracking). Both bottlenecks are independent — config caching is already shipped; tracking optimizations are under review.
 
 ### Perspective: does proxy overhead matter?
 
@@ -81,7 +106,7 @@ The benchmark suite lives in [`benchmarks/gateway/`](https://github.com/mlflow/m
 # Install dependencies
 pip install mlflow[gateway] 'litellm[proxy]'
 
-# Head-to-head comparison (MLflow vs LiteLLM)
+# Head-to-head comparison (MLflow vs LiteLLM vs Portkey)
 cd benchmarks/gateway
 GATEWAY_WORKERS=4 REQUESTS=2000 MAX_CONCURRENT=50 RUNS=3 bash run_comparison.sh
 
