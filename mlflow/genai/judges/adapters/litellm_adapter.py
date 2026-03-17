@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
 import threading
 from contextlib import ContextDecorator
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterator
 
 import pydantic
 
@@ -42,6 +44,24 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
+
+# ContextVar that upstream modules (e.g. the evaluate harness) can set to disable
+# litellm's own rate-limit retries, so 429 errors propagate to the caller's retry logic.
+_DISABLE_RATE_LIMIT_RETRIES = ContextVar("_DISABLE_RATE_LIMIT_RETRIES", default=False)
+
+
+@contextlib.contextmanager
+def disable_litellm_rate_limit_retries() -> Iterator[None]:
+    token = _DISABLE_RATE_LIMIT_RETRIES.set(True)
+    try:
+        yield
+    finally:
+        _DISABLE_RATE_LIMIT_RETRIES.reset(token)
+
+
+def is_litellm_rate_limit_retries_disabled() -> bool:
+    return _DISABLE_RATE_LIMIT_RETRIES.get()
+
 
 # Global cache to track model capabilities across function calls
 # Key: model URI (e.g., "openai/gpt-4"), Value: boolean indicating response_format support
@@ -494,9 +514,14 @@ def _get_litellm_retry_policy(num_retries: int) -> "litellm.RetryPolicy":
     """
     from litellm import RetryPolicy
 
+    # When an upstream module (e.g. the evaluate harness) has set the flag,
+    # disable litellm's rate-limit retries so 429 errors propagate to the
+    # caller's own retry logic for adaptive rate control.
+    rate_limit_retries = 0 if _DISABLE_RATE_LIMIT_RETRIES.get() else num_retries
+
     return RetryPolicy(
         TimeoutErrorRetries=num_retries,
-        RateLimitErrorRetries=num_retries,
+        RateLimitErrorRetries=rate_limit_retries,
         InternalServerErrorRetries=num_retries,
         ContentPolicyViolationErrorRetries=num_retries,
         # We don't retry on errors that are unlikely to be transient

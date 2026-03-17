@@ -33,7 +33,7 @@ import {
   shouldEnableImprovedEvalRunsComparison,
   shouldShowEvalRunsIssuesPanel,
 } from '../../../common/utils/FeatureUtils';
-import { MLFLOW_RUN_IS_ISSUE_DETECTION_TAG } from '../../constants';
+import { MLFLOW_RUN_TYPE_TAG, MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION } from '../../constants';
 import { DatasetLink } from '../experiment-evaluation-datasets/DatasetLink';
 import { RunStatusIcon } from '../../components/RunStatusIcon';
 
@@ -78,7 +78,9 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
   const runUuid = row.original.info.runUuid;
   const experimentId = row.original.info.experimentId;
   const tags = row.original.data?.tags ?? [];
-  const isIssueDetectionRun = tags.some((tag) => tag.key === MLFLOW_RUN_IS_ISSUE_DETECTION_TAG);
+  const isIssueDetectionRun = tags.some(
+    (tag) => tag.key === MLFLOW_RUN_TYPE_TAG && tag.value === MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION,
+  );
   const showIssuesPanelFlag = shouldShowEvalRunsIssuesPanel();
 
   const handleClick = (e: React.MouseEvent) => {

@@ -317,6 +317,37 @@ class CustomLangchainTracer(MlflowLangchainTracer):
         )
 ```
 
+## Combine with the MLflow Tracing SDK (JS / TS)
+
+When using LangChain.js with OpenTelemetry-based tracing, you can combine the automatically generated traces with the [MLflow Tracing SDK](/genai/tracing) (`@mlflow/core`) to add custom spans, set tags, and update trace metadata within the same trace.
+
+```typescript
+import { init, withSpan } from "@mlflow/core";
+import { LangChainInstrumentation } from "@arizeai/openinference-instrumentation-langchain";
+import * as CallbackManagerModule from "@langchain/core/callbacks/manager";
+
+// Initialize MLflow SDK - sets up the OTel provider to capture all spans
+init({
+  trackingUri: "http://localhost:5000",
+  experimentId: "<your-experiment-id>",
+});
+
+// Enable LangChain instrumentation
+const lcInstrumentation = new LangChainInstrumentation();
+lcInstrumentation.manuallyInstrument(CallbackManagerModule);
+
+// Add custom MLflow spans alongside the auto-generated LangChain traces
+const result = await withSpan(
+  { name: "custom_step", inputs: { query: "test" } },
+  async (span) => {
+    // your LangChain application logic here
+    return { result: "success" };
+  }
+);
+```
+
+For detailed instructions and examples, see [Combining the OpenTelemetry SDK and the MLflow Tracing SDK](/genai/tracing/app-instrumentation/opentelemetry#combining-the-opentelemetry-sdk-and-the-mlflow-tracing-sdk).
+
 ## Disable auto-tracing
 
 Auto tracing for LangChain can be disabled globally by calling `mlflow.langchain.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

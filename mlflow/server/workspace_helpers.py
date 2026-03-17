@@ -100,17 +100,17 @@ def resolve_workspace_for_request_if_enabled(
     path: str,
     header_value: str | None,
 ) -> Workspace | None:
+    # The server-info endpoint must remain reachable even if the workspace header points to a
+    # missing workspace, so skip workspace resolution entirely for this route.
+    if path.rstrip("/").endswith("/mlflow/server-info"):
+        return None
+
     if not MLFLOW_ENABLE_WORKSPACES.get():
         if (header_value or "").strip():
             raise MlflowException(
                 "Workspace APIs are not available: workspaces are not enabled on this server",
                 error_code=databricks_pb2.FEATURE_DISABLED,
             )
-        return None
-
-    # The server-info endpoint must remain reachable even if the workspace header points to a
-    # missing workspace, so skip workspace resolution entirely for this route.
-    if path.rstrip("/").endswith("/mlflow/server-info"):
         return None
 
     try:
