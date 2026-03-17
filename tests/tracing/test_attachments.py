@@ -1,6 +1,3 @@
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from mlflow.tracing.attachments import Attachment
@@ -19,27 +16,19 @@ def test_attachment_ids_are_unique():
     assert a.id != b.id
 
 
-def test_attachment_from_file():
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-        f.write(b"fakepng")
-        path = Path(f.name)
-    try:
-        att = Attachment.from_file(path)
-        assert att.content_type == "image/png"
-        assert att.content_bytes == b"fakepng"
-    finally:
-        path.unlink()
+def test_attachment_from_file(tmp_path):
+    file = tmp_path / "test.png"
+    file.write_bytes(b"fakepng")
+    att = Attachment.from_file(file)
+    assert att.content_type == "image/png"
+    assert att.content_bytes == b"fakepng"
 
 
-def test_attachment_from_file_explicit_content_type():
-    with tempfile.NamedTemporaryFile(suffix=".bin", delete=False) as f:
-        f.write(b"data")
-        path = Path(f.name)
-    try:
-        att = Attachment.from_file(path, content_type="custom/type")
-        assert att.content_type == "custom/type"
-    finally:
-        path.unlink()
+def test_attachment_from_file_explicit_content_type(tmp_path):
+    file = tmp_path / "test.bin"
+    file.write_bytes(b"data")
+    att = Attachment.from_file(file, content_type="custom/type")
+    assert att.content_type == "custom/type"
 
 
 @pytest.mark.parametrize(

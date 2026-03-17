@@ -19,6 +19,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     build_otel_context,
@@ -112,7 +113,7 @@ class Span:
         # Since the span is immutable, we can cache the attributes to avoid the redundant
         # deserialization of the attribute values.
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
-        self._attachments: dict[str, Any] = {}
+        self._attachments: dict[str, Attachment] = {}
 
     @property
     @lru_cache(maxsize=1)
@@ -539,7 +540,7 @@ class LiveSpan(Span):
             )
 
         self._span = otel_span
-        self._attachments: dict[str, Any] = {}
+        self._attachments: dict[str, Attachment] = {}
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
@@ -565,8 +566,6 @@ class LiveSpan(Span):
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
 
     def _extract_attachments(self, value: Any) -> Any:
-        from mlflow.tracing.attachments import Attachment
-
         if isinstance(value, Attachment):
             ref = value.ref(self.trace_id)
             self._attachments[value.id] = value
@@ -719,6 +718,7 @@ class LiveSpan(Span):
         """
         # All state of the live span is already persisted in the OpenTelemetry span object.
         span = Span(self._span)
+        # Shallow copy so the immutable span is independent of further LiveSpan mutations
         span._attachments = dict(self._attachments)
         return span
 

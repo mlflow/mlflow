@@ -731,7 +731,10 @@ class TracingClient:
     ) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         for attachment_id, attachment in attachments.items():
-            artifact_repo.upload_attachment(attachment_id, attachment.content_bytes)
+            try:
+                artifact_repo.upload_attachment(attachment_id, attachment.content_bytes)
+            except Exception as e:
+                _logger.warning(f"Failed to upload attachment {attachment_id}: {e}")
 
     def link_prompt_versions_to_trace(
         self, trace_id: str, prompts: Sequence[PromptVersion]
