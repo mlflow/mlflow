@@ -20,6 +20,7 @@ from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
 )
+from mlflow.metrics.genai.model_utils import _parse_model_uri
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
 # "endpoints" is a special case for MLflow deployment endpoints (e.g. Databricks model serving).
@@ -28,69 +29,45 @@ _NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
 
 def _invoke_via_gateway(
     model_uri: str,
-    provider: str,
-    prompt: str,
+    provider_name: str,
+    prompt: str | list[dict[str, str]],
     inference_params: dict[str, Any] | None = None,
+    response_format: type[pydantic.BaseModel] | None = None,
     base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> str:
+    """Invoke the judge model via native AI Gateway adapters.
+
+    Supports both string prompts (via ``score_model_on_payload``) and
+    ChatMessage-style message lists (via the provider infrastructure).
     """
-    Invoke the judge model via native AI Gateway adapters.
-
-    Args:
-        model_uri: The full model URI.
-        provider: The provider name.
-        prompt: The prompt to evaluate.
-        inference_params: Optional dictionary of inference parameters to pass to the
-            model (e.g., temperature, top_p, max_tokens).
-        base_url: Optional base URL to route requests through.
-        extra_headers: Optional dictionary of additional HTTP headers to include
-            in requests to the LLM provider.
-
-    Returns:
-        The JSON response string from the model.
-
-    Raises:
-        MlflowException: If the provider is not natively supported or invocation fails.
-    """
-    from mlflow.metrics.genai.model_utils import get_endpoint_type, score_model_on_payload
-
-    if provider not in _NATIVE_PROVIDERS:
+    if provider_name not in _NATIVE_PROVIDERS:
         raise MlflowException(
-            f"LiteLLM is required for using '{provider}' LLM. Please install it with "
+            f"LiteLLM is required for using '{provider_name}' LLM. Please install it with "
             "`pip install litellm`.",
             error_code=BAD_REQUEST,
         )
 
-    return score_model_on_payload(
-        model_uri=model_uri,
-        payload=prompt,
-        eval_parameters=inference_params,
-        extra_headers=extra_headers,
-        proxy_url=base_url,
-        endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
-    )
+    if isinstance(prompt, str):
+        from mlflow.metrics.genai.model_utils import get_endpoint_type, score_model_on_payload
 
+        return score_model_on_payload(
+            model_uri=model_uri,
+            payload=prompt,
+            eval_parameters=inference_params,
+            extra_headers=extra_headers,
+            proxy_url=base_url,
+            endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
+        )
 
-def _invoke_chat_via_gateway(
-    model_uri: str,
-    messages: list[dict[str, str]],
-    response_format: type[pydantic.BaseModel] | None = None,
-    inference_params: dict[str, Any] | None = None,
-) -> str:
-    """Invoke the judge model via the gateway provider infrastructure with ChatMessage support."""
     from mlflow.gateway.config import Provider
     from mlflow.genai.discovery.utils import _pydantic_to_response_format
-    from mlflow.metrics.genai.model_utils import (
-        _get_provider_instance,
-        _parse_model_uri,
-        _send_request,
-    )
+    from mlflow.metrics.genai.model_utils import _get_provider_instance, _send_request
 
-    provider_name, model_name = _parse_model_uri(model_uri)
+    _, model_name = _parse_model_uri(model_uri)
     provider = _get_provider_instance(provider_name, model_name)
 
-    payload: dict[str, Any] = {"messages": messages}
+    payload: dict[str, Any] = {"messages": prompt}
     if inference_params:
         payload.update(inference_params)
     if response_format is not None:
@@ -120,8 +97,6 @@ class GatewayAdapter(BaseJudgeAdapter):
         model_uri: str,
         prompt: str | list["ChatMessage"],
     ) -> bool:
-        from mlflow.metrics.genai.model_utils import _parse_model_uri
-
         model_provider, _ = _parse_model_uri(model_uri)
         return model_provider in _NATIVE_PROVIDERS
 
@@ -132,34 +107,31 @@ class GatewayAdapter(BaseJudgeAdapter):
                 "Please install it with `pip install litellm`.",
             )
 
-        if isinstance(input_params.prompt, str):
-            # base_url and extra_headers are not supported for deployment endpoints
-            if input_params.model_provider == "endpoints" and (
-                input_params.base_url is not None or input_params.extra_headers is not None
-            ):
-                raise MlflowException(
-                    "base_url and extra_headers are not supported for deployment "
-                    "endpoints (endpoints:/...). The endpoint URL is determined by the "
-                    "deployment target configuration.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+        # base_url and extra_headers are not supported for deployment endpoints
+        if input_params.model_provider == "endpoints" and (
+            input_params.base_url is not None or input_params.extra_headers is not None
+        ):
+            raise MlflowException(
+                "base_url and extra_headers are not supported for deployment "
+                "endpoints (endpoints:/...). The endpoint URL is determined by the "
+                "deployment target configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
-            response = _invoke_via_gateway(
-                input_params.model_uri,
-                input_params.model_provider,
-                input_params.prompt,
-                input_params.inference_params,
-                input_params.base_url,
-                input_params.extra_headers,
-            )
+        if isinstance(input_params.prompt, str):
+            prompt = input_params.prompt
         else:
-            messages = [{"role": msg.role, "content": msg.content} for msg in input_params.prompt]
-            response = _invoke_chat_via_gateway(
-                input_params.model_uri,
-                messages,
-                response_format=input_params.response_format,
-                inference_params=input_params.inference_params,
-            )
+            prompt = [{"role": msg.role, "content": msg.content} for msg in input_params.prompt]
+
+        response = _invoke_via_gateway(
+            input_params.model_uri,
+            input_params.model_provider,
+            prompt,
+            inference_params=input_params.inference_params,
+            response_format=input_params.response_format,
+            base_url=input_params.base_url,
+            extra_headers=input_params.extra_headers,
+        )
 
         cleaned_response = _strip_markdown_code_blocks(response)
 

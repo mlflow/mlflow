@@ -569,57 +569,43 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - deprecation_date: Date when model will be deprecated (if known)
     """
     if _PROVIDER_BACKEND_AVAILABLE:
-        model_cost = _get_model_cost()
-        models_dict: dict[tuple[str, str], dict[str, Any]] = {}
-        for model_name, info in model_cost.items():
-            litellm_provider = info.get("litellm_provider")
-            normalized = _normalize_provider(litellm_provider) if litellm_provider else None
+        entries = (
+            (name, info.get("litellm_provider"), info) for name, info in _get_model_cost().items()
+        )
+    else:
+        entries = (
+            (entry.get("id", ""), entry.get("provider"), entry)
+            for entry in _iter_model_catalog_api(provider=provider)
+        )
+    return _extract_models(entries, provider_filter=provider)
 
-            if provider and normalized != provider:
-                continue
 
-            mode = info.get("mode")
-            if mode not in _SUPPORTED_MODEL_MODES:
-                continue
-
-            if normalized and model_name.startswith(f"{normalized}/"):
-                model_name = model_name.removeprefix(f"{normalized}/")
-
-            if model_name.startswith("ft:"):
-                continue
-
-            key = (normalized, model_name)
-            if key in models_dict:
-                continue
-
-            models_dict[key] = _build_model_dict(model_name, normalized, mode, info)
-
-        return list(models_dict.values())
-
+def _extract_models(
+    entries: Iterator[tuple[str, str | None, dict[str, Any]]],
+    provider_filter: str | None = None,
+) -> list[dict[str, Any]]:
     models_dict: dict[tuple[str | None, str], dict[str, Any]] = {}
-    for entry in _iter_model_catalog_api(provider=provider):
-        model_name = entry.get("id", "")
-        entry_provider = entry.get("provider")
-        normalized_provider = _normalize_provider(entry_provider) if entry_provider else None
+    for model_name, entry_provider, info in entries:
+        normalized = _normalize_provider(entry_provider) if entry_provider else None
 
-        if provider and normalized_provider != provider:
+        if provider_filter and normalized != provider_filter:
             continue
 
-        mode = entry.get("mode")
+        mode = info.get("mode")
         if mode not in _SUPPORTED_MODEL_MODES:
             continue
 
-        if normalized_provider and model_name.startswith(f"{normalized_provider}/"):
-            model_name = model_name.removeprefix(f"{normalized_provider}/")
+        if normalized and model_name.startswith(f"{normalized}/"):
+            model_name = model_name.removeprefix(f"{normalized}/")
 
         if model_name.startswith("ft:"):
             continue
 
-        key = (normalized_provider, model_name)
+        key = (normalized, model_name)
         if key in models_dict:
             continue
 
-        models_dict[key] = _build_model_dict(model_name, normalized_provider, mode, entry)
+        models_dict[key] = _build_model_dict(model_name, normalized, mode, info)
 
     return list(models_dict.values())
 

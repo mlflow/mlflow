@@ -93,6 +93,15 @@ class _TokenCounter:
                 if cost := hidden.get("response_cost"):
                     self.cost_usd += cost
 
+    def resolve_cost(self) -> float | None:
+        """Return the total cost, falling back to the LiteLLM pricing API if needed."""
+        if self.cost_usd == 0:
+            total = self.input_tokens + self.output_tokens
+            if total > 0 and self._model:
+                if cost := _lookup_model_cost(self._model, self.input_tokens, self.output_tokens):
+                    self.cost_usd = cost
+        return self.cost_usd or None
+
     def to_dict(self) -> dict[str, int | float]:
         result = {}
         total = self.input_tokens + self.output_tokens
@@ -100,11 +109,8 @@ class _TokenCounter:
             result["input_tokens"] = self.input_tokens
             result["output_tokens"] = self.output_tokens
             result["total_tokens"] = total
-        if self.cost_usd == 0 and total > 0 and self._model:
-            if cost := _lookup_model_cost(self._model, self.input_tokens, self.output_tokens):
-                self.cost_usd = cost
-        if self.cost_usd > 0:
-            result["cost_usd"] = round(self.cost_usd, 6)
+        if cost := self.resolve_cost():
+            result["cost_usd"] = round(cost, 6)
         return result
 
 

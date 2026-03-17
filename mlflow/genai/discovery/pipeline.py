@@ -589,7 +589,7 @@ def discover_issues(
             triage_run_id=triage_eval.run_id,
             summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
-            total_cost_usd=token_counter.cost_usd or None,
+            total_cost_usd=token_counter.resolve_cost(),
         )
 
     # ---- Phase 2: Build analyses ----
@@ -606,7 +606,7 @@ def discover_issues(
             triage_run_id=triage_eval.run_id,
             summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
-            total_cost_usd=token_counter.cost_usd or None,
+            total_cost_usd=token_counter.resolve_cost(),
         )
 
     # ---- Phase 4: Build issues & annotate ----
@@ -643,7 +643,7 @@ def discover_issues(
         triage_run_id=triage_eval.run_id,
         summary=summary,
         total_traces_analyzed=len(triage_traces),
-        total_cost_usd=token_counter.cost_usd or None,
+        total_cost_usd=token_counter.resolve_cost(),
     )
 
     # Log artifacts to the triage run
