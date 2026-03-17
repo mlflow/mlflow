@@ -32,7 +32,7 @@ export TOKEN=$(curl -s -X POST "https://$DATABRICKS_HOST/oidc/v1/token" \
   | jq -r '.access_token')
 ```
 
-Once the token is obtained, search for experiments to verify it works:
+Once the token is obtained, run the following command to verify it works:
 
 ```bash
 curl -s "$APP_URL/api/2.0/mlflow/experiments/search" \
