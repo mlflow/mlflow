@@ -82,11 +82,11 @@ def test_fetch_traces_falls_back_to_artifact_repo(trace_loader, mock_store):
 
     with (
         patch(
-            "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+            "mlflow.genai.scorers.online.trace_loader.get_artifact_repository",
             return_value=mock_artifact_repo,
         ) as mock_get_repo,
         patch(
-            "mlflow.tracing.utils.artifact_utils.get_artifact_uri_for_trace",
+            "mlflow.genai.scorers.online.trace_loader.get_artifact_uri_for_trace",
             return_value="s3://bucket/traces/tr-001",
         ) as mock_get_uri,
     ):
@@ -123,11 +123,11 @@ def test_fetch_traces_mixed_storage_locations(trace_loader, mock_store):
 
     with (
         patch(
-            "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+            "mlflow.genai.scorers.online.trace_loader.get_artifact_repository",
             return_value=mock_artifact_repo,
         ),
         patch(
-            "mlflow.tracing.utils.artifact_utils.get_artifact_uri_for_trace",
+            "mlflow.genai.scorers.online.trace_loader.get_artifact_uri_for_trace",
             return_value="s3://bucket/traces/tr-s3",
         ),
     ):
@@ -173,11 +173,11 @@ def test_fetch_traces_artifact_download_failure_skips_trace(trace_loader, mock_s
 
     with (
         patch(
-            "mlflow.store.artifact.artifact_repository_registry.get_artifact_repository",
+            "mlflow.genai.scorers.online.trace_loader.get_artifact_repository",
             side_effect=mock_get_repo,
         ),
         patch(
-            "mlflow.tracing.utils.artifact_utils.get_artifact_uri_for_trace",
+            "mlflow.genai.scorers.online.trace_loader.get_artifact_uri_for_trace",
             side_effect=mock_get_uri,
         ),
     ):
