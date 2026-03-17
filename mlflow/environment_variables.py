@@ -765,7 +765,7 @@ MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT = _EnvironmentVariable(
 #: Maximum scorer calls per second during mlflow.genai.evaluate. A token-bucket
 #: rate limiter throttles individual scorer invocations across all worker threads.
 #: Accepted values: a positive number (fixed rate) or ``0`` to disable.
-#: When unset, the scorer rate is auto-derived as predict_rate × num_scorers.
+#: When unset, the scorer rate is auto-derived as predict_rate x num_scorers.
 MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", str, None
 )
