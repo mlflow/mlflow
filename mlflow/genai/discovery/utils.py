@@ -99,7 +99,8 @@ class _TokenCounter:
             result["output_tokens"] = self.output_tokens
             result["total_tokens"] = total
         if self.cost_usd == 0 and total > 0 and self._model:
-            self.cost_usd = _lookup_model_cost(self._model, self.input_tokens, self.output_tokens)
+            if cost := _lookup_model_cost(self._model, self.input_tokens, self.output_tokens):
+                self.cost_usd = cost
         if self.cost_usd > 0:
             result["cost_usd"] = round(self.cost_usd, 6)
         return result
@@ -187,8 +188,9 @@ def _call_llm_via_gateway(
             break
         except Exception as e:
             last_error = e
-            if attempt < NUM_RETRIES:
-                time.sleep(2**attempt)
+            if not _is_retryable(e) or attempt >= NUM_RETRIES:
+                raise
+            time.sleep(2**attempt)
     else:
         raise last_error
 
@@ -196,6 +198,18 @@ def _call_llm_via_gateway(
     if token_counter is not None:
         token_counter.track(response, model=model)
     return response
+
+
+_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+
+
+def _is_retryable(error: Exception) -> bool:
+    if isinstance(error, (requests.exceptions.ConnectionError, requests.exceptions.Timeout)):
+        return True
+    if isinstance(error, requests.exceptions.HTTPError) and error.response is not None:
+        return error.response.status_code in _RETRYABLE_STATUS_CODES
+    # _send_request wraps HTTPError into MlflowException with the status code in the message
+    return any(str(code) in str(error) for code in _RETRYABLE_STATUS_CODES)
 
 
 def _pydantic_to_response_format(cls: type[pydantic.BaseModel]) -> dict[str, Any]:
@@ -218,11 +232,11 @@ def _fetch_model_catalog() -> dict[str, Any] | None:
         return None
 
 
-def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) -> float:
+def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) -> float | None:
     """Best-effort cost lookup using the LiteLLM model pricing data."""
     catalog = _fetch_model_catalog()
     if catalog is None:
-        return 0.0
+        return None
 
     provider, model_name = _parse_model_uri(model_uri)
     for key in (f"{provider}/{model_name}", model_name):
@@ -231,7 +245,7 @@ def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) ->
             input_cost = info.get("input_cost_per_token", 0)
             output_cost = info.get("output_cost_per_token", 0)
             return input_tokens * input_cost + output_tokens * output_cost
-    return 0.0
+    return None
 
 
 def build_summary(issues: list[Issue], total_traces: int) -> str:

@@ -335,20 +335,20 @@ def test_lookup_model_cost_returns_calculated_cost():
     assert cost == pytest.approx(1000 * 0.00001 + 500 * 0.00003)
 
 
-def test_lookup_model_cost_returns_zero_on_missing_model():
+def test_lookup_model_cost_returns_none_on_missing_model():
     with mock.patch(
         "mlflow.genai.discovery.utils._fetch_model_catalog",
         return_value={"some/other-model": {}},
     ) as mock_fetch:
-        assert _lookup_model_cost("openai:/gpt-5-mini", 100, 50) == 0.0
+        assert _lookup_model_cost("openai:/gpt-5-mini", 100, 50) is None
 
     mock_fetch.assert_called_once()
 
 
-def test_lookup_model_cost_returns_zero_on_network_error():
+def test_lookup_model_cost_returns_none_on_network_error():
     with mock.patch(
         "mlflow.genai.discovery.utils._fetch_model_catalog", return_value=None
     ) as mock_fetch:
-        assert _lookup_model_cost("openai:/gpt-5-mini", 100, 50) == 0.0
+        assert _lookup_model_cost("openai:/gpt-5-mini", 100, 50) is None
 
     mock_fetch.assert_called_once()
