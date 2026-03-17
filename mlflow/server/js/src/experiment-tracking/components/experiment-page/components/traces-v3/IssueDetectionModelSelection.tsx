@@ -385,7 +385,7 @@ export const IssueDetectionModelSelection = forwardRef<
                     <Tooltip
                       componentId="mlflow.traces.issue-detection-modal.save-key-tooltip"
                       content={intl.formatMessage({
-                        defaultMessage: 'Saved API keys can be managed in AI Gateway → API Keys tab',
+                        defaultMessage: 'Saved API keys can be managed from the API Keys page',
                         description: 'Tooltip explaining where saved API keys can be found',
                       })}
                     >
