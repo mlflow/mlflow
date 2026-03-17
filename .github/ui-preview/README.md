@@ -52,3 +52,5 @@ import mlflow
 
 mlflow.search_experiments(max_results=10)
 ```
+
+See [Connect to Databricks Apps](https://docs.databricks.com/aws/en/dev-tools/databricks-apps/connect-local) for more details on authentication.
