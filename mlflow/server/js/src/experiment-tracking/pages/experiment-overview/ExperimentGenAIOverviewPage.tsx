@@ -175,14 +175,14 @@ const ExperimentGenAIOverviewPageImpl = () => {
               onClick={() => setIsIssueDetectionModalOpen(true)}
               aria-label={intl.formatMessage({
                 defaultMessage: 'Detect issues in traces',
-                description: 'Aria label for the detect issues button in the traces table toolbar',
+                description: 'Aria label for the detect issues button on the experiment overview page',
               })}
               type="primary"
               icon={<SparkleIcon />}
             >
               <FormattedMessage
                 defaultMessage="Detect Issues"
-                description="Label for the detect issues button in the traces table toolbar"
+                description="Label for the detect issues button on the experiment overview page"
               />
             </Button>
           )}

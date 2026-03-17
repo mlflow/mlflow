@@ -6013,6 +6013,10 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
+  "bZgVna": {
+    "defaultMessage": "Saved API keys can be managed from the API Keys page",
+    "description": "Tooltip explaining where saved API keys can be found"
+  },
   "ba7/ni": {
     "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
     "description": "Tooltip explaining the demo experiment in the experiments list"
@@ -6860,10 +6864,6 @@
     "defaultMessage": "Issue detection completed",
     "description": "Issue detection progress > Step label when completed"
   },
-  "h/3Qs1": {
-    "defaultMessage": "Saved API keys can be managed in API Keys tab",
-    "description": "Tooltip explaining where saved API keys can be found"
-  },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
@@ -7343,6 +7343,10 @@
   "k0m460": {
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
+  },
+  "k1mgqP": {
+    "defaultMessage": "Detect Issues",
+    "description": "Label for the detect issues button on the experiment overview page"
   },
   "k2bPN+": {
     "defaultMessage": "Last used",
@@ -8110,6 +8114,10 @@
   "ogDiio": {
     "defaultMessage": "Select at least one session to enable actions",
     "description": "Tooltip for disabled actions button when no sessions are selected"
+  },
+  "ohnp9T": {
+    "defaultMessage": "Detect issues in traces",
+    "description": "Aria label for the detect issues button on the experiment overview page"
   },
   "okQ1oB": {
     "defaultMessage": "Please input a new name for the new experiment.",
