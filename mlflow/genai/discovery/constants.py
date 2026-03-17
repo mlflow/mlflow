@@ -226,20 +226,31 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE = (
     "Cite observable symptoms (e.g. 'returned empty response', 'ignored the user's "
     "constraint to avoid implementation'). Avoid vague language like 'inefficient' "
     "or 'suboptimal' without concrete details.\n"
-    "- The root cause: why this likely happens AND where to investigate. Identify "
-    "the probable component, behavior, or configuration at fault (e.g. 'the retrieval "
-    "tool may be returning stale cached results', 'the system prompt does not instruct "
-    "the agent to respect user constraints'). Be specific but note these are hypotheses "
-    "based on observed symptoms.\n"
+    "  The LAST paragraph of the description MUST be a category justification that "
+    "starts with 'Categorized as' and explicitly explains why each assigned category "
+    "applies with specific evidence. Example: 'Categorized as safety because the "
+    "assistant fabricated access to private email data; categorized as negative_ux "
+    "because users had to repeat the same request 3+ times before getting a response.'\n"
+    "- The root cause: why this likely happens AND where to investigate. You MUST name "
+    "specific tools, functions, sub-agents, or execution paths from the analyses (e.g. "
+    "'the run_media_playback_assistant tool returns stale state', 'the get_schedule "
+    "function omits timezone metadata', 'the system prompt for the financial assistant "
+    "does not enforce best-effort answers'). If the analyses mention execution paths "
+    "like [tool_a > tool_b > tool_c], reference them. Do NOT write vague root causes "
+    "like 'the orchestration layer' or 'intent handling' without naming the specific "
+    "component. A developer reading this must know exactly which tool, prompt, or "
+    "code path to investigate first.\n"
     f"- A severity level from: {', '.join(str(level) for level in IssueSeverity)}. "
     "Use medium or high only if the analyses clearly share the same failure "
     "pattern. Use not_an_issue if they do NOT belong together or represent no real issue.\n"
 )
 
 CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST = (
-    "- Categories: Extract any category tags enclosed in square brackets from the rationales. "
-    "ONLY include categories from this list: {categories}. "
-    "If no matching category tags are found, return an empty list."
+    "- **Categories**: Assign one or more categories from: {categories}. "
+    "Only assign a category you can justify with specific evidence.\n"
+    "- **category_rationale**: For EACH assigned category, write 1-2 sentences explaining "
+    "WHY this issue belongs to that category. Reference specific symptoms or behaviors. "
+    "This field is REQUIRED if any categories are assigned."
 )
 
 
@@ -250,12 +261,31 @@ def build_cluster_summary_prompt(categories: list[str]) -> str:
     return CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE + cat_instruction
 
 
+# ---- Category context fragments for downstream phases ----
+
+CLUSTER_CATEGORIES_CONTEXT = (
+    "\n\nThe following issue categories have been identified during triage. "
+    "Use these as an additional grouping signal — labels tagged with the same "
+    "category are likely to belong together, even if their execution paths differ:\n"
+    "{categories}\n"
+)
+
+
+def _format_cluster_categories(categories: list[str] | None) -> str:
+    """Format category list for injection into clustering/summary prompts."""
+    if not categories:
+        return ""
+    items = "\n".join(f"- {cat}" for cat in categories)
+    return CLUSTER_CATEGORIES_CONTEXT.format(categories=items)
+
+
 # ---- Label clustering prompt ----
 
 CLUSTER_LABELS_PROMPT_TEMPLATE = (
     "Below are {num_labels} failure labels from an AI agent.\n"
     "Each label has the format: [execution_path] symptom\n"
     "The execution path shows which sub-agents and tools were called.\n\n"
+    "{categories_context}"
     "Group these labels into coherent issue categories. Two labels belong "
     "in the same group when:\n"
     "  1. They share the same failure pattern (similar symptom)\n"
@@ -281,6 +311,7 @@ TRACE_ANNOTATION_SYSTEM_PROMPT = (
     "You are annotating a trace that was identified as exhibiting a known issue.\n\n"
     "You will be given:\n"
     "- The issue (name, description, root cause)\n"
+    "- Known issue categories relevant to this trace (if any)\n"
     "- The trace's actual input/output and execution path\n"
     "- The triage judge's rationale for why this trace was flagged\n\n"
     "Write a CONCISE rationale (2-3 sentences, max 150 words) for why THIS trace "
@@ -290,4 +321,24 @@ TRACE_ANNOTATION_SYSTEM_PROMPT = (
     "Be specific but brief — no preamble, no bullet lists, no restating the issue "
     "definition. A developer should immediately understand what went wrong.\n\n"
     "Return ONLY the rationale text, nothing else."
+)
+
+# ---- Semantic dedup prompt ----
+
+SEMANTIC_DEDUP_PROMPT_TEMPLATE = (
+    "Below are {num_issues} issues discovered from an AI application.\n"
+    "Some may describe the SAME underlying problem with different wording.\n\n"
+    "For each issue:\n{numbered_issues}\n\n"
+    "Identify groups of issues that are duplicates of each other — i.e. they "
+    "describe the same root cause and failure pattern, just with different names "
+    "or slightly different descriptions.\n\n"
+    "Rules:\n"
+    "- Only merge issues that genuinely describe the same problem\n"
+    "- Issues with different root causes or affecting different components are NOT duplicates\n"
+    "- When merging, keep the index of the issue with the higher severity (or the first one if tied)\n"
+    "- Issues that are unique should appear as singleton groups\n\n"
+    'Return a JSON object with a "groups" key containing an array of objects, '
+    'each with "keep_index" (int, the index to keep) and "merge_indices" '
+    "(list of ints, indices to merge into keep_index, may be empty).\n"
+    "Return ONLY the JSON, no explanation."
 )

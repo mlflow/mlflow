@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,6 +19,7 @@ from mlflow.environment_variables import (
 from mlflow.genai.discovery.clustering import (
     cluster_by_llm,
     recluster_singletons,
+    semantic_dedup_issues,
     summarize_cluster,
 )
 from mlflow.genai.discovery.constants import (
@@ -60,6 +62,34 @@ from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
 _logger = logging.getLogger(__name__)
+
+_CATEGORY_TAG_RE = re.compile(r"\[([a-zA-Z][a-zA-Z0-9 _-]*)\]")
+# Brackets used for non-category purposes in rationales (execution paths, etc.)
+_CATEGORY_TAG_BLOCKLIST = {
+    "human feedback",
+    "span errors",
+    "no issues found",
+    "no routing",
+    "ERROR",
+}
+
+
+def _extract_category_tags(rationale: str, known_categories: list[str] | None = None) -> list[str]:
+    """Extract category tags in square brackets from a rationale string.
+
+    If known_categories is provided, only returns tags that match one of them
+    (case-insensitive). Otherwise returns all bracketed tags that aren't in
+    the blocklist.
+    """
+    tags = _CATEGORY_TAG_RE.findall(rationale)
+    if not tags:
+        return []
+
+    if known_categories:
+        known_lower = {c.lower() for c in known_categories}
+        return list(dict.fromkeys(t for t in tags if t.lower() in known_lower))
+    else:
+        return list(dict.fromkeys(t for t in tags if t.lower() not in _CATEGORY_TAG_BLOCKLIST))
 
 
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
@@ -123,6 +153,7 @@ def _annotate_issue_traces(
     rationale_map: dict[str, str],
     trace_lookup: dict[str, Trace],
     model: str,
+    categories: list[str] | None = None,
     trace_to_session: dict[str, str] | None = None,
     session_first_trace: dict[str, str] | None = None,
     token_counter: _TokenCounter | None = None,
@@ -157,7 +188,12 @@ def _annotate_issue_traces(
     def _annotate_one(item: _AnnotationWorkItem) -> str | None:
         trace = trace_lookup.get(item.trace_id)
         trace_content = format_trace_content(trace) if trace else "(trace not available)"
-        user_content = format_annotation_prompt(item.issue, trace_content, item.triage_rationale)
+        user_content = format_annotation_prompt(
+            item.issue,
+            trace_content,
+            item.triage_rationale,
+            categories=categories,
+        )
 
         try:
             response = _call_llm(
@@ -206,6 +242,7 @@ def _build_analyses(
     triage_traces: list[Trace],
     rationale_map: dict[str, str],
     scorer_name: str,
+    categories: list[str] | None = None,
 ) -> tuple[list[_ConversationAnalysis], dict[str, list[Trace]]]:
     """
     Build per-session analyses from triage results.
@@ -239,6 +276,7 @@ def _build_analyses(
                 full_rationale=combined_rationale,
                 affected_trace_ids=[trace.info.trace_id for trace in session_failing],
                 execution_path=exec_path,
+                categories=_extract_category_tags(combined_rationale, categories),
             )
         )
     _logger.debug("Built %d analyses from triage rationales", len(analyses))
@@ -342,14 +380,25 @@ def _cluster_and_identify(
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
     """Cluster analyses into identified issues via LLM-based labeling and grouping."""
-    labels, label_to_analysis = extract_failure_labels(analyses, model, token_counter=token_counter)
+    labels, label_to_analysis = extract_failure_labels(
+        analyses,
+        model,
+        categories=categories,
+        token_counter=token_counter,
+    )
     for i, label in enumerate(labels):
         _logger.debug("  [%d] %s", i, label)
 
     if len(labels) == 1:
         cluster_groups = [[0]]
     else:
-        cluster_groups = cluster_by_llm(labels, max_issues, model, token_counter=token_counter)
+        cluster_groups = cluster_by_llm(
+            labels,
+            max_issues,
+            model,
+            categories=categories,
+            token_counter=token_counter,
+        )
     _logger.debug("Clustering produced %d groups", len(cluster_groups))
 
     def summarize_fn(group: list[int]) -> _IdentifiedIssue:
@@ -379,7 +428,7 @@ def _cluster_and_identify(
     analysis_labels: dict[int, str] = {}
     for label, analysis_idx in zip(labels, label_to_analysis):
         analysis_labels.setdefault(analysis_idx, label)
-    return _merge_singleton_issues(
+    merged = _merge_singleton_issues(
         identified,
         analysis_labels,
         analyses,
@@ -388,6 +437,7 @@ def _cluster_and_identify(
         categories=categories,
         token_counter=token_counter,
     )
+    return semantic_dedup_issues(merged, model, token_counter=token_counter)
 
 
 def _build_issues(
@@ -558,9 +608,10 @@ def discover_issues(
     scored_traces = triage_traces
     try:
         fetched = [mlflow.get_trace(t.info.trace_id) for t in triage_traces]
-        scored_traces = fetched
+        if all(f is not None for f in fetched):
+            scored_traces = fetched
         # Aggregate judge costs from Phase 1 evaluation assessments.
-        for trace in fetched:
+        for trace in scored_traces:
             for assessment in trace.info.assessments or []:
                 meta = getattr(assessment, "metadata", None) or {}
                 if meta.get(AssessmentMetadataKey.SOURCE_RUN_ID) != triage_eval.run_id:
@@ -593,7 +644,12 @@ def discover_issues(
         )
 
     # ---- Phase 2: Build analyses ----
-    analyses, session_groups = _build_analyses(triage_traces, rationale_map, scorer_name)
+    analyses, session_groups = _build_analyses(
+        triage_traces,
+        rationale_map,
+        scorer_name,
+        categories=categories,
+    )
 
     # ---- Phase 3: Cluster & identify ----
     identified = _cluster_and_identify(
@@ -630,6 +686,7 @@ def discover_issues(
         rationale_map,
         trace_lookup,
         model,
+        categories=categories,
         trace_to_session=trace_to_session if use_conversation else None,
         session_first_trace=session_first_trace,
         token_counter=token_counter,
