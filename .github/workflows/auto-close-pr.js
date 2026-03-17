@@ -52,7 +52,11 @@ function getMissingHeadings(body, headings) {
   return headings.filter((h) => !bodyLines.has(h));
 }
 
-async function getCloseReason({ github, context, owner, repo, prNumber, prAuthor }) {
+async function getCloseReason({ github, context }) {
+  const prNumber = context.payload.pull_request.number;
+  const prAuthor = context.payload.pull_request.user.login;
+  const { owner, repo } = context.repo;
+
   // Check that the PR body follows the PR template
   const templateHeadings = getTemplateHeadings();
   const prBody = context.payload.pull_request.body;
@@ -127,10 +131,9 @@ async function getCloseReason({ github, context, owner, repo, prNumber, prAuthor
 
 module.exports = async ({ context, github }) => {
   const prNumber = context.payload.pull_request.number;
-  const prAuthor = context.payload.pull_request.user.login;
   const { owner, repo } = context.repo;
 
-  const commentBody = await getCloseReason({ github, context, owner, repo, prNumber, prAuthor });
+  const commentBody = await getCloseReason({ github, context });
   if (commentBody !== undefined) {
     await github.rest.issues.createComment({
       owner,
