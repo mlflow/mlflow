@@ -266,12 +266,9 @@ def _get_message_format(attributes: dict[str, Any]) -> str | None:
     return None
 
 
-_TOOL_DEFINITION_KEYS = ["gen_ai.tool.definitions"]
-
-
 def _get_tool_definitions(attributes: dict[str, Any]) -> Any:
-    for key in _TOOL_DEFINITION_KEYS:
-        if value := attributes.get(key):
+    for translator in _TRANSLATORS:
+        if value := translator.get_tool_definitions(attributes):
             return value
     return None
 
