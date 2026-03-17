@@ -1,6 +1,8 @@
 import sys
 from collections.abc import AsyncIterator
+from unittest.mock import patch
 
+import click
 import pytest
 import pytest_asyncio
 from fastmcp import Client
@@ -8,6 +10,27 @@ from fastmcp.client.transports import StdioTransport
 
 import mlflow
 from mlflow.mcp import server
+from mlflow.mcp.server import fn_wrapper
+from mlflow.models import python_api
+from mlflow.models.cli import commands as model_commands
+from mlflow.runs import commands as run_commands
+
+
+def test_get_input_schema_uses_array_schema_for_repeatable_options():
+    link_traces_cmd = run_commands.commands["link-traces"]
+    schema = server.get_input_schema(link_traces_cmd.params)["properties"]["trace_ids"]
+
+    assert schema["type"] == "array"
+    assert schema["items"] == {"type": "string"}
+    assert "description" in schema
+
+
+def test_get_input_schema_uses_array_schema_for_variadic_arguments():
+    update_reqs_cmd = model_commands.commands["update-pip-requirements"]
+    schema = server.get_input_schema(update_reqs_cmd.params)["properties"]["requirement_strings"]
+
+    assert schema["type"] == "array"
+    assert schema["items"] == {"type": "string"}
 
 
 @pytest_asyncio.fixture()
@@ -142,10 +165,6 @@ async def test_get_prompt(client: Client):
 
 
 def test_fn_wrapper_handles_unset_defaults(monkeypatch):
-    import click
-
-    from mlflow.mcp.server import fn_wrapper
-
     fake_unset = object()
     monkeypatch.setattr(click.core, "UNSET", fake_unset, raising=False)
 
@@ -163,3 +182,31 @@ def test_fn_wrapper_handles_unset_defaults(monkeypatch):
     result = wrapper(foo="hello")
     assert "hello" in result
     assert "None" in result
+
+
+def test_fn_wrapper_uses_empty_tuples_for_missing_array_params():
+    captured = {}
+
+    @click.command()
+    @click.option("--items", multiple=True)
+    @click.argument("names", nargs=-1)
+    def cmd(items, names):
+        captured["items"] = items
+        captured["names"] = names
+
+    wrapper = fn_wrapper(cmd)
+    wrapper()
+
+    assert captured["items"] == ()
+    assert captured["names"] == ()
+
+
+def test_fn_wrapper_converts_repeatable_custom_types():
+    with patch.object(python_api, "predict") as mock_predict:
+        wrapper = fn_wrapper(model_commands.commands["predict"])
+        wrapper(model_uri="runs:/123/model", env=["FOO=bar", "BAR=baz"])
+
+    mock_predict.assert_called_once()
+    call_kwargs = mock_predict.call_args.kwargs
+    assert call_kwargs["model_uri"] == "runs:/123/model"
+    assert call_kwargs["extra_envs"] == {"FOO": "bar", "BAR": "baz"}

@@ -21,6 +21,7 @@ TRACE_CONTENT_TRUNCATION = 1000
 
 DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
+DEFAULT_CATEGORIES = ["low_quality", "negative_ux", "safety", "performance"]
 
 
 # ---- Satisfaction scorer instructions ----
@@ -140,23 +141,20 @@ Then cite specific evidence from the APPLICATION OUTPUT above.\
 CATEGORIES_INSTRUCTIONS = """\
 
 
-The following issue categories are relevant to this evaluation. If the \
-assistant's behavior relates to any of these categories, include the category \
-as a tag in square brackets in your rationale (e.g. [hallucination]):
+The following issue categories are the ONLY valid categories for this evaluation. \
+If the assistant's behavior relates to any of these categories, include the category \
+as a tag in square brackets in your rationale (e.g. [low_quality]). Do NOT include \
+any categories that are not in this list:
 {categories}\
 """
 
 
-def _format_categories(categories: list[str] | None) -> str:
-    if not categories:
-        return ""
+def _format_categories(categories: list[str]) -> str:
     items = "\n".join(f"- {cat}" for cat in categories)
     return CATEGORIES_INSTRUCTIONS.format(categories=items)
 
 
-def build_satisfaction_instructions(
-    *, use_conversation: bool, categories: list[str] | None = None
-) -> str:
+def build_satisfaction_instructions(*, use_conversation: bool, categories: list[str]) -> str:
     if not use_conversation:
         return TRACE_QUALITY_INSTRUCTIONS + _format_categories(categories)
 
@@ -212,7 +210,7 @@ Return ONLY the symptom(s), one per line, nothing else."""
 
 NO_ISSUE_KEYWORD = "NO_ISSUE_DETECTED"
 
-CLUSTER_SUMMARY_SYSTEM_PROMPT = (
+CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE = (
     "You are an expert at analyzing AI application failures. You will be given a group of "
     "per-conversation failure analyses that were pre-clustered by semantic similarity.\n\n"
     "Your job is to:\n"
@@ -237,8 +235,22 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT = (
     "based on observed symptoms.\n"
     f"- A severity level from: {', '.join(str(level) for level in IssueSeverity)}. "
     "Use medium or high only if the analyses clearly share the same failure "
-    "pattern. Use not_an_issue if they do NOT belong together or represent no real issue."
+    "pattern. Use not_an_issue if they do NOT belong together or represent no real issue.\n"
 )
+
+CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST = (
+    "- Categories: Extract any category tags enclosed in square brackets from the rationales. "
+    "ONLY include categories from this list: {categories}. "
+    "If no matching category tags are found, return an empty list."
+)
+
+
+def build_cluster_summary_prompt(categories: list[str]) -> str:
+    """Build the cluster summary system prompt with category filtering."""
+    cat_list = ", ".join(categories)
+    cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST.format(categories=cat_list)
+    return CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE + cat_instruction
+
 
 # ---- Label clustering prompt ----
 

@@ -1,8 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
 import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
-import { Alert, Tabs, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { Alert, Button, SparkleIcon, Tabs, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
+import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
+import { useIssueDetectionNotification } from '../../components/experiment-page/components/traces-v3/hooks/useIssueDetectionNotification';
 import { useIsFileStore } from '../../hooks/useServerInfo';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import {
@@ -35,9 +38,12 @@ import { useOverviewTab, OverviewTab } from './hooks/useOverviewTab';
 const ExperimentGenAIOverviewPageImpl = () => {
   const { experimentId } = useParams();
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [activeTab, setActiveTab] = useOverviewTab();
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
+  const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
   const isFileStore = useIsFileStore();
+  const { showIssueDetectionNotification, notificationContextHolder } = useIssueDetectionNotification(experimentId);
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -162,6 +168,24 @@ const ExperimentGenAIOverviewPageImpl = () => {
             excludeOptions={['ALL']}
             refreshButtonComponentId="mlflow.experiment.overview.refresh-button"
           />
+
+          {shouldEnableIssueDetection() && (
+            <Button
+              componentId="mlflow.experiment.overview.detect-issues-button"
+              onClick={() => setIsIssueDetectionModalOpen(true)}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Detect issues in traces',
+                description: 'Aria label for the detect issues button on the experiment overview page',
+              })}
+              type="primary"
+              icon={<SparkleIcon />}
+            >
+              <FormattedMessage
+                defaultMessage="Detect Issues"
+                description="Label for the detect issues button on the experiment overview page"
+              />
+            </Button>
+          )}
         </div>
 
         <OverviewChartProvider
@@ -223,6 +247,14 @@ const ExperimentGenAIOverviewPageImpl = () => {
           </Tabs.Content>
         </OverviewChartProvider>
       </Tabs.Root>
+      {isIssueDetectionModalOpen && (
+        <IssueDetectionModal
+          onClose={() => setIsIssueDetectionModalOpen(false)}
+          experimentId={experimentId}
+          onSubmitSuccess={showIssueDetectionNotification}
+        />
+      )}
+      {notificationContextHolder}
     </div>
   );
 };

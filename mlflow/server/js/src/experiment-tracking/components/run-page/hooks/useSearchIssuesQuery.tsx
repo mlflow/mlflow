@@ -18,6 +18,7 @@ export interface Issue {
   created_by?: string;
   created_timestamp: number;
   last_updated_timestamp: number;
+  categories?: string[];
 }
 
 type SearchIssuesResponse = {

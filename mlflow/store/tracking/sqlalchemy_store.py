@@ -25,6 +25,8 @@ from sqlalchemy.orm import Query, Session, aliased, joinedload
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
 
+from mlflow.utils.crypto import KEKManager, _decrypt_secret
+
 _SqlAlchemyStatement = TypeVar("_SqlAlchemyStatement", Select, Query)
 
 import mlflow.store.db.utils
@@ -112,6 +114,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
+    MAX_TRACE_LINKS_PER_REQUEST,
     SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -130,6 +133,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperimentTag,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
+    SqlGatewaySecret,
     SqlInput,
     SqlInputTag,
     SqlIssue,
@@ -4213,14 +4217,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Raises:
             MlflowException: If more than 100 traces are provided.
         """
-        MAX_TRACES_PER_REQUEST = 100
-
         if not trace_ids:
             return
 
-        if len(trace_ids) > MAX_TRACES_PER_REQUEST:
+        if len(trace_ids) > MAX_TRACE_LINKS_PER_REQUEST:
             raise MlflowException(
-                f"Cannot link more than {MAX_TRACES_PER_REQUEST} traces to a run in "
+                f"Cannot link more than {MAX_TRACE_LINKS_PER_REQUEST} traces to a run in "
                 f"a single request. Provided {len(trace_ids)} traces.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -4855,7 +4857,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not trace_ids:
             return []
 
-        traces = []
         order_case = case(
             {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
             value=SqlTraceInfo.request_id,
@@ -6275,6 +6276,36 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 resource_type=resource_type, resource_id=resource_id
             ),
         ).delete(synchronize_session=False)
+
+    def _get_decrypted_secret(self, secret_id: str) -> dict[str, Any]:
+        """
+        Get decrypted secret value by ID.
+
+        This is a privileged operation that decrypts a secret stored in the database.
+        It should only be called server-side and never exposed to clients.
+
+        Args:
+            secret_id: ID of the secret to decrypt.
+
+        Returns:
+            Decrypted secret value as a dict.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_secret = self._get_entity_or_raise(
+                session,
+                SqlGatewaySecret,
+                {"secret_id": secret_id},
+                "GatewaySecret",
+            )
+
+            kek_manager = KEKManager()
+            return _decrypt_secret(
+                encrypted_value=sql_secret.encrypted_value,
+                wrapped_dek=sql_secret.wrapped_dek,
+                kek_manager=kek_manager,
+                secret_id=sql_secret.secret_id,
+                secret_name=sql_secret.secret_name,
+            )
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

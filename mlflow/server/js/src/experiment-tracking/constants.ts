@@ -85,7 +85,8 @@ export const MLFLOW_RUN_TYPE_TAG = 'mlflow.runType';
 export const MLFLOW_RUN_COLOR_TAG = 'mlflow.runColor';
 export const MLFLOW_RUN_SOURCE_TYPE_TAG = 'mlflow.runSourceType';
 export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
-export const MLFLOW_RUN_IS_ISSUE_DETECTION_TAG = 'mlflow.run.isIssueDetection';
+export const MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE = 'genai_evaluate';
+export const MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION = 'issue_detection';
 export const MLFLOW_ISSUE_DETECTION_JOB_ID_TAG = 'mlflow.issueDetection.jobId';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';

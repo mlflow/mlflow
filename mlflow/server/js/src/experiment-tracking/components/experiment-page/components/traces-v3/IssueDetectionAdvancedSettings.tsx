@@ -13,6 +13,7 @@ interface IssueDetectionAdvancedSettingsProps {
   onApiKeyConfigChange: (config: ApiKeyConfiguration) => void;
   authModes: AuthMode[];
   defaultAuthMode: string | undefined;
+  showModelSelector?: boolean;
 }
 
 export function IssueDetectionAdvancedSettings({
@@ -23,23 +24,26 @@ export function IssueDetectionAdvancedSettings({
   onApiKeyConfigChange,
   authModes,
   defaultAuthMode,
+  showModelSelector = true,
 }: IssueDetectionAdvancedSettingsProps) {
   const { theme } = useDesignSystemTheme();
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-      <ModelSelect
-        provider={provider}
-        value={model}
-        onChange={onModelChange}
-        componentIdPrefix="mlflow.traces.issue-detection-modal.model"
-        label={
-          <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-            <FormattedMessage defaultMessage="Model *" description="Label for model selection (required)" />
-          </Typography.Text>
-        }
-        hideCapabilities
-      />
+      {showModelSelector && (
+        <ModelSelect
+          provider={provider}
+          value={model}
+          onChange={onModelChange}
+          componentIdPrefix="mlflow.traces.issue-detection-modal.model"
+          label={
+            <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+              <FormattedMessage defaultMessage="Model *" description="Label for model selection (required)" />
+            </Typography.Text>
+          }
+          hideCapabilities
+        />
+      )}
       {provider && apiKeyConfig.mode === 'new' && (
         <IssueDetectionAdvancedApiKeySettings
           value={apiKeyConfig}
