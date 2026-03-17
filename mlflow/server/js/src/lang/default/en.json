@@ -1741,10 +1741,6 @@
     "defaultMessage": "MLflow runs:",
     "description": "A label for the associated MLflow runs in the prompt details page"
   },
-  "9ZzOhu": {
-    "defaultMessage": "API Keys",
-    "description": "Sidebar link for gateway API keys"
-  },
   "9cTaBs": {
     "defaultMessage": "Fail",
     "description": "Failing assessment label"
@@ -3922,10 +3918,6 @@
     "defaultMessage": "Link prompts to traces",
     "description": "Heading describing how to add prompts when no prompt records are available"
   },
-  "O6uYS1": {
-    "defaultMessage": "Saved API keys can be managed in AI Gateway → API Keys tab",
-    "description": "Tooltip explaining where saved API keys can be found"
-  },
   "O9r1RR": {
     "defaultMessage": "Start Time:",
     "description": "Row title for the start time of runs on the experiment compare runs page"
@@ -6021,6 +6013,10 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
+  "bZgVna": {
+    "defaultMessage": "Saved API keys can be managed from the API Keys page",
+    "description": "Tooltip explaining where saved API keys can be found"
+  },
   "ba7/ni": {
     "defaultMessage": "A demo experiment to quickly explore MLflow's core features with sample pre-generated data. You can clean up demo resources from Settings.",
     "description": "Tooltip explaining the demo experiment in the experiments list"
@@ -7056,6 +7052,10 @@
     "defaultMessage": "Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
   },
+  "i7hyJK": {
+    "defaultMessage": "API Keys",
+    "description": "Sidebar link for API keys"
+  },
   "i9OADf": {
     "defaultMessage": "Params",
     "description": "Experiment page > group by runs control > params section label"
@@ -7343,6 +7343,10 @@
   "k0m460": {
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
+  },
+  "k1mgqP": {
+    "defaultMessage": "Detect Issues",
+    "description": "Label for the detect issues button on the experiment overview page"
   },
   "k2bPN+": {
     "defaultMessage": "Last used",
@@ -8110,6 +8114,10 @@
   "ogDiio": {
     "defaultMessage": "Select at least one session to enable actions",
     "description": "Tooltip for disabled actions button when no sessions are selected"
+  },
+  "ohnp9T": {
+    "defaultMessage": "Detect issues in traces",
+    "description": "Aria label for the detect issues button on the experiment overview page"
   },
   "okQ1oB": {
     "defaultMessage": "Please input a new name for the new experiment.",
