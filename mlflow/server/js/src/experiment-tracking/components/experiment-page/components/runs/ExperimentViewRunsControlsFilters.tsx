@@ -178,6 +178,10 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           >
             <SegmentedControlButton
               value="TABLE"
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Table view',
+                description: 'Experiment page > control bar > table view toggle button tooltip',
+              })}
               icon={
                 <Tooltip
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_201"
@@ -192,6 +196,10 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             />
             <SegmentedControlButton
               value="CHART"
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Chart view',
+                description: 'Experiment page > control bar > chart view toggle button tooltip',
+              })}
               icon={
                 <Tooltip
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_211"
@@ -207,6 +215,11 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             <SegmentedControlButton
               value="ARTIFACT"
               disabled={areRunsGrouped}
+              aria-label={intl.formatMessage({
+                defaultMessage: 'Artifact evaluation',
+                description:
+                  'A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view',
+              })}
               icon={
                 <Tooltip
                   componentId="mlflow.experiment_page.mode.artifact"
