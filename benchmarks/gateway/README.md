@@ -57,6 +57,8 @@ bash run_full_stack_comparison.sh
 
 All results: MacBook Pro (Apple Silicon), 4 workers, 50 concurrent users. Config caching is enabled (the default since [#21660](https://github.com/mlflow/mlflow/pull/21660)).
 
+> **Note**: The "Full-stack, tracking ON" row includes optimizations from this branch that have **not yet been shipped to `master`**: DB contention fix, ASGI middleware conversion, and batch span processor (see [Optimization Journey](#optimization-journey)). The other rows (barebone, zero delay, tracking OFF) reflect the current `master` behavior. On current `master`, tracking-ON achieves **~77 rps / P99≈1700ms** — an 11x improvement is pending review.
+
 ### Combined results
 
 All benchmarks: 2000 requests/run, 3 runs, 4 workers, 50 concurrency.
@@ -98,7 +100,7 @@ All benchmarks: 2000 requests/run, 3 runs, 4 workers, 50 concurrency.
 | **MLflow**  | 852 rps       | 816 rps          | **1.04x slower** (~4%) |
 | **LiteLLM** | 461 rps       | 602 rps          | **1.3x slower** (~30%) |
 
-After the optimizations described in the [Optimization Journey](#optimization-journey) section, MLflow's tracing overhead is comparable to LiteLLM's spend tracking overhead — both add only single-digit percentage impact.
+After the optimizations described in the [Optimization Journey](#optimization-journey) section (not yet shipped), MLflow's tracing overhead is comparable to LiteLLM's spend tracking overhead. On current `master` without these optimizations, the tracking overhead is **~10.6x** (77 rps with tracking vs 816 without).
 
 > **Note**: Portkey's OSS version has no usage/spend tracking, so it runs at the same speed regardless of configuration.
 >
@@ -106,13 +108,13 @@ After the optimizations described in the [Optimization Journey](#optimization-jo
 
 ### Bottleneck breakdown
 
-| Bottleneck                        | Overhead factor | Evidence                             |
-| --------------------------------- | --------------- | ------------------------------------ |
-| **Usage tracking / tracing**      | ~1.04x (solved) | 852 rps → 891 rps when disabled      |
-| **Uncached config DB queries**    | ~5x             | 14 rps → 67 rps when cached          |
-| **Core proxy path** (no overhead) | 1x (baseline)   | 816 rps — faster than LiteLLM at 530 |
+| Bottleneck                        | On `master`   | With optimizations (this branch) | Evidence                             |
+| --------------------------------- | ------------- | -------------------------------- | ------------------------------------ |
+| **Usage tracking / tracing**      | ~10.6x        | ~1.04x                           | 77 rps → 852 rps with optimizations  |
+| **Uncached config DB queries**    | ~5x (shipped) | ~5x (shipped)                    | 14 rps → 67 rps when cached          |
+| **Core proxy path** (no overhead) | 1x (baseline) | 1x (baseline)                    | 816 rps — faster than LiteLLM at 530 |
 
-Usage tracking used to be a 10.6x bottleneck (77 rps with tracking vs 816 without). After the optimizations described in the [Optimization Journey](#optimization-journey) section, it adds only ~4% overhead. Endpoint config caching resolved the other major bottleneck.
+Usage tracking is currently a ~10.6x bottleneck on `master` (77 rps with tracking vs 816 without). The optimizations in this branch reduce that to ~4% overhead (852 rps). See the [Optimization Journey](#optimization-journey) for details and [tradeoff assessment](#tradeoff-assessment). Endpoint config caching (already shipped) resolved the other major bottleneck.
 
 > **Note**: Endpoint config caching is now enabled by default via `SecretCache` in `config_resolver.py` ([#21660](https://github.com/mlflow/mlflow/pull/21660)). No special configuration is needed to reproduce the cached results above.
 
