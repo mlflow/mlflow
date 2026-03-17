@@ -37,8 +37,14 @@ export type SerializedRunsChartsCardConfigCard = RunsChartsCardConfig;
 
 // A function to iterate across run/group data traces and determine if any metric has multiple epochs.
 // This helps to decide if we should seed the line chart or a bar chart.
-const dataTraceMetricsContainMultipleEpochs = (dataTrace: RunsChartsRunData, metricKey: string): boolean =>
-  Boolean(dataTrace.metrics?.[metricKey]?.step >= MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON);
+// Prefer metricHistory length when available (accurate); fallback to step heuristic when not.
+const dataTraceMetricsContainMultipleEpochs = (dataTrace: RunsChartsRunData, metricKey: string): boolean => {
+  const history = dataTrace.metricHistory?.[metricKey];
+  if (history !== undefined) {
+    return history.length > 1;
+  }
+  return Boolean(dataTrace.metrics?.[metricKey]?.step >= MIN_NUMBER_OF_STEP_FOR_LINE_COMPARISON);
+};
 
 /**
  * Main class used for represent a single configured chart card with its type, configuration options etc.

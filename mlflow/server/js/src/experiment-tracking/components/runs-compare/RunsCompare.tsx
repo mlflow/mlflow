@@ -2,7 +2,7 @@ import { TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import type { MetricEntitiesByName, ChartSectionConfig, ImageEntity } from '../../types';
+import type { MetricEntitiesByName, ChartSectionConfig, ImageEntity, SampledMetricsByRunUuidState } from '../../types';
 import type { KeyValueEntity } from '../../../common/types';
 import { RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
 import type { RunsChartType } from '../runs-charts/runs-charts.types';
@@ -72,6 +72,22 @@ export interface RunsCompareProps {
 /**
  * Utility function: based on a run row coming from runs table, creates run data trace to be used in charts
  */
+const buildMetricsHistoryFromSampled = (
+  sampled: SampledMetricsByRunUuidState | undefined,
+  runUuid: string,
+  metricKeys: string[],
+): Record<string, import('../../types').MetricEntity[]> => {
+  const result: Record<string, import('../../types').MetricEntity[]> = {};
+  if (!sampled?.[runUuid]) return result;
+  for (const key of metricKeys) {
+    const byRange = sampled[runUuid][key];
+    if (!byRange) continue;
+    const firstWithHistory = Object.values(byRange).find((r: { metricsHistory?: unknown[] }) => r.metricsHistory?.length);
+    if (firstWithHistory?.metricsHistory) result[key] = firstWithHistory.metricsHistory;
+  }
+  return result;
+};
+
 const createRunDataTrace = (
   run: RunRowType,
   latestMetricsByRunUuid: Record<string, MetricEntitiesByName>,
@@ -79,6 +95,8 @@ const createRunDataTrace = (
   tagsByRunUuid: Record<string, Record<string, KeyValueEntity>>,
   imagesByRunUuid: Record<string, Record<string, Record<string, ImageEntity>>>,
   color: string,
+  sampledMetricsByRunUuid?: SampledMetricsByRunUuidState,
+  metricKeyList?: string[],
 ) => ({
   uuid: run.runUuid,
   displayName: run.runInfo?.runName || run.runUuid,
@@ -90,7 +108,9 @@ const createRunDataTrace = (
   color,
   pinned: run.pinned,
   pinnable: run.pinnable,
-  metricsHistory: {},
+  metricsHistory: sampledMetricsByRunUuid && metricKeyList?.length
+    ? buildMetricsHistoryFromSampled(sampledMetricsByRunUuid, run.runUuid, metricKeyList)
+    : {},
   belongsToGroup: run.runDateAndNestInfo?.belongsToGroup,
   hidden: run.hidden,
 });
@@ -125,7 +145,9 @@ const createGroupDataTrace = (run: RunRowType, color: string) => {
     color,
     pinned: run.pinned,
     pinnable: run.pinnable,
-    metricsHistory: {},
+    metricsHistory: sampledMetricsByRunUuid && metricKeyList?.length
+    ? buildMetricsHistoryFromSampled(sampledMetricsByRunUuid, run.runUuid, metricKeyList)
+    : {},
     hidden: run.hidden,
   };
 };
@@ -159,12 +181,13 @@ const RunsCompareImpl = ({
   // Updater function for charts UI state
   const updateChartsUIState = useUpdateRunsChartsUIConfiguration();
 
-  const { paramsByRunUuid, latestMetricsByRunUuid, tagsByRunUuid, imagesByRunUuid } = useSelector(
+  const { paramsByRunUuid, latestMetricsByRunUuid, tagsByRunUuid, imagesByRunUuid, sampledMetricsByRunUuid } = useSelector(
     (state: ReduxState) => ({
       paramsByRunUuid: state.entities.paramsByRunUuid,
       latestMetricsByRunUuid: state.entities.latestMetricsByRunUuid,
       tagsByRunUuid: state.entities.tagsByRunUuid,
       imagesByRunUuid: state.entities.imagesByRunUuid,
+      sampledMetricsByRunUuid: state.entities.sampledMetricsByRunUuid,
     }),
   );
 
@@ -228,6 +251,8 @@ const RunsCompareImpl = ({
             tagsByRunUuid,
             imagesByRunUuid,
             getRunColor(run.runUuid),
+            sampledMetricsByRunUuid,
+            metricKeyList,
           ),
         );
     }
@@ -237,7 +262,7 @@ const RunsCompareImpl = ({
       .map<RunsChartsRunData>((group) => createGroupDataTrace(group, getRunColor(group.groupParentInfo?.groupId)));
 
     return groupChartDataEntries;
-  }, [groupBy, comparedRuns, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid, imagesByRunUuid, getRunColor]);
+  }, [groupBy, comparedRuns, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid, imagesByRunUuid, getRunColor, sampledMetricsByRunUuid, metricKeyList]);
 
   const filteredImageData = chartData.filter((run) => !run.hidden && run.tags[LOG_IMAGE_TAG_INDICATOR]);
   usePopulateImagesByRunUuid({
