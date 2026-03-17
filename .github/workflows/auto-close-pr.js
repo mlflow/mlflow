@@ -61,11 +61,11 @@ module.exports = async ({ context, github }) => {
   const templateHeadings = getTemplateHeadings();
   const prBody = context.payload.pull_request.body;
   const missingHeadings = getMissingHeadings(prBody, templateHeadings);
-  if (missingHeadings.length > 0) {
-    console.log(
-      `PR #${prNumber} is missing ${missingHeadings.length} template section(s). Closing.`
-    );
-
+  const missingRatio = missingHeadings.length / templateHeadings.length;
+  console.log(
+    `PR #${prNumber} is missing ${missingHeadings.length}/${templateHeadings.length} template section(s).`
+  );
+  if (missingRatio > 0.5) {
     const missingList = missingHeadings.map((h) => `- ${h}`).join("\n");
     await github.rest.issues.createComment({
       owner,
