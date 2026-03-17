@@ -3683,6 +3683,51 @@ def test_make_judge_with_base_url():
     assert "base_url='http://my-proxy:8080/v1'" in repr_str
 
 
+def test_make_judge_repr_with_malformed_base_url_port():
+    judge = make_judge(
+        name="proxy_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        base_url="http://user:pass@my-proxy:abc/v1?token=secret#frag",
+    )
+
+    repr_str = repr(judge)
+    assert "base_url='http://my-proxy:abc/v1'" in repr_str
+    assert "user:pass@" not in repr_str
+    assert "token=secret" not in repr_str
+    assert "#frag" not in repr_str
+
+
+def test_make_judge_base_url_must_be_string():
+    with pytest.raises(MlflowException, match="base_url must be a string"):
+        make_judge(
+            name="test_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="openai:/gpt-4",
+            base_url=12345,
+        )
+
+
+def test_make_judge_extra_headers_must_be_dict():
+    with pytest.raises(MlflowException, match="extra_headers must be a dictionary"):
+        make_judge(
+            name="test_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="openai:/gpt-4",
+            extra_headers=["not", "a", "dict"],
+        )
+
+
+def test_make_judge_extra_headers_keys_and_values_must_be_strings():
+    with pytest.raises(MlflowException, match="must all be strings"):
+        make_judge(
+            name="test_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="openai:/gpt-4",
+            extra_headers={"X-Key": 12345},
+        )
+
+
 def test_make_judge_with_extra_headers():
     headers = {"X-Api-Key": "secret", "X-Org-Id": "org-123"}
     judge = make_judge(

@@ -143,6 +143,24 @@ class InstructionsJudge(Judge):
                 "instructions must be a non-empty string",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if base_url is not None and not isinstance(base_url, str):
+            raise MlflowException(
+                f"base_url must be a string, got {type(base_url).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if extra_headers is not None:
+            if not isinstance(extra_headers, dict):
+                raise MlflowException(
+                    f"extra_headers must be a dictionary, got {type(extra_headers).__name__}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            for k, v in extra_headers.items():
+                if not isinstance(k, str) or not isinstance(v, str):
+                    raise MlflowException(
+                        "extra_headers keys and values must all be strings, "
+                        f"got key={k!r} ({type(k).__name__}), value={v!r} ({type(v).__name__}).",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
 
         self._instructions = instructions
         self._model = model or get_default_model()
@@ -623,10 +641,18 @@ class InstructionsJudge(Judge):
             f", inference_params={self._inference_params}" if self._inference_params else ""
         )
         if self._base_url:
-            parsed = urlparse(self._base_url)
-            port_str = f":{parsed.port}" if parsed.port else ""
-            safe_netloc = f"{parsed.hostname}{port_str}"
-            safe_url = urlunparse((parsed.scheme, safe_netloc, parsed.path, "", "", ""))
+            try:
+                parsed = urlparse(self._base_url)
+                safe_netloc = parsed.netloc.rsplit("@", 1)[-1]
+                safe_url = urlunparse((parsed.scheme, safe_netloc, parsed.path, "", "", ""))
+            except Exception:
+                safe_url = self._base_url.split("#", 1)[0].split("?", 1)[0]
+                if "@" in safe_url:
+                    if "://" in safe_url:
+                        scheme, rest = safe_url.split("://", 1)
+                        safe_url = f"{scheme}://{rest.rsplit('@', 1)[-1]}"
+                    else:
+                        safe_url = safe_url.rsplit("@", 1)[-1]
             base_url_str = f", base_url='{safe_url}'"
         else:
             base_url_str = ""
