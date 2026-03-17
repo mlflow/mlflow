@@ -8,6 +8,7 @@ const fs = require("fs");
 const path = require("path");
 
 const READY_LABEL = "ready";
+const PR_TEMPLATE_PATH = ".github/pull_request_template.md";
 // The date we introduced the "ready" label policy; skip older issues.
 const CUTOFF_DATE = new Date("2026-03-10T00:00:00Z");
 
@@ -33,11 +34,7 @@ const QUERY = `
 `;
 
 function getTemplateHeadings() {
-  const templatePath = path.join(
-    process.env.GITHUB_WORKSPACE,
-    ".github",
-    "pull_request_template.md"
-  );
+  const templatePath = path.join(process.env.GITHUB_WORKSPACE, PR_TEMPLATE_PATH);
   try {
     return fs
       .readFileSync(templatePath, "utf8")
@@ -77,11 +74,7 @@ module.exports = async ({ context, github }) => {
       body: [
         "This PR was automatically closed because it does not follow the PR template.",
         `Missing sections:\n${missingList}`,
-        "Please update your PR body to include all sections from the [PR template](https://github.com/" +
-          owner +
-          "/" +
-          repo +
-          "/blob/master/.github/pull_request_template.md) and reopen this PR.",
+        `Please update your PR body to include all sections from the [PR template](https://github.com/${owner}/${repo}/blob/master/${PR_TEMPLATE_PATH}) and reopen this PR.`,
       ].join("\n"),
     });
 
