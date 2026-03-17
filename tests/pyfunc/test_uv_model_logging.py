@@ -494,7 +494,7 @@ def test_run_uv_sync_real(tmp_uv_project, tmp_path):
 
     sync_dir = tmp_path / "sync_project"
 
-    # Create the virtual environment directly at sync_dir (not at sync_dir/.venv)
+    # Create the virtual environment directly at sync_dir
     venv_result = subprocess.run(
         ["uv", "venv", sync_dir],
         capture_output=True,
@@ -509,7 +509,7 @@ def test_run_uv_sync_real(tmp_uv_project, tmp_path):
 
     assert result is True
 
-    # Verify numpy is installed in the env at sync_dir (not sync_dir/.venv)
+    # Verify numpy is installed in the env at sync_dir
     python_bin = sync_dir / "bin" / "python"
     check = subprocess.run(
         [python_bin, "-c", "import numpy; print(numpy.__version__)"],

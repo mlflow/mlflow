@@ -444,6 +444,7 @@ def run_uv_sync(
 
         subprocess.run(
             cmd,
+            cwd=str(project_dir),
             capture_output=capture_output,
             check=True,
             text=True,
