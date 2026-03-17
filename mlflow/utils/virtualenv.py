@@ -285,15 +285,12 @@ def _create_virtualenv(
         uv_sync_succeeded = False
         if env_manager == em.UV and has_uv_lock_artifact(local_model_path):
             _logger.info("Found uv.lock artifact, attempting UV sync for environment restoration")
-            uv_sync_succeeded = run_uv_sync(
-                project_dir=local_model_path,
-                python_env_dir=env_dir,
-                capture_output=capture_output
-            )
-            if uv_sync_succeeded:
-                _logger.info("UV sync completed successfully")
-            else:
-                _logger.warning("UV sync failed, falling back to pip-based installation")
+            if setup_uv_sync_environment(env_dir, local_model_path, python_env.python):
+                uv_sync_succeeded = run_uv_sync(env_dir, capture_output=capture_output)
+                if uv_sync_succeeded:
+                    _logger.info("UV sync completed successfully")
+                else:
+                    _logger.warning("UV sync failed, falling back to pip-based installation")
 
         # Fall back to pip-based installation if UV sync was not used or failed
         if not uv_sync_succeeded:
