@@ -3,6 +3,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 import requests
+from pydantic import BaseModel
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -23,8 +24,6 @@ def get_endpoint_type(endpoint_uri: str) -> str | None:
 
     if schema != "endpoints":
         return None
-
-    from pydantic import BaseModel
 
     from mlflow.deployments import get_deploy_client
 
