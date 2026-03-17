@@ -217,17 +217,17 @@ def test_token_counter_tracks_gateway_response_without_hidden_params():
     assert counter._model == "openai:/gpt-5-mini"
 
 
-def test_token_counter_to_dict_looks_up_cost_when_zero(monkeypatch):
+def test_token_counter_to_dict_looks_up_cost_when_zero():
     counter = _TokenCounter(input_tokens=100, output_tokens=50)
     counter._model = "openai:/gpt-5-mini"
 
-    monkeypatch.setattr(
+    with mock.patch(
         "mlflow.genai.discovery.utils._lookup_model_cost",
-        lambda model, inp, out: 0.0042,
-    )
+        return_value=0.0042,
+    ) as mock_lookup:
+        result = counter.to_dict()
 
-    result = counter.to_dict()
-
+    mock_lookup.assert_called_once()
     assert result["cost_usd"] == 0.0042
     assert result["total_tokens"] == 150
 
@@ -289,7 +289,6 @@ def test_call_llm_uses_gateway_when_litellm_unavailable():
         ) as mock_avail,
         mock.patch(
             "mlflow.genai.discovery.utils._call_llm_via_gateway",
-            return_value=mock.MagicMock(),
         ) as mock_gw,
     ):
         from mlflow.genai.discovery.utils import _call_llm
@@ -307,7 +306,6 @@ def test_call_llm_uses_litellm_when_available():
         ) as mock_avail,
         mock.patch(
             "mlflow.genai.discovery.utils._call_llm_via_litellm",
-            return_value=mock.MagicMock(),
         ) as mock_ll,
     ):
         from mlflow.genai.discovery.utils import _call_llm

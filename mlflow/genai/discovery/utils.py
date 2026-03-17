@@ -383,10 +383,7 @@ def collect_affected_trace_ids(
 
 
 def format_trace_content(trace: Trace) -> str:
-    from mlflow.genai.discovery.extraction import (
-        extract_execution_path,
-        extract_span_errors,
-    )
+    from mlflow.genai.discovery.extraction import extract_execution_path, extract_span_errors
 
     parts = []
     if request := trace.data.request:
