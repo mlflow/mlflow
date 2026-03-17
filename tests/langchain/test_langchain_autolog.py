@@ -1067,7 +1067,7 @@ def test_langchain_auto_tracing_work_when_langchain_parent_package_not_installed
 def test_langchain_auto_tracing_in_serving_runnable(model_info):
     mlflow.langchain.autolog()
 
-    expected_output = [{"role": "user", "content": "What is MLflow?"}]
+    expected_output = '[{"role": "user", "content": "What is MLflow?"}]'
     databricks_request_id, predictions, trace = score_in_model_serving(
         model_info.model_uri,
         [{"product": "MLflow"}],
