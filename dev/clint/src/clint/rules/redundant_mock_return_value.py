@@ -7,8 +7,8 @@ from clint.rules.base import Rule
 class RedundantMockReturnValue(Rule):
     def _message(self) -> str:
         return (
-            "Do not pass return_value=MagicMock() or return_value=Mock() to patch(). "
-            "The default return value is already a MagicMock."
+            "Do not pass `return_value=MagicMock()` or `return_value=Mock()` to `patch()`. "
+            "The default return value of a mock is already a new mock."
         )
 
     @staticmethod
