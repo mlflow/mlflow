@@ -768,3 +768,66 @@ def test_capture_imported_modules_excludes_pyspark_gateway_env_vars(monkeypatch,
     mock_run.assert_called_once()
     assert "PYSPARK_GATEWAY_PORT" not in captured_env
     assert "PYSPARK_GATEWAY_SECRET" not in captured_env
+
+
+def test_warn_dependency_skips_non_matching_environment_markers():
+    """Requirements with environment markers that don't match the current
+    platform should not trigger spurious warnings. This covers the uv export
+    format which includes markers like 'python_full_version >= "3.11"' and
+    'sys_platform == "linux"'.
+    """
+    import sys
+
+    reqs = [
+        # Marker that doesn't match current Python (one of these will be False)
+        f'fakepkg==1.0; python_full_version < "0.1"',
+        # Platform marker that can't match (nonexistent platform)
+        'fakepkg2==1.0; sys_platform == "nonexistent_platform"',
+    ]
+
+    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warn:
+        warn_dependency_requirement_mismatches(reqs)
+        mock_warn.assert_not_called()
+
+
+def test_warn_dependency_fires_for_matching_marker_with_missing_package():
+    """Requirements with markers that DO match should still trigger warnings
+    if the package is not installed.
+    """
+    import sys
+
+    reqs = [
+        # This marker always matches (current platform)
+        f'totally_fake_nonexistent_pkg==1.0; sys_platform == "{sys.platform}"',
+    ]
+
+    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warn:
+        warn_dependency_requirement_mismatches(reqs)
+        mock_warn.assert_called_once()
+        warning_msg = mock_warn.call_args[0][0]
+        assert "totally_fake_nonexistent_pkg" in warning_msg
+
+
+def test_warn_dependency_skips_uv_style_dual_markers():
+    """uv export produces two entries for the same package with different
+    markers (e.g., numpy for Python 3.10 and 3.11). Only the entry matching
+    the current Python should be evaluated.
+    """
+    import sys
+
+    major, minor = sys.version_info[:2]
+    # One marker matches, one doesn't
+    reqs = [
+        f'fakepkg==1.0; python_full_version < "{major}.{minor}"',
+        f'fakepkg==2.0; python_full_version >= "{major}.{minor}"',
+    ]
+
+    with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warn:
+        warn_dependency_requirement_mismatches(reqs)
+        # Should warn about fakepkg==2.0 (matching marker, package not installed)
+        # Should NOT warn about fakepkg==1.0 (non-matching marker)
+        if mock_warn.called:
+            warning_msg = mock_warn.call_args[0][0]
+            assert "fakepkg==2.0" in warning_msg or "fakepkg" in warning_msg
+            # Should NOT contain the non-matching version
+            assert f'fakepkg==1.0; python_full_version < "{major}.{minor}"' not in warning_msg

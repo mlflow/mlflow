@@ -683,8 +683,19 @@ def warn_dependency_requirement_mismatches(model_requirements: list[str]):
 
     try:
         mismatch_infos = []
-        for req in model_requirements:
-            mismatch_info = _check_requirement_satisfied(req)
+        for req_str in model_requirements:
+            # Skip requirements whose environment markers don't match the
+            # current platform. uv export produces requirements with markers
+            # like 'numpy==2.4.3; python_full_version >= "3.11"' that should
+            # not trigger warnings on Python 3.10.
+            try:
+                parsed = Requirement(req_str)
+                if parsed.marker and not parsed.marker.evaluate():
+                    continue
+            except Exception:
+                pass
+
+            mismatch_info = _check_requirement_satisfied(req_str)
             if mismatch_info is not None:
                 if _normalize_package_name(mismatch_info.package_name) in ignore_packages:
                     continue
