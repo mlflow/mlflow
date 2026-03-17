@@ -579,6 +579,10 @@
     "defaultMessage": "Detect Issues",
     "description": "Label for the detect issues button in the traces table toolbar"
   },
+  "1uyr/n": {
+    "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
+    "description": "Issue detection summary > View issues button"
+  },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
     "description": "Label for the custom column group in the logged model column selector"
