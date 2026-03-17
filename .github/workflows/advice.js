@@ -16,7 +16,17 @@ async function getRecentActivity(github, username) {
   const repoCounts = new Map();
   for (const item of items) {
     const repoFullName = item.repository_url.replace("https://api.github.com/repos/", "");
-    repoCounts.set(repoFullName, (repoCounts.get(repoFullName) || 0) + 1);
+    if (!repoCounts.has(repoFullName)) {
+      repoCounts.set(repoFullName, { open: 0, closed: 0, merged: 0 });
+    }
+    const counts = repoCounts.get(repoFullName);
+    if (item.pull_request?.merged_at) {
+      counts.merged++;
+    } else if (item.state === "closed") {
+      counts.closed++;
+    } else {
+      counts.open++;
+    }
   }
   return { totalPRs: items.length, repoCount: repoCounts.size, repoBreakdown: repoCounts };
 }
@@ -29,11 +39,14 @@ async function getRecentActivitySection(github, username) {
   const prLabel = totalPRs === 1 ? "PR" : "PRs";
   const repoLabel = repoCount === 1 ? "repo" : "repos";
   const sortedRepos = [...repoBreakdown.entries()]
-    .sort((a, b) => b[1] - a[1])
+    .sort((a, b) => b[1].open + b[1].closed + b[1].merged - (a[1].open + a[1].closed + a[1].merged))
     .slice(0, MAX_REPOS_TO_DISPLAY);
   const tableRows = sortedRepos
     .map(
-      ([repo, count]) => `| [${repo}](https://github.com/${repo}/pulls/${username}) | ${count} |`
+      ([repo, { open, closed, merged }]) =>
+        `| [${repo}](https://github.com/${repo}/pulls/${username}) | ${open} | ${closed} | ${merged} | ${
+          open + closed + merged
+        } |`
     )
     .join("\n");
   const topNote = repoCount > MAX_REPOS_TO_DISPLAY ? ` (showing top ${MAX_REPOS_TO_DISPLAY})` : "";
@@ -42,8 +55,8 @@ async function getRecentActivitySection(github, username) {
 
 In the last 14 days, @${username} opened **${totalPRs} ${prLabel}** across **${repoCount} ${repoLabel}**${topNote}:
 
-| Repository | PRs |
-| ---------- | --- |
+| Repository | Open | Closed | Merged | Total |
+| ---------- | ---- | ------ | ------ | ----- |
 ${tableRows}
 
 </details>`;
