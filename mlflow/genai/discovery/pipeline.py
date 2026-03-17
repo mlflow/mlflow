@@ -45,7 +45,7 @@ from mlflow.genai.discovery.utils import (
     _call_llm,
     _TokenCounter,
     build_summary,
-    collect_example_trace_ids,
+    collect_affected_trace_ids,
     format_annotation_prompt,
     format_trace_content,
     get_session_id,
@@ -408,8 +408,7 @@ def _build_issues(
     issues: list[Issue] = []
     issue_trace_ids: dict[str, list[str]] = {}
     for ident in identified:
-        # TODO: this doesn't include all affected traces, but at max 10 examples
-        example_trace_ids = collect_example_trace_ids(ident, analyses)
+        affected_trace_ids = collect_affected_trace_ids(ident, analyses)
         name = ident.name.removeprefix("Issue: ").removeprefix("issue: ")
         issue = TracingClient()._create_issue(
             experiment_id=exp_id,
@@ -421,7 +420,7 @@ def _build_issues(
             source_run_id=source_run_id,
         )
         issues.append(issue)
-        issue_trace_ids[issue.issue_id] = example_trace_ids
+        issue_trace_ids[issue.issue_id] = affected_trace_ids
 
     issues.sort(
         key=lambda i: i.severity,
