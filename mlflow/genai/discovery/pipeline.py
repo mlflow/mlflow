@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -62,33 +61,26 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETE
 
 _logger = logging.getLogger(__name__)
 
-_CATEGORY_TAG_RE = re.compile(r"\[([a-zA-Z][a-zA-Z0-9 _-]*)\]")
-# Brackets used for non-category purposes in rationales (execution paths, etc.)
-_CATEGORY_TAG_BLOCKLIST = {
-    "human feedback",
-    "span errors",
-    "no issues found",
-    "no routing",
-    "ERROR",
-}
-
 
 def _extract_category_tags(rationale: str, known_categories: list[str] | None = None) -> list[str]:
-    """Extract category tags in square brackets from a rationale string.
-
-    If known_categories is provided, only returns tags that match one of them
-    (case-insensitive). Otherwise returns all bracketed tags that aren't in
-    the blocklist.
     """
-    tags = _CATEGORY_TAG_RE.findall(rationale)
-    if not tags:
-        return []
+    Extract categories from triage rationale.
 
-    if known_categories:
-        known_lower = {c.lower() for c in known_categories}
-        return list(dict.fromkeys(t for t in tags if t.lower() in known_lower))
-    else:
-        return list(dict.fromkeys(t for t in tags if t.lower() not in _CATEGORY_TAG_BLOCKLIST))
+    Looks for a line starting with "CATEGORIES:" and parses comma-separated values.
+    Filters by known_categories if provided (case-insensitive match).
+    """
+    for line in rationale.split("\n"):
+        stripped = line.strip()
+        if stripped.upper().startswith("CATEGORIES:"):
+            cats_str = stripped[len("CATEGORIES:") :].strip()
+            tags = [c.strip() for c in cats_str.split(",") if c.strip()]
+            if not tags:
+                return []
+            if known_categories:
+                known_lower = {c.lower() for c in known_categories}
+                return list(dict.fromkeys(t for t in tags if t.lower() in known_lower))
+            return list(dict.fromkeys(tags))
+    return []
 
 
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:

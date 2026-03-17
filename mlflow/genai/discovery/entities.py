@@ -69,8 +69,8 @@ class _IdentifiedIssue(pydantic.BaseModel):
         description=(
             "For EACH assigned category, explain in 1-2 sentences WHY this issue "
             "belongs to that category with specific evidence from the failure. "
-            "E.g. 'safety: The assistant fabricated email access without permission, "
-            "exposing fake personal data. negative_ux: Users had to repeat requests "
-            "3+ times due to failed playback commands.'"
+            "This field is REQUIRED if any categories are assigned. "
+            "E.g. 'execution: The assistant claimed playback resumed when no action occurred. "
+            "correctness: It provided conflicting timer states in adjacent responses.'"
         ),
     )

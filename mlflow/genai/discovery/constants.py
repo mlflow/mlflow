@@ -150,25 +150,29 @@ Then cite specific evidence from the APPLICATION OUTPUT above.\
 CATEGORIES_INSTRUCTIONS = """\
 
 
-The following issue categories are the ONLY valid categories for this evaluation. \
-If the assistant's behavior relates to any of these categories, include the category \
-as a tag in square brackets in your rationale (e.g. [low_quality]). Do NOT include \
-any categories that are not in this list:
-{categories}\
+The following issue categories are the ONLY valid categories for this evaluation:
+{categories}
+
+If the assistant's behavior relates to any of these categories, end your rationale \
+with a line that starts with "CATEGORIES:" followed by a comma-separated list of \
+applicable categories. Example: "CATEGORIES: correctness, execution"
 """
 
 
-def _format_categories(categories: list[str]) -> str:
+def _format_category_list(categories: list[str]) -> str:
+    """Format category names with descriptions as bullet list."""
     lines = []
     for cat in categories:
         desc = DEFAULT_CATEGORY_DESCRIPTIONS.get(cat)
         lines.append(f"- {cat}: {desc}" if desc else f"- {cat}")
-    return CATEGORIES_INSTRUCTIONS.format(categories="\n".join(lines))
+    return "\n".join(lines)
 
 
 def build_satisfaction_instructions(*, use_conversation: bool, categories: list[str]) -> str:
     if not use_conversation:
-        return TRACE_QUALITY_INSTRUCTIONS + _format_categories(categories)
+        return TRACE_QUALITY_INSTRUCTIONS + CATEGORIES_INSTRUCTIONS.format(
+            categories=_format_category_list(categories)
+        )
 
     preamble = SATISFACTION_INSTRUCTIONS_PREAMBLE.format(context_noun="conversation")
     body = SATISFACTION_INSTRUCTIONS_BODY.format(
@@ -192,7 +196,11 @@ def build_satisfaction_instructions(*, use_conversation: bool, categories: list[
             "it is problematic.\n"
         ),
     )
-    return preamble + body + _format_categories(categories)
+    return (
+        preamble
+        + body
+        + CATEGORIES_INSTRUCTIONS.format(categories=_format_category_list(categories))
+    )
 
 
 # ---- Failure label extraction prompt ----
@@ -240,11 +248,6 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE = (
     "Cite observable symptoms (e.g. 'returned empty response', 'ignored the user's "
     "constraint to avoid implementation'). Avoid vague language like 'inefficient' "
     "or 'suboptimal' without concrete details.\n"
-    "  The LAST paragraph of the description MUST be a category justification that "
-    "starts with 'Categorized as' and explicitly explains why each assigned category "
-    "applies with specific evidence. Example: 'Categorized as safety because the "
-    "assistant fabricated access to private email data; categorized as negative_ux "
-    "because users had to repeat the same request 3+ times before getting a response.'\n"
     "- The root cause: why this likely happens AND where to investigate. You MUST name "
     "specific tools, functions, sub-agents, or execution paths from the analyses (e.g. "
     "'the run_media_playback_assistant tool returns stale state', 'the get_schedule "
@@ -262,9 +265,11 @@ CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE = (
 CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST = (
     "- **Categories**: Assign one or more categories from: {categories}. "
     "Only assign a category you can justify with specific evidence.\n"
-    "- **category_rationale**: For EACH assigned category, write 1-2 sentences explaining "
-    "WHY this issue belongs to that category. Reference specific symptoms or behaviors. "
-    "This field is REQUIRED if any categories are assigned."
+    "- **category_rationale** (REQUIRED field): For EACH assigned category, write 1-2 sentences "
+    "explaining WHY this issue belongs to that category. Reference specific symptoms or behaviors. "
+    "You MUST populate this field with explicit justification for every assigned category. "
+    "Example: 'execution: The assistant claimed playback resumed when no action occurred. "
+    "correctness: It provided conflicting timer states in adjacent responses.'"
 )
 
 
@@ -290,14 +295,9 @@ CLUSTER_CATEGORIES_CONTEXT = (
 
 
 def _format_cluster_categories(categories: list[str] | None) -> str:
-    """Format category list for injection into clustering/summary prompts."""
     if not categories:
         return ""
-    lines = []
-    for cat in categories:
-        desc = DEFAULT_CATEGORY_DESCRIPTIONS.get(cat)
-        lines.append(f"- {cat}: {desc}" if desc else f"- {cat}")
-    return CLUSTER_CATEGORIES_CONTEXT.format(categories="\n".join(lines))
+    return CLUSTER_CATEGORIES_CONTEXT.format(categories=_format_category_list(categories))
 
 
 # ---- Label clustering prompt ----

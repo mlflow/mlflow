@@ -121,10 +121,12 @@ def build_summary(issues: list[Issue], total_traces: int) -> str:
     ]
     for i, issue in enumerate(issues, 1):
         root_causes = "; ".join(issue.root_causes) if issue.root_causes else "Unknown"
+        categories = ", ".join(issue.categories) if issue.categories else "None"
         lines.append(
             f"### {i}. {issue.name} (severity: {issue.severity})\n\n"
             f"{issue.description}\n\n"
-            f"**Root causes:** {root_causes}\n"
+            f"**Root causes:** {root_causes}\n\n"
+            f"**Categories:** {categories}\n"
         )
     return "\n".join(lines)
 
