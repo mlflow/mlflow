@@ -7528,6 +7528,10 @@
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
   },
+  "kzfRC2": {
+    "defaultMessage": "Impacted traces: {count}",
+    "description": "Label showing the number of traces impacted by this issue"
+  },
   "l/+0SR": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the experiments table"
