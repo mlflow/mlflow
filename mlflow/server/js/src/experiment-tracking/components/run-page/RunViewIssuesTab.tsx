@@ -41,9 +41,15 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
     onSelect: scrollToSelectedIssue,
   });
 
-  // Auto-select issue from URL parameter when issues load
-  // Also switch to the correct status filter so the issue is visible
+  // Auto-select issue from URL parameter when issues load.
+  // Also switch to the correct status filter so the issue is visible.
   useEffect(() => {
+    // Reset tracking when selectedIssueId changes, so navigating back to the same issue
+    // (e.g., via browser back button) will re-trigger the auto-switch if needed.
+    if (autoSwitchedForIssueRef.current && autoSwitchedForIssueRef.current !== selectedIssueId) {
+      autoSwitchedForIssueRef.current = null;
+    }
+
     if (selectedIssueId && issues.length > 0) {
       const issue = issues.find((i) => i.issue_id === selectedIssueId);
       if (issue) {
