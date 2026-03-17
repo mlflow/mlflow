@@ -52,7 +52,7 @@ async function getRecentActivitySection(github, username) {
     .join("\n");
   const topNote = repoCount > MAX_REPOS_TO_DISPLAY ? ` (showing top ${MAX_REPOS_TO_DISPLAY})` : "";
   return `
-<details><summary>PR author recent activity</summary>
+<details><summary>PR author's recent activity</summary>
 
 In the last 14 days, @${username} opened **${totalPRs} ${prLabel}** across **${repoCount} ${repoLabel}**${topNote}:
 
@@ -90,16 +90,16 @@ module.exports = async ({ context, github }) => {
   const { user, body } = context.payload.pull_request;
   const messages = [];
 
-  const title = "&#x1F6E0 DevTools &#x1F6E0";
-  // Check if a DevTools comment already exists
+  const title = "Install mlflow from this PR";
+  // Check if an install comment already exists
   const comments = await github.paginate(github.rest.issues.listComments, {
     owner,
     repo,
     issue_number,
   });
-  const devToolsCommentExists = comments.some((comment) => comment.body.includes(title));
+  const installCommentExists = comments.some((comment) => comment.body.includes(title));
 
-  if (!devToolsCommentExists) {
+  if (!installCommentExists) {
     let activitySection = "";
     const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
     if (
