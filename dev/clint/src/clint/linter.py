@@ -12,13 +12,13 @@ from typing_extensions import Self
 
 from clint import rules
 from clint.builtin import ALWAYS_AVAILABLE_MODULES, BUILTIN_MODULES
-
-_LAZY_IMPORT_MODULES = BUILTIN_MODULES | ALWAYS_AVAILABLE_MODULES
 from clint.comments import Noqa, iter_comments
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.resolver import Resolver
 from clint.utils import get_ignored_rules_for_file
+
+_LAZY_IMPORT_MODULES = BUILTIN_MODULES | ALWAYS_AVAILABLE_MODULES
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
