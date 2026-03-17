@@ -31,10 +31,14 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
 
   // Scroll to the selected issue card
   const scrollToSelectedIssue = useCallback((issueId: string) => {
-    const cardElement = issueCardRefs.current[issueId];
-    if (cardElement) {
-      cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+    // Use requestAnimationFrame to ensure scroll happens after DOM updates
+    // This is especially important when the list reorders after an update
+    requestAnimationFrame(() => {
+      const cardElement = issueCardRefs.current[issueId];
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
   }, []);
 
   const [selectedIssueId, setSelectedIssueId] = useSelectedIssueId({
