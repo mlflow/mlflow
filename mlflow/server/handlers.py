@@ -88,6 +88,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
@@ -3889,7 +3890,7 @@ def get_trace_artifact_handler() -> Response:
         except Exception as e:
             raise MlflowException(
                 f"Failed to download attachment '{path}' for trace '{request_id}': {e}",
-                error_code=RESOURCE_DOES_NOT_EXIST,
+                error_code=INTERNAL_ERROR,
             )
         buf = io.BytesIO(content_bytes)
         file_sender_response = send_file(
