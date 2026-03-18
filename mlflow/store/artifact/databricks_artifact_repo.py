@@ -301,6 +301,58 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         return cred
 
+    def download_trace_attachment(self, path: str) -> bytes:
+        from mlflow.store.artifact.artifact_repo import _validate_attachment_path
+
+        _validate_attachment_path(path)
+        artifact_path = posixpath.join("attachments", path)
+        [cred], _ = self.resource.get_credentials(
+            cred_type=_CredentialType.READ,
+            artifact_path=artifact_path,
+        )
+        headers = self._extract_headers_from_credentials(cred.headers)
+        with cloud_storage_http_request("get", cred.signed_uri, headers=headers) as resp:
+            augmented_raise_for_status(resp)
+            return resp.content
+
+    def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
+        import tempfile
+        from pathlib import Path
+
+        from mlflow.store.artifact.artifact_repo import _validate_attachment_path
+
+        _validate_attachment_path(attachment_id)
+        artifact_path = posixpath.join("attachments", attachment_id)
+        [cred], _ = self.resource.get_credentials(
+            cred_type=_CredentialType.WRITE,
+            artifact_path=artifact_path,
+            timeout=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = str(Path(temp_dir, attachment_id))
+            Path(temp_file).write_bytes(content_bytes)
+            if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
+                self._azure_adls_gen2_upload_file(
+                    credentials=cred,
+                    local_file=temp_file,
+                    artifact_file_path=None,
+                    get_credentials=lambda _: [cred],
+                    is_sync=True,
+                )
+            elif cred.type == ArtifactCredentialType.AZURE_SAS_URI:
+                self._azure_upload_file(
+                    credentials=cred,
+                    local_file=temp_file,
+                    artifact_file_path=None,
+                    get_credentials=lambda _: [cred],
+                    is_sync=True,
+                )
+            elif cred.type in (
+                ArtifactCredentialType.AWS_PRESIGNED_URL,
+                ArtifactCredentialType.GCP_SIGNED_URL,
+            ):
+                self._signed_url_upload_file(cred, temp_file)
+
     def _get_read_credential_infos(self, remote_file_paths):
         """
         Returns:
