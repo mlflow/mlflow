@@ -125,6 +125,7 @@ def mock_invoke_judge_model(monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        skills=None,
     ):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
@@ -140,6 +141,7 @@ def mock_invoke_judge_model(monkeypatch):
                 "response_format": response_format,
                 "use_case": use_case,
                 "inference_params": inference_params,
+                "skills": skills,
             }
         )
 
@@ -675,6 +677,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        skills=None,
     ):
         captured_args.update(
             {
@@ -686,6 +689,7 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
                 "response_format": response_format,
                 "use_case": use_case,
                 "inference_params": inference_params,
+                "skills": skills,
             }
         )
         return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
@@ -1540,6 +1544,7 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        skills=None,
     ):
         nonlocal captured_prompt
         captured_prompt = prompt

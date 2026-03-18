@@ -26,6 +26,7 @@ from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationOutput,
     BaseJudgeAdapter,
 )
+from mlflow.genai.judges.tools.constants import SKILL_TOOL_NAMES
 from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
@@ -200,7 +201,7 @@ def _invoke_litellm_and_handle_tools(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
-    skill_set: SkillSet | None = None,
+    skills: SkillSet | None = None,
 ) -> InvokeLiteLLMOutput:
     """
     Invoke litellm with retry support and handle tool calling loop.
@@ -249,6 +250,13 @@ def _invoke_litellm_and_handle_tools(
     if trace is not None:
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
+    elif skills is not None:
+        # When skills are provided without a trace, only expose skill-related
+        # tools so the LLM can read skill content during evaluation.
+        judge_tools = list_judge_tools()
+        tools = [
+            tool.get_definition().to_dict() for tool in judge_tools if tool.name in SKILL_TOOL_NAMES
+        ]
 
     def _prune_messages_for_context_window() -> list[litellm.Message] | None:
         if provider == "gateway":
@@ -346,7 +354,7 @@ def _invoke_litellm_and_handle_tools(
 
             messages.append(message)
             tool_response_messages = _process_tool_calls(
-                tool_calls=message.tool_calls, trace=trace, skill_set=skill_set
+                tool_calls=message.tool_calls, trace=trace, skills=skills
             )
             messages.extend(tool_response_messages)
 
@@ -543,7 +551,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                 num_retries=input_params.num_retries,
                 response_format=input_params.response_format,
                 inference_params=input_params.inference_params,
-                skill_set=input_params.skill_set,
+                skills=input_params.skills,
             )
 
             cleaned_response = _strip_markdown_code_blocks(output.response)

@@ -36,9 +36,9 @@ class ReadSkillTool(JudgeTool):
             )
         )
 
-    def invoke(self, skill_set: SkillSet, skill_name: str, **kwargs) -> Any:
-        skill = skill_set.get_skill(skill_name)
+    def invoke(self, skills: SkillSet, skill_name: str, **kwargs) -> Any:
+        skill = skills.get_skill(skill_name)
         if not skill:
-            available = [s.name for s in skill_set.skills]
+            available = [s.name for s in skills.skills]
             return f"Error: No skill named '{skill_name}'. Available skills: {available}"
         return skill.body

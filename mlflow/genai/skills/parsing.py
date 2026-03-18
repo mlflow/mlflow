@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import re
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -10,27 +10,93 @@ import yaml
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
-_NAME_PATTERN = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+# Max length for skill names per the Agent Skills specification.
+_MAX_SKILL_NAME_LENGTH = 64
 
 
 @dataclass
 class Skill:
+    """A parsed skill loaded from a SKILL.md file.
+
+    A skill is a self-contained unit of domain knowledge that judges can
+    reference during evaluation. Each skill has a name, description, body
+    content (from SKILL.md), and optional companion files.
+
+    Attributes:
+        name: Unique identifier for the skill (lowercase alphanumeric with hyphens).
+        description: Short summary of what the skill covers.
+        path: Absolute path to the skill directory on disk, or ``None`` for
+            skills reconstructed from serialized data.
+        metadata: Arbitrary key-value pairs from the SKILL.md frontmatter.
+        body: The markdown body content of SKILL.md (after frontmatter).
+        files: Mapping of relative file paths to their text content for all
+            companion files in the skill directory (excludes SKILL.md itself).
+    """
+
     name: str
     description: str
-    path: Path
+    path: Path | None
     metadata: dict[str, str] = field(default_factory=dict)
     body: str = ""
     files: dict[str, str] = field(default_factory=dict)
 
 
 class SkillSet:
+    """An ordered collection of skills that can be attached to a judge.
+
+    SkillSet loads and indexes skills from filesystem paths, making them
+    available for lookup by name during judge evaluation.
+
+    Args:
+        paths: List of paths to skill directories (containing SKILL.md)
+            or direct paths to SKILL.md files.
+    """
+
     def __init__(self, paths: list[str | Path]):
         self.skills: list[Skill] = [load_skill(p) for p in paths]
 
     def get_skill(self, name: str) -> Skill | None:
+        """Look up a skill by name.
+
+        Returns:
+            The matching Skill, or None if no skill has the given name.
+        """
         return next((s for s in self.skills if s.name == name), None)
 
+    @classmethod
+    def from_contents(cls, contents: list[dict[str, Any]]) -> SkillSet:
+        """Reconstruct a SkillSet from serialized skill content dicts.
+
+        Each dict should have keys: name, description, metadata, body, files.
+        This is the inverse of the serialization done in
+        ``InstructionsJudge.model_dump()``.
+        """
+        instance = cls.__new__(cls)
+        skills = []
+        for c in contents:
+            name = c["name"]
+            description = c["description"]
+            metadata = c.get("metadata", {})
+            body = c.get("body", "")
+            files = c.get("files", {})
+
+            _validate_name(name)
+
+            skills.append(
+                Skill(
+                    name=name,
+                    description=description,
+                    path=None,
+                    metadata=metadata,
+                    body=body,
+                    files=files,
+                )
+            )
+        instance.skills = skills
+        return instance
+
     def to_prompt(self) -> str:
+        """Render the skill set as a prompt fragment for the judge's system message."""
         from mlflow.genai.skills.prompt_format import to_prompt
 
         return to_prompt(self.skills)
@@ -70,6 +136,12 @@ def load_skill(path: str | Path) -> Skill:
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    if not body.strip():
+        raise MlflowException(
+            "SKILL.md must have non-empty body content after the frontmatter.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     metadata = frontmatter.get("metadata", {})
     if not isinstance(metadata, dict):
         metadata = {}
@@ -104,14 +176,33 @@ def _parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
 
 
 def _validate_name(name: str | None) -> None:
-    if not name:
+    """Validate a skill name against the Agent Skills specification.
+
+    Follows the reference implementation at
+    https://github.com/agentskills/agentskills/tree/main/skills-ref
+    which uses NFKC normalization and ``str.isalnum()`` for Unicode support.
+    """
+    if not name or not isinstance(name, str) or not name.strip():
         raise MlflowException(
             "SKILL.md frontmatter must include a non-empty 'name' field.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if len(name) > 64:
+
+    name = unicodedata.normalize("NFKC", name.strip())
+
+    if len(name) > _MAX_SKILL_NAME_LENGTH:
         raise MlflowException(
-            f"Skill name must be at most 64 characters, got {len(name)}.",
+            f"Skill name must be at most {_MAX_SKILL_NAME_LENGTH} characters, got {len(name)}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if name != name.lower():
+        raise MlflowException(
+            f"Skill name must be lowercase: '{name}'.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if name.startswith("-") or name.endswith("-"):
+        raise MlflowException(
+            f"Skill name must not start or end with a hyphen: '{name}'.",
             error_code=INVALID_PARAMETER_VALUE,
         )
     if "--" in name:
@@ -119,10 +210,10 @@ def _validate_name(name: str | None) -> None:
             f"Skill name must not contain consecutive hyphens: '{name}'.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    if not _NAME_PATTERN.match(name):
+    if not all(c.isalnum() or c == "-" for c in name):
         raise MlflowException(
-            f"Skill name must be lowercase alphanumeric with hyphens, "
-            f"and must not start or end with a hyphen: '{name}'.",
+            f"Skill name contains invalid characters: '{name}'. "
+            f"Only letters, digits, and hyphens are allowed.",
             error_code=INVALID_PARAMETER_VALUE,
         )
 

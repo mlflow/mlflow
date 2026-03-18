@@ -1,6 +1,7 @@
 import json
 import logging
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any, Literal, get_origin
 
 import pydantic
@@ -33,6 +34,7 @@ from mlflow.genai.scorers.base import (
     ScorerKind,
     SerializedScorer,
 )
+from mlflow.genai.skills.parsing import SkillSet
 from mlflow.genai.utils.trace_utils import (
     resolve_conversation_from_session,
     resolve_expectations_from_session,
@@ -44,6 +46,7 @@ from mlflow.genai.utils.trace_utils import (
 from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
 
@@ -85,7 +88,7 @@ class InstructionsJudge(Judge):
     _generate_rationale_first: bool = PrivateAttr(default=False)
     _include_tool_calls_in_conversation: bool = PrivateAttr(default=False)
     _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
-    _skill_set: Any = PrivateAttr(default=None)
+    _skills: SkillSet | None = PrivateAttr(default=None)
 
     def __init__(
         self,
@@ -97,7 +100,7 @@ class InstructionsJudge(Judge):
         generate_rationale_first: bool = False,
         include_tool_calls_in_conversation: bool = False,
         inference_params: dict[str, Any] | None = None,
-        skills: list[str] | Any | None = None,
+        skills: list[str | Path] | SkillSet | None = None,
         **kwargs,
     ):
         """
@@ -118,6 +121,11 @@ class InstructionsJudge(Judge):
             inference_params: Optional dictionary of inference parameters to pass to the
                            model (e.g., temperature, top_p, max_tokens). These parameters
                            allow fine-grained control over the model's behavior.
+            skills: Optional skills to attach to the judge. Can be a list of filesystem
+                           paths (directories containing SKILL.md or direct paths to
+                           SKILL.md files), or a pre-constructed SkillSet instance.
+                           When provided, the judge runs a tool-calling loop so the LLM
+                           can read skill content during evaluation.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -172,21 +180,12 @@ class InstructionsJudge(Judge):
             )
 
         if skills is not None:
-            from mlflow.genai.skills import SkillSet
-
             if isinstance(skills, SkillSet):
-                self._skill_set = skills
+                self._skills = skills
             else:
-                self._skill_set = SkillSet(skills)
-            if self._TEMPLATE_VARIABLE_TRACE not in self.template_variables:
-                raise MlflowException(
-                    "Skills require {{ trace }} in instructions. Skills are loaded via "
-                    "tools during the agentic tool-calling loop, which only runs for "
-                    "trace-based judges.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
+                self._skills = SkillSet(skills)
         else:
-            self._skill_set = None
+            self._skills = None
 
         self._validate_model_format()
         self._validate_instructions_template()
@@ -365,14 +364,18 @@ class InstructionsJudge(Judge):
                 evaluation_rating_fields=evaluation_rating_fields,
                 instructions=self._instructions,
             )
-            if self._skill_set:
-                system_content += "\n\n" + self._skill_set.to_prompt()
-            return system_content
         else:
             base_prompt = format_prompt(
                 INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
             )
-            return add_output_format_instructions(base_prompt, output_fields=output_fields)
+            system_content = add_output_format_instructions(
+                base_prompt, output_fields=output_fields
+            )
+
+        if self._skills:
+            system_content += "\n\n" + self._skills.to_prompt()
+
+        return system_content
 
     def get_output_fields(self) -> list[JudgeField]:
         """Get the output fields for this judge."""
@@ -559,8 +562,6 @@ class InstructionsJudge(Judge):
         system_content = self._build_system_message(is_trace_based)
         user_content = self._build_user_message(inputs, outputs, expectations, conversation)
 
-        from mlflow.types.llm import ChatMessage
-
         messages = [
             ChatMessage(role="system", content=system_content),
             ChatMessage(role="user", content=user_content),
@@ -576,7 +577,7 @@ class InstructionsJudge(Judge):
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
             inference_params=self._inference_params,
-            skill_set=self._skill_set,
+            skills=self._skills,
         )
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
@@ -758,7 +759,7 @@ class InstructionsJudge(Judge):
             pydantic_data["inference_params"] = self._inference_params
 
         skill_contents = None
-        if self._skill_set:
+        if self._skills:
             skill_contents = [
                 {
                     "name": skill.name,
@@ -767,7 +768,7 @@ class InstructionsJudge(Judge):
                     "body": skill.body,
                     "files": skill.files,
                 }
-                for skill in self._skill_set.skills
+                for skill in self._skills.skills
             ]
 
         serialized_scorer = SerializedScorer(

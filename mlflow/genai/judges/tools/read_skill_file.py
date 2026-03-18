@@ -20,14 +20,17 @@ class ReadSkillFileTool(JudgeTool):
             function=FunctionToolDefinition(
                 name="read_skill_file",
                 description=(
-                    "Read a file from a skill for detailed information "
-                    "like rubrics, edge cases, or technical specifications."
+                    "Read a companion file from a skill for detailed information "
+                    "about how to evaluate a particular aspect of agent quality. "
+                    "Examples include grading rubrics for response accuracy, "
+                    "compliance checklists for regulated domains, reference schemas "
+                    "for tool-call validation, or style guides for tone evaluation."
                 ),
                 parameters=ToolParamsSchema(
                     properties={
                         "skill_name": {
                             "type": "string",
-                            "description": "Name of the skill",
+                            "description": "Name of the skill to load",
                         },
                         "file_path": {
                             "type": "string",
@@ -42,10 +45,10 @@ class ReadSkillFileTool(JudgeTool):
             )
         )
 
-    def invoke(self, skill_set: SkillSet, skill_name: str, file_path: str, **kwargs) -> Any:
-        skill = skill_set.get_skill(skill_name)
+    def invoke(self, skills: SkillSet, skill_name: str, file_path: str, **kwargs) -> Any:
+        skill = skills.get_skill(skill_name)
         if not skill:
-            available = [s.name for s in skill_set.skills]
+            available = [s.name for s in skills.skills]
             return f"Error: No skill named '{skill_name}'. Available: {available}"
 
         path = PurePosixPath(file_path)

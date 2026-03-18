@@ -372,6 +372,12 @@ class Scorer(BaseModel):
                     data["feedback_value_type"]
                 )
 
+            skills = None
+            if serialized.skill_contents:
+                from mlflow.genai.skills.parsing import SkillSet
+
+                skills = SkillSet.from_contents(serialized.skill_contents)
+
             try:
                 return InstructionsJudge(
                     name=serialized.name,
@@ -379,6 +385,7 @@ class Scorer(BaseModel):
                     instructions=data["instructions"],
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
+                    skills=skills,
                     # TODO: add aggregations here once we support boolean/numeric judge outputs
                 )
             except Exception as e:

@@ -36,14 +36,14 @@ class JudgeToolRegistry:
         """
         self._tools[tool.name] = tool
 
-    def invoke(self, tool_call: Any, trace: Trace | None = None, skill_set: Any = None) -> Any:
+    def invoke(self, tool_call: Any, trace: Trace | None = None, skills: Any = None) -> Any:
         """
         Invoke a tool using a ToolCall instance and context objects.
 
         Args:
             tool_call: The ToolCall containing function name and arguments
             trace: Optional MLflow trace object to analyze
-            skill_set: Optional SkillSet for skill-based tools
+            skills: Optional SkillSet for skill-based tools
 
         Returns:
             The result of the tool execution
@@ -74,7 +74,7 @@ class JudgeToolRegistry:
                 tool_func = mlflow.trace(name=tool.name, span_type=SpanType.TOOL)(tool.invoke)
             else:
                 tool_func = tool.invoke
-            context = _build_tool_context(tool, trace=trace, skill_set=skill_set)
+            context = _build_tool_context(tool, trace=trace, skills=skills)
             result = tool_func(**context, **arguments)
             _logger.debug(f"Tool '{function_name}' returned: {result}")
             return result
@@ -95,7 +95,7 @@ class JudgeToolRegistry:
 
 
 def _build_tool_context(
-    tool: JudgeTool, trace: Trace | None = None, skill_set: Any = None
+    tool: JudgeTool, trace: Trace | None = None, skills: Any = None
 ) -> dict[str, Any]:
     sig = inspect.signature(tool.invoke)
     context = {}
@@ -104,8 +104,8 @@ def _build_tool_context(
             continue
         if param_name == "trace" and trace is not None:
             context["trace"] = trace
-        elif param_name == "skill_set" and skill_set is not None:
-            context["skill_set"] = skill_set
+        elif param_name == "skills" and skills is not None:
+            context["skills"] = skills
     return context
 
 
@@ -124,19 +124,19 @@ def register_judge_tool(tool: JudgeTool) -> None:
 
 
 @experimental(version="3.4.0")
-def invoke_judge_tool(tool_call: Any, trace: Trace | None = None, skill_set: Any = None) -> Any:
+def invoke_judge_tool(tool_call: Any, trace: Trace | None = None, skills: Any = None) -> Any:
     """
     Invoke a judge tool using a ToolCall instance and context objects.
 
     Args:
         tool_call: The ToolCall containing function name and arguments
         trace: Optional MLflow trace object to analyze
-        skill_set: Optional SkillSet for skill-based tools
+        skills: Optional SkillSet for skill-based tools
 
     Returns:
         The result of the tool execution
     """
-    return _judge_tool_registry.invoke(tool_call, trace=trace, skill_set=skill_set)
+    return _judge_tool_registry.invoke(tool_call, trace=trace, skills=skills)
 
 
 @experimental(version="3.4.0")

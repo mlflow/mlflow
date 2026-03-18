@@ -1,7 +1,9 @@
+from pathlib import Path
 from typing import Any, Literal, get_args, get_origin
 
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
+from mlflow.genai.skills.parsing import SkillSet
 from mlflow.telemetry.events import MakeJudgeEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.annotations import experimental
@@ -98,7 +100,7 @@ def make_judge(
     description: str | None = None,
     feedback_value_type: Any = None,
     inference_params: dict[str, Any] | None = None,
-    skills: list[str] | Any | None = None,
+    skills: list[str | Path] | SkillSet | None = None,
 ) -> Judge:
     """
 

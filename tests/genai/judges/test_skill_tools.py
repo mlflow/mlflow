@@ -6,7 +6,7 @@ from mlflow.genai.skills import SkillSet
 
 
 @pytest.fixture
-def skill_set(tmp_path):
+def skills(tmp_path):
     skill_path = tmp_path / "test-skill"
     skill_path.mkdir()
     (skill_path / "SKILL.md").write_text(
@@ -27,19 +27,19 @@ def skill_set(tmp_path):
     return SkillSet([skill_path])
 
 
-def test_read_skill_returns_body(skill_set):
+def test_read_skill_returns_body(skills):
     from mlflow.genai.judges.tools.read_skill import ReadSkillTool
 
     tool = ReadSkillTool()
-    result = tool.invoke(skill_set=skill_set, skill_name="test-skill")
+    result = tool.invoke(skills=skills, skill_name="test-skill")
     assert "Skill body content here" in result
 
 
-def test_read_skill_unknown_name(skill_set):
+def test_read_skill_unknown_name(skills):
     from mlflow.genai.judges.tools.read_skill import ReadSkillTool
 
     tool = ReadSkillTool()
-    result = tool.invoke(skill_set=skill_set, skill_name="nonexistent")
+    result = tool.invoke(skills=skills, skill_name="nonexistent")
     assert "Error" in result
     assert "test-skill" in result
 
@@ -53,33 +53,29 @@ def test_read_skill_has_valid_definition():
     assert "skill_name" in defn.function.parameters.properties
 
 
-def test_read_skill_file_returns_content(skill_set):
+def test_read_skill_file_returns_content(skills):
     from mlflow.genai.judges.tools.read_skill_file import ReadSkillFileTool
 
     tool = ReadSkillFileTool()
-    result = tool.invoke(
-        skill_set=skill_set, skill_name="test-skill", file_path="references/RUBRIC.md"
-    )
+    result = tool.invoke(skills=skills, skill_name="test-skill", file_path="references/RUBRIC.md")
     assert "Detailed guide" in result
 
 
-def test_read_skill_file_unknown_file(skill_set):
+def test_read_skill_file_unknown_file(skills):
     from mlflow.genai.judges.tools.read_skill_file import ReadSkillFileTool
 
     tool = ReadSkillFileTool()
-    result = tool.invoke(
-        skill_set=skill_set, skill_name="test-skill", file_path="references/MISSING.md"
-    )
+    result = tool.invoke(skills=skills, skill_name="test-skill", file_path="references/MISSING.md")
     assert "Error" in result
     assert "RUBRIC.md" in result
 
 
 @pytest.mark.parametrize("bad_path", ["../../../etc/passwd", "/etc/passwd", "../../secret.txt"])
-def test_read_skill_file_path_traversal(skill_set, bad_path):
+def test_read_skill_file_path_traversal(skills, bad_path):
     from mlflow.genai.judges.tools.read_skill_file import ReadSkillFileTool
 
     tool = ReadSkillFileTool()
-    result = tool.invoke(skill_set=skill_set, skill_name="test-skill", file_path=bad_path)
+    result = tool.invoke(skills=skills, skill_name="test-skill", file_path=bad_path)
     assert "Error" in result
     assert "Invalid" in result or "relative" in result.lower()
 
