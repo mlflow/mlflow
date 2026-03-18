@@ -529,7 +529,7 @@ def verify_artifact_path(artifact_path):
 def _validate_attachment_path(path: str) -> None:
     try:
         uuid.UUID(path)
-    except (ValueError, AttributeError):
+    except (ValueError, AttributeError, TypeError):
         raise MlflowException(
             f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,

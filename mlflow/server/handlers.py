@@ -3882,7 +3882,15 @@ def get_trace_artifact_handler() -> Response:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         repo = _get_trace_artifact_repo(trace_info)
-        content_bytes = repo.download_trace_attachment(path)
+        try:
+            content_bytes = repo.download_trace_attachment(path)
+        except MlflowException:
+            raise
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to download attachment '{path}' for trace '{request_id}': {e}",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
         buf = io.BytesIO(content_bytes)
         file_sender_response = send_file(
             buf,
