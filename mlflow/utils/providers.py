@@ -611,6 +611,7 @@ def _extract_models(
         if model_name.startswith("ft:"):
             continue
 
+        # Dedupe by (provider, model_name) - keep the first occurrence
         key = (normalized, model_name)
         if key in models_dict:
             continue
