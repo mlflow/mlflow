@@ -12,6 +12,7 @@ Tests requiring uv are skipped if uv is not installed or below minimum version.
 
 import platform
 import shutil
+import sys
 import subprocess
 from pathlib import Path
 from unittest import mock
@@ -49,7 +50,7 @@ def python_model():
     return SimplePythonModel()
 
 
-_uv_python_version = "3.11.5"
+_uv_python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
 
 @pytest.fixture
@@ -114,7 +115,7 @@ def test_pyfunc_log_model_copies_uv_artifacts(tmp_uv_project, python_model, monk
         # Verify content matches source
         assert "version = 1" in (artifact_dir / _UV_LOCK_FILE).read_text()
         assert "test_uv_project" in (artifact_dir / _PYPROJECT_FILE).read_text()
-        assert "3.11.5" in (artifact_dir / _PYTHON_VERSION_FILE).read_text()
+        assert _uv_python_version in (artifact_dir / _PYTHON_VERSION_FILE).read_text()
 
 
 @requires_uv
@@ -511,7 +512,6 @@ def test_run_uv_sync_real(tmp_uv_project, tmp_path):
     # Verify numpy is installed in the env at sync_dir
     python_bin = sync_dir / "bin" / "python"
 
-    # Check the python environment installs numpy successfully.
     subprocess.check_call(
         [python_bin, "-c", "import numpy"],
     )
