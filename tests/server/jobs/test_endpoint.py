@@ -165,7 +165,13 @@ def test_job_cancel(client: Client):
         job_name="simple_job_fun",
         params={"x": 3, "y": 4, "sleep_secs": 120},
     )["job_id"]
-    time.sleep(2)
+    deadline = time.time() + 10
+    while time.time() < deadline:
+        if client.get_job(job_id)["status"] == "RUNNING":
+            break
+        time.sleep(0.5)
+    else:
+        raise TimeoutError("Job did not start running within 10 seconds")
 
     client.cancel_job(job_id)
 
