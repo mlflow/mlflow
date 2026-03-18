@@ -688,7 +688,11 @@ export const createMlflowSearchFilter = (
           filter.push(`request_metadata."mlflow.trace.user" = '${networkFilter.value}'`);
           break;
         case SESSION_COLUMN_ID:
-          filter.push(`request_metadata."mlflow.trace.session" = '${networkFilter.value}'`);
+          if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`request_metadata.mlflow.trace.session ILIKE '%${networkFilter.value}%'`);
+          } else {
+            filter.push(`request_metadata.mlflow.trace.session = '${networkFilter.value}'`);
+          }
           break;
         case RUN_NAME_COLUMN_ID:
           filter.push(`attributes.run_id = '${networkFilter.value}'`);

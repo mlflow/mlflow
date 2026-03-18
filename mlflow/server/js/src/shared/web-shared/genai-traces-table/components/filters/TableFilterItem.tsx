@@ -106,6 +106,10 @@ const getAvailableOperators = (column: string, key?: string): FilterOperator[] =
     return [FilterOperator.EQUALS, FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL];
   }
 
+  if (column === SESSION_COLUMN_ID) {
+    return [FilterOperator.EQUALS, FilterOperator.CONTAINS];
+  }
+
   return [FilterOperator.EQUALS];
 };
 
