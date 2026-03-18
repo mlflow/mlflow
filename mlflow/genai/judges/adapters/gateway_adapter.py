@@ -103,6 +103,11 @@ def _invoke_via_gateway(
         )
 
     response = provider.adapter_class.model_to_chat(raw_response, provider.config)
+    if not response.choices:
+        raise MlflowException(
+            f"No response from judge model '{model_uri}'.",
+            error_code=BAD_REQUEST,
+        )
     return response.choices[0].message.content or ""
 
 

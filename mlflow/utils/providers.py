@@ -534,9 +534,11 @@ def get_all_providers() -> list[str]:
 
     providers = set()
     for entry in _iter_model_catalog_api():
-        if provider := entry.get("provider"):
-            if provider not in _EXCLUDED_PROVIDERS:
-                providers.add(_normalize_provider(provider))
+        mode = entry.get("mode")
+        if mode in _SUPPORTED_MODEL_MODES:
+            if provider := entry.get("provider"):
+                if provider not in _EXCLUDED_PROVIDERS:
+                    providers.add(_normalize_provider(provider))
     return list(providers)
 
 
@@ -575,7 +577,7 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
     else:
         entries = (
             (entry.get("id", ""), entry.get("provider"), entry)
-            for entry in _iter_model_catalog_api(provider=provider)
+            for entry in _iter_model_catalog_api()
         )
     return _extract_models(entries, provider_filter=provider)
 

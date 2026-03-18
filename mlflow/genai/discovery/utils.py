@@ -159,7 +159,7 @@ def _call_llm_via_litellm(
         inference_params={"max_completion_tokens": LLM_MAX_TOKENS},
     )
     if token_counter is not None:
-        token_counter.track(response)
+        token_counter.track(response, model=model)
     return response
 
 
@@ -300,7 +300,6 @@ def _fetch_model_cost(model_name: str) -> _ModelCost | None:
 
 
 def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) -> float | None:
-    """Best-effort cost lookup using the LiteLLM model pricing data."""
     _, model_name = _parse_model_uri(model_uri)
     if cost := _fetch_model_cost(model_name):
         return input_tokens * cost.input_cost_per_token + output_tokens * cost.output_cost_per_token
