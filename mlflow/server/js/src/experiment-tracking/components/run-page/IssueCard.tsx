@@ -24,9 +24,6 @@ import { ISSUE_CATEGORY_DEFINITIONS } from '../experiment-page/components/traces
 
 const { TextArea } = Input;
 
-// Highlight color for successful update feedback
-const UPDATE_HIGHLIGHT_COLOR = 'rgba(47, 127, 231, 0.15)';
-
 interface IssueCardProps {
   issue: Issue;
   isSelected: boolean;
@@ -67,6 +64,7 @@ const SEVERITY_TAG_CONFIG: Record<IssueSeverity, { color: TagColors; label: Mess
   },
 };
 
+// Editable severity values exclude 'not_an_issue' because users can reject the issue if it's invalid
 const EDITABLE_SEVERITY_VALUES: IssueSeverity[] = ['low', 'medium', 'high'];
 
 const parseCategoryId = (category: string): string => {
@@ -87,7 +85,7 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
   const [editedSeverity, setEditedSeverity] = useState<IssueSeverity>(issue.severity || 'medium');
   const [severityChanged, setSeverityChanged] = useState(false);
   const [showUpdateHighlight, setShowUpdateHighlight] = useState(false);
-  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const highlightTimeoutRef = useRef<number | null>(null);
 
   // Sync local state when issue prop changes (e.g., after external update)
   useEffect(() => {
@@ -123,6 +121,7 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
   };
 
   const handleEditClick = (e: React.MouseEvent) => {
+    // Prevent card selection when clicking edit button
     e.stopPropagation();
     setEditedDescription(issue.description || '');
     setEditedSeverity(issue.severity || 'medium');
@@ -131,9 +130,14 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
   };
 
   const handleSave = async (e: React.MouseEvent) => {
+    // Prevent card selection when clicking save button
     e.stopPropagation();
     try {
-      const updates: any = {
+      const updates: {
+        issueId: string;
+        description: string;
+        severity?: IssueSeverity;
+      } = {
         issueId: issue.issue_id,
         description: editedDescription,
       };
@@ -152,7 +156,7 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
       if (highlightTimeoutRef.current) {
         clearTimeout(highlightTimeoutRef.current);
       }
-      highlightTimeoutRef.current = setTimeout(() => {
+      highlightTimeoutRef.current = window.setTimeout(() => {
         setShowUpdateHighlight(false);
       }, 2000);
     } catch (error) {
@@ -190,7 +194,7 @@ export const IssueCard = ({ issue, isSelected, onSelect }: IssueCardProps) => {
         cursor: isEditing ? 'default' : 'pointer',
         transition: 'box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.3s ease',
         border: isSelected ? `1px solid ${theme.colors.actionPrimaryBackgroundDefault}` : undefined,
-        backgroundColor: showUpdateHighlight ? UPDATE_HIGHLIGHT_COLOR : undefined,
+        backgroundColor: showUpdateHighlight ? theme.colors.actionTertiaryBackgroundPress : undefined,
       }}
       onClick={isEditing ? undefined : onSelect}
     >
