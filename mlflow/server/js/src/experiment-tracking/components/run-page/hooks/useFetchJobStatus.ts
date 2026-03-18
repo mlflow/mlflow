@@ -15,6 +15,9 @@ export enum JobStatus {
 export interface FetchJobStatusResponse {
   status: JobStatus;
   result?: unknown;
+  metadata?: {
+    stage?: string;
+  };
 }
 
 const POLLING_INTERVAL_MS = 3000;
@@ -31,6 +34,9 @@ export const isJobComplete = (status: JobStatus | undefined): boolean => {
 export interface UseFetchJobStatusResult {
   status: JobStatus | undefined;
   result: unknown;
+  metadata?: {
+    stage?: string;
+  };
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => void;
@@ -67,6 +73,7 @@ export const useFetchJobStatus = ({
   return {
     status: data?.status,
     result: data?.result,
+    metadata: data?.metadata,
     isLoading,
     isFetching,
     refetch,

@@ -1918,6 +1918,10 @@
     "defaultMessage": "Error",
     "description": "Title for error fallback component in prompts management UI"
   },
+  "APwgn9": {
+    "defaultMessage": "Identifying issues from traces...",
+    "description": "Issue detection progress > Step label (fallback)"
+  },
   "AQh8lf": {
     "defaultMessage": "Model",
     "description": "Dimension toggle option for model"
@@ -8634,10 +8638,6 @@
   "rjhiii": {
     "defaultMessage": "Trace failed to render",
     "description": "Title for the error state in the model trace explorer"
-  },
-  "rk4Qif": {
-    "defaultMessage": "Identifying issues from traces...",
-    "description": "Issue detection progress > Step label"
   },
   "rmAWZX": {
     "defaultMessage": "just now",
