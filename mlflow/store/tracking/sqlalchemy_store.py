@@ -6811,14 +6811,20 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         session_siblings = (
                             session
                             .query(sibling_meta.request_id.label("request_id"))
+                            .select_from(matched_meta)
                             .join(
                                 SqlAssessments,
                                 SqlAssessments.trace_id == matched_meta.request_id,
                             )
+                            .join(
+                                sibling_meta,
+                                sqlalchemy.and_(
+                                    sibling_meta.key == TraceMetadataKey.TRACE_SESSION,
+                                    sibling_meta.value == matched_meta.value,
+                                ),
+                            )
                             .filter(
                                 matched_meta.key == TraceMetadataKey.TRACE_SESSION,
-                                sibling_meta.key == TraceMetadataKey.TRACE_SESSION,
-                                sibling_meta.value == matched_meta.value,
                                 SqlAssessments.assessment_type == key_type,
                                 SqlAssessments.name == key_name,
                                 SqlAssessments.valid == sqlalchemy.true(),
@@ -6866,14 +6872,20 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 session_siblings = (
                     session
                     .query(sibling_meta.request_id.label("request_id"))
+                    .select_from(matched_meta)
                     .join(
                         SqlAssessments,
                         SqlAssessments.trace_id == matched_meta.request_id,
                     )
+                    .join(
+                        sibling_meta,
+                        sqlalchemy.and_(
+                            sibling_meta.key == TraceMetadataKey.TRACE_SESSION,
+                            sibling_meta.value == matched_meta.value,
+                        ),
+                    )
                     .filter(
                         matched_meta.key == TraceMetadataKey.TRACE_SESSION,
-                        sibling_meta.key == TraceMetadataKey.TRACE_SESSION,
-                        sibling_meta.value == matched_meta.value,
                         SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
                         SqlAssessments.valid == sqlalchemy.true(),
