@@ -138,35 +138,62 @@ def test_custom_batch_params():
 
 
 def test_spans_exported_in_batch_mode():
+    """Verify that a multi-level span tree is fully exported via the batch path.
+
+    Span tree:
+        root (span_id=1)
+        ├── child_a (span_id=2)
+        │   ├── grandchild_a1 (span_id=4)
+        │   └── grandchild_a2 (span_id=5)
+        └── child_b (span_id=3)
+            └── grandchild_b1 (span_id=6)
+    """
     mock_exporter = mock.MagicMock()
     mock_exporter.export.return_value = None
     processor = _create_processor(use_batch=True, exporter=mock_exporter)
 
     trace_id = 12345
 
-    root_span = create_mock_otel_span(
-        trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000
-    )
-    processor.on_start(root_span)
+    # Build the span tree top-down (on_start order)
+    spans = {}
+    span_defs = [
+        ("root", 1, None, 1_000_000, 20_000_000),
+        ("child_a", 2, 1, 2_000_000, 15_000_000),
+        ("child_b", 3, 1, 3_000_000, 18_000_000),
+        ("grandchild_a1", 4, 2, 4_000_000, 8_000_000),
+        ("grandchild_a2", 5, 2, 5_000_000, 10_000_000),
+        ("grandchild_b1", 6, 3, 6_000_000, 12_000_000),
+    ]
+    for name, span_id, parent_id, start, end in span_defs:
+        span = create_mock_otel_span(
+            name=name,
+            trace_id=trace_id,
+            span_id=span_id,
+            parent_id=parent_id,
+            start_time=start,
+            end_time=end,
+        )
+        spans[name] = span
+        processor.on_start(span)
 
-    child_span = create_mock_otel_span(
-        trace_id=trace_id,
-        span_id=2,
-        parent_id=1,
-        start_time=6_000_000,
-        end_time=7_000_000,
-    )
-    processor.on_start(child_span)
-
-    root_span._end_time = 9_000_000
-    processor.on_end(child_span)
-    processor.on_end(root_span)
+    # End spans leaf-first, as a real tracer would
+    for name in ["grandchild_a1", "grandchild_a2", "grandchild_b1", "child_a", "child_b", "root"]:
+        processor.on_end(spans[name])
 
     processor.force_flush(timeout_millis=5000)
 
-    assert mock_exporter.export.call_count >= 1
     exported_spans = []
     for call in mock_exporter.export.call_args_list:
         exported_spans.extend(call[0][0])
-    assert len(exported_spans) == 2
+
+    assert len(exported_spans) == 6
+    exported_names = {s.name for s in exported_spans}
+    assert exported_names == {
+        "root",
+        "child_a",
+        "child_b",
+        "grandchild_a1",
+        "grandchild_a2",
+        "grandchild_b1",
+    }
     processor.shutdown()
