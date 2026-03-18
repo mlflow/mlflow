@@ -114,7 +114,7 @@ def test_set_experiment_defaults_empty_prefix_to_experiment_id():
         assert passed_location.schema_name == "schema"
 
         # Original object should not be mutated
-        assert original.table_prefix == ""
+        assert original.table_prefix is None
 
 
 def test_creates_and_links_when_no_existing_location(monkeypatch):

@@ -121,14 +121,14 @@ def test_uc_schema_location_round_trip():
 
 def test_unity_catalog_default_table_prefix():
     location = UnityCatalog(catalog_name="catalog", schema_name="schema")
-    assert location.table_prefix == ""
-    assert location.full_table_prefix == "catalog.schema."
+    assert location.table_prefix is None
+    assert location.full_table_prefix is None
 
 
 def test_unity_catalog_from_dict_without_table_prefix():
     d = {"catalog_name": "catalog", "schema_name": "schema"}
     location = UnityCatalog.from_dict(d)
-    assert location.table_prefix == ""
+    assert location.table_prefix is None
     assert location.catalog_name == "catalog"
     assert location.schema_name == "schema"
 

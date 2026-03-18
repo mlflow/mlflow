@@ -241,7 +241,7 @@ def set_experiment(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    if trace_location is not None and not trace_location.table_prefix:
+    if trace_location is not None and trace_location.table_prefix is None:
         trace_location = UnityCatalog(
             catalog_name=trace_location.catalog_name,
             schema_name=trace_location.schema_name,
