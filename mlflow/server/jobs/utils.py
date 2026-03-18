@@ -617,7 +617,11 @@ def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
 
                 params = json.loads(job.params)
                 timeout = job.timeout
-                job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
+                # Only propagate workspace to subprocess when workspaces are enabled
+                if MLFLOW_ENABLE_WORKSPACES.get():
+                    job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
+                else:
+                    job_workspace = None
                 # Look up exclusive flag from function metadata
                 fn_fullname = get_job_fn_fullname(job.job_name)
                 fn_metadata = _load_function(fn_fullname)._job_fn_metadata
