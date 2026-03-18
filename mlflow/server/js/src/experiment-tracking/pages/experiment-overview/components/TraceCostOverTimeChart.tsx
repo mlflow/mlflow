@@ -1,20 +1,13 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
-import {
-  useDesignSystemTheme,
-  ChartLineIcon,
-  DialogCombobox,
-  DialogComboboxTrigger,
-  DialogComboboxContent,
-  DialogComboboxOptionList,
-  DialogComboboxOptionListCheckboxItem,
-  DialogComboboxOptionListSearch,
-} from '@databricks/design-system';
+import React, { useCallback, useMemo } from 'react';
+import { useDesignSystemTheme, ChartLineIcon } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { formatCostUSD } from '@databricks/web-shared/model-trace-explorer';
 import { useTraceCostOverTimeChartData } from '../hooks/useTraceCostOverTimeChartData';
 import { useTraceCostDimension } from '../hooks/useTraceCostDimension';
+import { useItemSelection } from '../hooks/useItemSelection';
 import { CostDimensionToggle } from './CostDimensionToggle';
+import { ItemSelector } from './ItemSelector';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -43,71 +36,39 @@ export const TraceCostOverTimeChart: React.FC = () => {
   // Fetch and process cost over time chart data
   const { chartData, dimensionValues, totalCost, isLoading, error, hasData } = useTraceCostOverTimeChartData(dimension);
 
-  // Selection state - null means all selected (default), array means specific selection
-  const [selectedItems, setSelectedItems] = useState<string[] | null>(null);
-
-  // Reset selection when dimension changes
-  useEffect(() => {
-    setSelectedItems(null);
-  }, [dimension]);
-
-  // Compute which items to display
-  const isAllSelected = selectedItems === null;
-  const displayedItems = isAllSelected
-    ? dimensionValues
-    : selectedItems.filter((item) => dimensionValues.includes(item));
-
-  const handleSelectAllToggle = useCallback(() => {
-    setSelectedItems(isAllSelected ? [] : null);
-  }, [isAllSelected]);
-
-  const handleItemToggle = useCallback(
-    (itemName: string) => {
-      setSelectedItems((prev) => {
-        if (prev === null) {
-          return dimensionValues.filter((m) => m !== itemName);
-        }
-        const newSelection = prev.includes(itemName) ? prev.filter((m) => m !== itemName) : [...prev, itemName];
-        return newSelection.length === dimensionValues.length ? null : newSelection;
-      });
-    },
-    [dimensionValues],
+  // Item selection labels depend on dimension
+  const selectionLabels = useMemo(
+    () => ({
+      allSelected:
+        dimension === 'model'
+          ? intl.formatMessage({
+              defaultMessage: 'All models',
+              description: 'Label for selector when all models are selected',
+            })
+          : intl.formatMessage({
+              defaultMessage: 'All providers',
+              description: 'Label for selector when all providers are selected',
+            }),
+      noneSelected:
+        dimension === 'model'
+          ? intl.formatMessage({
+              defaultMessage: 'No models selected',
+              description: 'Label for selector when no models are selected',
+            })
+          : intl.formatMessage({
+              defaultMessage: 'No providers selected',
+              description: 'Label for selector when no providers are selected',
+            }),
+    }),
+    [dimension, intl],
   );
 
-  const selectorLabel = useMemo(() => {
-    const allLabel =
-      dimension === 'model'
-        ? intl.formatMessage({
-            defaultMessage: 'All models',
-            description: 'Label for selector when all models are selected',
-          })
-        : intl.formatMessage({
-            defaultMessage: 'All providers',
-            description: 'Label for selector when all providers are selected',
-          });
-
-    if (isAllSelected) {
-      return allLabel;
-    }
-    if (displayedItems.length === 0) {
-      return dimension === 'model'
-        ? intl.formatMessage({
-            defaultMessage: 'No models selected',
-            description: 'Label for selector when no models are selected',
-          })
-        : intl.formatMessage({
-            defaultMessage: 'No providers selected',
-            description: 'Label for selector when no providers are selected',
-          });
-    }
-    return intl.formatMessage(
-      {
-        defaultMessage: '{count} selected',
-        description: 'Label for selector showing count of selected items',
-      },
-      { count: displayedItems.length },
-    );
-  }, [isAllSelected, displayedItems, intl, dimension]);
+  // Item selection state - resets when dimension changes
+  const { displayedItems, isAllSelected, selectorLabel, handleSelectAllToggle, handleItemToggle } = useItemSelection(
+    dimensionValues,
+    selectionLabels,
+    dimension,
+  );
 
   const tooltipFormatter = useCallback(
     (value: number, name: string) => [formatCostUSD(value), name] as [string, string],
@@ -144,43 +105,17 @@ export const TraceCostOverTimeChart: React.FC = () => {
             value={dimension}
             onChange={setDimension}
           />
-          {/* Item selector dropdown */}
           {hasData && dimensionValues.length > 0 && (
-            <DialogCombobox
+            <ItemSelector
               componentId="mlflow.overview.usage.trace_cost_over_time.item_selector"
-              label={selectorLabel}
-              multiSelect
-              value={[]}
-            >
-              <DialogComboboxTrigger allowClear={false} css={{ minWidth: 120 }} data-testid="item-selector-dropdown" />
-              <DialogComboboxContent maxHeight={300} align="end">
-                <DialogComboboxOptionList>
-                  <DialogComboboxOptionListSearch>
-                    <DialogComboboxOptionListCheckboxItem
-                      key="__select_all__"
-                      value="__select_all__"
-                      checked={isAllSelected}
-                      onChange={handleSelectAllToggle}
-                    >
-                      <FormattedMessage
-                        defaultMessage="Select All"
-                        description="Option to select all items in the selector"
-                      />
-                    </DialogComboboxOptionListCheckboxItem>
-                    {dimensionValues.map((itemName) => (
-                      <DialogComboboxOptionListCheckboxItem
-                        key={itemName}
-                        value={itemName}
-                        checked={isAllSelected || displayedItems.includes(itemName)}
-                        onChange={() => handleItemToggle(itemName)}
-                      >
-                        {itemName}
-                      </DialogComboboxOptionListCheckboxItem>
-                    ))}
-                  </DialogComboboxOptionListSearch>
-                </DialogComboboxOptionList>
-              </DialogComboboxContent>
-            </DialogCombobox>
+              itemNames={dimensionValues}
+              data-testid="item-selector-dropdown"
+              displayedItems={displayedItems}
+              isAllSelected={isAllSelected}
+              selectorLabel={selectorLabel}
+              onSelectAllToggle={handleSelectAllToggle}
+              onItemToggle={handleItemToggle}
+            />
           )}
         </div>
       </div>

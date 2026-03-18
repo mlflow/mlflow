@@ -4,8 +4,6 @@ from mlflow.entities.issue import IssueSeverity
 
 # Number of sessions (or individual traces) to sample for triage by default
 DEFAULT_TRIAGE_SAMPLE_SIZE = 100
-# Cap on trace IDs attached to each Issue to keep payloads manageable
-MAX_EXAMPLE_TRACE_IDS = 10
 # Fetch N * sample_size traces so random sampling has enough diversity
 SAMPLE_POOL_MULTIPLIER = 5
 SAMPLE_RANDOM_SEED = 42

@@ -128,6 +128,58 @@ describe('createEmptyChartCardPredicate', () => {
     expect(predicate(nonEmptyBarChart)).toBe(false);
   });
 
+  test('should identify non-empty bar chart with selectedMetricKeys', () => {
+    const predicate = createEmptyChartCardPredicate(mockRunData);
+    const multiMetricBarChart: RunsChartsBarCardConfig = {
+      type: RunsChartType.BAR,
+      metricKey: 'metric_1',
+      selectedMetricKeys: ['metric_1', 'metric_3'],
+      deleted: false,
+      isGenerated: false,
+    };
+
+    expect(predicate(multiMetricBarChart)).toBe(false);
+  });
+
+  test('should identify empty bar chart when all selectedMetricKeys are missing', () => {
+    const predicate = createEmptyChartCardPredicate(mockRunData);
+    const emptyMultiMetricBarChart: RunsChartsBarCardConfig = {
+      type: RunsChartType.BAR,
+      metricKey: 'nonexistent_a',
+      selectedMetricKeys: ['nonexistent_a', 'nonexistent_b'],
+      deleted: false,
+      isGenerated: false,
+    };
+
+    expect(predicate(emptyMultiMetricBarChart)).toBe(true);
+  });
+
+  test('should identify non-empty bar chart with dataAccessKey', () => {
+    const predicate = createEmptyChartCardPredicate(mockRunData);
+    const datasetBarChart: RunsChartsBarCardConfig = {
+      type: RunsChartType.BAR,
+      metricKey: 'nonexistent_display_key',
+      dataAccessKey: 'metric_2',
+      deleted: false,
+      isGenerated: false,
+    };
+
+    expect(predicate(datasetBarChart)).toBe(false);
+  });
+
+  test('should identify empty bar chart when dataAccessKey does not match any run metrics', () => {
+    const predicate = createEmptyChartCardPredicate(mockRunData);
+    const datasetBarChart: RunsChartsBarCardConfig = {
+      type: RunsChartType.BAR,
+      metricKey: 'some_metric',
+      dataAccessKey: 'nonexistent_access_key',
+      deleted: false,
+      isGenerated: false,
+    };
+
+    expect(predicate(datasetBarChart)).toBe(true);
+  });
+
   test('should identify empty contour chart', () => {
     const predicate = createEmptyChartCardPredicate(mockRunData);
     const emptyContourChart: RunsChartsContourCardConfig = {

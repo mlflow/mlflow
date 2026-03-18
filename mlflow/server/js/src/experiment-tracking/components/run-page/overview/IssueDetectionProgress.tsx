@@ -239,7 +239,7 @@ export const IssueDetectionProgress = ({
               />
             )}
           </Typography.Hint>
-          {jobComplete && result?.total_cost_usd !== undefined && (
+          {jobComplete && result?.total_cost_usd !== null && result?.total_cost_usd !== undefined && (
             <Typography.Hint css={{ marginTop: theme.spacing.xs }}>
               <FormattedMessage
                 defaultMessage="Total cost: {cost}"
@@ -273,9 +273,35 @@ export const IssueDetectionProgress = ({
 
       {isJobSucceeded && result?.summary && (
         <>
-          <Typography.Title level={4} css={{ marginTop: theme.spacing.lg, marginBottom: theme.spacing.sm }}>
-            <FormattedMessage defaultMessage="Issue detection summary" description="Issue detection summary > Title" />
-          </Typography.Title>
+          <div
+            css={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginTop: theme.spacing.lg,
+              marginBottom: theme.spacing.sm,
+            }}
+          >
+            <Typography.Title level={4} css={{ margin: 0 }}>
+              <FormattedMessage
+                defaultMessage="Issue detection summary"
+                description="Issue detection summary > Title"
+              />
+            </Typography.Title>
+            {identifiedIssues > 0 && (
+              <Button
+                componentId="mlflow.traces.issue-detection.view-issues-button"
+                type="primary"
+                onClick={handleViewIssues}
+              >
+                <FormattedMessage
+                  defaultMessage="View {count} {count, plural, one {issue} other {issues}}"
+                  description="Issue detection summary > View issues button"
+                  values={{ count: identifiedIssues }}
+                />
+              </Button>
+            )}
+          </div>
           <div
             css={{
               border: `1px solid ${theme.colors.border}`,

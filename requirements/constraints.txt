@@ -14,3 +14,8 @@ transformers!=4.52.1
 # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
 # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
 xgboost<3.1.0
+# TODO: Remove this once tests are updated to mock WorkspaceClient initialization
+# databricks-sdk 0.101.0 changed OIDC resolution to always fetch host metadata, causing
+# WorkspaceClient init to make real HTTP calls even with dummy hosts, breaking tests
+# https://github.com/databricks/databricks-sdk-py/pull/1331
+databricks-sdk<0.101.0

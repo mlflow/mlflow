@@ -45,7 +45,7 @@ from mlflow.genai.discovery.utils import (
     _call_llm,
     _TokenCounter,
     build_summary,
-    collect_example_trace_ids,
+    collect_affected_trace_ids,
     format_annotation_prompt,
     format_trace_content,
     get_session_id,
@@ -224,7 +224,7 @@ def _build_analyses(
     """
     session_groups = group_traces_by_session(triage_traces)
     analyses: list[_ConversationAnalysis] = []
-    for session_id, session_traces in session_groups.items():
+    for _, session_traces in session_groups.items():
         session_failing = [
             trace for trace in session_traces if trace.info.trace_id in rationale_map
         ]
@@ -401,15 +401,14 @@ def _build_issues(
 
     Returns:
         A tuple of (issues, issue_trace_ids) where issue_trace_ids maps
-        issue_id to the list of example trace IDs for annotation.
+        issue_id to the list of affected trace IDs for annotation.
     """
     from mlflow.tracing.client import TracingClient
 
     issues: list[Issue] = []
     issue_trace_ids: dict[str, list[str]] = {}
     for ident in identified:
-        # TODO: this doesn't include all affected traces, but at max 10 examples
-        example_trace_ids = collect_example_trace_ids(ident, analyses)
+        affected_trace_ids = collect_affected_trace_ids(ident, analyses)
         name = ident.name.removeprefix("Issue: ").removeprefix("issue: ")
         issue = TracingClient()._create_issue(
             experiment_id=exp_id,
@@ -421,7 +420,7 @@ def _build_issues(
             source_run_id=source_run_id,
         )
         issues.append(issue)
-        issue_trace_ids[issue.issue_id] = example_trace_ids
+        issue_trace_ids[issue.issue_id] = affected_trace_ids
 
     issues.sort(
         key=lambda i: i.severity,
@@ -542,8 +541,8 @@ def discover_issues(
     if use_conversation:
         session_groups = group_traces_by_session(triage_traces)
         test_session = next(
-            (traces for traces in session_groups.values() if len(traces) > 1),
-            next(iter(session_groups.values())),
+            (traces for traces in session_groups.values() if get_session_id(traces[0])),
+            None,
         )
     verify_scorer(
         scorers[0], test_session[0] if test_session else triage_traces[0], session=test_session

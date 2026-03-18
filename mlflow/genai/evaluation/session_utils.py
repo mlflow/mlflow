@@ -1,5 +1,7 @@
 """Utilities for session-level (multi-turn) evaluation."""
 
+from __future__ import annotations
+
 import traceback
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -8,6 +10,12 @@ from typing import TYPE_CHECKING, Any
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.exceptions import MlflowException
+from mlflow.genai.evaluation.rate_limiter import (
+    NoOpRateLimiter,
+    RateLimiter,
+    call_with_retry,
+    eval_retry_context,
+)
 from mlflow.genai.evaluation.utils import (
     make_code_type_assessment_source,
     standardize_scorer_value,
@@ -91,6 +99,8 @@ def evaluate_session_level_scorers(
     session_id: str,
     session_items: list["EvalItem"],
     multi_turn_scorers: list[Scorer],
+    scorer_rate_limiter: RateLimiter = NoOpRateLimiter(),
+    max_retries: int = 0,
 ) -> dict[str, list[Feedback]]:
     """
     Evaluate all multi-turn scorers for a single session.
@@ -99,6 +109,8 @@ def evaluate_session_level_scorers(
         session_id: The session identifier
         session_items: List of EvalItem objects from the same session
         multi_turn_scorers: List of multi-turn scorer instances
+        scorer_rate_limiter: Rate limiter to throttle scorer invocations.
+        max_retries: Max 429-retry attempts per scorer call.
 
     Returns:
         dict: {first_trace_id: [feedback1, feedback2, ...]}
@@ -109,7 +121,12 @@ def evaluate_session_level_scorers(
 
     def run_scorer(scorer: Scorer) -> list[Feedback]:
         try:
-            value = scorer.run(session=session_traces)
+            with eval_retry_context():
+                value = call_with_retry(
+                    lambda: scorer.run(session=session_traces),
+                    scorer_rate_limiter,
+                    max_retries,
+                )
             feedbacks = standardize_scorer_value(scorer.name, value)
 
             # Add session_id to metadata for each feedback

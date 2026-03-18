@@ -330,7 +330,7 @@ def test_bedrock_aws_config(aws_config, expected):
 )
 @pytest.mark.parametrize("aws_config", [c for c, _ in bedrock_aws_configs])
 def test_bedrock_aws_client(provider, config, aws_config):
-    with mock.patch("boto3.Session", return_value=mock.Mock()) as mock_session:
+    with mock.patch("boto3.Session") as mock_session:
         mock_client = mock.Mock()
         mock_assume_role = mock.Mock()
         mock_assume_role.return_value = mock.MagicMock()
