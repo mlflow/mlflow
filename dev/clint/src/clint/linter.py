@@ -825,6 +825,9 @@ class Linter(ast.NodeVisitor):
         if self._is_in_test() and rules.MockPatchDictEnviron.check(node, self.resolver):
             self._check(Range.from_node(node), rules.MockPatchDictEnviron())
 
+        if self._is_in_test() and rules.RedundantMockReturnValue.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.RedundantMockReturnValue())
+
         if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
 

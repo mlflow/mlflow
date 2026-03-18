@@ -40,6 +40,7 @@ from clint.rules.prefer_dict_union import PreferDictUnion
 from clint.rules.prefer_next import PreferNext
 from clint.rules.prefer_os_environ import PreferOsEnviron
 from clint.rules.pytest_mark_repeat import PytestMarkRepeat
+from clint.rules.redundant_mock_return_value import RedundantMockReturnValue
 from clint.rules.redundant_test_docstring import RedundantTestDocstring
 from clint.rules.subprocess_check_call import SubprocessCheckCall
 from clint.rules.tempfile_in_test import TempfileInTest
@@ -99,6 +100,7 @@ __all__ = [
     "PreferNext",
     "PreferOsEnviron",
     "PytestMarkRepeat",
+    "RedundantMockReturnValue",
     "RedundantTestDocstring",
     "SubprocessCheckCall",
     "TempfileInTest",
