@@ -18,7 +18,7 @@ from mlflow.genai.discovery.pipeline import (
     build_issue_discovery_scorer,
     discover_issues,
 )
-from mlflow.genai.discovery.utils import verify_scorer
+from mlflow.genai.discovery.utils import get_session_id, verify_scorer
 from mlflow.genai.evaluation.context import NoneContext, _set_context
 from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
@@ -1078,6 +1078,7 @@ def test_discover_issues_filters_invalid_categories(make_trace):
 
 
 def test_discover_issues_with_mixed_session_traces(make_trace):
+
     traces = [
         make_trace(session_id="session-1"),
         make_trace(session_id="session-1"),
@@ -1086,6 +1087,7 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
     ]
 
     with (
+        patch("mlflow.genai.discovery.pipeline.verify_scorer") as mock_verify,
         patch(
             "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
             return_value=_triage_eval(),
@@ -1101,3 +1103,9 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
 
     assert result is not None
     assert result.total_traces_analyzed == 4
+
+    mock_verify.assert_called_once()
+    call_kwargs = mock_verify.call_args.kwargs
+    assert call_kwargs["session"] is not None
+
+    assert all(get_session_id(t) is not None for t in call_kwargs["session"])
