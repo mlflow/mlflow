@@ -2640,7 +2640,7 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
 
 def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store):
     trace_id = "tr-test-attachment-123"
-    attachment_id = "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+    attachment_id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
 
     trace_info = TraceInfo(
         trace_id=trace_id,
@@ -2665,10 +2665,13 @@ def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store):
     mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
     mock_artifact_repo.download_trace_attachment.assert_called_once_with(attachment_id)
     assert response.status_code == 200
+    assert response.headers["Content-Type"] == "application/octet-stream"
+    assert response.headers["Content-Disposition"] == f"attachment; filename={attachment_id}"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
 
 
 def test_get_trace_artifact_handler_attachment_missing_request_id():
-    query = {"path": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}
+    query = {"path": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"}
     with app.test_request_context(method="GET", query_string=query):
         response = get_trace_artifact_handler()
     assert response.status_code == 400
@@ -2677,7 +2680,7 @@ def test_get_trace_artifact_handler_attachment_missing_request_id():
 def test_get_trace_artifact_handler_attachment_trace_not_found(mock_tracking_store):
     mock_tracking_store.get_trace_info.return_value = None
 
-    query = {"request_id": "tr-nonexistent", "path": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"}
+    query = {"request_id": "tr-nonexistent", "path": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"}
     with app.test_request_context(method="GET", query_string=query):
         response = get_trace_artifact_handler()
     assert response.status_code == 404

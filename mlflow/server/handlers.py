@@ -3884,7 +3884,13 @@ def get_trace_artifact_handler() -> Response:
         repo = _get_trace_artifact_repo(trace_info)
         content_bytes = repo.download_trace_attachment(path)
         buf = io.BytesIO(content_bytes)
-        return send_file(buf, mimetype="application/octet-stream")
+        file_sender_response = send_file(
+            buf,
+            mimetype="application/octet-stream",
+            as_attachment=True,
+            download_name=path,
+        )
+        return _response_with_file_attachment_headers(path, file_sender_response)
 
     trace_data = _fetch_trace_data_from_store(store, request_id)
     if trace_data is None:
