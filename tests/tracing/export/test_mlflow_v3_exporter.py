@@ -503,3 +503,46 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
         exporter.export([otel_span])
         mock_upload_trace_data.assert_not_called()
         mock_start_trace.assert_called_once()
+
+
+@pytest.mark.parametrize("write_spans_with_trace", [True, False])
+def test_write_spans_with_trace_flag(write_spans_with_trace):
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=99999,
+        span_id=1,
+        parent_id=None,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_info.tags[TraceTagKey.SPANS_LOCATION] = SpansLocation.TRACKING_STORE.value
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ) as mock_start_trace,
+        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.log_spans",
+        ) as mock_log_spans,
+    ):
+        exporter = MlflowV3SpanExporter(write_spans_with_trace=write_spans_with_trace)
+        exporter.export([otel_span])
+
+        mock_start_trace.assert_called_once()
+        call_kwargs = mock_start_trace.call_args
+
+        if write_spans_with_trace:
+            # Spans should be passed to start_trace, not logged separately
+            assert call_kwargs.kwargs.get("spans") is not None
+            mock_log_spans.assert_not_called()
+        else:
+            # Spans should NOT be passed to start_trace; logged separately
+            assert call_kwargs.kwargs.get("spans") is None
+            mock_log_spans.assert_called_once()

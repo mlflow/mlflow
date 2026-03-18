@@ -1746,12 +1746,13 @@ class FileStore(AbstractStore):
             dictionary[file_name] = value
         return dictionary
 
-    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo, spans=None) -> TraceInfo:
         """
         Create a trace using the V3 API format with a complete Trace object.
 
         Args:
             trace_info: The TraceInfo object to create in the backend.
+            spans: Unused. Accepted for API compatibility with other stores.
 
         Returns:
             The created TraceInfo object from the backend.

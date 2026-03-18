@@ -247,7 +247,7 @@ class DatabricksTracingRestStore(RestStore):
         )
         _logger.debug(f"Linked experiment {experiment_id} to trace location: {location}")
 
-    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo, spans=None) -> TraceInfo:
         """
         Create a new trace using the V4 API format.
 
@@ -255,6 +255,7 @@ class DatabricksTracingRestStore(RestStore):
             trace_info: The TraceInfo object to create in the backend. Currently, this
                 only supports trace_location with uc_schema, or mlflow_experiment that's
                 linked to a UC table.
+            spans: Unused. Accepted for API compatibility with other stores.
 
         Returns:
             The returned TraceInfo object from the backend.

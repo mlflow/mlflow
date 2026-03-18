@@ -28,6 +28,7 @@ def _make_exporter(mock_client):
     with patch.object(MlflowV3SpanExporter, "__init__", return_value=None):
         exporter = MlflowV3SpanExporter()
     exporter._client = mock_client
+    exporter._write_spans_with_trace = False
     return exporter
 
 

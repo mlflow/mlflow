@@ -4634,12 +4634,17 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if root_span_status:
                     update_dict[SqlTraceInfo.status] = root_span_status
 
+            # Write span rows, span metrics, and SPANS_LOCATION tag
+            self._write_spans_to_session(session, spans, trace_id, sql_trace_info.experiment_id)
+
+            # Aggregate trace-level metadata from spans (token usage, cost, session_id,
+            # root span attributes). This is separate from _write_spans_to_session because
+            # these are incremental-update operations specific to the log_spans path.
             aggregated_token_usage = {}
             aggregated_cost = {}
             session_id = None
             for span in spans:
                 span_dict = translate_span_when_storing(span)
-                span_cost = None
                 if span_attributes := span_dict.get("attributes", {}):
                     if span_token_usage := span_attributes.get(SpanAttributeKey.CHAT_USAGE):
                         aggregated_token_usage = update_token_usage(
@@ -4647,50 +4652,10 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         )
                     if span_cost := span_attributes.get(SpanAttributeKey.LLM_COST):
                         aggregated_cost = update_cost(aggregated_cost, span_cost)
-                    # session id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
                     if session_id is None and (
                         span_session_id := span_attributes.get("session.id")
                     ):
                         session_id = span_session_id
-                    # Get cost for span metrics
-                    span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
-
-                content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
-
-                # Prepare dimension attributes with model name and provider if available
-                dimension_attribute_keys = [SpanAttributeKey.MODEL, SpanAttributeKey.MODEL_PROVIDER]
-                dimension_attributes = {}
-                for key in dimension_attribute_keys:
-                    if value := span_attributes.get(key):
-                        dimension_attributes[key] = _try_parse_json_string(value)
-
-                sql_span = SqlSpan(
-                    trace_id=span.trace_id,
-                    experiment_id=sql_trace_info.experiment_id,
-                    span_id=span.span_id,
-                    parent_span_id=span.parent_id,
-                    name=span.name,
-                    type=span.span_type,
-                    status=span.status.status_code,
-                    start_time_unix_nano=span.start_time_ns,
-                    end_time_unix_nano=span.end_time_ns,
-                    content=content_json,
-                    dimension_attributes=dimension_attributes or None,
-                )
-
-                session.merge(sql_span)
-
-                if span_cost:
-                    span_cost = json.loads(span_cost)
-                    for cost_key, cost_value in span_cost.items():
-                        session.merge(
-                            SqlSpanMetrics(
-                                trace_id=span.trace_id,
-                                span_id=span.span_id,
-                                key=cost_key,
-                                value=float(cost_value),
-                            )
-                        )
 
                 if span.parent_id is None:
                     update_dict.update(
@@ -4775,15 +4740,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 update_dict,
                 # Skip session synchronization for performance - we don't use the object afterward
                 synchronize_session=False,
-            )
-            # This is required to handle the concurrent calls that create or update the trace info,
-            # and to set the spans_location tag here since spans are stored in db.
-            session.merge(
-                SqlTraceTag(
-                    request_id=trace_id,
-                    key=TraceTagKey.SPANS_LOCATION,
-                    value=SpansLocation.TRACKING_STORE.value,
-                )
             )
 
         return spans

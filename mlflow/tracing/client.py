@@ -91,9 +91,7 @@ class TracingClient:
         Returns:
             The returned TraceInfoV3 object from the backend.
         """
-        if spans:
-            return self.store.start_trace(trace_info=trace_info, spans=spans)
-        return self.store.start_trace(trace_info=trace_info)
+        return self.store.start_trace(trace_info=trace_info, spans=spans)
 
     def log_spans(self, location: str, spans: list[Span]) -> list[Span]:
         """

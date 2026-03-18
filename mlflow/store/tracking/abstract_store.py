@@ -273,7 +273,7 @@ class AbstractStore(GatewayStoreMixin):
 
         """
 
-    def start_trace(self, trace_info: TraceInfo, spans=None) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo, spans: list[Span] | None = None) -> TraceInfo:
         """
         Create a trace using the V3 API format with a complete Trace object.
 
