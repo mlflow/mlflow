@@ -15,10 +15,6 @@ on:
       - reopened
       - labeled
       - closed
-    paths:
-      - mlflow/server/js/**
-      - .github/workflows/ui-preview.yml
-      - .github/ui-preview/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'master' }}
