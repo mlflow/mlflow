@@ -251,6 +251,11 @@ constraint-dependencies = [
   "pyspark<4.1.0",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
+  # TODO: Remove this once tests are updated to mock WorkspaceClient initialization
+  # databricks-sdk 0.101.0 changed OIDC resolution to always fetch host metadata, causing
+  # WorkspaceClient init to make real HTTP calls even with dummy hosts, breaking tests
+  # https://github.com/databricks/databricks-sdk-py/pull/1331
+  "databricks-sdk<0.101.0",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer
