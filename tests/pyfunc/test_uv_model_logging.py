@@ -50,7 +50,7 @@ def python_model():
     return SimplePythonModel()
 
 
-_uv_python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+PYTHON_VERSION = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ build-backend = "hatchling.build"
     (tmp_path / _PYPROJECT_FILE).write_text(pyproject_content)
 
     # Create .python-version
-    (tmp_path / _PYTHON_VERSION_FILE).write_text(f"{_uv_python_version}\n")
+    (tmp_path / _PYTHON_VERSION_FILE).write_text(f"{PYTHON_VERSION}\n")
 
     # Create minimal package structure for hatchling
     pkg_dir = tmp_path / "test_uv_project"
@@ -115,7 +115,7 @@ def test_pyfunc_log_model_copies_uv_artifacts(tmp_uv_project, python_model, monk
         # Verify content matches source
         assert "version = 1" in (artifact_dir / _UV_LOCK_FILE).read_text()
         assert "test_uv_project" in (artifact_dir / _PYPROJECT_FILE).read_text()
-        assert _uv_python_version in (artifact_dir / _PYTHON_VERSION_FILE).read_text()
+        assert PYTHON_VERSION in (artifact_dir / _PYTHON_VERSION_FILE).read_text()
 
 
 @requires_uv
@@ -501,7 +501,7 @@ def test_run_uv_sync_real(tmp_uv_project, tmp_path):
     sync_dir = tmp_path / "sync_project"
 
     # Create the virtual environment directly at sync_dir
-    subprocess.check_call(["uv", "venv", sync_dir, f"--python={_uv_python_version}"])
+    subprocess.check_call(["uv", "venv", sync_dir, f"--python={PYTHON_VERSION}"])
 
     shutil.copytree(tmp_uv_project, sync_dir, dirs_exist_ok=True)
 
@@ -512,6 +512,4 @@ def test_run_uv_sync_real(tmp_uv_project, tmp_path):
     # Verify numpy is installed in the env at sync_dir
     python_bin = sync_dir / "bin" / "python"
 
-    subprocess.check_call(
-        [python_bin, "-c", "import numpy"],
-    )
+    subprocess.check_call([python_bin, "-c", "import numpy"])
