@@ -262,6 +262,8 @@ def extract_failing_traces(
     rationales: dict[str, str] = {}
 
     for trace in scored_traces:
+        if trace is None:
+            continue
         row_failing: list[tuple[str, str]] = []
         for scorer_name in scorer_names:
             assessments = trace.search_assessments(scorer_name, type="feedback")

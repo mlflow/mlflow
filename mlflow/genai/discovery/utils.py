@@ -86,6 +86,60 @@ class _TokenCounter:
         return result
 
 
+def _add_additional_properties_false(schema: dict) -> dict:
+    """Recursively add ``additionalProperties: false`` to every object in a JSON schema.
+
+    Some providers (e.g. Databricks) require this field on all object schemas
+    when using structured output / ``response_format``.
+    """
+    if schema.get("type") == "object" or "properties" in schema:
+        schema["additionalProperties"] = False
+    for value in schema.values():
+        if isinstance(value, dict):
+            _add_additional_properties_false(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _add_additional_properties_false(item)
+    return schema
+
+
+def _resolve_refs(schema: dict, defs: dict) -> dict:
+    """Recursively resolve ``$ref`` pointers using the ``$defs`` mapping."""
+    if "$ref" in schema:
+        ref_name = schema["$ref"].rsplit("/", 1)[-1]
+        return _resolve_refs(dict(defs[ref_name]), defs)
+    result = {}
+    for key, value in schema.items():
+        if key == "$defs":
+            continue
+        if isinstance(value, dict):
+            result[key] = _resolve_refs(value, defs)
+        elif isinstance(value, list):
+            result[key] = [
+                _resolve_refs(item, defs) if isinstance(item, dict) else item for item in value
+            ]
+        else:
+            result[key] = value
+    return result
+
+
+def _to_strict_response_format(model_class: type[pydantic.BaseModel]) -> dict:
+    """Convert a Pydantic model to a strict JSON schema response_format dict."""
+    raw_schema = model_class.model_json_schema()
+    defs = raw_schema.get("$defs", {})
+    schema = _resolve_refs(raw_schema, defs)
+    _add_additional_properties_false(schema)
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": model_class.__name__,
+            "strict": True,
+            "schema": schema,
+        },
+    }
+
+
 @trace_disabled
 def _call_llm(
     model: str,
@@ -98,7 +152,12 @@ def _call_llm(
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
     from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 
-    use_format = response_format or ({"type": "json_object"} if json_mode else None)
+    if response_format is not None:
+        use_format = _to_strict_response_format(response_format)
+    elif json_mode:
+        use_format = {"type": "json_object"}
+    else:
+        use_format = None
     response = _invoke_litellm(
         litellm_model=convert_mlflow_uri_to_litellm(model),
         messages=messages,
