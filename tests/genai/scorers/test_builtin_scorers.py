@@ -694,12 +694,10 @@ def test_fluency_get_input_fields():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_default_name():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "The text is fluent.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The text is fluent.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with patch("litellm.completion", return_value=mock_response):
@@ -712,12 +710,10 @@ def test_fluency_default_name():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_with_custom_model():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "The text is fluent.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The text is fluent.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with patch("litellm.completion", return_value=mock_response):
@@ -731,12 +727,10 @@ def test_fluency_with_custom_model():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_with_custom_name():
-    mock_content = json.dumps(
-        {
-            "result": "no",
-            "rationale": "The text has issues.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "no",
+        "rationale": "The text has issues.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with patch("litellm.completion", return_value=mock_response):
@@ -1587,12 +1581,10 @@ def test_completeness_with_trace():
 def test_conversational_safety_with_session():
     session_id = "test_session_safety"
     traces = []
-    for i, (q, a) in enumerate(
-        [
-            ("What is Python?", "Python is a programming language."),
-            ("How do I install it?", "You can download it from python.org."),
-        ]
-    ):
+    for i, (q, a) in enumerate([
+        ("What is Python?", "Python is a programming language."),
+        ("How do I install it?", "You can download it from python.org."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": q})
             span.set_outputs(a)
@@ -1668,12 +1660,10 @@ def test_conversational_safety_instructions():
 def test_conversational_tool_call_efficiency_with_session():
     session_id = "test_session_efficiency"
     traces = []
-    for i, (question, stock, stock_price) in enumerate(
-        [
-            ("What is the price of AAPL?", "AAPL", "150"),
-            ("How about MSFT?", "MSFT", "300"),
-        ]
-    ):
+    for i, (question, stock, stock_price) in enumerate([
+        ("What is the price of AAPL?", "AAPL", "150"),
+        ("How about MSFT?", "MSFT", "300"),
+    ]):
         answer = f"{stock} is ${stock_price}."
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
@@ -1964,12 +1954,10 @@ def test_tool_call_correctness_parse_expectations_empty(expectations):
 def test_conversational_role_adherence_with_session():
     session_id = "test_session_role"
     traces = []
-    for i, (question, answer) in enumerate(
-        [
-            ("What can you cook?", "I can help you make many dishes!"),
-            ("How do I make soup?", "Start by boiling vegetables..."),
-        ]
-    ):
+    for i, (question, answer) in enumerate([
+        ("What can you cook?", "I can help you make many dishes!"),
+        ("How do I make soup?", "Start by boiling vegetables..."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
             span.set_outputs(answer)
@@ -2016,12 +2004,10 @@ def test_conversational_role_adherence_instructions():
 def test_conversational_guidelines_with_session(guidelines):
     session_id = "test_session_guidelines"
     traces = []
-    for i, (question, answer) in enumerate(
-        [
-            ("What are your hours?", "We are open 9am-5pm Monday through Friday."),
-            ("Can I get a refund?", "Yes, we offer refunds within 30 days of purchase."),
-        ]
-    ):
+    for i, (question, answer) in enumerate([
+        ("What are your hours?", "We are open 9am-5pm Monday through Friday."),
+        ("Can I get a refund?", "Yes, we offer refunds within 30 days of purchase."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
             span.set_outputs(answer)

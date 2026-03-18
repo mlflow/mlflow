@@ -138,3 +138,17 @@ def test_uc_table_prefix_location_round_trip():
     )
     assert location.full_table_prefix == "catalog.schema.prefix"
     assert UnityCatalog.from_dict(location.to_dict()) == location
+
+
+def test_unity_catalog_equality_ignores_private_fields():
+    a = UnityCatalog(catalog_name="cat", schema_name="sch", table_prefix="pfx")
+    b = UnityCatalog(catalog_name="cat", schema_name="sch", table_prefix="pfx")
+    b._otel_spans_table_name = "cat.sch.pfx_otel_spans"
+    b._otel_logs_table_name = "cat.sch.pfx_otel_logs"
+    assert a == b
+
+
+def test_unity_catalog_inequality_on_different_prefix():
+    a = UnityCatalog(catalog_name="cat", schema_name="sch", table_prefix="pfx1")
+    b = UnityCatalog(catalog_name="cat", schema_name="sch", table_prefix="pfx2")
+    assert a != b

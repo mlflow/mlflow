@@ -39,6 +39,7 @@ import type {
   RetrieverDocument,
   ModelTraceEvent,
   ModelTraceLocation,
+  ModelTraceInputAudio,
 } from './ModelTrace.types';
 import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY, type SpanCostInfo } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
@@ -76,6 +77,7 @@ import {
   COST_METADATA_KEY,
   MLFLOW_SPAN_OUTPUT_KEY,
   SPAN_ATTRIBUTE_COST_KEY,
+  SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY,
   SPAN_ATTRIBUTE_MODEL_KEY,
   TOKEN_USAGE_METADATA_KEY,
 } from './constants';
@@ -392,9 +394,27 @@ const getChatMessagesFromSpan = (
     }
   }
 
-  // when either input or output is not chat messages, we do not set the chat message fiels.
+  // When the output is a plain string and inputs parsed as chat messages,
+  // wrap the output as an assistant message so the chat UI can render.
+  if (messagesFromInputs.length > 0 && messagesFromOutputs.length === 0 && typeof outputs === 'string') {
+    return messagesFromInputs.concat([{ role: 'assistant', content: outputs }]);
+  }
+
+  // when either input or output is not chat messages, we do not set the chat message field.
   if (messagesFromInputs.length === 0 || messagesFromOutputs.length === 0) {
     return undefined;
+  }
+
+  // LangGraph (and similar frameworks) accumulate all messages in the output state,
+  // so outputs already contain the input messages as a prefix. Detect this overlap
+  // and use only the output messages to avoid duplication.
+  if (
+    messagesFromOutputs.length >= messagesFromInputs.length &&
+    messagesFromInputs.every(
+      (msg, i) => msg.role === messagesFromOutputs[i].role && msg.content === messagesFromOutputs[i].content,
+    )
+  ) {
+    return messagesFromOutputs;
   }
 
   return messagesFromInputs.concat(messagesFromOutputs);
@@ -461,10 +481,13 @@ export const normalizeNewSpanData = (
     inputs,
   );
 
-  // Extract model name and cost info
+  // Extract model name, cost info, and linked gateway trace ID
   const modelName = tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_MODEL_KEY) as string);
   const cost = getCostFromSpan(
     tryDeserializeAttribute(getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_COST_KEY) as string),
+  );
+  const linkedGatewayTraceId = tryDeserializeAttribute(
+    getSpanAttribute(span.attributes, SPAN_ATTRIBUTE_LINKED_GATEWAY_TRACE_ID_KEY) as string,
   );
 
   // remove other private mlflow attributes
@@ -502,6 +525,7 @@ export const normalizeNewSpanData = (
     traceId,
     modelName,
     cost,
+    linkedGatewayTraceId,
   };
 };
 
@@ -1006,7 +1030,7 @@ export const isModelTraceChoices = (obj: any): obj is ModelTraceChatResponse['ch
   return (
     Array.isArray(obj) &&
     obj.length > 0 &&
-    obj.every((choice: any) => has(choice, 'message') && isModelTraceChatMessage(choice.message))
+    obj.every((choice: any) => has(choice, 'message') && isRawModelTraceChatMessage(choice.message))
   );
 };
 
@@ -1113,8 +1137,11 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (voltAgentMessages) return voltAgentMessages;
         break;
       default:
-        const chatMessages = normalizeOpenAIFormats(input);
+        const chatMessages =
+          normalizeOpenAIFormats(input) ?? normalizeLangchainChatInput(input) ?? normalizeLangchainChatResult(input);
         if (chatMessages) return chatMessages;
+        const geminiFallbackMessages = normalizeGeminiChatInput(input) ?? normalizeGeminiChatOutput(input);
+        if (geminiFallbackMessages) return geminiFallbackMessages;
         break;
     }
 
@@ -1162,14 +1189,30 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
           const url = part?.image_url?.url;
           return url ? `![](${url})` : '[image]';
         case 'input_audio':
-          // raw encoded audio content is not displayed in the UI
-          return '[audio]';
+          // Audio parts are rendered as <audio> elements by the component,
+          // so they are excluded from the markdown string
+          return undefined;
       }
     })
     .filter((part) => part !== undefined);
 
   // Join with double line breaks for better visual separation
   return contentParts.join('\n\n');
+};
+
+const extractAudioParts = (content?: ModelTraceContentType | null): ModelTraceInputAudio[] => {
+  if (isNil(content) || isString(content)) {
+    return [];
+  }
+  return content
+    .filter(
+      (part): part is { type: 'input_audio'; input_audio: ModelTraceInputAudio } =>
+        part.type === 'input_audio' &&
+        isObject((part as any).input_audio) &&
+        isString(((part as any).input_audio as any).data) &&
+        isString(((part as any).input_audio as any).format),
+    )
+    .map((part) => part.input_audio);
 };
 
 export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): ModelTraceChatMessage | null => {
@@ -1181,10 +1224,13 @@ export const prettyPrintChatMessage = (message: RawModelTraceChatMessage): Model
     return null;
   }
 
+  const audioParts = extractAudioParts(message.content);
+
   return {
     ...message,
     content: formatChatContent(message.content),
     tool_calls: message.tool_calls?.map(prettyPrintToolCall),
+    ...(audioParts.length > 0 ? { audioParts } : {}),
   };
 };
 

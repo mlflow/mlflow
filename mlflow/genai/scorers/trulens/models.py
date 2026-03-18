@@ -7,6 +7,7 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.genai.utils.message_utils import serialize_chat_messages_to_prompts
 from mlflow.metrics.genai.model_utils import _parse_model_uri
 
@@ -60,6 +61,7 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
         model_uri: Model URI in one of these formats:
             - "databricks" - Use default Databricks managed judge
             - "databricks:/endpoint" - Use LiteLLM with Databricks endpoint
+            - "gateway:/endpoint" - Use MLflow AI Gateway endpoint
             - "provider:/model" - Use LiteLLM with the specified model
         kwargs: Additional arguments passed to the underlying provider
 
@@ -81,6 +83,16 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
     # Use LiteLLM for all providers (including databricks:/endpoint)
     try:
         from trulens.providers.litellm import LiteLLM
+
+        if provider == "gateway":
+            config = get_gateway_litellm_config(model_name)
+            return LiteLLM(
+                model_engine=config.model,
+                api_base=config.api_base,
+                api_key=config.api_key,
+                **({"extra_headers": config.extra_headers} if config.extra_headers else {}),
+                **kwargs,
+            )
 
         litellm_model = f"{provider}/{model_name}" if provider != "litellm" else model_name
         return LiteLLM(model_engine=litellm_model, **kwargs)

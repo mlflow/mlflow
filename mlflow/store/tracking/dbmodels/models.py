@@ -48,6 +48,10 @@ from mlflow.entities import (
     GatewayResourceType,
     GatewaySecretInfo,
     InputTag,
+    Issue,
+    IssueReference,
+    IssueSeverity,
+    IssueStatus,
     Metric,
     Param,
     RoutingStrategy,
@@ -63,6 +67,7 @@ from mlflow.entities import (
 from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -925,7 +930,7 @@ class SqlAssessments(Base):
     """
     assessment_type = Column(String(50), nullable=False)
     """
-    Assessment type: `String` (limit 50 characters). Either "feedback" or "expectation".
+    Assessment type: `String` (limit 50 characters). Either "feedback", "expectation", or "issue".
     """
     value = Column(Text, nullable=False)
     """
@@ -1040,6 +1045,21 @@ class SqlAssessments(Base):
             )
             assessment.overrides = self.overrides
             assessment.valid = self.valid
+        elif assessment_type_value == "issue":
+            assessment = IssueReference(
+                issue_id=self.name,
+                issue_name=parsed_value.get("issue_name"),
+                source=source,
+                trace_id=self.trace_id,
+                run_id=self.run_id,
+                rationale=self.rationale,
+                metadata=parsed_metadata,
+                span_id=self.span_id,
+                create_time_ms=self.created_timestamp,
+                last_update_time_ms=self.last_updated_timestamp,
+            )
+            assessment.overrides = self.overrides
+            assessment.valid = self.valid
         else:
             raise ValueError(f"Unknown assessment type: {assessment_type_value}")
 
@@ -1067,9 +1087,13 @@ class SqlAssessments(Base):
             assessment_type = "expectation"
             value_json = json.dumps(assessment.expectation.value)
             error_json = None
+        elif assessment.issue is not None:
+            assessment_type = "issue"
+            value_json = json.dumps(assessment.issue.to_dictionary())
+            error_json = None
         else:
             raise MlflowException.invalid_parameter_value(
-                "Assessment must have either feedback or expectation value"
+                "Assessment must have either feedback, expectation, or issue value"
             )
 
         metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
@@ -1095,6 +1119,106 @@ class SqlAssessments(Base):
 
     def __repr__(self):
         return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"
+
+
+class SqlIssue(Base):
+    __tablename__ = "issues"
+
+    issue_id = Column(String(36), nullable=False)
+    """
+    Issue ID: `String` (limit 36 characters). *Primary Key* for ``issues`` table.
+    Format: "iss-<uuid>".
+    """
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table. Required.
+    """
+    name = Column(String(250), nullable=False)
+    """
+    Issue name/title: `String` (limit 250 characters).
+    """
+    description = Column(Text, nullable=False)
+    """
+    Detailed description of the issue: `Text`.
+    """
+    status = Column(String(50), nullable=False)
+    """
+    Issue status: `String` (limit 50 characters).
+    """
+    severity = Column(String(50), nullable=True)
+    """
+    Severity level: `String` (limit 50 characters). Optional indicator of issue severity.
+    """
+    root_causes = Column(Text, nullable=True)
+    """
+    Root causes analysis stored as JSON array: `Text`. Nullable if root causes are not yet
+    determined.
+    """
+    source_run_id = Column(
+        String(32), ForeignKey("runs.run_uuid", ondelete="SET NULL"), nullable=True
+    )
+    """
+    Source run ID that discovered this issue: `String` (limit 32 characters).
+    *Foreign Key* into ``runs`` table. Nullable for manually created issues.
+    When the source run is deleted, this field is set to NULL.
+    """
+    categories = Column(Text, nullable=True)
+    """
+    Categories stored as JSON array: `Text`. Nullable if categories are not yet
+    determined.
+    """
+    created_timestamp = Column(BigInteger, nullable=False)
+    """
+    Creation timestamp: `BigInteger` in milliseconds.
+    """
+    last_updated_timestamp = Column(BigInteger, nullable=False)
+    """
+    Last update timestamp: `BigInteger` in milliseconds.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator identifier: `String` (limit 255 characters). Optional.
+    """
+
+    run = relationship("SqlRun", foreign_keys=[source_run_id], backref=backref("issues"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.tracking.dbmodels.models.SqlRun`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("issue_id", name="issues_pk"),
+        Index(f"index_{__tablename__}_experiment_id", "experiment_id"),
+        Index(f"index_{__tablename__}_source_run_id", "source_run_id"),
+        Index(f"index_{__tablename__}_status", "status"),
+    )
+
+    def __repr__(self):
+        return f"<SqlIssue({self.issue_id}, {self.name}, {self.status})>"
+
+    def to_mlflow_entity(self) -> Issue:
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.Issue` object.
+        """
+        return Issue(
+            issue_id=self.issue_id,
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            description=self.description,
+            status=IssueStatus(self.status),
+            severity=IssueSeverity(self.severity) if self.severity else None,
+            root_causes=json.loads(self.root_causes) if self.root_causes else None,
+            source_run_id=self.source_run_id,
+            categories=json.loads(self.categories) if self.categories else None,
+            created_timestamp=self.created_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+            created_by=self.created_by,
+        )
 
 
 class SqlLoggedModel(Base):
@@ -2400,7 +2524,7 @@ class SqlGatewayEndpoint(Base):
     ID of the MLflow experiment where traces for this endpoint are logged.
     Uses SET NULL on delete - if the experiment is deleted, this becomes NULL.
     """
-    usage_tracking = Column(Boolean, nullable=False, default=False)
+    usage_tracking = Column(Boolean, nullable=False, default=True)
     """
     Usage tracking: `Boolean`. Whether usage tracking is enabled for this endpoint.
     When true, traces will be logged for endpoint invocations.
@@ -2850,8 +2974,10 @@ class SqlGatewayBudgetPolicy(Base):
             budget_policy_id=self.budget_policy_id,
             budget_unit=BudgetUnit(self.budget_unit),
             budget_amount=self.budget_amount,
-            duration_unit=BudgetDurationUnit(self.duration_unit),
-            duration_value=self.duration_value,
+            duration=BudgetDuration(
+                unit=BudgetDurationUnit(self.duration_unit),
+                value=self.duration_value,
+            ),
             target_scope=BudgetTargetScope(self.target_scope),
             budget_action=BudgetAction(self.budget_action),
             created_at=self.created_at,

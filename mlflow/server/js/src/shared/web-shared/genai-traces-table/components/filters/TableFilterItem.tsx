@@ -99,6 +99,10 @@ const getAvailableOperators = (column: string, key?: string): FilterOperator[] =
     return [FilterOperator.EQUALS, FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL];
   }
 
+  if (column === TracesTableColumnGroup.TAG) {
+    return [FilterOperator.EQUALS, FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL];
+  }
+
   return [FilterOperator.EQUALS];
 };
 

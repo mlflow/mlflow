@@ -31,7 +31,6 @@ import { useIntl } from 'react-intl';
 import {
   type RunsGroupByConfig,
   getRunGroupDisplayName,
-  isRemainingRunsGroup,
   normalizeRunsGroupByKey,
 } from '../experiment-page/utils/experimentPage.group-row-utils';
 import { keyBy, values } from 'lodash';
@@ -234,23 +233,10 @@ const RunsCompareImpl = ({
     }
 
     const groupChartDataEntries = comparedRuns
-      .filter((run) => run.groupParentInfo && !isRemainingRunsGroup(run.groupParentInfo))
+      .filter((run) => run.groupParentInfo)
       .map<RunsChartsRunData>((group) => createGroupDataTrace(group, getRunColor(group.groupParentInfo?.groupId)));
 
-    const remainingRuns = comparedRuns
-      .filter((run) => !run.groupParentInfo && !run.runDateAndNestInfo?.belongsToGroup)
-      .map((run) =>
-        createRunDataTrace(
-          run,
-          latestMetricsByRunUuid,
-          paramsByRunUuid,
-          tagsByRunUuid,
-          imagesByRunUuid,
-          getRunColor(run.runUuid),
-        ),
-      );
-
-    return [...groupChartDataEntries, ...remainingRuns];
+    return groupChartDataEntries;
   }, [groupBy, comparedRuns, latestMetricsByRunUuid, paramsByRunUuid, tagsByRunUuid, imagesByRunUuid, getRunColor]);
 
   const filteredImageData = chartData.filter((run) => !run.hidden && run.tags[LOG_IMAGE_TAG_INDICATOR]);

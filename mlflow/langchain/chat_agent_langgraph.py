@@ -128,9 +128,7 @@ class ChatAgentState(TypedDict):
 
             if agent_prompt:
                 system_message = {"role": "system", "content": agent_prompt}
-                preprocessor = RunnableLambda(
-                    lambda state: [system_message] + state["messages"]
-                )
+                preprocessor = RunnableLambda(lambda state: [system_message] + state["messages"])
             else:
                 preprocessor = RunnableLambda(lambda state: state["messages"])
             model_runnable = preprocessor | model
@@ -258,9 +256,9 @@ class ChatAgentState(TypedDict):
 
         chat_agent.predict({"messages": [{"role": "user", "content": "What is 10 + 10?"}]})
 
-        for event in chat_agent.predict_stream(
-            {"messages": [{"role": "user", "content": "Generate me a few random nums"}]}
-        ):
+        for event in chat_agent.predict_stream({
+            "messages": [{"role": "user", "content": "Generate me a few random nums"}]
+        }):
             print(event)
 
     This LangGraph ChatAgent can be logged with the logging code described in the "Logging a

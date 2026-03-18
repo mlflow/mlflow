@@ -404,6 +404,25 @@ CREATE TABLE endpoint_tags (
 )
 
 
+CREATE TABLE issues (
+	issue_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	status VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	severity VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	root_causes VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	source_run_id VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	categories VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_timestamp BIGINT NOT NULL,
+	last_updated_timestamp BIGINT NOT NULL,
+	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT issues_pk PRIMARY KEY (issue_id),
+	CONSTRAINT fk_issues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT fk_issues_source_run_id FOREIGN KEY(source_run_id) REFERENCES runs (run_uuid) ON DELETE SET NULL
+)
+
+
 CREATE TABLE latest_metrics (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	value FLOAT NOT NULL,

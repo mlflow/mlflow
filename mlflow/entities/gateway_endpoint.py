@@ -359,7 +359,7 @@ class GatewayEndpoint(_MlflowObject):
     routing_strategy: RoutingStrategy | None = None
     fallback_config: FallbackConfig | None = None
     experiment_id: str | None = None
-    usage_tracking: bool = False
+    usage_tracking: bool = True
     workspace: str | None = None
 
     def __post_init__(self):
@@ -404,7 +404,7 @@ class GatewayEndpoint(_MlflowObject):
         if proto.HasField("experiment_id"):
             experiment_id = proto.experiment_id or None
 
-        usage_tracking = proto.usage_tracking if proto.HasField("usage_tracking") else False
+        usage_tracking = proto.usage_tracking if proto.HasField("usage_tracking") else True
 
         return cls(
             endpoint_id=proto.endpoint_id,

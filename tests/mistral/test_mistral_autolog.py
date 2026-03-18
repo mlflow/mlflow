@@ -1,16 +1,34 @@
 from unittest.mock import patch
 
 import httpx
-import mistralai
 import pytest
-from mistralai.models import (
-    AssistantMessage,
-    ChatCompletionChoice,
-    ChatCompletionResponse,
-    FunctionCall,
-    ToolCall,
-    UsageInfo,
-)
+
+try:
+    from mistralai.client import Mistral  # mistralai >= 2.0
+    from mistralai.client.models import (
+        AssistantMessage,
+        ChatCompletionChoice,
+        ChatCompletionResponse,
+        FunctionCall,
+        ToolCall,
+        UsageInfo,
+    )
+
+    CHAT_DO_REQUEST_PATH = "mistralai.client.chat.Chat.do_request"
+    CHAT_DO_REQUEST_ASYNC_PATH = "mistralai.client.chat.Chat.do_request_async"
+except ImportError:
+    from mistralai import Mistral  # mistralai < 2.0
+    from mistralai.models import (
+        AssistantMessage,
+        ChatCompletionChoice,
+        ChatCompletionResponse,
+        FunctionCall,
+        ToolCall,
+        UsageInfo,
+    )
+
+    CHAT_DO_REQUEST_PATH = "mistralai.chat.Chat.do_request"
+    CHAT_DO_REQUEST_ASYNC_PATH = "mistralai.chat.Chat.do_request_async"
 from pydantic import BaseModel
 
 import mlflow.mistral
@@ -149,11 +167,11 @@ def _make_httpx_response(response: BaseModel, status_code: int = 200) -> httpx.R
 
 def test_chat_complete_autolog(mock_litellm_cost):
     with patch(
-        "mistralai.chat.Chat.do_request",
+        CHAT_DO_REQUEST_PATH,
         return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
     ):
         mlflow.mistral.autolog()
-        client = mistralai.Mistral(api_key="test_key")
+        client = Mistral(api_key="test_key")
         client.chat.complete(**DUMMY_CHAT_COMPLETION_REQUEST)
 
     traces = get_traces()
@@ -186,11 +204,11 @@ def test_chat_complete_autolog(mock_litellm_cost):
         }
 
     with patch(
-        "mistralai.chat.Chat.do_request",
+        CHAT_DO_REQUEST_PATH,
         return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
     ):
         mlflow.mistral.autolog(disable=True)
-        client = mistralai.Mistral(api_key="test_key")
+        client = Mistral(api_key="test_key")
         client.chat.complete(**DUMMY_CHAT_COMPLETION_REQUEST)
 
     # No new trace should be created
@@ -200,11 +218,11 @@ def test_chat_complete_autolog(mock_litellm_cost):
 
 def test_chat_complete_autolog_tool_calling():
     with patch(
-        "mistralai.chat.Chat.do_request",
+        CHAT_DO_REQUEST_PATH,
         return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE),
     ):
         mlflow.mistral.autolog()
-        client = mistralai.Mistral(api_key="test_key")
+        client = Mistral(api_key="test_key")
         client.chat.complete(**DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST)
 
     traces = get_traces()
@@ -270,11 +288,11 @@ def test_chat_complete_autolog_tool_calling():
 @pytest.mark.asyncio
 async def test_chat_complete_async_autolog():
     with patch(
-        "mistralai.chat.Chat.do_request_async",
+        CHAT_DO_REQUEST_ASYNC_PATH,
         return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
     ):
         mlflow.mistral.autolog()
-        client = mistralai.Mistral(api_key="test_key")
+        client = Mistral(api_key="test_key")
         await client.chat.complete_async(**DUMMY_CHAT_COMPLETION_REQUEST)
 
     traces = get_traces()

@@ -249,6 +249,14 @@ _DATABRICKS_VERSION_FILE_PATH = "/databricks/DBR_VERSION"
 
 
 def get_databricks_runtime_version():
+    # DATABRICKS_ENV_VERSION is set for serverless clusters with the major version (e.g. 4).
+    # Use it over DATABRICKS_RUNTIME_VERSION (which includes the minor version) if present.
+    if env_version := os.environ.get("DATABRICKS_ENV_VERSION"):
+        version = f"client.{env_version}"
+        # DATABRICKS_ACCELERATOR is set for serverless GPU clusters.
+        if os.environ.get("DATABRICKS_ACCELERATOR"):
+            version += "-gpu"
+        return version
     if ver := os.environ.get("DATABRICKS_RUNTIME_VERSION"):
         return ver
     if os.path.exists(_DATABRICKS_VERSION_FILE_PATH):
@@ -1397,6 +1405,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url, token=api_token, insecure=ssl_trust_all
                 )
+
     elif dbr_major_minor_version >= (10, 3):
 
         class DynamicConfigProvider(DatabricksConfigProvider):
@@ -1427,6 +1436,7 @@ def _init_databricks_dynamic_token_config_provider(entry_point):
                 return DatabricksConfig.from_token(
                     host=api_url_option.get(), token=api_token_option.get(), insecure=ssl_trust_all
                 )
+
     else:
 
         class DynamicConfigProvider(DatabricksConfigProvider):

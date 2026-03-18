@@ -38,20 +38,14 @@ export const normalizeOpenAIChatInput = (obj: any): ModelTraceChatMessage[] | nu
 // normalize the OpenAI chat response format (object with 'choices' key)
 export const normalizeOpenAIChatResponse = (obj: any): ModelTraceChatMessage[] | null => {
   if (isModelTraceChoices(obj)) {
-    return obj.map((choice) => ({
-      ...choice.message,
-      tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-    }));
+    return compact(obj.map((choice) => prettyPrintChatMessage(choice.message)));
   }
 
   if (!isModelTraceChatResponse(obj)) {
     return null;
   }
 
-  return obj.choices.map((choice) => ({
-    ...choice.message,
-    tool_calls: choice.message.tool_calls?.map(prettyPrintToolCall),
-  }));
+  return compact(obj.choices.map((choice) => prettyPrintChatMessage(choice.message)));
 };
 
 const isOpenAIResponsesInputMessage = (obj: unknown): obj is OpenAIResponsesInputMessage => {

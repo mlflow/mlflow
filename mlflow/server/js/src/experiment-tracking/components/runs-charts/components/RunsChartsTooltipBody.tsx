@@ -16,6 +16,7 @@ import Routes from '../../../routes';
 import { useExperimentIds } from '../../experiment-page/hooks/useExperimentIds';
 import type { RunsChartsRunData } from './RunsCharts.common';
 import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
+import Utils from '../../../../common/utils/Utils';
 import type { RunsChartsTooltipBodyProps } from '../hooks/useRunsChartsTooltip';
 import { RunsChartsTooltipMode, containsMultipleRunsTooltipData } from '../hooks/useRunsChartsTooltip';
 import type {
@@ -45,24 +46,33 @@ interface RunsChartsContextMenuContentDataType {
 type RunsChartContextMenuHoverDataType = RunsChartsCardConfig;
 
 const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun: RunsChartsRunData) => {
-  const { metricKey, dataAccessKey } = cardConfig;
+  const { metricKey, dataAccessKey, selectedMetricKeys } = cardConfig;
 
-  const dataKey = dataAccessKey ?? metricKey;
+  const metricKeys = selectedMetricKeys ?? [dataAccessKey ?? metricKey];
 
-  const metric = activeRun?.metrics[dataKey];
+  const entries = metricKeys
+    .map((key) => {
+      const metric = activeRun?.metrics[key];
+      if (!metric) return null;
+      const customMetricBehaviorDef = customMetricBehaviorDefs[metric.key];
+      const displayName = customMetricBehaviorDef?.displayName ?? metric.key;
+      const displayValue = customMetricBehaviorDef?.valueFormatter({ value: metric.value }) ?? metric.value;
+      return { displayName, displayValue };
+    })
+    .filter(Boolean);
 
-  if (!metric) {
+  if (entries.length === 0) {
     return null;
   }
 
-  const customMetricBehaviorDef = customMetricBehaviorDefs[metric.key];
-  const displayName = customMetricBehaviorDef?.displayName ?? metric.key;
-  const displayValue = customMetricBehaviorDef?.valueFormatter({ value: metric.value }) ?? metric.value;
-
   return (
-    <div css={styles.value}>
-      <strong>{displayName}:</strong> {displayValue}
-    </div>
+    <>
+      {entries.map((entry) => (
+        <div key={entry!.displayName} css={styles.value}>
+          <strong>{entry!.displayName}:</strong> {entry!.displayValue}
+        </div>
+      ))}
+    </>
   );
 };
 
@@ -294,16 +304,18 @@ export const RunsChartsTooltipBody = ({
 
   const runName = activeRun.displayName || activeRun.uuid;
   const metricSuffix = singleTraceHoverData?.metricEntity ? ` (${singleTraceHoverData.metricEntity.key})` : '';
+  const description = Utils.getRunDescriptionFromTags(activeRun.tags);
 
   return (
-    <div>
-      <div css={styles.contentWrapper}>
+    <div css={styles.tooltipBody}>
+      <div css={[styles.contentWrapper, description && styles.contentWrapperCompact]}>
         <div css={styles.header}>
           <div css={styles.colorPill} style={{ backgroundColor: activeRun.color }} />
           {activeRun.groupParentInfo ? (
             <Typography.Text>{runName + metricSuffix}</Typography.Text>
           ) : (
             <Link
+              componentId="mlflow.experiment_tracking.charts.tooltip_run_link"
               to={getDataTraceLink?.(experimentId, runUuid) ?? Routes.getRunPageRoute(experimentId, runUuid)}
               target="_blank"
               css={styles.runLink}
@@ -322,6 +334,14 @@ export const RunsChartsTooltipBody = ({
           />
         )}
       </div>
+
+      {description && (
+        <div css={styles.description}>
+          <Typography.Paragraph color="secondary" withoutMargins ellipsis={{ rows: 2, tooltip: description }}>
+            {description}
+          </Typography.Paragraph>
+        </div>
+      )}
 
       <ValuesBox
         isHovering={isHovering}
@@ -389,6 +409,9 @@ export const RunsChartsTooltipBody = ({
 };
 
 const styles = {
+  tooltipBody: {
+    maxWidth: 300,
+  },
   runLink: (theme: Theme) => ({
     color: theme.colors.primary,
     '&:hover': {},
@@ -403,6 +426,13 @@ const styles = {
     display: 'flex',
     gap: 8,
     alignItems: 'center',
+  },
+  contentWrapperCompact: {
+    marginBottom: 4,
+  },
+  description: {
+    marginBottom: 12,
+    wordBreak: 'break-word' as const,
   },
   value: {
     whiteSpace: 'nowrap' as const,

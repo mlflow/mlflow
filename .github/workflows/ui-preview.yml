@@ -1,6 +1,13 @@
 name: UI Preview
 
 on:
+  push:
+    branches:
+      - master
+    paths:
+      - mlflow/server/js/**
+      - .github/workflows/ui-preview.yml
+      - .github/ui-preview/**
   pull_request_target:
     types:
       - opened
@@ -8,36 +15,76 @@ on:
       - reopened
       - labeled
       - closed
-    paths:
-      - mlflow/server/js/**
-      - .github/workflows/ui-preview.yml
-      - .github/ui-preview/**
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'master' }}
   cancel-in-progress: true
 
 defaults:
   run:
     shell: bash
 
+env:
+  COMMENT_MARKER: "<!-- ui-preview -->"
+
 jobs:
+  notify:
+    if: >-
+      github.event_name != 'push'
+      && github.event.action != 'closed'
+      && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+      && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+      && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    runs-on: ubuntu-slim
+    permissions:
+      pull-requests: write
+    timeout-minutes: 5
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          BODY="${COMMENT_MARKER}
+
+          **UI Preview** is being deployed for this PR :hourglass_flowing_sand:
+
+          | | |
+          |---|---|
+          | **Commit** | ${HEAD_SHA} |
+
+          > Building and deploying... This comment will be updated with the preview URL."
+
+          # Only post if no existing comment (to avoid overwriting a previous preview URL)
+          COMMENT_ID=$(gh api --paginate \
+            "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
+            | head -1)
+
+          if [ -z "$COMMENT_ID" ]; then
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$BODY"
+          fi
+
   build:
     if: >-
-      github.event.action != 'closed'
-      && contains(github.event.pull_request.labels.*.name, 'ui-preview')
-      && github.event.pull_request.draft == false
-      && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+      github.event_name == 'push'
+      || (
+        github.event.action != 'closed'
+        && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+        && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+        && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+      )
     runs-on: ubuntu-latest
     permissions:
       contents: read
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          # Check out the PR head, not the base branch.
-          # Safe because the build job only runs for maintainers/collaborators (author_association check).
-          ref: ${{ github.event.pull_request.head.sha }}
+          # For PRs, check out the merge ref so the preview reflects what the UI
+          # will look like after merge. For push events, falls back to github.sha.
+          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
 
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
@@ -93,7 +140,7 @@ jobs:
           echo "./$WHEEL_NAME[genai]" > /tmp/app-deploy/requirements.txt
 
       - name: Upload app files
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: app-deploy
           path: /tmp/app-deploy/
@@ -111,7 +158,7 @@ jobs:
       DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
     steps:
       - name: Download app files
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: app-deploy
           path: /tmp/app-deploy
@@ -124,14 +171,15 @@ jobs:
       - name: Create or update app
         id: app
         env:
-          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          APP_DESCRIPTION: ${{ github.event.pull_request.html_url || format('{0}/{1}', github.server_url, github.repository) }}
         run: |
           if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
             echo "App already exists"
           else
             echo "Creating app..."
             databricks apps create \
-              --json "{\"name\": \"$APP_NAME\", \"description\": \"${{ github.event.pull_request.html_url }}\"}" \
+              --json "{\"name\": \"$APP_NAME\", \"description\": \"$APP_DESCRIPTION\"}" \
               --no-wait
             for i in $(seq 1 40); do
               STATE=$(databricks apps get "$APP_NAME" -o json | jq -r '.compute_status.state')
@@ -153,28 +201,37 @@ jobs:
           URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
           echo "url=$URL" >> $GITHUB_OUTPUT
 
-      - name: Configure CORS
+      - name: Configure app environment
         env:
           APP_URL: ${{ steps.app.outputs.url }}
         run: |
+          PASSPHRASE=$(openssl rand -hex 32)
+          echo "::add-mask::$PASSPHRASE"
           sed -i "s|__APP_URL__|$APP_URL|" /tmp/app-deploy/app.yaml
+          sed -i "s|__KEK_PASSPHRASE__|$PASSPHRASE|" /tmp/app-deploy/app.yaml
 
       - name: Upload files and deploy
         env:
-          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
-          WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
         run: |
           databricks workspace mkdirs "/Workspace$WORKSPACE_PATH" 2>/dev/null || true
           databricks workspace import-dir /tmp/app-deploy "$WORKSPACE_PATH" --overwrite
           databricks apps deploy "$APP_NAME" --source-code-path "/Workspace$WORKSPACE_PATH"
 
+      - name: Print app URL
+        if: github.event_name == 'push'
+        env:
+          APP_URL: ${{ steps.app.outputs.url }}
+        run: echo "Deployed to $APP_URL" >> $GITHUB_STEP_SUMMARY
+
       - name: Comment on PR
+        if: github.event_name != 'push'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_URL: ${{ steps.app.outputs.url }}
         run: |
-          MARKER="<!-- ui-preview -->"
-          BODY="${MARKER}
+          BODY="${COMMENT_MARKER}
 
           **UI Preview** is ready for this PR :rocket:
 
@@ -188,9 +245,9 @@ jobs:
           > The preview updates automatically when new commits are pushed."
 
           # Find existing comment
-          COMMENT_ID=$(gh api \
+          COMMENT_ID=$(gh api --paginate \
             "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
             | head -1)
 
           if [ -n "$COMMENT_ID" ]; then
@@ -205,7 +262,8 @@ jobs:
 
   cleanup:
     if: >-
-      github.event.action == 'closed'
+      github.event_name != 'push'
+      && github.event.action == 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
     runs-on: ubuntu-ui-preview
     permissions:
@@ -240,14 +298,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          MARKER="<!-- ui-preview -->"
-          BODY="${MARKER}
+          BODY="${COMMENT_MARKER}
 
           **UI Preview** for this PR has been removed."
 
-          COMMENT_ID=$(gh api \
+          COMMENT_ID=$(gh api --paginate \
             "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq ".[] | select(.body | startswith(\"$MARKER\")) | .id" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
             | head -1)
 
           if [ -n "$COMMENT_ID" ]; then

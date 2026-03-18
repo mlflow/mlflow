@@ -1727,8 +1727,7 @@ class Correctness(BuiltInScorer):
                 ),
                 "expectations": {
                     "expected_response": (
-                        "reduceByKey aggregates data before shuffling. "
-                        "groupByKey shuffles all data"
+                        "reduceByKey aggregates data before shuffling. groupByKey shuffles all data"
                     ),
                 },
             }
@@ -2503,9 +2502,7 @@ class ConversationalToolCallEfficiency(BuiltInSessionLevelScorer):
             filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
             return_type="list",
         )
-        result = mlflow.genai.evaluate(
-            data=session, scorers=[ConversationalToolCallEfficiency()]
-        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationalToolCallEfficiency()])
     """
 
     name: str = CONVERSATIONAL_TOOL_CALL_EFFICIENCY_ASSESSMENT_NAME

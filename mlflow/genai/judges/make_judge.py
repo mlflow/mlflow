@@ -101,6 +101,8 @@ def make_judge(
     feedback_value_type: Any = None,
     inference_params: dict[str, Any] | None = None,
     skills: list[str | Path] | SkillSet | None = None,
+    base_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> Judge:
     """
 
@@ -147,6 +149,19 @@ def make_judge(
                         object. Skills provide reusable evaluation criteria that the judge
                         can load on demand via tool calls during trace evaluation. Requires
                         ``{{ trace }}`` in the instructions template.
+        base_url: Optional base URL to route requests through. When specified, all
+                        requests to the LLM provider will be routed through this URL.
+                        This is useful when LLM access must go through an internal gateway,
+                        security proxy, or custom API endpoint.
+                        Not supported for Databricks-backed models (including Databricks
+                        endpoints, the default managed judge model, or "databricks:/..."
+                        model URIs).
+        extra_headers: Optional dictionary of additional HTTP headers to include in
+                        requests to the LLM provider. Can be used for authentication,
+                        tracking, or other custom requirements.
+                        Not supported for Databricks-backed models (including Databricks
+                        endpoints, the default managed judge model, or "databricks:/..."
+                        model URIs).
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -250,4 +265,6 @@ def make_judge(
         feedback_value_type=feedback_value_type,
         inference_params=inference_params,
         skills=skills,
+        base_url=base_url,
+        extra_headers=extra_headers,
     )

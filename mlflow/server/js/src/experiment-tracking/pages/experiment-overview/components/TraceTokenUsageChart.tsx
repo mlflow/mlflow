@@ -1,7 +1,7 @@
 import React, { useCallback } from 'react';
 import { useDesignSystemTheme, LightningIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useTraceTokenUsageChartData } from '../hooks/useTraceTokenUsageChartData';
 import {
   OverviewChartLoadingState,
@@ -27,8 +27,17 @@ export const TraceTokenUsageChart: React.FC = () => {
   const { experimentIds, timeIntervalSeconds } = useOverviewChartContext();
 
   // Fetch and process token usage chart data
-  const { chartData, totalTokens, totalInputTokens, totalOutputTokens, isLoading, error, hasData } =
-    useTraceTokenUsageChartData();
+  const {
+    chartData,
+    totalTokens,
+    totalInputTokens,
+    totalOutputTokens,
+    totalCacheReadTokens,
+    totalCacheCreationTokens,
+    isLoading,
+    error,
+    hasData,
+  } = useTraceTokenUsageChartData();
 
   const tooltipFormatter = useCallback(
     (value: number, name: string) => [formatCount(value), name] as [string, string],
@@ -39,6 +48,8 @@ export const TraceTokenUsageChart: React.FC = () => {
   const areaColors = {
     inputTokens: theme.colors.blue400,
     outputTokens: theme.colors.green400,
+    cacheReadTokens: theme.colors.yellow500,
+    cacheCreationTokens: theme.colors.purple,
   };
 
   if (isLoading) {
@@ -55,14 +66,19 @@ export const TraceTokenUsageChart: React.FC = () => {
         icon={<LightningIcon />}
         title={<FormattedMessage defaultMessage="Token Usage" description="Title for the token usage chart" />}
         value={formatCount(totalTokens)}
-        subtitle={`(${formatCount(totalInputTokens)} input, ${formatCount(totalOutputTokens)} output)`}
+        subtitle={(() => {
+          const parts = [`${formatCount(totalInputTokens)} input`, `${formatCount(totalOutputTokens)} output`];
+          if (totalCacheReadTokens > 0) parts.push(`${formatCount(totalCacheReadTokens)} cache read`);
+          if (totalCacheCreationTokens > 0) parts.push(`${formatCount(totalCacheCreationTokens)} cache write`);
+          return `(${parts.join(', ')})`;
+        })()}
       />
 
       {/* Chart */}
       <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 10, bottom: 0 }}>
               <XAxis dataKey="name" {...xAxisProps} />
               <YAxis {...yAxisProps} />
               <Tooltip
@@ -90,6 +106,26 @@ export const TraceTokenUsageChart: React.FC = () => {
                 dot={getLineDotStyle(areaColors.inputTokens)}
                 name="Input Tokens"
               />
+              <Line
+                type="monotone"
+                dataKey="cacheReadTokens"
+                stroke={areaColors.cacheReadTokens}
+                strokeWidth={2}
+                strokeDasharray="5 3"
+                strokeOpacity={getOpacity('(Cache Read)')}
+                dot={getLineDotStyle(areaColors.cacheReadTokens)}
+                name="(Cache Read)"
+              />
+              <Line
+                type="monotone"
+                dataKey="cacheCreationTokens"
+                stroke={areaColors.cacheCreationTokens}
+                strokeWidth={2}
+                strokeDasharray="5 3"
+                strokeOpacity={getOpacity('(Cache Write)')}
+                dot={getLineDotStyle(areaColors.cacheCreationTokens)}
+                name="(Cache Write)"
+              />
               <Area
                 type="monotone"
                 dataKey="outputTokens"
@@ -109,7 +145,7 @@ export const TraceTokenUsageChart: React.FC = () => {
                 onMouseLeave={handleLegendMouseLeave}
                 {...scrollableLegendProps}
               />
-            </AreaChart>
+            </ComposedChart>
           </ResponsiveContainer>
         ) : (
           <OverviewChartEmptyState />

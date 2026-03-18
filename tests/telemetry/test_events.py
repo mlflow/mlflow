@@ -3,6 +3,13 @@ from unittest.mock import Mock
 import pytest
 
 from mlflow.entities.evaluation_dataset import DatasetGranularity, EvaluationDataset
+from mlflow.entities.gateway_budget_policy import (
+    BudgetAction,
+    BudgetDuration,
+    BudgetDurationUnit,
+    BudgetTargetScope,
+    BudgetUnit,
+)
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
     AiCommandRunEvent,
@@ -16,8 +23,10 @@ from mlflow.telemetry.events import (
     CreateRunEvent,
     DatasetToDataFrameEvent,
     EvaluateEvent,
+    GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
     GatewayCreateSecretEvent,
+    GatewayListBudgetPoliciesEvent,
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
     GatewayUpdateEndpointEvent,
@@ -43,12 +52,36 @@ from mlflow.telemetry.events import (
             {"flavor": "sklearn"},
         ),
         (
+            {"flavor": "mlflow.pyfunc", "serialization_format": "cloudpickle"},
+            {"flavor": "pyfunc", "serialization_format": "cloudpickle"},
+        ),
+        (
+            {"serialization_format": "cloudpickle"},
+            {"serialization_format": "cloudpickle"},
+        ),
+        (
             {
                 "flavor": None,
             },
             None,
         ),
         ({}, None),
+        (
+            {"flavor": "mlflow.pyfunc", "uses_uv": True},
+            {"flavor": "pyfunc", "uses_uv": True},
+        ),
+        (
+            {"flavor": "mlflow.pyfunc", "uses_uv": False},
+            {"flavor": "pyfunc"},
+        ),
+        (
+            {"uses_uv": True},
+            {"uses_uv": True},
+        ),
+        (
+            {"flavor": "sklearn", "serialization_format": "cloudpickle", "uses_uv": True},
+            {"flavor": "sklearn", "serialization_format": "cloudpickle", "uses_uv": True},
+        ),
     ],
 )
 def test_logged_model_parse_params(arguments, expected_params):
@@ -306,11 +339,13 @@ def test_simulate_conversation_parse_result(result, expected_params):
                 "fallback_config": {"strategy": "FAILOVER"},
                 "routing_strategy": "REQUEST_BASED_TRAFFIC_SPLIT",
                 "model_configs": [{"model_definition_id": "md-1"}, {"model_definition_id": "md-2"}],
+                "usage_tracking": True,
             },
             {
                 "has_fallback_config": True,
                 "routing_strategy": "REQUEST_BASED_TRAFFIC_SPLIT",
                 "num_model_configs": 2,
+                "usage_tracking": True,
             },
         ),
         (
@@ -318,20 +353,32 @@ def test_simulate_conversation_parse_result(result, expected_params):
                 "fallback_config": None,
                 "routing_strategy": None,
                 "model_configs": [{"model_definition_id": "md-1"}],
+                "usage_tracking": False,
             },
             {
                 "has_fallback_config": False,
                 "routing_strategy": None,
                 "num_model_configs": 1,
+                "usage_tracking": False,
             },
         ),
         (
             {"fallback_config": None, "routing_strategy": None, "model_configs": []},
-            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": 0},
+            {
+                "has_fallback_config": False,
+                "routing_strategy": None,
+                "num_model_configs": 0,
+                "usage_tracking": None,
+            },
         ),
         (
             {},
-            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": 0},
+            {
+                "has_fallback_config": False,
+                "routing_strategy": None,
+                "num_model_configs": 0,
+                "usage_tracking": None,
+            },
         ),
     ],
 )
@@ -347,20 +394,37 @@ def test_gateway_create_endpoint_parse_params(arguments, expected_params):
                 "fallback_config": {"strategy": "FAILOVER"},
                 "routing_strategy": "ROUND_ROBIN",
                 "model_configs": [{"model_definition_id": "md-1"}],
+                "usage_tracking": True,
             },
             {
                 "has_fallback_config": True,
                 "routing_strategy": "ROUND_ROBIN",
                 "num_model_configs": 1,
+                "usage_tracking": True,
             },
         ),
         (
-            {"fallback_config": None, "routing_strategy": None, "model_configs": None},
-            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": None},
+            {
+                "fallback_config": None,
+                "routing_strategy": None,
+                "model_configs": None,
+                "usage_tracking": None,
+            },
+            {
+                "has_fallback_config": False,
+                "routing_strategy": None,
+                "num_model_configs": None,
+                "usage_tracking": None,
+            },
         ),
         (
             {},
-            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": None},
+            {
+                "has_fallback_config": False,
+                "routing_strategy": None,
+                "num_model_configs": None,
+                "usage_tracking": None,
+            },
         ),
     ],
 )
@@ -405,6 +469,56 @@ def test_gateway_create_secret_parse_params(arguments, expected_params):
 )
 def test_gateway_list_secrets_parse_params(arguments, expected_params):
     assert GatewayListSecretsEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {
+                "budget_unit": "USD",
+                "duration": BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
+                "target_scope": "GLOBAL",
+                "budget_action": "ALERT",
+            },
+            {
+                "budget_unit": "USD",
+                "duration_unit": "DAYS",
+                "target_scope": "GLOBAL",
+                "budget_action": "ALERT",
+            },
+        ),
+        (
+            {
+                "budget_unit": BudgetUnit.USD,
+                "duration": BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
+                "target_scope": BudgetTargetScope.WORKSPACE,
+                "budget_action": BudgetAction.REJECT,
+            },
+            {
+                "budget_unit": "USD",
+                "duration_unit": "MONTHS",
+                "target_scope": "WORKSPACE",
+                "budget_action": "REJECT",
+            },
+        ),
+        (
+            {},
+            {
+                "budget_unit": None,
+                "duration_unit": None,
+                "target_scope": None,
+                "budget_action": None,
+            },
+        ),
+    ],
+)
+def test_gateway_create_budget_policy_parse_params(arguments, expected_params):
+    assert GatewayCreateBudgetPolicyEvent.parse(arguments) == expected_params
+
+
+def test_gateway_list_budget_policies_parse_params():
+    assert GatewayListBudgetPoliciesEvent.parse({}) is None
 
 
 def test_simulate_conversation_parse_params():

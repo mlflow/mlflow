@@ -59,12 +59,10 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
         """
         schema = json.dumps(self.schema.to_dict()) if self.schema else None
         config = super().to_dict()
-        config.update(
-            {
-                "schema": schema,
-                "profile": json.dumps(self.profile),
-            }
-        )
+        config.update({
+            "schema": schema,
+            "profile": json.dumps(self.profile),
+        })
         return config
 
     @property
@@ -106,13 +104,11 @@ class NumpyDataset(Dataset, PyFuncConvertibleDatasetMixin):
             "features_nbytes": get_profile_attribute(self._features, "nbytes"),
         }
         if self._targets is not None:
-            profile.update(
-                {
-                    "targets_shape": get_profile_attribute(self._targets, "shape"),
-                    "targets_size": get_profile_attribute(self._targets, "size"),
-                    "targets_nbytes": get_profile_attribute(self._targets, "nbytes"),
-                }
-            )
+            profile.update({
+                "targets_shape": get_profile_attribute(self._targets, "shape"),
+                "targets_size": get_profile_attribute(self._targets, "size"),
+                "targets_nbytes": get_profile_attribute(self._targets, "nbytes"),
+            })
 
         return profile
 

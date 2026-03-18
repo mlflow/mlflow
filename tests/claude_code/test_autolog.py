@@ -70,9 +70,7 @@ async def test_receive_response_builds_trace():
 
     with (
         patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
-        patch(
-            "mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()
-        ) as mock_process,
+        patch("mlflow.claude_code.tracing.process_sdk_messages") as mock_process,
     ):
         [msg async for msg in mock_self.receive_response()]
 
@@ -113,9 +111,7 @@ async def test_query_captures_async_generator_prompt():
 
     with (
         patch("mlflow.utils.autologging_utils.autologging_is_disabled", return_value=False),
-        patch(
-            "mlflow.claude_code.tracing.process_sdk_messages", return_value=MagicMock()
-        ) as mock_process,
+        patch("mlflow.claude_code.tracing.process_sdk_messages") as mock_process,
     ):
         await mock_self.query(prompt_generator())
         [msg async for msg in mock_self.receive_response()]

@@ -114,6 +114,7 @@ export const GenAiTracesTableBody = React.memo(
     const { theme } = useDesignSystemTheme();
     const [collapsedHeader, setCollapsedHeader] = useState(false);
     const lastSelectedRowIdRef = useRef<string | null>(null);
+    const lastSelectedSessionIdRef = useRef<string | null>(null);
     // Track which sessions are expanded (collapsed by default)
     const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
@@ -299,6 +300,65 @@ export const GenAiTracesTableBody = React.memo(
       [table],
     );
 
+    const onToggleSessionSelection = useCallback(
+      (sessionId: string, traces: ModelTraceInfoV3[], event: unknown) => {
+        const traceIds = traces.map((t) => t.trace_id);
+        const currentSelection = table.getState().rowSelection ?? {};
+        const isDeselecting = traceIds.every((id) => currentSelection[id]);
+
+        // Support shift+click to select a range of sessions
+        const eventWithShiftKey = event as KeyboardEvent & MouseEvent;
+        const isShiftPressed = Boolean(eventWithShiftKey?.shiftKey);
+
+        if (isShiftPressed && lastSelectedSessionIdRef.current) {
+          // Find session headers in groupedRows for range selection
+          const sessionHeaders = groupedRows.filter(
+            (r): r is (typeof groupedRows)[number] & { type: 'sessionHeader' } => r.type === 'sessionHeader',
+          );
+          const anchorIndex = sessionHeaders.findIndex((h) => h.sessionId === lastSelectedSessionIdRef.current);
+          const currentIndex = sessionHeaders.findIndex((h) => h.sessionId === sessionId);
+
+          if (anchorIndex !== -1 && currentIndex !== -1) {
+            const [start, end] =
+              anchorIndex <= currentIndex ? [anchorIndex, currentIndex] : [currentIndex, anchorIndex];
+            const updatedSelection: RowSelectionState = { ...currentSelection };
+
+            for (let index = start; index <= end; index += 1) {
+              const header = sessionHeaders[index];
+              header.traces.forEach((t) => {
+                if (isDeselecting) {
+                  delete updatedSelection[t.trace_id];
+                } else {
+                  updatedSelection[t.trace_id] = true;
+                }
+              });
+            }
+
+            table.setRowSelection(updatedSelection);
+            lastSelectedSessionIdRef.current = Object.keys(updatedSelection).length === 0 ? null : sessionId;
+            return;
+          }
+        }
+
+        // Default: toggle single session
+        const updatedSelection: RowSelectionState = { ...currentSelection };
+        traceIds.forEach((id) => {
+          if (isDeselecting) {
+            delete updatedSelection[id];
+          } else {
+            updatedSelection[id] = true;
+          }
+        });
+
+        table.setRowSelection(updatedSelection);
+
+        // Update anchor: clear if nothing is selected after deselecting
+        const hasSelectionAfter = Object.keys(updatedSelection).length > 0;
+        lastSelectedSessionIdRef.current = hasSelectionAfter ? sessionId : null;
+      },
+      [table, groupedRows],
+    );
+
     // Need to check if rowSelection is undefined, otherwise getIsAllRowsSelected throws an error
     const allRowSelected = rowSelection !== undefined && table.getIsAllRowsSelected();
     const someRowSelected = table.getIsSomeRowsSelected();
@@ -318,11 +378,13 @@ export const GenAiTracesTableBody = React.memo(
     useEffect(() => {
       if (!enableRowSelection) {
         lastSelectedRowIdRef.current = null;
+        lastSelectedSessionIdRef.current = null;
         return;
       }
 
       if (!rowSelection || Object.keys(rowSelection).length === 0) {
         lastSelectedRowIdRef.current = null;
+        lastSelectedSessionIdRef.current = null;
       }
     }, [rowSelection, enableRowSelection]);
 
@@ -525,6 +587,7 @@ export const GenAiTracesTableBody = React.memo(
                 selectedColumns={sortedGroupedColumns}
                 expandedSessions={expandedSessions}
                 toggleSessionExpanded={toggleSessionExpanded}
+                onToggleSessionSelection={onToggleSessionSelection}
                 experimentId={experimentId}
                 getRunColor={getRunColor}
                 runUuid={runUuid}

@@ -83,7 +83,7 @@ export const ModelTraceExplorerDrawer = ({
     >
       <DrawerComponent.Content
         componentId="mlflow.evaluations_review.modal"
-        width="90vw"
+        width="60vw"
         title={
           <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
             <Button

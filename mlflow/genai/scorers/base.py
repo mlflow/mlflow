@@ -122,14 +122,12 @@ class SerializedScorer:
         has_memory_augmented_fields = self.memory_augmented_judge_data is not None
 
         # Count how many field types are present
-        field_count = sum(
-            [
-                has_builtin_fields,
-                has_decorator_fields,
-                has_instructions_fields,
-                has_memory_augmented_fields,
-            ]
-        )
+        field_count = sum([
+            has_builtin_fields,
+            has_decorator_fields,
+            has_instructions_fields,
+            has_memory_augmented_fields,
+        ])
 
         if field_count == 0:
             raise ValueError(
@@ -386,6 +384,7 @@ class Scorer(BaseModel):
                     model=data["model"],
                     feedback_value_type=feedback_value_type,
                     skills=skills,
+                    inference_params=data.get("inference_params"),
                     # TODO: add aggregations here once we support boolean/numeric judge outputs
                 )
             except Exception as e:

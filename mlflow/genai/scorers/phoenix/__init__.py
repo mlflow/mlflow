@@ -11,9 +11,7 @@ Example usage:
     from mlflow.genai.scorers.phoenix import get_scorer
 
     scorer = get_scorer("Hallucination", model="openai:/gpt-4")
-    feedback = scorer(
-        inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace
-    )
+    feedback = scorer(inputs="What is MLflow?", outputs="MLflow is a platform...", trace=trace)
 """
 
 from __future__ import annotations

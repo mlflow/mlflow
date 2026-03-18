@@ -22,8 +22,6 @@ from mlflow.types.chat import Function, ToolCallDelta
 
 _logger = logging.getLogger(__name__)
 
-_ANTHROPIC_STRUCTURED_OUTPUTS_HEADER = "structured-outputs-2025-11-13"
-
 
 class AnthropicAdapter(ProviderAdapter):
     @classmethod
@@ -83,18 +81,16 @@ class AnthropicAdapter(ProviderAdapter):
                     m.pop("tool_calls")
                 converted_messages.append(m)
             elif m["role"] == "tool":
-                converted_messages.append(
-                    {
-                        "role": "user",
-                        "content": [
-                            {
-                                "type": "tool_result",
-                                "tool_use_id": m["tool_call_id"],
-                                "content": m["content"],
-                            }
-                        ],
-                    }
-                )
+                converted_messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": m["tool_call_id"],
+                            "content": m["content"],
+                        }
+                    ],
+                })
             else:
                 _logger.info(f"Discarded unknown message: {m}")
 
@@ -118,13 +114,11 @@ class AnthropicAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                converted_tools.append(
-                    {
-                        "name": tool_function["name"],
-                        "description": tool_function["description"],
-                        "input_schema": tool_function["parameters"],
-                    }
-                )
+                converted_tools.append({
+                    "name": tool_function["name"],
+                    "description": tool_function["description"],
+                    "input_schema": tool_function["parameters"],
+                })
 
             payload["tools"] = converted_tools
 
@@ -143,12 +137,15 @@ class AnthropicAdapter(ProviderAdapter):
                     payload["tool_choice"] = {"type": "tool", "name": name}
 
         # Transform response_format for Anthropic structured outputs
-        # Anthropic uses output_format with {"type": "json_schema", "schema": {...}}
+        # Anthropic uses output_config.format with {"type": "json_schema", "schema": {...}}
         if response_format := payload.pop("response_format", None):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
-                payload["output_format"] = {
-                    "type": "json_schema",
-                    "schema": response_format["json_schema"],
+                json_schema = response_format["json_schema"]
+                payload["output_config"] = {
+                    "format": {
+                        "type": "json_schema",
+                        "schema": json_schema.get("schema", {}),
+                    }
                 }
 
         return payload
@@ -193,8 +190,22 @@ class AnthropicAdapter(ProviderAdapter):
         # }
         # ```
         from mlflow.anthropic.chat import convert_message_to_mlflow_chat
+        from mlflow.types.chat import TextContentPart
 
         stop_reason = "length" if resp["stop_reason"] == "max_tokens" else "stop"
+
+        message = convert_message_to_mlflow_chat(resp)
+
+        # Normalize content to OpenAI wire format: `content` must be a str or null,
+        # never a list. Anthropic returns a list of content blocks; we collapse all
+        # TextContentPart entries into a single string. Non-text parts (images, etc.)
+        # are dropped here since they have no OpenAI chat.completion equivalent.
+        # For tool-call-only responses the list will be empty, so content becomes None.
+        if isinstance(message.content, list):
+            text = "".join(
+                part.text for part in message.content if isinstance(part, TextContentPart)
+            )
+            message.content = text or None
 
         return chat.ResponsePayload(
             id=resp["id"],
@@ -204,11 +215,7 @@ class AnthropicAdapter(ProviderAdapter):
             choices=[
                 chat.Choice(
                     index=0,
-                    # TODO: Remove this casting once
-                    # https://github.com/mlflow/mlflow/pull/14160 is merged
-                    message=chat.ResponseMessage(
-                        **convert_message_to_mlflow_chat(resp).model_dump()
-                    ),
+                    message=chat.ResponseMessage(**message.model_dump()),
                     finish_reason=stop_reason,
                 )
             ],
@@ -421,17 +428,6 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             Merged headers with provider headers taking precedence
         """
         result_headers = self.headers.copy()
-
-        # Add conditional beta header based on payload
-        if payload and payload.get("output_format"):
-            if payload["output_format"].get("type") == "json_schema":
-                if "anthropic-beta" not in result_headers:
-                    result_headers["anthropic-beta"] = _ANTHROPIC_STRUCTURED_OUTPUTS_HEADER
-                else:
-                    if _ANTHROPIC_STRUCTURED_OUTPUTS_HEADER not in result_headers["anthropic-beta"]:
-                        result_headers["anthropic-beta"] = (
-                            f"{result_headers['anthropic-beta']},{_ANTHROPIC_STRUCTURED_OUTPUTS_HEADER}"
-                        )
 
         if headers:
             client_headers = headers.copy()

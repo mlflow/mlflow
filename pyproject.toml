@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.10.1.dev0"
+version = "3.11.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -49,7 +49,7 @@ dependencies = [
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<27",
   "pandas<3",
-  "protobuf<7,>=3.12.0",
+  "protobuf<8,>=3.12.0",
   "pyarrow<24,>=4.0.0",
   "pydantic<3,>=2.0.0",
   "python-dotenv<2,>=0.19.0",
@@ -116,10 +116,12 @@ genai = [
   "watchfiles<2",
 ]
 mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
+azure = ["azure-storage-blob>=12", "azure-identity>=1.6.1"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.3.20,<=1.2.10"]
+kubernetes = ["kubernetes"]
+langchain = ["langchain>=0.3.21,<=1.2.12"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -176,9 +178,7 @@ dev = [
   "skills",
 ]
 lint = [
-  "ruff==0.15.2",
-  "black==23.7.0",
-  "blacken-docs==1.18.0",
+  "ruff==0.15.5",
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "types-toml",
@@ -277,9 +277,10 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.15.2"
+required-version = "0.15.5"
 force-exclude = true
 extend-include = ["*.ipynb"]
+extension = { mdx = "markdown" }
 extend-exclude = [
   "examples/llama_index/workflow",
   "mlflow/assistant/skills",
@@ -291,8 +292,8 @@ extend-exclude = [
 ]
 
 [tool.ruff.format]
+preview = true
 docstring-code-format = true
-docstring-code-line-length = 88
 
 [tool.ruff.lint]
 preview = true
@@ -441,7 +442,7 @@ typing-extensions-allowlist = [
 ]
 # Rules that are only enabled for code examples.
 example-rules = [
-  "lazy-builtin-import",
+  "lazy-import",
   "log-model-artifact-path",
   "unknown-mlflow-function",
   "unknown-mlflow-arguments",
@@ -470,6 +471,7 @@ example-rules = [
 
 # typos
 [tool.typos.default.extend-words]
+aimd = "aimd"                      # additive increase multiplicative decrease
 als = "als"                        # alternating least squares
 mape = "mape"                      # mean absolute percentage error
 fpr = "fpr"                        # false positive rate

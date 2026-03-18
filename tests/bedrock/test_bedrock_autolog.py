@@ -282,16 +282,14 @@ def test_bedrock_autolog_invoke_model_capture_exception():
 
     client = boto3.client("bedrock-runtime", region_name="us-west-2")
 
-    request_body = json.dumps(
-        {
-            # Invalid user role to trigger an exception
-            "messages": [{"role": "invalid-user", "content": "Hi"}],
-            "max_tokens": 300,
-            "anthropic_version": "bedrock-2023-05-31",
-            "temperature": 0.1,
-            "top_p": 0.9,
-        }
-    )
+    request_body = json.dumps({
+        # Invalid user role to trigger an exception
+        "messages": [{"role": "invalid-user", "content": "Hi"}],
+        "max_tokens": 300,
+        "anthropic_version": "bedrock-2023-05-31",
+        "temperature": 0.1,
+        "top_p": 0.9,
+    })
 
     with pytest.raises(NoCredentialsError, match="Unable to locate credentials"):
         client.invoke_model(

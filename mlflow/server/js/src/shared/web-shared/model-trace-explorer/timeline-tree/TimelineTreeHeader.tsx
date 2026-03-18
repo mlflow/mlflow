@@ -1,5 +1,7 @@
 import {
   BarsAscendingVerticalIcon,
+  Button,
+  ConnectIcon,
   ListBorderIcon,
   SegmentedControlButton,
   SegmentedControlGroup,
@@ -17,11 +19,15 @@ export const TimelineTreeHeader = ({
   setShowTimelineInfo,
   spanFilterState,
   setSpanFilterState,
+  showGraph,
+  onToggleGraph,
 }: {
   showTimelineInfo: boolean;
   setShowTimelineInfo: (showTimelineInfo: boolean) => void;
   spanFilterState: SpanFilterState;
   setSpanFilterState: (state: SpanFilterState) => void;
+  showGraph?: boolean;
+  onToggleGraph?: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -36,15 +42,30 @@ export const TimelineTreeHeader = ({
         alignItems: 'center',
         display: 'flex',
         justifyContent: 'space-between',
+        gap: theme.spacing.xs,
       }}
     >
-      <Typography.Text bold>
+      <Typography.Text bold css={{ whiteSpace: 'nowrap' }}>
         <FormattedMessage
           defaultMessage="Trace breakdown"
           description="Header for the span tree within the MLflow trace UI"
         />
       </Typography.Text>
-      <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.sm }}>
+      <div css={{ display: 'flex', flexDirection: 'row', gap: theme.spacing.sm, flexShrink: 0 }}>
+        {onToggleGraph && (
+          <Button
+            componentId="shared.model-trace-explorer.toggle-graph-button"
+            icon={<ConnectIcon />}
+            size="small"
+            type={showGraph ? 'primary' : undefined}
+            onClick={onToggleGraph}
+          >
+            <FormattedMessage
+              defaultMessage="Graph"
+              description="Label for the graph toggle button in the trace explorer."
+            />
+          </Button>
+        )}
         <TimelineTreeFilterButton spanFilterState={spanFilterState} setSpanFilterState={setSpanFilterState} />
         <SegmentedControlGroup
           name="size-story"
