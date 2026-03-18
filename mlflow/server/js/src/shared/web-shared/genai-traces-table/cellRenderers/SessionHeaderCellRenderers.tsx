@@ -27,7 +27,7 @@ const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { StackedComponents } from './StackedComponents';
-import { IssuesList, type Issue } from './IssuesCell';
+import { IssuesCell, type Issue } from './IssuesCell';
 import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { RunColorCircle } from '../components/RunColorCircle';
@@ -707,16 +707,9 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     const currentIssues = traces.length > 0 ? collectUniqueIssues(traces) : [];
     const otherIssuesCollected = otherTraces && otherTraces.length > 0 ? collectUniqueIssues(otherTraces) : [];
 
-    if (isComparing) {
-      cellContent = (
-        <StackedComponents
-          first={<IssuesList issues={currentIssues} isComparing />}
-          second={<IssuesList issues={otherIssuesCollected} isComparing />}
-        />
-      );
-    } else {
-      cellContent = <IssuesList issues={currentIssues} isComparing={false} />;
-    }
+    cellContent = (
+      <IssuesCell issues={currentIssues} otherIssues={otherIssuesCollected} isComparing={isComparing ?? false} />
+    );
   } else if (
     column.type === TracesTableColumnType.ASSESSMENT &&
     column.assessmentInfo &&

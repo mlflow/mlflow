@@ -13,11 +13,10 @@ export interface Issue {
   name: string;
 }
 
-export const IssueTag = ({ issue }: { issue: Issue }) => {
+const IssueTag = ({ issue }: { issue: Issue }) => {
   const navigate = useNavigate();
 
-  const handleClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleClick = async () => {
     try {
       const issueData = await getIssue(issue.id);
       if (issueData.source_run_id && issueData.experiment_id) {
@@ -47,7 +46,7 @@ export const IssueTag = ({ issue }: { issue: Issue }) => {
   );
 };
 
-export const IssuesList = ({ issues, isComparing }: { issues: Issue[] | undefined; isComparing: boolean }) => {
+const IssuesList = ({ issues, isComparing }: { issues: Issue[] | undefined; isComparing: boolean }) => {
   const { theme } = useDesignSystemTheme();
 
   if (!issues || issues.length === 0) {
