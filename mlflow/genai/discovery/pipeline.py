@@ -213,7 +213,7 @@ def _build_analyses(
     rationale_map: dict[str, str],
     categories_map: dict[str, list[str]],
     scorer_name: str,
-    categories: list[str] | None = None,
+    categories: list[str] = DEFAULT_CATEGORIES,
 ) -> tuple[list[_ConversationAnalysis], dict[str, list[Trace]]]:
     """
     Build per-session analyses from triage results.
@@ -232,7 +232,7 @@ def _build_analyses(
         A tuple of (analyses, session_groups) where session_groups maps
         session_id to the list of traces in that session.
     """
-    known_lower = {c.lower() for c in categories} if categories else None
+    known_lower = {c.lower() for c in categories}
     session_groups = group_traces_by_session(triage_traces)
     analyses: list[_ConversationAnalysis] = []
     for _, session_traces in session_groups.items():
@@ -249,7 +249,7 @@ def _build_analyses(
             cat
             for trace in session_failing
             for cat in categories_map.get(trace.info.trace_id, [])
-            if not known_lower or cat.lower() in known_lower
+            if cat.lower() in known_lower
         ]
         analyses.append(
             _ConversationAnalysis(
@@ -363,7 +363,6 @@ def _cluster_and_identify(
     labels, label_to_analysis = extract_failure_labels(
         analyses,
         model,
-        categories=categories,
         token_counter=token_counter,
     )
     for i, label in enumerate(labels):
@@ -587,8 +586,15 @@ def discover_issues(
     scored_traces = triage_traces
     try:
         fetched = [mlflow.get_trace(t.info.trace_id) for t in triage_traces]
-        if all(f is not None for f in fetched):
+        fetched = [f for f in fetched if f is not None]
+        if len(fetched) == len(triage_traces):
             scored_traces = fetched
+        else:
+            _logger.debug(
+                "Could not re-fetch %d/%d traces, using originals",
+                len(triage_traces) - len(fetched),
+                len(triage_traces),
+            )
         # Aggregate judge costs from Phase 1 evaluation assessments.
         for trace in scored_traces:
             for assessment in trace.info.assessments or []:

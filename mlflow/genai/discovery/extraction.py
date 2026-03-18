@@ -172,7 +172,6 @@ def collect_session_rationales(
 def extract_failure_labels(
     analyses: list[_ConversationAnalysis],
     model: str,
-    categories: list[str] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> tuple[list[str], list[int]]:
     """
@@ -187,7 +186,6 @@ def extract_failure_labels(
     Args:
         analyses: Conversation analyses to generate labels for.
         model: Model URI for the label-generation LLM.
-        categories: Optional issue categories for context in label generation.
         token_counter: Optional token counter for tracking LLM usage.
 
     Returns:
