@@ -427,6 +427,7 @@ Request Structure
 | username   | ``STRING`` | Username.              |
 +------------+------------+------------------------+
 
+
 .. _auth-rest-struct:
 
 Data Structures
