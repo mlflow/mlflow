@@ -10,18 +10,20 @@ resolve the vulnerabilities they discover.
 The latest version of MLflow has continued support. If a critical vulnerability is found in the current version
 of MLflow, we may opt to backport patches to previous versions.
 
+## Bounty Platform Policy
+
+Due to an excessive volume of low-quality, AI-generated reports (including duplicates, low-effort submissions, non-reproducible claims, and spam), **we no longer accept vulnerability reports through bounty platforms such as Huntr**. All reports submitted through such platforms will be automatically closed without review.
+
+Please use the reporting process described below instead.
+
 ## Reporting a Vulnerability
 
-When finding a security vulnerability in MLflow, please perform the following actions:
+When finding a security vulnerability in MLflow, please contact us at [mlflow-oss-maintainers@googlegroups.com](mailto:mlflow-oss-maintainers@googlegroups.com) with the following information:
 
-- [Open an issue](https://github.com/mlflow/mlflow/issues/new?assignees=&labels=bug&template=bug_report_template.md&title=%5BBUG%5D%20Security%20Vulnerability) on the MLflow repository. Ensure that you use `[BUG] Security Vulnerability` as the title and _do not_ mention any vulnerability details in the issue post.
-- Send a notification [email](mailto:mlflow-oss-maintainers@googlegroups.com) to `mlflow-oss-maintainers@googlegroups.com` that contains, at a minimum:
-  - The link to the filed issue stub.
-  - Your GitHub handle.
-  - Detailed information about the security vulnerability, evidence that supports the relevance of the finding and any reproducibility instructions for independent confirmation.
-
-This first stage of reporting is to ensure that a rapid validation can occur without wasting the time and effort of a reporter. Future communication and vulnerability resolution will be conducted after validating
-the veracity of the reported issue.
+- A clear description of the vulnerability
+- Steps to reproduce the issue
+- The potential impact of the vulnerability
+- Your GitHub handle
 
 An MLflow maintainer will, after validating the report:
 
