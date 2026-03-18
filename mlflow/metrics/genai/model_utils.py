@@ -158,6 +158,7 @@ def _call_llm_provider_api(
         response_format: Response format dict (e.g. from ``_pydantic_to_response_format``).
     """
     from mlflow.gateway.config import Provider
+    from mlflow.gateway.schemas import chat
 
     eval_parameters = eval_parameters or {}
     extra_headers = extra_headers or {}
@@ -169,8 +170,6 @@ def _call_llm_provider_api(
         if response_format is not None:
             payload["response_format"] = response_format
     else:
-        from mlflow.gateway.schemas import chat
-
         chat_request = chat.RequestPayload(
             model=model,
             messages=[
