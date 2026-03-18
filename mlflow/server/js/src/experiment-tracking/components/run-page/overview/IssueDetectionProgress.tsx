@@ -288,17 +288,19 @@ export const IssueDetectionProgress = ({
                 description="Issue detection summary > Title"
               />
             </Typography.Title>
-            <Button
-              componentId="mlflow.traces.issue-detection.view-issues-button"
-              type="primary"
-              onClick={handleViewIssues}
-            >
-              <FormattedMessage
-                defaultMessage="View {count} {count, plural, one {issue} other {issues}}"
-                description="Issue detection summary > View issues button"
-                values={{ count: identifiedIssues }}
-              />
-            </Button>
+            {identifiedIssues > 0 && (
+              <Button
+                componentId="mlflow.traces.issue-detection.view-issues-button"
+                type="primary"
+                onClick={handleViewIssues}
+              >
+                <FormattedMessage
+                  defaultMessage="View {count} {count, plural, one {issue} other {issues}}"
+                  description="Issue detection summary > View issues button"
+                  values={{ count: identifiedIssues }}
+                />
+              </Button>
+            )}
           </div>
           <div
             css={{
