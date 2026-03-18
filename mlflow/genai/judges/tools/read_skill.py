@@ -6,6 +6,12 @@ from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsS
 
 
 class ReadSkillTool(JudgeTool):
+    """Tool that reads the body content of a skill by name.
+
+    Returns the markdown body of the skill's SKILL.md file, giving the judge
+    access to domain knowledge, evaluation rubrics, or reference material.
+    """
+
     @property
     def name(self) -> str:
         return "read_skill"

@@ -7,6 +7,13 @@ from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsS
 
 
 class ReadSkillFileTool(JudgeTool):
+    """Tool that reads a companion file from a skill directory.
+
+    Companion files are any files bundled alongside SKILL.md, such as grading
+    rubrics, compliance checklists, reference schemas, or style guides. The
+    file is looked up by its relative path within the skill directory.
+    """
+
     @property
     def name(self) -> str:
         return "read_skill_file"
