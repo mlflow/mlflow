@@ -7,10 +7,13 @@ This module provides a registry system for managing and invoking JudgeTool insta
 import inspect
 import json
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import mlflow
 from mlflow.entities import SpanType, Trace
+
+if TYPE_CHECKING:
+    from mlflow.genai.skills.parsing import SkillSet
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
@@ -36,7 +39,9 @@ class JudgeToolRegistry:
         """
         self._tools[tool.name] = tool
 
-    def invoke(self, tool_call: Any, trace: Trace | None = None, skills: Any = None) -> Any:
+    def invoke(
+        self, tool_call: Any, trace: Trace | None = None, skills: "SkillSet | None" = None
+    ) -> Any:
         """
         Invoke a tool using a ToolCall instance and context objects.
 
@@ -95,7 +100,7 @@ class JudgeToolRegistry:
 
 
 def _build_tool_context(
-    tool: JudgeTool, trace: Trace | None = None, skills: Any = None
+    tool: JudgeTool, trace: Trace | None = None, skills: "SkillSet | None" = None
 ) -> dict[str, Any]:
     sig = inspect.signature(tool.invoke)
     context = {}
@@ -124,7 +129,9 @@ def register_judge_tool(tool: JudgeTool) -> None:
 
 
 @experimental(version="3.4.0")
-def invoke_judge_tool(tool_call: Any, trace: Trace | None = None, skills: Any = None) -> Any:
+def invoke_judge_tool(
+    tool_call: Any, trace: Trace | None = None, skills: "SkillSet | None" = None
+) -> Any:
     """
     Invoke a judge tool using a ToolCall instance and context objects.
 
