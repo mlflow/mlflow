@@ -94,8 +94,9 @@ class TelemetryClient {
       return;
     }
 
-    // drop view events to reduce noise
-    if (record.eventType === 'onView') {
+    // drop view events to reduce noise, except for explicitly tracked impressions
+    const VIEW_EVENT_ALLOWLIST = ['mlflow.gateway.setup_guide'];
+    if (record.eventType === 'onView' && !VIEW_EVENT_ALLOWLIST.includes(record.componentId)) {
       return;
     }
 
