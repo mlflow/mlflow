@@ -38,6 +38,7 @@ We welcome community contributions to MLflow. This page provides useful informat
   - [Building a Distributable Artifact](#building-a-distributable-artifact)
   - [Writing Docs](#writing-docs)
   - [Sign your work](#sign-your-work)
+- [Security Vulnerability Reporting](#security-vulnerability-reporting)
 - [Code of Conduct](#code-of-conduct)
 
 ## Governance
@@ -857,6 +858,20 @@ You can sign your commit automatically with `git commit -s` after you
 set your `user.name` and `user.email` git configs.
 
 > NOTE: Failing to sign your commits will result in an inability to merge your PR!
+
+## Security Vulnerability Reporting
+
+If you discover a security vulnerability in MLflow, please report it by emailing [mlflow-oss-maintainers@googlegroups.com](mailto:mlflow-oss-maintainers@googlegroups.com).
+
+Due to an excessive volume of low-quality, AI-generated reports (including duplicates, low-effort submissions, non-reproducible claims, and spam), **we no longer accept vulnerability reports through bounty platforms**. All reports submitted through bounty platforms will be automatically closed without review.
+
+When reporting a vulnerability, please include:
+
+- A clear description of the vulnerability
+- Steps to reproduce the issue
+- The potential impact of the vulnerability
+
+We appreciate responsible disclosure and will work with you to address any legitimate security concerns.
 
 ## Code of Conduct
 
