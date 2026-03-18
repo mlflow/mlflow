@@ -25,7 +25,7 @@ from mlflow.genai.judges.utils.parsing_utils import (
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
 # "endpoints" is a special case for Databricks model serving endpoints.
-_NATIVE_PROVIDERS = ["openai", "anthropic", "mistral", "endpoints"]
+_NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints"]
 
 
 def _invoke_via_gateway(

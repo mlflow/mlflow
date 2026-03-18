@@ -177,7 +177,7 @@ def _call_llm_via_gateway(
     token_counter: _TokenCounter | None = None,
 ) -> Any:
     # Lightweight fallback for when LiteLLM is not installed. Only supports
-    # providers with MLflow gateway adapters (OpenAI, Anthropic, Mistral).
+    # providers with MLflow gateway adapters (OpenAI, Anthropic, Gemini, Mistral).
     # Known gaps vs the LiteLLM path: no drop_params
     # (https://docs.litellm.ai/docs/completion/drop_params) - LiteLLM silently
     # strips unsupported params (e.g. response_format) per model before sending

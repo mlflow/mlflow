@@ -35,6 +35,7 @@ def list_prompt():
         # Gateway adapter
         ("openai:/gpt-4", "string", GatewayAdapter),
         ("anthropic:/claude-3-5-sonnet-20241022", "string", GatewayAdapter),
+        ("gemini:/gemini-2.5-flash", "string", GatewayAdapter),
     ],
 )
 def test_get_adapter_without_litellm(
