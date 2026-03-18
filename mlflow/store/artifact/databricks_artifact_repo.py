@@ -41,6 +41,7 @@ from mlflow.protos.databricks_artifacts_pb2 import (
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.service_pb2 import MlflowService
 from mlflow.store.artifact.artifact_repo import write_local_temp_trace_data_file
@@ -314,7 +315,15 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         headers = self._extract_headers_from_credentials(cred.headers)
         with cloud_storage_http_request("get", cred.signed_uri, headers=headers) as resp:
-            augmented_raise_for_status(resp)
+            try:
+                augmented_raise_for_status(resp)
+            except requests.HTTPError as e:
+                if e.response.status_code == 404:
+                    raise MlflowException(
+                        f"Attachment '{path}' not found.",
+                        error_code=RESOURCE_DOES_NOT_EXIST,
+                    ) from e
+                raise
             return resp.content
 
     def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
@@ -351,6 +360,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 ArtifactCredentialType.GCP_SIGNED_URL,
             ):
                 self._signed_url_upload_file(cred, temp_file)
+            else:
+                raise MlflowException(
+                    f"Unsupported credential type for attachment upload: {cred.type}",
+                    error_code=INTERNAL_ERROR,
+                )
 
     def _get_read_credential_infos(self, remote_file_paths):
         """

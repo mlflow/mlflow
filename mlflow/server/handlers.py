@@ -3887,9 +3887,15 @@ def get_trace_artifact_handler() -> Response:
             content_bytes = repo.download_trace_attachment(path)
         except MlflowException:
             raise
-        except Exception as e:
+        except Exception:
+            _logger.warning(
+                "Failed to download attachment '%s' for trace '%s'",
+                path,
+                request_id,
+                exc_info=True,
+            )
             raise MlflowException(
-                f"Failed to download attachment '{path}' for trace '{request_id}': {e}",
+                f"Failed to download attachment '{path}' for trace '{request_id}'.",
                 error_code=INTERNAL_ERROR,
             )
         buf = io.BytesIO(content_bytes)
