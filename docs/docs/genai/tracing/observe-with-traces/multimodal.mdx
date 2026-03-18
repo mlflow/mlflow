@@ -249,7 +249,7 @@ When you pass an `Attachment` object as a span input or output, MLflow automatic
 1. Replaces the `Attachment` with a lightweight reference URI (`mlflow-attachment://...`) in the span data
 2. Uploads the binary content as a separate artifact file when the trace is exported
 
-This means trace JSON stays small regardless of attachment size, and the MLflow UI can render the content inline.
+This means trace JSON stays small regardless of attachment size, and the MLflow UI can render supported content types inline.
 
 ### Supported Content Types
 
