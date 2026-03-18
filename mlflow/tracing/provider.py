@@ -32,10 +32,12 @@ from mlflow.entities.trace_location import (
     UnityCatalog,
 )
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+    MLFLOW_BATCH_SPAN_PROCESSOR_MAX_EXPORT_SIZE,
+    MLFLOW_BATCH_SPAN_PROCESSOR_SCHEDULE_DELAY_MILLIS,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
     MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR,
+    MLFLOW_USE_BATCH_SPAN_PROCESSOR,
     MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
@@ -55,7 +57,6 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
-from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
@@ -741,20 +742,15 @@ def _get_mlflow_span_processor(tracking_uri: str):
     from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
-    # Use batch span processing when async logging is enabled (gateway server).
-    # This exports spans in a background thread instead of inline during on_end,
-    # preventing trace export from blocking request coroutines.
-    use_batch_processor = (
-        MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
-        and MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
-        and not is_databricks_uri(tracking_uri)
-    )
+    use_batch_processor = MLFLOW_USE_BATCH_SPAN_PROCESSOR.get()
 
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
     return MlflowV3SpanProcessor(
         span_exporter=exporter,
         export_metrics=should_export_otlp_metrics(),
         use_batch_processor=use_batch_processor,
+        batch_schedule_delay_millis=MLFLOW_BATCH_SPAN_PROCESSOR_SCHEDULE_DELAY_MILLIS.get(),
+        batch_max_export_size=MLFLOW_BATCH_SPAN_PROCESSOR_MAX_EXPORT_SIZE.get(),
     )
 
 

@@ -56,22 +56,24 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         span_exporter: SpanExporter,
         export_metrics: bool,
         use_batch_processor: bool = False,
+        batch_schedule_delay_millis: int = 500,
+        batch_max_export_size: int = 128,
     ):
-        # When use_batch_processor is True, export spans in a background thread
-        # instead of inline during on_end. This prevents trace export from blocking
-        # request handling under concurrent load (e.g., in the gateway).
+        # Always call the full MRO __init__ chain (OtelMetricsMixin ->
+        # SimpleSpanProcessor) so _trace_manager and other state is set up.
+        super().__init__(span_exporter)
         self._use_batch_processor = use_batch_processor
         if use_batch_processor:
-            # Initialize BatchSpanProcessor (skip SimpleSpanProcessor.__init__)
+            # In batch mode, delegate export to a BatchSpanProcessor that runs
+            # in a background thread, preventing trace export from blocking
+            # request handling under concurrent load (e.g., in the gateway).
             self._batch_delegate = BatchSpanProcessor(
                 span_exporter,
-                schedule_delay_millis=500,
-                max_export_batch_size=128,
+                schedule_delay_millis=batch_schedule_delay_millis,
+                max_export_batch_size=batch_max_export_size,
             )
-            # SimpleSpanProcessor expects span_exporter attribute
-            SimpleSpanProcessor.__init__(self, span_exporter)
         else:
-            super().__init__(span_exporter)
+            self._batch_delegate = None
         self.span_exporter = span_exporter
         self._export_metrics = export_metrics
         self._env_metadata = resolve_env_metadata()
