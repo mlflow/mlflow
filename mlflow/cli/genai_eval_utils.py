@@ -243,11 +243,12 @@ def format_table_output(output_data: list[EvalResult]) -> TableOutput:
         TableOutput dataclass containing headers and rows
     """
     # Extract unique assessment names from output_data to use as column headers
-    # Note: assessment name can be None, so we filter it out
+    # Note: assessment name can be None, so we filter it out.
+    # Use explicit None check to avoid silently omitting numeric-valued names such as 0.
     assessment_names_set = set()
     for trace_result in output_data:
         for assessment in trace_result.assessments:
-            if assessment.name and assessment.name != NA_VALUE:
+            if assessment.name is not None and assessment.name != NA_VALUE:
                 assessment_names_set.add(assessment.name)
 
     # Sort for consistent ordering
