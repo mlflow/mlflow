@@ -12,8 +12,8 @@ Tests requiring uv are skipped if uv is not installed or below minimum version.
 
 import platform
 import shutil
-import sys
 import subprocess
+import sys
 from pathlib import Path
 from unittest import mock
 
