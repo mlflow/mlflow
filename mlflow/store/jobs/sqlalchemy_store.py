@@ -411,3 +411,23 @@ class SqlAlchemyJobStore(AbstractJobStore):
             MlflowException: If job with the given ID is not found
         """
         return self._update_job(job_id, JobStatus.CANCELED)
+
+    def update_job_metadata(self, job_id: str, metadata: dict[str, str]) -> None:
+        """
+        Update job metadata.
+
+        Merges the provided metadata with existing job metadata.
+
+        Args:
+            job_id: The ID of the job to update
+            metadata: Metadata to merge into existing job metadata
+        """
+        with self.ManagedSessionMaker() as session:
+            job = self._get_sql_job(session, job_id)
+
+            # Merge new metadata with existing
+            current_metadata = job.job_metadata or {}
+            current_metadata.update(metadata)
+            job.job_metadata = current_metadata
+
+            job.last_update_time = get_current_time_millis()

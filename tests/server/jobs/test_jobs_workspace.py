@@ -93,3 +93,39 @@ def test_scheduler_runs_per_workspace(monkeypatch):
 
     assert workspace_calls == ["team-a", "team-b"]
     assert mock_submit_job.call_count == 2
+
+
+def test_update_job_metadata_workspace_isolation(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_ENABLE_WORKSPACES", "true")
+    backend_store_uri = f"sqlite:///{tmp_path / 'workspace-metadata.db'}"
+    store = WorkspaceAwareSqlAlchemyJobStore(backend_store_uri)
+
+    with WorkspaceContext("team-a"):
+        job_a = store.create_job("test_job", '{"value": 1}')
+        store.update_job_metadata(job_a.job_id, {"stage": "team-a-stage"})
+
+    with WorkspaceContext("team-b"):
+        job_b = store.create_job("test_job", '{"value": 2}')
+        store.update_job_metadata(job_b.job_id, {"stage": "team-b-stage"})
+
+    with WorkspaceContext("team-a"):
+        fetched_a = store.get_job(job_a.job_id)
+        assert fetched_a.metadata == {"stage": "team-a-stage"}
+
+        with pytest.raises(MlflowException, match="not found"):
+            store.update_job_metadata(job_b.job_id, {"stage": "attempt"})
+
+    with WorkspaceContext("team-b"):
+        fetched_b = store.get_job(job_b.job_id)
+        assert fetched_b.metadata == {"stage": "team-b-stage"}
+
+
+def test_create_job_initializes_metadata_as_none(tmp_path: Path):
+    backend_store_uri = f"sqlite:///{tmp_path / 'metadata-init.db'}"
+    store = SqlAlchemyJobStore(backend_store_uri)
+
+    job = store.create_job("test_job", '{"param": "value"}')
+    assert job.metadata is None
+
+    fetched_job = store.get_job(job.job_id)
+    assert fetched_job.metadata is None

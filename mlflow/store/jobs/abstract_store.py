@@ -151,6 +151,18 @@ class AbstractJobStore(ABC):
         """
 
     @abstractmethod
+    def update_job_metadata(self, job_id: str, metadata: dict[str, str]) -> None:
+        """
+        Update job metadata.
+
+        Merges the provided metadata with existing job metadata.
+
+        Args:
+            job_id: The ID of the job to update
+            metadata: Metadata to merge into existing job metadata
+        """
+
+    @abstractmethod
     def delete_jobs(self, older_than: int = 0, job_ids: list[str] | None = None) -> list[str]:
         """
         Delete finalized jobs based on the provided filters. Used by ``mlflow gc``.
