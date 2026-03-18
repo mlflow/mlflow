@@ -2854,13 +2854,13 @@ def test_get_provider_config_missing_provider():
 
 
 @pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
-def test_litellm_not_available():
+def test_litellm_not_available_falls_back_to_api():
     with mock.patch("mlflow.utils.providers._PROVIDER_BACKEND_AVAILABLE", False):
         with app.test_client() as c:
             response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
-            assert response.status_code == 400
+            assert response.status_code == 200
             data = response.get_json()
-            assert "LiteLLM is not installed" in data["message"]
+            assert "providers" in data
 
 
 @pytest.mark.parametrize(
