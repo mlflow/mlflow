@@ -9,8 +9,6 @@ from mlflow.tracking import get_tracking_uri
 from mlflow.utils.credentials import read_mlflow_creds
 from mlflow.utils.uri import append_to_uri_path, is_http_uri
 
-MLFLOW_GATEWAY_CALLER_HEADER = "X-MLflow-Gateway-Caller"
-
 
 @dataclass
 class GatewayLiteLLMConfig:

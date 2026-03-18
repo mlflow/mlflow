@@ -30,6 +30,7 @@ from mlflow.gateway.config import (
     Provider,
     _AuthConfigKey,
 )
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
@@ -41,7 +42,6 @@ from mlflow.gateway.providers.base import (
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
-from mlflow.genai.utils.gateway_utils import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server.gateway_budget import check_budget_limit, make_budget_on_complete
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -130,11 +130,14 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
             success = True
             result = None
 
-            # Extract caller header from the Request object if present
+            # Extract caller header from the Request object if present,
+            # only accepting known caller values to avoid logging arbitrary input.
             caller = None
             request = next((a for a in (*args, *kwargs.values()) if isinstance(a, Request)), None)
             if request is not None:
-                caller = request.headers.get(MLFLOW_GATEWAY_CALLER_HEADER)
+                raw_caller = request.headers.get(MLFLOW_GATEWAY_CALLER_HEADER)
+                if raw_caller in GatewayCaller._value2member_map_:
+                    caller = raw_caller
 
             try:
                 result = await func(*args, **kwargs)
