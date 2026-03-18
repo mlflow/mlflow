@@ -673,6 +673,35 @@ describe('normalizeNewSpanData', () => {
     expect(normalized.chatMessages).toBeUndefined();
   });
 
+  it('should wrap plain string output as assistant message when inputs are chat messages', () => {
+    const inputs = {
+      messages: [
+        {
+          content: 'Hello!',
+          role: 'user',
+        },
+      ],
+    };
+
+    const span = {
+      ...MOCK_CHAT_TOOL_CALL_SPAN,
+      attributes: {
+        ...MOCK_CHAT_TOOL_CALL_SPAN.attributes,
+        'mlflow.spanInputs': inputs,
+        'mlflow.spanOutputs': 'Hi there, how can I help you?',
+        'mlflow.chat.messages': undefined,
+        'mlflow.chat.tools': undefined,
+      },
+    };
+
+    const normalized = normalizeNewSpanData(span, 0, 0, [], {}, '');
+
+    expect(normalized.chatMessages).toEqual([
+      prettyPrintChatMessage({ role: 'user', content: 'Hello!' }),
+      { role: 'assistant', content: 'Hi there, how can I help you?' },
+    ]);
+  });
+
   it('should process assessments', () => {
     const rootSpan = MOCK_V3_SPANS[0];
     const childSpan = MOCK_V3_SPANS[1];

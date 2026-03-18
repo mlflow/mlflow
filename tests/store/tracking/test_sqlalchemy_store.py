@@ -55,7 +55,7 @@ from mlflow.environment_variables import (
     MLFLOW_ENABLE_WORKSPACES,
     MLFLOW_TRACKING_URI,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -12727,6 +12727,26 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
     assert len(traces[0].data.spans) == 1
     assert traces[0].data.spans[0].name == "incomplete_span"
     assert traces[0].data.spans[0].status.status_code == "OK"
+
+
+def test_batch_get_traces_raises_for_artifact_repo_traces(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_artifact_repo_traces")
+
+    # Create a trace via start_trace only (no log_spans call),
+    # so it has no SPANS_LOCATION tag — simulating spans stored in artifact repo.
+    artifact_trace_id = f"tr-{uuid.uuid4().hex}"
+    store.start_trace(
+        TraceInfo(
+            trace_id=artifact_trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1000,
+            execution_duration=500,
+            state=TraceState.OK,
+        )
+    )
+
+    with pytest.raises(MlflowTracingException, match="not stored in tracking store"):
+        store.batch_get_traces([artifact_trace_id])
 
 
 def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:

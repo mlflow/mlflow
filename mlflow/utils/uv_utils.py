@@ -6,6 +6,7 @@ via ``uv export`` for automatic dependency inference during model logging.
 """
 
 import logging
+import os
 import re
 import shutil
 import subprocess
@@ -447,6 +448,9 @@ def run_uv_sync(
             capture_output=capture_output,
             check=True,
             text=True,
+            # Set UV_PROJECT_ENVIRONMENT to install packages into python environment at
+            # `project_dir` path instead of the default `{cwd}/.venv` path.
+            env={**os.environ, "UV_PROJECT_ENVIRONMENT": str(project_dir)},
         )
 
         _logger.info("uv sync completed successfully")

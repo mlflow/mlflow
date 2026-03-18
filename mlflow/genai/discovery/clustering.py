@@ -8,7 +8,7 @@ from pydantic import BaseModel as _BaseModel
 from mlflow.entities.issue import IssueSeverity
 from mlflow.genai.discovery.constants import (
     CLUSTER_LABELS_PROMPT_TEMPLATE,
-    CLUSTER_SUMMARY_SYSTEM_PROMPT,
+    build_cluster_summary_prompt,
 )
 from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
@@ -96,6 +96,7 @@ def summarize_cluster(
     cluster_label_indices: list[int],
     analyses: list[_ConversationAnalysis],
     model: str,
+    categories: list[str],
     label_to_analysis: list[int] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> _IdentifiedIssue:
@@ -110,6 +111,7 @@ def summarize_cluster(
         cluster_label_indices: Label indices that form this cluster.
         analyses: All conversation analyses from the pipeline.
         model: Model URI for the summarization LLM.
+        categories: List of valid category names to filter extracted categories.
         label_to_analysis: Mapping from label index to analysis index.
             When ``None``, label indices are used as analysis indices directly.
         token_counter: Optional token counter for tracking LLM usage.
@@ -132,10 +134,11 @@ def summarize_cluster(
         parts.append(entry)
     analyses_text = "\n\n".join(parts)
 
+    system_prompt = build_cluster_summary_prompt(categories=categories)
     response = _call_llm(
         model,
         [
-            {"role": "system", "content": CLUSTER_SUMMARY_SYSTEM_PROMPT},
+            {"role": "system", "content": system_prompt},
             {
                 "role": "user",
                 "content": f"Cluster of {len(analysis_indices)} analyses:\n\n{analyses_text}",
@@ -148,6 +151,12 @@ def summarize_cluster(
     content = (response.choices[0].message.content or "").strip()
     result = _IdentifiedIssue(**json.loads(content))
     result.example_indices = analysis_indices
+
+    # Filter categories to only include valid ones if a list was provided
+    if categories is not None and result.categories:
+        valid_categories = set(categories)
+        result.categories = [cat for cat in result.categories if cat in valid_categories]
+
     return result
 
 
@@ -157,6 +166,7 @@ def recluster_singletons(
     analyses: list[_ConversationAnalysis],
     model: str,
     max_issues: int,
+    categories: list[str],
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
     """
@@ -168,6 +178,7 @@ def recluster_singletons(
         analyses: All conversation analyses from the pipeline.
         model: Model URI for clustering and summarization.
         max_issues: Maximum number of groups to produce.
+        categories: List of valid category names to filter extracted categories.
         token_counter: Optional token counter for tracking LLM usage.
 
     Returns:
@@ -191,7 +202,7 @@ def recluster_singletons(
         # Each singleton has exactly one analysis index in example_indices
         merged_indices = [singletons[group_idx].example_indices[0] for group_idx in group]
         merged_issue = summarize_cluster(
-            merged_indices, analyses, model, token_counter=token_counter
+            merged_indices, analyses, model, categories=categories, token_counter=token_counter
         )
         if merged_issue.severity >= IssueSeverity.LOW:
             result.append(merged_issue)
