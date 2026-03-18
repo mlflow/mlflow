@@ -19,6 +19,7 @@ from flask import Request, Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
+import mlflow
 from mlflow.entities import (
     Assessment,
     DatasetInput,
@@ -32,6 +33,7 @@ from mlflow.entities import (
     GatewayEndpointTag,
     GatewayResourceType,
     InputTag,
+    IssueSeverity,
     IssueStatus,
     Metric,
     Param,
@@ -46,6 +48,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -139,6 +142,7 @@ from mlflow.protos.prompt_optimization_pb2 import (
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     AttachModelToGatewayEndpoint,
+    BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CancelPromptOptimizationJob,
@@ -279,6 +283,7 @@ from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTracki
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
 from mlflow.telemetry import get_telemetry_client
+from mlflow.telemetry.installation_id import get_or_create_installation_id
 from mlflow.telemetry.schemas import Record, Status
 from mlflow.telemetry.utils import (
     FALLBACK_UI_CONFIG,
@@ -300,6 +305,11 @@ from mlflow.utils.crypto import KEKManager
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_ISSUE_DETECTION_JOB_ID,
+    MLFLOW_RUN_TYPE,
+    MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+)
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.providers import (
@@ -3564,6 +3574,19 @@ def _batch_get_traces() -> Response:
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _batch_get_trace_infos() -> Response:
+    request_message = _get_request_message(
+        BatchGetTraceInfos(),
+        schema={"trace_ids": [_assert_array, _assert_required, _assert_item_type_string]},
+    )
+    trace_infos = _get_tracking_store().batch_get_trace_infos(request_message.trace_ids)
+    response_message = BatchGetTraceInfos.Response()
+    response_message.trace_infos.extend([ti.to_proto() for ti in trace_infos])
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_trace() -> Response:
     """
     A request handler for `GET /mlflow/traces/get` to get a trace with spans for given trace id.
@@ -4034,12 +4057,14 @@ def _create_issue():
         "description": request_message.description,
         "source_run_id": request_message.source_run_id or None,
         "root_causes": list(request_message.root_causes) or None,
-        "severity": request_message.severity or None,
+        "categories": list(request_message.categories) or None,
         "created_by": request_message.created_by or None,
     }
 
     if request_message.HasField("status"):
         create_kwargs["status"] = IssueStatus(request_message.status)
+    if request_message.HasField("severity"):
+        create_kwargs["severity"] = IssueSeverity(request_message.severity)
 
     created_issue = _get_tracking_store().create_issue(**create_kwargs)
 
@@ -4061,13 +4086,16 @@ def _update_issue(issue_id):
     )
 
     status = IssueStatus(request_message.status) if request_message.HasField("status") else None
+    severity = (
+        IssueSeverity(request_message.severity) if request_message.HasField("severity") else None
+    )
 
     updated_issue = _get_tracking_store().update_issue(
         issue_id=issue_id,
         status=status,
         name=request_message.name or None,
         description=request_message.description or None,
-        severity=request_message.severity or None,
+        severity=severity,
     )
 
     response_message = UpdateIssue.Response(issue=updated_issue.to_proto())
@@ -4111,6 +4139,106 @@ def _search_issues():
         issues=issue_protos, next_page_token=issues.token or ""
     )
     return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _invoke_issue_detection_handler():
+    """
+    Invoke issue detection on traces asynchronously.
+
+    This is a UI-only AJAX endpoint for running issue detection from the frontend.
+    """
+    from mlflow.genai.discovery.job import _fetch_provider_credentials, invoke_issue_detection_job
+    from mlflow.server.jobs import submit_job
+
+    _validate_content_type(request, ["application/json"])
+
+    request_json = _get_validated_flask_request_json(
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "trace_ids": [_assert_required, _assert_array],
+            "categories": [_assert_required, _assert_array],
+            "provider": [_assert_required, _assert_string],
+            "model": [_assert_string],
+            "secret_id": [_assert_string],
+            "endpoint_name": [_assert_string],
+        }
+    )
+
+    experiment_id = request_json.get("experiment_id")
+    trace_ids = request_json.get("trace_ids", [])
+    categories = request_json.get("categories", [])
+    provider = request_json.get("provider")
+    model = request_json.get("model")
+    secret_id = request_json.get("secret_id")
+    endpoint_name = request_json.get("endpoint_name")
+
+    if not endpoint_name and not (provider and model):
+        raise MlflowException(
+            "Either 'endpoint_name' or both 'provider' and 'model' must be provided"
+        )
+
+    # Fetch credentials required for executing the job
+    if secret_id:
+        store = _get_tracking_store()
+        credentials = _fetch_provider_credentials(store, provider, secret_id)
+    else:
+        credentials = None
+
+    # Create the run upfront so we can return run_id immediately
+    model_name = f"gateway:/{endpoint_name}" if endpoint_name else f"{provider}:/{model}"
+    run = mlflow.start_run(
+        experiment_id=experiment_id,
+        tags={
+            MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
+            "categories": ",".join(categories),
+            "model": model_name,
+            "total_traces": len(trace_ids),
+        },
+    )
+    run_id = run.info.run_id
+
+    job = submit_job(
+        function=invoke_issue_detection_job,
+        params={
+            "experiment_id": experiment_id,
+            "trace_ids": trace_ids,
+            "categories": categories,
+            "run_id": run_id,
+            "model": model_name,
+        },
+        extra_envs=credentials,
+    )
+    # Tag the run with job ID for later retrieval
+    mlflow.set_tag(MLFLOW_ISSUE_DETECTION_JOB_ID, job.job_id)
+    mlflow.end_run(RunStatus.to_string(RunStatus.RUNNING))
+
+    return jsonify({"job_id": job.job_id, "run_id": run_id})
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_issue_detection_job(job_id):
+    from mlflow.server.jobs import get_job
+
+    job = get_job(job_id)
+    return jsonify({
+        "status": str(job.status),
+        "result": job.parsed_result,
+    })
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _cancel_job(job_id):
+    from mlflow.server.jobs import cancel_job
+
+    job = cancel_job(job_id)
+    return jsonify({
+        "status": str(job.status),
+        "result": job.parsed_result,
+    })
 
 
 # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
@@ -5192,8 +5320,7 @@ def _create_budget_policy():
         schema={
             "budget_unit": [_assert_required],
             "budget_amount": [_assert_required],
-            "duration_unit": [_assert_required],
-            "duration_value": [_assert_required],
+            "duration": [_assert_required],
             "target_scope": [_assert_required],
             "budget_action": [_assert_required],
             "created_by": [_assert_string],
@@ -5205,10 +5332,16 @@ def _create_budget_policy():
             message=f"Invalid budget_unit: {request_message.budget_unit}",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    duration_unit = BudgetDurationUnit.from_proto(request_message.duration_unit)
+    duration_unit = BudgetDurationUnit.from_proto(request_message.duration.unit)
     if duration_unit is None:
         raise MlflowException(
-            message=f"Invalid duration_unit: {request_message.duration_unit}",
+            message=f"Invalid duration.unit: {request_message.duration.unit}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    if request_message.duration.value <= 0:
+        raise MlflowException(
+            message=f"duration.value must be a positive integer, got "
+            f"{request_message.duration.value}",
             error_code=INVALID_PARAMETER_VALUE,
         )
     target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
@@ -5227,8 +5360,7 @@ def _create_budget_policy():
     policy = store.create_budget_policy(
         budget_unit=budget_unit,
         budget_amount=request_message.budget_amount,
-        duration_unit=duration_unit,
-        duration_value=request_message.duration_value,
+        duration=BudgetDuration(unit=duration_unit, value=request_message.duration.value),
         target_scope=target_scope,
         budget_action=budget_action,
         created_by=request_message.created_by or None,
@@ -5275,14 +5407,21 @@ def _update_budget_policy():
                 message=f"Invalid budget_unit: {request_message.budget_unit}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-    duration_unit = None
-    if request_message.HasField("duration_unit"):
-        duration_unit = BudgetDurationUnit.from_proto(request_message.duration_unit)
+    duration = None
+    if request_message.HasField("duration"):
+        duration_unit = BudgetDurationUnit.from_proto(request_message.duration.unit)
         if duration_unit is None:
             raise MlflowException(
-                message=f"Invalid duration_unit: {request_message.duration_unit}",
+                message=f"Invalid duration.unit: {request_message.duration.unit}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if request_message.duration.value <= 0:
+            raise MlflowException(
+                message=f"duration.value must be a positive integer, got "
+                f"{request_message.duration.value}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        duration = BudgetDuration(unit=duration_unit, value=request_message.duration.value)
     target_scope = None
     if request_message.HasField("target_scope"):
         target_scope = BudgetTargetScope.from_proto(request_message.target_scope)
@@ -5306,10 +5445,7 @@ def _update_budget_policy():
         budget_amount=request_message.budget_amount
         if request_message.HasField("budget_amount")
         else None,
-        duration_unit=duration_unit,
-        duration_value=request_message.duration_value
-        if request_message.HasField("duration_value")
-        else None,
+        duration=duration,
         target_scope=target_scope,
         budget_action=budget_action,
         updated_by=request_message.updated_by or None,
@@ -5588,6 +5724,8 @@ def get_endpoints(get_handler=get_handler):
         ]
         + get_gateway_endpoints()
         + get_demo_endpoints()
+        + get_issues_detection_endpoints()
+        + get_job_endpoints()
     )
 
 
@@ -5618,6 +5756,31 @@ def get_gateway_endpoints():
             _get_ajax_path("/mlflow/scorer/invoke", version=3),
             _invoke_scorer_handler,
             ["POST"],
+        ),
+    ]
+
+
+def get_issues_detection_endpoints():
+    return [
+        (
+            _get_ajax_path("/mlflow/issues/invoke", version=3),
+            _invoke_issue_detection_handler,
+            ["POST"],
+        ),
+        (
+            _get_ajax_path("/mlflow/issues/job/<job_id>", version=3),
+            _get_issue_detection_job,
+            ["GET"],
+        ),
+    ]
+
+
+def get_job_endpoints():
+    return [
+        (
+            _get_ajax_path("/mlflow/jobs/cancel/<job_id>", version=3),
+            _cancel_job,
+            ["PATCH"],
         ),
     ]
 
@@ -6054,6 +6217,7 @@ def post_ui_telemetry_handler():
         if config.get("disable_ui_telemetry", True) or config.get("disable_telemetry", True):
             return jsonify({"status": "disabled"})
 
+        server_installation_id = get_or_create_installation_id()
         records = [
             Record(
                 event_name=event["event_name"],
@@ -6062,6 +6226,7 @@ def post_ui_telemetry_handler():
                 status=Status.SUCCESS,
                 installation_id=event["installation_id"],
                 session_id=event["session_id"],
+                server_installation_id=server_installation_id,
                 duration_ms=0,
             )
             for event in data
@@ -6496,6 +6661,7 @@ HANDLERS = {
     LinkTracesToRun: _link_traces_to_run,
     LinkPromptsToTrace: _link_prompts_to_trace,
     BatchGetTraces: _batch_get_traces,
+    BatchGetTraceInfos: _batch_get_trace_infos,
     GetTrace: _get_trace,
     QueryTraceMetrics: _query_trace_metrics,
     # Assessment APIs

@@ -3,11 +3,12 @@ from __future__ import annotations
 import json
 import logging
 
+from pydantic import BaseModel as _BaseModel
+
+from mlflow.entities.issue import IssueSeverity
 from mlflow.genai.discovery.constants import (
     CLUSTER_LABELS_PROMPT_TEMPLATE,
-    CLUSTER_SUMMARY_SYSTEM_PROMPT,
-    MIN_SEVERITY,
-    severity_gte,
+    build_cluster_summary_prompt,
 )
 from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
@@ -16,6 +17,15 @@ from mlflow.genai.discovery.entities import (
 from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
 
 _logger = logging.getLogger(__name__)
+
+
+class _ClusterGroup(_BaseModel):
+    name: str
+    indices: list[int]
+
+
+class _ClusterResponse(_BaseModel):
+    groups: list[_ClusterGroup]
 
 
 def cluster_by_llm(
@@ -51,7 +61,7 @@ def cluster_by_llm(
     response = _call_llm(
         model,
         [{"role": "user", "content": prompt}],
-        json_mode=True,
+        response_format=_ClusterResponse,
         token_counter=token_counter,
     )
     content = (response.choices[0].message.content or "").strip()
@@ -62,16 +72,13 @@ def cluster_by_llm(
             response.choices[0].finish_reason,
         )
         return [[i] for i in range(len(labels))]
-    result = json.loads(content)
-
-    # Normalize response format: accept both {"groups": [...]} and bare list
-    groups = result if isinstance(result, list) else result.get("groups", [])
+    result = _ClusterResponse(**json.loads(content))
 
     # Validate indices and collect groups; orphaned indices become singletons
     clustered_indices: set[int] = set()
     cluster_groups: list[list[int]] = []
-    for group in groups:
-        if indices := [i for i in group["indices"] if 0 <= i < len(labels)]:
+    for group in result.groups:
+        if indices := [i for i in group.indices if 0 <= i < len(labels)]:
             cluster_groups.append(indices)
             clustered_indices.update(indices)
 
@@ -89,6 +96,7 @@ def summarize_cluster(
     cluster_label_indices: list[int],
     analyses: list[_ConversationAnalysis],
     model: str,
+    categories: list[str],
     label_to_analysis: list[int] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> _IdentifiedIssue:
@@ -103,6 +111,7 @@ def summarize_cluster(
         cluster_label_indices: Label indices that form this cluster.
         analyses: All conversation analyses from the pipeline.
         model: Model URI for the summarization LLM.
+        categories: List of valid category names to filter extracted categories.
         label_to_analysis: Mapping from label index to analysis index.
             When ``None``, label indices are used as analysis indices directly.
         token_counter: Optional token counter for tracking LLM usage.
@@ -125,12 +134,7 @@ def summarize_cluster(
         parts.append(entry)
     analyses_text = "\n\n".join(parts)
 
-    schema_json = json.dumps(_IdentifiedIssue.model_json_schema(), indent=2)
-    system_prompt = (
-        f"{CLUSTER_SUMMARY_SYSTEM_PROMPT}\n\n"
-        f"Respond with a JSON object matching this schema:\n{schema_json}"
-    )
-
+    system_prompt = build_cluster_summary_prompt(categories=categories)
     response = _call_llm(
         model,
         [
@@ -140,13 +144,19 @@ def summarize_cluster(
                 "content": f"Cluster of {len(analysis_indices)} analyses:\n\n{analyses_text}",
             },
         ],
-        json_mode=True,
+        response_format=_IdentifiedIssue,
         token_counter=token_counter,
     )
 
     content = (response.choices[0].message.content or "").strip()
     result = _IdentifiedIssue(**json.loads(content))
     result.example_indices = analysis_indices
+
+    # Filter categories to only include valid ones if a list was provided
+    if categories is not None and result.categories:
+        valid_categories = set(categories)
+        result.categories = [cat for cat in result.categories if cat in valid_categories]
+
     return result
 
 
@@ -156,6 +166,7 @@ def recluster_singletons(
     analyses: list[_ConversationAnalysis],
     model: str,
     max_issues: int,
+    categories: list[str],
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
     """
@@ -167,6 +178,7 @@ def recluster_singletons(
         analyses: All conversation analyses from the pipeline.
         model: Model URI for clustering and summarization.
         max_issues: Maximum number of groups to produce.
+        categories: List of valid category names to filter extracted categories.
         token_counter: Optional token counter for tracking LLM usage.
 
     Returns:
@@ -190,9 +202,9 @@ def recluster_singletons(
         # Each singleton has exactly one analysis index in example_indices
         merged_indices = [singletons[group_idx].example_indices[0] for group_idx in group]
         merged_issue = summarize_cluster(
-            merged_indices, analyses, model, token_counter=token_counter
+            merged_indices, analyses, model, categories=categories, token_counter=token_counter
         )
-        if severity_gte(merged_issue.severity, MIN_SEVERITY):
+        if merged_issue.severity >= IssueSeverity.LOW:
             result.append(merged_issue)
         else:
             result.extend(singletons[group_idx] for group_idx in group)

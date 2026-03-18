@@ -1,9 +1,10 @@
 """
 Core translator for converting MLflow spans to OpenTelemetry GenAI Semantic Convention format.
 
-Translates universal attributes (model, provider, tokens, span type) that are already
-normalized across all autologging integrations. Format-specific message content conversion
-will be added in a follow-up via per-integration converters.
+Phase 1: Universal attributes (model, provider, tokens, span type) normalized across all
+autologging integrations.
+Phase 2: Format-specific message content (gen_ai.input.messages, gen_ai.output.messages),
+request params, and response attrs via per-integration converters.
 """
 
 import json
@@ -15,6 +16,7 @@ from opentelemetry.trace import SpanKind
 
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import GenAiSemconvKey, SpanAttributeKey
+from mlflow.tracing.export.genai_semconv.converter import GenAiSemconvConverter
 from mlflow.tracing.utils import get_otel_attribute
 
 _logger = logging.getLogger(__name__)
@@ -59,6 +61,18 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
         # No GenAI mapping — strip mlflow.* attrs and pass through
         return _create_passthrough_span(span, original_attrs)
 
+    # Phase 2: Format-specific message translation via converter
+    message_format = get_otel_attribute(span, SpanAttributeKey.MESSAGE_FORMAT)
+    inputs = get_otel_attribute(span, SpanAttributeKey.INPUTS)
+    outputs = get_otel_attribute(span, SpanAttributeKey.OUTPUTS)
+
+    if inputs is not None or outputs is not None:
+        if converter := _get_converter(message_format, inputs):
+            try:
+                genai_attrs.update(converter.translate(inputs, outputs))
+            except Exception:
+                _logger.debug("Failed to convert messages for format %r, skipping", message_format)
+
     # Merge: Keep non-mlflow.* attrs, add GenAI attrs
     merged_attrs = {k: v for k, v in original_attrs.items() if not k.startswith("mlflow.")}
     merged_attrs.update(genai_attrs)
@@ -101,6 +115,25 @@ def _translate_universal_attributes(span: ReadableSpan) -> dict[str, Any]:
             genai_attrs[GenAiSemconvKey.TOOL_CALL_RESULT] = json.dumps(outputs)
 
     return genai_attrs
+
+
+def _get_converter(
+    message_format: str | None, inputs: dict[str, Any] | None = None
+) -> GenAiSemconvConverter | None:
+    match message_format:
+        case "openai":
+            if inputs is not None and "input" in inputs:
+                from mlflow.openai.genai_semconv_converter import OpenAIResponsesConverter
+
+                return OpenAIResponsesConverter()
+
+            from mlflow.openai.genai_semconv_converter import OpenAIChatCompletionConverter
+
+            return OpenAIChatCompletionConverter()
+        case _:
+            from mlflow.openai.genai_semconv_converter import OpenAIChatCompletionConverter
+
+            return OpenAIChatCompletionConverter()
 
 
 def _build_genai_span_name(original_name: str, genai_attrs: dict[str, Any]) -> str:

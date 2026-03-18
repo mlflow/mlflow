@@ -11,6 +11,34 @@ from mlflow.mcp.decorator import mlflow_mcp
 from mlflow.utils.string_utils import _create_table
 
 
+class DictParamType(click.ParamType):
+    name = "dict"
+
+    def convert(self, value, param, ctx):
+        if isinstance(value, dict):
+            return value
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            example = '{"key": "value"}'
+            self.fail(
+                f"Invalid JSON. Expected a JSON object, e.g. '{example}'.",
+                param,
+                ctx,
+            )
+        if not isinstance(parsed, dict):
+            self.fail("Expected a JSON object (dict), not an array or scalar.", param, ctx)
+        for k, v in parsed.items():
+            if not isinstance(k, str) or not isinstance(v, str):
+                self.fail(
+                    f"Keys and values must all be strings, "
+                    f"got key={k!r} ({type(k).__name__}), value={v!r} ({type(v).__name__}).",
+                    param,
+                    ctx,
+                )
+        return parsed
+
+
 @click.group("scorers")
 def commands():
     """
@@ -145,8 +173,34 @@ def list_scorers(
     required=False,
     help="Description of what the judge evaluates.",
 )
+@click.option(
+    "--base-url",
+    type=click.STRING,
+    required=False,
+    help=(
+        "Base URL to route requests through. Useful for enterprise environments "
+        "requiring LLM access through internal gateways or security proxies. "
+        "Note: This value is not persisted when the judge is registered."
+    ),
+)
+@click.option(
+    "--extra-headers",
+    type=DictParamType(),
+    required=False,
+    help=(
+        "JSON string of additional HTTP headers to include in requests to the LLM provider. "
+        'Example: \'{{"X-API-Key": "secret"}}\'. '
+        "Note: This value is not persisted when the judge is registered."
+    ),
+)
 def register_llm_judge(
-    name: str, instructions: str, model: str | None, experiment_id: str, description: str | None
+    name: str,
+    instructions: str,
+    model: str | None,
+    experiment_id: str,
+    description: str | None,
+    base_url: str | None,
+    extra_headers: dict[str, str] | None,
 ) -> None:
     """
     Register an LLM judge scorer in the specified experiment.
@@ -186,6 +240,8 @@ def register_llm_judge(
         model=model,
         description=description,
         feedback_value_type=str,
+        base_url=base_url,
+        extra_headers=extra_headers,
     )
     registered_judge = judge.register(experiment_id=experiment_id)
     click.echo(

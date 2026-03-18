@@ -43,6 +43,9 @@ message Issue {
 
   // Identifier for who created this issue.
   optional string created_by = 11;
+
+  // Categories of the issue.
+  repeated string categories = 12;
 }
 
 // Request to create a new issue.
@@ -70,6 +73,9 @@ message CreateIssue {
 
   // Identifier for who created this issue.
   optional string created_by = 8;
+
+  // Categories of the issue.
+  repeated string categories = 9;
 
   message Response {
     // The created issue.

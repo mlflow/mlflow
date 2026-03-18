@@ -79,6 +79,7 @@ export const ExperimentPageSideNavSection = ({
 
         return (
           <Link
+            componentId="mlflow.experiment_tracking.side_nav.section_item_link"
             key={`${sectionKey}-${item.tabName}`}
             to={{
               pathname: Routes.getExperimentPageTabRoute(experimentId, item.tabName),

@@ -6,6 +6,7 @@ from types import FunctionType
 from typing import Any, Callable, ParamSpec, TypeVar
 
 from mlflow.entities._job import Job as JobEntity
+from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
 from mlflow.utils.environment import _PythonEnv
@@ -22,6 +23,7 @@ _SUPPORTED_JOB_FUNCTION_LIST = [
     "mlflow.genai.scorers.job.run_online_trace_scorer_job",
     "mlflow.genai.scorers.job.run_online_session_scorer_job",
     "mlflow.genai.optimize.job.optimize_prompts_job",
+    "mlflow.genai.discovery.job.invoke_issue_detection_job",
 ]
 
 if supported_job_function_list_env := os.environ.get("_MLFLOW_SUPPORTED_JOB_FUNCTION_LIST"):
@@ -34,6 +36,7 @@ _ALLOWED_JOB_NAME_LIST = [
     "run_online_trace_scorer",
     "run_online_session_scorer",
     "optimize_prompts",
+    "invoke_issue_detection",
 ]
 
 if allowed_job_name_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_NAME_LIST"):
@@ -136,6 +139,7 @@ def submit_job(
     function: Callable[..., Any],
     params: dict[str, Any],
     timeout: float | None = None,
+    extra_envs: dict[str, str] | None = None,
 ) -> JobEntity:
     """
     Submit a job to the job queue. The job is executed at most once.
@@ -160,6 +164,7 @@ def submit_job(
             The function must be decorated by `mlflow.server.jobs.job_function` decorator.
         params: The params to be passed to the job function.
         timeout: (optional) The job execution timeout, default None (no timeout)
+        extra_envs: (optional) Additional environment variables to set in the job subprocess.
 
     Returns:
         The job entity. You can call `get_job` API by the job id to get
@@ -214,7 +219,8 @@ def submit_job(
     job_store = _get_job_store()
     serialized_params = json.dumps(params)
     job = job_store.create_job(fn_meta.name, serialized_params, timeout)
-    workspace = job.workspace
+    # Only propagate workspace to subprocess when workspaces are enabled
+    workspace = job.workspace if MLFLOW_ENABLE_WORKSPACES.get() else None
 
     # enqueue job
     huey_instance = _get_or_init_huey_instance(fn_meta.name)
@@ -225,6 +231,7 @@ def submit_job(
         params,
         timeout,
         fn_meta.exclusive,
+        extra_envs,
     )
 
     return job

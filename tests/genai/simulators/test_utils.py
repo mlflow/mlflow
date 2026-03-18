@@ -74,7 +74,8 @@ def test_invoke_model_without_tracing_with_inference_params():
         assert call_kwargs["temperature"] == 0.5
 
 
-def test_invoke_model_without_tracing_with_databricks():
+@pytest.mark.parametrize("model_uri", ["databricks", "gpt-oss-120b"])
+def test_invoke_model_without_tracing_with_databricks(model_uri):
     from mlflow.types.llm import ChatMessage
 
     messages = [ChatMessage(role="user", content="Hello")]
@@ -88,7 +89,7 @@ def test_invoke_model_without_tracing_with_databricks():
         mock_call.return_value = mock.MagicMock(error_code=None, output_json='{"content": "Hi"}')
         mock_create.return_value = mock.MagicMock(content="Hi from Databricks")
 
-        result = invoke_model_without_tracing(model_uri="databricks", messages=messages)
+        result = invoke_model_without_tracing(model_uri=model_uri, messages=messages)
 
         assert result == "Hi from Databricks"
         mock_call.assert_called_once()

@@ -148,7 +148,7 @@ export const GatewayUsagePage = () => {
               description="Empty state description"
             />
           </Typography.Text>
-          <Link to={GatewayRoutes.gatewayPageRoute}>
+          <Link componentId="mlflow.gateway.usage.go_to_endpoints_link" to={GatewayRoutes.gatewayPageRoute}>
             <FormattedMessage defaultMessage="Go to Endpoints" description="Link to endpoints page" />
           </Link>
         </div>

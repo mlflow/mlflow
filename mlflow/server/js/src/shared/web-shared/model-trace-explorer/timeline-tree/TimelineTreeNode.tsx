@@ -152,6 +152,7 @@ export const TimelineTreeNode = ({
                   componentId="shared.model-trace-explorer.gateway-trace-link"
                 >
                   <Link
+                    componentId="mlflow.model_trace_explorer.timeline.gateway_trace_link"
                     to={gatewayTraceHref}
                     target="_blank"
                     rel="noreferrer"

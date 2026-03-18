@@ -1,8 +1,9 @@
 import React, { useCallback } from 'react';
 import { ChartLineIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useToolUsageChartData } from '../hooks/useToolUsageChartData';
+import { useItemSelection } from '../hooks/useItemSelection';
 import {
   OverviewChartLoadingState,
   OverviewChartErrorState,
@@ -13,8 +14,8 @@ import {
   useChartXAxisProps,
   useChartYAxisProps,
   useScrollableLegendProps,
-  DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
+import { ItemSelector } from './ItemSelector';
 import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartUtils';
 
 /**
@@ -23,6 +24,7 @@ import { formatCount, useLegendHighlight, useChartColors } from '../utils/chartU
  */
 export const ToolUsageChart: React.FC = () => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const xAxisProps = useChartXAxisProps();
   const yAxisProps = useChartYAxisProps();
   const scrollableLegendProps = useScrollableLegendProps();
@@ -31,6 +33,21 @@ export const ToolUsageChart: React.FC = () => {
 
   // Fetch and process tool usage chart data
   const { chartData, toolNames, isLoading, error, hasData } = useToolUsageChartData();
+
+  // Tool selection state
+  const { displayedItems, isAllSelected, selectorLabel, handleSelectAllToggle, handleItemToggle } = useItemSelection(
+    toolNames,
+    {
+      allSelected: intl.formatMessage({
+        defaultMessage: 'All tools',
+        description: 'Label for tool selector when all tools are selected',
+      }),
+      noneSelected: intl.formatMessage({
+        defaultMessage: 'No tools selected',
+        description: 'Label for tool selector when no tools are selected',
+      }),
+    },
+  );
 
   const tooltipFormatter = useCallback(
     (value: number, name: string) => [formatCount(value), name] as [string, string],
@@ -47,14 +64,29 @@ export const ToolUsageChart: React.FC = () => {
 
   return (
     <OverviewChartContainer componentId="mlflow.charts.tool_usage">
-      <OverviewChartHeader
-        icon={<ChartLineIcon />}
-        title={<FormattedMessage defaultMessage="Tool Usage Over Time" description="Title for the tool usage chart" />}
-      />
+      <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <OverviewChartHeader
+          icon={<ChartLineIcon />}
+          title={
+            <FormattedMessage defaultMessage="Tool Usage Over Time" description="Title for the tool usage chart" />
+          }
+        />
+        {hasData && (
+          <ItemSelector
+            componentId="mlflow.charts.tool_usage.tool_selector"
+            itemNames={toolNames}
+            displayedItems={displayedItems}
+            isAllSelected={isAllSelected}
+            selectorLabel={selectorLabel}
+            onSelectAllToggle={handleSelectAllToggle}
+            onItemToggle={handleItemToggle}
+          />
+        )}
+      </div>
 
       {/* Chart */}
-      <div css={{ height: DEFAULT_CHART_CONTENT_HEIGHT, marginTop: theme.spacing.sm }}>
-        {hasData ? (
+      <div css={{ height: 300, marginTop: theme.spacing.sm }}>
+        {hasData && displayedItems.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
               <XAxis dataKey="timestamp" {...xAxisProps} />
@@ -63,15 +95,18 @@ export const ToolUsageChart: React.FC = () => {
                 content={<ScrollableTooltip formatter={tooltipFormatter} />}
                 cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
               />
-              {toolNames.map((toolName, index) => (
-                <Bar
-                  key={toolName}
-                  dataKey={toolName}
-                  stackId="tools"
-                  fill={getChartColor(index)}
-                  fillOpacity={getOpacity(toolName)}
-                />
-              ))}
+              {displayedItems.map((toolName) => {
+                const originalIndex = toolNames.indexOf(toolName);
+                return (
+                  <Bar
+                    key={toolName}
+                    dataKey={toolName}
+                    stackId="tools"
+                    fill={getChartColor(originalIndex)}
+                    fillOpacity={getOpacity(toolName)}
+                  />
+                );
+              })}
               <Legend
                 verticalAlign="bottom"
                 iconType="square"
