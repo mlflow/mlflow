@@ -160,6 +160,9 @@ def _call_llm_provider_api(
     from mlflow.gateway.config import Provider
     from mlflow.gateway.schemas import chat
 
+    if input_data is None and messages is None:
+        raise ValueError("Either input_data or messages must be provided.")
+
     eval_parameters = eval_parameters or {}
     extra_headers = extra_headers or {}
     provider = _get_provider_instance(provider_name, model)
@@ -191,8 +194,7 @@ def _call_llm_provider_api(
         }
 
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
-    if messages is None:
-        chat_payload.update(eval_parameters)
+    chat_payload.update(eval_parameters)
 
     if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
         if proxy_url or extra_headers:

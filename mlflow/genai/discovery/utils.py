@@ -79,17 +79,26 @@ class _TokenCounter:
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
         self._cost_usd = cost_usd
+        self._cost_resolved = False
         self._model = model
 
     @property
     def cost_usd(self) -> float | None:
         """Return the total cost, falling back to the LiteLLM pricing API if needed."""
-        if self._cost_usd == 0:
-            total = self.input_tokens + self.output_tokens
-            if total > 0 and self._model:
-                if cost := _lookup_model_cost(self._model, self.input_tokens, self.output_tokens):
-                    self._cost_usd = cost
-        return self._cost_usd or None
+        with self._lock:
+            if self._cost_usd == 0 and not self._cost_resolved:
+                total = self.input_tokens + self.output_tokens
+                if total > 0 and self._model:
+                    if cost := _lookup_model_cost(
+                        self._model, self.input_tokens, self.output_tokens
+                    ):
+                        self._cost_usd = cost
+                self._cost_resolved = True
+            return self._cost_usd or None
+
+    def add_cost(self, cost: float) -> None:
+        with self._lock:
+            self._cost_usd += cost
 
     def track(self, response: Any) -> None:
         with self._lock:

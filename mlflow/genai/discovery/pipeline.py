@@ -566,7 +566,7 @@ def discover_issues(
                 if meta.get(AssessmentMetadataKey.SOURCE_RUN_ID) != triage_eval.run_id:
                     continue
                 if cost := meta.get(AssessmentMetadataKey.JUDGE_COST):
-                    token_counter._cost_usd += float(cost)
+                    token_counter.add_cost(float(cost))
                 if input_tok := meta.get(AssessmentMetadataKey.JUDGE_INPUT_TOKENS):
                     token_counter.input_tokens += int(input_tok)
                 if output_tok := meta.get(AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS):
