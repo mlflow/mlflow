@@ -103,6 +103,22 @@ class SkillSet:
 
 
 def load_skill(path: str | Path) -> Skill:
+    """Load a skill from a directory or SKILL.md file path.
+
+    Accepts either a path to a directory containing a SKILL.md file or a direct
+    path to a SKILL.md file. Parses the YAML frontmatter for name, description,
+    and metadata, then collects all companion files in the directory.
+
+    Args:
+        path: Path to a skill directory or a SKILL.md file.
+
+    Returns:
+        A fully populated Skill instance.
+
+    Raises:
+        MlflowException: If the path is invalid, SKILL.md is missing, or
+            required frontmatter fields are absent.
+    """
     path = Path(path)
     if path.is_file() and path.name == "SKILL.md":
         skill_dir = path.parent
@@ -159,6 +175,7 @@ def load_skill(path: str | Path) -> Skill:
 
 
 def _parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
+    """Split a SKILL.md file into its YAML frontmatter dict and body string."""
     if not content.startswith("---"):
         raise MlflowException(
             "SKILL.md must start with YAML frontmatter (---).",
@@ -219,6 +236,10 @@ def _validate_name(name: str | None) -> None:
 
 
 def _load_files(skill_dir: Path) -> dict[str, str]:
+    """Read all companion files in a skill directory, excluding SKILL.md.
+
+    Binary files and files that cannot be decoded as UTF-8 are silently skipped.
+    """
     result = {}
     for f in sorted(skill_dir.rglob("*")):
         if not f.is_file() or f.name == "SKILL.md":
