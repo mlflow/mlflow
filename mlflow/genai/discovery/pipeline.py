@@ -62,6 +62,27 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETE
 _logger = logging.getLogger(__name__)
 
 
+def _extract_category_tags(rationale: str, known_categories: list[str] | None = None) -> list[str]:
+    """
+    Extract categories from triage rationale.
+
+    Looks for a line starting with "CATEGORIES:" and parses comma-separated values.
+    Filters by known_categories if provided (case-insensitive match).
+    """
+    for line in rationale.split("\n"):
+        stripped = line.strip()
+        if stripped.upper().startswith("CATEGORIES:"):
+            cats_str = stripped[len("CATEGORIES:") :].strip()
+            tags = [c.strip() for c in cats_str.split(",") if c.strip()]
+            if not tags:
+                return []
+            if known_categories:
+                known_lower = {c.lower() for c in known_categories}
+                return list(dict.fromkeys(t for t in tags if t.lower() in known_lower))
+            return list(dict.fromkeys(tags))
+    return []
+
+
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
     return issue.severity == "not_an_issue" or NO_ISSUE_KEYWORD.lower() in issue.name.lower()
 
@@ -123,6 +144,7 @@ def _annotate_issue_traces(
     rationale_map: dict[str, str],
     trace_lookup: dict[str, Trace],
     model: str,
+    categories: list[str] | None = None,
     trace_to_session: dict[str, str] | None = None,
     session_first_trace: dict[str, str] | None = None,
     token_counter: _TokenCounter | None = None,
@@ -157,7 +179,12 @@ def _annotate_issue_traces(
     def _annotate_one(item: _AnnotationWorkItem) -> str | None:
         trace = trace_lookup.get(item.trace_id)
         trace_content = format_trace_content(trace) if trace else "(trace not available)"
-        user_content = format_annotation_prompt(item.issue, trace_content, item.triage_rationale)
+        user_content = format_annotation_prompt(
+            item.issue,
+            trace_content,
+            item.triage_rationale,
+            categories=categories,
+        )
 
         try:
             response = _call_llm(
@@ -206,6 +233,7 @@ def _build_analyses(
     triage_traces: list[Trace],
     rationale_map: dict[str, str],
     scorer_name: str,
+    categories: list[str] | None = None,
 ) -> tuple[list[_ConversationAnalysis], dict[str, list[Trace]]]:
     """
     Build per-session analyses from triage results.
@@ -239,6 +267,7 @@ def _build_analyses(
                 full_rationale=combined_rationale,
                 affected_trace_ids=[trace.info.trace_id for trace in session_failing],
                 execution_path=exec_path,
+                categories=_extract_category_tags(combined_rationale, categories),
             )
         )
     _logger.debug("Built %d analyses from triage rationales", len(analyses))
@@ -301,6 +330,8 @@ def _dedup_issues_by_name(issues: list[_IdentifiedIssue]) -> list[_IdentifiedIss
         if key in seen_names:
             existing = deduped[seen_names[key]]
             existing.example_indices = list(set(existing.example_indices + issue.example_indices))
+            if issue.severity > existing.severity:
+                existing.severity_rationale = issue.severity_rationale
             existing.severity = max(existing.severity, issue.severity)
         else:
             seen_names[key] = len(deduped)
@@ -342,14 +373,25 @@ def _cluster_and_identify(
     token_counter: _TokenCounter | None = None,
 ) -> list[_IdentifiedIssue]:
     """Cluster analyses into identified issues via LLM-based labeling and grouping."""
-    labels, label_to_analysis = extract_failure_labels(analyses, model, token_counter=token_counter)
+    labels, label_to_analysis = extract_failure_labels(
+        analyses,
+        model,
+        categories=categories,
+        token_counter=token_counter,
+    )
     for i, label in enumerate(labels):
         _logger.debug("  [%d] %s", i, label)
 
     if len(labels) == 1:
         cluster_groups = [[0]]
     else:
-        cluster_groups = cluster_by_llm(labels, max_issues, model, token_counter=token_counter)
+        cluster_groups = cluster_by_llm(
+            labels,
+            max_issues,
+            model,
+            categories=categories,
+            token_counter=token_counter,
+        )
     _logger.debug("Clustering produced %d groups", len(cluster_groups))
 
     def summarize_fn(group: list[int]) -> _IdentifiedIssue:
@@ -418,6 +460,7 @@ def _build_issues(
             severity=ident.severity,
             categories=ident.categories,
             root_causes=[ident.root_cause],
+            severity_rationale=ident.severity_rationale or None,
             source_run_id=source_run_id,
         )
         issues.append(issue)
@@ -559,9 +602,10 @@ def discover_issues(
     scored_traces = triage_traces
     try:
         fetched = [mlflow.get_trace(t.info.trace_id) for t in triage_traces]
-        scored_traces = fetched
+        if all(f is not None for f in fetched):
+            scored_traces = fetched
         # Aggregate judge costs from Phase 1 evaluation assessments.
-        for trace in fetched:
+        for trace in scored_traces:
             for assessment in trace.info.assessments or []:
                 meta = getattr(assessment, "metadata", None) or {}
                 if meta.get(AssessmentMetadataKey.SOURCE_RUN_ID) != triage_eval.run_id:
@@ -594,7 +638,12 @@ def discover_issues(
         )
 
     # ---- Phase 2: Build analyses ----
-    analyses, session_groups = _build_analyses(triage_traces, rationale_map, scorer_name)
+    analyses, session_groups = _build_analyses(
+        triage_traces,
+        rationale_map,
+        scorer_name,
+        categories=categories,
+    )
 
     # ---- Phase 3: Cluster & identify ----
     identified = _cluster_and_identify(
@@ -631,6 +680,7 @@ def discover_issues(
         rationale_map,
         trace_lookup,
         model,
+        categories=categories,
         trace_to_session=trace_to_session if use_conversation else None,
         session_first_trace=session_first_trace,
         token_counter=token_counter,
@@ -655,6 +705,7 @@ def discover_issues(
             "description": issue.description,
             "root_causes": issue.root_causes,
             "severity": issue.severity,
+            "severity_rationale": issue.severity_rationale,
             "status": issue.status,
         }
         for issue in issues

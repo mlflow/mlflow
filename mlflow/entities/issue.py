@@ -96,6 +96,12 @@ class Issue(_MlflowObject):
     categories: list[str] | None = None
     """Categories of this issue."""
 
+    category_rationale: str | None = None
+    """Rationale explaining why each assigned category applies."""
+
+    severity_rationale: str | None = None
+    """Rationale explaining the assigned severity level."""
+
     created_by: str | None = None
     """Identifier for who created this issue."""
 
@@ -111,6 +117,8 @@ class Issue(_MlflowObject):
             "root_causes": self.root_causes,
             "source_run_id": self.source_run_id,
             "categories": self.categories,
+            "category_rationale": self.category_rationale,
+            "severity_rationale": self.severity_rationale,
             "created_timestamp": self.created_timestamp,
             "last_updated_timestamp": self.last_updated_timestamp,
             "created_by": self.created_by,
@@ -133,6 +141,8 @@ class Issue(_MlflowObject):
             root_causes=issue_dict.get("root_causes"),
             source_run_id=issue_dict.get("source_run_id"),
             categories=issue_dict.get("categories"),
+            category_rationale=issue_dict.get("category_rationale"),
+            severity_rationale=issue_dict.get("severity_rationale"),
             created_by=issue_dict.get("created_by"),
         )
 

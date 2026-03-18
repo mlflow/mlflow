@@ -172,6 +172,7 @@ def collect_session_rationales(
 def extract_failure_labels(
     analyses: list[_ConversationAnalysis],
     model: str,
+    categories: list[str] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> tuple[list[str], list[int]]:
     """
@@ -186,6 +187,7 @@ def extract_failure_labels(
     Args:
         analyses: Conversation analyses to generate labels for.
         model: Model URI for the label-generation LLM.
+        categories: Optional issue categories for context in label generation.
         token_counter: Optional token counter for tracking LLM usage.
 
     Returns:
@@ -197,6 +199,8 @@ def extract_failure_labels(
 
     def _generate_labels(analysis: _ConversationAnalysis) -> list[str]:
         rationale = analysis.rationale_summary
+        if analysis.categories:
+            rationale += f"\nIdentified categories: {', '.join(analysis.categories)}"
         response = _call_llm(
             model,
             [
@@ -262,6 +266,8 @@ def extract_failing_traces(
     rationales: dict[str, str] = {}
 
     for trace in scored_traces:
+        if trace is None:
+            continue
         row_failing: list[tuple[str, str]] = []
         for scorer_name in scorer_names:
             assessments = trace.search_assessments(scorer_name, type="feedback")

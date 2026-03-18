@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import pydantic
 
@@ -26,11 +26,13 @@ class _ConversationAnalysis:
         affected_trace_ids: Trace IDs of failing traces in this session.
         execution_path: Compact path of sub-agents/tools called (e.g.
             ``"ask_sports > get_scores, web_search"``).
+        categories: Category tags extracted from triage rationales (e.g. ["hallucination"]).
     """
 
     full_rationale: str
     affected_trace_ids: list[str]
     execution_path: str = ""
+    categories: list[str] = field(default_factory=list)
 
     @property
     def rationale_summary(self) -> str:
@@ -57,5 +59,28 @@ class _IdentifiedIssue(pydantic.BaseModel):
         ),
     )
     categories: list[str] = pydantic.Field(
-        description="Categories of this issue",
+        description=(
+            "Categories of this issue. Each category MUST be substantiated by "
+            "concrete evidence in the description and root cause."
+        ),
+    )
+    category_rationale: str = pydantic.Field(
+        default="",
+        description=(
+            "For EACH assigned category, explain in 1-2 sentences WHY this issue "
+            "belongs to that category with specific evidence from the failure. "
+            "This field is REQUIRED if any categories are assigned. "
+            "E.g. 'execution: The assistant claimed playback resumed when no action occurred. "
+            "correctness: It provided conflicting timer states in adjacent responses.'"
+        ),
+    )
+    severity_rationale: str = pydantic.Field(
+        default="",
+        description=(
+            "Explain in 1-2 sentences WHY this issue has the assigned severity level. "
+            "Reference the scope of impact (how many traces affected), the severity of "
+            "consequences for end users, and whether workarounds exist. "
+            "E.g. 'High: Affects 15/20 traces and causes completely wrong answers "
+            "with no workaround available to users.'"
+        ),
     )

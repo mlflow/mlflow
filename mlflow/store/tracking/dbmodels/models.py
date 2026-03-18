@@ -1169,6 +1169,14 @@ class SqlIssue(Base):
     Categories stored as JSON array: `Text`. Nullable if categories are not yet
     determined.
     """
+    category_rationale = Column(Text, nullable=True)
+    """
+    Rationale explaining why each assigned category applies: `Text`. Nullable.
+    """
+    severity_rationale = Column(Text, nullable=True)
+    """
+    Rationale explaining the assigned severity level: `Text`. Nullable.
+    """
     created_timestamp = Column(BigInteger, nullable=False)
     """
     Creation timestamp: `BigInteger` in milliseconds.
@@ -1215,6 +1223,8 @@ class SqlIssue(Base):
             root_causes=json.loads(self.root_causes) if self.root_causes else None,
             source_run_id=self.source_run_id,
             categories=json.loads(self.categories) if self.categories else None,
+            category_rationale=self.category_rationale,
+            severity_rationale=self.severity_rationale,
             created_timestamp=self.created_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
             created_by=self.created_by,

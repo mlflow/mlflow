@@ -28,6 +28,8 @@ def upgrade():
         sa.Column("root_causes", sa.Text(), nullable=True),
         sa.Column("source_run_id", sa.String(length=32), nullable=True),
         sa.Column("categories", sa.Text(), nullable=True),
+        sa.Column("category_rationale", sa.Text(), nullable=True),
+        sa.Column("severity_rationale", sa.Text(), nullable=True),
         sa.Column("created_timestamp", sa.BigInteger(), nullable=False),
         sa.Column("last_updated_timestamp", sa.BigInteger(), nullable=False),
         sa.Column("created_by", sa.String(length=255), nullable=True),

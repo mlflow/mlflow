@@ -5950,6 +5950,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
         categories: list[str] | None = None,
+        category_rationale: str | None = None,
+        severity_rationale: str | None = None,
         created_by: str | None = None,
     ) -> Issue:
         """
@@ -5964,6 +5966,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional run ID that discovered this issue.
             categories: Optional list of categories for the issue.
+            category_rationale: Optional rationale explaining why each category applies.
+            severity_rationale: Optional rationale for the assigned severity level.
             created_by: Optional identifier for who created this issue.
 
         Returns:
@@ -5994,6 +5998,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 root_causes=root_causes_json,
                 source_run_id=source_run_id,
                 categories=categories_json,
+                category_rationale=category_rationale,
+                severity_rationale=severity_rationale,
                 created_timestamp=current_time,
                 last_updated_timestamp=current_time,
                 created_by=created_by,
