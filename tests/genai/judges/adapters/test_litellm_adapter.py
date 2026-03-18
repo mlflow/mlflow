@@ -363,6 +363,7 @@ def test_gateway_provider_integration():
     assert call_kwargs["model"] == "openai/my-endpoint"
     assert call_kwargs["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
     assert call_kwargs["api_key"] == "mlflow-gateway-auth"
+    assert call_kwargs["extra_headers"]["X-MLflow-Gateway-Caller"] == "judge"
 
 
 def test_gateway_provider_requires_http_tracking_uri():

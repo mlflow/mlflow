@@ -41,6 +41,7 @@ from mlflow.gateway.providers.base import (
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
+from mlflow.genai.utils.gateway_utils import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.server.gateway_budget import check_budget_limit, make_budget_on_complete
 from mlflow.store.tracking.abstract_store import AbstractStore
@@ -133,8 +134,6 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
             caller = None
             request = next((a for a in (*args, *kwargs.values()) if isinstance(a, Request)), None)
             if request is not None:
-                from mlflow.genai.utils.gateway_utils import MLFLOW_GATEWAY_CALLER_HEADER
-
                 caller = request.headers.get(MLFLOW_GATEWAY_CALLER_HEADER)
 
             try:
