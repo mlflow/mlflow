@@ -26,7 +26,7 @@ module.exports = [
   {
     pattern: '^@ant-design\\/icons\\/.+$',
     message:
-      "Do not import icons from '@ant-design/icons/*'. Import directly from '@ant-design/icons': `import { MoreOutlined } from '@ant-design/icons';\n" +
+      "Do not import icons from '@ant-design/icons/*'. Import directly from '@ant-design/icons': `import { MoreOutlined } from '@ant-design/icons';`\n" +
       "For type imports, use `import type { CustomIconComponentProps } from '@ant-design/icons/lib/components/Icon';`",
     allowTypeImports: true,
   },
@@ -34,7 +34,7 @@ module.exports = [
   {
     pattern: '^rc-[\\w-]+\\/lib\\/.+$',
     message:
-      "Do not import icons from 'rc-*/lib/*'. Import directly from 'rc-*': `import { Foo } from 'rc-foo';\n" +
+      "Do not import icons from 'rc-*/lib/*'. Import directly from 'rc-*': `import { Foo } from 'rc-foo';`\n" +
       "For type imports, use `import type { SomeType } from 'rc-foo/lib/foo';`",
     allowTypeImports: true,
   },
@@ -78,7 +78,7 @@ module.exports = [
     message: 'General recommendation is to use react-hook-form and we will coalesce the codebase around that.',
   },
 
-  // Disallow imports from 'src/`. These are normally allowed due to tsconfig.json's baseUrl, but we don't want them.
+  // Disallow imports from `src/`. These are normally allowed due to tsconfig.json's baseUrl, but we don't want them.
   {
     pattern: '^src(/|$)',
     message:
