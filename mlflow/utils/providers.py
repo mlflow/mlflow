@@ -589,10 +589,12 @@ def _extract_models(
     entries: Iterator[tuple[str, str | None, dict[str, Any]]],
     provider_filter: str | None = None,
 ) -> list[dict[str, Any]]:
+    # Use dict to dedupe models by (provider, model_name) key
     models_dict: dict[tuple[str | None, str], dict[str, Any]] = {}
     for model_name, entry_provider, info in entries:
         normalized = _normalize_provider(entry_provider) if entry_provider else None
 
+        # Filter by provider (matching against the normalized provider name)
         if provider_filter and normalized != provider_filter:
             continue
 
@@ -600,9 +602,12 @@ def _extract_models(
         if mode not in _SUPPORTED_MODEL_MODES:
             continue
 
+        # Model names sometimes include the provider prefix, e.g. "gemini/gemini-2.5-flash"
+        # Strip the normalized provider prefix if present
         if normalized and model_name.startswith(f"{normalized}/"):
             model_name = model_name.removeprefix(f"{normalized}/")
 
+        # Skip fine-tuned model variants (e.g. "ft:gpt-4o-2024-08-06:org::id")
         if model_name.startswith("ft:"):
             continue
 
