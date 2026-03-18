@@ -245,11 +245,12 @@ def _build_analyses(
         if not combined_rationale:
             continue
         exec_path = extract_execution_paths_for_session(session_failing)
-        session_cats = []
-        for trace in session_failing:
-            for cat in categories_map.get(trace.info.trace_id, []):
-                if not known_lower or cat.lower() in known_lower:
-                    session_cats.append(cat)
+        session_cats = [
+            cat
+            for trace in session_failing
+            for cat in categories_map.get(trace.info.trace_id, [])
+            if not known_lower or cat.lower() in known_lower
+        ]
         analyses.append(
             _ConversationAnalysis(
                 full_rationale=combined_rationale,
