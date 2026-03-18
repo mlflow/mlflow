@@ -74,9 +74,6 @@ def test_collect_affected_trace_ids_skips_out_of_bounds():
 # ---- get_session_id ----
 
 
-# ---- get_session_id ----
-
-
 @pytest.mark.parametrize(
     ("session_id", "expected"),
     [
@@ -186,7 +183,7 @@ def test_token_counter_tracks_usage():
     counter = _TokenCounter()
     assert counter.input_tokens == 0
     assert counter.output_tokens == 0
-    assert counter.cost_usd == 0.0
+    assert counter.cost_usd is None
 
     mock_response = mock.MagicMock()
     mock_response.usage = mock.MagicMock()
@@ -214,7 +211,7 @@ def test_token_counter_tracks_gateway_response_without_hidden_params():
 
     assert counter.input_tokens == 200
     assert counter.output_tokens == 80
-    assert counter.cost_usd == 0.0
+    assert counter._cost_usd == 0.0
     assert counter._model == "openai:/gpt-5-mini"
 
 

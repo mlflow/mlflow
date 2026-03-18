@@ -12,6 +12,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointType
+from mlflow.genai.discovery.utils import _pydantic_to_response_format
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
     AdapterInvocationOutput,
@@ -75,37 +76,17 @@ def _invoke_via_gateway(
             endpoint_type=get_endpoint_type(model_uri) or EndpointType.LLM_V1_CHAT,
         )
 
-    from mlflow.genai.discovery.utils import _pydantic_to_response_format
-    from mlflow.metrics.genai.model_utils import (
-        _get_provider_instance,
-        _parse_model_uri,
-        _send_request,
-    )
+    from mlflow.metrics.genai.model_utils import _call_llm_provider_api, _parse_model_uri
 
     _, model_name = _parse_model_uri(model_uri)
-    provider = _get_provider_instance(provider_name, model_name)
-
-    payload: dict[str, Any] = {"messages": prompt}
-    if inference_params:
-        payload.update(inference_params)
-    if response_format is not None:
-        payload["response_format"] = _pydantic_to_response_format(response_format)
-
-    chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
-
-    raw_response = _send_request(
-        endpoint=provider.get_endpoint_url(EndpointType.LLM_V1_CHAT),
-        headers=provider.headers,
-        payload=chat_payload,
+    rf_dict = _pydantic_to_response_format(response_format) if response_format else None
+    return _call_llm_provider_api(
+        provider_name,
+        model_name,
+        messages=prompt,
+        eval_parameters=inference_params,
+        response_format=rf_dict,
     )
-
-    response = provider.adapter_class.model_to_chat(raw_response, provider.config)
-    if not response.choices:
-        raise MlflowException(
-            f"No response from judge model '{model_uri}'.",
-            error_code=BAD_REQUEST,
-        )
-    return response.choices[0].message.content or ""
 
 
 class GatewayAdapter(BaseJudgeAdapter):

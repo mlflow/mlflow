@@ -566,7 +566,7 @@ def discover_issues(
                 if meta.get(AssessmentMetadataKey.SOURCE_RUN_ID) != triage_eval.run_id:
                     continue
                 if cost := meta.get(AssessmentMetadataKey.JUDGE_COST):
-                    token_counter.cost_usd += float(cost)
+                    token_counter._cost_usd += float(cost)
                 if input_tok := meta.get(AssessmentMetadataKey.JUDGE_INPUT_TOKENS):
                     token_counter.input_tokens += int(input_tok)
                 if output_tok := meta.get(AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS):
@@ -589,7 +589,7 @@ def discover_issues(
             triage_run_id=triage_eval.run_id,
             summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
-            total_cost_usd=token_counter.resolve_cost(),
+            total_cost_usd=token_counter.cost_usd,
         )
 
     # ---- Phase 2: Build analyses ----
@@ -606,7 +606,7 @@ def discover_issues(
             triage_run_id=triage_eval.run_id,
             summary=build_summary([], len(triage_traces)),
             total_traces_analyzed=len(triage_traces),
-            total_cost_usd=token_counter.resolve_cost(),
+            total_cost_usd=token_counter.cost_usd,
         )
 
     # ---- Phase 4: Build issues & annotate ----
@@ -643,7 +643,7 @@ def discover_issues(
         triage_run_id=triage_eval.run_id,
         summary=summary,
         total_traces_analyzed=len(triage_traces),
-        total_cost_usd=token_counter.resolve_cost(),
+        total_cost_usd=token_counter.cost_usd,
     )
 
     # Log artifacts to the triage run

@@ -38,6 +38,7 @@ from mlflow.metrics.genai.model_utils import (
 )
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
+from mlflow.utils.providers import _fetch_model_catalog_from_api
 
 _logger = logging.getLogger(__name__)
 
@@ -84,8 +85,18 @@ class _TokenCounter:
         self._lock = threading.Lock()
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
-        self.cost_usd = cost_usd
+        self._cost_usd = cost_usd
         self._model = model
+
+    @property
+    def cost_usd(self) -> float | None:
+        """Return the total cost, falling back to the LiteLLM pricing API if needed."""
+        if self._cost_usd == 0:
+            total = self.input_tokens + self.output_tokens
+            if total > 0 and self._model:
+                if cost := _lookup_model_cost(self._model, self.input_tokens, self.output_tokens):
+                    self._cost_usd = cost
+        return self._cost_usd or None
 
     def track(self, response: Any) -> None:
         with self._lock:
@@ -94,16 +105,7 @@ class _TokenCounter:
                 self.output_tokens += response.usage.completion_tokens or 0
             if hidden := getattr(response, "_hidden_params", None):
                 if cost := hidden.get("response_cost"):
-                    self.cost_usd += cost
-
-    def resolve_cost(self) -> float | None:
-        """Return the total cost, falling back to the LiteLLM pricing API if needed."""
-        if self.cost_usd == 0:
-            total = self.input_tokens + self.output_tokens
-            if total > 0 and self._model:
-                if cost := _lookup_model_cost(self._model, self.input_tokens, self.output_tokens):
-                    self.cost_usd = cost
-        return self.cost_usd or None
+                    self._cost_usd += cost
 
     def to_dict(self) -> dict[str, int | float]:
         result = {}
@@ -112,7 +114,7 @@ class _TokenCounter:
             result["input_tokens"] = self.input_tokens
             result["output_tokens"] = self.output_tokens
             result["total_tokens"] = total
-        if cost := self.resolve_cost():
+        if cost := self.cost_usd:
             result["cost_usd"] = round(cost, 6)
         return result
 
@@ -240,8 +242,6 @@ class _ModelCost:
 
 @functools.lru_cache(maxsize=64)
 def _fetch_model_cost(model_name: str) -> _ModelCost | None:
-    from mlflow.utils.providers import _fetch_model_catalog_from_api
-
     # The API does a substring match (e.g. "gpt-5" also returns
     # "ft:gpt-5-2025-09-15"), so we need to find the exact match.
     for entry in _fetch_model_catalog_from_api(model=model_name):

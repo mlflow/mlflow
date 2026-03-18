@@ -130,10 +130,13 @@ def _is_supported_llm_provider(schema: str) -> bool:
 def _call_llm_provider_api(
     provider_name: str,
     model: str,
-    input_data: str,
-    eval_parameters: dict[str, Any],
-    extra_headers: dict[str, str],
+    input_data: str | None = None,
+    eval_parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
     proxy_url: str | None = None,
+    *,
+    messages: list[dict[str, str]] | None = None,
+    response_format: dict[str, Any] | None = None,
 ) -> str:
     """
     Invoke chat endpoint of various LLM providers.
@@ -145,37 +148,52 @@ def _call_llm_provider_api(
         provider_name: The provider name, e.g., "anthropic".
         model: The model name, e.g., "claude-3-5-sonnet"
         input_data: The input string prompt to send to the model as a chat message.
+            Mutually exclusive with ``messages``.
         eval_parameters: The additional parameters to send to the model, e.g. temperature.
         extra_headers: The additional headers to send to the provider.
         proxy_url: Proxy URL to be used for the judge model. If not specified, the default
             URL for the LLM provider will be used.
+        messages: Pre-built list of message dicts (``[{"role": ..., "content": ...}]``).
+            Mutually exclusive with ``input_data``.
+        response_format: Response format dict (e.g. from ``_pydantic_to_response_format``).
     """
     from mlflow.gateway.config import Provider
-    from mlflow.gateway.schemas import chat
 
+    eval_parameters = eval_parameters or {}
+    extra_headers = extra_headers or {}
     provider = _get_provider_instance(provider_name, model)
 
-    chat_request = chat.RequestPayload(
-        model=model,
-        messages=[
-            chat.RequestMessage(role="user", content=input_data),
-        ],
-        **eval_parameters,
-    )
+    if messages is not None:
+        payload: dict[str, Any] = {"messages": messages}
+        payload.update(eval_parameters)
+        if response_format is not None:
+            payload["response_format"] = response_format
+    else:
+        from mlflow.gateway.schemas import chat
 
-    # Filter out keys in the payload to the specified ones + "messages".
-    # Does not include "model" key here because some providers do not accept it as a
-    # part of the payload. Whether or not to include "model" key must be determined
-    # by each provider implementation.
-    filtered_keys = {"messages", *eval_parameters.keys()}
+        chat_request = chat.RequestPayload(
+            model=model,
+            messages=[
+                chat.RequestMessage(role="user", content=input_data),
+            ],
+            **eval_parameters,
+        )
 
-    payload = {
-        k: v
-        for k, v in chat_request.model_dump(exclude_none=True).items()
-        if (v is not None) and (k in filtered_keys)
-    }
+        # Filter out keys in the payload to the specified ones + "messages".
+        # Does not include "model" key here because some providers do not accept it as a
+        # part of the payload. Whether or not to include "model" key must be determined
+        # by each provider implementation.
+        filtered_keys = {"messages", *eval_parameters.keys()}
+
+        payload = {
+            k: v
+            for k, v in chat_request.model_dump(exclude_none=True).items()
+            if (v is not None) and (k in filtered_keys)
+        }
+
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
-    chat_payload.update(eval_parameters)
+    if messages is None:
+        chat_payload.update(eval_parameters)
 
     if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
         if proxy_url or extra_headers:
