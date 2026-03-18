@@ -12,7 +12,6 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
     LLM_MAX_TOKENS,
-    MAX_EXAMPLE_TRACE_IDS,
     NUM_RETRIES,
     TRACE_CONTENT_TRUNCATION,
 )
@@ -179,15 +178,25 @@ def verify_scorer(
         )
 
 
-def collect_example_trace_ids(
+def collect_affected_trace_ids(
     issue: _IdentifiedIssue,
     analyses: list[_ConversationAnalysis],
 ) -> list[str]:
+    """
+    Collect all affected trace IDs for an identified issue.
+
+    Args:
+        issue: The identified issue containing indices into the analyses list.
+        analyses: List of per-session analyses with affected trace IDs.
+
+    Returns:
+        A list of all trace IDs affected by this issue.
+    """
     trace_ids = []
     for idx in issue.example_indices:
         if 0 <= idx < len(analyses):
             trace_ids.extend(analyses[idx].affected_trace_ids)
-    return trace_ids[:MAX_EXAMPLE_TRACE_IDS]
+    return trace_ids
 
 
 def format_trace_content(trace: Trace) -> str:

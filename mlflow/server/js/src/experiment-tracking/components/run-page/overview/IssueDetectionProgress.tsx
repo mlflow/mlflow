@@ -239,7 +239,7 @@ export const IssueDetectionProgress = ({
               />
             )}
           </Typography.Hint>
-          {jobComplete && result?.total_cost_usd !== undefined && (
+          {jobComplete && result?.total_cost_usd !== null && result?.total_cost_usd !== undefined && (
             <Typography.Hint css={{ marginTop: theme.spacing.xs }}>
               <FormattedMessage
                 defaultMessage="Total cost: {cost}"

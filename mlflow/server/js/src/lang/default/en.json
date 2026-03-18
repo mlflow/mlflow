@@ -531,6 +531,10 @@
     "defaultMessage": "Create judge",
     "description": "Create judge button text"
   },
+  "1XEl9S": {
+    "defaultMessage": "Save",
+    "description": "Button to save issue changes"
+  },
   "1YGQOY": {
     "defaultMessage": "Duplicate run",
     "description": "Experiment page > artifact compare view > run column header > \"duplicate run\" button label"
@@ -1805,6 +1809,10 @@
     "defaultMessage": "Reject",
     "description": "Button to reject an issue"
   },
+  "9w1lBO": {
+    "defaultMessage": "Failed to update issue status: {error}",
+    "description": "Error message when issue status update fails"
+  },
   "9wWapn": {
     "defaultMessage": "Click 'Add chart' or drag and drop to add charts here.",
     "description": "Runs compare page > Charts tab > No charts placeholder description"
@@ -2364,6 +2372,10 @@
     "defaultMessage": "An error occurred while rendering chat sessions.",
     "description": "Description for default error message in the MLflow experiment chat sessions page"
   },
+  "D9xvar": {
+    "defaultMessage": "Cancel",
+    "description": "Button to cancel editing"
+  },
   "DCC164": {
     "defaultMessage": "GenAI",
     "description": "Label for GenAI workflow type option"
@@ -2487,6 +2499,10 @@
   "EBwDIg": {
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
+  },
+  "EC6A+w": {
+    "defaultMessage": "Edit",
+    "description": "Button to edit an issue"
   },
   "ECjBf5": {
     "defaultMessage": "Edit the request body below and click Send request to call the endpoint.",
@@ -3213,6 +3229,10 @@
   "JYVQuV": {
     "defaultMessage": "Run ID",
     "description": "Run page > Overview > Run ID section label"
+  },
+  "JaA2me": {
+    "defaultMessage": "Failed to update issue: {error}",
+    "description": "Error message when issue update fails"
   },
   "JaanQY": {
     "defaultMessage": "Tools",
@@ -7219,6 +7239,10 @@
   "j7cj5r": {
     "defaultMessage": "Please log at least one table artifact containing evaluation data. <link>Learn more</link>.",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > subtitle"
+  },
+  "j8JWDD": {
+    "defaultMessage": "Enter issue description",
+    "description": "Placeholder text for issue description field"
   },
   "jA7Y1x": {
     "defaultMessage": "Edit API key",
