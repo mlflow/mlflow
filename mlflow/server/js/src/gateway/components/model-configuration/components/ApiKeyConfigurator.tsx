@@ -65,7 +65,6 @@ export function ApiKeyConfigurator({
         newSecret: {
           ...value.newSecret,
           authMode: selectedAuthMode.mode,
-          secretFields: Object.fromEntries((selectedAuthMode.secret_fields ?? []).map((field) => [field.name, ''])),
         },
       });
     }
@@ -101,15 +100,14 @@ export function ApiKeyConfigurator({
 
   const handleAuthModeChange = useCallback(
     (authMode: string) => {
-      const modeConfig = authModes.find((m) => m.mode === authMode);
       handleNewSecretChange({
         ...value.newSecret,
         authMode,
-        secretFields: Object.fromEntries((modeConfig?.secret_fields ?? []).map((field) => [field.name, ''])),
+        secretFields: {},
         configFields: {},
       });
     },
-    [handleNewSecretChange, value.newSecret, authModes],
+    [handleNewSecretChange, value.newSecret],
   );
 
   const handleSecretFieldChange = useCallback(

@@ -92,15 +92,14 @@ export const SecretFormFields = ({
 
   const handleAuthModeChange = useCallback(
     (mode: string) => {
-      const modeConfig = authModes.find((m) => m.mode === mode);
       onChange({
         ...value,
         authMode: mode,
-        secretFields: Object.fromEntries((modeConfig?.secret_fields ?? []).map((field) => [field.name, ''])),
+        secretFields: {},
         configFields: {},
       });
     },
-    [onChange, value, authModes],
+    [onChange, value],
   );
 
   if (!provider) {

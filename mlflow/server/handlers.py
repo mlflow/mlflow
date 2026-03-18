@@ -4790,11 +4790,10 @@ def _create_gateway_secret():
     )
     # Empty map means no auth_config was provided
     auth_config = dict(request_message.auth_config) or None
-    secret_value = dict(request_message.secret_value)
 
     secret = _get_tracking_store().create_gateway_secret(
         secret_name=request_message.secret_name,
-        secret_value=secret_value,
+        secret_value=dict(request_message.secret_value),
         provider=request_message.provider or None,
         auth_config=auth_config,
         created_by=request_message.created_by or None,
