@@ -477,14 +477,11 @@ def _normalize_provider(provider: str) -> str:
     return provider
 
 
-def _iter_model_catalog_api(
-    *,
-    model: str | None = None,
-) -> Iterator[dict[str, Any]]:
+def _iter_model_catalog_api(*, model: str | None = None) -> Iterator[dict[str, Any]]:
     """Yield entries from the LiteLLM model catalog API with pagination."""
     page = 1
     while True:
-        params: dict[str, Any] = {"page": page, "page_size": 500}
+        params = {"page": page, "page_size": 500}
         if model:
             params["model"] = model
         try:
@@ -575,11 +572,20 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
     """
     if _PROVIDER_BACKEND_AVAILABLE:
         entries = (
-            (name, info.get("litellm_provider"), info) for name, info in _get_model_cost().items()
+            (
+                name,
+                info.get("litellm_provider"),
+                info,
+            )
+            for name, info in _get_model_cost().items()
         )
     else:
         entries = (
-            (entry.get("id", ""), entry.get("provider"), entry)
+            (
+                entry.get("id", ""),
+                entry.get("provider"),
+                entry,
+            )
             for entry in _fetch_model_catalog_from_api()
         )
     return _extract_models(entries, provider_filter=provider)
@@ -592,10 +598,10 @@ def _extract_models(
     # Use dict to dedupe models by (provider, model_name) key
     models_dict: dict[tuple[str | None, str], dict[str, Any]] = {}
     for model_name, entry_provider, info in entries:
-        normalized = _normalize_provider(entry_provider) if entry_provider else None
+        normalized_provider = _normalize_provider(entry_provider) if entry_provider else None
 
         # Filter by provider (matching against the normalized provider name)
-        if provider_filter and normalized != provider_filter:
+        if provider_filter and normalized_provider != provider_filter:
             continue
 
         mode = info.get("mode")
@@ -604,19 +610,19 @@ def _extract_models(
 
         # Model names sometimes include the provider prefix, e.g. "gemini/gemini-2.5-flash"
         # Strip the normalized provider prefix if present
-        if normalized and model_name.startswith(f"{normalized}/"):
-            model_name = model_name.removeprefix(f"{normalized}/")
+        if normalized_provider and model_name.startswith(f"{normalized_provider}/"):
+            model_name = model_name.removeprefix(f"{normalized_provider}/")
 
         # Skip fine-tuned model variants (e.g. "ft:gpt-4o-2024-08-06:org::id")
         if model_name.startswith("ft:"):
             continue
 
         # Dedupe by (provider, model_name) - keep the first occurrence
-        key = (normalized, model_name)
+        key = (normalized_provider, model_name)
         if key in models_dict:
             continue
 
-        models_dict[key] = _build_model_dict(model_name, normalized, mode, info)
+        models_dict[key] = _build_model_dict(model_name, normalized_provider, mode, info)
 
     return list(models_dict.values())
 

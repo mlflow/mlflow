@@ -168,8 +168,7 @@ def _call_llm_provider_api(
     provider = _get_provider_instance(provider_name, model)
 
     if messages is not None:
-        payload: dict[str, Any] = {"messages": messages}
-        payload.update(eval_parameters)
+        payload = {"messages": messages} | eval_parameters
         if response_format is not None:
             payload["response_format"] = response_format
     else:

@@ -30,21 +30,22 @@ _NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints"]
 
 def _invoke_via_gateway(
     model_uri: str,
-    provider_name: str,
+    provider: str,
     prompt: str | list[dict[str, str]],
     inference_params: dict[str, Any] | None = None,
     response_format: type[pydantic.BaseModel] | None = None,
     base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> str:
-    """Invoke the judge model via native AI Gateway adapters.
+    """
+    Invoke the judge model via native AI Gateway adapters.
 
     Supports both string prompts (via ``score_model_on_payload``) and
     ChatMessage-style message lists (via the provider infrastructure).
 
     Args:
         model_uri: The full model URI.
-        provider_name: The provider name.
+        provider: The provider name.
         prompt: The prompt to evaluate. Either a string or a list of message dicts.
         inference_params: Optional dictionary of inference parameters to pass to the
             model (e.g., temperature, top_p, max_tokens).
@@ -57,16 +58,21 @@ def _invoke_via_gateway(
     Raises:
         MlflowException: If the provider is not natively supported or invocation fails.
     """
-    if provider_name not in _NATIVE_PROVIDERS:
+    from mlflow.metrics.genai.model_utils import (
+        _call_llm_provider_api,
+        _parse_model_uri,
+        get_endpoint_type,
+        score_model_on_payload,
+    )
+
+    if provider not in _NATIVE_PROVIDERS:
         raise MlflowException(
-            f"LiteLLM is required for using '{provider_name}' LLM. Please install it with "
+            f"LiteLLM is required for using '{provider}' LLM. Please install it with "
             "`pip install litellm`.",
             error_code=BAD_REQUEST,
         )
 
     if isinstance(prompt, str):
-        from mlflow.metrics.genai.model_utils import get_endpoint_type, score_model_on_payload
-
         return score_model_on_payload(
             model_uri=model_uri,
             payload=prompt,
@@ -76,12 +82,10 @@ def _invoke_via_gateway(
             endpoint_type=get_endpoint_type(model_uri) or EndpointType.LLM_V1_CHAT,
         )
 
-    from mlflow.metrics.genai.model_utils import _call_llm_provider_api, _parse_model_uri
-
     _, model_name = _parse_model_uri(model_uri)
     rf_dict = _pydantic_to_response_format(response_format) if response_format else None
     return _call_llm_provider_api(
-        provider_name,
+        provider,
         model_name,
         messages=prompt,
         eval_parameters=inference_params,
