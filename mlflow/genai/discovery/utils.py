@@ -5,7 +5,6 @@ import logging
 import threading
 import time
 from collections import defaultdict
-from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any
 
@@ -15,7 +14,7 @@ import requests
 import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
-from mlflow.gateway.config import Provider
+from mlflow.gateway.config import EndpointType
 from mlflow.genai.discovery.constants import (
     LLM_MAX_TOKENS,
     NUM_RETRIES,
@@ -75,17 +74,21 @@ def group_traces_by_session(
 class _TokenCounter:
     """Thread-safe accumulator for LLM token usage across pipeline phases."""
 
-    def __init__(self, input_tokens: int = 0, output_tokens: int = 0, cost_usd: float = 0.0):
+    def __init__(
+        self,
+        input_tokens: int = 0,
+        output_tokens: int = 0,
+        cost_usd: float = 0.0,
+        model: str | None = None,
+    ):
         self._lock = threading.Lock()
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
         self.cost_usd = cost_usd
-        self._model = None
+        self._model = model
 
-    def track(self, response: Any, *, model: str | None = None) -> None:
+    def track(self, response: Any) -> None:
         with self._lock:
-            if model and not self._model:
-                self._model = model
             if response.usage:
                 self.input_tokens += response.usage.prompt_tokens or 0
                 self.output_tokens += response.usage.completion_tokens or 0
@@ -159,7 +162,7 @@ def _call_llm_via_litellm(
         inference_params={"max_completion_tokens": LLM_MAX_TOKENS},
     )
     if token_counter is not None:
-        token_counter.track(response, model=model)
+        token_counter.track(response)
     return response
 
 
@@ -172,7 +175,7 @@ def _call_llm_via_gateway(
     token_counter: _TokenCounter | None = None,
 ) -> Any:
     # Lightweight fallback for when LiteLLM is not installed. Only supports
-    # providers with MLflow gateway adapters (OpenAI, Anthropic, Bedrock, Mistral).
+    # providers with MLflow gateway adapters (OpenAI, Anthropic, Mistral).
     # Known gaps vs the LiteLLM path: no drop_params
     # (https://docs.litellm.ai/docs/completion/drop_params) - LiteLLM silently
     # strips unsupported params (e.g. response_format) per model before sending
@@ -192,14 +195,11 @@ def _call_llm_via_gateway(
 
     for attempt in range(NUM_RETRIES + 1):
         try:
-            if provider_name in (Provider.AMAZON_BEDROCK, Provider.BEDROCK):
-                raw_response = provider._request(chat_payload)
-            else:
-                raw_response = _send_request(
-                    endpoint=provider.get_endpoint_url("llm/v1/chat"),
-                    headers=provider.headers,
-                    payload=chat_payload,
-                )
+            raw_response = _send_request(
+                endpoint=provider.get_endpoint_url(EndpointType.LLM_V1_CHAT),
+                headers=provider.headers,
+                payload=chat_payload,
+            )
             break
         except (
             requests.exceptions.RequestException,
@@ -211,7 +211,7 @@ def _call_llm_via_gateway(
 
     response = provider.adapter_class.model_to_chat(raw_response, provider.config)
     if token_counter is not None:
-        token_counter.track(response, model=model)
+        token_counter.track(response)
     return response
 
 
@@ -238,62 +238,13 @@ class _ModelCost:
         )
 
 
-def _iter_model_catalog(model_name: str) -> Iterator[dict[str, Any]]:
-    """Yield entries from the LiteLLM model catalog API with pagination and retry.
-
-    Note: This endpoint is not formally documented as a public API, but is
-    referenced at https://docs.litellm.ai/docs/completion/token_usage
-    """
-    # In most cases, the model filter returns a small number of results
-    # (e.g. 3 for "gpt-4.1-mini"), but we paginate to handle edge cases.
-    page = 1
-    while True:
-        body: dict[str, Any] | None = None
-        for attempt in range(NUM_RETRIES + 1):
-            try:
-                resp = requests.get(
-                    "https://api.litellm.ai/model_catalog",
-                    params={
-                        "model": model_name,
-                        "mode": "chat",
-                        "page": page,
-                        "page_size": 50,
-                    },
-                    timeout=10,
-                )
-                resp.raise_for_status()
-                body = resp.json()
-                break
-            except requests.exceptions.HTTPError as e:
-                # Don't retry on client errors (4xx) except 429 (rate limit).
-                if (
-                    e.response is not None
-                    and e.response.status_code < 500
-                    and e.response.status_code != 429
-                ):
-                    return
-                if attempt >= NUM_RETRIES:
-                    return
-                time.sleep(2**attempt)
-            except requests.exceptions.RequestException:
-                if attempt >= NUM_RETRIES:
-                    return
-                time.sleep(2**attempt)
-        if body is None:
-            return
-
-        yield from body.get("data", [])
-
-        if not body.get("has_more", False):
-            return
-        page += 1
-
-
 @functools.lru_cache(maxsize=64)
 def _fetch_model_cost(model_name: str) -> _ModelCost | None:
-    # The API does a substring match (e.g. "gpt-4.1-mini" also returns
-    # "ft:gpt-4.1-mini-2025-04-14"), so we need to find the exact match.
-    for entry in _iter_model_catalog(model_name):
+    from mlflow.utils.providers import _fetch_model_catalog_from_api
+
+    # The API does a substring match (e.g. "gpt-5" also returns
+    # "ft:gpt-5-2025-09-15"), so we need to find the exact match.
+    for entry in _fetch_model_catalog_from_api(model=model_name):
         if entry.get("id") == model_name:
             return _ModelCost.from_dict(entry)
     return None

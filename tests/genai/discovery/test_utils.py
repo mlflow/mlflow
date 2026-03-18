@@ -202,7 +202,7 @@ def test_token_counter_tracks_usage():
 
 
 def test_token_counter_tracks_gateway_response_without_hidden_params():
-    counter = _TokenCounter()
+    counter = _TokenCounter(model="openai:/gpt-5-mini")
     response = ChatCompletionResponse(
         created=0,
         model="gpt-5-mini",
@@ -210,7 +210,7 @@ def test_token_counter_tracks_gateway_response_without_hidden_params():
         usage=ChatUsage(prompt_tokens=200, completion_tokens=80, total_tokens=280),
     )
 
-    counter.track(response, model="openai:/gpt-5-mini")
+    counter.track(response)
 
     assert counter.input_tokens == 200
     assert counter.output_tokens == 80
@@ -219,8 +219,7 @@ def test_token_counter_tracks_gateway_response_without_hidden_params():
 
 
 def test_token_counter_to_dict_looks_up_cost_when_zero():
-    counter = _TokenCounter(input_tokens=100, output_tokens=50)
-    counter._model = "openai:/gpt-5-mini"
+    counter = _TokenCounter(input_tokens=100, output_tokens=50, model="openai:/gpt-5-mini")
 
     with mock.patch(
         "mlflow.genai.discovery.utils._lookup_model_cost",

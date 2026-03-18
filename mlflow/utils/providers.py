@@ -1,3 +1,4 @@
+import functools
 import importlib.util
 import logging
 from collections.abc import Iterator
@@ -478,17 +479,14 @@ def _normalize_provider(provider: str) -> str:
 
 def _iter_model_catalog_api(
     *,
-    provider: str | None = None,
-    mode: str | None = None,
+    model: str | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Yield entries from the LiteLLM model catalog API with pagination."""
     page = 1
     while True:
         params: dict[str, Any] = {"page": page, "page_size": 500}
-        if provider:
-            params["provider"] = provider
-        if mode:
-            params["mode"] = mode
+        if model:
+            params["model"] = model
         try:
             resp = requests.get(
                 "https://api.litellm.ai/model_catalog",
@@ -506,6 +504,11 @@ def _iter_model_catalog_api(
         if not body.get("has_more", False):
             return
         page += 1
+
+
+@functools.lru_cache(maxsize=64)
+def _fetch_model_catalog_from_api(model: str | None = None) -> tuple[dict[str, Any], ...]:
+    return tuple(_iter_model_catalog_api(model=model))
 
 
 def get_all_providers() -> list[str]:
@@ -533,7 +536,7 @@ def get_all_providers() -> list[str]:
         return list(providers)
 
     providers = set()
-    for entry in _iter_model_catalog_api():
+    for entry in _fetch_model_catalog_from_api():
         mode = entry.get("mode")
         if mode in _SUPPORTED_MODEL_MODES:
             if provider := entry.get("provider"):
@@ -577,7 +580,7 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
     else:
         entries = (
             (entry.get("id", ""), entry.get("provider"), entry)
-            for entry in _iter_model_catalog_api()
+            for entry in _fetch_model_catalog_from_api()
         )
     return _extract_models(entries, provider_filter=provider)
 

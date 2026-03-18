@@ -2846,7 +2846,6 @@ def test_get_provider_config_with_multiple_auth_modes():
         assert any(f["name"] == "aws_role_name" for f in iam_role_mode["config_fields"])
 
 
-@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
 def test_get_provider_config_missing_provider():
     with app.test_client() as c:
         response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config")
@@ -2854,15 +2853,15 @@ def test_get_provider_config_missing_provider():
 
 
 def test_litellm_not_available_falls_back_to_api():
-    mock_entries = [
+    mock_entries = (
         {"provider": "openai", "mode": "chat"},
         {"provider": "anthropic", "mode": "chat"},
-    ]
+    )
     with (
         mock.patch("mlflow.utils.providers._PROVIDER_BACKEND_AVAILABLE", False),
         mock.patch(
-            "mlflow.utils.providers._iter_model_catalog_api",
-            return_value=iter(mock_entries),
+            "mlflow.utils.providers._fetch_model_catalog_from_api",
+            return_value=mock_entries,
         ) as mock_api,
     ):
         with app.test_client() as c:

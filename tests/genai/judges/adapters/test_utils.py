@@ -35,7 +35,6 @@ def list_prompt():
         # Gateway adapter
         ("openai:/gpt-4", "string", GatewayAdapter),
         ("anthropic:/claude-3-5-sonnet-20241022", "string", GatewayAdapter),
-        ("bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0", "string", GatewayAdapter),
     ],
 )
 def test_get_adapter_without_litellm(
@@ -89,26 +88,24 @@ def test_get_adapter_gateway_with_list(list_prompt):
 
 
 @pytest.mark.parametrize(
-    ("model_uri", "expected_error"),
+    ("model_uri", "prompt_type"),
     [
-        (
-            "endpoints:/my-endpoint",
-            "No suitable adapter found for model_uri='endpoints:/my-endpoint'",
-        ),
-        (
-            "vertex_ai:/gemini-pro",
-            "No suitable adapter found for model_uri='vertex_ai:/gemini-pro'",
-        ),
-        (
-            "databricks:/my-endpoint",
-            "No suitable adapter found for model_uri='databricks:/my-endpoint'",
-        ),
+        ("endpoints:/my-endpoint", "list"),
+        ("vertex_ai:/gemini-pro", "list"),
+        ("bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0", "list"),
+        ("bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0", "string"),
+        ("databricks:/my-endpoint", "list"),
     ],
 )
-def test_get_adapter_unsupported_with_list(model_uri, expected_error, list_prompt):
+def test_get_adapter_unsupported_without_litellm(
+    model_uri, prompt_type, string_prompt, list_prompt
+):
+    prompt = string_prompt if prompt_type == "string" else list_prompt
     with mock.patch(
         "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
         return_value=False,
     ):
-        with pytest.raises(MlflowException, match=expected_error):
-            get_adapter(model_uri, list_prompt)
+        with pytest.raises(
+            MlflowException, match=f"No suitable adapter found for model_uri='{model_uri}'"
+        ):
+            get_adapter(model_uri, prompt)

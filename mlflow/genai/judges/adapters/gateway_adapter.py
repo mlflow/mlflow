@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import Provider
+from mlflow.gateway.config import EndpointType
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
     AdapterInvocationOutput,
@@ -23,8 +23,8 @@ from mlflow.genai.judges.utils.parsing_utils import (
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
-# "endpoints" is a special case for MLflow deployment endpoints (e.g. Databricks model serving).
-_NATIVE_PROVIDERS = ["openai", "anthropic", "bedrock", "mistral", "endpoints"]
+# "endpoints" is a special case for Databricks model serving endpoints.
+_NATIVE_PROVIDERS = ["openai", "anthropic", "mistral", "endpoints"]
 
 
 def _invoke_via_gateway(
@@ -72,7 +72,7 @@ def _invoke_via_gateway(
             eval_parameters=inference_params,
             extra_headers=extra_headers,
             proxy_url=base_url,
-            endpoint_type=get_endpoint_type(model_uri) or "llm/v1/chat",
+            endpoint_type=get_endpoint_type(model_uri) or EndpointType.LLM_V1_CHAT,
         )
 
     from mlflow.genai.discovery.utils import _pydantic_to_response_format
@@ -93,14 +93,11 @@ def _invoke_via_gateway(
 
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
 
-    if provider_name in (Provider.AMAZON_BEDROCK, Provider.BEDROCK):
-        raw_response = provider._request(chat_payload)
-    else:
-        raw_response = _send_request(
-            endpoint=provider.get_endpoint_url("llm/v1/chat"),
-            headers=provider.headers,
-            payload=chat_payload,
-        )
+    raw_response = _send_request(
+        endpoint=provider.get_endpoint_url(EndpointType.LLM_V1_CHAT),
+        headers=provider.headers,
+        payload=chat_payload,
+    )
 
     response = provider.adapter_class.model_to_chat(raw_response, provider.config)
     if not response.choices:

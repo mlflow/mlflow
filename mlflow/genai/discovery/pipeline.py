@@ -490,8 +490,8 @@ def discover_issues(
         and a summary report.
     """
     pipeline_start = time.time()
-    token_counter = _TokenCounter()
     model = model or DEFAULT_MODEL
+    token_counter = _TokenCounter(model=model)
 
     exp_id = experiment_id or _get_experiment_id()
 
