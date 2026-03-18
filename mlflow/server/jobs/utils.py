@@ -44,8 +44,15 @@ _logger = logging.getLogger(__name__)
 # Reserved Huey instance key for periodic tasks
 HUEY_PERIODIC_TASKS_INSTANCE_KEY = "periodic_tasks"
 
-# Environment variable name for the job name set in job subprocesses
+# Environment variable names for job execution
 MLFLOW_SERVER_JOB_NAME_ENV_VAR = "_MLFLOW_SERVER_JOB_NAME"
+MLFLOW_SERVER_JOB_PARAMS_ENV_VAR = "_MLFLOW_SERVER_JOB_PARAMS"
+MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR = "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME"
+MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR = "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH"
+MLFLOW_SERVER_JOB_STAGE_DUMP_PATH_ENV_VAR = "_MLFLOW_SERVER_JOB_STAGE_DUMP_PATH"
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR = (
+    "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH"
+)
 
 # Number of worker threads for the periodic tasks consumer
 PERIODIC_TASKS_WORKER_COUNT = 5
@@ -221,6 +228,7 @@ def _exec_job_in_subproc(
         job_cmd = [sys.executable, "-m", _JOB_ENTRY_MODULE]
 
     result_file = str(Path(tmpdir) / "result.json")
+    stage_file = str(Path(tmpdir) / "stage.json")
     transient_error_classes_file = str(Path(tmpdir) / "transient_error_classes")
     transient_error_classes = transient_error_classes or []
     with open(transient_error_classes_file, "w") as f:
@@ -230,10 +238,11 @@ def _exec_job_in_subproc(
     job_env = {
         **os.environ,
         MLFLOW_SERVER_JOB_NAME_ENV_VAR: job_name,
-        "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
-        "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
-        "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
-        "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
+        MLFLOW_SERVER_JOB_PARAMS_ENV_VAR: json.dumps(params),
+        MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR: function_fullname,
+        MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR: result_file,
+        MLFLOW_SERVER_JOB_STAGE_DUMP_PATH_ENV_VAR: stage_file,
+        MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR: transient_error_classes_file,
         **(extra_envs or {}),
     }
 
@@ -245,6 +254,7 @@ def _exec_job_in_subproc(
         env=job_env,
     ) as popen:
         beg_time = time.time()
+        last_metadata = None
         while popen.poll() is None:
             time.sleep(_JOB_STATUS_POLL_INTERVAL)
 
@@ -252,6 +262,17 @@ def _exec_job_in_subproc(
             if job_status == JobStatus.CANCELED:
                 popen.kill()
                 return None
+
+            stage_path = Path(stage_file)
+            if stage_path.exists():
+                try:
+                    with open(stage_file) as f:
+                        stage_data = json.load(f)
+                    if stage_data != last_metadata:
+                        job_store.update_job_metadata(job_id, stage_data)
+                        last_metadata = stage_data
+                except (json.JSONDecodeError, OSError):
+                    pass
 
             if timeout is not None:
                 if beg_time + timeout <= time.time():

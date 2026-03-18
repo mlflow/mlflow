@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 
+import mlflow.store.jobs.sqlalchemy_store
 from mlflow.entities._job_status import JobStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES, MLFLOW_WORKSPACE
 from mlflow.exceptions import MlflowException
@@ -452,8 +453,6 @@ def test_job_timeout(monkeypatch, tmp_path):
 
 
 def test_list_job_pagination(monkeypatch, tmp_path):
-    import mlflow.store.jobs.sqlalchemy_store
-
     monkeypatch.setattr(mlflow.store.jobs.sqlalchemy_store, "_LIST_JOB_PAGE_SIZE", 3)
     with _setup_job_runner(
         monkeypatch,
@@ -530,7 +529,10 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
 def check_python_env_fn():
     import openai
 
-    from mlflow.server.jobs.utils import MLFLOW_SERVER_JOB_NAME_ENV_VAR
+    from mlflow.server.jobs.utils import (
+        MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR,
+        MLFLOW_SERVER_JOB_NAME_ENV_VAR,
+    )
     from mlflow.utils import PYTHON_VERSION
 
     assert PYTHON_VERSION == "3.11.9"
@@ -538,7 +540,7 @@ def check_python_env_fn():
 
     assert os.environ.get(MLFLOW_SERVER_JOB_NAME_ENV_VAR) == "python_env_checker"
     assert (
-        os.environ.get("_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME")
+        os.environ.get(MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR)
         == "tests.server.jobs.test_jobs.check_python_env_fn"
     )
 
