@@ -8,7 +8,7 @@ import tailwindPlugin from './src/plugins/tailwind-config.cjs';
 const baseUrl = (process.env.DOCS_BASE_URL ?? '/docs/latest/').replace(/\/?$/, '/');
 
 const config: Config = {
-  title: 'MLflow',
+  title: 'MLflow AI Platform',
   tagline: 'MLflow Documentation',
   favicon: 'images/favicon.ico',
 
@@ -297,6 +297,11 @@ const config: Config = {
           {
             to: '/',
             from: ['/new-features'],
+          },
+          // Redirect webhooks from classic-ml to self-hosting
+          {
+            to: '/self-hosting/webhooks',
+            from: ['/ml/webhooks'],
           },
           // Redirect to the new self-hosting guide
           {

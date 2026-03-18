@@ -1,6 +1,6 @@
 ---
 name: fetch-unresolved-comments
-description: Fetch unresolved PR review comments using GitHub GraphQL API, filtering out resolved and outdated feedback.
+description: Fetch unresolved PR review comments using GitHub GraphQL API, filtering out resolved feedback.
 allowed-tools:
   - Bash(uv run skills fetch-unresolved-comments:*)
 ---
@@ -12,7 +12,7 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
 ## When to Use
 
 - You need to get only unresolved review comments from a PR
-- You want to filter out already-resolved and outdated feedback
+- You want to filter out already-resolved feedback
 
 ## Instructions
 

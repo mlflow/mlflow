@@ -4,7 +4,6 @@ from threading import Thread
 from mlflow import MlflowClient
 from mlflow.entities import Metric
 from mlflow.utils.autologging_utils.logging_and_warnings import (
-    ORIGINAL_SHOWWARNING,
     _WarningsController,
 )
 from mlflow.utils.autologging_utils.metrics_queue import (
@@ -46,11 +45,12 @@ def test_flush_metrics_queue_is_thread_safe():
 
 
 def test_double_patch_does_not_overwrite(monkeypatch):
-    monkeypatch.setattr(warnings, "showwarning", ORIGINAL_SHOWWARNING)
+    original_showwarning = warnings.showwarning
+    monkeypatch.setattr(warnings, "showwarning", original_showwarning)
 
     controller = _WarningsController()
 
-    assert warnings.showwarning == ORIGINAL_SHOWWARNING
+    assert warnings.showwarning == original_showwarning
     assert not controller._did_patch_showwarning
 
     controller.set_non_mlflow_warnings_disablement_state_for_current_thread(True)
@@ -66,4 +66,30 @@ def test_double_patch_does_not_overwrite(monkeypatch):
 
     controller.set_non_mlflow_warnings_disablement_state_for_current_thread(False)
 
-    assert warnings.showwarning == ORIGINAL_SHOWWARNING
+    assert warnings.showwarning == original_showwarning
+
+
+def test_showwarning_captures_user_handler():
+    """Verify that a user-set warnings.showwarning handler survives the patch/unpatch cycle.
+
+    Regression test for https://github.com/mlflow/mlflow/issues/21689
+    """
+    original_showwarning = warnings.showwarning
+
+    # Simulate a user setting a custom handler after import (e.g. logging.captureWarnings)
+    custom_handler = lambda *args, **kwargs: None  # noqa: E731
+    warnings.showwarning = custom_handler
+
+    try:
+        controller = _WarningsController()
+
+        # Patch: controller should capture the user's custom handler
+        controller.set_non_mlflow_warnings_disablement_state_for_current_thread(True)
+        assert warnings.showwarning == controller._patched_showwarning
+        assert controller._original_showwarning is custom_handler
+
+        # Unpatch: controller should restore the user's custom handler, not the default
+        controller.set_non_mlflow_warnings_disablement_state_for_current_thread(False)
+        assert warnings.showwarning is custom_handler
+    finally:
+        warnings.showwarning = original_showwarning

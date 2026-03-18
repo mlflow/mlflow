@@ -264,7 +264,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
     <div css={{ marginBottom: theme.spacing.md }}>
       <div css={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: theme.spacing.xs }}>
         <CopyButton
-          componentId="codegen_mlflow_app_src_oss_gateway_components_endpoints_EndpointUsageModal.tsx_147"
+          componentId={`mlflow.gateway.usage-modal.copy-${label.toLowerCase().replace(/\s+/g, '-')}`}
           copyText={code}
           icon={<CopyIcon />}
           showLabel={false}
@@ -295,7 +295,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
       size="wide"
     >
       <div
-        css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, maxHeight: '70vh', overflowY: 'auto' }}
+        css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, maxHeight: '70vh', overflow: 'hidden' }}
       >
         <Typography.Text color="secondary">
           <FormattedMessage
@@ -328,7 +328,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
           </Tabs.List>
 
           <Tabs.Content value="unified" css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg, flex: 1, minHeight: 0 }}>
               <div>
                 <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
                   <FormattedMessage defaultMessage="Unified API" description="Unified API variant label" />
@@ -417,7 +417,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
               )}
 
               {(viewMode === 'curl' || viewMode === 'python') && (
-                <div>
+                <div css={{ flex: 1, overflowY: 'auto' }}>
                   {tryItUnifiedVariant === 'mlflow-invocations' && (
                     <>
                       {viewMode === 'curl' &&
@@ -452,7 +452,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
           </Tabs.Content>
 
           <Tabs.Content value="passthrough" css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
+            <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg, flex: 1, minHeight: 0 }}>
               <div>
                 <Typography.Text bold css={{ display: 'block', marginBottom: theme.spacing.xs }}>
                   <FormattedMessage defaultMessage="Provider" description="Provider selector label" />
@@ -543,7 +543,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
               )}
 
               {(viewMode === 'curl' || viewMode === 'python') && (
-                <div>
+                <div css={{ flex: 1, overflowY: 'auto' }}>
                   {selectedProvider === 'openai' &&
                     viewMode === 'curl' &&
                     renderCodeExample('cURL', getCodeExamples(base, endpointName, 'openai').curl, 'text')}

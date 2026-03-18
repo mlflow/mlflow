@@ -1,5 +1,6 @@
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -17,6 +18,7 @@ from mlflow.telemetry.constant import (
     UI_CONFIG_STAGING_URL,
     UI_CONFIG_URL,
 )
+from mlflow.telemetry.schemas import ENV_VAR_TO_ENVIRONMENT_MAP, Environment
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -66,6 +68,20 @@ def _is_in_databricks() -> bool:
         return True
 
     return False
+
+
+def _detect_environment() -> str | None:
+    for env_var, environment in ENV_VAR_TO_ENVIRONMENT_MAP.items():
+        if env_var in os.environ:
+            return environment.value
+
+    # https://docs.aws.amazon.com/sagemaker/latest/dg/nbi-metadata.html
+    if Path("/opt/ml/metadata/resource-metadata.json").exists():
+        return Environment.SAGEMAKER_NOTEBOOK.value
+    # unofficial heuristic to detect docker environment
+    if Path("/.dockerenv").exists():
+        return Environment.DOCKER.value
+    return None
 
 
 _IS_MLFLOW_DEV_VERSION = Version(VERSION).is_devrelease

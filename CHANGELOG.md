@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 3.11.0rc0 (2026-03-16)
+
+We're excited to announce MLflow 3.11.0rc0, which includes several notable updates:
+
+**Major New Features**:
+
+- 🔍 **Automatic Issue Identification**: Automatically identify quality issues in your agent with AI! Use the new "Detect Issues" button in the traces table to analyze selected traces and surface potential problems across categories like correctness, safety, and performance. Issues are linked directly to traces for easy investigation and debugging. (#21431, #21204, #21165, #21163, #21161, @smoorjani, @serena-ruan)
+- 💰 **Gateway Budget Alerts & Limits**: Control your AI Gateway spending with configurable budget policies! Set spending limits by time window (daily, weekly, or monthly), receive alerts before hitting limits, and prevent runaway costs with automatic request blocking. The new budget management UI lets you track spending, configure webhooks for notifications, and monitor violations across all your gateway endpoints. (#21116, #21534, #21569, #21473, #21108, @TomeHirata, @copilot-swe-agent)
+- 📊 **Trace Graph View**: Visualize complex trace hierarchies with an interactive graph view! Navigate multi-level trace structures, understand parent-child relationships at a glance, and debug complex systems more effectively with a visual representation of your trace topology. (#20607, @joelrobin18)
+- 🌐 **Native OpenTelemetry GenAI Convention Support**: MLflow now natively supports the OpenTelemetry GenAI Semantic Conventions for trace export! When exporting traces via OTLP with `MLFLOW_ENABLE_OTEL_GENAI_SEMCONV` enabled, MLflow automatically translates them to follow the OTel GenAI semantic conventions, enabling seamless integration with OTel-compatible observability platforms while preserving GenAI-specific metadata. (#21494, #21495, @B-Step62)
+- 🔧 **Opencode Tracing Integration**: Debug smarter with Opencode CLI integration! Track and analyze code execution flows directly from your development workflow, making it easier to identify performance bottlenecks and trace issues back to specific code paths. (#20133, @joelrobin18)
+- ⚡ **UV Package Manager Support**: Automatic dependency inference now supports UV! MLflow automatically detects UV projects and captures exact, locked dependencies from your lockfile when logging models, ensuring reproducible environments. (#20344, #20935, @debu-sinha)
+- 🔒 **Pickle-Free Model Serialization**: Enhance security with pickle-free model formats! MLflow now supports safer model serialization using torch.export and skops formats, with improved controls when `MLFLOW_ALLOW_PICKLE_DESERIALIZATION=False`. Comprehensive documentation guides you through migrating existing models to pickle-free formats for production deployments. (#21404, #21188, #20774, @WeichenXu123)
+
+**Breaking Changes**:
+
+- ⚠️ **TypeScript SDK Package Renaming**: The MLflow TypeScript SDK packages have been renamed to use npm organization scoping. If you're using the TypeScript SDK, update your `package.json` dependencies and import statements: `mlflow-tracing` → `@mlflow/core`, `mlflow-openai` → `@mlflow/openai`, `mlflow-anthropic` → `@mlflow/anthropic`, `mlflow-gemini` → `@mlflow/gemini`. All packages are now at version `0.2.0`. (#20792, @B-Step62)
+
+Stay tuned for the full release, which will be packed with even more features and bugfixes.
+
+To try out this release candidate, please run:
+
+`pip install mlflow==3.11.0rc0`
+
 ## 3.10.1 (2026-03-05)
 
 MLflow 3.10.1 is a patch release that contains some minor feature enhancements, bug fixes, and documentation updates.

@@ -1,4 +1,7 @@
-<!-- Do not remove any sections. Remove unused checkboxes except for the patch release section at the bottom. -->
+<!--
+Do not remove any sections. Remove unused checkboxes except for the patch release section at the bottom.
+Use backticks for code references and file paths in the PR title (e.g., `ClassName`, `function_name`, `utils.py`).
+-->
 
 ### Related Issues/PRs
 
