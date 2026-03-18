@@ -1,9 +1,9 @@
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 
-# Image and Audio (Multimodal) Content in Traces
+# Multimodal Content and Attachments in Traces
 
-MLflow Tracing captures and renders images and audio from multimodal AI models. When you send images or audio to models like GPT-4o or Claude, the multimodal content is preserved in trace data and displayed inline in the MLflow UI.
+MLflow Tracing captures and renders images, audio, and binary attachments from multimodal AI models. When you send images or audio to models like GPT-4o or Claude, the multimodal content is preserved in trace data and displayed inline in the MLflow UI. For binary outputs like generated images, audio, and PDFs, the [Attachment](#trace-attachments) class stores content as separate artifacts while keeping trace data lightweight.
 
 ## Supported Content Types
 
@@ -238,7 +238,117 @@ The MLflow trace viewer renders multimodal content in the **Chat** tab:
 
 The **Content** tab shows the raw JSON representation of the trace data, including the full base64-encoded payloads.
 
+## Trace Attachments
+
+For binary content that does not fit the OpenAI chat message format — such as model-generated images, audio responses, PDFs, or arbitrary files — MLflow provides the `Attachment` class. Attachments are stored as separate artifact files alongside the trace data, keeping the trace JSON lightweight while supporting rich media.
+
+### How It Works
+
+When you pass an `Attachment` object as a span input or output, MLflow automatically:
+
+1. Replaces the `Attachment` with a lightweight reference URI (`mlflow-attachment://...`) in the span data
+2. Uploads the binary content as a separate artifact file when the trace is exported
+
+This means trace JSON stays small regardless of attachment size, and the MLflow UI can render the content inline.
+
+### Supported Content Types
+
+Attachments support any binary content type. The MLflow UI renders the following types inline:
+
+| Content Type       | UI Rendering           |
+| ------------------ | ---------------------- |
+| `image/*`          | Inline image           |
+| `audio/*`          | Inline audio player    |
+| `application/pdf`  | Embedded PDF viewer    |
+| Other              | Download link          |
+
+### Creating Attachments
+
+Use the `Attachment` class to wrap binary content with an explicit content type, or use `Attachment.from_file()` to load from a file path (the content type is inferred automatically):
+
+```python
+from mlflow.tracing.attachments import Attachment
+
+# From raw bytes with explicit content type
+image_attachment = Attachment(content_type="image/png", content_bytes=png_bytes)
+
+# From a file path (content type is inferred from the file extension)
+pdf_attachment = Attachment.from_file("report.pdf")
+
+# From a file path with explicit content type override
+audio_attachment = Attachment.from_file("recording.bin", content_type="audio/wav")
+```
+
+### Using Attachments in Spans
+
+Pass `Attachment` objects directly to `set_inputs()` or `set_outputs()`. MLflow handles the extraction and replacement automatically, including within nested dicts, lists, and tuples:
+
+```python
+import mlflow
+from mlflow.tracing.attachments import Attachment
+
+
+@mlflow.trace
+def generate_image(prompt: str) -> dict:
+    # Call your image generation model
+    image_bytes = my_model.generate(prompt)
+
+    return {"image": Attachment(content_type="image/png", content_bytes=image_bytes)}
+
+
+# The trace will show:
+# - Input: {"prompt": "a sunset over mountains"}
+# - Output: {"image": "mlflow-attachment://<uuid>?content_type=image/png&trace_id=..."}
+# The actual image bytes are uploaded as a separate artifact.
+result = generate_image("a sunset over mountains")
+```
+
+You can also use attachments with the context manager API:
+
+```python
+import mlflow
+from mlflow.tracing.attachments import Attachment
+
+with mlflow.start_span(name="text-to-speech") as span:
+    span.set_inputs({"text": "Hello, world!"})
+
+    # Generate audio
+    audio_bytes = tts_model.synthesize("Hello, world!")
+
+    span.set_outputs({
+        "audio": Attachment(content_type="audio/wav", content_bytes=audio_bytes),
+    })
+```
+
+### Multiple Attachments
+
+You can include multiple attachments in a single span. Each attachment is extracted and uploaded independently:
+
+```python
+import mlflow
+from mlflow.tracing.attachments import Attachment
+
+with mlflow.start_span(name="multi-output") as span:
+    span.set_outputs({
+        "image": Attachment(content_type="image/png", content_bytes=image_bytes),
+        "audio": Attachment(content_type="audio/mp3", content_bytes=audio_bytes),
+        "report": Attachment.from_file("output.pdf"),
+    })
+```
+
+### Attachments vs. Base64 Inline Content
+
+Use the approach that best fits your situation:
+
+| Approach         | Best For                                                  | Trade-offs                                                           |
+| ---------------- | --------------------------------------------------------- | -------------------------------------------------------------------- |
+| **Base64 inline** | Chat messages with images/audio in the OpenAI format     | Inflates trace JSON size; works with auto-tracing out of the box    |
+| **Attachments**  | Model-generated binary outputs, PDFs, large media files   | Keeps trace JSON lightweight; requires manual `Attachment` wrapping  |
+
+:::tip
+If you're already using auto-tracing with a framework like OpenAI or Anthropic, images and audio in chat messages are captured automatically using the base64 inline format — no `Attachment` wrapping needed. Use `Attachment` for binary content that you produce or receive outside of the standard chat message format.
+:::
+
 ## Limitations
 
 - **Video** is not supported — video content is not captured or rendered
-- **Documents/files** are not supported — PDF and other file attachments are not rendered

@@ -101,3 +101,5 @@ To learn more about the span object and its schema, continue to the [Span Concep
 :::note
 Prior to MLflow 3.3.0, spans were stored in artifact storage (e.g., S3, local filesystem) rather than in the database. Starting from MLflow 3.3.0, spans are stored directly in the database for improved query performance and transactional consistency.
 :::
+
+**Attachments** (binary content like images, audio, and PDFs) are stored as separate files in the trace's artifact storage under an `attachments/` directory. When an [Attachment](/genai/tracing/observe-with-traces/multimodal#trace-attachments) is set as a span input or output, the binary content is replaced with a lightweight reference URI in the span data, and the actual bytes are uploaded alongside the trace. This keeps the span data small while supporting rich media content.
