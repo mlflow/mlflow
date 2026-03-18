@@ -17,8 +17,10 @@ Usage:
 
 import argparse
 import asyncio
+import json
 import statistics
 import time
+from pathlib import Path
 
 import aiohttp
 
@@ -60,37 +62,47 @@ PORTKEY_HEADERS = {
 }
 
 
-async def send_request(session, url, body, headers, semaphore):
+async def send_request(session, url, body, headers, semaphore, failure_counts):
     async with semaphore:
         start = time.perf_counter()
         try:
             async with session.post(url, json=body, headers=headers) as resp:
                 await resp.read()
                 elapsed = time.perf_counter() - start
-                return elapsed if resp.status == 200 else None
-        except Exception:
+                if resp.status != 200:
+                    key = f"HTTP {resp.status}"
+                    failure_counts[key] = failure_counts.get(key, 0) + 1
+                    return None
+                return elapsed
+        except Exception as e:
+            key = type(e).__name__
+            failure_counts[key] = failure_counts.get(key, 0) + 1
             return None
 
 
 async def run_benchmark(url, body, headers, n_requests, max_concurrent):
     semaphore = asyncio.Semaphore(max_concurrent)
     connector = aiohttp.TCPConnector(
-        limit=min(max_concurrent * 2, 200),
-        limit_per_host=max_concurrent,
+        limit=max(max_concurrent * 2, 200),
+        limit_per_host=max(max_concurrent, 200),
         force_close=False,
         enable_cleanup_closed=True,
     )
+    failure_counts = {}
     async with aiohttp.ClientSession(connector=connector) as session:
-        # Warmup
-        warmup_n = min(50, n_requests)
+        # Warmup: scale with concurrency to fill all connection pools
+        warmup_n = min(max(50, max_concurrent), n_requests)
+        warmup_failures = {}
         await asyncio.gather(*[
-            send_request(session, url, body, headers, semaphore) for _ in range(warmup_n)
+            send_request(session, url, body, headers, semaphore, warmup_failures)
+            for _ in range(warmup_n)
         ])
 
         # Timed run
         wall_start = time.perf_counter()
         results = await asyncio.gather(*[
-            send_request(session, url, body, headers, semaphore) for _ in range(n_requests)
+            send_request(session, url, body, headers, semaphore, failure_counts)
+            for _ in range(n_requests)
         ])
         wall_elapsed = time.perf_counter() - wall_start
 
@@ -106,6 +118,7 @@ async def run_benchmark(url, body, headers, n_requests, max_concurrent):
             "p99": 0,
             "throughput": 0,
             "failures": n_requests,
+            "failure_breakdown": dict(failure_counts),
             "wall_time": wall_elapsed,
             "n_requests": n_requests,
             "latencies": [],
@@ -118,6 +131,7 @@ async def run_benchmark(url, body, headers, n_requests, max_concurrent):
         "p99": latencies[int(n * 0.99)] * 1000,
         "throughput": n_requests / wall_elapsed,
         "failures": failures,
+        "failure_breakdown": dict(failure_counts),
         "wall_time": wall_elapsed,
         "n_requests": n_requests,
         "latencies": latencies,
@@ -144,6 +158,13 @@ def print_results(name, results):
     print(f"  {name} ({len(results)} runs, {total_requests} total requests)")
     print(f"{'=' * 60}")
     print(f"  Failures:    {total_failures}")
+    if total_failures > 0:
+        combined_breakdown = {}
+        for r in results:
+            for k, v in r.get("failure_breakdown", {}).items():
+                combined_breakdown[k] = combined_breakdown.get(k, 0) + v
+        for reason, count in sorted(combined_breakdown.items(), key=lambda x: -x[1]):
+            print(f"    - {reason}: {count}")
     print(f"  Throughput:  {avg_tp:.0f} req/s")
     print(f"  Mean:        {mean:.2f} ms")
     print(f"  P50:         {p50:.2f} ms")
@@ -217,10 +238,14 @@ async def bench_target(name, url, body, headers, n_requests, max_concurrent, run
     for run_num in range(1, runs + 1):
         result = await run_benchmark(url, body, headers, n_requests, max_concurrent)
         results.append(result)
+        failure_detail = ""
+        if result["failures"] > 0 and result.get("failure_breakdown"):
+            parts = [f"{k}={v}" for k, v in result["failure_breakdown"].items()]
+            failure_detail = f" ({', '.join(parts)})"
         print(
             f"  Run {run_num}/{runs}: {result['throughput']:.0f} rps, "
             f"p50={result['p50']:.1f}ms, p99={result['p99']:.1f}ms, "
-            f"failures={result['failures']}"
+            f"failures={result['failures']}{failure_detail}"
         )
 
     print_results(name, results)
@@ -250,7 +275,54 @@ async def main():
     parser.add_argument("--portkey-url", default=PORTKEY_URL)
     parser.add_argument("--litellm-notrack-url", default=None)
     parser.add_argument("--litellm-payload-url", default=None)
+    parser.add_argument(
+        "--save-results",
+        help="Save results to a JSON file (appends to existing results)",
+    )
+    parser.add_argument(
+        "--load-results",
+        help="Load previously saved results and print comparison table (skip benchmarking)",
+    )
     args = parser.parse_args()
+
+    # If --load-results is given without running benchmarks, just print comparison
+    if args.load_results and not args.save_results:
+        results_path = Path(args.load_results)
+        if results_path.exists():
+            saved = json.loads(results_path.read_text())
+            all_targets = list(saved.items())
+            if len(all_targets) >= 2:
+                col_width = max(len(name) for name, _ in all_targets)
+                col_width = max(col_width, 15)
+                total_width = 20 + col_width * len(all_targets) + 2 * len(all_targets)
+                header_width = max(total_width, 60)
+
+                print(f"\n{'=' * header_width}")
+                print("  HEAD-TO-HEAD COMPARISON")
+                print(f"{'=' * header_width}")
+
+                header = f"  {'Metric':<20}"
+                for name, _ in all_targets:
+                    header += f" {name:>{col_width}}"
+                print(header)
+                print(f"  {'-' * (total_width - 2)}")
+
+                for metric, key, fmt in [
+                    ("P50 (ms)", "p50", ".1f"),
+                    ("P95 (ms)", "p95", ".1f"),
+                    ("P99 (ms)", "p99", ".1f"),
+                    ("RPS", "throughput", ".0f"),
+                ]:
+                    row = f"  {metric:<20}"
+                    for _, a in all_targets:
+                        row += f" {a[key]:{f'>{col_width}{fmt}'}}"
+                    print(row)
+
+                row = f"  {'Failures':<20}"
+                for _, a in all_targets:
+                    row += f" {a['failures']:>{col_width}}"
+                print(row)
+        return
 
     comparison_targets = []
 
@@ -317,6 +389,26 @@ async def main():
             args.runs,
         )
         comparison_targets.append(("LiteLLM (payload logging)", litellm_payload_results))
+
+    # Save results to file (append to existing)
+    if args.save_results:
+        results_path = Path(args.save_results)
+        saved = {}
+        if results_path.exists():
+            saved = json.loads(results_path.read_text())
+        for name, results in comparison_targets:
+            # Store aggregated stats (latencies are too large to serialize)
+            lats = sorted(lat for r in results for lat in r["latencies"])
+            n = len(lats)
+            if lats:
+                saved[name] = {
+                    "p50": lats[n // 2] * 1000,
+                    "p95": lats[int(n * 0.95)] * 1000,
+                    "p99": lats[int(n * 0.99)] * 1000,
+                    "throughput": statistics.mean(r["throughput"] for r in results),
+                    "failures": sum(r["failures"] for r in results),
+                }
+        results_path.write_text(json.dumps(saved, indent=2))
 
     if len(comparison_targets) >= 2:
         print_comparison(comparison_targets)

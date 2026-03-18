@@ -51,6 +51,30 @@ pip install 'litellm[proxy]'
 bash run_full_stack_comparison.sh
 ```
 
+### Multi-instance comparison (nginx load balancer, requires Docker)
+
+```bash
+cd benchmarks/gateway
+pip install 'litellm[proxy]'
+# Default: 4 instances × 4 workers, 200 concurrency, 10K requests
+bash run_multi_instance_comparison.sh
+
+# Match LiteLLM's published benchmark setup (4 instances)
+INSTANCES=4 WORKERS_PER_INSTANCE=4 REQUESTS=200000 MAX_CONCURRENT=50 RUNS=1 \
+    bash run_multi_instance_comparison.sh
+```
+
+### Which benchmark script should I use?
+
+| Script                             | What it tests                            | When to use                                                                                                |
+| ---------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `run_comparison.sh`                | Single-instance, SQLite, no tracking     | Quick head-to-head proxy overhead comparison                                                               |
+| `run_tracking_server_benchmark.sh` | Single-instance MLflow only              | Isolate MLflow tracking overhead                                                                           |
+| `run_full_stack_comparison.sh`     | Single-instance, PostgreSQL, tracking ON | Production-like comparison (all services run simultaneously)                                               |
+| `run_multi_instance_comparison.sh` | Multi-instance behind nginx, PostgreSQL  | Sustained load testing; matches [LiteLLM's published methodology](https://docs.litellm.ai/docs/benchmarks) |
+
+**Key difference**: `run_full_stack_comparison.sh` runs all gateways **simultaneously** (faster, but services compete for resources). `run_multi_instance_comparison.sh` runs each gateway **sequentially** (slower, but each gets full machine resources for clean sustained results).
+
 ---
 
 ## Results
@@ -85,6 +109,25 @@ All benchmarks: 2000 requests/run, 3 runs, 4 workers, 50 concurrency.
 | 50ms delay                   | **P99 latency** | **102.4 ms**   | 298.8 ms  | **68.2 ms**   |
 |                              | **Throughput**  | **852 rps**    | 461 rps   | **932 rps**   |
 
+### Multi-instance results (nginx load balancer)
+
+4 instances × 4 workers behind nginx round-robin, PostgreSQL, tracking/spend tracking ON. Each gateway benchmarked **sequentially** (stopped between phases) so each gets full machine resources.
+
+| Configuration                 | Metric          | MLflow Gateway | LiteLLM   | Portkey       |
+| ----------------------------- | --------------- | -------------- | --------- | ------------- |
+| **Sustained (200K requests)** | **P50 latency** | 53.9 ms        | 56.2 ms   | **52.6 ms**   |
+| 50 concurrency, 1 run         | **P95 latency** | **57.6 ms**    | 66.2 ms   | **57.1 ms**   |
+| ~3.5 min per gateway          | **P99 latency** | **62.2 ms**    | 93.8 ms   | **61.3 ms**   |
+|                               | **Throughput**  | **902 rps**    | 849 rps   | **928 rps**   |
+|                               | **Failures**    | 0              | 0         | 0             |
+|                               |                 |                |           |               |
+| **Burst (2K × 3 runs)**       | **P50 latency** | 53.6 ms        | 59.6 ms   | **52.4 ms**   |
+| 100 concurrency               | **P99 latency** | 81.3 ms        | 88.4 ms   | **68.0 ms**   |
+|                               | **Throughput**  | **1,777 rps**  | 1,552 rps | **1,839 rps** |
+|                               | **Failures**    | 0              | 0         | 0             |
+
+> **Note**: At 50 concurrency, all three gateways saturate the client (theoretical max ~909 rps at 55ms/req). The 100-concurrency burst test shows true differentiation. Portkey runs as a single Node.js process (not multi-instance), matching [LiteLLM's published benchmark methodology](https://docs.litellm.ai/docs/benchmarks).
+
 **Key observations:**
 
 - **MLflow with full tracing (852 rps) is faster than LiteLLM without any tracking (602 rps)** — tracing is essentially free
@@ -92,6 +135,7 @@ All benchmarks: 2000 requests/run, 3 runs, 4 workers, 50 concurrency.
 - **Portkey is consistently ~930 rps** across all configs — it's stateless with no features to slow it down
 - **MLflow without tracking (816-818 rps) beats LiteLLM (530-616 rps)** by ~1.4x in every config
 - **Pure proxy overhead** (zero delay): Portkey 8ms < MLflow 14ms < LiteLLM 40ms
+- **Sustained multi-instance**: MLflow P99 (62ms) is 34% lower than LiteLLM (94ms) and within 1ms of Portkey (61ms)
 
 ### Usage/spend tracking overhead
 
@@ -358,6 +402,24 @@ graph LR
     C --> E
 ```
 
+#### Multi-instance comparison (`run_multi_instance_comparison.sh`)
+
+```mermaid
+graph LR
+    A[aiohttp\nbenchmark] --> N[nginx\nround-robin LB]
+    N --> B1[MLflow Instance 1\n4 workers]
+    N --> B2[MLflow Instance 2\n4 workers]
+    N --> B3[MLflow Instance N\n4 workers]
+    B1 --> D[Fake OpenAI\nServer]
+    B2 --> D
+    B3 --> D
+    B1 --> E["PostgreSQL (Docker)"]
+    B2 --> E
+    B3 --> E
+```
+
+Each gateway (MLflow, LiteLLM, Portkey) is benchmarked **sequentially** — instances are started, benchmarked, then stopped before the next gateway starts. This ensures each gateway gets full machine resources and results aren't affected by resource contention. nginx is shared across phases; its upstream config is reloaded between phases.
+
 ### B. Request Lifecycle
 
 #### 1. Direct to provider (baseline — not benchmarked)
@@ -512,25 +574,41 @@ graph TD
 | `FAKE_RESPONSE_DELAY_MS` | 50      | Simulated provider latency (ms)                       |
 | `USAGE_TRACKING`         | true    | Enable MLflow usage tracking (set `false` to disable) |
 
+#### `run_multi_instance_comparison.sh` environment variables
+
+| Variable                 | Default | Description                                           |
+| ------------------------ | ------- | ----------------------------------------------------- |
+| `INSTANCES`              | 4       | Number of gateway instances per proxy                 |
+| `WORKERS_PER_INSTANCE`   | 4       | Gunicorn workers per instance                         |
+| `REQUESTS`               | 10000   | Total requests per run                                |
+| `MAX_CONCURRENT`         | 200     | Max concurrent requests                               |
+| `RUNS`                   | 3       | Number of benchmark runs                              |
+| `FAKE_RESPONSE_DELAY_MS` | 50      | Simulated provider latency (ms)                       |
+| `USAGE_TRACKING`         | true    | Enable MLflow usage tracking (set `false` to disable) |
+
+Each gateway is benchmarked **sequentially**: start N instances → nginx reload → sanity check → benchmark → stop instances → next gateway. This ensures each gateway gets full machine resources. Results are saved to a JSON file and a combined comparison table is printed at the end.
+
 ### F. File Inventory
 
-| File                               | Purpose                                                                                                                                       |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Shared**                         |                                                                                                                                               |
-| `common.sh`                        | Shared shell functions sourced by all benchmark scripts                                                                                       |
-| `fake_openai_server.py`            | FastAPI app returning canned OpenAI-compatible responses (chat, completions, embeddings) with configurable delay via `FAKE_RESPONSE_DELAY_MS` |
-| `benchmark_compare.py`             | aiohttp-based benchmark (matches LiteLLM's `benchmark_mock.py`), runs proxies sequentially with warmup, prints comparison table               |
-| `setup_tracking_server.py`         | Creates secret + model definition + endpoint via REST API in a running tracking server                                                        |
-| **Head-to-head comparison**        |                                                                                                                                               |
-| `litellm_config.yaml`              | LiteLLM proxy config pointing at the same fake server (YAML-only, no DB)                                                                      |
-| `run_comparison.sh`                | Starts fake server + MLflow AI Gateway (SQLite) + LiteLLM (YAML) + Portkey (npx) + runs `benchmark_compare.py`                                |
-| **Tracking server benchmark**      |                                                                                                                                               |
-| `run_tracking_server_benchmark.sh` | Starts fake server + `mlflow server` with SQLite + sets up endpoint + runs benchmark                                                          |
-| **Full-stack comparison**          |                                                                                                                                               |
-| `litellm_config_db.yaml`           | LiteLLM proxy config with PostgreSQL `database_url` for spend tracking (metadata only)                                                        |
-| `litellm_config_db_payload.yaml`   | LiteLLM proxy config with PostgreSQL + `store_prompts_in_spend_logs: true` for full payload logging                                           |
-| `run_full_stack_comparison.sh`     | Starts PostgreSQL (Docker) + MLflow AI Gateway (PostgreSQL) + LiteLLM (PostgreSQL) + Portkey (npx) + runs comparison benchmark                |
-| `.gitignore`                       | Ignores `results/` directory                                                                                                                  |
+| File                               | Purpose                                                                                                                                                                                |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Shared**                         |                                                                                                                                                                                        |
+| `common.sh`                        | Shared shell functions sourced by all benchmark scripts                                                                                                                                |
+| `fake_openai_server.py`            | FastAPI app returning canned OpenAI-compatible responses (chat, completions, embeddings) with configurable delay via `FAKE_RESPONSE_DELAY_MS`                                          |
+| `benchmark_compare.py`             | aiohttp-based benchmark (matches LiteLLM's `benchmark_mock.py`), runs proxies sequentially with warmup, prints comparison table                                                        |
+| `setup_tracking_server.py`         | Creates secret + model definition + endpoint via REST API in a running tracking server                                                                                                 |
+| **Head-to-head comparison**        |                                                                                                                                                                                        |
+| `litellm_config.yaml`              | LiteLLM proxy config pointing at the same fake server (YAML-only, no DB)                                                                                                               |
+| `run_comparison.sh`                | Starts fake server + MLflow AI Gateway (SQLite) + LiteLLM (YAML) + Portkey (npx) + runs `benchmark_compare.py`                                                                         |
+| **Tracking server benchmark**      |                                                                                                                                                                                        |
+| `run_tracking_server_benchmark.sh` | Starts fake server + `mlflow server` with SQLite + sets up endpoint + runs benchmark                                                                                                   |
+| **Full-stack comparison**          |                                                                                                                                                                                        |
+| `litellm_config_db.yaml`           | LiteLLM proxy config with PostgreSQL `database_url` for spend tracking (metadata only)                                                                                                 |
+| `litellm_config_db_payload.yaml`   | LiteLLM proxy config with PostgreSQL + `store_prompts_in_spend_logs: true` for full payload logging                                                                                    |
+| `run_full_stack_comparison.sh`     | Starts PostgreSQL (Docker) + MLflow AI Gateway (PostgreSQL) + LiteLLM (PostgreSQL) + Portkey (npx) + runs comparison benchmark                                                         |
+| **Multi-instance comparison**      |                                                                                                                                                                                        |
+| `run_multi_instance_comparison.sh` | Starts PostgreSQL + nginx (Docker) + N instances of each gateway sequentially behind load balancer; matches [LiteLLM's benchmark methodology](https://docs.litellm.ai/docs/benchmarks) |
+| `.gitignore`                       | Ignores `results/` directory                                                                                                                                                           |
 
 Modified existing files:
 
