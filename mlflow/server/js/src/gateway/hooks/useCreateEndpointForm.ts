@@ -110,7 +110,7 @@ export function useCreateEndpointForm({
           secret_name: values.newSecret.name,
           secret_value: values.newSecret.secretFields,
           provider: values.provider,
-          auth_config: authConfig,
+          auth_config: Object.keys(authConfig).length > 0 ? authConfig : undefined,
         });
 
         secretId = secretResponse.secret.secret_id;
