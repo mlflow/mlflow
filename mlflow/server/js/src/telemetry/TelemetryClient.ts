@@ -17,6 +17,9 @@ import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage'
 
 const LOCAL_STORAGE_INSTALLATION_ID_KEY = 'mlflow-telemetry-installation-id';
 
+// Components whose onView events should be tracked (intentional impressions, not noise)
+const VIEW_EVENT_ALLOWLIST: ReadonlySet<string> = new Set(['mlflow.gateway.setup_guide']);
+
 class TelemetryClient {
   private installationId: string = this.getInstallationId();
   private port: MessagePort | null = null;
@@ -95,8 +98,7 @@ class TelemetryClient {
     }
 
     // drop view events to reduce noise, except for explicitly tracked impressions
-    const VIEW_EVENT_ALLOWLIST = ['mlflow.gateway.setup_guide'];
-    if (record.eventType === 'onView' && !VIEW_EVENT_ALLOWLIST.includes(record.componentId)) {
+    if (record.eventType === 'onView' && !VIEW_EVENT_ALLOWLIST.has(record.componentId)) {
       return;
     }
 
