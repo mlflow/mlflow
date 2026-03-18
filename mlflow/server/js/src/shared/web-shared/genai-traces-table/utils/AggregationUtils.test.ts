@@ -9,7 +9,10 @@ import {
   getBarChartData,
   getUniqueValueCountsBySourceId,
 } from './AggregationUtils';
-import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
+import {
+  ASSESSMENT_SESSION_METADATA_KEY,
+  INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE,
+} from '../../model-trace-explorer/constants';
 import type {
   AssessmentAggregates,
   AssessmentDType,
@@ -286,6 +289,25 @@ describe('getAssessmentInfos', () => {
         }),
       ]),
     );
+  });
+
+  it('should exclude _issue_discovery_judge from assessment infos', () => {
+    const currentEvaluationResults = makeTracesFromAssessments([
+      {
+        responseAssessmentsByName: {
+          [INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE]: [
+            { name: INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE, booleanValue: false },
+          ],
+          quality: [{ name: 'quality', booleanValue: true }],
+        },
+      },
+    ]);
+
+    const result = getAssessmentInfos(intl, currentEvaluationResults, undefined);
+
+    const names = result.map((info) => info.name);
+    expect(names).not.toContain(INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE);
+    expect(names).toContain('quality');
   });
 
   it('should exclude overall assessment if it has no valid values', () => {

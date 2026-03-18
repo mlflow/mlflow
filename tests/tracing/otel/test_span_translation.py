@@ -111,6 +111,7 @@ def test_translate_loaded_span_sets_span_type(attr_key, attr_value, expected_typ
 @pytest.mark.parametrize(
     ("span_dict", "should_have_span_type", "expected_type"),
     [
+        # Existing non-UNKNOWN span type should NOT be overridden
         (
             {
                 "attributes": {
@@ -120,6 +121,27 @@ def test_translate_loaded_span_sets_span_type(attr_key, attr_value, expected_typ
             },
             True,
             SpanType.TOOL,
+        ),
+        # UNKNOWN span type SHOULD be overridden by OTel attributes
+        (
+            {
+                "attributes": {
+                    SpanAttributeKey.SPAN_TYPE: json.dumps(SpanType.UNKNOWN),
+                    "openinference.span.kind": "LLM",
+                }
+            },
+            True,
+            SpanType.LLM,
+        ),
+        # None/missing span type SHOULD be set from OTel attributes
+        (
+            {
+                "attributes": {
+                    "openinference.span.kind": "AGENT",
+                }
+            },
+            True,
+            SpanType.AGENT,
         ),
         ({"attributes": {"some.other.attribute": "value"}}, False, None),
         ({}, False, None),
@@ -173,13 +195,11 @@ def test_translate_token_usage_from_otel(translator: OtelSchemaTranslator, total
         ),
         (
             {
-                SpanAttributeKey.CHAT_USAGE: json.dumps(
-                    {
-                        TokenUsageKey.INPUT_TOKENS: 200,
-                        TokenUsageKey.OUTPUT_TOKENS: 100,
-                        TokenUsageKey.TOTAL_TOKENS: 300,
-                    }
-                ),
+                SpanAttributeKey.CHAT_USAGE: json.dumps({
+                    TokenUsageKey.INPUT_TOKENS: 200,
+                    TokenUsageKey.OUTPUT_TOKENS: 100,
+                    TokenUsageKey.TOTAL_TOKENS: 300,
+                }),
                 "gen_ai.usage.input_tokens": 50,
                 "gen_ai.usage.output_tokens": 25,
             },
@@ -370,6 +390,11 @@ def test_translate_inputs_outputs_edge_cases(
         (
             {"key": json.dumps([1, 2, 3])},
             {"key": "[1, 2, 3]"},
+        ),
+        # Double-encoded list (e.g., gen_ai.input.messages via OTLP)
+        (
+            {"key": json.dumps(json.dumps([{"role": "user", "content": "hello"}]))},
+            {"key": json.dumps([{"role": "user", "content": "hello"}])},
         ),
     ],
 )

@@ -159,6 +159,6 @@ class _OpenAIEnvVar(str, Enum):
     def read_environ(cls):
         env_vars = {}
         for e in _OpenAIEnvVar:
-            if value := os.getenv(e.value):
+            if value := os.environ.get(e.value):
                 env_vars[e.value] = value
         return env_vars

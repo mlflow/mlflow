@@ -252,9 +252,9 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         experiment_id = experiment_id or _get_experiment_id()
         scorer_version = self._tracking_store.get_scorer(experiment_id, name, version)
-        online_configs_list = self._tracking_store.get_online_scoring_configs(
-            [scorer_version.scorer_id]
-        )
+        online_configs_list = self._tracking_store.get_online_scoring_configs([
+            scorer_version.scorer_id
+        ])
         # Each scorer has at most one online configuration, guaranteed by the server
         online_config = online_configs_list[0] if online_configs_list else None
         scorer = Scorer.model_validate(scorer_version.serialized_scorer)

@@ -42,8 +42,7 @@ def create_app(app: Flask = app):
     return app
 
 
-class MyAuthClient:
-    ...
+class MyAuthClient: ...
 ```
 
 Then, the plugin should be installed in your Python environment:

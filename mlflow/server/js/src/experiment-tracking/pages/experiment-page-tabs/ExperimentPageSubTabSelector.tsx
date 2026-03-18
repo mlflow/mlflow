@@ -23,6 +23,7 @@ export const ExperimentPageSubTabSelector = ({
         <Tabs.List>
           <Tabs.Trigger value={ExperimentPageTabName.EvaluationRuns}>
             <Link
+              componentId="mlflow.experiment_tracking.sub_tab_selector.runs_tab_link"
               css={{ color: theme.colors.textPrimary }}
               to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.EvaluationRuns)}
             >
@@ -34,6 +35,7 @@ export const ExperimentPageSubTabSelector = ({
           </Tabs.Trigger>
           <Tabs.Trigger value={ExperimentPageTabName.Datasets}>
             <Link
+              componentId="mlflow.experiment_tracking.sub_tab_selector.datasets_tab_link"
               css={{ color: theme.colors.textPrimary }}
               to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Datasets)}
             >

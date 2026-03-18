@@ -19,6 +19,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracing.attachments import Attachment
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     build_otel_context,
@@ -112,6 +113,7 @@ class Span:
         # Since the span is immutable, we can cache the attributes to avoid the redundant
         # deserialization of the attribute values.
         self._attributes = _CachedSpanAttributesRegistry(otel_span)
+        self._attachments: dict[str, Attachment] = {}
 
     @property
     @lru_cache(maxsize=1)
@@ -538,6 +540,7 @@ class LiveSpan(Span):
             )
 
         self._span = otel_span
+        self._attachments: dict[str, Attachment] = {}
         self._attributes = _SpanAttributesRegistry(otel_span)
         self._attributes.set(SpanAttributeKey.REQUEST_ID, trace_id)
         self._attributes.set(SpanAttributeKey.SPAN_TYPE, span_type)
@@ -554,11 +557,24 @@ class LiveSpan(Span):
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
+        inputs = self._extract_attachments(inputs)
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
 
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
+        outputs = self._extract_attachments(outputs)
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
+
+    def _extract_attachments(self, value: Any) -> Any:
+        if isinstance(value, Attachment):
+            ref = value.ref(self.trace_id)
+            self._attachments[value.id] = value
+            return ref
+        if isinstance(value, dict):
+            return {k: self._extract_attachments(v) for k, v in value.items()}
+        if isinstance(value, (list, tuple)):
+            return [self._extract_attachments(item) for item in value]
+        return value
 
     def set_attributes(self, attributes: dict[str, Any]):
         """
@@ -701,7 +717,10 @@ class LiveSpan(Span):
         :meta private:
         """
         # All state of the live span is already persisted in the OpenTelemetry span object.
-        return Span(self._span)
+        span = Span(self._span)
+        # Shallow copy so the immutable span is independent of further LiveSpan mutations
+        span._attachments = dict(self._attachments)
+        return span
 
     @classmethod
     def from_immutable_span(
@@ -759,9 +778,9 @@ class LiveSpan(Span):
 
         # Copy all the attributes, inputs, outputs, and events from the original span
         clone_span.set_status(span.status)
-        clone_span.set_attributes(
-            {k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID}
-        )
+        clone_span.set_attributes({
+            k: v for k, v in span.attributes.items() if k != SpanAttributeKey.REQUEST_ID
+        })
         if span.inputs:
             clone_span.set_inputs(span.inputs)
         if span.outputs:
@@ -791,9 +810,10 @@ class NoOpSpan(Span):
     """
     No-op implementation of the Span interface.
 
-    This instance should be returned from the mlflow.start_span context manager when span
-    creation fails. This class should have exactly the same interface as the Span so that
-    user's setter calls do not raise runtime errors.
+    Returned when span creation fails or when the span is dropped by the
+    sampler. An optional ``otel_span`` can be provided to preserve the
+    underlying OTel span context so that child spans inherit the same
+    trace ID and sampling decision.
 
     E.g.
 
@@ -806,8 +826,8 @@ class NoOpSpan(Span):
 
     """
 
-    def __init__(self):
-        self._span = NonRecordingSpan(context=None)
+    def __init__(self, otel_span=None):
+        self._span = otel_span or NonRecordingSpan(context=None)
         self._attributes = {}
 
     @property

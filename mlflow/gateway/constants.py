@@ -1,3 +1,14 @@
+from enum import Enum
+
+MLFLOW_GATEWAY_CALLER_HEADER = "X-MLflow-Gateway-Caller"
+
+
+class GatewayCaller(str, Enum):
+    """Known callers of the gateway, sent via the X-MLflow-Gateway-Caller header."""
+
+    JUDGE = "judge"
+
+
 MLFLOW_GATEWAY_HEALTH_ENDPOINT = "/health"
 MLFLOW_GATEWAY_CRUD_ROUTE_BASE = "/api/2.0/gateway/routes/"
 MLFLOW_GATEWAY_CRUD_ENDPOINT_V3_BASE = "/api/3.0/gateway/endpoint/"
@@ -16,14 +27,12 @@ MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS = 300
 # remove timeouts from the list of the retryable conditions. A long-running timeout with
 # retries for the proxied providers generally indicates an issue with the underlying query or
 # the model being served having issues responding to the query due to parameter configuration.
-MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES = frozenset(
-    [
-        429,  # Too many requests
-        500,  # Server Error
-        502,  # Bad Gateway
-        503,  # Service Unavailable
-    ]
-)
+MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES = frozenset([
+    429,  # Too many requests
+    500,  # Server Error
+    502,  # Bad Gateway
+    503,  # Service Unavailable
+])
 
 # Provider constants
 MLFLOW_AI_GATEWAY_ANTHROPIC_MAXIMUM_MAX_TOKENS = 1_000_000

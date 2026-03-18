@@ -1,14 +1,19 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
 import { Alert, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { useLocalStorage } from '../../shared/web-shared/hooks/useLocalStorage';
 
 export const DefaultPassphraseBanner = () => {
   const { theme } = useDesignSystemTheme();
-  const [isDismissed, setIsDismissed] = useState(false);
+  const [isDismissed, setIsDismissed] = useLocalStorage({
+    key: 'mlflow.gateway.default-passphrase-warning.dismissed',
+    version: 1,
+    initialValue: false,
+  });
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setIsDismissed(true);
-  };
+  }, [setIsDismissed]);
 
   if (isDismissed) {
     return null;

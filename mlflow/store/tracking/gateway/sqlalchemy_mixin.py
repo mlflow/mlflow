@@ -5,6 +5,7 @@ import os
 import uuid
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
@@ -22,7 +23,7 @@ from mlflow.entities import (
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
-    BudgetDurationUnit,
+    BudgetDuration,
     BudgetTargetScope,
     BudgetUnit,
     GatewayBudgetPolicy,
@@ -46,6 +47,7 @@ from mlflow.store.tracking._secret_cache import (
     SecretCache,
 )
 from mlflow.store.tracking.dbmodels.models import (
+    SqlExperiment,
     SqlGatewayBudgetPolicy,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
@@ -53,19 +55,27 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlGatewayEndpointTag,
     SqlGatewayModelDefinition,
     SqlGatewaySecret,
+    SqlSpanMetrics,
+    SqlTraceInfo,
+    SqlTraceMetadata,
 )
 from mlflow.telemetry.events import (
+    GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
     GatewayCreateSecretEvent,
+    GatewayDeleteBudgetPolicyEvent,
     GatewayDeleteEndpointEvent,
     GatewayDeleteSecretEvent,
     GatewayGetEndpointEvent,
+    GatewayListBudgetPoliciesEvent,
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
+    GatewayUpdateBudgetPolicyEvent,
     GatewayUpdateEndpointEvent,
     GatewayUpdateSecretEvent,
 )
 from mlflow.telemetry.track import record_usage_event
+from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
 from mlflow.utils.crypto import (
     KEKManager,
     _encrypt_secret,
@@ -572,7 +582,7 @@ class SqlAlchemyGatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
-        usage_tracking: bool = False,
+        usage_tracking: bool = True,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -609,7 +619,8 @@ class SqlAlchemyGatewayStoreMixin:
             all_model_def_ids = {config.model_definition_id for config in model_configs}
 
             existing_model_defs = (
-                self._get_query(session, SqlGatewayModelDefinition)
+                self
+                ._get_query(session, SqlGatewayModelDefinition)
                 .filter(SqlGatewayModelDefinition.model_definition_id.in_(all_model_def_ids))
                 .all()
             )
@@ -642,15 +653,13 @@ class SqlAlchemyGatewayStoreMixin:
             ]
             fallback_config_json = None
             if fallback_config or fallback_model_def_ids:
-                fallback_config_json = json.dumps(
-                    {
-                        "strategy": fallback_config.strategy.value
-                        if fallback_config and fallback_config.strategy
-                        else None,
-                        "max_attempts": fallback_config.max_attempts if fallback_config else None,
-                        "model_definition_ids": fallback_model_def_ids,
-                    }
-                )
+                fallback_config_json = json.dumps({
+                    "strategy": fallback_config.strategy.value
+                    if fallback_config and fallback_config.strategy
+                    else None,
+                    "max_attempts": fallback_config.max_attempts if fallback_config else None,
+                    "model_definition_ids": fallback_model_def_ids,
+                })
 
             sql_endpoint = self._with_workspace_field(
                 SqlGatewayEndpoint(
@@ -816,15 +825,13 @@ class SqlAlchemyGatewayStoreMixin:
                     for config in model_configs
                     if config.linkage_type == GatewayModelLinkageType.FALLBACK
                 ]
-                sql_endpoint.fallback_config_json = json.dumps(
-                    {
-                        "strategy": fallback_config.strategy.value
-                        if fallback_config and fallback_config.strategy
-                        else None,
-                        "max_attempts": fallback_config.max_attempts if fallback_config else None,
-                        "model_definition_ids": fallback_model_def_ids,
-                    }
-                )
+                sql_endpoint.fallback_config_json = json.dumps({
+                    "strategy": fallback_config.strategy.value
+                    if fallback_config and fallback_config.strategy
+                    else None,
+                    "max_attempts": fallback_config.max_attempts if fallback_config else None,
+                    "model_definition_ids": fallback_model_def_ids,
+                })
 
             # Update fallback_config_json if only fallback_config provided (without model_configs)
             elif fallback_config is not None:
@@ -834,15 +841,13 @@ class SqlAlchemyGatewayStoreMixin:
                     if sql_endpoint.fallback_config_json
                     else {}
                 )
-                sql_endpoint.fallback_config_json = json.dumps(
-                    {
-                        "strategy": fallback_config.strategy.value
-                        if fallback_config.strategy
-                        else None,
-                        "max_attempts": fallback_config.max_attempts,
-                        "model_definition_ids": existing_config.get("model_definition_ids", []),
-                    }
-                )
+                sql_endpoint.fallback_config_json = json.dumps({
+                    "strategy": fallback_config.strategy.value
+                    if fallback_config.strategy
+                    else None,
+                    "max_attempts": fallback_config.max_attempts,
+                    "model_definition_ids": existing_config.get("model_definition_ids", []),
+                })
 
             sql_endpoint.last_updated_at = get_current_time_millis()
             if updated_by:
@@ -1005,7 +1010,8 @@ class SqlAlchemyGatewayStoreMixin:
             sql_mapping = query.first()
             if not sql_mapping:
                 sql_endpoint = (
-                    self._get_query(session, SqlGatewayEndpoint)
+                    self
+                    ._get_query(session, SqlGatewayEndpoint)
                     .filter(SqlGatewayEndpoint.endpoint_id == endpoint_id)
                     .first()
                 )
@@ -1181,12 +1187,12 @@ class SqlAlchemyGatewayStoreMixin:
 
     # Budget Policy APIs
 
+    @record_usage_event(GatewayCreateBudgetPolicyEvent)
     def create_budget_policy(
         self,
         budget_unit: BudgetUnit,
         budget_amount: float,
-        duration_unit: BudgetDurationUnit,
-        duration_value: int,
+        duration: BudgetDuration,
         target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
@@ -1202,10 +1208,8 @@ class SqlAlchemyGatewayStoreMixin:
                     if isinstance(budget_unit, BudgetUnit)
                     else budget_unit,
                     budget_amount=budget_amount,
-                    duration_unit=duration_unit.value
-                    if isinstance(duration_unit, BudgetDurationUnit)
-                    else duration_unit,
-                    duration_value=duration_value,
+                    duration_unit=duration.unit.value,
+                    duration_value=duration.value,
                     target_scope=target_scope.value
                     if isinstance(target_scope, BudgetTargetScope)
                     else target_scope,
@@ -1237,13 +1241,13 @@ class SqlAlchemyGatewayStoreMixin:
             )
             return sql_budget_policy.to_mlflow_entity()
 
+    @record_usage_event(GatewayUpdateBudgetPolicyEvent)
     def update_budget_policy(
         self,
         budget_policy_id: str,
         budget_unit: BudgetUnit | None = None,
         budget_amount: float | None = None,
-        duration_unit: BudgetDurationUnit | None = None,
-        duration_value: int | None = None,
+        duration: BudgetDuration | None = None,
         target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
@@ -1262,14 +1266,9 @@ class SqlAlchemyGatewayStoreMixin:
                 )
             if budget_amount is not None:
                 sql_budget_policy.budget_amount = budget_amount
-            if duration_unit is not None:
-                sql_budget_policy.duration_unit = (
-                    duration_unit.value
-                    if isinstance(duration_unit, BudgetDurationUnit)
-                    else duration_unit
-                )
-            if duration_value is not None:
-                sql_budget_policy.duration_value = duration_value
+            if duration is not None:
+                sql_budget_policy.duration_unit = duration.unit.value
+                sql_budget_policy.duration_value = duration.value
             if target_scope is not None:
                 sql_budget_policy.target_scope = (
                     target_scope.value
@@ -1291,6 +1290,7 @@ class SqlAlchemyGatewayStoreMixin:
 
             return sql_budget_policy.to_mlflow_entity()
 
+    @record_usage_event(GatewayDeleteBudgetPolicyEvent)
     def delete_budget_policy(self, budget_policy_id: str) -> None:
         with self.ManagedSessionMaker() as session:
             sql_budget_policy = self._get_entity_or_raise(
@@ -1301,6 +1301,7 @@ class SqlAlchemyGatewayStoreMixin:
             )
             session.delete(sql_budget_policy)
 
+    @record_usage_event(GatewayListBudgetPoliciesEvent)
     def list_budget_policies(
         self,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
@@ -1310,7 +1311,8 @@ class SqlAlchemyGatewayStoreMixin:
         offset = SearchUtils.parse_start_offset_from_page_token(page_token)
         with self.ManagedSessionMaker() as session:
             query = (
-                self._get_query(session, SqlGatewayBudgetPolicy)
+                self
+                ._get_query(session, SqlGatewayBudgetPolicy)
                 .order_by(SqlGatewayBudgetPolicy.budget_policy_id)
                 .offset(offset)
                 .limit(max_results + 1)
@@ -1320,3 +1322,34 @@ class SqlAlchemyGatewayStoreMixin:
             if len(policies) > max_results:
                 next_token = SearchUtils.create_page_token(offset + max_results)
             return PagedList(policies[:max_results], next_token)
+
+    def sum_gateway_trace_cost(
+        self,
+        start_time_ms: int,
+        end_time_ms: int,
+        workspace: str | None = None,
+    ) -> float:
+        with self.ManagedSessionMaker() as session:
+            query = (
+                session
+                .query(func.coalesce(func.sum(SqlSpanMetrics.value), 0.0))
+                .join(SqlTraceInfo, SqlTraceInfo.request_id == SqlSpanMetrics.trace_id)
+                .join(
+                    SqlTraceMetadata,
+                    SqlTraceMetadata.request_id == SqlTraceInfo.request_id,
+                )
+                .filter(
+                    SqlSpanMetrics.key == SpanMetricKey.TOTAL_COST,
+                    SqlTraceMetadata.key == TraceMetadataKey.GATEWAY_ENDPOINT_ID,
+                    SqlTraceInfo.timestamp_ms >= start_time_ms,
+                    SqlTraceInfo.timestamp_ms < end_time_ms,
+                )
+            )
+
+            if workspace is not None:
+                query = query.join(
+                    SqlExperiment,
+                    SqlExperiment.experiment_id == SqlTraceInfo.experiment_id,
+                ).filter(SqlExperiment.workspace == workspace)
+
+            return float(query.scalar())

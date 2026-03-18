@@ -97,6 +97,7 @@ from mlflow.transformers.signature import (
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils import _truncate_and_ellipsize
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     disable_discrete_autologging,
@@ -323,11 +324,11 @@ def save_model(
 
                 from transformers import pipeline
 
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+                fill_pipe = pipeline("fill-mask", "distilroberta-base")
 
                 with mlflow.start_run():
                     mlflow.transformers.save_model(
-                        transformers_model=qa_pipe,
+                        transformers_model=fill_pipe,
                         path="path/to/save/model",
                     )
 
@@ -335,11 +336,11 @@ def save_model(
 
             .. code-block:: python
 
-                from transformers import MobileBertForQuestionAnswering, AutoTokenizer
+                from transformers import AutoModelForMaskedLM, AutoTokenizer
 
-                architecture = "csarron/mobilebert-uncased-squad-v2"
+                architecture = "distilroberta-base"
                 tokenizer = AutoTokenizer.from_pretrained(architecture)
-                model = MobileBertForQuestionAnswering.from_pretrained(architecture)
+                model = AutoModelForMaskedLM.from_pretrained(architecture)
 
                 with mlflow.start_run():
                     components = {
@@ -401,20 +402,15 @@ def save_model(
             .. code-block:: python
                 :caption: Example
 
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
                 from transformers import pipeline
 
                 en_to_de = pipeline("translation_en_to_de")
 
                 data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
 
                 mlflow.transformers.save_model(
                     transformers_model=en_to_de,
                     path="/path/to/save/model",
-                    signature=signature,
                     input_example=data,
                 )
 
@@ -835,11 +831,11 @@ def log_model(
 
                 from transformers import pipeline
 
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+                fill_pipe = pipeline("fill-mask", "distilroberta-base")
 
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
-                        transformers_model=qa_pipe,
+                        transformers_model=fill_pipe,
                         name="model",
                     )
 
@@ -847,11 +843,11 @@ def log_model(
 
             .. code-block:: python
 
-                from transformers import MobileBertForQuestionAnswering, AutoTokenizer
+                from transformers import AutoModelForMaskedLM, AutoTokenizer
 
-                architecture = "csarron/mobilebert-uncased-squad-v2"
+                architecture = "distilroberta-base"
                 tokenizer = AutoTokenizer.from_pretrained(architecture)
-                model = MobileBertForQuestionAnswering.from_pretrained(architecture)
+                model = AutoModelForMaskedLM.from_pretrained(architecture)
 
                 with mlflow.start_run():
                     components = {
@@ -912,21 +908,16 @@ def log_model(
             .. code-block:: python
                 :caption: Example
 
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
                 from transformers import pipeline
 
                 en_to_de = pipeline("translation_en_to_de")
 
                 data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
 
                 with mlflow.start_run() as run:
                     mlflow.transformers.log_model(
                         transformers_model=en_to_de,
                         name="english_to_german_translator",
-                        signature=signature,
                         input_example=data,
                     )
 
@@ -1152,14 +1143,14 @@ def persist_pretrained_model(model_uri: str) -> None:
 
         # Saving a model with save_pretrained=False
         with mlflow.start_run() as run:
-            model = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+            model = pipeline("fill-mask", "distilroberta-base")
             mlflow.transformers.log_model(
                 transformers_model=model, name="pipeline", save_pretrained=False
             )
 
         # The model cannot be registered to the Model Registry as it is
         try:
-            mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "qa_pipeline")
+            mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "fill_mask_pipeline")
         except MlflowException as e:
             print(e.message)
 
@@ -1167,7 +1158,7 @@ def persist_pretrained_model(model_uri: str) -> None:
         mlflow.transformers.persist_pretrained_model(f"runs:/{run.info.run_id}/pipeline")
 
         # Now the model can be registered to the Model Registry
-        mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "qa_pipeline")
+        mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "fill_mask_pipeline")
     """
     # Check if the model weight already exists in the model artifact before downloading
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
@@ -1727,11 +1718,32 @@ def _is_text2text_generation_pipeline(pipeline):
         return False
 
 
+def _is_question_answering_pipeline(pipeline):
+    try:
+        from transformers import QuestionAnsweringPipeline
+
+        return isinstance(pipeline, QuestionAnsweringPipeline)
+    except ImportError:
+        # Fallback for transformers 5.x where QuestionAnsweringPipeline was removed
+        return getattr(pipeline, "task", None) == "question-answering"
+
+
+@deprecated(
+    since="3.11.0",
+    impact="Signatures are now automatically inferred when `input_example` is provided "
+    "to `mlflow.transformers.log_model()` or `mlflow.transformers.save_model()`. "
+    "This method will be removed in a future release.",
+)
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
     as a ``pyfunc`` model without having to incur a write to disk.
+
+    .. deprecated:: 3.11.0
+        Use the ``input_example`` parameter in
+        :func:`mlflow.transformers.log_model()` or :func:`mlflow.transformers.save_model()`
+        instead. Signatures are now automatically inferred when ``input_example`` is provided.
 
     Args:
         pipeline: A ``transformers`` pipeline object. Note that component-level or model-level
@@ -1756,7 +1768,9 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return signature.generate_signature_output(pipeline, data, model_config, params)
+    return signature.generate_signature_output(
+        pipeline, data, model_config=model_config, params=params, flavor_config=flavor_config
+    )
 
 
 class _TransformersWrapper:
@@ -1848,7 +1862,7 @@ class _TransformersWrapper:
             # arguments. Transpose list-of-dicts to dict-of-lists so that the data
             # can be passed as keyword arguments.
             if (
-                isinstance(self.pipeline, transformers.QuestionAnsweringPipeline)
+                _is_question_answering_pipeline(self.pipeline)
                 and isinstance(data, list)
                 and data
                 and isinstance(data[0], dict)
@@ -1960,7 +1974,7 @@ class _TransformersWrapper:
             self._validate_str_or_list_str(data)
             data = self._format_prompt_template(data)
             output_key = "generated_text"
-        elif isinstance(self.pipeline, transformers.QuestionAnsweringPipeline):
+        elif _is_question_answering_pipeline(self.pipeline):
             data = self._parse_question_answer_input(data)
             output_key = "answer"
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
@@ -2361,9 +2375,11 @@ class _TransformersWrapper:
         flattened_data = []
         for entry in data:
             for label, score in zip(entry["labels"], entry["scores"]):
-                flattened_data.append(
-                    {"sequence": entry["sequence"], "labels": label, "scores": score}
-                )
+                flattened_data.append({
+                    "sequence": entry["sequence"],
+                    "labels": label,
+                    "scores": score,
+                })
         return pd.DataFrame(flattened_data)
 
     def _strip_input_from_response_in_instruction_pipelines(

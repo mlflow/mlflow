@@ -11,9 +11,7 @@ import json
 import logging
 import os
 import posixpath
-import random
 import re
-import string
 import sys
 import tempfile
 import threading
@@ -688,9 +686,10 @@ class MlflowClient:
 
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
-            tags: A dictionary of tags associated with the **prompt version**.
-                This is useful for storing version-specific information, such as the author of
-                the changes. Optional.
+            tags: A dictionary of tags for the prompt.
+                These tags are stored on the prompt version and written to prompt-level metadata.
+                For OSS, later ``register_prompt()`` calls can overwrite the same keys at the
+                prompt level. Optional.
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
@@ -766,13 +765,11 @@ class MlflowClient:
             tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT})
             tags.update({PROMPT_TEXT_TAG_KEY: template})
         if response_format:
-            tags.update(
-                {
-                    RESPONSE_FORMAT_TAG_KEY: json.dumps(
-                        PromptVersion.convert_response_format_to_dict(response_format)
-                    ),
-                }
-            )
+            tags.update({
+                RESPONSE_FORMAT_TAG_KEY: json.dumps(
+                    PromptVersion.convert_response_format_to_dict(response_format)
+                ),
+            })
         if model_config:
             # Convert ModelConfig to dict if needed
             if isinstance(model_config, PromptModelConfig):
@@ -1235,8 +1232,7 @@ class MlflowClient:
         """
         self._get_registry_client().set_prompt_version_tag(name, version, key, value)
 
-        # Invalidate cache for this specific version
-        PromptCache.get_instance().delete(name, version=int(version))
+        PromptCache.get_instance().delete_all(name)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -1251,8 +1247,7 @@ class MlflowClient:
         """
         self._get_registry_client().delete_prompt_version_tag(name, version, key)
 
-        # Invalidate cache for this specific version
-        PromptCache.get_instance().delete(name, version=int(version))
+        PromptCache.get_instance().delete_all(name)
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
@@ -3234,14 +3229,13 @@ class MlflowClient:
             # Sanitize key to use in filename (replace / with # to avoid subdirectories)
             sanitized_key = re.sub(r"/", "#", key)
             filename_uuid = str(uuid.uuid4())
-            # TODO: reconsider the separator used here since % has special meaning in URL encoding.
-            # See https://github.com/mlflow/mlflow/issues/14136 for more details.
-            # Construct a filename uuid that does not start with hex digits
-            filename_uuid = f"{random.choice(string.ascii_lowercase[6:])}{filename_uuid[1:]}"
+            # Use + as separator instead of % to avoid conflicts with URL encoding.
+            # The frontend supports both + and % delimiters for backwards compatibility.
+            # See https://github.com/mlflow/mlflow/issues/21085 for more details.
             uncompressed_filename = (
-                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
+                f"images/{sanitized_key}+step+{step}+timestamp+{timestamp}+{filename_uuid}"
             )
-            compressed_filename = f"{uncompressed_filename}%compressed"
+            compressed_filename = f"{uncompressed_filename}+compressed"
 
             # Save full-resolution image
             image_filepath = f"{uncompressed_filename}.png"
@@ -5774,9 +5768,19 @@ class MlflowClient:
         params: dict[str, str] | None = None,
         model_type: str | None = None,
         flavor: str | None = None,
+        serialization_format: str | None = None,
+        uses_uv: bool = False,
     ) -> LoggedModel:
         return self._tracking_client.create_logged_model(
-            experiment_id, name, source_run_id, tags, params, model_type, flavor
+            experiment_id=experiment_id,
+            name=name,
+            source_run_id=source_run_id,
+            tags=tags,
+            params=params,
+            model_type=model_type,
+            flavor=flavor,
+            serialization_format=serialization_format,
+            uses_uv=uses_uv,
         )
 
     def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
@@ -6158,7 +6162,9 @@ class MlflowClient:
             client.delete_prompt_version("my_prompt", "1")
         """
         registry_client = self._get_registry_client()
-        return registry_client.delete_prompt_version(name, version)
+        registry_client.delete_prompt_version(name, version)
+
+        PromptCache.get_instance().delete_all(name)
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -6247,15 +6253,14 @@ class MlflowClient:
         """
         Search prompt versions for a given prompt name.
 
-        This method delegates directly to the store. Only supported in Unity Catalog registries.
-
         Args:
             name: Name of the prompt to search versions for.
             max_results: Maximum number of versions to return.
             page_token: Token for pagination.
 
         Returns:
-            SearchPromptVersionsResponse containing the list of versions.
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`~mlflow.entities.model_registry.PromptVersion` objects.
 
         Example:
 
@@ -6264,9 +6269,9 @@ class MlflowClient:
             from mlflow import MlflowClient
 
             client = MlflowClient()
-            response = client.search_prompt_versions("my_prompt", max_results=10)
-            for version in response.prompt_versions:
-                print(f"Version {version.version}: {version.description}")
+            versions = client.search_prompt_versions("my_prompt", max_results=10)
+            for version in versions:
+                print(f"Version {version.version}: {version.template}")
         """
         registry_client = self._get_registry_client()
         return registry_client.search_prompt_versions(name, max_results, page_token)
@@ -6297,7 +6302,7 @@ class MlflowClient:
             # For Unity Catalog, delete all versions first
             if client.get_registry_uri().startswith("databricks-uc"):
                 versions = client.search_prompt_versions("my_prompt")
-                for version in versions.prompt_versions:
+                for version in versions:
                     client.delete_prompt_version("my_prompt", version.version)
 
             # Then delete the prompt
@@ -6309,16 +6314,9 @@ class MlflowClient:
         registry_uri = self._registry_uri
 
         if is_databricks_unity_catalog_uri(registry_uri):
-            search_response = self.search_prompt_versions(name, max_results=1)
+            versions = self.search_prompt_versions(name, max_results=1)
 
-            # Check if any versions exist
-            has_versions = (
-                hasattr(search_response, "prompt_versions")
-                and search_response.prompt_versions
-                and len(search_response.prompt_versions) > 0
-            )
-
-            if has_versions:
+            if len(versions) > 0:
                 raise MlflowException(
                     f"Cannot delete prompt '{name}' because it still has undeleted versions. "
                     f"Please delete all versions first using delete_prompt_version(), "
@@ -6331,7 +6329,9 @@ class MlflowClient:
         # the background thread holds a session open while we try to delete.
         with _prompt_experiment_link_lock:
             # For non-Unity Catalog registries, or if version check passes, delete the prompt
-            return registry_client.delete_prompt(name)
+            registry_client.delete_prompt(name)
+            PromptCache.get_instance().delete_all(name)
+            return
 
     @experimental(version="3.4.0")
     @_disable_in_databricks()

@@ -21,6 +21,11 @@ jest.mock('../../components/EndpointSelector', () => ({
   EndpointSelector: () => <div data-testid="endpoint-selector" />,
 }));
 
+// Mock useExperimentIds used by ModelSectionRenderer for cache invalidation
+jest.mock('../../components/experiment-page/hooks/useExperimentIds', () => ({
+  useExperimentIds: () => ['exp-123'],
+}));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: false },

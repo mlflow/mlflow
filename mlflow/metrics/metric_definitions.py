@@ -71,16 +71,14 @@ def _load_from_github(path: str, module_type: str = "metric"):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
-        subprocess.check_call(
-            [
-                "git",
-                "clone",
-                "--filter=blob:none",
-                "--no-checkout",
-                "https://github.com/huggingface/evaluate.git",
-                tmpdir,
-            ]
-        )
+        subprocess.check_call([
+            "git",
+            "clone",
+            "--filter=blob:none",
+            "--no-checkout",
+            "https://github.com/huggingface/evaluate.git",
+            tmpdir,
+        ])
         path = f"{module_type}s/{path}"
         subprocess.check_call(["git", "sparse-checkout", "set", path], cwd=tmpdir)
         subprocess.check_call(["git", "checkout"], cwd=tmpdir)

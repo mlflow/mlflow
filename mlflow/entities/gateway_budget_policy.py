@@ -5,6 +5,7 @@ from enum import Enum
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import BudgetAction as ProtoBudgetAction
+from mlflow.protos.service_pb2 import BudgetDuration as ProtoBudgetDuration
 from mlflow.protos.service_pb2 import BudgetDurationUnit as ProtoBudgetDurationUnit
 from mlflow.protos.service_pb2 import BudgetTargetScope as ProtoBudgetTargetScope
 from mlflow.protos.service_pb2 import BudgetUnit as ProtoBudgetUnit
@@ -83,6 +84,31 @@ class BudgetUnit(str, Enum):
 
 
 @dataclass
+class BudgetDuration:
+    """Fixed window duration: a (unit, value) pair defining the length of a budget window."""
+
+    unit: BudgetDurationUnit
+    value: int
+
+    def __post_init__(self):
+        if isinstance(self.unit, str):
+            self.unit = BudgetDurationUnit(self.unit)
+
+    def to_proto(self) -> ProtoBudgetDuration:
+        proto = ProtoBudgetDuration()
+        proto.unit = self.unit.to_proto()
+        proto.value = self.value
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto: ProtoBudgetDuration) -> BudgetDuration:
+        return cls(
+            unit=BudgetDurationUnit.from_proto(proto.unit),
+            value=proto.value,
+        )
+
+
+@dataclass
 class GatewayBudgetPolicy(_MlflowObject):
     """
     Represents a budget policy for the AI Gateway.
@@ -94,8 +120,7 @@ class GatewayBudgetPolicy(_MlflowObject):
         budget_policy_id: Unique identifier for this budget policy.
         budget_unit: Budget measurement unit (e.g. USD).
         budget_amount: Budget limit amount.
-        duration_unit: Unit of time window (MINUTES, HOURS, DAYS, WEEKS, MONTHS).
-        duration_value: Length of the window in units of duration_unit.
+        duration: Fixed time window (unit + length pair).
         target_scope: Scope of the budget (GLOBAL or WORKSPACE).
         budget_action: Action when budget is exceeded (ALERT, REJECT).
         created_at: Timestamp (milliseconds) when the policy was created.
@@ -108,8 +133,7 @@ class GatewayBudgetPolicy(_MlflowObject):
     budget_policy_id: str
     budget_unit: BudgetUnit
     budget_amount: float
-    duration_unit: BudgetDurationUnit
-    duration_value: int
+    duration: BudgetDuration
     target_scope: BudgetTargetScope
     budget_action: BudgetAction
     created_at: int
@@ -122,8 +146,6 @@ class GatewayBudgetPolicy(_MlflowObject):
         self.workspace = resolve_entity_workspace_name(self.workspace)
         if isinstance(self.budget_unit, str):
             self.budget_unit = BudgetUnit(self.budget_unit)
-        if isinstance(self.duration_unit, str):
-            self.duration_unit = BudgetDurationUnit(self.duration_unit)
         if isinstance(self.target_scope, str):
             self.target_scope = BudgetTargetScope(self.target_scope)
         if isinstance(self.budget_action, str):
@@ -134,8 +156,7 @@ class GatewayBudgetPolicy(_MlflowObject):
         proto.budget_policy_id = self.budget_policy_id
         proto.budget_unit = self.budget_unit.to_proto()
         proto.budget_amount = self.budget_amount
-        proto.duration_unit = self.duration_unit.to_proto()
-        proto.duration_value = self.duration_value
+        proto.duration.CopyFrom(self.duration.to_proto())
         proto.target_scope = self.target_scope.to_proto()
         proto.budget_action = self.budget_action.to_proto()
         proto.created_by = self.created_by or ""
@@ -150,8 +171,7 @@ class GatewayBudgetPolicy(_MlflowObject):
             budget_policy_id=proto.budget_policy_id,
             budget_unit=BudgetUnit.from_proto(proto.budget_unit),
             budget_amount=proto.budget_amount,
-            duration_unit=BudgetDurationUnit.from_proto(proto.duration_unit),
-            duration_value=proto.duration_value,
+            duration=BudgetDuration.from_proto(proto.duration),
             target_scope=BudgetTargetScope.from_proto(proto.target_scope),
             budget_action=BudgetAction.from_proto(proto.budget_action),
             created_by=proto.created_by or None,

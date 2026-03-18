@@ -40,6 +40,7 @@ describe('EvaluationArtifactCompareTable', () => {
     groupByColumns: string[],
     outputColumnName: string,
     isImageColumn: boolean,
+    highlightedText = '',
   ) => {
     const visibleRuns: RunRowType[] = [
       {
@@ -141,7 +142,6 @@ describe('EvaluationArtifactCompareTable', () => {
     ];
     const onHideRun = jest.fn();
     const onDatasetSelected = jest.fn();
-    const highlightedText = '';
 
     const SAMPLE_STATE = {
       evaluationArtifactsBeingUploaded: {},
@@ -334,6 +334,27 @@ describe('EvaluationArtifactCompareTable', () => {
           expect(cells.length).toBeGreaterThan(0);
         });
       });
+    });
+  });
+
+  it('does not crash when highlightedText contains special characters', async () => {
+    const resultList: UseEvaluationArtifactTableDataResult = [
+      {
+        key: 'question_1',
+        groupByCellValues: {
+          data: 'question[_1',
+        },
+        cellValues: {
+          run_b: 'answer_1_run_b',
+          run_a: 'answer_1_run_a',
+        },
+        isPendingInputRow: false,
+      },
+    ];
+    renderComponent(resultList, ['data'], 'output', false, '[');
+
+    await waitFor(() => {
+      expect(screen.getByRole('columnheader', { name: 'data' })).toBeInTheDocument();
     });
   });
 

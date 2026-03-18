@@ -22,19 +22,17 @@ class MockResponse:
 
     @classmethod
     def from_versions(cls, versions):
-        return cls(
-            {
-                "releases": {
-                    v: [
-                        {
-                            "filename": v + ".whl",
-                            "upload_time": "2023-10-04T16:38:57",
-                        }
-                    ]
-                    for v in versions
-                }
+        return cls({
+            "releases": {
+                v: [
+                    {
+                        "filename": v + ".whl",
+                        "upload_time": "2023-10-04T16:38:57",
+                    }
+                ]
+                for v in versions
             }
-        )
+        })
 
 
 def mock_pypi_api(mock_responses):

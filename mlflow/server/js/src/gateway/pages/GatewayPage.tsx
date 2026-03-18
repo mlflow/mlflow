@@ -21,6 +21,7 @@ import { GatewaySetupGuide } from '../components/SecretsSetupGuide';
 import { DefaultPassphraseBanner } from '../components/DefaultPassphraseBanner';
 import { useSecretsConfigQuery } from '../hooks/useSecretsConfigQuery';
 import ApiKeysPage from './ApiKeysPage';
+import BudgetsPage from './BudgetsPage';
 import GatewayUsagePage from './GatewayUsagePage';
 import GatewayRoutes from '../routes';
 import { shouldEnableWorkflowBasedNavigation } from '../../common/utils/FeatureUtils';
@@ -56,13 +57,17 @@ const GatewayPage = () => {
     if (location.pathname.includes('/usage')) {
       return 'usage';
     }
+    if (location.pathname.includes('/budgets')) {
+      return 'budgets';
+    }
     return 'endpoints';
   }, [location.pathname]);
 
   const isIndexRoute = location.pathname === '/gateway' || location.pathname === '/gateway/';
   const isApiKeysRoute = location.pathname.includes('/api-keys');
   const isUsageRoute = location.pathname.includes('/usage');
-  const isNestedRoute = !isIndexRoute && !isApiKeysRoute && !isUsageRoute;
+  const isBudgetsRoute = location.pathname.includes('/budgets');
+  const isNestedRoute = !isIndexRoute && !isApiKeysRoute && !isUsageRoute && !isBudgetsRoute;
 
   if (isLoadingConfig) {
     return (
@@ -137,7 +142,10 @@ const GatewayPage = () => {
                       <ChainIcon />
                       <FormattedMessage defaultMessage="Endpoints" description="Endpoints page title" />
                     </Typography.Title>
-                    <Link to={GatewayRoutes.createEndpointPageRoute}>
+                    <Link
+                      componentId="mlflow.gateway.page.create_endpoint_link"
+                      to={GatewayRoutes.createEndpointPageRoute}
+                    >
                       <Button componentId="mlflow.gateway.endpoints.create-button" type="primary" icon={<PlusIcon />}>
                         <FormattedMessage
                           defaultMessage="Create endpoint"
@@ -153,6 +161,7 @@ const GatewayPage = () => {
               )}
               {isApiKeysRoute && <ApiKeysPage />}
               {isUsageRoute && <GatewayUsagePage />}
+              {isBudgetsRoute && <BudgetsPage />}
             </>
           )}
         </div>

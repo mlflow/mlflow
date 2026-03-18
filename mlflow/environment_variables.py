@@ -27,7 +27,7 @@ class _EnvironmentVariable:
         return self.name in os.environ
 
     def get_raw(self):
-        return os.getenv(self.name)
+        return os.environ.get(self.name)
 
     def set(self, value):
         os.environ[self.name] = str(value)
@@ -75,7 +75,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
     def get(self):
         # TODO: Remove this block in MLflow 3.2.0
         if self.name == MLFLOW_CONFIGURE_LOGGING.name and (
-            val := os.getenv("MLFLOW_LOGGING_CONFIGURE_LOGGING")
+            val := os.environ.get("MLFLOW_LOGGING_CONFIGURE_LOGGING")
         ):
             warnings.warn(
                 "Environment variable MLFLOW_LOGGING_CONFIGURE_LOGGING is deprecated and will be "
@@ -88,7 +88,7 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         if not self.defined:
             return self.default
 
-        val = os.getenv(self.name)
+        val = os.environ.get(self.name)
         lowercased = val.lower()
         if lowercased not in ["true", "false", "1", "0"]:
             raise ValueError(
@@ -632,12 +632,32 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
+#: If True, the gateway will attempt to resolve API keys from environment variables
+#: (``$``-prefixed values). This is only enabled for the legacy YAML-config gateway
+#: (``mlflow gateway start``).
+#: (default: ``False``)
+MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV = _BooleanEnvironmentVariable(
+    "MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV", False
+)
+
 #: If True, the gateway will attempt to resolve API keys from local file paths.
 #: This is only enabled for the legacy YAML-config gateway (``mlflow gateway start``).
 #: (default: ``False``)
 MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE = _BooleanEnvironmentVariable(
     "MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", False
 )
+
+#: How often (in seconds) the gateway budget tracker re-fetches policies from the database.
+#: (default: ``600``)
+MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_GATEWAY_BUDGET_REFRESH_INTERVAL", int, 600
+)
+
+#: Redis URL for the gateway budget tracker. When set, budget tracking uses Redis
+#: instead of in-memory storage, enabling shared state across multiple gateway instances.
+#: Example: ``redis://localhost:6379/0``
+#: (default: ``None`` — uses in-memory tracker)
+MLFLOW_GATEWAY_BUDGET_REDIS_URL = _EnvironmentVariable("MLFLOW_GATEWAY_BUDGET_REDIS_URL", str, None)
 
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
@@ -734,6 +754,27 @@ MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
 )
 
+#: Maximum predict_fn calls per second during mlflow.genai.evaluate. A token-bucket
+#: rate limiter throttles predict_fn invocations across all worker threads.
+#: Accepted values: ``auto`` (adaptive rate starting at 10 rps), a positive number
+#: (fixed rate), or ``0`` to disable rate limiting. (default: ``auto``)
+MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT = _EnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", str, "auto"
+)
+
+#: Maximum scorer calls per second during mlflow.genai.evaluate. A token-bucket
+#: rate limiter throttles individual scorer invocations across all worker threads.
+#: Accepted values: a positive number (fixed rate) or ``0`` to disable.
+#: When unset, the scorer rate is auto-derived as predict_rate x num_scorers.
+MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT = _EnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", str, None
+)
+
+#: Maximum number of retries for rate-limit (429) errors during evaluate.
+#: Applies to both predict_fn and scorer calls. Set to 0 to disable retries.
+#: (default: ``3``)
+MLFLOW_GENAI_EVAL_MAX_RETRIES = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_RETRIES", int, 3)
+
 #: Maximum number of workers to use for running conversation simulations in parallel.
 #: Controls concurrency when simulating multiple test cases and fetching traces.
 #: (default: ``10``)
@@ -771,10 +812,23 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
     "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
 )
 
+#: Enable periodic heartbeat logging during mlflow.genai.evaluate. When True, pipeline
+#: progress (predicted/scored counts, pending futures, current rate limits) is logged at
+#: DEBUG level every 15 seconds. Useful for diagnosing throughput issues. (default: ``False``)
+MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT = _BooleanEnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT", False
+)
+
 #: Timeout in seconds for async predict functions in mlflow.genai.evaluate. When an async
 #: function is passed as predict_fn, it will be wrapped with asyncio.run() with this timeout.
 #: (default: ``300``)
 MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
+
+#: Number of sessions (or individual traces when no session metadata exists) to sample
+#: for the triage phase of ``mlflow.genai.discover_issues()``. (default: ``100``)
+MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE = _EnvironmentVariable(
+    "MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE", int, 100
+)
 
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
@@ -826,6 +880,27 @@ MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
     "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
 )
 
+#: When set to ``True``, MLflow uses a private ``random.Random`` instance for trace/span ID
+#: generation, making it immune to ``random.seed()`` calls in user code.  Enable this when
+#: ``random.seed()`` causes duplicate trace/span ID errors.
+#:
+#: .. note::
+#:     In global-provider mode (``MLFLOW_USE_DEFAULT_TRACER_PROVIDER=false``), if an existing
+#:     ``TracerProvider`` is detected, setting ``MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR``
+#:     does not take effect.
+#:
+#: (default: ``False``)
+MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR", False
+)
+
+#: When set to "true", MLflow translates span attributes from mlflow.* format
+#: to OpenTelemetry GenAI Semantic Convention format before OTLP export.
+#: (default: ``False``)
+MLFLOW_ENABLE_OTEL_GENAI_SEMCONV = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_OTEL_GENAI_SEMCONV", False
+)
+
 # Default addressing style to use for boto client
 MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE = _EnvironmentVariable(
     "MLFLOW_BOTO_CLIENT_ADDRESSING_STYLE", str, "auto"
@@ -845,6 +920,28 @@ MLFLOW_HTTP_POOL_CONNECTIONS = _EnvironmentVariable("MLFLOW_HTTP_POOL_CONNECTION
 #: variable sets the `pool_maxsize` parameter in the `requests.adapters.HTTPAdapter` constructor.
 #: By adjusting this variable, users can enhance the concurrency of HTTP requests made by MLflow.
 MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int, 10)
+
+#: Whether to enable TCP keepalive on HTTP connections. When enabled, keepalive probes detect
+#: stale/dead connections faster than waiting for the default TCP timeout (e.g., 120 seconds).
+#: (default: ``True``)
+MLFLOW_HTTP_TCP_KEEPALIVE = _BooleanEnvironmentVariable("MLFLOW_HTTP_TCP_KEEPALIVE", True)
+
+#: Time in seconds a connection must be idle before TCP keepalive probes are sent.
+#: Only effective when ``MLFLOW_HTTP_TCP_KEEPALIVE`` is enabled.
+#: (default: ``30``)
+MLFLOW_HTTP_TCP_KEEPALIVE_IDLE = _EnvironmentVariable("MLFLOW_HTTP_TCP_KEEPALIVE_IDLE", int, 30)
+
+#: Interval in seconds between TCP keepalive probes.
+#: Only effective when ``MLFLOW_HTTP_TCP_KEEPALIVE`` is enabled.
+#: (default: ``10``)
+MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL", int, 10
+)
+
+#: Number of failed TCP keepalive probes before the connection is considered dead.
+#: Only effective when ``MLFLOW_HTTP_TCP_KEEPALIVE`` is enabled.
+#: (default: ``3``)
+MLFLOW_HTTP_TCP_KEEPALIVE_COUNT = _EnvironmentVariable("MLFLOW_HTTP_TCP_KEEPALIVE_COUNT", int, 3)
 
 #: (Deprecated) Enable Unity Catalog integration for MLflow AI Gateway.
 #: This feature is deprecated and will be removed in a future release.
@@ -1315,3 +1412,26 @@ MLFLOW_SERVER_ENABLE_GRAPHQL_AUTH = _BooleanEnvironmentVariable(
 MLFLOW_ALLOW_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
     "MLFLOW_ALLOW_PICKLE_DESERIALIZATION", True
 )
+
+
+#: Internal env var for the shared gateway auth token. The server generates a random
+#: token at startup and sets it in the environment so all uvicorn workers and job
+#: subprocesses can use it to authenticate internal gateway requests.
+#: (default: ``None``)
+_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN = _EnvironmentVariable(
+    "_MLFLOW_INTERNAL_GATEWAY_AUTH_TOKEN", str, None
+)
+
+
+#: Specifies whether to enable automatic UV project detection during model logging.
+#: When enabled, MLflow will look for uv.lock and pyproject.toml in the current working
+#: directory and use ``uv export`` for dependency inference instead of capturing imported packages.
+#: (default: ``True``)
+MLFLOW_UV_AUTO_DETECT = _BooleanEnvironmentVariable("MLFLOW_UV_AUTO_DETECT", True)
+
+
+#: Specifies whether to log uv project files (uv.lock, pyproject.toml, .python-version)
+#: as model artifacts. Set to ``False`` to disable for large projects where uv.lock
+#: file size is a concern.
+#: (default: ``True``)
+MLFLOW_LOG_UV_FILES = _BooleanEnvironmentVariable("MLFLOW_LOG_UV_FILES", True)

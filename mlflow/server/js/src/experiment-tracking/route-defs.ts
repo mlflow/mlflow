@@ -161,7 +161,7 @@ const getExperimentPageRouteDefs = () => {
           pageId: PageId.experimentPageTabScorers,
           element: createLazyRouteElement(() => import('./pages/experiment-scorers/ExperimentScorersPage')),
           handle: {
-            getPageTitle: (params) => `Scorers - Experiment ${params['experimentId']}`,
+            getPageTitle: (params) => `Judges - Experiment ${params['experimentId']}`,
             getAssistantPrompts: () => [
               'How do I create LLM judge for testing the quality of my agent?',
               'Which built-in LLM judges should I use for my project?',
@@ -284,6 +284,24 @@ export const getRouteDefs = () => [
         'What parameters were used?',
         'How does this run compare to others?',
       ],
+    } satisfies RouteHandle,
+  },
+  {
+    path: RoutePaths.experimentPageTabIssueDetectionRunDetailsWithTab,
+    element: createLazyRouteElement(() => import('./pages/experiment-evaluation-runs/IssueDetectionRunDetailsPage')),
+    pageId: 'mlflow.issue-detection-run-details',
+    handle: {
+      getPageTitle: (params) => `Issue Detection Run ${params['runUuid']}`,
+      getAssistantPrompts: () => ['Summarize this issue detection run.', 'What issues were detected?'],
+    } satisfies RouteHandle,
+  },
+  {
+    path: RoutePaths.experimentPageTabIssueDetectionRunDetails,
+    element: createLazyRouteElement(() => import('./pages/experiment-evaluation-runs/IssueDetectionRunDetailsPage')),
+    pageId: 'mlflow.issue-detection-run-details',
+    handle: {
+      getPageTitle: (params) => `Issue Detection Run ${params['runUuid']}`,
+      getAssistantPrompts: () => ['Summarize this issue detection run.', 'What issues were detected?'],
     } satisfies RouteHandle,
   },
   {

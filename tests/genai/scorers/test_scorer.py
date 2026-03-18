@@ -43,26 +43,24 @@ class AlwaysYesScorer(Scorer):
 
 @pytest.fixture
 def sample_data():
-    return pd.DataFrame(
-        {
-            "inputs": [
-                {"message": [{"role": "user", "content": "What is Spark??"}]},
-                {
-                    "messages": [
-                        {"role": "user", "content": "How can you minimize data shuffling in Spark?"}
-                    ]
-                },
-            ],
-            "outputs": [
-                {"choices": [{"message": {"content": "actual response for first question"}}]},
-                {"choices": [{"message": {"content": "actual response for second question"}}]},
-            ],
-            "expectations": [
-                {"expected_response": "expected response for first question"},
-                {"expected_response": "expected response for second question"},
-            ],
-        }
-    )
+    return pd.DataFrame({
+        "inputs": [
+            {"message": [{"role": "user", "content": "What is Spark??"}]},
+            {
+                "messages": [
+                    {"role": "user", "content": "How can you minimize data shuffling in Spark?"}
+                ]
+            },
+        ],
+        "outputs": [
+            {"choices": [{"message": {"content": "actual response for first question"}}]},
+            {"choices": [{"message": {"content": "actual response for second question"}}]},
+        ],
+        "expectations": [
+            {"expected_response": "expected response for first question"},
+            {"expected_response": "expected response for second question"},
+        ],
+    })
 
 
 @pytest.mark.parametrize("dummy_scorer", [AlwaysYesScorer(name="always_yes"), scorer(always_yes)])
@@ -133,27 +131,25 @@ def test_trace_passed_to_builtin_scorers_correctly(
         context={"request": "{'question': 'query'}", "response": "answer"},
         assessment_name="english",
     )
-    mock_groundedness.assert_has_calls(
-        [
-            call(
-                request="{'question': 'query'}",
-                response="answer",
-                retrieved_context=[
-                    {"content": "content_1", "doc_uri": "url_1"},
-                    {"content": "content_2", "doc_uri": "url_2"},
-                ],
-                assessment_name="retrieval_groundedness",
-            ),
-            call(
-                request="{'question': 'query'}",
-                response="answer",
-                retrieved_context=[
-                    {"content": "content_3"},
-                ],
-                assessment_name="retrieval_groundedness",
-            ),
-        ]
-    )
+    mock_groundedness.assert_has_calls([
+        call(
+            request="{'question': 'query'}",
+            response="answer",
+            retrieved_context=[
+                {"content": "content_1", "doc_uri": "url_1"},
+                {"content": "content_2", "doc_uri": "url_2"},
+            ],
+            assessment_name="retrieval_groundedness",
+        ),
+        call(
+            request="{'question': 'query'}",
+            response="answer",
+            retrieved_context=[
+                {"content": "content_3"},
+            ],
+            assessment_name="retrieval_groundedness",
+        ),
+    ])
 
 
 def test_trace_passed_to_custom_scorer_correctly(sample_data, is_in_databricks):
@@ -164,13 +160,11 @@ def test_trace_passed_to_custom_scorer_correctly(sample_data, is_in_databricks):
 
     @scorer
     def dummy_scorer(inputs, outputs, expectations, trace) -> float:
-        actual_call_args_list.append(
-            {
-                "inputs": inputs,
-                "outputs": outputs,
-                "expectations": expectations,
-            }
-        )
+        actual_call_args_list.append({
+            "inputs": inputs,
+            "outputs": outputs,
+            "expectations": expectations,
+        })
         return 0.0
 
     mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
@@ -210,13 +204,11 @@ def test_trace_passed_correctly(is_in_databricks):
 
     @scorer
     def dummy_scorer(inputs, outputs, trace):
-        actual_call_args_list.append(
-            {
-                "inputs": inputs,
-                "outputs": outputs,
-                "trace": trace,
-            }
-        )
+        actual_call_args_list.append({
+            "inputs": inputs,
+            "outputs": outputs,
+            "trace": trace,
+        })
         return 0.0
 
     data = [

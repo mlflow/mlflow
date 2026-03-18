@@ -18,6 +18,7 @@ interface ProviderSelectProps {
   disabled?: boolean;
   error?: string;
   componentIdPrefix?: string;
+  hideLabel?: boolean;
 }
 
 export const ProviderSelect = ({
@@ -26,6 +27,7 @@ export const ProviderSelect = ({
   disabled,
   error,
   componentIdPrefix = 'mlflow.gateway.provider-select',
+  hideLabel = false,
 }: ProviderSelectProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -168,9 +170,11 @@ export const ProviderSelect = ({
   if (queryError) {
     return (
       <div>
-        <FormUI.Label htmlFor={componentIdPrefix}>
-          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-        </FormUI.Label>
+        {!hideLabel && (
+          <FormUI.Label htmlFor={componentIdPrefix}>
+            <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+          </FormUI.Label>
+        )}
         <FormUI.Message type="error" message={queryError.message || 'Failed to load providers'} />
       </div>
     );
@@ -179,9 +183,11 @@ export const ProviderSelect = ({
   if (isLoading || config.views[0].items.length === 0) {
     return (
       <div>
-        <FormUI.Label htmlFor={componentIdPrefix}>
-          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-        </FormUI.Label>
+        {!hideLabel && (
+          <FormUI.Label htmlFor={componentIdPrefix}>
+            <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+          </FormUI.Label>
+        )}
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginTop: theme.spacing.xs }}>
           <Spinner size="small" />
           <FormattedMessage defaultMessage="Loading providers..." description="Loading message for providers" />
@@ -192,11 +198,13 @@ export const ProviderSelect = ({
 
   return (
     <div css={{ minWidth: 300 }}>
-      <FormUI.Label htmlFor={componentIdPrefix}>
-        <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
-      </FormUI.Label>
+      {!hideLabel && (
+        <FormUI.Label htmlFor={componentIdPrefix}>
+          <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
+        </FormUI.Label>
+      )}
       <NavigableCombobox
-        componentId="codegen_mlflow_app_src_oss_gateway_components_create-endpoint_ProviderSelect.tsx_199"
+        componentId={componentIdPrefix}
         config={config}
         value={value || null}
         onChange={handleChange}

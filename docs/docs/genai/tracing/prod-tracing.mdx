@@ -116,14 +116,14 @@ export MLFLOW_TRACE_SAMPLING_RATIO=0.1
 
 ### Asynchronous Trace Logging
 
-For production applications, MLflow logs traces asynchronously by default to prevent blocking your application:
+For production applications, MLflow can log traces asynchronously to prevent blocking your application. For OSS MLflow and Databricks notebooks, async trace logging is **disabled by default** and must be explicitly enabled by setting `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true`. In Databricks non-notebook workloads (for example, jobs or model serving), async logging is **enabled by default** unless you override it.
 
-| Environment Variable                        | Description                                                                                                                                                                                                                                                   | Default Value |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`         | Whether to log traces asynchronously. When set to `False`, traces will be logged in a blocking manner.                                                                                                                                                        | `True`        |
-| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`    | The maximum number of worker threads to use for async trace logging per process. Increasing this allows higher throughput of trace logging, but also increases CPU usage and memory consumption.                                                              | `10`          |
-| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | The maximum number of traces that can be queued before being logged to backend by the worker threads. When the queue is full, new traces will be discarded. Increasing this allows higher durability of trace logging, but also increases memory consumption. | `1000`        |
-| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`  | The timeout in seconds for retrying failed trace logging. When a trace logging fails, it will be retried up to this timeout with backoff, after which it will be discarded.                                                                                   | `500`         |
+| Environment Variable                        | Description                                                                                                                                                                                                                                                   | Default Value                                                                    |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING`         | Whether to log traces asynchronously. When set to `False`, traces will be logged in a blocking manner.                                                                                                                                                        | `False` (OSS + Databricks notebooks), `True` (Databricks non-notebook workloads) |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`    | The maximum number of worker threads to use for async trace logging per process. Increasing this allows higher throughput of trace logging, but also increases CPU usage and memory consumption.                                                              | `10`                                                                             |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | The maximum number of traces that can be queued before being logged to backend by the worker threads. When the queue is full, new traces will be discarded. Increasing this allows higher durability of trace logging, but also increases memory consumption. | `1000`                                                                           |
+| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`  | The timeout in seconds for retrying failed trace logging. When a trace logging fails, it will be retried up to this timeout with backoff, after which it will be discarded.                                                                                   | `500`                                                                            |
 
 ### Sampling Traces
 
@@ -228,7 +228,7 @@ def handle_chat(request: Request, chat_request: ChatRequest):
 
 ### Feedback Collection
 
-Capturing user feedback on specific interactions is essential for understanding quality and improving your GenAI application. For detailed guidance, see [Collect User Feedback](/genai/tracing/collect-user-feedback). The following example demonstrates how to collect feedback in a FastAPI application.
+Capturing user feedback on specific interactions is essential for understanding quality and improving your LLM application or AI agent. For detailed guidance, see [Collect User Feedback](/genai/tracing/collect-user-feedback). The following example demonstrates how to collect feedback in a FastAPI application.
 
 ```python
 import mlflow
@@ -261,9 +261,7 @@ def handle_chat_feedback(
     client = MlflowClient()
     experiment = client.get_experiment_by_name("production-genai-app")
     traces = client.search_traces(locations=[experiment.experiment_id])
-    traces = [
-        trace for trace in traces if trace.info.client_request_id == client_request_id
-    ][:1]
+    traces = [trace for trace in traces if trace.info.client_request_id == client_request_id][:1]
 
     if not traces:
         return {
@@ -276,9 +274,7 @@ def handle_chat_feedback(
         trace_id=traces[0].info.trace_id,
         name="response_is_correct",
         value=feedback.is_correct,
-        source=AssessmentSource(
-            source_type="HUMAN", source_id=request.headers.get("X-User-ID")
-        ),
+        source=AssessmentSource(source_type="HUMAN", source_id=request.headers.get("X-User-ID")),
         rationale=feedback.comment,
     )
 

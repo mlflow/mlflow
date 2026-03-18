@@ -80,16 +80,14 @@ search tool as your primary means of gathering information."""
 agent = create_deep_agent(tools=[internet_search], system_prompt=research_instructions)
 
 # Invoke the agent
-result = agent.invoke(
-    {
-        "messages": [
-            {
-                "role": "user",
-                "content": "What are the latest developments in AI agents?",
-            }
-        ]
-    }
-)
+result = agent.invoke({
+    "messages": [
+        {
+            "role": "user",
+            "content": "What are the latest developments in AI agents?",
+        }
+    ]
+})
 print(result["messages"][-1].content)
 ```
 

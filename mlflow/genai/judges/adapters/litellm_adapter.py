@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
 import threading
 from contextlib import ContextDecorator
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Iterator
 
 import pydantic
 
@@ -20,6 +22,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
     AdapterInvocationOutput,
@@ -42,6 +45,24 @@ from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
+
+# ContextVar that upstream modules (e.g. the evaluate harness) can set to disable
+# litellm's own rate-limit retries, so 429 errors propagate to the caller's retry logic.
+_DISABLE_RATE_LIMIT_RETRIES = ContextVar("_DISABLE_RATE_LIMIT_RETRIES", default=False)
+
+
+@contextlib.contextmanager
+def disable_litellm_rate_limit_retries() -> Iterator[None]:
+    token = _DISABLE_RATE_LIMIT_RETRIES.set(True)
+    try:
+        yield
+    finally:
+        _DISABLE_RATE_LIMIT_RETRIES.reset(token)
+
+
+def is_litellm_rate_limit_retries_disabled() -> bool:
+    return _DISABLE_RATE_LIMIT_RETRIES.get()
+
 
 # Global cache to track model capabilities across function calls
 # Key: model URI (e.g., "openai/gpt-4"), Value: boolean indicating response_format support
@@ -133,6 +154,7 @@ def _invoke_litellm(
     inference_params: dict[str, Any] | None = None,
     api_base: str | None = None,
     api_key: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> "litellm.ModelResponse":
     """
     Invoke litellm completion with retry support.
@@ -147,8 +169,10 @@ def _invoke_litellm(
         include_response_format: Whether to include response_format in the request.
         inference_params: Optional dictionary of additional inference parameters to pass
             to the model (e.g., temperature, top_p, max_tokens).
-        api_base: Optional API base URL (used for gateway routing).
-        api_key: Optional API key (used for gateway routing).
+        api_base: Optional API base URL (used for gateway routing or proxy).
+        api_key: Optional API key (used for gateway routing or proxy).
+        extra_headers: Optional dictionary of additional HTTP headers to include
+            in requests to the LLM provider.
 
     Returns:
         The litellm ModelResponse object.
@@ -178,6 +202,8 @@ def _invoke_litellm(
         kwargs["api_base"] = api_base
     if api_key is not None:
         kwargs["api_key"] = api_key
+    if extra_headers is not None:
+        kwargs["extra_headers"] = extra_headers
 
     if include_response_format:
         # LiteLLM supports passing Pydantic models directly for response_format
@@ -199,6 +225,8 @@ def _invoke_litellm_and_handle_tools(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
+    base_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> InvokeLiteLLMOutput:
     """
     Invoke litellm with retry support and handle tool calling loop.
@@ -237,11 +265,22 @@ def _invoke_litellm_and_handle_tools(
         config = get_gateway_litellm_config(model_name)
         api_base = config.api_base
         api_key = config.api_key
+        extra_headers = {
+            **(config.extra_headers or {}),
+            MLFLOW_GATEWAY_CALLER_HEADER: GatewayCaller.JUDGE.value,
+        }
         model = config.model
     else:
         model = f"{provider}/{model_name}"
-        api_base = None
-        api_key = None
+        if base_url is not None:
+            api_base = base_url
+            # Let litellm resolve the API key from environment variables (e.g., OPENAI_API_KEY).
+            # If extra_headers contains an Authorization header, it takes precedence over
+            # any key resolved from environment variables.
+            api_key = None
+        else:
+            api_base = None
+            api_key = None
 
     tools = []
     if trace is not None:
@@ -286,6 +325,7 @@ def _invoke_litellm_and_handle_tools(
                     inference_params=inference_params,
                     api_base=api_base,
                     api_key=api_key,
+                    extra_headers=extra_headers,
                 )
             except (litellm.BadRequestError, litellm.UnsupportedParamsError) as e:
                 error_str = str(e).lower()
@@ -488,9 +528,14 @@ def _get_litellm_retry_policy(num_retries: int) -> "litellm.RetryPolicy":
     """
     from litellm import RetryPolicy
 
+    # When an upstream module (e.g. the evaluate harness) has set the flag,
+    # disable litellm's rate-limit retries so 429 errors propagate to the
+    # caller's own retry logic for adaptive rate control.
+    rate_limit_retries = 0 if _DISABLE_RATE_LIMIT_RETRIES.get() else num_retries
+
     return RetryPolicy(
         TimeoutErrorRetries=num_retries,
-        RateLimitErrorRetries=num_retries,
+        RateLimitErrorRetries=rate_limit_retries,
         InternalServerErrorRetries=num_retries,
         ContentPolicyViolationErrorRetries=num_retries,
         # We don't retry on errors that are unlikely to be transient
@@ -521,6 +566,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
         return _is_litellm_available()
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
         from mlflow.types.llm import ChatMessage
 
         messages = (
@@ -530,6 +576,17 @@ class LiteLLMAdapter(BaseJudgeAdapter):
         )
 
         is_model_provider_databricks = input_params.model_provider in ("databricks", "endpoints")
+
+        # Reject base_url / extra_headers for Databricks providers
+        if is_model_provider_databricks and (
+            input_params.base_url is not None or input_params.extra_headers is not None
+        ):
+            raise MlflowException(
+                "base_url and extra_headers are not supported for Databricks endpoints. "
+                "The endpoint URL is determined by Databricks workspace configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         try:
             output = _invoke_litellm_and_handle_tools(
                 provider=input_params.model_provider,
@@ -539,6 +596,8 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                 num_retries=input_params.num_retries,
                 response_format=input_params.response_format,
                 inference_params=input_params.inference_params,
+                base_url=input_params.base_url,
+                extra_headers=input_params.extra_headers,
             )
 
             cleaned_response = _strip_markdown_code_blocks(output.response)

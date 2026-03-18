@@ -6,3 +6,5 @@ env:
     value: "__APP_URL__"
   - name: MLFLOW_SERVER_ALLOWED_HOSTS
     value: "*"
+  - name: MLFLOW_CRYPTO_KEK_PASSPHRASE
+    value: "__KEK_PASSPHRASE__"

@@ -124,8 +124,8 @@ class AgentServer:
         Only forwards requests to allowed paths (/, /assets/*, /favicon.ico) to prevent
         SSRF vulnerabilities.
         """
-        self.chat_app_port = os.getenv("CHAT_APP_PORT", "3000")
-        self.chat_proxy_timeout = float(os.getenv("CHAT_PROXY_TIMEOUT_SECONDS", "300.0"))
+        self.chat_app_port = os.environ.get("CHAT_APP_PORT", "3000")
+        self.chat_proxy_timeout = float(os.environ.get("CHAT_PROXY_TIMEOUT_SECONDS", "300.0"))
         self.proxy_client = httpx.AsyncClient(timeout=self.chat_proxy_timeout)
 
         # Only proxy static assets to prevent SSRF vulnerabilities
@@ -133,12 +133,12 @@ class AgentServer:
         allowed_path_prefixes = {"/assets/", "/api/"}
 
         # Add additional paths from environment variables
-        if additional_exact_paths := os.getenv("CHAT_PROXY_ALLOWED_EXACT_PATHS", ""):
+        if additional_exact_paths := os.environ.get("CHAT_PROXY_ALLOWED_EXACT_PATHS", ""):
             allowed_exact_paths |= {
                 p.strip() for p in additional_exact_paths.split(",") if p.strip()
             }
 
-        if additional_path_prefixes := os.getenv("CHAT_PROXY_ALLOWED_PATH_PREFIXES", ""):
+        if additional_path_prefixes := os.environ.get("CHAT_PROXY_ALLOWED_PATH_PREFIXES", ""):
             allowed_path_prefixes |= {
                 p.strip() for p in additional_path_prefixes.split(",") if p.strip()
             }
@@ -241,7 +241,7 @@ class AgentServer:
         @self.app.get("/agent/info")
         async def agent_info_endpoint() -> dict[str, Any]:
             # Get app name from environment or use default
-            app_name = os.getenv("DATABRICKS_APP_NAME", "mlflow_agent_server")
+            app_name = os.environ.get("DATABRICKS_APP_NAME", "mlflow_agent_server")
 
             # Base info payload
             info = {

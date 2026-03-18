@@ -10,6 +10,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    DatabricksManagedJudgeAdapter,
     _run_databricks_agentic_loop,
     call_chat_completions,
     create_litellm_message_from_databricks_response,
@@ -33,9 +34,10 @@ def mock_trace():
 @pytest.fixture
 def mock_databricks_rag_eval():
     mock_rag_client = mock.MagicMock()
-    mock_rag_client.get_chat_completions_result.return_value = AttrDict(
-        {"output": "test response", "error_message": None}
-    )
+    mock_rag_client.get_chat_completions_result.return_value = AttrDict({
+        "output": "test response",
+        "error_message": None,
+    })
 
     mock_context = mock.MagicMock()
     mock_context.get_context.return_value.build_managed_rag_client.return_value = mock_rag_client
@@ -193,22 +195,18 @@ def test_call_chat_completions_with_use_case_not_supported(mock_databricks_rag_e
 
 def test_agentic_loop_final_answer_without_tool_calls():
     # Mock response with no tool calls (final answer)
-    mock_response = AttrDict(
-        {
-            "output_json": json.dumps(
+    mock_response = AttrDict({
+        "output_json": json.dumps({
+            "choices": [
                 {
-                    "choices": [
-                        {
-                            "message": {
-                                "role": "assistant",
-                                "content": '{"result": "yes", "rationale": "Looks good"}',
-                            }
-                        }
-                    ]
+                    "message": {
+                        "role": "assistant",
+                        "content": '{"result": "yes", "rationale": "Looks good"}',
+                    }
                 }
-            )
-        }
-    )
+            ]
+        })
+    })
 
     messages = [litellm.Message(role="user", content="Test prompt")]
     callback_called_with = []
@@ -237,13 +235,11 @@ def test_agentic_loop_final_answer_without_tool_calls():
 
 
 def test_agentic_loop_forwards_use_case():
-    mock_response = AttrDict(
-        {
-            "output_json": json.dumps(
-                {"choices": [{"message": {"role": "assistant", "content": "done"}}]}
-            )
-        }
-    )
+    mock_response = AttrDict({
+        "output_json": json.dumps({
+            "choices": [{"message": {"role": "assistant", "content": "done"}}]
+        })
+    })
 
     with mock.patch(
         "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.call_chat_completions",
@@ -264,49 +260,41 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
     # First response has tool calls, second response is final answer
     mock_responses = [
         # First call: LLM requests tool call
-        AttrDict(
-            {
-                "output_json": json.dumps(
+        AttrDict({
+            "output_json": json.dumps({
+                "choices": [
                     {
-                        "choices": [
-                            {
-                                "message": {
-                                    "role": "assistant",
-                                    "content": None,
-                                    "tool_calls": [
-                                        {
-                                            "id": "call_123",
-                                            "type": "function",
-                                            "function": {
-                                                "name": "get_root_span",
-                                                "arguments": "{}",
-                                            },
-                                        }
-                                    ],
+                        "message": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "id": "call_123",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "get_root_span",
+                                        "arguments": "{}",
+                                    },
                                 }
-                            }
-                        ]
+                            ],
+                        }
                     }
-                )
-            }
-        ),
+                ]
+            })
+        }),
         # Second call: LLM returns final answer
-        AttrDict(
-            {
-                "output_json": json.dumps(
+        AttrDict({
+            "output_json": json.dumps({
+                "choices": [
                     {
-                        "choices": [
-                            {
-                                "message": {
-                                    "role": "assistant",
-                                    "content": '{"outputs": "The answer is 42"}',
-                                }
-                            }
-                        ]
+                        "message": {
+                            "role": "assistant",
+                            "content": '{"outputs": "The answer is 42"}',
+                        }
                     }
-                )
-            }
-        ),
+                ]
+            })
+        }),
     ]
 
     messages = [litellm.Message(role="user", content="Extract outputs")]
@@ -350,32 +338,28 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
 
 def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
     # Always return tool calls (never a final answer)
-    mock_response = AttrDict(
-        {
-            "output_json": json.dumps(
+    mock_response = AttrDict({
+        "output_json": json.dumps({
+            "choices": [
                 {
-                    "choices": [
-                        {
-                            "message": {
-                                "role": "assistant",
-                                "content": None,
-                                "tool_calls": [
-                                    {
-                                        "id": "call_123",
-                                        "type": "function",
-                                        "function": {
-                                            "name": "get_root_span",
-                                            "arguments": "{}",
-                                        },
-                                    }
-                                ],
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "id": "call_123",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_root_span",
+                                    "arguments": "{}",
+                                },
                             }
-                        }
-                    ]
+                        ],
+                    }
                 }
-            )
-        }
-    )
+            ]
+        })
+    })
 
     messages = [litellm.Message(role="user", content="Extract outputs")]
 
@@ -692,3 +676,29 @@ def test_create_litellm_message_from_databricks_response_with_multiple_tool_call
 def test_create_litellm_message_from_databricks_response_errors(response_data, expected_error):
     with pytest.raises(ValueError, match=expected_error):
         create_litellm_message_from_databricks_response(response_data)
+
+
+@pytest.mark.parametrize(
+    ("base_url", "extra_headers"),
+    [
+        ("http://proxy:8080", None),
+        (None, {"X-Key": "val"}),
+        ("http://proxy:8080", {"X-Key": "val"}),
+    ],
+)
+def test_databricks_managed_adapter_rejects_base_url_and_extra_headers(base_url, extra_headers):
+    from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
+
+    adapter = DatabricksManagedJudgeAdapter()
+    input_params = AdapterInvocationInput(
+        prompt="test prompt",
+        assessment_name="test",
+        model_uri="databricks",
+        trace=None,
+        num_retries=3,
+        base_url=base_url,
+        extra_headers=extra_headers,
+    )
+
+    with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
+        adapter.invoke(input_params)

@@ -263,14 +263,12 @@ def test_score_model_bedrock(monkeypatch):
     mock_bedrock.invoke_model.assert_called_once_with(
         # Anthropic models in Bedrock does not accept "model" and "stream" key,
         # and requires "anthropic_version" put within the body not headers.
-        body=json.dumps(
-            {
-                "max_tokens": 1000,
-                "temperature": 0,
-                "messages": [{"role": "user", "content": "input prompt"}],
-                "anthropic_version": "2023-06-01",
-            }
-        ).encode(),
+        body=json.dumps({
+            "max_tokens": 1000,
+            "temperature": 0,
+            "messages": [{"role": "user", "content": "input prompt"}],
+            "anthropic_version": "2023-06-01",
+        }).encode(),
         modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
         accept="application/json",
         contentType="application/json",

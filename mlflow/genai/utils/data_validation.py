@@ -113,19 +113,17 @@ def _validate_input_keys_match_function_params(
     if len(param_names) > 3:
         input_example["..."] = "..."
 
-    code_sample = "\n".join(
-        [
-            "```python",
-            "data = [",
-            "    {",
-            '        "inputs": {',
-            *(f'            "{k}": "{v}",' for k, v in input_example.items()),
-            "        }",
-            "    }",
-            "]",
-            "```",
-        ]
-    )
+    code_sample = "\n".join([
+        "```python",
+        "data = [",
+        "    {",
+        '        "inputs": {',
+        *(f'            "{k}": "{v}",' for k, v in input_example.items()),
+        "        }",
+        "    }",
+        "]",
+        "```",
+    ])
 
     raise MlflowException.invalid_parameter_value(
         "The `inputs` column must be a dictionary with the parameter names of "
