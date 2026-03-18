@@ -11,7 +11,7 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.constants import (
     FAILURE_LABEL_SYSTEM_PROMPT,
 )
-from mlflow.genai.discovery.entities import _ConversationAnalysis
+from mlflow.genai.discovery.entities import _ConversationAnalysis, _TriageResult
 from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
 
 _logger = logging.getLogger(__name__)
@@ -236,10 +236,23 @@ def extract_failure_labels(
     return labels, label_to_analysis
 
 
+def _parse_assessment_value(value) -> tuple[bool, list[str]]:
+    """Parse a feedback value into (passed, categories).
+
+    Handles both simple bool values and dict[str, str] structured output
+    with "passed" and "categories" keys.
+    """
+    if isinstance(value, dict):
+        passed = str(value.get("passed", "true")).lower().startswith("t")
+        cats = [c.strip() for c in value.get("categories", "").split(",") if c.strip()]
+        return passed, cats
+    return bool(value), []
+
+
 def extract_failing_traces(
     scored_traces: list[Trace],
     scorer_names: str | list[str],
-) -> tuple[list[Trace], dict[str, str], dict[str, list[str]]]:
+) -> _TriageResult:
     """
     Extract failing traces and their rationales from scored trace objects.
 
@@ -254,11 +267,6 @@ def extract_failing_traces(
     Args:
         scored_traces: Traces with scorer assessments attached.
         scorer_names: One or more scorer names to check for failures.
-
-    Returns:
-        A tuple of (failing_traces, rationale_map, categories_map) where
-        rationale_map maps trace_id to the combined rationale string and
-        categories_map maps trace_id to the list of category tags.
     """
     if isinstance(scorer_names, str):
         scorer_names = [scorer_names]
@@ -278,16 +286,8 @@ def extract_failing_traces(
                 continue
             if assessment.value is None:
                 continue
-            value = assessment.value
-            # Support dict[str, str] structured output (passed/categories keys)
-            if isinstance(value, dict):
-                passed = str(value.get("passed", "true")).lower().startswith("t")
-                for cat in value.get("categories", "").split(","):
-                    cat = cat.strip()
-                    if cat:
-                        row_categories.append(cat)
-            else:
-                passed = bool(value)
+            passed, cats = _parse_assessment_value(assessment.value)
+            row_categories.extend(cats)
             if not passed:
                 is_failing = True
                 if assessment.rationale:
@@ -301,4 +301,4 @@ def extract_failing_traces(
         rationale_map[trace_id] = "; ".join(row_rationales)
         categories_map[trace_id] = list(dict.fromkeys(row_categories))
 
-    return failing, rationale_map, categories_map
+    return _TriageResult(failing, rationale_map, categories_map)

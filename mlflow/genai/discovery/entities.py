@@ -5,7 +5,15 @@ from dataclasses import dataclass, field
 import pydantic
 
 from mlflow.entities.issue import Issue, IssueSeverity
+from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import RATIONALE_TRUNCATION_LIMIT
+
+
+@dataclass
+class _TriageResult:
+    failing_traces: list[Trace]
+    rationale_map: dict[str, str]
+    categories_map: dict[str, list[str]]
 
 
 @dataclass

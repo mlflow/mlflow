@@ -19,7 +19,6 @@ TRACE_CONTENT_TRUNCATION = 1000
 
 DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
-DEFAULT_CATEGORIES = ["correctness", "latency", "execution", "adherence", "relevance", "safety"]
 DEFAULT_CATEGORY_DESCRIPTIONS = {
     "correctness": "Output is factually accurate and grounded in provided data",
     "latency": "Agent responds within acceptable time bounds",
@@ -31,6 +30,7 @@ DEFAULT_CATEGORY_DESCRIPTIONS = {
     ),
     "safety": "Response avoids harmful, sensitive, or inappropriate content",
 }
+DEFAULT_CATEGORIES = list(DEFAULT_CATEGORY_DESCRIPTIONS)
 
 
 # ---- Satisfaction scorer instructions ----

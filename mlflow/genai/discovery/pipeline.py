@@ -604,17 +604,15 @@ def discover_issues(
         _logger.debug("Failed to fetch scored traces", exc_info=True)
 
     scorer_names = [s.name for s in scorers]
-    failing_traces, rationale_map, categories_map = extract_failing_traces(
-        scored_traces, scorer_names
-    )
+    triage = extract_failing_traces(scored_traces, scorer_names)
 
     _logger.info(
         "Triage complete: %d/%d traces unsatisfactory",
-        len(failing_traces),
+        len(triage.failing_traces),
         len(triage_traces),
     )
 
-    if not failing_traces:
+    if not triage.failing_traces:
         return DiscoverIssuesResult(
             issues=[],
             triage_run_id=triage_eval.run_id,
@@ -626,8 +624,8 @@ def discover_issues(
     # ---- Phase 2: Build analyses ----
     analyses, session_groups = _build_analyses(
         triage_traces,
-        rationale_map,
-        categories_map,
+        triage.rationale_map,
+        triage.categories_map,
         scorer_name,
         categories=categories,
     )
@@ -664,7 +662,7 @@ def discover_issues(
     _annotate_issue_traces(
         issues,
         issue_trace_ids,
-        rationale_map,
+        triage.rationale_map,
         trace_lookup,
         model,
         categories=categories,
