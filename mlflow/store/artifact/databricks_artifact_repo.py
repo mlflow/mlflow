@@ -3,7 +3,9 @@ import json
 import logging
 import os
 import posixpath
+import tempfile
 import uuid
+from pathlib import Path
 from typing import Any
 
 import requests
@@ -316,9 +318,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             return resp.content
 
     def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
-        import tempfile
-        from pathlib import Path
-
         from mlflow.store.artifact.artifact_repo import _validate_attachment_path
 
         _validate_attachment_path(attachment_id)

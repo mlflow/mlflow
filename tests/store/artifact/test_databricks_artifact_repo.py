@@ -1686,9 +1686,7 @@ def test_download_trace_attachment(databricks_artifact_repo_trace, cred_type):
             f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.get_credentials",
             return_value=([cred_info], None),
         ) as mock_get_creds,
-        mock.patch(
-            "requests.Session.request", return_value=MockResponse(b"\x89PNG fake image")
-        ),
+        mock.patch("requests.Session.request", return_value=MockResponse(b"\x89PNG fake image")),
     ):
         result = databricks_artifact_repo_trace.download_trace_attachment(attachment_id)
     assert result == b"\x89PNG fake image"
