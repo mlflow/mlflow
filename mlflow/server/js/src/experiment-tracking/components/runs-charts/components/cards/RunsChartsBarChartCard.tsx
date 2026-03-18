@@ -30,12 +30,16 @@ export const barChartCardDefaultMargin = {
   pad: 0,
 };
 
+const MAX_TITLE_METRICS = 3;
+
 const getBarChartTitle = (config: RunsChartsBarCardConfig): string => {
   const metricKeys = config.selectedMetricKeys ?? [config.metricKey];
   if (metricKeys.length <= 1) {
     return customMetricBehaviorDefs[config.metricKey]?.displayName ?? config.displayName ?? config.metricKey;
   }
-  return metricKeys.join(' vs ');
+  const displayed = metricKeys.slice(0, MAX_TITLE_METRICS).join(' vs ');
+  const remaining = metricKeys.length - MAX_TITLE_METRICS;
+  return remaining > 0 ? `${displayed} + ${remaining} more` : displayed;
 };
 
 export const RunsChartsBarChartCard = ({

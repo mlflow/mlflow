@@ -34,9 +34,10 @@ type BarTraceData = Partial<PlotData> & {
 };
 
 /**
- * Helper to build a BarTraceData object. We use this instead of a direct
- * `as BarTraceData` cast because plotly's type definitions don't fully
- * match what the runtime API accepts (e.g. `textposition` as an array).
+ * Helper to build a BarTraceData object. The double cast (`as unknown as`)
+ * is intentional: plotly's type definitions don't fully match what the
+ * runtime API accepts (e.g. `textposition` as an array), so we bypass
+ * strict assignability checks here.
  */
 const barTrace = (trace: Record<string, unknown>): BarTraceData => trace as unknown as BarTraceData;
 
@@ -299,7 +300,9 @@ export const RunsMetricsBarPlot = React.memo(
 
     const hoverCallback = useCallback(
       ({ points, event }) => {
-        const metricEntity = points[0].data?.metrics[points[0].pointIndex];
+        // In multi-metric mode, omit metricEntity so the tooltip header
+        // doesn't show a single metric name — all values are shown in the body.
+        const metricEntity = isMultiMetric ? undefined : points[0].data?.metrics[points[0].pointIndex];
         setHoveredPointIndex(points[0]?.pointIndex ?? -1);
 
         const hoverData: RunsMetricsBarPlotHoverData = {
@@ -315,7 +318,7 @@ export const RunsMetricsBarPlot = React.memo(
           onHover?.(runUuid, event, hoverData);
         }
       },
-      [onHover, setHoveredPointIndex],
+      [onHover, setHoveredPointIndex, isMultiMetric],
     );
 
     const unhoverCallback = useCallback(() => {
