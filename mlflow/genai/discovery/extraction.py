@@ -243,7 +243,7 @@ def _parse_assessment_value(value) -> tuple[bool, list[str]]:
     with "passed" and "categories" keys.
     """
     if isinstance(value, dict):
-        passed = str(value.get("passed", "true")).lower().startswith("t")
+        passed = str(value.get("passed", "true")).lower() == "true"
         cats = [c.strip() for c in value.get("categories", "").split(",") if c.strip()]
         return passed, cats
     return bool(value), []
