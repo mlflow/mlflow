@@ -252,10 +252,13 @@ def test_session_rescored_when_new_trace_added_after_checkpoint(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-    mock_evaluate.return_value = {
-        "tr-001": [make_assessment("assess-1", "ConversationCompleteness/v1")],
-        "tr-002": [make_assessment("assess-2", "ConversationCompleteness/v1")],
-    }
+    mock_evaluate.return_value = (
+        {
+            "tr-001": [make_assessment("assess-1", "ConversationCompleteness/v1")],
+            "tr-002": [make_assessment("assess-2", "ConversationCompleteness/v1")],
+        },
+        {},
+    )
     processor.process_sessions()
 
     call_kwargs = mock_evaluate.call_args[1]
@@ -286,7 +289,7 @@ def test_process_sessions_samples_and_scores(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-    mock_evaluate.return_value = {"tr-001": [MagicMock()]}
+    mock_evaluate.return_value = ({"tr-001": [MagicMock()]}, {})
     processor.process_sessions()
 
     call_kwargs = mock_evaluate.call_args[1]
@@ -386,10 +389,13 @@ def test_score_session_logs_assessments_individually(
     processor = make_processor(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
-    mock_evaluate.return_value = {
-        "tr-001": [make_assessment("assess-1", "ConversationCompleteness/v1")],
-        "tr-002": [make_assessment("assess-2", "ConversationCompleteness/v1")],
-    }
+    mock_evaluate.return_value = (
+        {
+            "tr-001": [make_assessment("assess-1", "ConversationCompleteness/v1")],
+            "tr-002": [make_assessment("assess-2", "ConversationCompleteness/v1")],
+        },
+        {},
+    )
     # First call fails (for tr-001), second call succeeds (for tr-002)
     mock_log_assessments.side_effect = [Exception("Failed to log"), None]
 
@@ -483,7 +489,7 @@ def test_score_session_adds_session_metadata_to_assessments(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
     feedback = make_assessment("new-id", "ConversationCompleteness/v1")
-    mock_evaluate.return_value = {"tr-001": [feedback]}
+    mock_evaluate.return_value = ({"tr-001": [feedback]}, {})
     processor.process_sessions()
 
     logged_feedbacks = mock_log_assessments.call_args[1]["assessments"]
@@ -596,7 +602,7 @@ def test_clean_up_old_assessments_removes_duplicates(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
     new_assessment = make_assessment("new-id", "ConversationCompleteness/v1")
-    mock_evaluate.return_value = {"tr-001": [new_assessment]}
+    mock_evaluate.return_value = ({"tr-001": [new_assessment]}, {})
     processor.process_sessions()
 
     mock_tracking_store.delete_assessment.assert_called_once_with(
@@ -631,7 +637,7 @@ def test_clean_up_old_assessments_preserves_different_sessions(
         mock_trace_loader, mock_checkpoint_manager, sampler_with_scorers, mock_tracking_store
     )
     new_assessment = make_assessment("new-id", "ConversationCompleteness/v1")
-    mock_evaluate.return_value = {"tr-001": [new_assessment]}
+    mock_evaluate.return_value = ({"tr-001": [new_assessment]}, {})
     processor.process_sessions()
 
     mock_tracking_store.delete_assessment.assert_not_called()
