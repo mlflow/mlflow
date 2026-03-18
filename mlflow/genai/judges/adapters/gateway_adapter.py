@@ -123,7 +123,13 @@ class GatewayAdapter(BaseJudgeAdapter):
         from mlflow.metrics.genai.model_utils import _parse_model_uri
 
         model_provider, _ = _parse_model_uri(model_uri)
-        return model_provider in _NATIVE_PROVIDERS
+        if model_provider not in _NATIVE_PROVIDERS:
+            return False
+        # "endpoints" (Databricks model serving) only supports string prompts
+        # via score_model_on_payload; _get_provider_instance doesn't handle it.
+        if isinstance(prompt, list) and model_provider == "endpoints":
+            return False
+        return True
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         if input_params.trace is not None:
