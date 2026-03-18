@@ -475,7 +475,17 @@ export const normalizeNewSpanData = (
     getSpanAttribute(span.attributes, 'mlflow.chat.messages') as string,
   );
   const messageFormat = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.message.format') as string);
-  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, inputs, outputs, messageFormat, children);
+
+  // Try to get input/output messages from GenAI semantic convention attributes
+  // These may be JSON-encoded strings when the OpenTelemetry SDK doesn't support structured values
+  const genAiInputMessages = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'gen_ai.input.messages') as string);
+  const genAiOutputMessages = tryDeserializeAttribute(getSpanAttribute(span.attributes, 'gen_ai.output.messages') as string);
+
+  // Use GenAI semantic convention messages as fallback if mlflow.spanInputs/Outputs are not available
+  const chatInputs = inputs ?? genAiInputMessages;
+  const chatOutputs = outputs ?? genAiOutputMessages;
+
+  const chatMessages = getChatMessagesFromSpan(messagesAttributeValue, chatInputs, chatOutputs, messageFormat, children);
   const chatTools = getChatToolsFromSpan(
     tryDeserializeAttribute(getSpanAttribute(span.attributes, 'mlflow.chat.tools') as string),
     inputs,
