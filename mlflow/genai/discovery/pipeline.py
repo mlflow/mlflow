@@ -224,7 +224,7 @@ def _build_analyses(
     """
     session_groups = group_traces_by_session(triage_traces)
     analyses: list[_ConversationAnalysis] = []
-    for session_id, session_traces in session_groups.items():
+    for _, session_traces in session_groups.items():
         session_failing = [
             trace for trace in session_traces if trace.info.trace_id in rationale_map
         ]
@@ -542,8 +542,8 @@ def discover_issues(
     if use_conversation:
         session_groups = group_traces_by_session(triage_traces)
         test_session = next(
-            (traces for traces in session_groups.values() if len(traces) > 1),
-            next(iter(session_groups.values())),
+            (traces for traces in session_groups.values() if get_session_id(traces[0])),
+            None,
         )
     verify_scorer(
         scorers[0], test_session[0] if test_session else triage_traces[0], session=test_session

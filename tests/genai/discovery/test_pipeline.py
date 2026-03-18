@@ -1075,3 +1075,29 @@ def test_discover_issues_filters_invalid_categories(make_trace):
     mock_summarize.assert_called_once()
     call_kwargs = mock_summarize.call_args.kwargs
     assert call_kwargs["categories"] == ["hallucination", "tool_error"]
+
+
+def test_discover_issues_with_mixed_session_traces(make_trace):
+    traces = [
+        make_trace(session_id="session-1"),
+        make_trace(session_id="session-1"),
+        make_trace(session_id=None),
+        make_trace(session_id=None),
+    ]
+
+    with (
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=([], {}),
+        ),
+    ):
+        result = discover_issues(
+            traces=traces,
+        )
+
+    assert result is not None
+    assert result.total_traces_analyzed == 4
