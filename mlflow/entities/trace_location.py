@@ -147,7 +147,7 @@ class UnityCatalog(TraceLocationBase):
 
     catalog_name: str
     schema_name: str
-    table_prefix: str
+    table_prefix: str = ""
 
     # These are fully qualified table names (catalog.schema.table) set by the backend.
     _otel_spans_table_name: str | None = None
@@ -209,7 +209,7 @@ class UnityCatalog(TraceLocationBase):
         location = cls(
             catalog_name=d["catalog_name"],
             schema_name=d["schema_name"],
-            table_prefix=d["table_prefix"],
+            table_prefix=d.get("table_prefix", ""),
         )
         if otel_spans_table_name := d.get("otel_spans_table_name"):
             location._otel_spans_table_name = otel_spans_table_name

@@ -89,6 +89,104 @@ def test_set_experiment_with_table_prefix_env_var_points_to_trace_location_param
     mlflow.tracing.reset()
 
 
+def test_fills_default_prefix_from_experiment_id(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "warehouse-1")
+    resolved = UnityCatalog("catalog", "schema", table_prefix="123")
+
+    with (
+        mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
+        mock.patch("mlflow.tracing.client.TracingClient") as tc_cls,
+    ):
+        tc = tc_cls.return_value
+        tc._create_or_get_trace_location.return_value = resolved
+
+        result = _resolve_experiment_to_trace_location(
+            experiment=_experiment(),  # experiment_id="123"
+            trace_location=UnityCatalog("catalog", "schema", table_prefix="123"),
+        )
+
+        assert result is resolved
+        call_args = tc._create_or_get_trace_location.call_args
+        passed_location = call_args[0][0]
+        assert passed_location.table_prefix == "123"
+        assert passed_location.catalog_name == "catalog"
+        assert passed_location.schema_name == "schema"
+        tc._link_trace_location.assert_called_once_with(
+            experiment_id="123",
+            location=resolved,
+        )
+
+
+def test_empty_prefix_noop_when_existing_location_matches():
+    experiment = _experiment(
+        tags={
+            MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH: "catalog.schema.123",
+            MLFLOW_EXPERIMENT_DATABRICKS_TRACE_SPAN_STORAGE_TABLE: (
+                "catalog.schema.123_otel_spans"
+            ),
+            MLFLOW_EXPERIMENT_DATABRICKS_TRACE_LOG_STORAGE_TABLE: ("catalog.schema.123_otel_logs"),
+            MLFLOW_EXPERIMENT_DATABRICKS_TRACE_ANNOTATIONS_TABLE: (
+                "catalog.schema.123_annotations"
+            ),
+        }
+    )
+
+    with (
+        mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
+    ):
+        # Simulate what set_experiment does: fill in prefix before calling resolve
+        trace_location = UnityCatalog("catalog", "schema", table_prefix="123")
+        result = _resolve_experiment_to_trace_location(
+            experiment=experiment,
+            trace_location=trace_location,
+        )
+        assert result._otel_spans_table_name == "catalog.schema.123_otel_spans"
+
+
+def test_empty_prefix_errors_when_existing_location_differs():
+    experiment = _experiment(
+        tags={
+            MLFLOW_EXPERIMENT_DATABRICKS_TRACE_DESTINATION_PATH: "catalog.schema.other_prefix",
+        }
+    )
+
+    with (
+        mock.patch("mlflow.tracking.fluent._resolve_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.fluent.is_databricks_uri", return_value=True),
+    ):
+        # Simulate what set_experiment does: fill in experiment ID as prefix
+        trace_location = UnityCatalog("catalog", "schema", table_prefix="123")
+        with pytest.raises(MlflowException, match="already linked to a different"):
+            _resolve_experiment_to_trace_location(
+                experiment=experiment,
+                trace_location=trace_location,
+            )
+
+
+def test_original_trace_location_not_mutated(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "warehouse-1")
+    original = UnityCatalog("catalog", "schema")  # no prefix
+    resolved = UnityCatalog("catalog", "schema", table_prefix="123")
+
+    with (
+        mock.patch("mlflow.tracking.fluent.TrackingServiceClient") as mock_client_cls,
+        mock.patch(
+            "mlflow.tracking.fluent._resolve_experiment_to_trace_location",
+            return_value=resolved,
+        ),
+        mock.patch("mlflow.tracking.fluent._sync_trace_destination_and_provider"),
+    ):
+        client = mock_client_cls.return_value
+        client.get_experiment_by_name.return_value = _experiment()
+
+        mlflow.set_experiment("test-experiment", trace_location=original)
+
+        # Original object should still have empty prefix
+        assert original.table_prefix == ""
+
+
 def test_creates_and_links_when_no_existing_location(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "warehouse-1")
     requested = UnityCatalog("catalog", "schema", table_prefix="prefix")
