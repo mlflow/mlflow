@@ -36,8 +36,8 @@ class Skill:
     name: str
     description: str
     path: Path | None
+    body: str
     metadata: dict[str, str] = field(default_factory=dict)
-    body: str = ""
     files: dict[str, str] = field(default_factory=dict)
 
 

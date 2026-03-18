@@ -1,13 +1,9 @@
-from __future__ import annotations
-
 from pathlib import PurePosixPath
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.genai.skills import SkillSet
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
-
-if TYPE_CHECKING:
-    from mlflow.genai.skills import SkillSet
 
 
 class ReadSkillFileTool(JudgeTool):
