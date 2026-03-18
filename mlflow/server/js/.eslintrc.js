@@ -1,6 +1,7 @@
 const { createConfig, OverrideFiles } = require('@databricks/config-eslint');
 
 module.exports = createConfig({})({
+  extends: ['plugin:@mlflow/recommended'],
   rules: {
     // BEGIN-ESLINT-MIGRATION (FEINF-1337)
     // '@databricks/no-hardcoded-colors': 'off',
@@ -26,6 +27,8 @@ module.exports = createConfig({})({
     // Apollo client separate from workspace console and thus doesn't need a workspace-scoped provider
     // '@databricks/no-singleton-apollo-client': 'off',
     // '@databricks/no-apollo-client-provider': 'off',
+    // TODO: Migrate to AlertUtils.log
+    'no-console': 'warn',
   },
   overrides: [
     {
@@ -48,5 +51,12 @@ module.exports = createConfig({})({
         // END-ESLINT-MIGRATION (FEINF-1337)
       },
     },
+    {
+      files: OverrideFiles.TEST,
+      rules: {
+        // allow absolute AJAX URLs in tests as they don't impact prod
+        '@mlflow/no-absolute-ajax-urls': 'off',
+      }
+    }
   ],
 });

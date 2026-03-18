@@ -189,6 +189,7 @@
   "resolutions": {
     "@floating-ui/dom@^0.5.3": "patch:@floating-ui/dom@npm%3A0.5.4#yarn/patches/@floating-ui-dom-0.5.4.diff",
     "@types/react": "^17.0.50",
+    "@types/node": "22.18.8",
     "@emotion/react": "11.11.0",
     "@types/react-plotly.js/@types/plotly.js": "^1.54.6",
     "babel-jest": "^30.2.0",
