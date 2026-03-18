@@ -1,10 +1,11 @@
 import { useForm } from 'react-hook-form';
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useCreateEndpointMutation } from './useCreateEndpointMutation';
 import { useCreateSecret } from './useCreateSecret';
 import { useCreateModelDefinitionMutation } from './useCreateModelDefinitionMutation';
 import { useModelsQuery } from './useModelsQuery';
 import { useEndpointsQuery } from './useEndpointsQuery';
+import { useProviderConfigQuery } from './useProviderConfigQuery';
 import type { ProviderModel, Endpoint } from '../types';
 import type { SecretMode } from '../components/model-configuration/types';
 import { isValidEndpointName } from '../utils/gatewayUtils';
@@ -201,8 +202,13 @@ export function useCreateEndpointForm({
     }
   };
 
-  const secretFieldEntries = Object.entries(newSecretFields || {});
-  const hasSecretFieldValues = secretFieldEntries.length === 0 || secretFieldEntries.some(([, v]) => !!v);
+  const { data: providerConfig } = useProviderConfigQuery({ provider: provider || '' });
+  const selectedAuthMode = useMemo(
+    () => providerConfig?.auth_modes?.find((m) => m.mode === newSecretAuthMode),
+    [providerConfig, newSecretAuthMode],
+  );
+  const requiresSecretFields = selectedAuthMode?.secret_fields?.some((f) => f.required) ?? true;
+  const hasSecretFieldValues = !requiresSecretFields || Object.values(newSecretFields || {}).some((v) => !!v);
   const isSecretConfigured =
     secretMode === 'existing' ? !!existingSecretId : !!newSecretName && !!newSecretAuthMode && hasSecretFieldValues;
   const isFormComplete = !!provider && !!modelName && isSecretConfigured;
