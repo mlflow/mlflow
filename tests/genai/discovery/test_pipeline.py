@@ -1099,7 +1099,7 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=_TriageResult([], {}, {}),
         ),
     ):
         result = discover_issues(
