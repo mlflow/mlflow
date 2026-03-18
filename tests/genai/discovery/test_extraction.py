@@ -154,7 +154,7 @@ def test_extract_failing_traces(make_trace):
     _add_feedback(traces[1], "satisfaction", False, "bad response")
     _add_feedback(traces[2], "satisfaction", False, "incomplete")
 
-    failing, rationales = extract_failing_traces(_refetch(traces), "satisfaction")
+    failing, rationales, _ = extract_failing_traces(_refetch(traces), "satisfaction")
 
     assert len(failing) == 2
     assert failing[0].info.trace_id == traces[1].info.trace_id
@@ -172,7 +172,7 @@ def test_extract_failing_traces_with_list_of_scorer_names(make_trace):
     _add_feedback(traces[2], "satisfaction", True, "good")
     _add_feedback(traces[2], "quality", False, "poor quality")
 
-    failing, rationales = extract_failing_traces(_refetch(traces), ["satisfaction", "quality"])
+    failing, rationales, _ = extract_failing_traces(_refetch(traces), ["satisfaction", "quality"])
 
     assert len(failing) == 2
     assert failing[0].info.trace_id == traces[1].info.trace_id
@@ -188,7 +188,7 @@ def test_extract_failing_traces_multiple_scorers_fail_same_row(make_trace):
     _add_feedback(traces[1], "scorer_a", True, "ok")
     _add_feedback(traces[1], "scorer_b", True, "ok")
 
-    failing, rationales = extract_failing_traces(_refetch(traces), ["scorer_a", "scorer_b"])
+    failing, rationales, _ = extract_failing_traces(_refetch(traces), ["scorer_a", "scorer_b"])
 
     assert len(failing) == 1
     assert failing[0].info.trace_id == traces[0].info.trace_id
@@ -197,7 +197,7 @@ def test_extract_failing_traces_multiple_scorers_fail_same_row(make_trace):
 
 
 def test_extract_failing_traces_empty_list():
-    failing, rationales = extract_failing_traces([], "satisfaction")
+    failing, rationales, _ = extract_failing_traces([], "satisfaction")
     assert failing == []
     assert rationales == {}
 
@@ -206,7 +206,7 @@ def test_extract_failing_traces_no_matching_scorer(make_trace):
     traces = [make_trace()]
     _add_feedback(traces[0], "other_scorer", False, "bad")
 
-    failing, rationales = extract_failing_traces(_refetch(traces), "satisfaction")
+    failing, rationales, _ = extract_failing_traces(_refetch(traces), "satisfaction")
     assert failing == []
 
 
@@ -214,7 +214,7 @@ def test_extract_failing_traces_no_failures(make_trace):
     traces = [make_trace()]
     _add_feedback(traces[0], "satisfaction", True, "good")
 
-    failing, rationales = extract_failing_traces(_refetch(traces), "satisfaction")
+    failing, rationales, _ = extract_failing_traces(_refetch(traces), "satisfaction")
     assert failing == []
     assert rationales == {}
 

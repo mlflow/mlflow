@@ -78,7 +78,7 @@ def test_discover_issues_all_traces_pass(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=([], {}, {}),
         ) as mock_extract,
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
@@ -122,7 +122,7 @@ def test_discover_issues_full_pipeline(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
+            return_value=(failing, rationale_map, {}),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -179,7 +179,7 @@ def test_discover_issues_low_severity_issues_filtered(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
+            return_value=(failing, rationale_map, {}),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -245,7 +245,7 @@ def test_discover_issues_custom_satisfaction_scorer(make_trace):
         ) as mock_eval,
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=([], {}, {}),
         ),
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
@@ -275,7 +275,7 @@ def test_discover_issues_additional_scorers(make_trace):
         ) as mock_eval,
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=([], {}, {}),
         ),
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
@@ -351,7 +351,7 @@ def test_discover_issues_filters_non_issues(make_trace, issue_name):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
+            return_value=(failing, rationale_map, {}),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -854,7 +854,7 @@ def test_discover_issues_with_custom_run_id(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=([], {}, {}),
         ),
     ):
         result = discover_issues(traces=traces, run_id=custom_run_id)
@@ -870,7 +870,7 @@ def test_discover_issues_tags_run_with_issue_detection_marker(make_trace):
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=([], {}, {}),
         ),
     ):
         result = discover_issues(traces=traces, scorers=[scorer])
@@ -935,7 +935,7 @@ def test_discover_issues_returns_total_cost_usd_field(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
+            return_value=(failing, rationale_map, {}),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -1009,7 +1009,7 @@ def test_discover_issues_returns_cost_when_all_pass(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=([], {}, {}),
         ),
     ):
         result = discover_issues(traces=traces)
@@ -1049,7 +1049,7 @@ def test_discover_issues_filters_invalid_categories(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
+            return_value=(failing, rationale_map, {}),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",

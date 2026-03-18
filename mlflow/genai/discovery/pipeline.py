@@ -62,27 +62,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETE
 _logger = logging.getLogger(__name__)
 
 
-def _extract_category_tags(rationale: str, known_categories: list[str] | None = None) -> list[str]:
-    """
-    Extract categories from triage rationale.
-
-    Looks for a line starting with "CATEGORIES:" and parses comma-separated values.
-    Filters by known_categories if provided (case-insensitive match).
-    """
-    for line in rationale.split("\n"):
-        stripped = line.strip()
-        if stripped.upper().startswith("CATEGORIES:"):
-            cats_str = stripped[len("CATEGORIES:") :].strip()
-            tags = [c.strip() for c in cats_str.split(",") if c.strip()]
-            if not tags:
-                return []
-            if known_categories:
-                known_lower = {c.lower() for c in known_categories}
-                return list(dict.fromkeys(t for t in tags if t.lower() in known_lower))
-            return list(dict.fromkeys(tags))
-    return []
-
-
 def _is_non_issue(issue: _IdentifiedIssue) -> bool:
     return issue.severity == "not_an_issue" or NO_ISSUE_KEYWORD.lower() in issue.name.lower()
 
@@ -232,6 +211,7 @@ def _annotate_issue_traces(
 def _build_analyses(
     triage_traces: list[Trace],
     rationale_map: dict[str, str],
+    categories_map: dict[str, list[str]],
     scorer_name: str,
     categories: list[str] | None = None,
 ) -> tuple[list[_ConversationAnalysis], dict[str, list[Trace]]]:
@@ -244,12 +224,15 @@ def _build_analyses(
     Args:
         triage_traces: All traces from the triage phase (passing and failing).
         rationale_map: Mapping of trace_id to triage rationale for failing traces.
+        categories_map: Mapping of trace_id to category tags from structured output.
         scorer_name: Name of the triage scorer, used to look up human feedback.
+        categories: Known valid categories to filter against.
 
     Returns:
         A tuple of (analyses, session_groups) where session_groups maps
         session_id to the list of traces in that session.
     """
+    known_lower = {c.lower() for c in categories} if categories else None
     session_groups = group_traces_by_session(triage_traces)
     analyses: list[_ConversationAnalysis] = []
     for _, session_traces in session_groups.items():
@@ -262,12 +245,17 @@ def _build_analyses(
         if not combined_rationale:
             continue
         exec_path = extract_execution_paths_for_session(session_failing)
+        session_cats = []
+        for trace in session_failing:
+            for cat in categories_map.get(trace.info.trace_id, []):
+                if not known_lower or cat.lower() in known_lower:
+                    session_cats.append(cat)
         analyses.append(
             _ConversationAnalysis(
                 full_rationale=combined_rationale,
                 affected_trace_ids=[trace.info.trace_id for trace in session_failing],
                 execution_path=exec_path,
-                categories=_extract_category_tags(combined_rationale, categories),
+                categories=list(dict.fromkeys(session_cats)),
             )
         )
     _logger.debug("Built %d analyses from triage rationales", len(analyses))
@@ -483,7 +471,7 @@ def build_issue_discovery_scorer(
         name=DEFAULT_SCORER_NAME,
         instructions=instructions,
         model=model,
-        feedback_value_type=bool,
+        feedback_value_type=dict[str, str],
     )
 
 
@@ -616,7 +604,9 @@ def discover_issues(
         _logger.debug("Failed to fetch scored traces", exc_info=True)
 
     scorer_names = [s.name for s in scorers]
-    failing_traces, rationale_map = extract_failing_traces(scored_traces, scorer_names)
+    failing_traces, rationale_map, categories_map = extract_failing_traces(
+        scored_traces, scorer_names
+    )
 
     _logger.info(
         "Triage complete: %d/%d traces unsatisfactory",
@@ -637,6 +627,7 @@ def discover_issues(
     analyses, session_groups = _build_analyses(
         triage_traces,
         rationale_map,
+        categories_map,
         scorer_name,
         categories=categories,
     )

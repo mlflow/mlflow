@@ -94,8 +94,6 @@ that require specific fulfillment
 if a system prompt defines what the assistant can/cannot do, evaluate only against that scope\
 {extra_donts}
 
-Return True if the user's goals were achieved efficiently, False otherwise.
-
 In your rationale, explain:
 - What the user wanted to achieve (list all goals)
 - Whether they were achieved efficiently
@@ -133,13 +131,10 @@ application actually perform that task?
 limitations, do NOT mark it as failing for things outside its defined scope. \
 Evaluate only against what the assistant is designed to do.
 
-When in doubt, return True. Only return False for clear, unambiguous failures — \
-not stylistic preferences, minor omissions, or responses that are correct but \
-could be improved. The bar is whether the output *fails* the request, not \
-whether it is *perfect*.
-
-Return True if the output correctly fulfills the input request.
-Return False if there are significant quality problems.
+When in doubt, consider it passed. Only mark as failed for clear, unambiguous \
+failures — not stylistic preferences, minor omissions, or responses that are \
+correct but could be improved. The bar is whether the output *fails* the request, \
+not whether it is *perfect*.
 
 In your rationale, start with a concise label in square brackets (5-15 words), e.g. \
 [null response] or [incorrect output format] or [no issues found]. \
@@ -153,19 +148,21 @@ CATEGORIES_INSTRUCTIONS = """\
 The following issue categories are the ONLY valid categories for this evaluation:
 {categories}
 
-If the assistant's behavior relates to any of these categories, end your rationale \
-with a line that starts with "CATEGORIES:" followed by a comma-separated list of \
-applicable categories. Example: "CATEGORIES: correctness, execution"
+For the "passed" key in your result, return "true" if the user's goals were achieved \
+efficiently, "false" otherwise.
+
+For the "categories" key, return a comma-separated list of applicable categories from \
+the list above. If no categories apply, return an empty string. \
+Example: "correctness, execution"
 """
 
 
 def _format_category_list(categories: list[str]) -> str:
-    """Format category names with descriptions as bullet list."""
-    lines = []
+    parts = []
     for cat in categories:
         desc = DEFAULT_CATEGORY_DESCRIPTIONS.get(cat)
-        lines.append(f"- {cat}: {desc}" if desc else f"- {cat}")
-    return "\n".join(lines)
+        parts.append(f"{cat} ({desc})" if desc else cat)
+    return ", ".join(parts)
 
 
 def build_satisfaction_instructions(*, use_conversation: bool, categories: list[str]) -> str:
@@ -274,13 +271,9 @@ CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST = (
 
 
 def build_cluster_summary_prompt(categories: list[str]) -> str:
-    """Build the cluster summary system prompt with category filtering."""
-    parts = []
-    for cat in categories:
-        desc = DEFAULT_CATEGORY_DESCRIPTIONS.get(cat)
-        parts.append(f"{cat} ({desc})" if desc else cat)
-    cat_list = ", ".join(parts)
-    cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST.format(categories=cat_list)
+    cat_instruction = CLUSTER_SUMMARY_CATEGORIES_INSTRUCTION_WITH_LIST.format(
+        categories=_format_category_list(categories)
+    )
     return CLUSTER_SUMMARY_SYSTEM_PROMPT_BASE + cat_instruction
 
 

@@ -239,7 +239,7 @@ def extract_failure_labels(
 def extract_failing_traces(
     scored_traces: list[Trace],
     scorer_names: str | list[str],
-) -> tuple[list[Trace], dict[str, str]]:
+) -> tuple[list[Trace], dict[str, str], dict[str, list[str]]]:
     """
     Extract failing traces and their rationales from scored trace objects.
 
@@ -256,31 +256,49 @@ def extract_failing_traces(
         scorer_names: One or more scorer names to check for failures.
 
     Returns:
-        A tuple of (failing_traces, rationale_map) where rationale_map
-        maps trace_id to the combined rationale string.
+        A tuple of (failing_traces, rationale_map, categories_map) where
+        rationale_map maps trace_id to the combined rationale string and
+        categories_map maps trace_id to the list of category tags.
     """
     if isinstance(scorer_names, str):
         scorer_names = [scorer_names]
 
     failing: list[Trace] = []
-    rationales: dict[str, str] = {}
+    rationale_map: dict[str, str] = {}
+    categories_map: dict[str, list[str]] = {}
 
     for trace in scored_traces:
-        row_failing: list[tuple[str, str]] = []
+        row_rationales: list[str] = []
+        row_categories: list[str] = []
+        is_failing = False
         for scorer_name in scorer_names:
             assessments = trace.search_assessments(scorer_name, type="feedback")
             assessment = assessments[-1] if assessments else None
             if assessment is None:
                 continue
-            if assessment.value is not None and not bool(assessment.value):
-                row_failing.append((scorer_name, assessment.rationale or ""))
+            if assessment.value is None:
+                continue
+            value = assessment.value
+            # Support dict[str, str] structured output (passed/categories keys)
+            if isinstance(value, dict):
+                passed = str(value.get("passed", "true")).lower().startswith("t")
+                for cat in value.get("categories", "").split(","):
+                    cat = cat.strip()
+                    if cat:
+                        row_categories.append(cat)
+            else:
+                passed = bool(value)
+            if not passed:
+                is_failing = True
+                if assessment.rationale:
+                    row_rationales.append(assessment.rationale)
 
-        if not row_failing:
+        if not is_failing:
             continue
 
+        trace_id = trace.info.trace_id
         failing.append(trace)
-        rationales[trace.info.trace_id] = "; ".join(
-            rationale for _, rationale in row_failing if rationale
-        )
+        rationale_map[trace_id] = "; ".join(row_rationales)
+        categories_map[trace_id] = list(dict.fromkeys(row_categories))
 
-    return failing, rationales
+    return failing, rationale_map, categories_map
