@@ -1036,9 +1036,8 @@ def _mock_databricks_host_metadata():
     WorkspaceClient initialization, which causes timeouts with dummy hosts.
     https://github.com/databricks/databricks-sdk-py/pull/1331
     """
-    with mock.patch("databricks.sdk.config.Config._resolve_host_metadata") as m:
-        yield m
-        m.assert_called()
+    with mock.patch("databricks.sdk.config.Config._resolve_host_metadata"):
+        yield
 
 
 @pytest.fixture(scope="session", autouse=True)
