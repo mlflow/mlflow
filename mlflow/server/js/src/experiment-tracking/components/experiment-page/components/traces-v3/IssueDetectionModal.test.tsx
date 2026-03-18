@@ -135,8 +135,17 @@ jest.mock('./IssueDetectionModelSelection', () => {
 });
 
 jest.mock('../../../SelectTracesModal', () => ({
-  SelectTracesModal: ({ onClose, onSuccess }: { onClose: () => void; onSuccess: (traceIds: string[]) => void }) => (
+  SelectTracesModal: ({
+    onClose,
+    onSuccess,
+    defaultGroupBySession,
+  }: {
+    onClose: () => void;
+    onSuccess: (traceIds: string[]) => void;
+    defaultGroupBySession?: boolean;
+  }) => (
     <div data-testid="select-traces-modal">
+      <div data-testid="default-group-by-session">{String(defaultGroupBySession)}</div>
       <button data-testid="select-traces-cancel" onClick={onClose}>
         Cancel
       </button>
@@ -404,5 +413,35 @@ describe('IssueDetectionModal', () => {
       expect(onSubmitSuccess).toHaveBeenCalledWith('run-456');
       expect(onClose).toHaveBeenCalled();
     });
+  });
+
+  test('passes defaultGroupBySession prop to SelectTracesModal when set to true', async () => {
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} defaultGroupBySession />,
+    );
+
+    await navigateToStep2();
+
+    // Open the select traces modal
+    const selectTracesButton = screen.getByTestId('select-traces');
+    await userEvent.click(selectTracesButton);
+
+    // Verify the SelectTracesModal receives defaultGroupBySession=true
+    expect(screen.getByTestId('default-group-by-session')).toHaveTextContent('true');
+  });
+
+  test('passes defaultGroupBySession prop to SelectTracesModal when set to false', async () => {
+    renderWithDesignSystem(
+      <IssueDetectionModal {...defaultProps} initialSelectedTraceIds={['trace-1']} defaultGroupBySession={false} />,
+    );
+
+    await navigateToStep2();
+
+    // Open the select traces modal
+    const selectTracesButton = screen.getByTestId('select-traces');
+    await userEvent.click(selectTracesButton);
+
+    // Verify the SelectTracesModal receives defaultGroupBySession=false
+    expect(screen.getByTestId('default-group-by-session')).toHaveTextContent('false');
   });
 });

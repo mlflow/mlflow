@@ -55,7 +55,10 @@ const SelectTracesModalImpl = ({
   const timeRange = useMonitoringFiltersTimeRange();
   const [monitoringFilters] = useMonitoringFilters();
 
-  const effectiveColumnSelector = customDefaultSelectedColumns ?? getDefaultSelectedColumns(defaultGroupBySession);
+  const effectiveColumnSelector = useMemo(
+    () => customDefaultSelectedColumns ?? getDefaultSelectedColumns(defaultGroupBySession),
+    [customDefaultSelectedColumns, defaultGroupBySession],
+  );
 
   // Provide isolated context for useActiveEvaluation to prevent the trace drawer
   // from rendering inside this modal. Instead, clicking a trace opens it in a new tab.

@@ -526,7 +526,7 @@ const TracesV3LogsImpl = React.memo(
                 .map(([traceId]) => traceId)}
               availableTraceIds={traceInfos?.map((trace) => trace.trace_id) ?? []}
               onSubmitSuccess={showIssueDetectionNotification}
-              defaultGroupBySession={forceGroupBySession}
+              defaultGroupBySession={forceGroupBySession || isGroupedBySession}
             />
           )}
           {notificationContextHolder}
