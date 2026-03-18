@@ -30,15 +30,8 @@ from mlflow.genai.judges.adapters.litellm_adapter import (
     _is_litellm_available,
 )
 from mlflow.genai.scorers.base import Scorer
-from mlflow.metrics.genai.model_utils import (
-    _get_provider_instance,
-    _parse_model_uri,
-    _send_request,
-    convert_mlflow_uri_to_litellm,
-)
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
-from mlflow.utils.providers import _fetch_model_catalog_from_api
 
 _logger = logging.getLogger(__name__)
 
@@ -153,6 +146,8 @@ def _call_llm_via_litellm(
     response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> Any:
+    from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
+
     use_format = response_format or ({"type": "json_object"} if json_mode else None)
     response = _invoke_litellm(
         litellm_model=convert_mlflow_uri_to_litellm(model),
@@ -184,6 +179,12 @@ def _call_llm_via_gateway(
     # the request, while this path sends them as-is. Not an issue for OpenAI
     # and Anthropic which both support structured outputs. Also missing:
     # no context window management and no per-request cost tracking.
+    from mlflow.metrics.genai.model_utils import (
+        _get_provider_instance,
+        _parse_model_uri,
+        _send_request,
+    )
+
     provider_name, model_name = _parse_model_uri(model)
     provider = _get_provider_instance(provider_name, model_name)
 
@@ -244,6 +245,8 @@ class _ModelCost:
 def _fetch_model_cost(model_name: str) -> _ModelCost | None:
     # The API does a substring match (e.g. "gpt-5" also returns
     # "ft:gpt-5-2025-09-15"), so we need to find the exact match.
+    from mlflow.utils.providers import _fetch_model_catalog_from_api
+
     for entry in _fetch_model_catalog_from_api(model=model_name):
         if entry.get("id") == model_name:
             return _ModelCost.from_dict(entry)
@@ -251,6 +254,8 @@ def _fetch_model_cost(model_name: str) -> _ModelCost | None:
 
 
 def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) -> float | None:
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
     _, model_name = _parse_model_uri(model_uri)
     if cost := _fetch_model_cost(model_name):
         return input_tokens * cost.input_cost_per_token + output_tokens * cost.output_cost_per_token
