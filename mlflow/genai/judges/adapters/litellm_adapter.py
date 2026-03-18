@@ -39,7 +39,10 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
 )
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+from mlflow.genai.utils.gateway_utils import (
+    MLFLOW_GATEWAY_CALLER_HEADER,
+    get_gateway_litellm_config,
+)
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracing.constant import AssessmentMetadataKey
 
@@ -260,7 +263,7 @@ def _invoke_litellm_and_handle_tools(
         config = get_gateway_litellm_config(model_name)
         api_base = config.api_base
         api_key = config.api_key
-        extra_headers = config.extra_headers
+        extra_headers = {**(config.extra_headers or {}), MLFLOW_GATEWAY_CALLER_HEADER: "judge"}
         model = config.model
     else:
         model = f"{provider}/{model_name}"

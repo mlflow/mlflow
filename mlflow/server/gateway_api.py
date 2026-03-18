@@ -129,6 +129,14 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
             success = True
             result = None
 
+            # Extract caller header from the Request object if present
+            caller = None
+            request = next((a for a in (*args, *kwargs.values()) if isinstance(a, Request)), None)
+            if request is not None:
+                from mlflow.genai.utils.gateway_utils import MLFLOW_GATEWAY_CALLER_HEADER
+
+                caller = request.headers.get(MLFLOW_GATEWAY_CALLER_HEADER)
+
             try:
                 result = await func(*args, **kwargs)
                 return result  # noqa: RET504
@@ -137,12 +145,15 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                 raise
             finally:
                 duration_ms = int((time.time() - start_time) * 1000)
+                params = {
+                    "is_streaming": isinstance(result, StreamingResponse),
+                    "invocation_type": invocation_type,
+                }
+                if caller:
+                    params["caller"] = caller
                 _record_event(
                     GatewayInvocationEvent,
-                    params={
-                        "is_streaming": isinstance(result, StreamingResponse),
-                        "invocation_type": invocation_type,
-                    },
+                    params=params,
                     success=success,
                     duration_ms=duration_ms,
                 )
