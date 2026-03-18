@@ -6597,6 +6597,10 @@
     "defaultMessage": "Columns",
     "description": "Run page > artifact view > logged table view > columns selector label"
   },
+  "fUB5d7": {
+    "defaultMessage": "Session ID",
+    "description": "Filter label for session ID"
+  },
   "fUwLyA": {
     "defaultMessage": "Sample judge output",
     "description": "Title for sample judge output panel"
