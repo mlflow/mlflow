@@ -263,7 +263,7 @@ def _invoke_litellm_and_handle_tools(
         api_key = config.api_key
         extra_headers = {
             **(config.extra_headers or {}),
-            MLFLOW_GATEWAY_CALLER_HEADER: GatewayCaller.JUDGE,
+            MLFLOW_GATEWAY_CALLER_HEADER: GatewayCaller.JUDGE.value,
         }
         model = config.model
     else:

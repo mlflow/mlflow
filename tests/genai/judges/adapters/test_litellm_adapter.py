@@ -10,6 +10,7 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
     _invoke_litellm,
@@ -363,7 +364,7 @@ def test_gateway_provider_integration():
     assert call_kwargs["model"] == "openai/my-endpoint"
     assert call_kwargs["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
     assert call_kwargs["api_key"] == "mlflow-gateway-auth"
-    assert call_kwargs["extra_headers"]["X-MLflow-Gateway-Caller"] == "judge"
+    assert call_kwargs["extra_headers"][MLFLOW_GATEWAY_CALLER_HEADER] == "judge"
 
 
 def test_gateway_provider_requires_http_tracking_uri():

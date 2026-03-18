@@ -32,6 +32,7 @@ from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.cli import start
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas import chat
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.judges import make_judge
@@ -2156,7 +2157,7 @@ async def test_gateway_invocation_telemetry(
             "stream": False,
         }
     )
-    mock_request.headers = {"X-MLflow-Gateway-Caller": "judge"}
+    mock_request.headers = {MLFLOW_GATEWAY_CALLER_HEADER: "judge"}
 
     with (
         patch("mlflow.server.gateway_api._get_store", return_value=store),

@@ -136,7 +136,7 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
             request = next((a for a in (*args, *kwargs.values()) if isinstance(a, Request)), None)
             if request is not None:
                 raw_caller = request.headers.get(MLFLOW_GATEWAY_CALLER_HEADER)
-                if raw_caller in GatewayCaller._value2member_map_:
+                if raw_caller in {e.value for e in GatewayCaller}:
                     caller = raw_caller
 
             try:
