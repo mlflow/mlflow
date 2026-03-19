@@ -478,7 +478,13 @@ def _normalize_provider(provider: str) -> str:
 
 
 def _iter_model_catalog_api(*, model: str | None = None) -> Iterator[dict[str, Any]]:
-    """Yield entries from the LiteLLM model catalog API with pagination."""
+    """Yield entries from the LiteLLM model catalog API with pagination.
+
+    Performance (page_size=500, measured 2026-03-18):
+        No filter          -> 6 pages, ~2600 records, ~8s
+        model=gpt-4o       -> 1 page,  ~80 records,   <1s
+    Always pass ``model`` when possible to avoid exhausting all pages.
+    """
     page = 1
     while True:
         params = {"page": page, "page_size": 500}
