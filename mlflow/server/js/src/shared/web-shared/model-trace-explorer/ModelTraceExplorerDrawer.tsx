@@ -23,7 +23,6 @@ export interface ModelTraceExplorerDrawerProps {
   isLoading?: boolean;
   experimentId?: string;
   traceInfo?: ModelTraceInfoV3;
-  width?: string | number;
 }
 
 export const ModelTraceExplorerDrawer = ({
@@ -37,11 +36,10 @@ export const ModelTraceExplorerDrawer = ({
   isLoading,
   experimentId,
   traceInfo,
-  width = '90vw',
 }: ModelTraceExplorerDrawerProps) => {
   const { theme } = useDesignSystemTheme();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
-  const { renderExportTracesToDatasetsModal, DrawerComponent } = useModelTraceExplorerContext();
+  const { renderExportTracesToDatasetsModal, DrawerComponent, drawerWidth = '60vw' } = useModelTraceExplorerContext();
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -85,7 +83,7 @@ export const ModelTraceExplorerDrawer = ({
     >
       <DrawerComponent.Content
         componentId="mlflow.evaluations_review.modal"
-        width={width}
+        width={drawerWidth}
         title={
           <div css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
             <Button
