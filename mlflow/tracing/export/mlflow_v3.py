@@ -51,10 +51,14 @@ class MlflowV3SpanExporter(SpanExporter):
         # Display handler is no-op when running outside of notebooks.
         self._display_handler = get_display_handler()
 
-        # Controls whether spans are exported incrementally via log_spans(). Initialized from the
-        # MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT env var, but may also be set to False at runtime
-        # if the store doesn't support span-level logging (e.g. FileStore, old servers).
+        # Controls whether spans are exported incrementally via log_spans().
         self._should_export_spans_incrementally = MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.get()
+
+        # Tracks whether the store supports span-level logging. Set to False at runtime
+        # if log_spans() raises NotImplementedError or returns a 501. This is separate from
+        # _should_export_spans_incrementally so that disabling incremental export (e.g. for
+        # the gateway) doesn't prevent remote/distributed traces from being exported.
+        self._store_supports_log_spans = True
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:
         """
@@ -141,7 +145,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.debug(f"Trace for root span {span} not found. Skipping full export.")
                 continue
 
-            if manager_trace.is_remote_trace and not self._should_export_spans_incrementally:
+            if manager_trace.is_remote_trace and not self._store_supports_log_spans:
                 _logger.warning(
                     f"Current MLflow server does not support ingesting the span {span.name} "
                     "that is created in a remote process. Please upgrade the server version and "
@@ -185,6 +189,7 @@ class MlflowV3SpanExporter(SpanExporter):
             # Silently skip if the store doesn't support log_spans. This is expected for stores that
             # don't implement span-level logging, and we don't want to spam warnings for every span.
             self._should_export_spans_incrementally = False
+            self._store_supports_log_spans = False
         except RestException as e:
             # When the FileStore is behind the tracking server, it returns 501 exception.
             # However, the OTLP endpoint returns general HTTP error, not MlflowException, which does
@@ -192,6 +197,7 @@ class MlflowV3SpanExporter(SpanExporter):
             # we need to check the message to handle this case.
             if "REST OTLP span logging is not supported" in e.message:
                 self._should_export_spans_incrementally = False
+                self._store_supports_log_spans = False
             else:
                 _logger.debug(f"Failed to log span to MLflow backend: {e}")
         except Exception as e:

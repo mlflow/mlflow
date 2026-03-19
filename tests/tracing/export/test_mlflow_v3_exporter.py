@@ -546,6 +546,41 @@ def test_should_export_spans_incrementally_flag(monkeypatch, incremental_export_
             mock_log_spans.assert_not_called()
 
 
+def test_remote_trace_exported_when_incremental_export_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "False")
+
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=88888,
+        span_id=1,
+        parent_id=None,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info, is_remote_trace=True)
+    trace_manager.register_span(span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ) as mock_start_trace,
+        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
+        mock.patch("mlflow.tracing.client.TracingClient.log_spans") as mock_log_spans,
+    ):
+        exporter = MlflowV3SpanExporter()
+        exporter.export([otel_span])
+
+        # Remote trace should still be exported via start_trace even though
+        # incremental span export is disabled
+        mock_start_trace.assert_called_once()
+        # But incremental span export should not happen
+        mock_log_spans.assert_not_called()
+
+
 @pytest.mark.skipif(not importlib.util.find_spec("fastapi"), reason="fastapi not installed")
 def test_gateway_disables_incremental_span_export(monkeypatch):
     monkeypatch.delenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", raising=False)
@@ -556,7 +591,7 @@ def test_gateway_disables_incremental_span_export(monkeypatch):
     config = GatewayConfig(endpoints=[])
     create_app_from_config(config)
 
-    assert os.environ.get("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT") == "false"
+    assert os.environ.get("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT") == "False"
 
 
 @pytest.mark.skipif(not importlib.util.find_spec("fastapi"), reason="fastapi not installed")

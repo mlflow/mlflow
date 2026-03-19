@@ -7,7 +7,6 @@ to FastAPI endpoints.
 """
 
 import json
-import os
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.wsgi import WSGIMiddleware
@@ -95,7 +94,7 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # Disable incremental span export by default to reduce DB contention from
     # concurrent gateway requests. Users can override by setting the env var explicitly.
     if not MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.is_set():
-        os.environ[MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.name] = "false"
+        MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.set(False)
 
     fastapi_app.include_router(gateway_router)
 
