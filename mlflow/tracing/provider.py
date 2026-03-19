@@ -741,11 +741,11 @@ def _get_mlflow_span_processor(tracking_uri: str):
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
     # When async trace logging is explicitly enabled (e.g. gateway server) with a
-    # non-Databricks backend, consolidate span + trace writes into a single
-    # transaction to reduce DB contention from concurrent log_spans/start_trace
-    # async tasks. Databricks stores don't need this as they have their own
-    # contention handling.
-    write_spans_with_trace = (
+    # non-Databricks backend, disable incremental span export to avoid DB contention
+    # from concurrent log_spans/start_trace async tasks. Gateway traces are short-lived
+    # (2 spans, ~50-100ms) and complete before the first log_spans task runs, so
+    # incremental export adds no value. Spans are still persisted via artifact upload.
+    should_export_spans_incrementally = not (
         MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
         and MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
         and not is_databricks_uri(tracking_uri)
@@ -753,7 +753,7 @@ def _get_mlflow_span_processor(tracking_uri: str):
 
     exporter = MlflowV3SpanExporter(
         tracking_uri=tracking_uri,
-        write_spans_with_trace=write_spans_with_trace,
+        should_export_spans_incrementally=should_export_spans_incrementally,
     )
     return MlflowV3SpanProcessor(
         span_exporter=exporter,

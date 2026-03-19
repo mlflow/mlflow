@@ -505,8 +505,8 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
         mock_start_trace.assert_called_once()
 
 
-@pytest.mark.parametrize("write_spans_with_trace", [True, False])
-def test_write_spans_with_trace_flag(write_spans_with_trace):
+@pytest.mark.parametrize("should_export_spans_incrementally", [True, False])
+def test_should_export_spans_incrementally_flag(should_export_spans_incrementally):
     otel_span = create_mock_otel_span(
         name="root",
         trace_id=99999,
@@ -518,7 +518,6 @@ def test_write_spans_with_trace_flag(write_spans_with_trace):
 
     trace_manager = InMemoryTraceManager.get_instance()
     trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
-    trace_info.tags[TraceTagKey.SPANS_LOCATION] = SpansLocation.TRACKING_STORE.value
     trace_manager.register_trace(otel_span.context.trace_id, trace_info)
     trace_manager.register_span(span)
 
@@ -532,17 +531,15 @@ def test_write_spans_with_trace_flag(write_spans_with_trace):
             "mlflow.tracing.client.TracingClient.log_spans",
         ) as mock_log_spans,
     ):
-        exporter = MlflowV3SpanExporter(write_spans_with_trace=write_spans_with_trace)
+        exporter = MlflowV3SpanExporter(
+            should_export_spans_incrementally=should_export_spans_incrementally,
+        )
         exporter.export([otel_span])
 
         mock_start_trace.assert_called_once()
-        call_kwargs = mock_start_trace.call_args
 
-        if write_spans_with_trace:
-            # Spans should be passed to start_trace, not logged separately
-            assert call_kwargs.kwargs.get("spans") is not None
-            mock_log_spans.assert_not_called()
-        else:
-            # Spans should NOT be passed to start_trace; logged separately
-            assert call_kwargs.kwargs.get("spans") is None
+        if should_export_spans_incrementally:
             mock_log_spans.assert_called_once()
+        else:
+            # Incremental export disabled — spans only persisted via artifact upload
+            mock_log_spans.assert_not_called()

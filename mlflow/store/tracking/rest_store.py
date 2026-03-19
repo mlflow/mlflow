@@ -380,7 +380,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         response_proto = self._call_endpoint(CreateRun, req_body)
         return Run.from_proto(response_proto.run)
 
-    def start_trace(self, trace_info: TraceInfo, spans=None) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
         Create a new trace using the V3 API format.
 
@@ -389,7 +389,6 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
 
         Args:
             trace_info: The TraceInfo object to create in the backend.
-            spans: Unused. Accepted for API compatibility with other stores.
 
         Returns:
             The returned TraceInfo object from the backend.

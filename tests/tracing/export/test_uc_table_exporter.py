@@ -74,7 +74,7 @@ def test_log_trace_no_upload_data_for_uc_schema():
         exporter._log_trace(mock_trace, mock_prompts)
 
         # Verify start_trace was called but _upload_trace_data was not
-        mock_client.start_trace.assert_called_once_with(mock_trace.info, spans=None)
+        mock_client.start_trace.assert_called_once_with(mock_trace.info)
         mock_client._upload_trace_data.assert_not_called()
 
 
@@ -99,7 +99,7 @@ def test_log_trace_no_log_spans_if_no_uc_schema():
         exporter._log_trace(mock_trace, mock_prompts)
 
         # Verify both start_trace and _upload_trace_data were called
-        mock_client.start_trace.assert_called_once_with(mock_trace.info, spans=None)
+        mock_client.start_trace.assert_called_once_with(mock_trace.info)
         mock_client.log_spans.assert_not_called()
 
 

@@ -146,7 +146,7 @@ def mock_databricks_tracking_store():
 
 @pytest.fixture
 def mock_store_start_trace():
-    def _mock_start_trace(trace_info, spans=None):
+    def _mock_start_trace(trace_info):
         return create_test_trace_info(
             trace_id="tr-123",
             experiment_id=trace_info.experiment_id,
