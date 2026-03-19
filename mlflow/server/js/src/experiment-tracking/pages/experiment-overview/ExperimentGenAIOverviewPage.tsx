@@ -170,10 +170,13 @@ const ExperimentGenAIOverviewPageImpl = () => {
           />
 
           {shouldEnableIssueDetection() && (
-            <DetectIssuesButton
-              componentId="mlflow.experiment.overview.detect-issues-button"
-              onClick={() => setIsIssueDetectionModalOpen(true)}
-            />
+            <div css={{ marginLeft: 'auto' }}>
+              <DetectIssuesButton
+                componentId="mlflow.experiment.overview.detect-issues-button"
+                onClick={() => setIsIssueDetectionModalOpen(true)}
+                guidanceStorageKey="mlflow.detectIssues.overview.guidanceShown"
+              />
+            </div>
           )}
         </div>
 
