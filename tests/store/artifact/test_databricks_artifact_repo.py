@@ -1738,7 +1738,7 @@ def test_get_credentials_passes_path_for_attachment(databricks_artifact_repo_tra
         )
     call_args = mock_call.call_args
     # Verify json_body includes the path
-    json_body = call_args[0][2] if len(call_args[0]) > 2 else call_args[1].get("json_body")
+    json_body = call_args.args[2] if len(call_args.args) > 2 else call_args.kwargs.get("json_body")
     assert json_body is not None
     assert "attachments/" in json_body
 
@@ -1755,5 +1755,5 @@ def test_get_credentials_omits_path_for_trace_data(databricks_artifact_repo_trac
         )
     call_args = mock_call.call_args
     # Verify no json_body is passed (backward compatible)
-    json_body = call_args[0][2] if len(call_args[0]) > 2 else call_args[1].get("json_body")
+    json_body = call_args.args[2] if len(call_args.args) > 2 else call_args.kwargs.get("json_body")
     assert json_body is None

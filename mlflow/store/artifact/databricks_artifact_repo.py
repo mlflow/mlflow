@@ -308,8 +308,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return cred
 
     def download_trace_attachment(self, path: str) -> bytes:
-        from mlflow.store.artifact.artifact_repo import _validate_attachment_path
-
         _validate_attachment_path(path)
         artifact_path = posixpath.join("attachments", path)
         [cred], _ = self.resource.get_credentials(
