@@ -9,6 +9,8 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { fetchOrFail } from '../../../common/utils/FetchUtils';
 import { setupTestRouter, testRoute, TestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
+
 // Mock FetchUtils
 jest.mock('../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),
@@ -32,8 +34,6 @@ jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionM
 }));
 
 const mockFetchOrFail = jest.mocked(fetchOrFail);
-
-import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 const mockShouldEnableIssueDetection = jest.mocked(shouldEnableIssueDetection);
 
 describe('ExperimentGenAIOverviewPage', () => {

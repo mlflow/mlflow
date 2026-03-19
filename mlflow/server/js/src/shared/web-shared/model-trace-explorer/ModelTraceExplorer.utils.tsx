@@ -1437,10 +1437,10 @@ export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
 
 /**
  * Filters the provided assessments to only include those that are at the trace level
- * (i.e., not associated with a specific session).
+ * (i.e., not associated with a specific session) or are IssueReferenceAssessment types.
  */
 export const getTraceLevelAssessments = (assessments?: Assessment[]) =>
-  assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
+  assessments?.filter((assessment) => !isSessionLevelAssessment(assessment) || 'issue' in assessment) ?? [];
 
 export const isValidException = (
   event: ModelTraceEvent,

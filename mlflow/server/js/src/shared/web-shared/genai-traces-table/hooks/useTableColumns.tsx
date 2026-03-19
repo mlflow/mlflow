@@ -174,6 +174,10 @@ export const useTableColumns = (
             defaultMessage: 'Session',
             description: 'Column label for session',
           }),
+          filterLabel: intl.formatMessage({
+            defaultMessage: 'Session ID',
+            description: 'Filter label for session ID',
+          }),
           type: TracesTableColumnType.TRACE_INFO,
           group: TracesTableColumnGroup.INFO,
         },

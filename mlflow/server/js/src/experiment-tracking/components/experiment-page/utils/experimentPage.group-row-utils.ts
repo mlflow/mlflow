@@ -9,6 +9,14 @@ import {
   RunGroupingMode,
   RunRowVisibilityControl,
 } from './experimentPage.row-types';
+import type { SingleRunData } from './experimentPage.row-utils';
+import type { MetricEntity, RunDatasetWithTags } from '../../../types';
+import type { SampledMetricsByRun } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/hooks/useSampledMetricHistory';
+import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
+import { shouldUseRunRowsVisibilityMap } from '../../../../common/utils/FeatureUtils';
+import { determineIfRowIsHidden } from './experimentPage.common-row-utils';
+import { removeOutliersFromMetricHistory } from '../../runs-charts/components/RunsCharts.common';
+import { type ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 
 /**
  * Escapes special characters in filter keys (param/tag names).
@@ -30,14 +38,6 @@ const escapeFilterValue = (value: string): string => {
   // Escape single quotes by doubling them
   return value.replace(/'/g, "''");
 };
-import type { SingleRunData } from './experimentPage.row-utils';
-import type { MetricEntity, RunDatasetWithTags } from '../../../types';
-import type { SampledMetricsByRun } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/hooks/useSampledMetricHistory';
-import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
-import { shouldUseRunRowsVisibilityMap } from '../../../../common/utils/FeatureUtils';
-import { determineIfRowIsHidden } from './experimentPage.common-row-utils';
-import { removeOutliersFromMetricHistory } from '../../runs-charts/components/RunsCharts.common';
-import { type ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 
 type AggregableParamEntity = { key: string; value: string };
 type AggregableMetricEntity = { key: string; value: number; step: number; min?: number; max?: number };
