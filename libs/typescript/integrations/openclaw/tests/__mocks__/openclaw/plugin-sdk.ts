@@ -42,9 +42,7 @@ export type OpenClawPluginApi = {
   on: (event: string, handler: (event: unknown, ctx: unknown) => void) => void;
 };
 
-export function onDiagnosticEvent(
-  _handler: (event: DiagnosticEventPayload) => void,
-): () => void {
+export function onDiagnosticEvent(_handler: (event: DiagnosticEventPayload) => void): () => void {
   return () => {};
 }
 

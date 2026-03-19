@@ -10,8 +10,8 @@ import type {
   OpenClawPluginApi,
   OpenClawPluginService,
   DiagnosticEventPayload,
-} from "openclaw/plugin-sdk";
-import { onDiagnosticEvent } from "openclaw/plugin-sdk";
+} from 'openclaw/plugin-sdk';
+import { onDiagnosticEvent } from 'openclaw/plugin-sdk';
 import {
   init,
   startSpan,
@@ -21,7 +21,7 @@ import {
   SpanStatusCode,
   SpanAttributeKey,
   TraceMetadataKey,
-} from "@mlflow/core";
+} from '@mlflow/core';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -96,22 +96,22 @@ function toolKey(toolName: string, toolCallId?: string): string {
 }
 
 function normalizeProvider(value: unknown): string | undefined {
-  if (typeof value !== "string" || value.length === 0) return undefined;
+  if (typeof value !== 'string' || value.length === 0) return undefined;
   const normalized = value.trim().toLowerCase();
   if (normalized.length === 0) return undefined;
   if (
-    normalized === "openai-codex" ||
-    normalized === "openai_codex" ||
-    normalized === "codex" ||
-    (normalized.includes("openai") && normalized.includes("codex"))
+    normalized === 'openai-codex' ||
+    normalized === 'openai_codex' ||
+    normalized === 'codex' ||
+    (normalized.includes('openai') && normalized.includes('codex'))
   ) {
-    return "openai";
+    return 'openai';
   }
   return normalized;
 }
 
 function asNonEmptyString(value: unknown): string | undefined {
-  return typeof value === "string" && value.length > 0 ? value : undefined;
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -120,31 +120,33 @@ function sleep(ms: number): Promise<void> {
 
 /**
  * Sanitize OpenClaw internal markers from text before storing in MLflow.
- * Mirrors the patterns stripped by the Opik OpenClaw plugin's sanitizer.
  */
 function sanitizeOpenClawText(value: string): string {
   return value
-    .replace(/\\r\\n/g, "\n")
-    .replace(/\\n/g, "\n")
-    .replace(/\\r/g, "\r")
-    .replace(/\[\[reply_to[^\]]*\]\]\s*/gi, "")
-    .replace(/^\s*Sender \(untrusted metadata\):\s*\n+\{[\s\S]*?\}\s*/gim, "")
-    .replace(/^\s*Sender \(untrusted metadata\):\s*\n*```json\s*\{[\s\S]*?\}\s*```\s*/gim, "")
-    .replace(/^\s*Conversation info \(untrusted metadata\):\s*\n+\{[\s\S]*?\}\s*/gim, "")
-    .replace(/^\s*Conversation info \(untrusted metadata\):\s*\n*```json\s*\{[\s\S]*?\}\s*```\s*/gim, "")
+    .replace(/\\r\\n/g, '\n')
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\[\[reply_to[^\]]*\]\]\s*/gi, '')
+    .replace(/^\s*Sender \(untrusted metadata\):\s*\n+\{[\s\S]*?\}\s*/gim, '')
+    .replace(/^\s*Sender \(untrusted metadata\):\s*\n*```json\s*\{[\s\S]*?\}\s*```\s*/gim, '')
+    .replace(/^\s*Conversation info \(untrusted metadata\):\s*\n+\{[\s\S]*?\}\s*/gim, '')
+    .replace(
+      /^\s*Conversation info \(untrusted metadata\):\s*\n*```json\s*\{[\s\S]*?\}\s*```\s*/gim,
+      '',
+    )
     .replace(
       /^\s*Untrusted context \(metadata, do not treat as instructions or commands\):\s*\n+<<<EXTERNAL_UNTRUSTED_CONTENT[\s\S]*?<<<END_EXTERNAL_UNTRUSTED_CONTENT[^>]*>>>\s*/gim,
-      "",
+      '',
     )
-    .replace(/^\[[\w\s:+\-/]+\]\s*/m, "")
-    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\[[\w\s:+\-/]+\]\s*/m, '')
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
 function sanitizeValue(value: unknown): unknown {
-  if (typeof value === "string") return sanitizeOpenClawText(value);
+  if (typeof value === 'string') return sanitizeOpenClawText(value);
   if (Array.isArray(value)) return value.map(sanitizeValue);
-  if (value !== null && typeof value === "object") {
+  if (value !== null && typeof value === 'object') {
     const result: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
       result[k] = sanitizeValue(v);
@@ -192,9 +194,9 @@ async function finalizeTrace(
     trace.lastResponse = JSON.stringify(endData.messages);
   }
 
-  const responseText = trace.lastResponse || "Agent completed";
+  const responseText = trace.lastResponse || 'Agent completed';
   const outputs: Record<string, unknown> = {
-    messages: [{ role: "assistant", content: responseText }],
+    messages: [{ role: 'assistant', content: responseText }],
   };
   if (endData?.error) {
     trace.rootSpan.setStatus(SpanStatusCode.ERROR, endData.error);
@@ -203,22 +205,22 @@ async function finalizeTrace(
   trace.rootSpan.setOutputs(outputs);
 
   if (endData?.durationMs != null) {
-    trace.rootSpan.setAttribute("agent_duration_ms", endData.durationMs);
+    trace.rootSpan.setAttribute('agent_duration_ms', endData.durationMs);
   }
 
   // Store model/provider at trace level
   const traceModel = trace.model ?? trace.costMeta.model;
   const traceProvider = trace.provider ?? trace.costMeta.provider;
   if (traceModel) {
-    trace.rootSpan.setAttribute("mlflow.llm.model", traceModel);
+    trace.rootSpan.setAttribute('mlflow.llm.model', traceModel);
   }
   if (traceProvider) {
-    trace.rootSpan.setAttribute("mlflow.llm.provider", traceProvider);
+    trace.rootSpan.setAttribute('mlflow.llm.provider', traceProvider);
   }
 
   // Store cost metadata from diagnostics
   if (trace.costMeta.costUsd != null) {
-    trace.rootSpan.setAttribute("mlflow.llm.cost", {
+    trace.rootSpan.setAttribute('mlflow.llm.cost', {
       total_cost: trace.costMeta.costUsd,
     });
   }
@@ -231,9 +233,7 @@ async function finalizeTrace(
 // Service factory
 // ---------------------------------------------------------------------------
 
-export function createMLflowService(
-  api: OpenClawPluginApi,
-): OpenClawPluginService {
+export function createMLflowService(api: OpenClawPluginApi): OpenClawPluginService {
   const activeTraces = new Map<string, ActiveTrace>();
   const sessionByAgentId = new Map<string, string>();
   let lastActiveSessionKey: string | undefined;
@@ -254,7 +254,7 @@ export function createMLflowService(
 
   function rememberSession(sessionKey: string, agentId?: unknown): void {
     lastActiveSessionKey = sessionKey;
-    if (typeof agentId === "string" && agentId.length > 0) {
+    if (typeof agentId === 'string' && agentId.length > 0) {
       sessionByAgentId.set(agentId, sessionKey);
     }
   }
@@ -268,9 +268,7 @@ export function createMLflowService(
     }
   }
 
-  function resolveAfterToolSessionKey(
-    ctx: Record<string, unknown>,
-  ): string | undefined {
+  function resolveAfterToolSessionKey(ctx: Record<string, unknown>): string | undefined {
     // Primary: from context
     const direct = asNonEmptyString(ctx.sessionKey);
     if (direct && activeTraces.has(direct)) return direct;
@@ -282,7 +280,7 @@ export function createMLflowService(
       if (byAgent && activeTraces.has(byAgent)) {
         if (!warnedMissingAfterToolSessionKey) {
           warnedMissingAfterToolSessionKey = true;
-          log.warn("mlflow: after_tool_call missing sessionKey; using agentId fallback");
+          log.warn('mlflow: after_tool_call missing sessionKey; using agentId fallback');
         }
         return byAgent;
       }
@@ -292,7 +290,7 @@ export function createMLflowService(
     if (activeTraces.size === 1) {
       if (!warnedMissingAfterToolSessionKey) {
         warnedMissingAfterToolSessionKey = true;
-        log.warn("mlflow: after_tool_call missing sessionKey; using single-active-trace fallback");
+        log.warn('mlflow: after_tool_call missing sessionKey; using single-active-trace fallback');
       }
       return activeTraces.keys().next().value as string | undefined;
     }
@@ -301,7 +299,7 @@ export function createMLflowService(
     if (lastActiveSessionKey && activeTraces.has(lastActiveSessionKey)) {
       if (!warnedMissingAfterToolSessionKey) {
         warnedMissingAfterToolSessionKey = true;
-        log.warn("mlflow: after_tool_call missing sessionKey; using last-active-session fallback");
+        log.warn('mlflow: after_tool_call missing sessionKey; using last-active-session fallback');
       }
       return lastActiveSessionKey;
     }
@@ -309,10 +307,7 @@ export function createMLflowService(
     return undefined;
   }
 
-  function getOrCreateTrace(
-    sessionKey: string,
-    prompt: string,
-  ): ActiveTrace {
+  function getOrCreateTrace(sessionKey: string, prompt: string): ActiveTrace {
     const existing = activeTraces.get(sessionKey);
     if (existing) {
       activeTraces.delete(sessionKey);
@@ -327,19 +322,19 @@ export function createMLflowService(
       {
         metadata: {
           [TraceMetadataKey.TRACE_SESSION]: sessionKey,
-          [TraceMetadataKey.TRACE_USER]: process.env.USER || "",
+          [TraceMetadataKey.TRACE_USER]: process.env.USER || '',
         },
       },
       () =>
         startSpan({
-          name: "openclaw_agent",
+          name: 'openclaw_agent',
           inputs: {
-            messages: [{ role: "user", content: cleanPrompt }],
+            messages: [{ role: 'user', content: cleanPrompt }],
           },
           spanType: SpanType.AGENT,
         }),
     );
-    rootSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, "openai");
+    rootSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
 
     const trace: ActiveTrace = {
       rootSpan,
@@ -349,7 +344,7 @@ export function createMLflowService(
       tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, cost: 0 },
       costMeta: {},
       firstPrompt: cleanPrompt,
-      lastResponse: "",
+      lastResponse: '',
       agentEndData: null,
       lastActivityMs: Date.now(),
     };
@@ -383,7 +378,7 @@ export function createMLflowService(
   }
 
   return {
-    id: "mlflow-tracing",
+    id: 'mlflow-tracing',
 
     async start(ctx) {
       log = { info: ctx.logger.info.bind(ctx.logger), warn: ctx.logger.warn.bind(ctx.logger) };
@@ -391,25 +386,21 @@ export function createMLflowService(
       const pluginCfg = (api.pluginConfig ?? {}) as Record<string, unknown>;
       const runtimeCfg = (ctx.config ?? {}) as Record<string, unknown>;
       const trackingUri =
-        (typeof pluginCfg.trackingUri === "string" ? pluginCfg.trackingUri : "") ||
-        (typeof runtimeCfg.trackingUri === "string" ? runtimeCfg.trackingUri : "") ||
+        (typeof pluginCfg.trackingUri === 'string' ? pluginCfg.trackingUri : '') ||
+        (typeof runtimeCfg.trackingUri === 'string' ? runtimeCfg.trackingUri : '') ||
         process.env.MLFLOW_TRACKING_URI;
       const experimentId =
-        (typeof pluginCfg.experimentId === "string" ? pluginCfg.experimentId : "") ||
-        (typeof runtimeCfg.experimentId === "string" ? runtimeCfg.experimentId : "") ||
+        (typeof pluginCfg.experimentId === 'string' ? pluginCfg.experimentId : '') ||
+        (typeof runtimeCfg.experimentId === 'string' ? runtimeCfg.experimentId : '') ||
         process.env.MLFLOW_EXPERIMENT_ID;
 
       if (!trackingUri) {
-        ctx.logger.warn(
-          "mlflow: MLFLOW_TRACKING_URI not set, skipping initialization",
-        );
+        ctx.logger.warn('mlflow: MLFLOW_TRACKING_URI not set, skipping initialization');
         return;
       }
 
       if (!experimentId) {
-        ctx.logger.warn(
-          "mlflow: MLFLOW_EXPERIMENT_ID not set, skipping initialization",
-        );
+        ctx.logger.warn('mlflow: MLFLOW_EXPERIMENT_ID not set, skipping initialization');
         return;
       }
 
@@ -420,21 +411,19 @@ export function createMLflowService(
         return;
       }
 
-      ctx.logger.info(
-        `mlflow: exporting traces to ${trackingUri} (experiment=${experimentId})`,
-      );
+      ctx.logger.info(`mlflow: exporting traces to ${trackingUri} (experiment=${experimentId})`);
 
       // =====================================================================
       // Hook: llm_input — create root AGENT span + child LLM span
       // =====================================================================
-      api.on("llm_input", (event: unknown, agentCtx: unknown) => {
+      api.on('llm_input', (event: unknown, agentCtx: unknown) => {
         const ctx = agentCtx as Record<string, unknown>;
         const evt = event as Record<string, unknown>;
         const sessionKey = ctx.sessionKey as string | undefined;
         if (!sessionKey) return;
         rememberSession(sessionKey, ctx.agentId);
 
-        const prompt = (evt.prompt as string) ?? "";
+        const prompt = (evt.prompt as string) ?? '';
         const historyMessages = evt.historyMessages as unknown[] | undefined;
         const trace = getOrCreateTrace(sessionKey, prompt);
 
@@ -451,8 +440,7 @@ export function createMLflowService(
         const rawProvider = evt.provider as string | undefined;
         const provider = normalizeProvider(rawProvider) ?? rawProvider;
         const model = evt.model as string | undefined;
-        const modelLabel =
-          provider && model ? `${provider}/${model}` : model || "unknown";
+        const modelLabel = provider && model ? `${provider}/${model}` : model || 'unknown';
 
         // Track last-known model/provider at trace level
         if (model) trace.model = model;
@@ -461,51 +449,49 @@ export function createMLflowService(
         // Build OpenAI-style messages array for chat UI rendering
         const messages: { role: string; content: string }[] = [];
         if (evt.systemPrompt) {
-          messages.push({ role: "system", content: evt.systemPrompt as string });
+          messages.push({ role: 'system', content: evt.systemPrompt as string });
         }
         if (historyMessages?.length) {
           for (const msg of historyMessages) {
             const m = msg as { role?: string; content?: unknown };
             if (!m.role) continue;
-            const role = m.role === "toolResult" ? "tool" : m.role;
+            const role = m.role === 'toolResult' ? 'tool' : m.role;
             const content =
-              typeof m.content === "string"
+              typeof m.content === 'string'
                 ? m.content
                 : Array.isArray(m.content)
-                  ? m.content
-                      .map((p: { text?: string }) => p.text ?? "")
-                      .join("\n")
+                  ? m.content.map((p: { text?: string }) => p.text ?? '').join('\n')
                   : m.content != null
                     ? JSON.stringify(m.content)
-                    : "";
+                    : '';
             messages.push({ role, content });
           }
         }
-        messages.push({ role: "user", content: prompt });
+        messages.push({ role: 'user', content: prompt });
         const llmInputs = sanitizeValue({
           messages,
           model: modelLabel,
         }) as Record<string, unknown>;
 
         const llmSpan = startSpan({
-          name: "llm_call",
+          name: 'llm_call',
           parent: trace.rootSpan,
           spanType: SpanType.LLM,
           inputs: llmInputs,
           attributes: {
-            ...(model ? { "mlflow.llm.model": model } : {}),
-            ...(provider ? { "mlflow.llm.provider": provider } : {}),
+            ...(model ? { 'mlflow.llm.model': model } : {}),
+            ...(provider ? { 'mlflow.llm.provider': provider } : {}),
           },
         });
-        llmSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, "openai");
+        llmSpan.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
 
-        trace.pendingLlm = { span: llmSpan, name: "llm_call" };
+        trace.pendingLlm = { span: llmSpan, name: 'llm_call' };
       });
 
       // =====================================================================
       // Hook: llm_output — end LLM span with response
       // =====================================================================
-      api.on("llm_output", (event: unknown, agentCtx: unknown) => {
+      api.on('llm_output', (event: unknown, agentCtx: unknown) => {
         const ctx = agentCtx as Record<string, unknown>;
         const evt = event as Record<string, unknown>;
         const sessionKey = ctx.sessionKey as string | undefined;
@@ -519,9 +505,7 @@ export function createMLflowService(
         const assistantTexts = (evt.assistantTexts as string[] | undefined) ?? [];
         const lastAssistant = evt.lastAssistant as Record<string, unknown> | undefined;
         const rawResponse =
-          assistantTexts.length > 0
-            ? assistantTexts.join("\n")
-            : (evt.response as string) || "";
+          assistantTexts.length > 0 ? assistantTexts.join('\n') : (evt.response as string) || '';
         const response = sanitizeOpenClawText(rawResponse);
         trace.lastResponse = response;
 
@@ -532,8 +516,12 @@ export function createMLflowService(
 
         if (trace.pendingLlm) {
           type UsageLike = {
-            input?: number; output?: number; total?: number;
-            totalTokens?: number; cacheRead?: number; cacheWrite?: number;
+            input?: number;
+            output?: number;
+            total?: number;
+            totalTokens?: number;
+            cacheRead?: number;
+            cacheWrite?: number;
           };
           const evtUsage = evt.usage as UsageLike | undefined;
           const assistantUsage = lastAssistant?.usage as UsageLike | undefined;
@@ -552,9 +540,7 @@ export function createMLflowService(
             });
           }
           trace.pendingLlm.span.setOutputs({
-            choices: [
-              { message: { role: "assistant", content: response } },
-            ],
+            choices: [{ message: { role: 'assistant', content: response } }],
           });
           trace.pendingLlm.span.end();
           trace.pendingLlm = null;
@@ -564,7 +550,7 @@ export function createMLflowService(
       // =====================================================================
       // Hook: before_tool_call — create TOOL span
       // =====================================================================
-      api.on("before_tool_call", (event: unknown, agentCtx: unknown) => {
+      api.on('before_tool_call', (event: unknown, agentCtx: unknown) => {
         const ctx = agentCtx as Record<string, unknown>;
         const evt = event as Record<string, unknown>;
         const sessionKey = ctx.sessionKey as string | undefined;
@@ -583,9 +569,10 @@ export function createMLflowService(
           name: toolName,
           parent: trace.rootSpan,
           spanType: SpanType.TOOL,
-          inputs: sanitizeValue(
-            (evt.params as Record<string, unknown>) || {},
-          ) as Record<string, unknown>,
+          inputs: sanitizeValue((evt.params as Record<string, unknown>) || {}) as Record<
+            string,
+            unknown
+          >,
           attributes: {
             tool_name: toolName,
             ...(toolCallId ? { tool_id: toolCallId } : {}),
@@ -598,7 +585,7 @@ export function createMLflowService(
       // =====================================================================
       // Hook: after_tool_call — end TOOL span with result or error
       // =====================================================================
-      api.on("after_tool_call", (event: unknown, agentCtx: unknown) => {
+      api.on('after_tool_call', (event: unknown, agentCtx: unknown) => {
         const ctx = agentCtx as Record<string, unknown>;
         const evt = event as Record<string, unknown>;
 
@@ -621,7 +608,7 @@ export function createMLflowService(
             pending.span.setOutputs({ error: evt.error });
           } else {
             pending.span.setOutputs({
-              result: (evt.result as string) || "",
+              result: (evt.result as string) || '',
             });
           }
           pending.span.end();
@@ -632,7 +619,7 @@ export function createMLflowService(
       // =====================================================================
       // Hook: subagent_spawning — create nested AGENT span
       // =====================================================================
-      api.on("subagent_spawning", (event: unknown, agentCtx: unknown) => {
+      api.on('subagent_spawning', (event: unknown, agentCtx: unknown) => {
         const ctx = agentCtx as Record<string, unknown>;
         const evt = event as Record<string, unknown>;
         const sessionKey = ctx.sessionKey as string | undefined;
@@ -664,7 +651,7 @@ export function createMLflowService(
       // =====================================================================
       // Hook: subagent_ended — end subagent span
       // =====================================================================
-      api.on("subagent_ended", (event: unknown, agentCtx: unknown) => {
+      api.on('subagent_ended', (event: unknown, agentCtx: unknown) => {
         const ctx = agentCtx as Record<string, unknown>;
         const evt = event as Record<string, unknown>;
         const sessionKey = ctx.sessionKey as string | undefined;
@@ -682,7 +669,7 @@ export function createMLflowService(
             pending.span.setOutputs({ error: evt.error });
           } else {
             pending.span.setOutputs({
-              result: (evt.result as string) || "",
+              result: (evt.result as string) || '',
             });
           }
           pending.span.end();
@@ -693,7 +680,7 @@ export function createMLflowService(
       // =====================================================================
       // Hook: agent_end — finalize trace (deferred via queueMicrotask)
       // =====================================================================
-      api.on("agent_end", (event: unknown, agentCtx: unknown) => {
+      api.on('agent_end', (event: unknown, agentCtx: unknown) => {
         const ctx = agentCtx as Record<string, unknown>;
         const evt = event as Record<string, unknown>;
         const sessionKey = ctx.sessionKey as string | undefined;
@@ -735,33 +722,31 @@ export function createMLflowService(
       // =====================================================================
       // Diagnostic: model.usage — accumulate token usage + cost metadata
       // =====================================================================
-      const unsubDiagnostics = onDiagnosticEvent(
-        (evt: DiagnosticEventPayload) => {
-          if (evt.type !== "model.usage") return;
+      const unsubDiagnostics = onDiagnosticEvent((evt: DiagnosticEventPayload) => {
+        if (evt.type !== 'model.usage') return;
 
-          const sessionKey = evt.sessionKey;
-          if (!sessionKey) return;
+        const sessionKey = evt.sessionKey;
+        if (!sessionKey) return;
 
-          const trace = activeTraces.get(sessionKey);
-          if (!trace) return;
+        const trace = activeTraces.get(sessionKey);
+        if (!trace) return;
 
-          trace.lastActivityMs = Date.now();
-          if (evt.usage) {
-            trace.tokenUsage.inputTokens += evt.usage.input || 0;
-            trace.tokenUsage.outputTokens += evt.usage.output || 0;
-            trace.tokenUsage.totalTokens += evt.usage.total || 0;
-          }
-          if (evt.costUsd != null) {
-            trace.costMeta.costUsd = (trace.costMeta.costUsd ?? 0) + evt.costUsd;
-          }
-          if (evt.context?.limit != null) trace.costMeta.contextLimit = evt.context.limit;
-          if (evt.context?.used != null) trace.costMeta.contextUsed = evt.context.used;
-          if (evt.model) trace.costMeta.model = evt.model;
-          if (evt.provider) {
-            trace.costMeta.provider = normalizeProvider(evt.provider) ?? evt.provider;
-          }
-        },
-      );
+        trace.lastActivityMs = Date.now();
+        if (evt.usage) {
+          trace.tokenUsage.inputTokens += evt.usage.input || 0;
+          trace.tokenUsage.outputTokens += evt.usage.output || 0;
+          trace.tokenUsage.totalTokens += evt.usage.total || 0;
+        }
+        if (evt.costUsd != null) {
+          trace.costMeta.costUsd = (trace.costMeta.costUsd ?? 0) + evt.costUsd;
+        }
+        if (evt.context?.limit != null) trace.costMeta.contextLimit = evt.context.limit;
+        if (evt.context?.used != null) trace.costMeta.contextUsed = evt.context.used;
+        if (evt.model) trace.costMeta.model = evt.model;
+        if (evt.provider) {
+          trace.costMeta.provider = normalizeProvider(evt.provider) ?? evt.provider;
+        }
+      });
 
       // =====================================================================
       // Stale trace cleanup sweep
@@ -773,7 +758,7 @@ export function createMLflowService(
             log.warn(`mlflow: force-closing stale trace sessionKey=${key}`);
             activeTraces.delete(key);
             forgetSession(key);
-            trace.rootSpan.setStatus(SpanStatusCode.ERROR, "Trace exceeded inactivity timeout");
+            trace.rootSpan.setStatus(SpanStatusCode.ERROR, 'Trace exceeded inactivity timeout');
             finalizeTrace(key, trace).catch(() => undefined);
           }
         }

@@ -243,7 +243,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'What is 2+2?', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'What is 2+2?', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -259,9 +263,7 @@ describe('MLflowTracingPlugin', () => {
           spanType: 'LLM',
           inputs: expect.objectContaining({
             model: 'openai/gpt-4',
-            messages: expect.arrayContaining([
-              { role: 'user', content: 'What is 2+2?' },
-            ]),
+            messages: expect.arrayContaining([{ role: 'user', content: 'What is 2+2?' }]),
           }),
         }),
       );
@@ -271,7 +273,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       const mockSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[1].value;
 
       harness.fire('llm_output', { response: 'The answer is 4.' }, { sessionKey: 'session-1' });
@@ -286,7 +292,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       harness.fire('llm_output', { response: 'Hi' }, { sessionKey: 'session-1' });
       harness.fire('agent_end', {}, { sessionKey: 'session-1' });
       await flushMicrotasks();
@@ -298,7 +308,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hi', provider: 'anthropic', model: 'claude-3-opus' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hi', provider: 'anthropic', model: 'claude-3-opus' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -340,7 +354,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       const llmSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[1].value;
 
       harness.fire(
@@ -358,7 +376,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       const llmSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[1].value;
 
       harness.fire('llm_output', { response: 'Plain response' }, { sessionKey: 'session-1' });
@@ -372,7 +394,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       const llmSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[1].value;
 
       harness.fire(
@@ -400,7 +426,12 @@ describe('MLflowTracingPlugin', () => {
 
       harness.fire(
         'llm_input',
-        { prompt: 'hello', systemPrompt: 'You are a helpful assistant.', model: 'gpt-4', provider: 'openai' },
+        {
+          prompt: 'hello',
+          systemPrompt: 'You are a helpful assistant.',
+          model: 'gpt-4',
+          provider: 'openai',
+        },
         { sessionKey: 'session-1' },
       );
 
@@ -423,8 +454,13 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      const rawPrompt = 'Sender (untrusted metadata):\n```json\n{\n  "label": "openclaw-tui",\n  "id": "gateway-client"\n}\n```\n\n[Wed 2026-03-18 03:42 GMT+9] Hello';
-      harness.fire('llm_input', { prompt: rawPrompt, model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      const rawPrompt =
+        'Sender (untrusted metadata):\n```json\n{\n  "label": "openclaw-tui",\n  "id": "gateway-client"\n}\n```\n\n[Wed 2026-03-18 03:42 GMT+9] Hello';
+      harness.fire(
+        'llm_input',
+        { prompt: rawPrompt, model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -438,8 +474,13 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      const rawPrompt = 'Sender (untrusted metadata):\n{"label": "tui", "id": "gw"}\n\n[Mon 2026-03-18 10:00 GMT+9] Hi there';
-      harness.fire('llm_input', { prompt: rawPrompt, model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      const rawPrompt =
+        'Sender (untrusted metadata):\n{"label": "tui", "id": "gw"}\n\n[Mon 2026-03-18 10:00 GMT+9] Hi there';
+      harness.fire(
+        'llm_input',
+        { prompt: rawPrompt, model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -453,10 +494,18 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hi', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hi', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       const llmSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[1].value;
 
-      harness.fire('llm_output', { response: '[[reply_to_current]] Hello there!' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_output',
+        { response: '[[reply_to_current]] Hello there!' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(llmSpan.setOutputs).toHaveBeenCalledWith({
         choices: [{ message: { role: 'assistant', content: 'Hello there!' } }],
@@ -468,7 +517,11 @@ describe('MLflowTracingPlugin', () => {
       await startService(harness);
 
       const history = [{ role: 'user', content: '[[reply_to_current]] test' }];
-      harness.fire('llm_input', { prompt: 'Hi', model: 'gpt-4', provider: 'openai', historyMessages: history }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hi', model: 'gpt-4', provider: 'openai', historyMessages: history },
+        { sessionKey: 'session-1' },
+      );
 
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -487,7 +540,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Just a question', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Just a question', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -503,7 +560,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Search', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Search', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       harness.fire(
         'before_tool_call',
         { toolName: 'web_search', params: { query: 'MLflow' }, toolCallId: 'tc-1' },
@@ -527,8 +588,16 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Search', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
-      harness.fire('before_tool_call', { toolName: 'web_search', toolCallId: 'tc-1' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Search', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
+      harness.fire(
+        'before_tool_call',
+        { toolName: 'web_search', toolCallId: 'tc-1' },
+        { sessionKey: 'session-1' },
+      );
 
       const toolSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[2].value;
 
@@ -546,8 +615,16 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Query', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
-      harness.fire('before_tool_call', { toolName: 'database', toolCallId: 'tc-2' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Query', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
+      harness.fire(
+        'before_tool_call',
+        { toolName: 'database', toolCallId: 'tc-2' },
+        { sessionKey: 'session-1' },
+      );
 
       const toolSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[2].value;
 
@@ -565,9 +642,21 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Do things', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
-      harness.fire('before_tool_call', { toolName: 'search', toolCallId: 'tc-a' }, { sessionKey: 'session-1' });
-      harness.fire('before_tool_call', { toolName: 'fetch', toolCallId: 'tc-b' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Do things', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
+      harness.fire(
+        'before_tool_call',
+        { toolName: 'search', toolCallId: 'tc-a' },
+        { sessionKey: 'session-1' },
+      );
+      harness.fire(
+        'before_tool_call',
+        { toolName: 'fetch', toolCallId: 'tc-b' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(mlflowTracing.startSpan).toHaveBeenCalledWith(
         expect.objectContaining({ name: 'search' }),
@@ -576,8 +665,16 @@ describe('MLflowTracingPlugin', () => {
         expect.objectContaining({ name: 'fetch' }),
       );
 
-      harness.fire('after_tool_call', { toolName: 'fetch', toolCallId: 'tc-b', result: 'fetched' }, { sessionKey: 'session-1' });
-      harness.fire('after_tool_call', { toolName: 'search', toolCallId: 'tc-a', result: 'found' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'after_tool_call',
+        { toolName: 'fetch', toolCallId: 'tc-b', result: 'fetched' },
+        { sessionKey: 'session-1' },
+      );
+      harness.fire(
+        'after_tool_call',
+        { toolName: 'search', toolCallId: 'tc-a', result: 'found' },
+        { sessionKey: 'session-1' },
+      );
 
       const searchSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[2].value;
       const fetchSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[3].value;
@@ -592,7 +689,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Research', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Research', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       harness.fire(
         'subagent_spawning',
         { agentId: 'researcher', label: 'research-agent' },
@@ -612,12 +713,24 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Research', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
-      harness.fire('subagent_spawning', { agentId: 'researcher', label: 'research-agent' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Research', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
+      harness.fire(
+        'subagent_spawning',
+        { agentId: 'researcher', label: 'research-agent' },
+        { sessionKey: 'session-1' },
+      );
 
       const subSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[2].value;
 
-      harness.fire('subagent_ended', { agentId: 'researcher', result: 'Research done' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'subagent_ended',
+        { agentId: 'researcher', result: 'Research done' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(subSpan.setOutputs).toHaveBeenCalledWith({ result: 'Research done' });
       expect(subSpan.end).toHaveBeenCalled();
@@ -627,12 +740,20 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Research', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Research', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       harness.fire('subagent_spawning', { agentId: 'failing-agent' }, { sessionKey: 'session-1' });
 
       const subSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[2].value;
 
-      harness.fire('subagent_ended', { agentId: 'failing-agent', error: 'Out of memory' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'subagent_ended',
+        { agentId: 'failing-agent', error: 'Out of memory' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(subSpan.setOutputs).toHaveBeenCalledWith({ error: 'Out of memory' });
       expect(subSpan.end).toHaveBeenCalled();
@@ -644,7 +765,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       const llmSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[1].value;
 
       harness.fire(
@@ -664,7 +789,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       harness.fire('llm_output', { response: 'Hi' }, { sessionKey: 'session-1' });
 
       harness.fireDiagnostic({
@@ -693,7 +822,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       harness.fire('llm_output', { response: 'Hi' }, { sessionKey: 'session-1' });
       harness.fire('agent_end', {}, { sessionKey: 'session-1' });
       await flushMicrotasks();
@@ -714,7 +847,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       harness.fire(
         'llm_output',
         { assistantTexts: ['Response part 1', 'Response part 2'] },
@@ -733,7 +870,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       harness.fire(
         'llm_output',
         {
@@ -746,12 +887,10 @@ describe('MLflowTracingPlugin', () => {
       await flushMicrotasks();
 
       const rootSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[0].value;
-      const outputCall = rootSpan.setOutputs.mock.calls.find(
-        (call: unknown[]) => {
-          const msgs = (call[0] as Record<string, unknown>).messages as { content: string }[];
-          return msgs?.[0]?.content === 'Reply';
-        },
-      );
+      const outputCall = rootSpan.setOutputs.mock.calls.find((call: unknown[]) => {
+        const msgs = (call[0] as Record<string, unknown>).messages as { content: string }[];
+        return msgs?.[0]?.content === 'Reply';
+      });
       expect(outputCall).toBeDefined();
       const outputs = outputCall[0] as Record<string, unknown>;
       expect(outputs).not.toHaveProperty('lastAssistant');
@@ -764,9 +903,17 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       harness.fire('llm_output', { response: 'Hi' }, { sessionKey: 'session-1' });
-      harness.fire('agent_end', { error: 'Rate limit exceeded', success: false }, { sessionKey: 'session-1' });
+      harness.fire(
+        'agent_end',
+        { error: 'Rate limit exceeded', success: false },
+        { sessionKey: 'session-1' },
+      );
       await flushMicrotasks();
 
       const rootSpan = (mlflowTracing.startSpan as jest.Mock).mock.results[0].value;
@@ -780,7 +927,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       harness.fire('llm_output', { response: 'Hi' }, { sessionKey: 'session-1' });
       harness.fire('agent_end', { durationMs: 1500, success: true }, { sessionKey: 'session-1' });
       await flushMicrotasks();
@@ -793,7 +944,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
       // No llm_output — agent_end provides messages as fallback
       harness.fire(
         'agent_end',
@@ -814,7 +969,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hello', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hello', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
 
       // agent_end fires but finalization is deferred via queueMicrotask
       harness.fire('agent_end', {}, { sessionKey: 'session-1' });
@@ -872,7 +1031,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hi', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hi', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(() => {
         harness.fire(
@@ -887,7 +1050,11 @@ describe('MLflowTracingPlugin', () => {
       const harness = createTestHarness();
       await startService(harness);
 
-      harness.fire('llm_input', { prompt: 'Hi', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-1' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'Hi', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-1' },
+      );
 
       expect(() => {
         harness.fire('subagent_ended', { agentId: 'ghost-agent' }, { sessionKey: 'session-1' });
@@ -921,12 +1088,28 @@ describe('MLflowTracingPlugin', () => {
       const ctx = { sessionKey: 'session-1' };
 
       // 1. Initial LLM call
-      harness.fire('llm_input', { prompt: 'Find and summarize the latest MLflow docs', model: 'gpt-4', provider: 'openai' }, ctx);
+      harness.fire(
+        'llm_input',
+        { prompt: 'Find and summarize the latest MLflow docs', model: 'gpt-4', provider: 'openai' },
+        ctx,
+      );
       harness.fire('llm_output', { response: 'I will search and summarize for you.' }, ctx);
 
       // 2. Tool call
-      harness.fire('before_tool_call', { toolName: 'web_search', params: { query: 'MLflow documentation' }, toolCallId: 'tc-1' }, ctx);
-      harness.fire('after_tool_call', { toolName: 'web_search', result: 'MLflow docs: https://mlflow.org/docs', toolCallId: 'tc-1' }, ctx);
+      harness.fire(
+        'before_tool_call',
+        { toolName: 'web_search', params: { query: 'MLflow documentation' }, toolCallId: 'tc-1' },
+        ctx,
+      );
+      harness.fire(
+        'after_tool_call',
+        {
+          toolName: 'web_search',
+          result: 'MLflow docs: https://mlflow.org/docs',
+          toolCallId: 'tc-1',
+        },
+        ctx,
+      );
 
       // 3. Subagent
       harness.fire('subagent_spawning', { agentId: 'summarizer', label: 'summary-agent' }, ctx);
@@ -940,7 +1123,11 @@ describe('MLflowTracingPlugin', () => {
       });
 
       // 5. Second LLM call with final response
-      harness.fire('llm_input', { prompt: 'Find and summarize the latest MLflow docs', model: 'gpt-4', provider: 'openai' }, ctx);
+      harness.fire(
+        'llm_input',
+        { prompt: 'Find and summarize the latest MLflow docs', model: 'gpt-4', provider: 'openai' },
+        ctx,
+      );
       harness.fire('llm_output', { response: 'Here is your summary of MLflow docs.' }, ctx);
 
       // 6. End
@@ -970,9 +1157,17 @@ describe('MLflowTracingPlugin', () => {
       await startService(harness);
 
       // Session A starts
-      harness.fire('llm_input', { prompt: 'A prompt', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-A' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'A prompt', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-A' },
+      );
       // Session B starts
-      harness.fire('llm_input', { prompt: 'B prompt', model: 'gpt-4', provider: 'openai' }, { sessionKey: 'session-B' });
+      harness.fire(
+        'llm_input',
+        { prompt: 'B prompt', model: 'gpt-4', provider: 'openai' },
+        { sessionKey: 'session-B' },
+      );
 
       // Session A gets LLM output
       harness.fire('llm_output', { response: 'A response' }, { sessionKey: 'session-A' });

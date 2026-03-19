@@ -6,7 +6,7 @@
  * be removed in favor of the `openclaw` package's own type definitions.
  */
 
-declare module "openclaw/plugin-sdk" {
+declare module 'openclaw/plugin-sdk' {
   export type OpenClawConfig = Record<string, unknown>;
 
   export type DiagnosticEventPayload = {
@@ -57,9 +57,7 @@ declare module "openclaw/plugin-sdk" {
     on: (event: string, handler: (event: unknown, ctx: unknown) => void) => void;
   };
 
-  export function onDiagnosticEvent(
-    handler: (event: DiagnosticEventPayload) => void,
-  ): () => void;
+  export function onDiagnosticEvent(handler: (event: DiagnosticEventPayload) => void): () => void;
 
   export function emptyPluginConfigSchema(): unknown;
 }
