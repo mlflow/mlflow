@@ -5,12 +5,14 @@ import os
 import shutil
 import stat
 import tarfile
+from pathlib import Path
 
 import pytest
 from pyspark.sql import SparkSession
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.pyfunc.dbconnect_artifact_cache import extract_archive_to_dir
 from mlflow.utils import file_utils
 from mlflow.utils.file_utils import (
     TempDir,
@@ -284,14 +286,14 @@ def test_check_tarfile_security(tmp_path):
         check_tarfile_security(tar4_path)
 
     # Symlink with absolute target
-    def create_tar_with_symlink_only(tar_path: str, link_name: str, link_target: str) -> None:
+    def create_tar_with_symlink_only(tar_path: Path, link_name: str, link_target: str) -> None:
         with tarfile.open(tar_path, "w:gz") as tar:
             link_info = tarfile.TarInfo(name=link_name)
             link_info.type = tarfile.SYMTYPE
             link_info.linkname = link_target
             tar.addfile(link_info)
 
-    tar5_path = str(tmp_path.joinpath("file5.tar"))
+    tar5_path = tmp_path / "file5.tar"
     create_tar_with_symlink_only(tar5_path, "escape", "/etc")
     with pytest.raises(
         MlflowException, match="Symlink with absolute target in the archive file is not allowed"
@@ -299,7 +301,7 @@ def test_check_tarfile_security(tmp_path):
         check_tarfile_security(tar5_path)
 
     # Symlink with relative target that escapes extraction directory
-    tar6_path = str(tmp_path.joinpath("file6.tar"))
+    tar6_path = tmp_path / "file6.tar"
     create_tar_with_symlink_only(tar6_path, "escape", "../../etc")
     with pytest.raises(
         MlflowException,
@@ -308,7 +310,7 @@ def test_check_tarfile_security(tmp_path):
         check_tarfile_security(tar6_path)
 
     # Symlink with absolute path as its own name
-    tar7_path = str(tmp_path.joinpath("file7.tar"))
+    tar7_path = tmp_path / "file7.tar"
     create_tar_with_symlink_only(tar7_path, "/tmp/escape", "foo")
     with pytest.raises(
         MlflowException, match="Absolute path destination in the archive file is not allowed"
@@ -316,7 +318,7 @@ def test_check_tarfile_security(tmp_path):
         check_tarfile_security(tar7_path)
 
     # Symlink whose name escapes with ..
-    tar8_path = str(tmp_path.joinpath("file8.tar"))
+    tar8_path = tmp_path / "file8.tar"
     create_tar_with_symlink_only(tar8_path, "../escape", "foo")
     with pytest.raises(
         MlflowException, match="Escaped path destination in the archive file is not allowed"
@@ -325,8 +327,6 @@ def test_check_tarfile_security(tmp_path):
 
 
 def test_extract_archive_to_dir_blocks_traversal(tmp_path):
-    from mlflow.pyfunc.dbconnect_artifact_cache import extract_archive_to_dir
-
     mal_tar = str(tmp_path / "malicious.tar.gz")
     with tarfile.open(mal_tar, "w:gz") as tar:
         info = tarfile.TarInfo("../../tmp/mlflow_tar_pwn.txt")

@@ -936,13 +936,13 @@ def check_tarfile_security(archive_path: str) -> None:
             # bypass on Windows where backslashes are treated as directory separators.
             path = posixpath.normpath(m.name.replace("\\", "/"))
             if path.startswith("/"):
-                raise MlflowException(
+                raise MlflowException.invalid_parameter_value(
                     "Absolute path destination in the archive file is not allowed, "
                     f"but got path {path}."
                 )
             path_parts = path.split("/")
             if path_parts[0] == "..":
-                raise MlflowException(
+                raise MlflowException.invalid_parameter_value(
                     "Escaped path destination in the archive file is not allowed, "
                     f"but got path {path}."
                 )
@@ -951,7 +951,7 @@ def check_tarfile_security(archive_path: str) -> None:
                 # Validate symlink targets don't escape the extraction directory
                 link_target = posixpath.normpath(m.linkname.replace("\\", "/"))
                 if link_target.startswith("/"):
-                    raise MlflowException(
+                    raise MlflowException.invalid_parameter_value(
                         "Symlink with absolute target in the archive file is not allowed, "
                         f"but got symlink {path} -> {link_target}."
                     )
@@ -959,7 +959,7 @@ def check_tarfile_security(archive_path: str) -> None:
                 symlink_parent = posixpath.dirname(path)
                 resolved = posixpath.normpath(posixpath.join(symlink_parent, link_target))
                 if resolved.startswith(".."):
-                    raise MlflowException(
+                    raise MlflowException.invalid_parameter_value(
                         "Symlink target that escapes the extraction directory is not allowed, "
                         f"but got symlink {path} -> {link_target}."
                     )
@@ -970,7 +970,7 @@ def check_tarfile_security(archive_path: str) -> None:
                 for prefix_len in range(1, len(path_parts) + 1):
                     prefix_path = "/".join(path_parts[:prefix_len])
                     if prefix_path in symlink_set:
-                        raise MlflowException(
+                        raise MlflowException.invalid_parameter_value(
                             "Destination path in the archive file can not go through a symlink, "
                             f"but got path {path}."
                         )
