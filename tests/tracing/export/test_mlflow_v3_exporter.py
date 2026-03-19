@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 import threading
@@ -545,6 +546,7 @@ def test_should_export_spans_incrementally_flag(monkeypatch, incremental_export_
             mock_log_spans.assert_not_called()
 
 
+@pytest.mark.skipif(not importlib.util.find_spec("fastapi"), reason="fastapi not installed")
 def test_gateway_disables_incremental_span_export(monkeypatch):
     monkeypatch.delenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", raising=False)
 
@@ -557,6 +559,7 @@ def test_gateway_disables_incremental_span_export(monkeypatch):
     assert os.environ.get("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT") == "false"
 
 
+@pytest.mark.skipif(not importlib.util.find_spec("fastapi"), reason="fastapi not installed")
 def test_gateway_respects_explicit_incremental_span_export(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "true")
 
