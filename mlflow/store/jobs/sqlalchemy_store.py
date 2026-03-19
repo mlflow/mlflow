@@ -412,7 +412,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         return self._update_job(job_id, JobStatus.CANCELED)
 
-    def update_job_metadata(self, job_id: str, metadata: dict[str, str]) -> None:
+    def update_job_metadata(self, job_id: str, metadata: dict[str, Any]) -> None:
         """
         Update job metadata.
 

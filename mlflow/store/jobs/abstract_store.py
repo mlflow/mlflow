@@ -151,7 +151,7 @@ class AbstractJobStore(ABC):
         """
 
     @abstractmethod
-    def update_job_metadata(self, job_id: str, metadata: dict[str, str]) -> None:
+    def update_job_metadata(self, job_id: str, metadata: dict[str, Any]) -> None:
         """
         Update job metadata.
 

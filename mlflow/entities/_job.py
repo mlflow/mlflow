@@ -113,7 +113,7 @@ class Job(_MlflowObject):
         return self._workspace
 
     @property
-    def metadata(self) -> dict[str, str] | None:
+    def metadata(self) -> dict[str, Any] | None:
         """Job metadata containing other runtime information."""
         return self._metadata
 

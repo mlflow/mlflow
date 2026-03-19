@@ -6,6 +6,7 @@ Create Date: 2026-03-18 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import mssql
 
 # revision identifiers, used by Alembic.
 revision = "a1b2c3d4e5f7"
@@ -14,8 +15,18 @@ branch_labels = None
 depends_on = None
 
 
+def _get_json_type():
+    """Get appropriate JSON type for the current database."""
+    dialect_name = op.get_bind().dialect.name
+    if dialect_name == "mssql":
+        return mssql.JSON
+    else:
+        return sa.JSON
+
+
 def upgrade():
-    op.add_column("jobs", sa.Column("job_metadata", sa.JSON(), nullable=True))
+    json_type = _get_json_type()
+    op.add_column("jobs", sa.Column("job_metadata", json_type, nullable=True))
 
 
 def downgrade():
