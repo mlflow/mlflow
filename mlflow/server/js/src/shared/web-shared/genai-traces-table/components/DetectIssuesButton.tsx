@@ -136,7 +136,7 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({
           </div>
           <div css={{ fontSize: theme.typography.fontSizeSm, color: theme.colors.textSecondary }}>
             <FormattedMessage
-              defaultMessage="Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like hallucinations, toxicity, and other quality concerns in your LLM outputs."
+              defaultMessage="Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like correctness, latency, and other quality concerns in your agent."
               description="Detect issues guidance popover message"
             />
           </div>

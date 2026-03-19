@@ -6315,6 +6315,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
+  "dEGUt+": {
+    "defaultMessage": "Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like correctness, latency, and other quality concerns in your agent.",
+    "description": "Detect issues guidance popover message"
+  },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
     "description": "Experiment page > new run modal > invalid state - no prompt template provided"
@@ -7398,10 +7402,6 @@
   "k5kAB3": {
     "defaultMessage": "Rejected ({count})",
     "description": "Issue status filter > Rejected button label"
-  },
-  "k6E3/P": {
-    "defaultMessage": "Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like hallucinations, toxicity, and other quality concerns in your LLM outputs.",
-    "description": "Detect issues guidance popover message"
   },
   "k7itje": {
     "defaultMessage": "Create webhook",
