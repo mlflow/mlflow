@@ -12,7 +12,7 @@ of MLflow, we may opt to backport patches to previous versions.
 
 ## Bounty Platform Policy
 
-Due to an excessive volume of low-quality, AI-generated reports (including duplicates, low-effort submissions, non-reproducible claims, and spam), **we no longer accept vulnerability reports through bounty platforms such as Huntr**. All reports submitted through such platforms will be automatically closed without review.
+Due to an excessive volume of low-quality, AI-generated reports (including duplicates, low-effort submissions, non-reproducible claims, and spam), **we no longer accept vulnerability reports through bounty platforms such as [Huntr](https://huntr.com/)**. All reports submitted through such platforms will be automatically closed without review.
 
 Please use the reporting process described below instead.
 
