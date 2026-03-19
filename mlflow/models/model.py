@@ -13,7 +13,7 @@ import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
-from mlflow.entities import LoggedModel, LoggedModelOutput, Metric
+from mlflow.entities import LoggedModel, LoggedModelOutput, Metric, RunOutputs
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.environment_variables import (
     MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
@@ -1199,6 +1199,18 @@ class Model:
                     log_model_metrics_for_step(
                         client=client, model_id=model.model_id, run_id=run_id, step=step
                     )
+                    # Update the active run's outputs in memory to keep it in sync with the server
+                    # This ensures that subsequent calls to log_metric can find the model
+                    # without requiring an explicit model_id parameter
+                    if (active_run := mlflow.active_run()) and active_run.info.run_id == run_id:
+                        if active_run.outputs is None:
+                            active_run._outputs = RunOutputs(
+                                model_outputs=[LoggedModelOutput(model.model_id, step=step)]
+                            )
+                        else:
+                            active_run.outputs._model_outputs.append(
+                                LoggedModelOutput(model.model_id, step=step)
+                            )
 
                 if prompts is not None:
                     # Convert to URIs for serialization
