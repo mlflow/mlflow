@@ -3618,26 +3618,34 @@ message DeleteTracesV3 {
 message ArchiveTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  // Optional: scope archival to a single workspace. If omitted (and all_workspaces is false),
-  // the policy is applied globally across all experiments.
+  // Optional: scope archival to a single workspace.
   optional string workspace = 1;
 
-  // Optional: if true, apply the archival policy independently per workspace (the server
-  // iterates over each workspace). Mutually exclusive with workspace.
-  optional bool all_workspaces = 2;
+  // Optional: only archive traces older than this duration.
+  optional google.protobuf.Duration older_than = 2;
 
-  // Optional: only archive traces older than this many days.
-  optional int64 older_than_days = 3;
-
-  // Optional: archive only these traces (by ID). When set, older_than_days is not required.
-  repeated string trace_ids = 4;
+  // Optional: archive only these traces (by ID). When set, older_than is not required.
+  repeated string trace_ids = 3;
 
   // Optional: limit archival to traces in this experiment (experiment ID string).
-  optional string experiment_id = 5;
+  optional string experiment_id = 4;
 
   // Optional: MLflow search filter to restrict which traces are archived (same syntax as
   // search_traces). Examples: state != 'ERROR', tag.environment = 'dev', feedback.quality IS NOT NULL.
-  optional string filter_string = 6;
+  optional string filter_string = 5;
+
+  // Controls how per-experiment retention tags interact with older_than.
+  enum RetentionBehavior {
+    // Default: use the more aggressive (shorter) of CLI and experiment retention.
+    USE_SHORTER = 0;
+    // Use the experiment's retention value even when it is longer than older_than.
+    HONOR_EXPERIMENT = 1;
+    // Ignore per-experiment retention tags; use only older_than.
+    OVERRIDE_EXPERIMENT = 2;
+  }
+
+  // Optional: controls per-experiment retention behavior (default USE_SHORTER).
+  optional RetentionBehavior retention_behavior = 6;
 
   message Response {
     optional int32 traces_archived = 1;

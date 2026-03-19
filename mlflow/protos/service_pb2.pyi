@@ -1006,25 +1006,33 @@ class DeleteTracesV3(_message.Message):
     def __init__(self, experiment_id: _Optional[str] = ..., max_timestamp_millis: _Optional[int] = ..., max_traces: _Optional[int] = ..., request_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class ArchiveTraces(_message.Message):
-    __slots__ = ("workspace", "all_workspaces", "older_than_days", "trace_ids", "experiment_id", "filter_string")
+    __slots__ = ("workspace", "older_than", "trace_ids", "experiment_id", "filter_string", "retention_behavior")
+    class RetentionBehavior(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        USE_SHORTER: _ClassVar[ArchiveTraces.RetentionBehavior]
+        HONOR_EXPERIMENT: _ClassVar[ArchiveTraces.RetentionBehavior]
+        OVERRIDE_EXPERIMENT: _ClassVar[ArchiveTraces.RetentionBehavior]
+    USE_SHORTER: ArchiveTraces.RetentionBehavior
+    HONOR_EXPERIMENT: ArchiveTraces.RetentionBehavior
+    OVERRIDE_EXPERIMENT: ArchiveTraces.RetentionBehavior
     class Response(_message.Message):
         __slots__ = ("traces_archived",)
         TRACES_ARCHIVED_FIELD_NUMBER: _ClassVar[int]
         traces_archived: int
         def __init__(self, traces_archived: _Optional[int] = ...) -> None: ...
     WORKSPACE_FIELD_NUMBER: _ClassVar[int]
-    ALL_WORKSPACES_FIELD_NUMBER: _ClassVar[int]
-    OLDER_THAN_DAYS_FIELD_NUMBER: _ClassVar[int]
+    OLDER_THAN_FIELD_NUMBER: _ClassVar[int]
     TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     FILTER_STRING_FIELD_NUMBER: _ClassVar[int]
+    RETENTION_BEHAVIOR_FIELD_NUMBER: _ClassVar[int]
     workspace: str
-    all_workspaces: bool
-    older_than_days: int
+    older_than: _duration_pb2.Duration
     trace_ids: _containers.RepeatedScalarFieldContainer[str]
     experiment_id: str
     filter_string: str
-    def __init__(self, workspace: _Optional[str] = ..., all_workspaces: bool = ..., older_than_days: _Optional[int] = ..., trace_ids: _Optional[_Iterable[str]] = ..., experiment_id: _Optional[str] = ..., filter_string: _Optional[str] = ...) -> None: ...
+    retention_behavior: ArchiveTraces.RetentionBehavior
+    def __init__(self, workspace: _Optional[str] = ..., older_than: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ..., trace_ids: _Optional[_Iterable[str]] = ..., experiment_id: _Optional[str] = ..., filter_string: _Optional[str] = ..., retention_behavior: _Optional[_Union[ArchiveTraces.RetentionBehavior, str]] = ...) -> None: ...
 
 class CalculateTraceFilterCorrelation(_message.Message):
     __slots__ = ("experiment_ids", "filter_string1", "filter_string2", "base_filter")
