@@ -51,9 +51,9 @@ class MlflowV3SpanExporter(SpanExporter):
         # Display handler is no-op when running outside of notebooks.
         self._display_handler = get_display_handler()
 
-        # A flag to cache the failure of exporting spans so that the client will not try to export
-        # spans again and trigger excessive server side errors. Default to True (optimistically
-        # assume the store supports span-level logging).
+        # Controls whether spans are exported incrementally via log_spans(). Initialized from the
+        # MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT env var, but may also be set to False at runtime
+        # if the store doesn't support span-level logging (e.g. FileStore, old servers).
         self._should_export_spans_incrementally = MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.get()
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:
