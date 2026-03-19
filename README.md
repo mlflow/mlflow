@@ -2,8 +2,8 @@
     <a href="https://mlflow.org/">
         <img alt="MLflow logo" src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/logo.svg" width="200" />
     </a>
+    <p>Deliver High-Quality AI, Fast</p>
 </h1>
-<h2 align="center" style="border-bottom: none">Deliver High-Quality AI, Fast</h2>
 <p align="center"><strong>The Open Source AI Engineering Platform for Agents, LLMs & Models</strong></p>
 
 <p align="center">
