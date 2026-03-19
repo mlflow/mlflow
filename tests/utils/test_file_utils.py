@@ -243,7 +243,7 @@ def test_check_tarfile_security(tmp_path):
     )
     with pytest.raises(
         MlflowException,
-        match="Symlink target that escapes the extraction directory is not allowed",
+        match="Escaped path destination in the archive file is not allowed",
     ):
         check_tarfile_security(tar2_path)
 
@@ -296,7 +296,7 @@ def test_check_tarfile_security(tmp_path):
     tar5_path = tmp_path / "file5.tar"
     create_tar_with_symlink_only(tar5_path, "escape", "/etc")
     with pytest.raises(
-        MlflowException, match="Symlink with absolute target in the archive file is not allowed"
+        MlflowException, match="Absolute path destination in the archive file is not allowed"
     ):
         check_tarfile_security(tar5_path)
 
@@ -305,7 +305,7 @@ def test_check_tarfile_security(tmp_path):
     create_tar_with_symlink_only(tar6_path, "escape", "../../etc")
     with pytest.raises(
         MlflowException,
-        match="Symlink target that escapes the extraction directory is not allowed",
+        match="Escaped path destination in the archive file is not allowed",
     ):
         check_tarfile_security(tar6_path)
 
@@ -325,16 +325,75 @@ def test_check_tarfile_security(tmp_path):
     ):
         check_tarfile_security(tar8_path)
 
+    # Hard link with escaping target
+    def create_tar_with_hardlink(tar_path: Path, name: str, linkname: str) -> None:
+        with tarfile.open(tar_path, "w:gz") as tar:
+            info = tarfile.TarInfo(name=name)
+            info.type = tarfile.LNKTYPE
+            info.linkname = linkname
+            tar.addfile(info)
+
+    tar9_path = tmp_path / "file9.tar"
+    create_tar_with_hardlink(tar9_path, "legit.txt", "../../etc/passwd")
+    with pytest.raises(
+        MlflowException, match="Escaped path destination in the archive file is not allowed"
+    ):
+        check_tarfile_security(tar9_path)
+
+    # Hard link with absolute target
+    tar10_path = tmp_path / "file10.tar"
+    create_tar_with_hardlink(tar10_path, "legit.txt", "/etc/passwd")
+    with pytest.raises(
+        MlflowException, match="Absolute path destination in the archive file is not allowed"
+    ):
+        check_tarfile_security(tar10_path)
+
+    # Windows drive-letter absolute path
+    tar11_path = tmp_path / "file11.tar"
+    create_tar_with_escaped_path(tar11_path, "C:/Windows/System32/evil.dll", b"ABX")
+    with pytest.raises(
+        MlflowException, match="Absolute path destination in the archive file is not allowed"
+    ):
+        check_tarfile_security(tar11_path)
+
 
 def test_extract_archive_to_dir_blocks_traversal(tmp_path):
-    mal_tar = str(tmp_path / "malicious.tar.gz")
+    # Test that check_tarfile_security blocks path traversal
+    mal_tar = tmp_path / "malicious.tar.gz"
     with tarfile.open(mal_tar, "w:gz") as tar:
-        info = tarfile.TarInfo("../../tmp/mlflow_tar_pwn.txt")
+        info = tarfile.TarInfo("../../escape.txt")
         data = b"owned via tar traversal"
         info.size = len(data)
         tar.addfile(info, fileobj=io.BytesIO(data))
 
-    dest = str(tmp_path / "extracted")
+    dest = tmp_path / "extracted"
+    escape_target = tmp_path.parent.parent / "escape.txt"
     with pytest.raises(MlflowException, match="Escaped path destination in the archive file"):
         extract_archive_to_dir(mal_tar, dest)
-    assert not os.path.exists("/tmp/mlflow_tar_pwn.txt")
+    assert not escape_target.exists()
+
+
+def test_safe_extractall_blocks_symlink_escape(tmp_path):
+    """Test that _safe_extractall blocks extraction when a filesystem symlink
+    inside dest_dir would cause a member to resolve outside dest_dir.
+    """
+    from mlflow.pyfunc.dbconnect_artifact_cache import _safe_extractall
+
+    dest = tmp_path / "extracted"
+    dest.mkdir()
+    # Create a symlink inside dest_dir pointing outside
+    escape_link = dest / "escape_link"
+    escape_link.symlink_to(tmp_path.parent)
+
+    # Create a tar with a file that goes through the symlink
+    mal_tar = tmp_path / "symlink_escape.tar.gz"
+    with tarfile.open(mal_tar, "w:gz") as tar:
+        info = tarfile.TarInfo("escape_link/pwned.txt")
+        data = b"escaped via filesystem symlink"
+        info.size = len(data)
+        tar.addfile(info, fileobj=io.BytesIO(data))
+
+    with tarfile.open(mal_tar, "r") as tar:
+        with pytest.raises(MlflowException, match="would be extracted outside"):
+            _safe_extractall(tar, dest)
+    assert not (tmp_path.parent / "pwned.txt").exists()

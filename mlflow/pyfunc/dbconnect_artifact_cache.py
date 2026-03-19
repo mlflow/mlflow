@@ -152,7 +152,7 @@ def _safe_extractall(tar, dest_dir):
     for member in tar.getmembers():
         member_path = (resolved_dest / member.name).resolve()
         if not (member_path == resolved_dest or resolved_dest in member_path.parents):
-            raise MlflowException(
+            raise MlflowException.invalid_parameter_value(
                 f"Tar archive member {member.name!r} would be extracted outside "
                 f"the destination directory."
             )
