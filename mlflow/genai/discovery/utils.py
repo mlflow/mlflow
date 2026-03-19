@@ -75,7 +75,7 @@ class _TokenCounter:
         cost_usd: float = 0.0,
         model: str | None = None,
     ):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
         self._cost_usd = cost_usd
@@ -93,7 +93,9 @@ class _TokenCounter:
                         self._model, self.input_tokens, self.output_tokens
                     ):
                         self._cost_usd = cost
-                self._cost_resolved = True
+                # Mark resolved once we've attempted lookup with tokens present,
+                # or when there are no tokens yet (nothing to look up).
+                self._cost_resolved = total > 0 or not self._model
             return self._cost_usd or None
 
     def add_cost(self, cost: float) -> None:
@@ -165,7 +167,7 @@ def _call_llm_via_litellm(
         num_retries=NUM_RETRIES,
         response_format=use_format,
         include_response_format=use_format is not None,
-        inference_params={"max_completion_tokens": LLM_MAX_TOKENS},
+        inference_params={"max_tokens": LLM_MAX_TOKENS},
     )
     if token_counter is not None:
         token_counter.track(response)
@@ -197,7 +199,7 @@ def _call_llm_via_gateway(
     provider_name, model_name = _parse_model_uri(model)
     provider = _get_provider_instance(provider_name, model_name)
 
-    payload = {"messages": messages, "max_completion_tokens": LLM_MAX_TOKENS}
+    payload = {"messages": messages, "max_tokens": LLM_MAX_TOKENS}
     if response_format is not None:
         payload["response_format"] = _pydantic_to_response_format(response_format)
     elif json_mode:
