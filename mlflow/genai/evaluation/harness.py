@@ -61,6 +61,7 @@ from mlflow.genai.evaluation.rate_limiter import (
 from mlflow.genai.evaluation.session_utils import (
     classify_scorers,
     evaluate_session_level_scorers,
+    get_first_trace_in_session,
     group_traces_by_session,
 )
 from mlflow.genai.evaluation.telemetry import emit_metric_usage_event
@@ -87,39 +88,6 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
-
-
-def _log_multi_turn_assessments_to_traces(
-    multi_turn_assessments: dict[str, list[Feedback]],
-    eval_results: list[EvalResult],
-    run_id: str,
-) -> None:
-    """Log multi-turn assessments to traces in parallel."""
-
-    def _log_for_result(eval_result: EvalResult) -> None:
-        if eval_result.eval_item.trace is None:
-            return
-        trace_id = eval_result.eval_item.trace.info.trace_id
-        if trace_id not in multi_turn_assessments:
-            return
-        assessments_list = multi_turn_assessments[trace_id]
-        try:
-            _log_assessments(
-                run_id=run_id,
-                trace=eval_result.eval_item.trace,
-                assessments=assessments_list,
-            )
-            eval_result.assessments.extend(assessments_list)
-        except Exception as e:
-            _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
-
-    with ThreadPoolExecutor(
-        max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
-        thread_name_prefix="MlflowGenAIEvalLogAssessments",
-    ) as executor:
-        futures = [executor.submit(_log_for_result, er) for er in eval_results]
-        for future in as_completed(futures):
-            future.result()
 
 
 AUTO_INITIAL_RPS = 10.0
@@ -487,6 +455,19 @@ class _ScoreSubmitter:
     def _timed_multi_turn_score(self, **kwargs) -> dict[str, list[Feedback]]:
         start = time.monotonic()
         result = evaluate_session_level_scorers(**kwargs)
+        # Log assessments to traces from the worker thread (like single-turn _run_score).
+        session_items = kwargs["session_items"]
+        first_item = get_first_trace_in_session(session_items)
+        for feedbacks in result.values():
+            try:
+                _log_assessments(
+                    run_id=self._run_id,
+                    trace=first_item.trace,
+                    assessments=feedbacks,
+                )
+            except Exception as e:
+                trace_id = first_item.trace.info.trace_id
+                _logger.warning(f"Failed to log multi-turn assessments for trace {trace_id}: {e}")
         with self._time_lock:
             self._times.append(time.monotonic() - start)
         return result
@@ -552,7 +533,7 @@ def _run_pipeline(
         pool_workers=predict_workers,
         score_workers=score_workers,
     )
-    scorer = _ScoreSubmitter(
+    scorer_submitter = _ScoreSubmitter(
         eval_items,
         single_turn_scorers,
         multi_turn_scorers,
@@ -566,7 +547,11 @@ def _run_pipeline(
     )
 
     try:
-        heartbeat = _Heartbeat(predictor, scorer, len(eval_items)) if single_turn_scorers else None
+        heartbeat = (
+            _Heartbeat(predictor, scorer_submitter, len(eval_items))
+            if single_turn_scorers
+            else None
+        )
 
         predictor.start()
         pending: set[Future] = set()
@@ -592,13 +577,13 @@ def _run_pipeline(
                     idx = predictor.on_complete(future)
                     items_predicted += 1
                     if single_turn_scorers:
-                        pending.add(scorer.submit(idx))
+                        pending.add(scorer_submitter.submit(idx))
                     else:
                         predictor.release_slot()
                         eval_results[idx] = EvalResult(eval_item=eval_items[idx], assessments=[])
                         items_done += 1
                 else:
-                    idx, result = scorer.on_complete(future)
+                    idx, result = scorer_submitter.on_complete(future)
                     _logger.debug(f"Score completed for item {idx}")
                     eval_results[idx] = result
                     predictor.release_slot()
@@ -612,12 +597,12 @@ def _run_pipeline(
         # is provided (simulation mode), single-turn scoring creates the traces that
         # multi-turn scorers consume. The traces must exist before they can be grouped
         # into sessions, so the two phases cannot overlap.
-        scorer.run_multi_turn(multi_turn_assessments, progress_bar)
+        scorer_submitter.run_multi_turn(multi_turn_assessments, progress_bar)
 
-        return predictor.predict_times, scorer.score_times
+        return predictor.predict_times, scorer_submitter.score_times
     finally:
         predictor.shutdown()
-        scorer.shutdown()
+        scorer_submitter.shutdown()
 
 
 @context.eval_context
@@ -686,12 +671,14 @@ def run(
                 progress_bar.refresh()
             progress_bar.close()
 
-    if multi_turn_assessments:
-        _log_multi_turn_assessments_to_traces(
-            multi_turn_assessments=multi_turn_assessments,
-            eval_results=eval_results,
-            run_id=run_id,
-        )
+    # Assessments were already logged to traces from worker threads in _timed_multi_turn_score.
+    # Attach them to eval_results for the result DataFrame.
+    for result in eval_results:
+        if result.eval_item.trace is None:
+            continue
+        trace_id = result.eval_item.trace.info.trace_id
+        if trace_id in multi_turn_assessments:
+            result.assessments.extend(multi_turn_assessments[trace_id])
 
     # Link traces to the run if the backend support it
     batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
