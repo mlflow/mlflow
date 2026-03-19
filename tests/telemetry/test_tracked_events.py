@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 import sklearn.neighbors as knn
 from click.testing import CliRunner
+from fastapi import Request
 
 import mlflow
 from mlflow import MlflowClient
@@ -31,6 +32,7 @@ from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.gateway.cli import start
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas import chat
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.judges import make_judge
@@ -1814,6 +1816,7 @@ def test_gateway_crud_telemetry(mock_requests, mock_telemetry_client: TelemetryC
             "has_fallback_config": False,
             "routing_strategy": None,
             "num_model_configs": 1,
+            "usage_tracking": True,
         },
     )
 
@@ -1852,6 +1855,7 @@ def test_gateway_crud_telemetry(mock_requests, mock_telemetry_client: TelemetryC
             "has_fallback_config": False,
             "routing_strategy": None,
             "num_model_configs": None,
+            "usage_tracking": None,
         },
     )
 
@@ -2144,6 +2148,39 @@ async def test_gateway_invocation_telemetry(
         mock_requests,
         GatewayInvocationEvent.name,
         {"is_streaming": True, "invocation_type": "mlflow_chat_completions"},
+    )
+
+    # Test that caller header is included in telemetry when present
+    mock_request = MagicMock(spec=Request)
+    mock_request.json = AsyncMock(
+        return_value={
+            "model": endpoint.name,
+            "messages": [{"role": "user", "content": "Hi"}],
+            "stream": False,
+        }
+    )
+    mock_request.headers = {MLFLOW_GATEWAY_CALLER_HEADER: "judge"}
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.chat = AsyncMock(return_value=mock_response)
+        mock_endpoint_config = GatewayEndpointConfig(
+            endpoint_id=endpoint.endpoint_id, endpoint_name=endpoint.name, models=[]
+        )
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
+
+        await chat_completions(mock_request)
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        GatewayInvocationEvent.name,
+        {"is_streaming": False, "invocation_type": "mlflow_chat_completions", "caller": "judge"},
     )
 
 

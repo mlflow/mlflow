@@ -8,8 +8,8 @@ import { DetailsPageLayout } from '../../../../common/components/details-page-la
 import { DetailsOverviewCopyableIdBox } from '../../DetailsOverviewCopyableIdBox';
 import { RunViewStatusBox } from './RunViewStatusBox';
 import { RunViewUserLinkBox } from './RunViewUserLinkBox';
-import { IssueDetectionProgress } from './IssueDetectionProgress';
-import { useFetchIssueJobStatus, isJobComplete } from '../hooks/useFetchIssueJobStatus';
+import { IssueDetectionProgress, type IssueJobResult } from './IssueDetectionProgress';
+import { useFetchJobStatus, isJobComplete, JobStatus } from '../hooks/useFetchJobStatus';
 import Routes from '../../../routes';
 import type { RunInfoEntity } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
@@ -35,14 +35,19 @@ export const IssueDetectionRunOverview = ({
 
   const {
     status: jobStatus,
-    result,
-    errorMessage: jobErrorMessage,
+    result: rawResult,
     isLoading: isLoadingJobStatus,
     error: jobStatusError,
-  } = useFetchIssueJobStatus({
+  } = useFetchJobStatus({
     jobId,
     enabled: !!jobId,
   });
+
+  // Parse issue-specific result format
+  const isFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT;
+  const jobErrorMessage = isFailed && typeof rawResult === 'string' ? rawResult : undefined;
+  const result =
+    !isFailed && typeof rawResult === 'object' && rawResult !== null ? (rawResult as IssueJobResult) : undefined;
 
   const model = tags['model']?.value;
   const categoriesStr = tags['categories']?.value;

@@ -173,4 +173,58 @@ describe('SelectTracesModal', () => {
       '_blank',
     );
   });
+
+  test('should pass initialGroupBySession=true to TracesV3Logs when defaultGroupBySession is true', async () => {
+    render(
+      <IntlProvider locale="en">
+        <TestRouter
+          history={history}
+          routes={[
+            testRoute(
+              <DesignSystemProvider>
+                <SelectTracesModal defaultGroupBySession />
+              </DesignSystemProvider>,
+              '/experiments/:experimentId',
+            ),
+          ]}
+          initialEntries={[`/experiments/${testExperimentId}`]}
+        />
+      </IntlProvider>,
+    );
+    await waitForRoutesToBeRendered();
+
+    // Verify TracesV3Logs was called with initialGroupBySession=true
+    const calls = jest.mocked(TracesV3Logs).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[calls.length - 1][0]).toMatchObject({
+      initialGroupBySession: true,
+    });
+  });
+
+  test('should pass initialGroupBySession=false to TracesV3Logs when defaultGroupBySession is false', async () => {
+    render(
+      <IntlProvider locale="en">
+        <TestRouter
+          history={history}
+          routes={[
+            testRoute(
+              <DesignSystemProvider>
+                <SelectTracesModal defaultGroupBySession={false} />
+              </DesignSystemProvider>,
+              '/experiments/:experimentId',
+            ),
+          ]}
+          initialEntries={[`/experiments/${testExperimentId}`]}
+        />
+      </IntlProvider>,
+    );
+    await waitForRoutesToBeRendered();
+
+    // Verify TracesV3Logs was called with initialGroupBySession=false
+    const calls = jest.mocked(TracesV3Logs).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[calls.length - 1][0]).toMatchObject({
+      initialGroupBySession: false,
+    });
+  });
 });

@@ -33,6 +33,7 @@ env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   PYTHONUTF8: "1"
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 jobs:
   core:

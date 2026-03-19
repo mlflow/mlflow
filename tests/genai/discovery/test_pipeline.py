@@ -11,14 +11,19 @@ from mlflow.genai.discovery.constants import (
     DEFAULT_SCORER_NAME,
     build_satisfaction_instructions,
 )
-from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
+from mlflow.genai.discovery.entities import (
+    Issue,
+    _ConversationAnalysis,
+    _IdentifiedIssue,
+    _TriageResult,
+)
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
     _is_non_issue,
     build_issue_discovery_scorer,
     discover_issues,
 )
-from mlflow.genai.discovery.utils import verify_scorer
+from mlflow.genai.discovery.utils import get_session_id, verify_scorer
 from mlflow.genai.evaluation.context import NoneContext, _set_context
 from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
@@ -78,7 +83,7 @@ def test_discover_issues_all_traces_pass(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=_TriageResult([], {}, {}),
         ) as mock_extract,
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
@@ -122,7 +127,7 @@ def test_discover_issues_full_pipeline(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
+            return_value=_TriageResult(failing, rationale_map, {}),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -179,7 +184,7 @@ def test_discover_issues_low_severity_issues_filtered(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
+            return_value=_TriageResult(failing, rationale_map, {}),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -245,7 +250,7 @@ def test_discover_issues_custom_satisfaction_scorer(make_trace):
         ) as mock_eval,
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=_TriageResult([], {}, {}),
         ),
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
@@ -275,7 +280,7 @@ def test_discover_issues_additional_scorers(make_trace):
         ) as mock_eval,
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=_TriageResult([], {}, {}),
         ),
         patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
         patch(
@@ -351,7 +356,7 @@ def test_discover_issues_filters_non_issues(make_trace, issue_name):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
+            return_value=_TriageResult(failing, rationale_map, {}),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -854,7 +859,7 @@ def test_discover_issues_with_custom_run_id(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=_TriageResult([], {}, {}),
         ),
     ):
         result = discover_issues(traces=traces, run_id=custom_run_id)
@@ -870,7 +875,7 @@ def test_discover_issues_tags_run_with_issue_detection_marker(make_trace):
         patch("mlflow.genai.discovery.pipeline.verify_scorer"),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=_TriageResult([], {}, {}),
         ),
     ):
         result = discover_issues(traces=traces, scorers=[scorer])
@@ -935,7 +940,7 @@ def test_discover_issues_returns_total_cost_usd_field(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
+            return_value=_TriageResult(failing, rationale_map, {}),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -1009,7 +1014,7 @@ def test_discover_issues_returns_cost_when_all_pass(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=([], {}),
+            return_value=_TriageResult([], {}, {}),
         ),
     ):
         result = discover_issues(traces=traces)
@@ -1049,7 +1054,7 @@ def test_discover_issues_filters_invalid_categories(make_trace):
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failing_traces",
-            return_value=(failing, rationale_map),
+            return_value=_TriageResult(failing, rationale_map, {}),
         ),
         patch(
             "mlflow.genai.discovery.pipeline.extract_failure_labels",
@@ -1075,3 +1080,37 @@ def test_discover_issues_filters_invalid_categories(make_trace):
     mock_summarize.assert_called_once()
     call_kwargs = mock_summarize.call_args.kwargs
     assert call_kwargs["categories"] == ["hallucination", "tool_error"]
+
+
+def test_discover_issues_with_mixed_session_traces(make_trace):
+
+    traces = [
+        make_trace(session_id="session-1"),
+        make_trace(session_id="session-1"),
+        make_trace(session_id=None),
+        make_trace(session_id=None),
+    ]
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.verify_scorer") as mock_verify,
+        patch(
+            "mlflow.genai.discovery.pipeline.mlflow.genai.evaluate",
+            return_value=_triage_eval(),
+        ),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult([], {}, {}),
+        ),
+    ):
+        result = discover_issues(
+            traces=traces,
+        )
+
+    assert result is not None
+    assert result.total_traces_analyzed == 4
+
+    mock_verify.assert_called_once()
+    call_kwargs = mock_verify.call_args.kwargs
+    assert call_kwargs["session"] is not None
+
+    assert all(get_session_id(t) is not None for t in call_kwargs["session"])

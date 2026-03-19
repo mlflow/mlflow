@@ -4677,6 +4677,50 @@ def test_search_issues_empty_results():
         assert json_response["next_page_token"] == ""
 
 
+def test_search_issues_with_trace_count():
+    request_message = SearchIssues()
+    request_message.include_trace_count = True
+
+    issues = [
+        Issue(
+            issue_id="iss-1",
+            experiment_id="exp-1",
+            name="Issue with traces",
+            description="Has 2 traces",
+            status=IssueStatus.PENDING,
+            created_timestamp=1234567890,
+            last_updated_timestamp=1234567890,
+            trace_count=2,
+        ),
+        Issue(
+            issue_id="iss-2",
+            experiment_id="exp-1",
+            name="Issue without traces",
+            description="Has no traces",
+            status=IssueStatus.PENDING,
+            created_timestamp=1234567891,
+            last_updated_timestamp=1234567891,
+            trace_count=0,
+        ),
+    ]
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.search_issues.return_value = PagedList(issues, token=None)
+
+        response = _search_issues()
+
+        call_kwargs = mock_store.return_value.search_issues.call_args[1]
+        assert call_kwargs["include_trace_count"] is True
+
+        json_response = json.loads(response.get_data())
+        assert len(json_response["issues"]) == 2
+        assert json_response["issues"][0]["trace_count"] == 2
+        assert json_response["issues"][1]["trace_count"] == 0
+
+
 def test_create_issue_with_empty_lists():
     request_message = CreateIssue()
     request_message.experiment_id = "exp-123"
@@ -4852,7 +4896,7 @@ def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):
         )
 
 
-def test_get_issue_detection_job_success(mock_job_store):
+def test_get_job_success(mock_job_store):
     mock_job = JobEntity(
         job_id="job-123",
         creation_time=1234567890000,
@@ -4869,7 +4913,7 @@ def test_get_issue_detection_job_success(mock_job_store):
         mock.patch("mlflow.server.jobs.get_job", return_value=mock_job),
         app.test_client() as c,
     ):
-        resp = c.get("/ajax-api/3.0/mlflow/issues/job/job-123")
+        resp = c.get("/ajax-api/3.0/mlflow/jobs/job-123")
         assert resp.status_code == 200
         json_response = resp.get_json()
 
@@ -4879,7 +4923,7 @@ def test_get_issue_detection_job_success(mock_job_store):
         assert json_response["result"]["total_traces_analyzed"] == 10
 
 
-def test_get_issue_detection_job_pending(mock_job_store):
+def test_get_job_pending(mock_job_store):
     mock_job = JobEntity(
         job_id="job-pending",
         creation_time=1234567890000,
@@ -4896,7 +4940,7 @@ def test_get_issue_detection_job_pending(mock_job_store):
         mock.patch("mlflow.server.jobs.get_job", return_value=mock_job),
         app.test_client() as c,
     ):
-        resp = c.get("/ajax-api/3.0/mlflow/issues/job/job-pending")
+        resp = c.get("/ajax-api/3.0/mlflow/jobs/job-pending")
         assert resp.status_code == 200
         json_response = resp.get_json()
 

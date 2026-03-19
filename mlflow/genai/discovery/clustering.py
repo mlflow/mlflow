@@ -8,6 +8,7 @@ from pydantic import BaseModel as _BaseModel
 from mlflow.entities.issue import IssueSeverity
 from mlflow.genai.discovery.constants import (
     CLUSTER_LABELS_PROMPT_TEMPLATE,
+    _format_cluster_categories,
     build_cluster_summary_prompt,
 )
 from mlflow.genai.discovery.entities import (
@@ -32,6 +33,7 @@ def cluster_by_llm(
     labels: list[str],
     max_issues: int,
     model: str,
+    categories: list[str] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> list[list[int]]:
     """
@@ -46,6 +48,7 @@ def cluster_by_llm(
         labels: Failure labels to cluster.
         max_issues: Maximum number of groups to produce.
         model: Model URI for the clustering LLM.
+        categories: Optional issue categories to use as a grouping signal.
         token_counter: Optional token counter for tracking LLM usage.
 
     Returns:
@@ -56,6 +59,7 @@ def cluster_by_llm(
         num_labels=len(labels),
         max_issues=max_issues,
         numbered_labels=numbered,
+        categories_context=_format_cluster_categories(categories),
     )
 
     response = _call_llm(
@@ -131,6 +135,8 @@ def summarize_cluster(
         entry = f"[{i}] {analysis.rationale_summary}"
         if analysis.execution_path:
             entry += f"\n  execution_path: {analysis.execution_path}"
+        if analysis.categories:
+            entry += f"\n  categories: {', '.join(analysis.categories)}"
         parts.append(entry)
     analyses_text = "\n\n".join(parts)
 
