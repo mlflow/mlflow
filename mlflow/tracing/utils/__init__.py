@@ -11,6 +11,7 @@ from dataclasses import asdict, fields, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
+import pydantic
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -72,13 +73,8 @@ class TraceJSONEncoder(json.JSONEncoder):
     """
 
     def default(self, obj):
-        try:
-            import pydantic
-
-            if isinstance(obj, pydantic.BaseModel):
-                return obj.model_dump()
-        except ImportError:
-            pass
+        if isinstance(obj, pydantic.BaseModel):
+            return obj.model_dump()
 
         # Some dataclass object defines __str__ method that doesn't return the full object
         # representation, so we use dict representation instead.

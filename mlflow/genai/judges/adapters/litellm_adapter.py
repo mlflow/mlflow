@@ -22,6 +22,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
     AdapterInvocationOutput,
@@ -168,8 +169,10 @@ def _invoke_litellm(
         include_response_format: Whether to include response_format in the request.
         inference_params: Optional dictionary of additional inference parameters to pass
             to the model (e.g., temperature, top_p, max_tokens).
-        api_base: Optional API base URL (used for gateway routing).
-        api_key: Optional API key (used for gateway routing).
+        api_base: Optional API base URL (used for gateway routing or proxy).
+        api_key: Optional API key (used for gateway routing or proxy).
+        extra_headers: Optional dictionary of additional HTTP headers to include
+            in requests to the LLM provider.
 
     Returns:
         The litellm ModelResponse object.
@@ -222,6 +225,8 @@ def _invoke_litellm_and_handle_tools(
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
     inference_params: dict[str, Any] | None = None,
+    base_url: str | None = None,
+    extra_headers: dict[str, str] | None = None,
 ) -> InvokeLiteLLMOutput:
     """
     Invoke litellm with retry support and handle tool calling loop.
@@ -260,13 +265,22 @@ def _invoke_litellm_and_handle_tools(
         config = get_gateway_litellm_config(model_name)
         api_base = config.api_base
         api_key = config.api_key
-        extra_headers = config.extra_headers
+        extra_headers = {
+            **(config.extra_headers or {}),
+            MLFLOW_GATEWAY_CALLER_HEADER: GatewayCaller.JUDGE.value,
+        }
         model = config.model
     else:
         model = f"{provider}/{model_name}"
-        api_base = None
-        api_key = None
-        extra_headers = None
+        if base_url is not None:
+            api_base = base_url
+            # Let litellm resolve the API key from environment variables (e.g., OPENAI_API_KEY).
+            # If extra_headers contains an Authorization header, it takes precedence over
+            # any key resolved from environment variables.
+            api_key = None
+        else:
+            api_base = None
+            api_key = None
 
     tools = []
     if trace is not None:
@@ -552,6 +566,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
         return _is_litellm_available()
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
         from mlflow.types.llm import ChatMessage
 
         messages = (
@@ -561,6 +576,17 @@ class LiteLLMAdapter(BaseJudgeAdapter):
         )
 
         is_model_provider_databricks = input_params.model_provider in ("databricks", "endpoints")
+
+        # Reject base_url / extra_headers for Databricks providers
+        if is_model_provider_databricks and (
+            input_params.base_url is not None or input_params.extra_headers is not None
+        ):
+            raise MlflowException(
+                "base_url and extra_headers are not supported for Databricks endpoints. "
+                "The endpoint URL is determined by Databricks workspace configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         try:
             output = _invoke_litellm_and_handle_tools(
                 provider=input_params.model_provider,
@@ -570,6 +596,8 @@ class LiteLLMAdapter(BaseJudgeAdapter):
                 num_retries=input_params.num_retries,
                 response_format=input_params.response_format,
                 inference_params=input_params.inference_params,
+                base_url=input_params.base_url,
+                extra_headers=input_params.extra_headers,
             )
 
             cleaned_response = _strip_markdown_code_blocks(output.response)

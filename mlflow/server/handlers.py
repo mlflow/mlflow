@@ -781,8 +781,8 @@ def _assert_item_type_string(x):
 
 
 def _assert_secret_value(x):
-    """Validate secret_value is a non-empty dict without ever printing the values in errors."""
-    if not x:
+    """Validate secret_value is present. Does not print values in errors."""
+    if x is None:
         raise MlflowException(
             message="Missing value for required parameter 'secret_value'.",
             error_code=INVALID_PARAMETER_VALUE,
@@ -4168,6 +4168,9 @@ def _search_issues():
     if request_message.HasField("max_results"):
         search_kwargs["max_results"] = request_message.max_results
 
+    if request_message.HasField("include_trace_count"):
+        search_kwargs["include_trace_count"] = request_message.include_trace_count
+
     issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]
@@ -4255,7 +4258,7 @@ def _invoke_issue_detection_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_issue_detection_job(job_id):
+def _get_job(job_id):
     from mlflow.server.jobs import get_job
 
     job = get_job(job_id)
@@ -5803,11 +5806,6 @@ def get_issues_detection_endpoints():
             _invoke_issue_detection_handler,
             ["POST"],
         ),
-        (
-            _get_ajax_path("/mlflow/issues/job/<job_id>", version=3),
-            _get_issue_detection_job,
-            ["GET"],
-        ),
     ]
 
 
@@ -5817,6 +5815,11 @@ def get_job_endpoints():
             _get_ajax_path("/mlflow/jobs/cancel/<job_id>", version=3),
             _cancel_job,
             ["PATCH"],
+        ),
+        (
+            _get_ajax_path("/mlflow/jobs/<job_id>", version=3),
+            _get_job,
+            ["GET"],
         ),
     ]
 

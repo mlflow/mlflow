@@ -115,6 +115,7 @@ const TracesV3LogsImpl = React.memo(
     isLoadingExperiment,
     loggedModelId,
     forceGroupBySession = false,
+    initialGroupBySession = false,
     columnStorageKeyPrefix,
     additionalFilters,
     disableActions = false,
@@ -130,6 +131,8 @@ const TracesV3LogsImpl = React.memo(
     isLoadingExperiment?: boolean;
     loggedModelId?: string;
     forceGroupBySession?: boolean;
+    /** Initial state for session grouping. */
+    initialGroupBySession?: boolean;
     /**
      * Optional prefix for the localStorage key used to persist column selection.
      * Use this to separate column selection state between different views.
@@ -153,7 +156,7 @@ const TracesV3LogsImpl = React.memo(
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
-    const [isGroupedBySession, setIsGroupedBySession] = useState(false);
+    const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
     const { showIssueDetectionNotification, notificationContextHolder } =
       useIssueDetectionNotification(singleExperimentId);
@@ -523,6 +526,7 @@ const TracesV3LogsImpl = React.memo(
                 .map(([traceId]) => traceId)}
               availableTraceIds={traceInfos?.map((trace) => trace.trace_id) ?? []}
               onSubmitSuccess={showIssueDetectionNotification}
+              defaultGroupBySession={forceGroupBySession || isGroupedBySession}
             />
           )}
           {notificationContextHolder}

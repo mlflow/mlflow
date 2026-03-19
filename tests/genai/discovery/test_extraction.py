@@ -154,13 +154,13 @@ def test_extract_failing_traces(make_trace):
     _add_feedback(traces[1], "satisfaction", False, "bad response")
     _add_feedback(traces[2], "satisfaction", False, "incomplete")
 
-    failing, rationales = extract_failing_traces(_refetch(traces), "satisfaction")
+    result = extract_failing_traces(_refetch(traces), "satisfaction")
 
-    assert len(failing) == 2
-    assert failing[0].info.trace_id == traces[1].info.trace_id
-    assert failing[1].info.trace_id == traces[2].info.trace_id
-    assert rationales[traces[1].info.trace_id] == "bad response"
-    assert rationales[traces[2].info.trace_id] == "incomplete"
+    assert len(result.failing_traces) == 2
+    assert result.failing_traces[0].info.trace_id == traces[1].info.trace_id
+    assert result.failing_traces[1].info.trace_id == traces[2].info.trace_id
+    assert result.rationale_map[traces[1].info.trace_id] == "bad response"
+    assert result.rationale_map[traces[2].info.trace_id] == "incomplete"
 
 
 def test_extract_failing_traces_with_list_of_scorer_names(make_trace):
@@ -172,13 +172,13 @@ def test_extract_failing_traces_with_list_of_scorer_names(make_trace):
     _add_feedback(traces[2], "satisfaction", True, "good")
     _add_feedback(traces[2], "quality", False, "poor quality")
 
-    failing, rationales = extract_failing_traces(_refetch(traces), ["satisfaction", "quality"])
+    result = extract_failing_traces(_refetch(traces), ["satisfaction", "quality"])
 
-    assert len(failing) == 2
-    assert failing[0].info.trace_id == traces[1].info.trace_id
-    assert failing[1].info.trace_id == traces[2].info.trace_id
-    assert rationales[traces[1].info.trace_id] == "bad response"
-    assert rationales[traces[2].info.trace_id] == "poor quality"
+    assert len(result.failing_traces) == 2
+    assert result.failing_traces[0].info.trace_id == traces[1].info.trace_id
+    assert result.failing_traces[1].info.trace_id == traces[2].info.trace_id
+    assert result.rationale_map[traces[1].info.trace_id] == "bad response"
+    assert result.rationale_map[traces[2].info.trace_id] == "poor quality"
 
 
 def test_extract_failing_traces_multiple_scorers_fail_same_row(make_trace):
@@ -188,35 +188,35 @@ def test_extract_failing_traces_multiple_scorers_fail_same_row(make_trace):
     _add_feedback(traces[1], "scorer_a", True, "ok")
     _add_feedback(traces[1], "scorer_b", True, "ok")
 
-    failing, rationales = extract_failing_traces(_refetch(traces), ["scorer_a", "scorer_b"])
+    result = extract_failing_traces(_refetch(traces), ["scorer_a", "scorer_b"])
 
-    assert len(failing) == 1
-    assert failing[0].info.trace_id == traces[0].info.trace_id
-    assert "reason a" in rationales[traces[0].info.trace_id]
-    assert "reason b" in rationales[traces[0].info.trace_id]
+    assert len(result.failing_traces) == 1
+    assert result.failing_traces[0].info.trace_id == traces[0].info.trace_id
+    assert "reason a" in result.rationale_map[traces[0].info.trace_id]
+    assert "reason b" in result.rationale_map[traces[0].info.trace_id]
 
 
 def test_extract_failing_traces_empty_list():
-    failing, rationales = extract_failing_traces([], "satisfaction")
-    assert failing == []
-    assert rationales == {}
+    result = extract_failing_traces([], "satisfaction")
+    assert result.failing_traces == []
+    assert result.rationale_map == {}
 
 
 def test_extract_failing_traces_no_matching_scorer(make_trace):
     traces = [make_trace()]
     _add_feedback(traces[0], "other_scorer", False, "bad")
 
-    failing, rationales = extract_failing_traces(_refetch(traces), "satisfaction")
-    assert failing == []
+    result = extract_failing_traces(_refetch(traces), "satisfaction")
+    assert result.failing_traces == []
 
 
 def test_extract_failing_traces_no_failures(make_trace):
     traces = [make_trace()]
     _add_feedback(traces[0], "satisfaction", True, "good")
 
-    failing, rationales = extract_failing_traces(_refetch(traces), "satisfaction")
-    assert failing == []
-    assert rationales == {}
+    result = extract_failing_traces(_refetch(traces), "satisfaction")
+    assert result.failing_traces == []
+    assert result.rationale_map == {}
 
 
 # ---- extract_assessment_rationale ----
