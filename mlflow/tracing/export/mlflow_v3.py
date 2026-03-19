@@ -68,11 +68,12 @@ class MlflowV3SpanExporter(SpanExporter):
 
         if self._should_export_spans_incrementally:
             self._export_spans_incrementally(spans)
-        else:
+        elif self._store_supports_log_spans:
             # Even when incremental export is disabled, remote/distributed trace spans
             # must still be exported incrementally because they are non-root spans that
             # _export_traces() skips. Without this, distributed mirror spans (e.g. from
             # gateway traceparent headers) would be silently dropped.
+            # Skip this if the store doesn't support log_spans to avoid repeated failures.
             if remote_spans := self._filter_remote_trace_spans(spans):
                 self._export_spans_incrementally(remote_spans)
 
