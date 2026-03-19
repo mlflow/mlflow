@@ -11,6 +11,7 @@ import {
   EXECUTION_DURATION_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
+  SESSION_COLUMN_ID,
   STATE_COLUMN_ID,
   USER_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
@@ -685,6 +686,13 @@ export const createMlflowSearchFilter = (
           break;
         case USER_COLUMN_ID:
           filter.push(`request_metadata."mlflow.trace.user" = '${networkFilter.value}'`);
+          break;
+        case SESSION_COLUMN_ID:
+          if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`request_metadata.mlflow.trace.session ILIKE '%${networkFilter.value}%'`);
+          } else {
+            filter.push(`request_metadata.mlflow.trace.session = '${networkFilter.value}'`);
+          }
           break;
         case RUN_NAME_COLUMN_ID:
           filter.push(`attributes.run_id = '${networkFilter.value}'`);

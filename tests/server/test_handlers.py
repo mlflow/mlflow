@@ -2638,6 +2638,54 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
 
 
+def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store):
+    trace_id = "tr-test-attachment-123"
+    attachment_id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id("3"),
+        request_time=1234567890,
+        execution_duration=4000,
+        state=TraceState.OK,
+    )
+
+    mock_tracking_store.get_trace_info.return_value = trace_info
+
+    mock_artifact_repo = mock.MagicMock()
+    mock_artifact_repo.download_trace_attachment.return_value = b"\x89PNG fake image"
+
+    with mock.patch(
+        "mlflow.server.handlers._get_trace_artifact_repo", return_value=mock_artifact_repo
+    ):
+        query = {"request_id": trace_id, "path": attachment_id}
+        with app.test_request_context(method="GET", query_string=query):
+            response = get_trace_artifact_handler()
+
+    mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
+    mock_artifact_repo.download_trace_attachment.assert_called_once_with(attachment_id)
+    assert response.status_code == 200
+    assert response.headers["Content-Type"] == "application/octet-stream"
+    assert response.headers["Content-Disposition"] == f"attachment; filename={attachment_id}"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_get_trace_artifact_handler_attachment_missing_request_id():
+    query = {"path": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"}
+    with app.test_request_context(method="GET", query_string=query):
+        response = get_trace_artifact_handler()
+    assert response.status_code == 400
+
+
+def test_get_trace_artifact_handler_attachment_trace_not_found(mock_tracking_store):
+    mock_tracking_store.get_trace_info.return_value = None
+
+    query = {"request_id": "tr-nonexistent", "path": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"}
+    with app.test_request_context(method="GET", query_string=query):
+        response = get_trace_artifact_handler()
+    assert response.status_code == 404
+
+
 def test_delete_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
     """Test v2 delete_trace_tag handler with request_id parameter.
 

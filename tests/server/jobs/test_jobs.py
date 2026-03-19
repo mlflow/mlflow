@@ -3,6 +3,7 @@ import multiprocessing
 import os
 import time
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -17,6 +18,7 @@ from mlflow.server.jobs import (
     job,
     submit_job,
 )
+from mlflow.server.jobs.utils import _enqueue_unfinished_jobs
 from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.jobs.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyJobStore
 from mlflow.utils.workspace_context import WorkspaceContext
@@ -850,3 +852,31 @@ def test_submit_job_workspace_propagation(monkeypatch, tmp_path, workspaces_enab
         job = get_job(submitted_job.job_id)
         assert job.status == JobStatus.SUCCEEDED
         assert job.parsed_result == expected_workspace
+
+
+@pytest.mark.parametrize("workspaces_enabled", [False], indirect=True)
+def test_reenqueued_jobs_respect_workspace_disabled(monkeypatch, db_uri):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
+    with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
+        job_store = SqlAlchemyJobStore(db_uri)
+        job_store.create_job("basic_job_fun", '{"x": 1, "y": 2}', None)
+
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+
+    with (
+        mock.patch("mlflow.server.handlers._get_job_store", return_value=job_store),
+        mock.patch(
+            "mlflow.server.jobs.utils.get_job_fn_fullname",
+            return_value="tests.server.jobs.test_jobs.basic_job_fun",
+        ),
+        mock.patch("mlflow.server.jobs.utils._load_function", return_value=basic_job_fun),
+        mock.patch("mlflow.server.jobs.utils._get_or_init_huey_instance") as mock_huey,
+    ):
+        mock_submit = mock.Mock()
+        mock_huey.return_value.submit_task = mock_submit
+
+        _enqueue_unfinished_jobs(int(time.time() * 1000))
+
+        mock_submit.assert_called_once()
+        _, workspace, *_ = mock_submit.call_args[0]
+        assert workspace is None
