@@ -68,8 +68,25 @@ class MlflowV3SpanExporter(SpanExporter):
 
         if self._should_export_spans_incrementally:
             self._export_spans_incrementally(spans)
+        else:
+            # Even when incremental export is disabled, remote/distributed trace spans
+            # must still be exported incrementally because they are non-root spans that
+            # _export_traces() skips. Without this, distributed mirror spans (e.g. from
+            # gateway traceparent headers) would be silently dropped.
+            if remote_spans := self._filter_remote_trace_spans(spans):
+                self._export_spans_incrementally(remote_spans)
 
         self._export_traces(spans)
+
+    def _filter_remote_trace_spans(self, spans: Sequence[ReadableSpan]) -> list[ReadableSpan]:
+        manager = InMemoryTraceManager.get_instance()
+        remote_spans = []
+        for span in spans:
+            if mlflow_trace_id := manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id):
+                with manager.get_trace(mlflow_trace_id) as trace:
+                    if trace and trace.is_remote_trace:
+                        remote_spans.append(span)
+        return remote_spans
 
     def _export_spans_incrementally(self, spans: Sequence[ReadableSpan]) -> None:
         """

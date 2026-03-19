@@ -574,11 +574,11 @@ def test_remote_trace_exported_when_incremental_export_disabled(monkeypatch):
         exporter = MlflowV3SpanExporter()
         exporter.export([otel_span])
 
-        # Remote trace should still be exported via start_trace even though
-        # incremental span export is disabled
+        # Remote trace should still be exported via start_trace
         mock_start_trace.assert_called_once()
-        # But incremental span export should not happen
-        mock_log_spans.assert_not_called()
+        # Remote trace spans should still be exported incrementally via log_spans
+        # even when incremental export is disabled for local traces
+        mock_log_spans.assert_called_once()
 
 
 @pytest.mark.skipif(not importlib.util.find_spec("fastapi"), reason="fastapi not installed")
