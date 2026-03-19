@@ -68,8 +68,8 @@ const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun:
   return (
     <>
       {entries.map((entry) => (
-        <div key={entry!.displayName} css={styles.value}>
-          <strong>{entry!.displayName}:</strong> {entry!.displayValue}
+        <div key={entry?.displayName} css={styles.value}>
+          <strong>{entry?.displayName}:</strong> {entry?.displayValue}
         </div>
       ))}
     </>
