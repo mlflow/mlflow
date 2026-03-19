@@ -27,9 +27,9 @@ MLflow integration for [OpenClaw](https://github.com/openclaw/openclaw) for [obs
 
 ## Key Benefits
 
-* **Open Source**: MLflow is 100% open-source and governed by the Linux Foundation, building a strong synergy with OpenClaw's open-source philosophy.
-* **You Own Your Data**: MLflow is self-hosted. Trace data from OpenClaw is stored in your own MLflow server and never leaves your infrastructure.
-* **Vendor Neutral**: MLflow is vendor neutral and can be used with any LLM provider or agent framework.
+* 🌐 **Open Source**: MLflow is 100% open source and governed by the Linux Foundation, rooted in the same philosophy as OpenClaw.
+* 🛡️ **You Own Your Data**: MLflow is self-hosted. Trace data from OpenClaw stays on your infrastructure and never leaves it.
+* 🔀 **Vendor Neutral**: MLflow works with any LLM provider or agent framework, with no vendor lock-in.
 
 
 ## Setup
@@ -42,9 +42,9 @@ openclaw plugins install @mlflow/mlflow-openclaw
 
 ### 2. Start the MLflow Server
 
-Start the MLflow server (self-hosting) following the [instructions](https://mlflow.org/docs/latest/genai/getting-started/connect-environment/). Use managed MLflow services if you don't want to self-host.
+Start the MLflow server (self-hosting) following the [instructions](https://mlflow.org/docs/latest/genai/getting-started/connect-environment/). Alternatively, use a managed MLflow service if you prefer not to self-host.
 
-### 2. Configure the Plugin
+### 3. Configure the Plugin
 
 ```
 openclaw mlflow configure
@@ -60,13 +60,13 @@ The plugin will prompt you for the MLflow tracking URI and experiment ID. You ca
 ┌  MLflow Tracing configuration
 │
 ◆  MLflow Tracking URI
-│  http://localhost:5678
+│  http://localhost:5000
 └
 ◇  Experiment ID
 │  2
 ```
 
-### 3. Check the Status
+### 4. Check the Status
 
 Verify the configuration by running the following command:
 
@@ -76,7 +76,7 @@ openclaw mlflow status
 
 If the configuration is successful, you should see the effective configuration in the output.
 
-### 4. Talk to OpenClaw
+### 5. Talk to OpenClaw
 
 Run or restart the OpenClaw gateway to apply the configuration.
 
@@ -105,7 +105,7 @@ export MLFLOW_EXPERIMENT_ID=<your-experiment-id>
 
 ### Plugin Allowlist
 
-OpenClaws shows a warning when a community plugin is installed but not declared in the [plugin allowlist](https://docs.openclaw.ai/tools/plugin#config). Add `mlflow-openclaw` to the plugin allowlist in your `openclaw.json` file to suppress the warning.
+OpenClaw shows a warning when a community plugin is installed but not declared in the [plugin allowlist](https://docs.openclaw.ai/tools/plugin#config). Add `mlflow-openclaw` to the plugin allowlist in your `openclaw.json` file to suppress the warning.
 
 ```
 {
