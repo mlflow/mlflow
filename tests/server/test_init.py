@@ -233,7 +233,10 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
     ]
     mock_exec_cmd.assert_called_once_with(
         expected_command,
-        extra_env={_MLFLOW_SGI_NAME.name: "uvicorn"},
+        extra_env={
+            "MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT": "false",
+            _MLFLOW_SGI_NAME.name: "uvicorn",
+        },
         capture_output=False,
         synchronous=False,
     )
