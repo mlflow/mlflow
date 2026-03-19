@@ -64,6 +64,7 @@ wait_for_port() {
     local port=$1
     local name=$2
     local health_path="${3:-/health}"
+    local log_file="${4:-}"
     local max_wait=30
     local waited=0
     echo "Waiting for $name on port $port..."
@@ -72,6 +73,12 @@ wait_for_port() {
         waited=$((waited + 1))
         if [ "$waited" -ge "$((max_wait * 2))" ]; then
             echo "ERROR: $name failed to start on port $port after ${max_wait}s"
+            if [ -n "$log_file" ] && [ -f "$log_file" ]; then
+                echo ""
+                echo "--- Last 20 lines of $name log ($log_file) ---"
+                tail -20 "$log_file"
+                echo "--- End of log ---"
+            fi
             exit 1
         fi
     done
@@ -79,6 +86,7 @@ wait_for_port() {
 }
 
 start_fake_server() {
+    local log_file="$TMPDIR_BENCH/fake_openai_server.log"
     echo "=== Starting fake OpenAI server ==="
     FAKE_RESPONSE_DELAY_MS="$FAKE_RESPONSE_DELAY_MS" \
         $RUN_PREFIX gunicorn fake_openai_server:app \
@@ -86,14 +94,15 @@ start_fake_server() {
         -w 8 \
         -b "0.0.0.0:$FAKE_SERVER_PORT" \
         --log-level warning \
-        > /dev/null 2>&1 &
+        > "$log_file" 2>&1 &
     PIDS+=($!)
-    wait_for_port "$FAKE_SERVER_PORT" "fake OpenAI server"
+    wait_for_port "$FAKE_SERVER_PORT" "fake OpenAI server" "/health" "$log_file"
 }
 
 start_mlflow_server() {
     local workers=$1
     local backend_store_uri=$2
+    local log_file="$TMPDIR_BENCH/mlflow_server.log"
     echo "=== Starting MLflow server (port $MLFLOW_PORT, $workers workers) ==="
     $RUN_PREFIX mlflow server \
         --backend-store-uri "$backend_store_uri" \
@@ -101,9 +110,9 @@ start_mlflow_server() {
         --port "$MLFLOW_PORT" \
         --workers "$workers" \
         --disable-security-middleware \
-        > /dev/null 2>&1 &
+        > "$log_file" 2>&1 &
     PIDS+=($!)
-    wait_for_port "$MLFLOW_PORT" "MLflow server" "/health"
+    wait_for_port "$MLFLOW_PORT" "MLflow server" "/health" "$log_file"
 }
 
 setup_gateway_endpoint() {
@@ -157,11 +166,12 @@ sanity_check_litellm() {
 }
 
 start_portkey_gateway() {
+    local log_file="$TMPDIR_BENCH/portkey.log"
     echo ""
     echo "=== Starting Portkey AI Gateway (port $PORTKEY_PORT) ==="
-    npx @portkey-ai/gateway > /dev/null 2>&1 &
+    npx @portkey-ai/gateway > "$log_file" 2>&1 &
     PIDS+=($!)
-    wait_for_port "$PORTKEY_PORT" "Portkey AI Gateway" "/v1/health"
+    wait_for_port "$PORTKEY_PORT" "Portkey AI Gateway" "/v1/health" "$log_file"
 }
 
 sanity_check_portkey() {

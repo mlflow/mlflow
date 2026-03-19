@@ -111,39 +111,42 @@ $RUN_PREFIX prisma generate --schema "$($RUN_PREFIX python -c "import litellm; p
 # Start LiteLLM proxy with PostgreSQL
 echo ""
 echo "=== Starting LiteLLM proxy (port $LITELLM_PORT, $WORKERS workers, PostgreSQL) ==="
+LITELLM_LOG="$TMPDIR_BENCH/litellm_${LITELLM_PORT}.log"
 DATABASE_URL="postgresql://postgres:benchmarkpass@127.0.0.1:5432/litellm" \
 LITELLM_SALT_KEY="sk-bench-salt-key-1234" \
     $RUN_PREFIX litellm \
     --config "litellm_config_db.yaml" \
     --port "$LITELLM_PORT" \
     --num_workers "$WORKERS" \
-    > /dev/null 2>&1 &
+    > "$LITELLM_LOG" 2>&1 &
 PIDS+=($!)
-wait_for_port "$LITELLM_PORT" "LiteLLM proxy" "/health/liveliness"
+wait_for_port "$LITELLM_PORT" "LiteLLM proxy" "/health/liveliness" "$LITELLM_LOG"
 
 # Start LiteLLM proxy WITHOUT DB (no tracking baseline)
 echo ""
 echo "=== Starting LiteLLM proxy without tracking (port $LITELLM_NOTRACK_PORT, $WORKERS workers, no DB) ==="
+LITELLM_NOTRACK_LOG="$TMPDIR_BENCH/litellm_${LITELLM_NOTRACK_PORT}.log"
 $RUN_PREFIX litellm \
     --config "litellm_config.yaml" \
     --port "$LITELLM_NOTRACK_PORT" \
     --num_workers "$WORKERS" \
-    > /dev/null 2>&1 &
+    > "$LITELLM_NOTRACK_LOG" 2>&1 &
 PIDS+=($!)
-wait_for_port "$LITELLM_NOTRACK_PORT" "LiteLLM proxy (no tracking)" "/health/liveliness"
+wait_for_port "$LITELLM_NOTRACK_PORT" "LiteLLM proxy (no tracking)" "/health/liveliness" "$LITELLM_NOTRACK_LOG"
 
 # Start LiteLLM proxy with DB + payload logging (store_prompts_in_spend_logs)
 echo ""
 echo "=== Starting LiteLLM proxy with payload logging (port $LITELLM_PAYLOAD_PORT, $WORKERS workers, PostgreSQL) ==="
+LITELLM_PAYLOAD_LOG="$TMPDIR_BENCH/litellm_${LITELLM_PAYLOAD_PORT}.log"
 DATABASE_URL="postgresql://postgres:benchmarkpass@127.0.0.1:5432/litellm" \
 LITELLM_SALT_KEY="sk-bench-salt-key-1234" \
     $RUN_PREFIX litellm \
     --config "litellm_config_db_payload.yaml" \
     --port "$LITELLM_PAYLOAD_PORT" \
     --num_workers "$WORKERS" \
-    > /dev/null 2>&1 &
+    > "$LITELLM_PAYLOAD_LOG" 2>&1 &
 PIDS+=($!)
-wait_for_port "$LITELLM_PAYLOAD_PORT" "LiteLLM proxy (payload logging)" "/health/liveliness"
+wait_for_port "$LITELLM_PAYLOAD_PORT" "LiteLLM proxy (payload logging)" "/health/liveliness" "$LITELLM_PAYLOAD_LOG"
 
 # Start Portkey AI Gateway (if npx available)
 PORTKEY_URL=""

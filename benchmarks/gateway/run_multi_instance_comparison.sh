@@ -114,15 +114,16 @@ $RUN_PREFIX pip install psycopg2-binary > /dev/null 2>&1 || true
 
 # ── Fake OpenAI server (more workers to handle multi-instance load) ──
 echo "=== Starting fake OpenAI server (16 workers) ==="
+FAKE_SERVER_LOG="$TMPDIR_BENCH/fake_openai_server.log"
 FAKE_RESPONSE_DELAY_MS="$FAKE_RESPONSE_DELAY_MS" \
     $RUN_PREFIX gunicorn fake_openai_server:app \
     -k uvicorn.workers.UvicornWorker \
     -w 16 \
     -b "0.0.0.0:$FAKE_SERVER_PORT" \
     --log-level warning \
-    > /dev/null 2>&1 &
+    > "$FAKE_SERVER_LOG" 2>&1 &
 PIDS+=($!)
-wait_for_port "$FAKE_SERVER_PORT" "fake OpenAI server"
+wait_for_port "$FAKE_SERVER_PORT" "fake OpenAI server" "/health" "$FAKE_SERVER_LOG"
 
 # ── Generate nginx config ────────────────────────────────────
 generate_nginx_conf() {
@@ -243,33 +244,35 @@ echo "╚═══════════════════════�
 
 echo "=== Starting $INSTANCES MLflow instances ($WORKERS_PER_INSTANCE workers each) ==="
 echo "  Starting MLflow instance 1 on port $MLFLOW_BASE_PORT (initializes DB schema)..."
+MLFLOW_LOG_1="$TMPDIR_BENCH/mlflow_${MLFLOW_BASE_PORT}.log"
 $RUN_PREFIX mlflow server \
     --backend-store-uri "$MLFLOW_BACKEND_URI" \
     --host 0.0.0.0 \
     --port "$MLFLOW_BASE_PORT" \
     --workers "$WORKERS_PER_INSTANCE" \
     --disable-security-middleware \
-    > /dev/null 2>&1 &
+    > "$MLFLOW_LOG_1" 2>&1 &
 GATEWAY_PIDS+=($!)
 PIDS+=($!)
-wait_for_port "$MLFLOW_BASE_PORT" "MLflow instance 1" "/health"
+wait_for_port "$MLFLOW_BASE_PORT" "MLflow instance 1" "/health" "$MLFLOW_LOG_1"
 
 for i in $(seq 1 $((INSTANCES - 1))); do
     port=$((MLFLOW_BASE_PORT + i))
     echo "  Starting MLflow instance $((i + 1)) on port $port..."
+    log_file="$TMPDIR_BENCH/mlflow_${port}.log"
     $RUN_PREFIX mlflow server \
         --backend-store-uri "$MLFLOW_BACKEND_URI" \
         --host 0.0.0.0 \
         --port "$port" \
         --workers "$WORKERS_PER_INSTANCE" \
         --disable-security-middleware \
-        > /dev/null 2>&1 &
+        > "$log_file" 2>&1 &
     GATEWAY_PIDS+=($!)
     PIDS+=($!)
 done
 for i in $(seq 1 $((INSTANCES - 1))); do
     port=$((MLFLOW_BASE_PORT + i))
-    wait_for_port "$port" "MLflow instance $((i + 1))" "/health"
+    wait_for_port "$port" "MLflow instance $((i + 1))" "/health" "$TMPDIR_BENCH/mlflow_${port}.log"
 done
 
 echo "=== Setting up gateway endpoint ==="
@@ -302,33 +305,35 @@ echo "╚═══════════════════════�
 
 echo "=== Starting $INSTANCES LiteLLM instances ($WORKERS_PER_INSTANCE workers each) ==="
 echo "  Starting LiteLLM instance 1 on port $LITELLM_BASE_PORT (initializes DB schema)..."
+LITELLM_LOG_1="$TMPDIR_BENCH/litellm_${LITELLM_BASE_PORT}.log"
 DATABASE_URL="postgresql://postgres:benchmarkpass@127.0.0.1:5432/litellm" \
 LITELLM_SALT_KEY="sk-bench-salt-key-1234" \
     $RUN_PREFIX litellm \
     --config "litellm_config_db.yaml" \
     --port "$LITELLM_BASE_PORT" \
     --num_workers "$WORKERS_PER_INSTANCE" \
-    > /dev/null 2>&1 &
+    > "$LITELLM_LOG_1" 2>&1 &
 GATEWAY_PIDS+=($!)
 PIDS+=($!)
-wait_for_port "$LITELLM_BASE_PORT" "LiteLLM instance 1" "/health/liveliness"
+wait_for_port "$LITELLM_BASE_PORT" "LiteLLM instance 1" "/health/liveliness" "$LITELLM_LOG_1"
 
 for i in $(seq 1 $((INSTANCES - 1))); do
     port=$((LITELLM_BASE_PORT + i))
     echo "  Starting LiteLLM instance $((i + 1)) on port $port..."
+    log_file="$TMPDIR_BENCH/litellm_${port}.log"
     DATABASE_URL="postgresql://postgres:benchmarkpass@127.0.0.1:5432/litellm" \
     LITELLM_SALT_KEY="sk-bench-salt-key-1234" \
         $RUN_PREFIX litellm \
         --config "litellm_config_db.yaml" \
         --port "$port" \
         --num_workers "$WORKERS_PER_INSTANCE" \
-        > /dev/null 2>&1 &
+        > "$log_file" 2>&1 &
     GATEWAY_PIDS+=($!)
     PIDS+=($!)
 done
 for i in $(seq 1 $((INSTANCES - 1))); do
     port=$((LITELLM_BASE_PORT + i))
-    wait_for_port "$port" "LiteLLM instance $((i + 1))" "/health/liveliness"
+    wait_for_port "$port" "LiteLLM instance $((i + 1))" "/health/liveliness" "$TMPDIR_BENCH/litellm_${port}.log"
 done
 
 docker exec "$NGINX_CONTAINER" nginx -s reload > /dev/null 2>&1
