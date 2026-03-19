@@ -528,8 +528,10 @@ def verify_artifact_path(artifact_path):
 # Strict UUID validation doubles as path traversal prevention.
 def _validate_attachment_path(path: str) -> None:
     try:
-        uuid.UUID(path)
-    except (ValueError, AttributeError):
+        parsed = uuid.UUID(path)
+        if str(parsed) != path:
+            raise ValueError("Non-canonical UUID format")
+    except (ValueError, AttributeError, TypeError):
         raise MlflowException(
             f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
             error_code=INVALID_PARAMETER_VALUE,
