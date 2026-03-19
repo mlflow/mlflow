@@ -291,6 +291,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           isLoading={currentTraceQueryResult.isLoading}
           experimentId={experimentId}
           traceInfo={currentTraceInfo}
+          width="60vw"
         >
           {content}
         </ModelTraceExplorerDrawer>
