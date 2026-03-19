@@ -464,7 +464,6 @@ describe('ModelsCellRenderer', () => {
       },
     });
 
-    // Registered versions should be shown consistently (fixes #20671)
     await userEvent.click(screen.getByText('+1'));
     expect(getLinkByTextContent('RegisteredModel v1')).toBeInTheDocument();
     expect(getLinkByTextContent('RegisteredModel v2')).toBeInTheDocument();
