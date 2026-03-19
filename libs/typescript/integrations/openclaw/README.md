@@ -1,27 +1,119 @@
-# @mlflow/openclaw
+<h1 align="center" style="border-bottom: none">
+    <a href="https://mlflow.org/">
+        <img alt="MLflow logo" src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/logo.svg" width="200" />
+    </a>
+</h1>
+<h2 align="center" style="border-bottom: none">🦞 OpenClaw MLflow Observability Plugin</h2>
 
-MLflow Tracing integration for [OpenClaw](https://github.com/openclaw-ai/openclaw), the popular open-source AI agent framework.
+<div align="center">
 
-This plugin automatically traces OpenClaw agent executions in MLflow, capturing LLM calls, tool invocations, and sub-agent spans in a hierarchical trace structure.
+[![NPM](https://img.shields.io/npm/v/@mlflow/mlflow-openclaw)](https://www.npmjs.com/package/@mlflow/mlflow-openclaw)
+[![License](https://img.shields.io/github/license/mlflow/mlflow)](https://github.com/mlflow/mlflow/blob/master/LICENSE.txt)
+<a href="https://twitter.com/intent/follow?screen_name=mlflow" target="_blank">
+<img src="https://img.shields.io/twitter/follow/mlflow?logo=X&color=%20%23f5f5f5"
+      alt="follow on X(Twitter)"></a>
+<a href="https://www.linkedin.com/company/mlflow-org/" target="_blank">
+<img src="https://custom-icon-badges.demolab.com/badge/LinkedIn-0A66C2?logo=linkedin-white&logoColor=fff"
+      alt="follow on LinkedIn"></a>
 
-## Installation
+</div>
+
+MLflow integration for [OpenClaw](https://github.com/openclaw/openclaw) for [observability](https://mlflow.org/docs/latest/genai/tracing/), [evaluation](https://mlflow.org/docs/latest/genai/eval-monitor/), and [monitoring](https://mlflow.org/docs/latest/genai/governance/ai-gateway/). This plugin automatically traces OpenClaw agent executions in MLflow, capturing LLM calls, tool invocations, and sub-agent spans in a hierarchical trace structure.
+
+
+<p align="center">
+  <img src="./dashboard-screenshot.png" alt="OpenClaw MLflow Integration" width="700" style="border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.18);" />
+</p>
+
+## Key Benefits
+
+* **Open Source**: MLflow is 100% open-source and governed by the Linux Foundation, building a strong synergy with OpenClaw's open-source philosophy.
+* **You Own Your Data**: MLflow is self-hosted. Trace data from OpenClaw is stored in your own MLflow server and never leaves your infrastructure.
+* **Vendor Neutral**: MLflow is vendor neutral and can be used with any LLM provider or agent framework.
+
+
+## Setup
+
+### 1. Install the Plugin
 
 ```bash
-openclaw plugins install @mlflow/openclaw
+openclaw plugins install @mlflow/mlflow-openclaw
 ```
+
+### 2. Start the MLflow Server
+
+Start the MLflow server (self-hosting) following the [instructions](https://mlflow.org/docs/latest/genai/getting-started/connect-environment/). Use managed MLflow services if you don't want to self-host.
+
+### 2. Configure the Plugin
+
+```
+openclaw mlflow configure
+```
+
+The plugin will prompt you for the MLflow tracking URI and experiment ID. You can [create an experiment](https://mlflow.org/docs/latest/genai/tracing/quickstart/#create-a-mlflow-experiment) from the MLflow UI.
+
+```
+~$ openclaw mlflow configure
+
+🦞 OpenClaw 2026.3.13 (61d171a) — Automation with claws: minimal fuss, maximal pinch.
+
+┌  MLflow Tracing configuration
+│
+◆  MLflow Tracking URI
+│  http://localhost:5678
+└
+◇  Experiment ID
+│  2
+```
+
+### 3. Check the Status
+
+Verify the configuration by running the following command:
+
+```bash
+openclaw mlflow status
+```
+
+If the configuration is successful, you should see the effective configuration in the output.
+
+### 4. Talk to OpenClaw
+
+Run or restart the OpenClaw gateway to apply the configuration.
+
+```bash
+openclaw gateway run  # or openclaw gateway restart
+openclaw message send "Hello, Lobster!"
+```
+
+Visit the MLflow UI (e.g. http://localhost:5000) to see the trace.
+
+<p align="center">
+  <img src="./trace-screenshot.png" alt="MLflow UI" width="700" style="border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.18);" />
+</p>
+
 
 ## Configuration
 
-Set the required environment variables:
+### Environment Variables
+
+Tracking URI and experiment ID can also be set through environment variables:
 
 ```bash
 export MLFLOW_TRACKING_URI=http://localhost:5000
 export MLFLOW_EXPERIMENT_ID=<your-experiment-id>
 ```
 
-Or configure via the OpenClaw plugin settings UI.
+### Plugin Allowlist
 
-Run your OpenClaw agent normally — tracing happens automatically.
+OpenClaws shows a warning when a community plugin is installed but not declared in the [plugin allowlist](https://docs.openclaw.ai/tools/plugin#config). Add `mlflow-openclaw` to the plugin allowlist in your `openclaw.json` file to suppress the warning.
+
+```
+{
+    "plugins": {
+        "allow": ["mlflow-openclaw"]
+    }
+}
+```
 
 ## What Gets Traced
 
@@ -35,26 +127,6 @@ AGENT (openclaw_agent)              ← root span
 └── ...
 ```
 
-### Event → Span Mapping
-
-| OpenClaw Event      | MLflow Span Type | Description                        |
-| ------------------- | ---------------- | ---------------------------------- |
-| `llm_input`         | AGENT + LLM      | Creates root span (if new) + LLM   |
-| `llm_output`        | LLM              | Ends LLM span with response        |
-| `tool_start`        | TOOL             | Creates child TOOL span             |
-| `tool_end`          | TOOL             | Ends TOOL span with result/error    |
-| `subagent_spawning` | AGENT            | Creates child AGENT span            |
-| `subagent_ended`    | AGENT            | Ends sub-agent span                 |
-| `model.usage`       | _(metadata)_     | Accumulates token usage             |
-| `agent_end`         | AGENT            | Ends root span, flushes trace       |
-
-## Configuration Options
-
-| Setting              | Env Variable            | Description                     | Required |
-| -------------------- | ----------------------- | ------------------------------- | -------- |
-| `trackingUri`        | `MLFLOW_TRACKING_URI`   | MLflow server URL               | Yes      |
-| `experimentId`       | `MLFLOW_EXPERIMENT_ID`  | MLflow experiment ID            | Yes      |
-
 ## Development
 
 ```bash
@@ -63,4 +135,14 @@ npm run typecheck
 
 # Test
 npm test
+
+# Format
+npm run format
+
+# Lint
+npm run lint
 ```
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
