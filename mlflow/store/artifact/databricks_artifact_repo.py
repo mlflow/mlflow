@@ -44,7 +44,10 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.protos.service_pb2 import MlflowService
-from mlflow.store.artifact.artifact_repo import write_local_temp_trace_data_file
+from mlflow.store.artifact.artifact_repo import (
+    _validate_attachment_path,
+    write_local_temp_trace_data_file,
+)
 from mlflow.store.artifact.cloud_artifact_repo import (
     CloudArtifactRepository,
     _complete_futures,
@@ -327,8 +330,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             return resp.content
 
     def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
-        from mlflow.store.artifact.artifact_repo import _validate_attachment_path
-
         _validate_attachment_path(attachment_id)
         artifact_path = posixpath.join("attachments", attachment_id)
         [cred], _ = self.resource.get_credentials(
