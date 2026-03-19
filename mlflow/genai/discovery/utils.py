@@ -200,7 +200,7 @@ def _call_llm_via_gateway(
     provider_name, model_name = _parse_model_uri(model)
     provider = _get_provider_instance(provider_name, model_name)
 
-    payload = {"messages": messages, "max_tokens": LLM_MAX_TOKENS}
+    payload = {"messages": messages, "max_completion_tokens": LLM_MAX_TOKENS}
     if response_format is not None:
         payload["response_format"] = _pydantic_to_response_format(response_format)
     elif json_mode:
