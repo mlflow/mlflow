@@ -110,7 +110,7 @@ class _TokenCounter:
                 self.output_tokens += response.usage.completion_tokens or 0
             if hidden := getattr(response, "_hidden_params", None):
                 if cost := hidden.get("response_cost"):
-                    self._cost_usd += cost
+                    self.add_cost(cost)
 
     def to_dict(self) -> dict[str, int | float]:
         result = {}
@@ -168,7 +168,7 @@ def _call_llm_via_litellm(
         num_retries=NUM_RETRIES,
         response_format=use_format,
         include_response_format=use_format is not None,
-        inference_params={"max_tokens": LLM_MAX_TOKENS},
+        inference_params={"max_completion_tokens": LLM_MAX_TOKENS},
     )
     if token_counter is not None:
         token_counter.track(response)
