@@ -22,11 +22,11 @@ jobs:
 
     env:
       AWS_REGION: us-west-2
-      KEYCLOAK_URL: https://identity.nuodata.io/
+      KEYCLOAK_URL: "https://identity.nuodata.io/"
       CLIENT_ID: nuodata-website
       ECR_REPOSITORY: nuodata-prod-mlflow-repo
       SSM_PARAMETER_NAME: nuodata-prod-mlflow-img-ver
-      PROD_REACT_APP_WEB_BASE_URL: https://aiml.nuodata.io/
+      PROD_REACT_APP_WEB_BASE_URL: "https://aiml.nuodata.io/"
       AWS_IAM_ROLE_ARN: arn:aws:iam::${{secrets.AWS_ACC_ID_PROD}}:role/GitHubAction-AssumeRoleWithAction
 
     steps:
