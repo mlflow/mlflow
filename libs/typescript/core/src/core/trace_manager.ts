@@ -162,7 +162,7 @@ function getTextContentFromMessage(message: Record<string, unknown>): string | n
       if (
         part &&
         typeof part === 'object' &&
-        ('type' in (part as Record<string, unknown>)) &&
+        'type' in (part as Record<string, unknown>) &&
         ((part as Record<string, unknown>).type === 'text' ||
           (part as Record<string, unknown>).type === 'output_text')
       ) {
