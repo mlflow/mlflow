@@ -20,11 +20,7 @@ from mlflow.genai.discovery.constants import (
     NUM_RETRIES,
     TRACE_CONTENT_TRUNCATION,
 )
-from mlflow.genai.discovery.entities import (
-    Issue,
-    _ConversationAnalysis,
-    _IdentifiedIssue,
-)
+from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _invoke_litellm,
     _is_litellm_available,

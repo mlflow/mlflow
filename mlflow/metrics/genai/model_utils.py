@@ -161,7 +161,9 @@ def _call_llm_provider_api(
     from mlflow.gateway.schemas import chat
 
     if input_data is None and messages is None:
-        raise ValueError("Either input_data or messages must be provided.")
+        raise MlflowException.invalid_parameter_value(
+            "Either input_data or messages must be provided."
+        )
 
     eval_parameters = eval_parameters or {}
     extra_headers = extra_headers or {}
