@@ -166,6 +166,12 @@ const RunsCompareImpl = ({
       tagsByRunUuid: state.entities.tagsByRunUuid,
       imagesByRunUuid: state.entities.imagesByRunUuid,
     }),
+    // Use shallow equality to prevent unnecessary re-renders when the same data is returned
+    (left, right) =>
+      left.paramsByRunUuid === right.paramsByRunUuid &&
+      left.latestMetricsByRunUuid === right.latestMetricsByRunUuid &&
+      left.tagsByRunUuid === right.tagsByRunUuid &&
+      left.imagesByRunUuid === right.imagesByRunUuid,
   );
 
   const { theme } = useDesignSystemTheme();

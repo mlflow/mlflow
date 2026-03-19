@@ -18,7 +18,7 @@ export type SampledMetricsByRun = {
   [metricKey: string]: SampledMetricData;
 };
 
-const SAMPLED_METRIC_HISTORY_API_RUN_LIMIT = 100;
+const SAMPLED_METRIC_HISTORY_API_RUN_LIMIT = 500;
 
 /**
  * Automatically fetches sampled metric history for runs, used in run runs charts.
