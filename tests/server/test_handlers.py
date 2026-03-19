@@ -2852,26 +2852,20 @@ def test_get_provider_config_missing_provider():
         assert response.status_code == 400
 
 
-def test_litellm_not_available_falls_back_to_api():
-    mock_entries = (
-        {"provider": "openai", "mode": "chat"},
-        {"provider": "anthropic", "mode": "chat"},
-    )
-    with (
-        mock.patch("mlflow.utils.providers._PROVIDER_BACKEND_AVAILABLE", False),
-        mock.patch(
-            "mlflow.utils.providers._fetch_model_catalog_from_api",
-            return_value=mock_entries,
-        ) as mock_api,
-    ):
+def test_litellm_not_available_returns_native_providers():
+    with mock.patch("mlflow.utils.providers._PROVIDER_BACKEND_AVAILABLE", False):
         with app.test_client() as c:
             response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
             assert response.status_code == 200
             data = response.get_json()
             assert "providers" in data
-            assert "openai" in data["providers"]
-            assert "anthropic" in data["providers"]
-        mock_api.assert_called_once()
+            assert sorted(data["providers"]) == [
+                "anthropic",
+                "azure",
+                "gemini",
+                "mistral",
+                "openai",
+            ]
 
 
 @pytest.mark.parametrize(
