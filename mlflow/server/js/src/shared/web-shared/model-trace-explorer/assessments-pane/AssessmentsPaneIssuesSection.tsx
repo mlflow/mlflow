@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { isEmpty } from 'lodash';
 import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdownRenderer';
-import { useSelectedIssueId } from '@mlflow/mlflow/src/experiment-tracking/components/run-page/hooks/useSelectedIssueId';
 
 const IssueItem = ({ issue }: { issue: IssueReferenceAssessment }) => {
   const { theme } = useDesignSystemTheme();
@@ -69,9 +68,13 @@ const IssueItem = ({ issue }: { issue: IssueReferenceAssessment }) => {
   );
 };
 
-export const AssessmentsPaneIssuesSection = ({ issues }: { issues: IssueReferenceAssessment[] }) => {
-  const [selectedIssueId] = useSelectedIssueId();
-
+export const AssessmentsPaneIssuesSection = ({
+  issues,
+  selectedIssueId,
+}: {
+  issues: IssueReferenceAssessment[];
+  selectedIssueId?: string;
+}) => {
   const sortedIssues = useMemo(
     () => issues.toSorted((left, right) => left.assessment_name.localeCompare(right.assessment_name)),
     [issues],
