@@ -40,7 +40,15 @@ GATEWAY_WORKERS=4 REQUESTS=2000 MAX_CONCURRENT=50 RUNS=3 bash run_comparison.sh
 
 ```bash
 cd benchmarks/gateway
+
+# SQLite (default)
 bash run_tracking_server_benchmark.sh
+
+# PostgreSQL (auto-starts Docker container)
+BACKEND_STORE_URI=postgres bash run_tracking_server_benchmark.sh
+
+# PostgreSQL (existing instance)
+BACKEND_STORE_URI="postgresql://user:pass@host:5432/mlflow" bash run_tracking_server_benchmark.sh
 ```
 
 ### Full-stack comparison (both on PostgreSQL, requires Docker)
@@ -66,12 +74,12 @@ INSTANCES=4 WORKERS_PER_INSTANCE=4 REQUESTS=200000 MAX_CONCURRENT=50 RUNS=1 \
 
 ### Which benchmark script should I use?
 
-| Script                             | What it tests                            | When to use                                                                                                |
-| ---------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `run_comparison.sh`                | Single-instance, SQLite, no tracking     | Quick head-to-head proxy overhead comparison                                                               |
-| `run_tracking_server_benchmark.sh` | Single-instance MLflow only              | Isolate MLflow tracking overhead                                                                           |
-| `run_full_stack_comparison.sh`     | Single-instance, PostgreSQL, tracking ON | Production-like comparison (all services run simultaneously)                                               |
-| `run_multi_instance_comparison.sh` | Multi-instance behind nginx, PostgreSQL  | Sustained load testing; matches [LiteLLM's published methodology](https://docs.litellm.ai/docs/benchmarks) |
+| Script                             | What it tests                                      | When to use                                                                                                |
+| ---------------------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `run_comparison.sh`                | Single-instance, SQLite, no tracking               | Quick head-to-head proxy overhead comparison                                                               |
+| `run_tracking_server_benchmark.sh` | Single-instance MLflow only (SQLite or PostgreSQL) | Isolate MLflow tracking overhead; compare across branches with `BACKEND_STORE_URI=postgres`                |
+| `run_full_stack_comparison.sh`     | Single-instance, PostgreSQL, tracking ON           | Production-like comparison (all services run simultaneously)                                               |
+| `run_multi_instance_comparison.sh` | Multi-instance behind nginx, PostgreSQL            | Sustained load testing; matches [LiteLLM's published methodology](https://docs.litellm.ai/docs/benchmarks) |
 
 **Key difference**: `run_full_stack_comparison.sh` runs all gateways **simultaneously** (faster, but services compete for resources). `run_multi_instance_comparison.sh` runs each gateway **sequentially** (slower, but each gets full machine resources for clean sustained results).
 
@@ -554,14 +562,15 @@ graph TD
 
 #### `run_tracking_server_benchmark.sh` environment variables
 
-| Variable                  | Default | Description                                            |
-| ------------------------- | ------- | ------------------------------------------------------ |
-| `TRACKING_SERVER_WORKERS` | 4       | Workers for `mlflow server`                            |
-| `REQUESTS`                | 2000    | Total requests per run                                 |
-| `MAX_CONCURRENT`          | 50      | Max concurrent requests                                |
-| `RUNS`                    | 3       | Number of benchmark runs                               |
-| `FAKE_RESPONSE_DELAY_MS`  | 50      | Simulated provider latency (ms)                        |
-| `USAGE_TRACKING`          | true    | Enable usage tracking/tracing (set `false` to disable) |
+| Variable                  | Default           | Description                                                       |
+| ------------------------- | ----------------- | ----------------------------------------------------------------- |
+| `TRACKING_SERVER_WORKERS` | 4                 | Workers for `mlflow server`                                       |
+| `REQUESTS`                | 2000              | Total requests per run                                            |
+| `MAX_CONCURRENT`          | 50                | Max concurrent requests                                           |
+| `RUNS`                    | 3                 | Number of benchmark runs                                          |
+| `FAKE_RESPONSE_DELAY_MS`  | 50                | Simulated provider latency (ms)                                   |
+| `USAGE_TRACKING`          | true              | Enable usage tracking/tracing (set `false` to disable)            |
+| `BACKEND_STORE_URI`       | SQLite (temp dir) | `postgres` to auto-start Docker, or a full `postgresql://...` URI |
 
 #### `run_full_stack_comparison.sh` environment variables
 
