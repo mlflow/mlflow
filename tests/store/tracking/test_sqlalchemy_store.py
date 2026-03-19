@@ -6507,11 +6507,11 @@ def test_search_traces_session_scoped_assessment_expands_to_all_session_traces(
     trace_ids = {t.request_id for t in traces}
     assert trace_ids == {"sb-t1"}
 
-    # IS NULL should NOT expand (no session expansion needed)
+    # IS NULL with session-scoped assessment should exclude all session siblings too
     traces, _ = store.search_traces([exp_id], filter_string="feedback.session_quality IS NULL")
     trace_ids = {t.request_id for t in traces}
-    # All traces except sa-t1 (the one with the assessment)
-    assert trace_ids == {"sa-t2", "sa-t3", "sb-t1", "sb-t2", "sb-t3"}
+    # All session-A traces are excluded (session-scoped assessment covers the whole session)
+    assert trace_ids == {"sb-t1", "sb-t2", "sb-t3"}
 
 
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):

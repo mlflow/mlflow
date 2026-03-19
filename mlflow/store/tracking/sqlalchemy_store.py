@@ -6802,7 +6802,42 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     )
                     if comparator == "IS NULL":
                         exists_clause = assessment_exists_subquery.exists()
-                        attribute_filters.append(~exists_clause)
+                        # Also exclude session siblings of session-scoped assessments
+                        matched_meta = sqlalchemy.orm.aliased(SqlTraceMetadata)
+                        sibling_meta = sqlalchemy.orm.aliased(SqlTraceMetadata)
+                        session_covered = (
+                            session
+                            .query(sibling_meta.request_id)
+                            .select_from(matched_meta)
+                            .join(
+                                SqlAssessments,
+                                SqlAssessments.trace_id == matched_meta.request_id,
+                            )
+                            .join(
+                                sibling_meta,
+                                sqlalchemy.and_(
+                                    sibling_meta.key == TraceMetadataKey.TRACE_SESSION,
+                                    sibling_meta.value == matched_meta.value,
+                                ),
+                            )
+                            .filter(
+                                matched_meta.key == TraceMetadataKey.TRACE_SESSION,
+                                SqlAssessments.assessment_type == key_type,
+                                SqlAssessments.name == key_name,
+                                SqlAssessments.valid == sqlalchemy.true(),
+                                SqlAssessments.assessment_metadata.isnot(None),
+                                SqlAssessments.assessment_metadata.contains(
+                                    f'"{TraceMetadataKey.TRACE_SESSION}"'
+                                ),
+                            )
+                            .distinct()
+                        )
+                        attribute_filters.append(
+                            sqlalchemy.and_(
+                                ~exists_clause,
+                                SqlTraceInfo.request_id.notin_(session_covered),
+                            )
+                        )
                     else:
                         # IS NOT NULL: expand session-scoped assessments to include
                         # all sibling traces in the same session
