@@ -27,7 +27,7 @@ jobs:
       ECR_REPOSITORY: nuodata-prod-mlflow-repo
       SSM_PARAMETER_NAME: nuodata-prod-mlflow-img-ver
       PROD_REACT_APP_WEB_BASE_URL: "https://aiml.nt.nuodata.ai/"
-      AWS_IAM_ROLE_ARN: arn:aws:iam::${{secrets.AWS_ACC_ID_PROD}}:role/GitHubAction-AssumeRoleWithAction
+      AWS_IAM_ROLE_ARN: arn:aws:iam::471681951701:role/GitHubAction-AssumeRoleWithAction
 
     steps:
       - name: Checkout
@@ -35,14 +35,14 @@ jobs:
 
       - name: Update host value in keycloak_auth.ini
         run: |
-          NEW_HOST=${{ env.KEYCLOAK_URL }} 
+          NEW_HOST=${{ env.KEYCLOAK_URL }}
           CONFIG_FILE="/home/runner/work/nuodata-mlflow/nuodata-mlflow/mlflow/server/keycloak_auth/keycloak_auth.ini"
           sed -i "s|^host = .*|host = ${NEW_HOST}|" $CONFIG_FILE
           cat $CONFIG_FILE
 
       - name: Update Keycloak URL and Client ID in keycloak-config.ts
         run: |
-          KEYCLOAK_URL=${{ env.KEYCLOAK_URL }} 
+          KEYCLOAK_URL=${{ env.KEYCLOAK_URL }}
           CLIENT_ID="${{ env.CLIENT_ID }}"
           CONFIG_FILE="/home/runner/work/nuodata-mlflow/nuodata-mlflow/mlflow/server/js/src/keycloak-config.ts"
           sed -i "s|url: '.*'|url: '${KEYCLOAK_URL}'|" $CONFIG_FILE
