@@ -290,6 +290,12 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     #     config = CohereConfig(cohere_api_key=os.environ.get("COHERE_API_KEY"))
     #     return CohereProvider(_get_route_config(config))
 
+    elif provider == Provider.GEMINI:
+        from mlflow.gateway.providers.gemini import GeminiConfig, GeminiProvider
+
+        config = GeminiConfig(gemini_api_key=os.environ.get("GEMINI_API_KEY"))
+        return GeminiProvider(_get_route_config(config))
+
     elif provider == Provider.MISTRAL:
         from mlflow.gateway.providers.mistral import MistralConfig, MistralProvider
 
