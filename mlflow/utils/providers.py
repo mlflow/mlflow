@@ -538,14 +538,9 @@ def get_all_providers() -> list[str]:
                         providers.add(_normalize_provider(provider))
         return list(providers)
 
-    providers = set()
-    for entry in _fetch_model_catalog_from_api():
-        mode = entry.get("mode")
-        if mode in _SUPPORTED_MODEL_MODES:
-            if provider := entry.get("provider"):
-                if provider not in _EXCLUDED_PROVIDERS:
-                    providers.add(_normalize_provider(provider))
-    return list(providers)
+    # When LiteLLM is not installed, only return providers that have native
+    # gateway adapters so users can actually invoke endpoints they create.
+    return ["openai", "anthropic", "gemini", "azure", "mistral"]
 
 
 def get_models(provider: str | None = None) -> list[dict[str, Any]]:
