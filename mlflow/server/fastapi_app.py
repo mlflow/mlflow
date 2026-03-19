@@ -7,6 +7,7 @@ to FastAPI endpoints.
 """
 
 import json
+import os
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.wsgi import WSGIMiddleware
@@ -90,6 +91,13 @@ def create_fastapi_app(flask_app: Flask = flask_app):
 
     # Include Gateway API router for database-backed endpoints
     # This provides /gateway/{endpoint_name}/mlflow/invocations routes
+    # Disable incremental span export by default to reduce DB contention from
+    # concurrent gateway requests. Users can override by setting the env var explicitly.
+    from mlflow.environment_variables import MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT
+
+    if not MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.is_set():
+        os.environ[MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.name] = "false"
+
     fastapi_app.include_router(gateway_router)
 
     # Include Assistant API router for AI-powered trace analysis

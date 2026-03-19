@@ -9,7 +9,10 @@ from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+    MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT,
+)
 from mlflow.exceptions import RestException
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpansLocation, TraceTagKey
@@ -39,7 +42,6 @@ class MlflowV3SpanExporter(SpanExporter):
     def __init__(
         self,
         tracking_uri: str | None = None,
-        should_export_spans_incrementally: bool = True,
     ) -> None:
         self._client = TracingClient(tracking_uri)
         self._is_async_enabled = self._should_enable_async_logging()
@@ -52,7 +54,7 @@ class MlflowV3SpanExporter(SpanExporter):
         # A flag to cache the failure of exporting spans so that the client will not try to export
         # spans again and trigger excessive server side errors. Default to True (optimistically
         # assume the store supports span-level logging).
-        self._should_export_spans_incrementally = should_export_spans_incrementally
+        self._should_export_spans_incrementally = MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.get()
 
     def export(self, spans: Sequence[ReadableSpan]) -> None:
         """

@@ -505,8 +505,10 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
         mock_start_trace.assert_called_once()
 
 
-@pytest.mark.parametrize("should_export_spans_incrementally", [True, False])
-def test_should_export_spans_incrementally_flag(should_export_spans_incrementally):
+@pytest.mark.parametrize("incremental_export_enabled", [True, False])
+def test_should_export_spans_incrementally_flag(monkeypatch, incremental_export_enabled):
+    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", str(incremental_export_enabled))
+
     otel_span = create_mock_otel_span(
         name="root",
         trace_id=99999,
@@ -531,15 +533,37 @@ def test_should_export_spans_incrementally_flag(should_export_spans_incrementall
             "mlflow.tracing.client.TracingClient.log_spans",
         ) as mock_log_spans,
     ):
-        exporter = MlflowV3SpanExporter(
-            should_export_spans_incrementally=should_export_spans_incrementally,
-        )
+        exporter = MlflowV3SpanExporter()
         exporter.export([otel_span])
 
         mock_start_trace.assert_called_once()
 
-        if should_export_spans_incrementally:
+        if incremental_export_enabled:
             mock_log_spans.assert_called_once()
         else:
             # Incremental export disabled — spans only persisted via artifact upload
             mock_log_spans.assert_not_called()
+
+
+def test_gateway_disables_incremental_span_export(monkeypatch):
+    monkeypatch.delenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", raising=False)
+
+    from mlflow.gateway.app import create_app_from_config
+    from mlflow.gateway.config import GatewayConfig
+
+    config = GatewayConfig(endpoints=[])
+    create_app_from_config(config)
+
+    assert os.environ.get("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT") == "false"
+
+
+def test_gateway_respects_explicit_incremental_span_export(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "true")
+
+    from mlflow.gateway.app import create_app_from_config
+    from mlflow.gateway.config import GatewayConfig
+
+    config = GatewayConfig(endpoints=[])
+    create_app_from_config(config)
+
+    assert os.environ.get("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT") == "true"
