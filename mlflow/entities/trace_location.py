@@ -178,8 +178,7 @@ class UnityCatalog(TraceLocationBase):
     def full_table_prefix(self) -> str:
         if self.table_prefix is None:
             raise MlflowException.invalid_parameter_value(
-                "table_prefix is required but was not set. "
-                "Use mlflow.set_experiment() to auto-populate it from the experiment ID."
+                "table_prefix is required but was not set."
             )
         return f"{self.catalog_name}.{self.schema_name}.{self.table_prefix}"
 
