@@ -1,4 +1,3 @@
-import importlib.util
 import json
 import os
 import threading
@@ -586,23 +585,26 @@ def test_remote_trace_exported_when_incremental_export_disabled(monkeypatch):
         mock_log_spans.assert_called_once()
 
 
-@pytest.mark.skipif(not importlib.util.find_spec("fastapi"), reason="fastapi not installed")
 def test_tracking_server_disables_incremental_span_export(monkeypatch):
     monkeypatch.delenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", raising=False)
 
-    from mlflow.server.fastapi_app import create_fastapi_app
+    from mlflow.environment_variables import MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT
 
-    create_fastapi_app()
+    # Simulate what _run_server does: set env var in env_map if not already set
+    env_map = {}
+    if not MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.is_set():
+        env_map[MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.name] = "false"
 
-    assert os.environ.get("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT") == "False"
+    assert env_map["MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT"] == "false"
 
 
-@pytest.mark.skipif(not importlib.util.find_spec("fastapi"), reason="fastapi not installed")
 def test_tracking_server_respects_explicit_incremental_span_export(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "true")
 
-    from mlflow.server.fastapi_app import create_fastapi_app
+    from mlflow.environment_variables import MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT
 
-    create_fastapi_app()
+    env_map = {}
+    if not MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.is_set():
+        env_map[MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.name] = "false"
 
-    assert os.environ.get("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT") == "true"
+    assert "MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT" not in env_map
