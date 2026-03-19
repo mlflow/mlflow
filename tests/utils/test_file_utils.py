@@ -243,7 +243,7 @@ def test_check_tarfile_security(tmp_path):
     )
     with pytest.raises(
         MlflowException,
-        match="Escaped path destination in the archive file is not allowed",
+        match="Destination path in the archive file can not go through a symlink",
     ):
         check_tarfile_security(tar2_path)
 
@@ -285,7 +285,6 @@ def test_check_tarfile_security(tmp_path):
     ):
         check_tarfile_security(tar4_path)
 
-    # Symlink with absolute target
     def create_tar_with_symlink_only(tar_path: Path, link_name: str, link_target: str) -> None:
         with tarfile.open(tar_path, "w:gz") as tar:
             link_info = tarfile.TarInfo(name=link_name)
@@ -293,21 +292,15 @@ def test_check_tarfile_security(tmp_path):
             link_info.linkname = link_target
             tar.addfile(link_info)
 
+    # Symlinks with absolute/escaping targets are allowed (virtualenvs use them).
+    # Security is enforced by _safe_extractall at extraction time.
     tar5_path = tmp_path / "file5.tar"
-    create_tar_with_symlink_only(tar5_path, "escape", "/etc")
-    with pytest.raises(
-        MlflowException, match="Absolute path destination in the archive file is not allowed"
-    ):
-        check_tarfile_security(tar5_path)
+    create_tar_with_symlink_only(tar5_path, "python", "/usr/bin/python3")
+    check_tarfile_security(tar5_path)  # should not raise
 
-    # Symlink with relative target that escapes extraction directory
     tar6_path = tmp_path / "file6.tar"
-    create_tar_with_symlink_only(tar6_path, "escape", "../../etc")
-    with pytest.raises(
-        MlflowException,
-        match="Escaped path destination in the archive file is not allowed",
-    ):
-        check_tarfile_security(tar6_path)
+    create_tar_with_symlink_only(tar6_path, "lib", "../../shared/lib")
+    check_tarfile_security(tar6_path)  # should not raise
 
     # Symlink with absolute path as its own name
     tar7_path = tmp_path / "file7.tar"

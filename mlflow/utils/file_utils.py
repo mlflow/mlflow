@@ -936,18 +936,20 @@ def check_tarfile_security(archive_path: str) -> None:
             # bypass on Windows where backslashes are treated as directory separators.
             path = posixpath.normpath(m.name.replace("\\", "/"))
             _check_path_is_safe(path)
-            if m.issym() or m.islnk():
+            if m.issym():
                 symlink_set.add(path)
-                # Validate link targets don't escape the extraction directory
+            elif m.islnk():
+                symlink_set.add(path)
+                # Hard link targets are dangerous: tar.extract creates an actual hard
+                # link to the target path, so validate they don't escape.
                 link_target = posixpath.normpath(m.linkname.replace("\\", "/"))
-                _check_path_is_safe(link_target, context=f"link target of {path}")
-                # Resolve link target relative to the link's parent directory
+                _check_path_is_safe(link_target, context=f"hard link target of {path}")
                 link_parent = posixpath.dirname(path)
                 resolved = posixpath.normpath(posixpath.join(link_parent, link_target))
                 if resolved == ".." or resolved.startswith("../"):
                     raise MlflowException.invalid_parameter_value(
-                        "Link target that escapes the extraction directory is not allowed, "
-                        f"but got {path} -> {link_target}."
+                        "Hard link target that escapes the extraction directory is not "
+                        f"allowed, but got {path} -> {link_target}."
                     )
         for m in tar.getmembers():
             if not m.issym() and not m.islnk():
