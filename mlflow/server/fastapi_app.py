@@ -14,6 +14,7 @@ from fastapi.middleware.wsgi import WSGIMiddleware
 from fastapi.responses import JSONResponse
 from flask import Flask
 
+from mlflow.environment_variables import MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT
 from mlflow.exceptions import MlflowException
 from mlflow.server import app as flask_app
 from mlflow.server.assistant.api import assistant_router
@@ -93,8 +94,6 @@ def create_fastapi_app(flask_app: Flask = flask_app):
     # This provides /gateway/{endpoint_name}/mlflow/invocations routes
     # Disable incremental span export by default to reduce DB contention from
     # concurrent gateway requests. Users can override by setting the env var explicitly.
-    from mlflow.environment_variables import MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT
-
     if not MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.is_set():
         os.environ[MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.name] = "false"
 
