@@ -855,12 +855,10 @@ def test_submit_job_workspace_propagation(monkeypatch, tmp_path, workspaces_enab
 
 
 @pytest.mark.parametrize("workspaces_enabled", [False], indirect=True)
-def test_reenqueued_jobs_respect_workspace_disabled(monkeypatch, tmp_path):
-    backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
-
+def test_reenqueued_jobs_respect_workspace_disabled(monkeypatch, db_uri):
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "true")
     with WorkspaceContext(DEFAULT_WORKSPACE_NAME):
-        job_store = SqlAlchemyJobStore(backend_store_uri)
+        job_store = SqlAlchemyJobStore(db_uri)
         job_store.create_job("basic_job_fun", '{"x": 1, "y": 2}', None)
 
     monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
