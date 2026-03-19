@@ -74,12 +74,12 @@ class MlflowV3SpanExporter(SpanExporter):
             # _export_traces() skips. Without this, distributed mirror spans (e.g. from
             # gateway traceparent headers) would be silently dropped.
             # Skip this if the store doesn't support log_spans to avoid repeated failures.
-            if remote_spans := self._filter_remote_trace_spans(spans):
+            if remote_spans := self._get_remote_trace_spans(spans):
                 self._export_spans_incrementally(remote_spans)
 
         self._export_traces(spans)
 
-    def _filter_remote_trace_spans(self, spans: Sequence[ReadableSpan]) -> list[ReadableSpan]:
+    def _get_remote_trace_spans(self, spans: Sequence[ReadableSpan]) -> list[ReadableSpan]:
         manager = InMemoryTraceManager.get_instance()
         remote_spans = []
         for span in spans:
