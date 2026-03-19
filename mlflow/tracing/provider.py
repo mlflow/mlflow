@@ -736,6 +736,7 @@ def _get_mlflow_span_processor(tracking_uri: str):
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
+    # Databricks and SQL backends support V3 traces
     from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 

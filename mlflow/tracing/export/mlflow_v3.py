@@ -39,10 +39,7 @@ class MlflowV3SpanExporter(SpanExporter):
     using the V3 trace schema and API.
     """
 
-    def __init__(
-        self,
-        tracking_uri: str | None = None,
-    ) -> None:
+    def __init__(self, tracking_uri: str | None = None) -> None:
         self._client = TracingClient(tracking_uri)
         self._is_async_enabled = self._should_enable_async_logging()
         if self._is_async_enabled:
