@@ -6,7 +6,7 @@ import threading
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pydantic
 import requests
@@ -28,6 +28,11 @@ from mlflow.genai.judges.adapters.litellm_adapter import (
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
+
+if TYPE_CHECKING:
+    import litellm
+
+    from mlflow.gateway.schemas.chat import ResponsePayload
 
 _logger = logging.getLogger(__name__)
 
@@ -98,7 +103,7 @@ class _TokenCounter:
         with self._lock:
             self._cost_usd += cost
 
-    def track(self, response: Any) -> None:
+    def track(self, response: litellm.ModelResponse | ResponsePayload) -> None:
         with self._lock:
             if response.usage:
                 self.input_tokens += response.usage.prompt_tokens or 0
