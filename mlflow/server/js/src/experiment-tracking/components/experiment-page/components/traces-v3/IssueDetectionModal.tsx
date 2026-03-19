@@ -23,6 +23,7 @@ interface IssueDetectionModalProps {
   initialSelectedTraceIds?: string[];
   availableTraceIds?: string[];
   onSubmitSuccess?: (runId?: string) => void;
+  defaultGroupBySession?: boolean;
 }
 
 export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
@@ -31,6 +32,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
   initialSelectedTraceIds = [],
   availableTraceIds = [],
   onSubmitSuccess,
+  defaultGroupBySession = false,
 }) => {
   const { theme } = useDesignSystemTheme();
   const modelSelectionRef = useRef<IssueDetectionModelSelectionRef>(null);
@@ -254,6 +256,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
             setIsSelectTracesModalOpen(false);
           }}
           initialTraceIdsSelected={selectedTraceIds}
+          defaultGroupBySession={defaultGroupBySession}
         />
       )}
     </>
