@@ -118,7 +118,7 @@ module.exports = async ({ context, github }) => {
 
 #### Install mlflow from this PR
 
-\`\`\`
+\`\`\`bash
 # mlflow
 pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/merge
 # mlflow-skinny
@@ -127,7 +127,7 @@ pip install git+https://github.com/mlflow/mlflow.git@refs/pull/${issue_number}/m
 
 For Databricks, use the following command:
 
-\`\`\`
+\`\`\`bash
 %sh curl -LsSf https://raw.githubusercontent.com/mlflow/mlflow/HEAD/dev/install-skinny.sh | sh -s pull/${issue_number}/merge
 \`\`\`
 

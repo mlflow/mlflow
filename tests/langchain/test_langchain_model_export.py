@@ -38,6 +38,7 @@ from langchain_core.tools import Tool
 from langchain_openai import ChatOpenAI
 from langchain_text_splitters.character import CharacterTextSplitter
 from packaging import version
+from pydantic import BaseModel
 from pyspark.sql import SparkSession
 
 import mlflow
@@ -284,7 +285,6 @@ def test_log_and_load_retriever_chain(tmp_path):
     def load_retriever(persist_directory):
         import numpy as np
         from langchain.embeddings.base import Embeddings
-        from pydantic import BaseModel
 
         class DeterministicDummyEmbeddings(Embeddings, BaseModel):
             size: int

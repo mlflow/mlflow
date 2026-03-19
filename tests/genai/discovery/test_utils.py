@@ -4,12 +4,11 @@ from unittest import mock
 import pytest
 
 from mlflow.entities.issue import Issue, IssueStatus
-from mlflow.genai.discovery import utils
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.utils import (
     _TokenCounter,
     build_summary,
-    collect_example_trace_ids,
+    collect_affected_trace_ids,
     format_annotation_prompt,
     format_trace_content,
     get_session_id,
@@ -31,7 +30,7 @@ def test_format_trace_content_no_errors(make_trace):
     assert "Errors:" not in content
 
 
-def test_collect_example_trace_ids_gathers_from_analyses():
+def test_collect_affected_trace_ids_gathers_from_analyses():
     analyses = [
         _ConversationAnalysis(
             full_rationale="r1", affected_trace_ids=["t1", "t2"], execution_path="p1"
@@ -46,11 +45,11 @@ def test_collect_example_trace_ids_gathers_from_analyses():
         example_indices=[0, 1],
         categories=[],
     )
-    result = collect_example_trace_ids(issue, analyses)
+    result = collect_affected_trace_ids(issue, analyses)
     assert result == ["t1", "t2", "t3"]
 
 
-def test_collect_example_trace_ids_skips_out_of_bounds():
+def test_collect_affected_trace_ids_skips_out_of_bounds():
     analyses = [
         _ConversationAnalysis(full_rationale="r1", affected_trace_ids=["t1"], execution_path="p1"),
     ]
@@ -62,27 +61,8 @@ def test_collect_example_trace_ids_skips_out_of_bounds():
         example_indices=[0, 5],
         categories=[],
     )
-    result = collect_example_trace_ids(issue, analyses)
+    result = collect_affected_trace_ids(issue, analyses)
     assert result == ["t1"]
-
-
-def test_collect_example_trace_ids_caps_at_max(monkeypatch):
-    monkeypatch.setattr(utils, "MAX_EXAMPLE_TRACE_IDS", 2)
-    analyses = [
-        _ConversationAnalysis(
-            full_rationale="r1", affected_trace_ids=["t1", "t2", "t3"], execution_path="p1"
-        ),
-    ]
-    issue = _IdentifiedIssue(
-        name="test",
-        description="d",
-        root_cause="rc",
-        severity="high",
-        example_indices=[0],
-        categories=[],
-    )
-    result = collect_example_trace_ids(issue, analyses)
-    assert len(result) == 2
 
 
 # ---- get_session_id ----

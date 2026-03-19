@@ -1175,8 +1175,6 @@ def test_prompt_associate_with_run_chat_format():
 
 
 def test_register_prompt_with_pydantic_response_format():
-    from pydantic import BaseModel
-
     class ResponseSchema(BaseModel):
         answer: str
         confidence: float
