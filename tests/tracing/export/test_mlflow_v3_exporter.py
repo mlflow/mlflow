@@ -582,26 +582,22 @@ def test_remote_trace_exported_when_incremental_export_disabled(monkeypatch):
 
 
 @pytest.mark.skipif(not importlib.util.find_spec("fastapi"), reason="fastapi not installed")
-def test_gateway_disables_incremental_span_export(monkeypatch):
+def test_tracking_server_disables_incremental_span_export(monkeypatch):
     monkeypatch.delenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", raising=False)
 
-    from mlflow.gateway.app import create_app_from_config
-    from mlflow.gateway.config import GatewayConfig
+    from mlflow.server.fastapi_app import create_fastapi_app
 
-    config = GatewayConfig(endpoints=[])
-    create_app_from_config(config)
+    create_fastapi_app()
 
     assert os.environ.get("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT") == "False"
 
 
 @pytest.mark.skipif(not importlib.util.find_spec("fastapi"), reason="fastapi not installed")
-def test_gateway_respects_explicit_incremental_span_export(monkeypatch):
+def test_tracking_server_respects_explicit_incremental_span_export(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "true")
 
-    from mlflow.gateway.app import create_app_from_config
-    from mlflow.gateway.config import GatewayConfig
+    from mlflow.server.fastapi_app import create_fastapi_app
 
-    config = GatewayConfig(endpoints=[])
-    create_app_from_config(config)
+    create_fastapi_app()
 
     assert os.environ.get("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT") == "true"

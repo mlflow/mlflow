@@ -20,7 +20,6 @@ from mlflow.deployments.server.constants import (
     MLFLOW_DEPLOYMENTS_QUERY_SUFFIX,
 )
 from mlflow.environment_variables import (
-    MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT,
     MLFLOW_GATEWAY_CONFIG,
     MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI,
     MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_ENV,
@@ -275,9 +274,6 @@ def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
     """
     Create the GatewayAPI app from the gateway configuration.
     """
-    if not MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.is_set():
-        MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.set(False)
-
     limiter = Limiter(
         key_func=get_remote_address, storage_uri=MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI.get()
     )

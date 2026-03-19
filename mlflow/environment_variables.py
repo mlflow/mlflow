@@ -1143,7 +1143,7 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: visibility for long-running traces but adds extra DB round-trips that may increase
 #: latency under high concurrency. When disabled, spans are only persisted as part of
 #: the full trace artifact when the trace completes.
-#: The MLflow AI Gateway disables this by default to reduce DB contention.
+#: The MLflow tracking server disables this by default to reduce DB contention.
 #: (default: ``True``)
 MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT = _BooleanEnvironmentVariable(
     "MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", True
