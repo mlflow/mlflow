@@ -245,7 +245,11 @@ def test_translate_inputs_for_spans(
 
         result = translate_span_when_storing(span)
 
-        assert result["attributes"][SpanAttributeKey.INPUTS] == json.dumps(input_value)
+        stored = result["attributes"][SpanAttributeKey.INPUTS]
+        # dict/list values are decoded from JSON strings to avoid double-encoding;
+        # primitive values (string, int, bool) are kept as JSON-encoded strings.
+        parsed = json.loads(stored) if isinstance(stored, str) else stored
+        assert parsed == input_value
 
 
 @pytest.mark.parametrize(
@@ -269,7 +273,9 @@ def test_translate_inputs_for_spans_traceloop(input_key: str, input_value: Any):
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)
-    assert result["attributes"][SpanAttributeKey.INPUTS] == json.dumps(input_value)
+    stored = result["attributes"][SpanAttributeKey.INPUTS]
+    parsed = json.loads(stored) if isinstance(stored, str) else stored
+    assert parsed == input_value
 
 
 @pytest.mark.parametrize(
@@ -287,7 +293,9 @@ def test_translate_outputs_for_spans(parent_id: str | None, translator: OtelSche
 
         result = translate_span_when_storing(span)
 
-        assert result["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps(output_value)
+        stored = result["attributes"][SpanAttributeKey.OUTPUTS]
+        parsed = json.loads(stored) if isinstance(stored, str) else stored
+        assert parsed == output_value
 
 
 @pytest.mark.parametrize(
@@ -309,7 +317,9 @@ def test_translate_outputs_for_spans_traceloop(output_key: str, output_value: An
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)
-    assert result["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps(output_value)
+    stored = result["attributes"][SpanAttributeKey.OUTPUTS]
+    parsed = json.loads(stored) if isinstance(stored, str) else stored
+    assert parsed == output_value
 
 
 @pytest.mark.parametrize(
@@ -356,10 +366,12 @@ def test_translate_inputs_outputs_edge_cases(
     result = translate_span_when_storing(span)
 
     assert SpanAttributeKey.INPUTS in result["attributes"]
-    inputs = json.loads(result["attributes"][SpanAttributeKey.INPUTS])
+    stored_inputs = result["attributes"][SpanAttributeKey.INPUTS]
+    inputs = json.loads(stored_inputs) if isinstance(stored_inputs, str) else stored_inputs
     assert inputs == expected_inputs
     assert SpanAttributeKey.OUTPUTS in result["attributes"]
-    outputs = json.loads(result["attributes"][SpanAttributeKey.OUTPUTS])
+    stored_outputs = result["attributes"][SpanAttributeKey.OUTPUTS]
+    outputs = json.loads(stored_outputs) if isinstance(stored_outputs, str) else stored_outputs
     assert outputs == expected_outputs
 
 
@@ -401,6 +413,46 @@ def test_translate_inputs_outputs_edge_cases(
 def test_sanitize_attributes(attributes: dict[str, Any], expected_attributes: dict[str, Any]):
     result = sanitize_attributes(attributes)
     assert result == expected_attributes
+
+
+@pytest.mark.parametrize(
+    "translator",
+    [GenAiTranslator, OpenInferenceTranslator],
+)
+def test_translate_inputs_json_string_encoded_messages(translator: OtelSchemaTranslator):
+    """
+    Test that JSON-string encoded messages (e.g., from Java OTel SDK which only supports
+    primitive attribute types) are decoded to proper Python objects when stored as
+    mlflow.spanInputs / mlflow.spanOutputs. Fixes: https://github.com/mlflow/mlflow/issues/21812
+    """
+    messages = [{"role": "user", "content": "Hello, how are you?"}]
+    response = [{"role": "assistant", "content": "I'm doing well, thanks!"}]
+
+    # Simulate Java OTel SDK: attributes are JSON-encoded strings
+    input_key = translator.INPUT_VALUE_KEYS[0]
+    output_key = translator.OUTPUT_VALUE_KEYS[0]
+    span = mock.Mock(spec=Span)
+    span.parent_id = "parent_123"
+    span_dict = {
+        "attributes": {
+            input_key: json.dumps(messages),
+            output_key: json.dumps(response),
+        }
+    }
+    span.to_dict.return_value = span_dict
+
+    result = translate_span_when_storing(span)
+
+    # Inputs and outputs should be decoded from JSON strings to proper Python objects
+    stored_inputs = result["attributes"][SpanAttributeKey.INPUTS]
+    stored_outputs = result["attributes"][SpanAttributeKey.OUTPUTS]
+
+    # dict/list values are decoded to avoid double-encoding
+    parsed_inputs = json.loads(stored_inputs) if isinstance(stored_inputs, str) else stored_inputs
+    parsed_outputs = json.loads(stored_outputs) if isinstance(stored_outputs, str) else stored_outputs
+
+    assert parsed_inputs == messages
+    assert parsed_outputs == response
 
 
 @pytest.mark.parametrize(

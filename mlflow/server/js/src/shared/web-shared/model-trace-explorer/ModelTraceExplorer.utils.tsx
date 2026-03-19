@@ -1078,6 +1078,21 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
   // and formatting, and it's possible that we miss some edge cases. in case of an error,
   // simply return null to signify that the input is not a chat input.
   try {
+    // If the input is a JSON-encoded string (e.g., from Java OTel SDK which only supports
+    // primitive attribute values, or from legacy storage), attempt to parse it first.
+    // This handles cases where gen_ai.input.messages / gen_ai.output.messages are stored
+    // as JSON strings instead of structured objects. See: mlflow/mlflow#21812
+    if (typeof input === 'string') {
+      try {
+        const parsed = JSON.parse(input);
+        if (parsed !== null && typeof parsed === 'object') {
+          input = parsed;
+        }
+      } catch {
+        // Not a JSON string — keep as-is and let other checks handle it
+      }
+    }
+
     // if the input is already in the correct format, return it
     if (Array.isArray(input) && input.length > 0 && input.every(isRawModelTraceChatMessage)) {
       return compact(input.map(prettyPrintChatMessage));

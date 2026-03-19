@@ -90,3 +90,49 @@ describe('normalizeConversation (OTEL GenAI)', () => {
     );
   });
 });
+
+describe('normalizeConversation with JSON-string encoded input (issue #21812)', () => {
+  it('parses JSON-string encoded OTel GenAI messages (e.g., from Java OTel SDK)', () => {
+    // Java OTel SDK stores gen_ai.input.messages as a JSON string because
+    // OTel Java only supports primitive attribute values.
+    const messagesArray = [
+      {
+        role: 'user',
+        parts: [{ type: 'text', content: 'What is MLflow?' }],
+      },
+      {
+        role: 'assistant',
+        parts: [{ type: 'text', content: 'MLflow is an open-source ML platform.' }],
+      },
+    ];
+    // Simulate the value arriving as a JSON-encoded string
+    const jsonStringInput = JSON.stringify(messagesArray);
+
+    const result = normalizeConversation(jsonStringInput);
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(2);
+    expect(result?.[0]).toEqual(expect.objectContaining({ role: 'user', content: 'What is MLflow?' }));
+    expect(result?.[1]).toEqual(expect.objectContaining({ role: 'assistant', content: 'MLflow is an open-source ML platform.' }));
+  });
+
+  it('parses JSON-string encoded simple chat messages', () => {
+    const messages = [
+      { role: 'user', content: 'Hello!' },
+      { role: 'assistant', content: 'Hi there!' },
+    ];
+    const jsonStringInput = JSON.stringify(messages);
+
+    const result = normalizeConversation(jsonStringInput);
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveLength(2);
+    expect(result?.[0]).toEqual(expect.objectContaining({ role: 'user', content: 'Hello!' }));
+    expect(result?.[1]).toEqual(expect.objectContaining({ role: 'assistant', content: 'Hi there!' }));
+  });
+
+  it('handles non-JSON strings gracefully (returns null)', () => {
+    const result = normalizeConversation('not a json string');
+    expect(result).toBeNull();
+  });
+});

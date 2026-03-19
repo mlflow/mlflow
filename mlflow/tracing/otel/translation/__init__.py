@@ -83,11 +83,30 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
     if SpanAttributeKey.INPUTS not in attributes and (
         input_value := _get_input_value(attributes, events)
     ):
+        # If input_value is a JSON-encoded string (e.g., from Java OTel SDK that only
+        # supports primitive attribute values), decode it to avoid double-encoding when
+        # stored in the span dict. Strings that are valid JSON objects/arrays are decoded
+        # automatically; non-JSON strings are left as-is.
+        if isinstance(input_value, str):
+            try:
+                decoded = json.loads(input_value)
+                if isinstance(decoded, (dict, list)):
+                    input_value = decoded
+            except (json.JSONDecodeError, ValueError):
+                pass
         attributes[SpanAttributeKey.INPUTS] = input_value
 
     if SpanAttributeKey.OUTPUTS not in attributes and (
         output_value := _get_output_value(attributes, events)
     ):
+        # Same JSON string decoding as for inputs above.
+        if isinstance(output_value, str):
+            try:
+                decoded = json.loads(output_value)
+                if isinstance(decoded, (dict, list)):
+                    output_value = decoded
+            except (json.JSONDecodeError, ValueError):
+                pass
         attributes[SpanAttributeKey.OUTPUTS] = output_value
 
     # Translate token usage
