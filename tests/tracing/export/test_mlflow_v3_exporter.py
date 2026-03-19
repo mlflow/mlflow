@@ -529,7 +529,9 @@ def test_should_export_spans_incrementally_flag(monkeypatch, incremental_export_
             "mlflow.tracing.client.TracingClient.start_trace",
             return_value=trace_info,
         ) as mock_start_trace,
-        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
         mock.patch(
             "mlflow.tracing.client.TracingClient.log_spans",
         ) as mock_log_spans,
@@ -538,6 +540,9 @@ def test_should_export_spans_incrementally_flag(monkeypatch, incremental_export_
         exporter.export([otel_span])
 
         mock_start_trace.assert_called_once()
+        # Spans are always uploaded to artifacts (since SPANS_LOCATION is not
+        # set to TRACKING_STORE when log_spans is not called)
+        mock_upload_trace_data.assert_called_once()
 
         if incremental_export_enabled:
             mock_log_spans.assert_called_once()
