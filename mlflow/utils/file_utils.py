@@ -935,19 +935,33 @@ def check_tarfile_security(archive_path: str) -> None:
             # Normalize backslashes to forward slashes before path validation to prevent
             # bypass on Windows where backslashes are treated as directory separators.
             path = posixpath.normpath(m.name.replace("\\", "/"))
+            if path.startswith("/"):
+                raise MlflowException(
+                    "Absolute path destination in the archive file is not allowed, "
+                    f"but got path {path}."
+                )
+            path_parts = path.split("/")
+            if path_parts[0] == "..":
+                raise MlflowException(
+                    "Escaped path destination in the archive file is not allowed, "
+                    f"but got path {path}."
+                )
             if m.issym():
                 symlink_set.add(path)
-            else:
-                if path.startswith("/"):
+                # Validate symlink targets don't escape the extraction directory
+                link_target = posixpath.normpath(m.linkname.replace("\\", "/"))
+                if link_target.startswith("/"):
                     raise MlflowException(
-                        "Absolute path destination in the archive file is not allowed, "
-                        f"but got path {path}."
+                        "Symlink with absolute target in the archive file is not allowed, "
+                        f"but got symlink {path} -> {link_target}."
                     )
-                path_parts = path.split("/")
-                if path_parts[0] == "..":
+                # Resolve symlink target relative to the symlink's parent directory
+                symlink_parent = posixpath.dirname(path)
+                resolved = posixpath.normpath(posixpath.join(symlink_parent, link_target))
+                if resolved.startswith(".."):
                     raise MlflowException(
-                        "Escaped path destination in the archive file is not allowed, "
-                        f"but got path {path}."
+                        "Symlink target that escapes the extraction directory is not allowed, "
+                        f"but got symlink {path} -> {link_target}."
                     )
         for m in tar.getmembers():
             if not m.issym():
