@@ -17,10 +17,8 @@ from mlflow.types.llm import (
     ToolDefinition,
     ToolParamsSchema,
 )
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 @dataclass
 class ListSpansResult:
     """Result from listing spans with optional pagination."""
@@ -52,7 +50,6 @@ def _create_span_info(span) -> SpanInfo:
     )
 
 
-@experimental(version="3.4.0")
 class ListSpansTool(JudgeTool):
     """
     Tool for listing and analyzing spans within a trace.
