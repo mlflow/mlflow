@@ -7,7 +7,7 @@ from mlflow.server.jobs.progress import (
     NoOpTracker,
     _get_job_tracker,
     _set_job_tracker,
-    update_metadata,
+    update_status_details,
 )
 
 
@@ -99,12 +99,12 @@ def test_job_tracker_is_thread_local(tmp_path: Path):
     _set_job_tracker(None)
 
 
-def test_update_metadata_uses_active_tracker(tmp_path: Path):
+def test_update_status_details_uses_active_tracker(tmp_path: Path):
     stage_file = tmp_path / "stage.json"
     tracker = JobTracker(str(stage_file))
 
     _set_job_tracker(tracker)
-    update_metadata({"stage": "my_stage", "info": "test"})
+    update_status_details({"stage": "my_stage", "info": "test"})
 
     assert stage_file.exists()
     with open(stage_file) as f:
@@ -114,19 +114,19 @@ def test_update_metadata_uses_active_tracker(tmp_path: Path):
     _set_job_tracker(None)
 
 
-def test_update_metadata_is_noop_without_tracker():
+def test_update_status_details_is_noop_without_tracker():
     _set_job_tracker(None)
 
-    update_metadata({"stage": "stage1"})
-    update_metadata({"stage": "stage2", "key": "value"})
+    update_status_details({"stage": "stage1"})
+    update_status_details({"stage": "stage2", "key": "value"})
 
 
-def test_update_metadata_with_only_stage(tmp_path: Path):
+def test_update_status_details_with_only_stage(tmp_path: Path):
     stage_file = tmp_path / "stage.json"
     tracker = JobTracker(str(stage_file))
 
     _set_job_tracker(tracker)
-    update_metadata({"stage": "my_stage"})
+    update_status_details({"stage": "my_stage"})
 
     assert stage_file.exists()
     with open(stage_file) as f:
@@ -136,12 +136,12 @@ def test_update_metadata_with_only_stage(tmp_path: Path):
     _set_job_tracker(None)
 
 
-def test_update_metadata_with_additional_fields(tmp_path: Path):
+def test_update_status_details_with_additional_fields(tmp_path: Path):
     stage_file = tmp_path / "stage.json"
     tracker = JobTracker(str(stage_file))
 
     _set_job_tracker(tracker)
-    update_metadata({"stage": "my_stage", "progress": "50%", "details": "processing"})
+    update_status_details({"stage": "my_stage", "progress": "50%", "details": "processing"})
 
     assert stage_file.exists()
     with open(stage_file) as f:

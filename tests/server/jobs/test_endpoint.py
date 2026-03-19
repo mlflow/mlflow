@@ -33,15 +33,15 @@ def job_assert_tracking_uri(server_url: str) -> None:
 
 @job(name="job_with_progress_tracking", max_workers=1)
 def job_with_progress_tracking(sleep_secs: int = 1) -> str:
-    from mlflow.server.jobs.progress import update_metadata
+    from mlflow.server.jobs.progress import update_status_details
 
-    update_metadata({"stage": "init", "progress": "0%"})
+    update_status_details({"stage": "init", "progress": "0%"})
     time.sleep(sleep_secs)
 
-    update_metadata({"stage": "processing", "progress": "50%"})
+    update_status_details({"stage": "processing", "progress": "50%"})
     time.sleep(sleep_secs)
 
-    update_metadata({"stage": "done", "progress": "100%"})
+    update_status_details({"stage": "done", "progress": "100%"})
     return "completed"
 
 
@@ -175,7 +175,7 @@ def test_job_submit(client: Client):
         "status": "SUCCEEDED",
         "result": {"a": 7, "b": 12},
         "retry_count": 0,
-        "metadata": None,
+        "status_details": None,
     }
 
 
@@ -206,7 +206,7 @@ def test_job_cancel(client: Client):
         "status": "CANCELED",
         "result": None,
         "retry_count": 0,
-        "metadata": None,
+        "status_details": None,
     }
 
 
@@ -340,7 +340,7 @@ def test_job_endpoint_search(client: Client):
     )
 
 
-def test_job_metadata_in_api_response(client: Client):
+def test_job_status_details_in_api_response(client: Client):
     job_id = client.submit_job(
         job_name="job_with_progress_tracking",
         params={"sleep_secs": 1},
@@ -348,8 +348,8 @@ def test_job_metadata_in_api_response(client: Client):
 
     job_json = client.wait_job(job_id, timeout=30)
 
-    assert "metadata" in job_json
-    assert job_json["metadata"] is not None
-    assert job_json["metadata"].get("stage") in ["init", "processing", "done"]
+    assert "status_details" in job_json
+    assert job_json["status_details"] is not None
+    assert job_json["status_details"].get("stage") in ["init", "processing", "done"]
     assert job_json["status"] == "SUCCEEDED"
     assert job_json["result"] == "completed"

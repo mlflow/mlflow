@@ -29,7 +29,7 @@ class Job(BaseModel):
     result: Any
     retry_count: int
     last_update_time: int
-    metadata: dict[str, str] | None = None
+    status_details: dict[str, Any] | None = None
 
     @classmethod
     def from_job_entity(cls, job: JobEntity) -> "Job":
@@ -43,7 +43,7 @@ class Job(BaseModel):
             result=job.parsed_result,
             retry_count=job.retry_count,
             last_update_time=job.last_update_time,
-            metadata=job.metadata,
+            status_details=job.status_details,
         )
 
 
