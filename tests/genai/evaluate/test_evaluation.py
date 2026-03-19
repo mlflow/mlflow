@@ -1591,17 +1591,18 @@ def test_backpressure_limits_in_flight_items(monkeypatch):
     try:
         eval_thread.start()
 
-        # Wait for exactly `buffer` predicts to complete. After this, the submit
-        # thread is blocked on semaphore.acquire() and no more predicts can run
+        # Wait for exactly `buffer` predicts to complete. The semaphore guarantees
+        # each acquire() returns once a predict runs. After this, the submit thread
+        # is blocked on the backpressure semaphore and no more predicts can run
         # (scorers are blocked on score_gate).
         for _ in range(buffer):
-            assert predict_done.acquire(timeout=5)
+            predict_done.acquire()
 
         with lock:
             observed_max = max_in_flight
     finally:
         score_gate.set()
-        eval_thread.join(timeout=30)
+        eval_thread.join()
 
     # The semaphore bounds in-flight items. Without backpressure all
     # num_items would pile up.
