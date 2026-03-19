@@ -21,28 +21,24 @@ jobs:
 
     env:
       AWS_REGION: us-west-2
-      KEYCLOAK_URL: https://identity.dev.nuoclient.nuodata.io/
-      CLIENT_ID: nuodata-website
-      ECR_REPOSITORY: nuodata-prod-mlflow-repo
-      SSM_PARAMETER_NAME: nuodata-prod-mlflow-img-ver
-      PROD_REACT_APP_WEB_BASE_URL: https://aiml.dev.nuoclient.nuodata.io/
-      AWS_IAM_ROLE_ARN: arn:aws:iam::${{secrets.AWS_ACC_ID_DEV}}:role/GitHubAction-AssumeRoleWithAction
-
+      DOMAIN_PREFIX: dev.nuoclient
+      DOMAIN: nuodata.io
+      AWS_ACCOUNT_ID: 471681951701
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
       - name: Update host value in keycloak_auth.ini
         run: |
-          NEW_HOST=${{ env.KEYCLOAK_URL }} 
+          NEW_HOST="https://identity.${{env.DOMAIN_PREFIX}}.${{env.DOMAIN}}}/"
           CONFIG_FILE="/home/runner/work/nuodata-mlflow/nuodata-mlflow/mlflow/server/keycloak_auth/keycloak_auth.ini"
           sed -i "s|^host = .*|host = ${NEW_HOST}|" $CONFIG_FILE
           cat $CONFIG_FILE
 
       - name: Update Keycloak URL and Client ID in keycloak-config.ts
         run: |
-          KEYCLOAK_URL=${{ env.KEYCLOAK_URL }} 
-          CLIENT_ID="${{ env.CLIENT_ID }}"
+          KEYCLOAK_URL="https://identity.${{env.DOMAIN_PREFIX}}.${{env.DOMAIN}}}/"
+          CLIENT_ID="nuodata-website"
           CONFIG_FILE="/home/runner/work/nuodata-mlflow/nuodata-mlflow/mlflow/server/js/src/keycloak-config.ts"
           sed -i "s|url: '.*'|url: '${KEYCLOAK_URL}'|" $CONFIG_FILE
           sed -i "s|clientId: '.*'|clientId: '${CLIENT_ID}'|" $CONFIG_FILE
@@ -51,14 +47,13 @@ jobs:
       - name: Update .env File
         run: |
           CONFIG_FILE="/home/runner/work/nuodata-mlflow/nuodata-mlflow/mlflow/server/js/.env"
-          PROD_REACT_APP_WEB_BASE_URL= ${{ env.PROD_REACT_APP_WEB_BASE_URL }}
+          PROD_REACT_APP_WEB_BASE_URL="https://aiml.${{env.DOMAIN_PREFIX}}.${{env.DOMAIN}}}/"
           sed -i "s|REACT_APP_WEB_BASE_URL=.*|REACT_APP_WEB_BASE_URL=${PROD_REACT_APP_WEB_BASE_URL}|" $CONFIG_FILE
           cat $CONFIG_FILE
-
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
-          role-to-assume: ${{ env.AWS_IAM_ROLE_ARN }}
+          role-to-assume: arn:aws:iam::${{env.AWS_ACCOUNT_ID}}:role/GitHubAction-AssumeRoleWithAction
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -69,11 +64,10 @@ jobs:
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
-          SSM_PARAMETER_NAME: ${{ env.SSM_PARAMETER_NAME }}
+          ECR_REPOSITORY: nuodata-dev-mlflow-repo
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          aws ssm put-parameter --name $SSM_PARAMETER_NAME --value $IMAGE_TAG --type String --overwrite
+          aws ssm put-parameter --name nuodata-dev-mlflow-img-ver --value $IMAGE_TAG --type String --overwrite
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f nuodata/Dockerfile .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
