@@ -235,6 +235,10 @@
     "defaultMessage": "Are the expected facts supported by the response?",
     "description": "Hint for Correctness template"
   },
+  "/W0Z7X": {
+    "defaultMessage": "Response avoids harmful, sensitive, or inappropriate content",
+    "description": "Issue category description for safety"
+  },
   "/WK1x1": {
     "defaultMessage": "Enum Values",
     "description": "Row heading in a table that contains the potential enum values that a function parameter can have."
@@ -291,10 +295,6 @@
     "defaultMessage": "Traces",
     "description": "Label for the scorer evaluation scope selection"
   },
-  "/qVACl": {
-    "defaultMessage": "Negative User Experiences",
-    "description": "Issue category title for detecting negative user experiences"
-  },
   "/sk75d": {
     "defaultMessage": "Experiment not found",
     "description": "A title shown on the experiment page if the experiment is not found"
@@ -346,6 +346,10 @@
   "0AOcOr": {
     "defaultMessage": "Feedback",
     "description": "Feedback select menu option for assessment type"
+  },
+  "0BIVHk": {
+    "defaultMessage": "Response follows instructions, constraints, policies, and formatting",
+    "description": "Issue category description for adherence"
   },
   "0Bee6A": {
     "defaultMessage": "No retrieval logged",
@@ -1701,6 +1705,10 @@
     "defaultMessage": "Chat sessions",
     "description": "Label for the chat sessions tab in the MLflow experiment navbar"
   },
+  "9HPhXT": {
+    "defaultMessage": "Correctness",
+    "description": "Issue category title for correctness"
+  },
   "9HXup+": {
     "defaultMessage": "Toggle visibility of runs",
     "description": "Experiment page > runs table > toggle visibility of runs > accessible label"
@@ -2132,10 +2140,6 @@
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
   },
-  "BfaeNE": {
-    "defaultMessage": "Low Quality Responses",
-    "description": "Issue category title for detecting low quality responses"
-  },
   "BkDhmT": {
     "defaultMessage": "Chat",
     "description": "Label for the chat tab of the model trace explorer."
@@ -2480,10 +2484,6 @@
     "defaultMessage": "More options",
     "description": "Experiment page > control bar > more options button accessible label"
   },
-  "E6PAQr": {
-    "defaultMessage": "Safety & Compliance Violations",
-    "description": "Issue category title for detecting safety violations"
-  },
   "E7mv3b": {
     "defaultMessage": "Save",
     "description": "Text for saving changes on rows in editable form table in MLflow"
@@ -2599,10 +2599,6 @@
   "Epo8/i": {
     "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
     "description": "Experiments page list, delete bulk experiments modal title"
-  },
-  "EsCAXB": {
-    "defaultMessage": "Detect unsafe responses or actions and compliance violations",
-    "description": "Issue category description for safety violations"
   },
   "Eu0gxa": {
     "defaultMessage": "Capture and debug LLM interactions and agent workflows.",
@@ -5606,6 +5602,10 @@
     "defaultMessage": "Compare selected runs",
     "description": "Tooltip for the compare button when enabled"
   },
+  "Z/CtWD": {
+    "defaultMessage": "Safety",
+    "description": "Issue category title for safety"
+  },
   "Z4cZMo": {
     "defaultMessage": "by {user}",
     "description": "Created by user"
@@ -5637,10 +5637,6 @@
   "ZKtBkW": {
     "defaultMessage": "Edit the request body below and click Send request to call the provider API.",
     "description": "Try it description for passthrough"
-  },
-  "ZLMmGe": {
-    "defaultMessage": "Identify slow requests or operations",
-    "description": "Issue category description for performance issues"
   },
   "ZNYFUr": {
     "defaultMessage": "Adheres to guidelines",
@@ -6128,6 +6124,10 @@
   "c5AQYh": {
     "defaultMessage": "Compare by",
     "description": "Runs charts > components > charts > DifferenceViewPlot > Compare by column heading"
+  },
+  "c6rG3e": {
+    "defaultMessage": "Output is factually accurate and grounded in provided data",
+    "description": "Issue category description for correctness"
   },
   "cAKSkQ": {
     "defaultMessage": "Select a cell to display preview",
@@ -7072,6 +7072,10 @@
     "defaultMessage": "We couldn't load your experiments.",
     "description": "Home page experiments error message"
   },
+  "i5mE0b": {
+    "defaultMessage": "Execution",
+    "description": "Issue category title for execution"
+  },
   "i7UTwK": {
     "defaultMessage": "Correctness assessment is missing. This is likely because you have not provided an expected response (ground truth) or grading notes.",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -7380,10 +7384,6 @@
     "defaultMessage": "Last used",
     "description": "Badge for last used workspace"
   },
-  "k3SQ4s": {
-    "defaultMessage": "Detect unsatisfactory user experiences and unmet user needs",
-    "description": "Issue category description for negative user experiences"
-  },
   "k4F8aJ": {
     "defaultMessage": "Copy issue ID",
     "description": "Tooltip to copy issue ID"
@@ -7443,6 +7443,10 @@
   "kNTkr+": {
     "defaultMessage": "Discard",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > submit button label"
+  },
+  "kSrJQC": {
+    "defaultMessage": "Agent responds within acceptable time bounds",
+    "description": "Issue category description for latency"
   },
   "kTkJkb": {
     "defaultMessage": "Parallel coordinates chart does not support aggregated string values. Use other parameters or disable run grouping to continue.",
@@ -7539,6 +7543,10 @@
   "l8Z2nP": {
     "defaultMessage": "Remove filter",
     "description": "Button to remove a filter in the tags filter popover for experiments page search by tags"
+  },
+  "l94k45": {
+    "defaultMessage": "Output is useful, directly addresses the user's request, and leaves the user satisfied with the interaction",
+    "description": "Issue category description for relevance"
   },
   "lA8QO2": {
     "defaultMessage": "Edit tags",
@@ -7751,6 +7759,10 @@
   "mOItH0": {
     "defaultMessage": "Use existing model definition",
     "description": "Option to use existing model definition"
+  },
+  "mPqBZK": {
+    "defaultMessage": "Agent successfully completes actions (tool calls, API steps)",
+    "description": "Issue category description for execution"
   },
   "mRc7MY": {
     "defaultMessage": "Expand rows",
@@ -8322,6 +8334,10 @@
   "q/zoT3": {
     "defaultMessage": "Tokens",
     "description": "Column label for tokens"
+  },
+  "q0fV0H": {
+    "defaultMessage": "Latency",
+    "description": "Issue category title for latency"
   },
   "q8rYCQ": {
     "defaultMessage": "Data Type",
@@ -8918,10 +8934,6 @@
   "tkc+sv": {
     "defaultMessage": "No dataset",
     "description": "Label for the metrics column group header that are not grouped by dataset"
-  },
-  "tpUcwl": {
-    "defaultMessage": "Performance Issues",
-    "description": "Issue category title for detecting performance issues"
   },
   "tqw27y": {
     "defaultMessage": "Evaluation criteria",
@@ -9555,6 +9567,10 @@
     "defaultMessage": "Run the judge on the selected group of {isTraces, select, true {traces} other {sessions}}",
     "description": "Description for running judge on traces or sessions"
   },
+  "y7+wS+": {
+    "defaultMessage": "Relevance",
+    "description": "Issue category title for relevance"
+  },
   "y8O4PM": {
     "defaultMessage": "Retrieval Groundedness",
     "description": "LLM template option"
@@ -9798,10 +9814,6 @@
     "defaultMessage": "An error occured while attempting to delete traces. Please refresh the page and try again.",
     "description": "Experiment page > traces view controls > Delete traces modal > Error message"
   },
-  "zi1ZWc": {
-    "defaultMessage": "Detect incorrect, incomplete, or hallucinated responses",
-    "description": "Issue category description for low quality responses"
-  },
   "ziIhFQ": {
     "defaultMessage": "Loaded {allRuns} {allRuns, plural, =1 {run} other {runs}}, including {childRuns} child {childRuns, plural, =1 {run} other {runs}}",
     "description": "Experiment page > loaded more runs notification > loaded both parent and child runs"
@@ -9813,6 +9825,10 @@
   "zmMR5p": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description for default error message in prompts management UI"
+  },
+  "znEC5M": {
+    "defaultMessage": "Adherence",
+    "description": "Issue category title for adherence"
   },
   "zp4MBw": {
     "defaultMessage": "Token count",
