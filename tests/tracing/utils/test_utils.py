@@ -306,6 +306,114 @@ def test_aggregate_cost_from_spans_skips_descendant_cost():
     }
 
 
+def test_aggregate_cost_from_spans_with_generic_cost_attributes():
+    """Test aggregation with new generic cost attributes (tool, embedding, retrieval, span)."""
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="llm"), trace_id="tr-123"),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=2, name="tool"), trace_id="tr-123"),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=3, name="embedding"), trace_id="tr-123"),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=4, name="retrieval"), trace_id="tr-123"),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=5, name="generic"), trace_id="tr-123"),
+    ]
+
+    # LLM cost with full breakdown
+    spans[0].set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 0.01,
+            CostKey.OUTPUT_COST: 0.02,
+            CostKey.TOTAL_COST: 0.03,
+        },
+    )
+
+    # Tool cost as simple float
+    spans[1].set_attribute(SpanAttributeKey.TOOL_COST, 0.001)
+
+    # Embedding cost as dict with total_cost only
+    spans[2].set_attribute(SpanAttributeKey.EMBEDDING_COST, {CostKey.TOTAL_COST: 0.0005})
+
+    # Retrieval cost as dict with full breakdown
+    spans[3].set_attribute(
+        SpanAttributeKey.RETRIEVAL_COST,
+        {
+            CostKey.INPUT_COST: 0.0001,
+            CostKey.OUTPUT_COST: 0.0002,
+            CostKey.TOTAL_COST: 0.0003,
+        },
+    )
+
+    # Generic span cost as simple float
+    spans[4].set_attribute(SpanAttributeKey.SPAN_COST, 0.005)
+
+    cost = aggregate_cost_from_spans(spans)
+
+    # Total should be sum of all costs
+    # LLM: 0.01 + 0.02 + 0.03 = 0.06
+    # Tool: 0.001 (added to total_cost only)
+    # Embedding: 0.0005 (added to total_cost only)
+    # Retrieval: 0.0001 + 0.0002 + 0.0003 = 0.0006
+    # Span: 0.005 (added to total_cost only)
+    assert cost == {
+        CostKey.INPUT_COST: 0.01 + 0.0001,  # LLM + Retrieval
+        CostKey.OUTPUT_COST: 0.02 + 0.0002,  # LLM + Retrieval
+        CostKey.TOTAL_COST: 0.03 + 0.001 + 0.0005 + 0.0003 + 0.005,  # All costs
+    }
+
+
+def test_aggregate_cost_from_spans_mixed_formats():
+    """Test that different cost formats can coexist in the same trace."""
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="span1"), trace_id="tr-123"),
+        LiveSpan(create_mock_otel_span("trace_id", span_id=2, name="span2"), trace_id="tr-123"),
+    ]
+
+    # One span with structured cost
+    spans[0].set_attribute(
+        SpanAttributeKey.LLM_COST,
+        {
+            CostKey.INPUT_COST: 1.0,
+            CostKey.OUTPUT_COST: 2.0,
+            CostKey.TOTAL_COST: 3.0,
+        },
+    )
+
+    # Another span with simple float cost
+    spans[1].set_attribute(SpanAttributeKey.TOOL_COST, 0.5)
+
+    cost = aggregate_cost_from_spans(spans)
+    assert cost == {
+        CostKey.INPUT_COST: 1.0,
+        CostKey.OUTPUT_COST: 2.0,
+        CostKey.TOTAL_COST: 3.5,
+    }
+
+
+def test_aggregate_cost_from_spans_no_double_counting():
+    """Test that generic cost attributes don't double-count when parent has cost."""
+    spans = [
+        LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"),
+        LiveSpan(
+            create_mock_otel_span("trace_id", span_id=2, name="child", parent_id=1),
+            trace_id="tr-123",
+        ),
+    ]
+
+    # Parent has tool cost
+    spans[0].set_attribute(SpanAttributeKey.TOOL_COST, 1.0)
+
+    # Child has embedding cost
+    spans[1].set_attribute(SpanAttributeKey.EMBEDDING_COST, 0.5)
+
+    cost = aggregate_cost_from_spans(spans)
+
+    # Should only count parent cost (1.0), not child (0.5) since parent has cost
+    assert cost == {
+        CostKey.INPUT_COST: 0.0,
+        CostKey.OUTPUT_COST: 0.0,
+        CostKey.TOTAL_COST: 1.0,
+    }
+
+
 def test_maybe_get_request_id():
     assert maybe_get_request_id(is_evaluate=True) is None
 

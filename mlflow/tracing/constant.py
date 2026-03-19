@@ -102,6 +102,14 @@ class SpanAttributeKey:
     # This attribute stores cost information calculated from token usage and model pricing.
     # Stored in {"input_cost": float, "output_cost": float, "total_cost": float} format (USD).
     LLM_COST = "mlflow.llm.cost"
+    # Cost attributes for non-LLM operations. These can be stored as either:
+    # - A simple float value representing the total cost
+    # - A JSON object with {"total_cost": float} or full breakdown structure
+    TOOL_COST = "mlflow.tool.cost"
+    EMBEDDING_COST = "mlflow.embedding.cost"
+    RETRIEVAL_COST = "mlflow.retrieval.cost"
+    # Generic fallback cost attribute for any operation not covered by specific types above
+    SPAN_COST = "mlflow.span.cost"
     # This attribute stores the model name extracted from span inputs/attributes.
     MODEL = "mlflow.llm.model"
     MODEL_PROVIDER = "mlflow.llm.provider"

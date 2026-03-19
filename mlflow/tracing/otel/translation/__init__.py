@@ -394,14 +394,18 @@ def update_token_usage(
 
 
 def update_cost(
-    current_cost: str | dict[str, Any], new_cost: str | dict[str, Any]
+    current_cost: str | dict[str, Any], new_cost: str | dict[str, Any] | float
 ) -> str | dict[str, Any]:
     """
     Update current cost in-place by adding the new cost.
 
     Args:
         current_cost: Current cost, dictionary or JSON string
-        new_cost: New cost, dictionary or JSON string
+        new_cost: New cost, can be:
+            - Dictionary with full breakdown (input_cost, output_cost, total_cost)
+            - Dictionary with only total_cost
+            - Simple float representing total_cost
+            - JSON string of any of the above
 
     Returns:
         Updated cost dictionary or JSON string
@@ -411,13 +415,21 @@ def update_cost(
             current_cost = json.loads(current_cost) or {}
         if isinstance(new_cost, str):
             new_cost = json.loads(new_cost) or {}
-        if new_cost:
-            for key in [
-                CostKey.INPUT_COST,
-                CostKey.OUTPUT_COST,
-                CostKey.TOTAL_COST,
-            ]:
-                current_cost[key] = current_cost.get(key, 0.0) + new_cost.get(key, 0.0)
+
+        if new_cost is not None:
+            # Handle simple float format (just total cost)
+            if isinstance(new_cost, (int, float)):
+                current_cost[CostKey.TOTAL_COST] = (
+                    current_cost.get(CostKey.TOTAL_COST, 0.0) + float(new_cost)
+                )
+            # Handle dictionary format
+            elif isinstance(new_cost, dict):
+                for key in [
+                    CostKey.INPUT_COST,
+                    CostKey.OUTPUT_COST,
+                    CostKey.TOTAL_COST,
+                ]:
+                    current_cost[key] = current_cost.get(key, 0.0) + new_cost.get(key, 0.0)
     except Exception:
         _logger.debug(
             f"Failed to update cost with current_cost: {current_cost}, new_cost: {new_cost}",

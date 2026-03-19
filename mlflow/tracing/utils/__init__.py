@@ -265,13 +265,79 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
 
 
 def aggregate_cost_from_spans(spans: list[LiveSpan]) -> dict[str, float] | None:
-    """Aggregate cost information from all spans in the trace."""
-    return _aggregate_from_spans(
-        spans,
+    """Aggregate cost information from all spans in the trace.
+
+    This function aggregates costs from multiple cost attribute types:
+    - mlflow.llm.cost: LLM costs with input/output/total breakdown
+    - mlflow.tool.cost: Tool invocation costs
+    - mlflow.embedding.cost: Embedding generation costs
+    - mlflow.retrieval.cost: Retrieval/vector DB costs
+    - mlflow.span.cost: Generic span costs
+
+    Non-LLM costs can be stored as either a float value or a dict with a "total_cost" key.
+    """
+    # All cost attribute keys to aggregate
+    cost_attributes = [
         SpanAttributeKey.LLM_COST,
-        keys=[CostKey.INPUT_COST, CostKey.OUTPUT_COST, CostKey.TOTAL_COST],
-        default=0.0,
-    )
+        SpanAttributeKey.TOOL_COST,
+        SpanAttributeKey.EMBEDDING_COST,
+        SpanAttributeKey.RETRIEVAL_COST,
+        SpanAttributeKey.SPAN_COST,
+    ]
+
+    totals: dict[str, float] = {
+        CostKey.INPUT_COST: 0.0,
+        CostKey.OUTPUT_COST: 0.0,
+        CostKey.TOTAL_COST: 0.0,
+    }
+    has_data = False
+
+    span_id_to_spans = {span.span_id: span for span in spans}
+    children_map: defaultdict[str, list[LiveSpan]] = defaultdict(list)
+    roots: list[LiveSpan] = []
+
+    for span in spans:
+        parent_id = span.parent_id
+        if parent_id and parent_id in span_id_to_spans:
+            children_map[parent_id].append(span)
+        else:
+            roots.append(span)
+
+    def dfs(span: LiveSpan, ancestor_has_data: bool) -> None:
+        nonlocal has_data
+
+        # Check all cost attributes for this span, use the first one found
+        span_has_data = False
+        for attr_key in cost_attributes:
+            data = span.get_attribute(attr_key)
+            if data is not None:
+                span_has_data = True
+                # Only aggregate if ancestor doesn't have data (avoid double-counting)
+                if not ancestor_has_data:
+                    # Handle both float and dict formats
+                    if isinstance(data, (int, float)):
+                        # Simple float value - add to total_cost only
+                        totals[CostKey.TOTAL_COST] += float(data)
+                    elif isinstance(data, dict):
+                        # Dict format - extract input/output/total costs
+                        totals[CostKey.INPUT_COST] += data.get(CostKey.INPUT_COST, 0.0)
+                        totals[CostKey.OUTPUT_COST] += data.get(CostKey.OUTPUT_COST, 0.0)
+                        totals[CostKey.TOTAL_COST] += data.get(CostKey.TOTAL_COST, 0.0)
+                    has_data = True
+                # Only use the first cost attribute found, don't check others
+                break
+
+        next_ancestor_has_data = ancestor_has_data or span_has_data
+        for child in children_map.get(span.span_id, []):
+            dfs(child, next_ancestor_has_data)
+
+    for root in roots:
+        dfs(root, False)
+
+    if not has_data:
+        return None
+
+    return totals
 
 
 def calculate_span_cost(span: LiveSpan) -> dict[str, float] | None:
