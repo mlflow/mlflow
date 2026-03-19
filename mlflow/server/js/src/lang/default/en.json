@@ -6549,6 +6549,10 @@
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
   },
+  "ejy0iU": {
+    "defaultMessage": "You can change this model in advanced settings",
+    "description": "Tooltip suggesting users can change the default model in advanced settings"
+  },
   "ekqDlR": {
     "defaultMessage": "Model version alias created",
     "description": "Webhook event label"

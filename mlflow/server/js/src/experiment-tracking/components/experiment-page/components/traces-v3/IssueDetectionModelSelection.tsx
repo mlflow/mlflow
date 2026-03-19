@@ -15,6 +15,7 @@ import {
   DialogComboboxSeparator,
   Spinner,
   InfoSmallIcon,
+  Tag,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ProviderSelect } from '../../../../../gateway/components/create-endpoint/ProviderSelect';
@@ -339,16 +340,23 @@ export const IssueDetectionModelSelection = forwardRef<
                 hideLabel
               />
               {provider && DEFAULT_MODEL_BY_PROVIDER[provider] && (
-                <Typography.Text
-                  color="secondary"
-                  css={{ display: 'block', marginTop: theme.spacing.xs, fontSize: theme.typography.fontSizeSm }}
-                >
-                  <FormattedMessage
-                    defaultMessage="Model: {model}"
-                    description="Display of default model for selected provider"
-                    values={{ model }}
-                  />
-                </Typography.Text>
+                <div css={{ marginTop: theme.spacing.xs }}>
+                  <Tooltip
+                    componentId="mlflow.traces.issue-detection-modal.default-model-tooltip"
+                    content={intl.formatMessage({
+                      defaultMessage: 'You can change this model in advanced settings',
+                      description: 'Tooltip suggesting users can change the default model in advanced settings',
+                    })}
+                  >
+                    <Tag componentId="mlflow.traces.issue-detection-modal.default-model-tag" css={{ cursor: 'help' }}>
+                      <FormattedMessage
+                        defaultMessage="Model: {model}"
+                        description="Display of default model for selected provider"
+                        values={{ model }}
+                      />
+                    </Tag>
+                  </Tooltip>
+                </div>
               )}
               {provider && !DEFAULT_MODEL_BY_PROVIDER[provider] && (
                 <div css={{ marginTop: theme.spacing.sm }}>
