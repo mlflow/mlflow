@@ -579,10 +579,6 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
-  "1oamMA": {
-    "defaultMessage": "Detect Issues",
-    "description": "Label for the detect issues button in the traces table toolbar"
-  },
   "1uyr/n": {
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
     "description": "Issue detection summary > View issues button"
@@ -3770,10 +3766,6 @@
     "defaultMessage": "Synchronizing artifacts for {runsBeingSynchronizedCount} runs...",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > loading state"
   },
-  "NHgLd1": {
-    "defaultMessage": "Detect issues in traces",
-    "description": "Aria label for the detect issues button in the traces table toolbar"
-  },
   "NHlNLj": {
     "defaultMessage": "Description",
     "description": "Label for issue description section"
@@ -6355,6 +6347,10 @@
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
   },
+  "dTl9NJ": {
+    "defaultMessage": "Detect issues in traces",
+    "description": "Aria label for the detect issues button"
+  },
   "dUY9eq": {
     "defaultMessage": "Edit description",
     "description": "Label for edit description button in workspaces table"
@@ -7359,6 +7355,10 @@
     "defaultMessage": "This key is currently in use. After deleting, you will need to attach a different API key to continue using the endpoints currently using this key.",
     "description": "Gateway > Delete API key modal > Warning about endpoints using this key"
   },
+  "jzgQYP": {
+    "defaultMessage": "Detect Issues",
+    "description": "Label for the detect issues button"
+  },
   "k/AedV": {
     "defaultMessage": "Plain text",
     "description": "Tooltip content for a button that changes the render mode of the prompt to plain text"
@@ -7378,10 +7378,6 @@
   "k0m460": {
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
-  },
-  "k1mgqP": {
-    "defaultMessage": "Detect Issues",
-    "description": "Label for the detect issues button on the experiment overview page"
   },
   "k2bPN+": {
     "defaultMessage": "Last used",
@@ -8170,10 +8166,6 @@
   "ogDiio": {
     "defaultMessage": "Select at least one session to enable actions",
     "description": "Tooltip for disabled actions button when no sessions are selected"
-  },
-  "ohnp9T": {
-    "defaultMessage": "Detect issues in traces",
-    "description": "Aria label for the detect issues button on the experiment overview page"
   },
   "okQ1oB": {
     "defaultMessage": "Please input a new name for the new experiment.",
