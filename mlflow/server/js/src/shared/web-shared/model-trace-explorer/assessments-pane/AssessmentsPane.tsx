@@ -43,7 +43,6 @@ export const AssessmentsPane = ({
   assessmentsTitleOverride,
   disableCloseButton,
   enableRunScorer = true,
-  selectedIssueId: selectedIssueIdProp,
 }: {
   assessments: Assessment[];
   traceId: string;
@@ -53,14 +52,12 @@ export const AssessmentsPane = ({
   assessmentsTitleOverride?: (count?: number) => JSX.Element;
   disableCloseButton?: boolean;
   enableRunScorer?: boolean;
-  selectedIssueId?: string;
 }) => {
   const reconstructAssessments = useTraceCachedActions((state) => state.reconstructAssessments);
   const cachedActions = useTraceCachedActions((state) => state.assessmentActions[traceId]);
 
-  // Use prop if provided, otherwise try to get from URL (safe in non-router contexts)
-  const selectedIssueIdFromUrl = useSafeSelectedIssueId();
-  const selectedIssueId = selectedIssueIdProp ?? selectedIssueIdFromUrl;
+  // Get selected issue ID from URL (safe in non-router contexts)
+  const selectedIssueId = useSafeSelectedIssueId();
 
   // Combine the initial assessments with the cached actions (additions and deletions)
   const allAssessments = useMemo(() => {
