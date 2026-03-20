@@ -16,12 +16,12 @@ class ReadSkillFileTool(JudgeTool):
 
     @property
     def name(self) -> str:
-        return "read_skill_file"
+        return "read_skill_companion_file"
 
     def get_definition(self) -> ToolDefinition:
         return ToolDefinition(
             function=FunctionToolDefinition(
-                name="read_skill_file",
+                name="read_skill_companion_file",
                 description=(
                     "Read a companion file from a skill for detailed information "
                     "about how to evaluate a particular aspect of agent quality. "

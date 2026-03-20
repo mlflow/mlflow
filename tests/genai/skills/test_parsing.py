@@ -111,6 +111,29 @@ def test_missing_description(tmp_path):
         load_skill(skill_path)
 
 
+def test_load_skill_ignores_non_spec_files(tmp_path):
+    skill_path = tmp_path / "mixed"
+    skill_path.mkdir()
+    (skill_path / "SKILL.md").write_text("---\nname: mixed\ndescription: Mixed files.\n---\nBody.")
+    # Unrelated file at root of skill directory
+    (skill_path / "unrelated.txt").write_text("should be ignored")
+    # Non-spec subdirectory
+    other = skill_path / "other"
+    other.mkdir()
+    (other / "data.csv").write_text("a,b,c")
+    # Spec directory
+    refs = skill_path / "references"
+    refs.mkdir()
+    (refs / "GUIDE.md").write_text("guide content")
+
+    from mlflow.genai.skills.parsing import load_skill
+
+    skill = load_skill(skill_path)
+    assert "references/GUIDE.md" in skill.files
+    assert "unrelated.txt" not in skill.files
+    assert "other/data.csv" not in skill.files
+
+
 def test_missing_skill_md(tmp_path):
     skill_path = tmp_path / "empty"
     skill_path.mkdir()
@@ -118,6 +141,83 @@ def test_missing_skill_md(tmp_path):
 
     with pytest.raises(MlflowException, match="SKILL.md"):
         load_skill(skill_path)
+
+
+def test_load_skill_invalid_path(tmp_path):
+    from mlflow.genai.skills.parsing import load_skill
+
+    with pytest.raises(MlflowException, match="Invalid skill path"):
+        load_skill(tmp_path / "nonexistent_file.txt")
+
+
+def test_load_skill_empty_body(tmp_path):
+    skill_path = tmp_path / "empty-body"
+    skill_path.mkdir()
+    (skill_path / "SKILL.md").write_text("---\nname: empty-body\ndescription: Has no body.\n---\n")
+    from mlflow.genai.skills.parsing import load_skill
+
+    with pytest.raises(MlflowException, match="non-empty body"):
+        load_skill(skill_path)
+
+
+def test_load_skill_non_dict_metadata(tmp_path):
+    skill_path = tmp_path / "bad-meta"
+    skill_path.mkdir()
+    (skill_path / "SKILL.md").write_text(
+        "---\nname: bad-meta\ndescription: Bad metadata.\nmetadata: not-a-dict\n---\nBody."
+    )
+    from mlflow.genai.skills.parsing import load_skill
+
+    skill = load_skill(skill_path)
+    assert skill.metadata == {}
+
+
+def test_parse_frontmatter_missing_opening():
+    from mlflow.genai.skills.parsing import _parse_frontmatter
+
+    with pytest.raises(MlflowException, match="must start with YAML frontmatter"):
+        _parse_frontmatter("no frontmatter here")
+
+
+def test_parse_frontmatter_missing_closing():
+    from mlflow.genai.skills.parsing import _parse_frontmatter
+
+    with pytest.raises(MlflowException, match="enclosed by --- delimiters"):
+        _parse_frontmatter("---\nname: foo\n")
+
+
+def test_skillset_from_contents_validates_types():
+    from mlflow.genai.skills import SkillSet
+
+    ss = SkillSet.from_contents([
+        {
+            "name": "test-skill",
+            "description": "A skill.",
+            "metadata": "not-a-dict",
+            "body": "Body content.",
+            "files": "not-a-dict",
+        }
+    ])
+    assert len(ss.skills) == 1
+    assert ss.skills[0].metadata == {}
+    assert ss.skills[0].files == {}
+
+
+def test_skillset_from_contents_coerces_values():
+    from mlflow.genai.skills import SkillSet
+
+    ss = SkillSet.from_contents([
+        {
+            "name": "coerce-skill",
+            "description": "Coerce test.",
+            "metadata": {"version": 1, "count": 42},
+            "body": "Body.",
+            "files": {"path/file.md": "content"},
+        }
+    ])
+    skill = ss.skills[0]
+    assert skill.metadata == {"version": "1", "count": "42"}
+    assert skill.files == {"path/file.md": "content"}
 
 
 def test_skillset_from_paths(skill_dir, skill_with_metadata):

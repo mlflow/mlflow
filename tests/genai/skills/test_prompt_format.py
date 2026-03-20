@@ -11,9 +11,7 @@ def two_skills(tmp_path):
     ]:
         d = tmp_path / name
         d.mkdir()
-        (d / "SKILL.md").write_text(
-            f"---\nname: {name}\ndescription: {desc}\n---\nBody of {name}."
-        )
+        (d / "SKILL.md").write_text(f"---\nname: {name}\ndescription: {desc}\n---\nBody of {name}.")
     return SkillSet([tmp_path / "compliance", tmp_path / "api-schema"])
 
 
@@ -22,7 +20,7 @@ def test_to_prompt_lists_skills(two_skills):
     assert "Available Skills" in prompt
     assert "compliance" in prompt
     assert "api-schema" in prompt
-    assert "read_skill" in prompt
+    assert "read_skill_markdown_content" in prompt
 
 
 def test_to_prompt_empty_skillset():

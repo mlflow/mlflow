@@ -3,7 +3,6 @@ from typing import Any, Literal, get_args, get_origin
 
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
-from mlflow.genai.skills.parsing import SkillSet
 from mlflow.telemetry.events import MakeJudgeEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.annotations import experimental
@@ -100,7 +99,7 @@ def make_judge(
     description: str | None = None,
     feedback_value_type: Any = None,
     inference_params: dict[str, Any] | None = None,
-    skills: list[str | Path] | SkillSet | None = None,
+    skills: list[str | Path] | None = None,
     base_url: str | None = None,
     extra_headers: dict[str, str] | None = None,
 ) -> Judge:
@@ -145,10 +144,9 @@ def make_judge(
                         For example, setting a lower temperature can produce more
                         deterministic and reproducible evaluation results.
         skills: Optional list of skill paths (directories containing SKILL.md files or
-                        direct paths to SKILL.md files), or a pre-constructed SkillSet
-                        object. Skills provide reusable evaluation criteria that the judge
-                        can load on demand via tool calls during trace evaluation. Requires
-                        ``{{ trace }}`` in the instructions template.
+                        direct paths to SKILL.md files). Skills provide reusable evaluation
+                        criteria that the judge can load on demand via tool calls during
+                        evaluation.
         base_url: Optional base URL to route requests through. When specified, all
                         requests to the LLM provider will be routed through this URL.
                         This is useful when LLM access must go through an internal gateway,

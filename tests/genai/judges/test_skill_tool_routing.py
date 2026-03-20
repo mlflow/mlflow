@@ -39,7 +39,7 @@ def test_registry_invokes_skill_tool_with_skills(skills):
     tool_call = ToolCall(
         id="call_1",
         function=FunctionToolCallArguments(
-            name="read_skill", arguments=json.dumps({"skill_name": "my-skill"})
+            name="read_skill_markdown_content", arguments=json.dumps({"skill_name": "my-skill"})
         ),
     )
     result = registry.invoke(tool_call=tool_call, trace=None, skills=skills)

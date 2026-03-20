@@ -104,7 +104,7 @@ class InstructionsJudge(Judge):
         generate_rationale_first: bool = False,
         include_tool_calls_in_conversation: bool = False,
         inference_params: dict[str, Any] | None = None,
-        skills: list[str | Path] | SkillSet | None = None,
+        skills: list[str | Path] | None = None,
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
         **kwargs,
@@ -127,11 +127,10 @@ class InstructionsJudge(Judge):
             inference_params: Optional dictionary of inference parameters to pass to the
                            model (e.g., temperature, top_p, max_tokens). These parameters
                            allow fine-grained control over the model's behavior.
-            skills: Optional skills to attach to the judge. Can be a list of filesystem
-                           paths (directories containing SKILL.md or direct paths to
-                           SKILL.md files), or a pre-constructed SkillSet instance.
-                           When provided, the judge runs a tool-calling loop so the LLM
-                           can read skill content during evaluation.
+            skills: Optional list of skill paths (directories containing SKILL.md or
+                           direct paths to SKILL.md files). When provided, the judge runs
+                           a tool-calling loop so the LLM can read skill content during
+                           evaluation.
             base_url: Optional base URL to route requests through. When specified, all
                            requests to the LLM provider will be routed through this URL.
                            Useful for enterprise environments requiring LLM access through
@@ -213,10 +212,10 @@ class InstructionsJudge(Judge):
             )
 
         if skills is not None:
-            if isinstance(skills, SkillSet):
-                self._skills = skills
-            else:
-                self._skills = SkillSet(skills)
+            skill_set = skills if isinstance(skills, SkillSet) else SkillSet(skills)
+            # Treat an empty skill set as no skills to avoid enabling
+            # tool-calling behavior with no available content.
+            self._skills = skill_set if skill_set.skills else None
         else:
             self._skills = None
 

@@ -14,12 +14,12 @@ class ReadSkillTool(JudgeTool):
 
     @property
     def name(self) -> str:
-        return "read_skill"
+        return "read_skill_markdown_content"
 
     def get_definition(self) -> ToolDefinition:
         return ToolDefinition(
             function=FunctionToolDefinition(
-                name="read_skill",
+                name="read_skill_markdown_content",
                 description=(
                     "Read the full content of a skill to get detailed domain knowledge, "
                     "rubrics, or reference material relevant to your evaluation. "

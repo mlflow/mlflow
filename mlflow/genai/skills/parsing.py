@@ -74,13 +74,22 @@ class SkillSet:
         instance = cls.__new__(cls)
         skills = []
         for c in contents:
-            name = c["name"]
+            name = _validate_name(c["name"])
             description = c["description"]
-            metadata = c.get("metadata", {})
+            raw_metadata = c.get("metadata", {})
             body = c.get("body", "")
-            files = c.get("files", {})
+            raw_files = c.get("files", {})
 
-            _validate_name(name)
+            metadata = (
+                {str(k): str(v) for k, v in raw_metadata.items()}
+                if isinstance(raw_metadata, dict)
+                else {}
+            )
+            files = (
+                {str(k): str(v) for k, v in raw_files.items()}
+                if isinstance(raw_files, dict)
+                else {}
+            )
 
             skills.append(
                 Skill(
@@ -142,8 +151,7 @@ def load_skill(path: str | Path) -> Skill:
     content = skill_file.read_text(encoding="utf-8")
     frontmatter, body = _parse_frontmatter(content)
 
-    name = frontmatter.get("name")
-    _validate_name(name)
+    name = _validate_name(frontmatter.get("name"))
 
     description = frontmatter.get("description")
     if not description:
@@ -192,12 +200,17 @@ def _parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
     return frontmatter, body
 
 
-def _validate_name(name: str | None) -> None:
-    """Validate a skill name against the Agent Skills specification.
+def _validate_name(name: str | None) -> str:
+    """Validate and normalize a skill name per the Agent Skills specification.
 
-    Follows the reference implementation at
-    https://github.com/agentskills/agentskills/tree/main/skills-ref
-    which uses NFKC normalization and ``str.isalnum()`` for Unicode support.
+    Applies NFKC normalization and whitespace stripping, then checks the name
+    against length, case, character, and hyphen rules.
+
+    Returns:
+        The normalized name.
+
+    Raises:
+        MlflowException: If the name is missing or violates naming rules.
     """
     if not name or not isinstance(name, str) or not name.strip():
         raise MlflowException(
@@ -234,19 +247,31 @@ def _validate_name(name: str | None) -> None:
             error_code=INVALID_PARAMETER_VALUE,
         )
 
+    return name
+
+
+_COMPANION_DIRS = {"references"}
+
 
 def _load_files(skill_dir: Path) -> dict[str, str]:
-    """Read all companion files in a skill directory, excluding SKILL.md.
+    """Read companion files from well-known subdirectories of a skill directory.
 
-    Binary files and files that cannot be decoded as UTF-8 are silently skipped.
+    Only files under directories defined by the Agent Skills specification
+    (currently ``references/``) are loaded. Binary files and files that cannot
+    be decoded as UTF-8 are silently skipped. Keys use POSIX-style paths for
+    cross-platform consistency.
     """
     result = {}
-    for f in sorted(skill_dir.rglob("*")):
-        if not f.is_file() or f.name == "SKILL.md":
+    for subdir_name in sorted(_COMPANION_DIRS):
+        subdir = skill_dir / subdir_name
+        if not subdir.is_dir():
             continue
-        try:
-            rel = str(f.relative_to(skill_dir))
-            result[rel] = f.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, ValueError):
-            pass
+        for f in sorted(subdir.rglob("*")):
+            if not f.is_file():
+                continue
+            try:
+                rel = f.relative_to(skill_dir)
+                result[rel.as_posix()] = f.read_text(encoding="utf-8")
+            except (UnicodeDecodeError, ValueError):
+                pass
     return result

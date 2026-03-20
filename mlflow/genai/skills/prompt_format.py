@@ -7,9 +7,9 @@ if TYPE_CHECKING:
 
 _SKILL_USAGE_INSTRUCTIONS = (
     "You have access to skills that provide domain knowledge relevant to your "
-    "evaluation. Use the read_skill tool to load a skill's full content when it "
-    "is relevant to the trace you are evaluating. Use read_skill_file to "
-    "access additional files within a skill."
+    "evaluation. Use the read_skill_markdown_content tool to load a skill's full "
+    "content when it is relevant to the trace you are evaluating. Use "
+    "read_skill_companion_file to access additional files within a skill."
 )
 
 

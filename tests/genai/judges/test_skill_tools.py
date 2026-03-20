@@ -49,8 +49,18 @@ def test_read_skill_has_valid_definition():
 
     tool = ReadSkillTool()
     defn = tool.get_definition()
-    assert defn.function.name == "read_skill"
+    assert defn.function.name == "read_skill_markdown_content"
     assert "skill_name" in defn.function.parameters.properties
+
+
+def test_read_skill_file_unknown_skill(skills):
+    from mlflow.genai.judges.tools.read_skill_file import ReadSkillFileTool
+
+    tool = ReadSkillFileTool()
+    result = tool.invoke(skills=skills, skill_name="nonexistent", file_path="any.md")
+    assert "Error" in result
+    assert "nonexistent" in result
+    assert "test-skill" in result
 
 
 def test_read_skill_file_returns_content(skills):
@@ -85,6 +95,6 @@ def test_read_skill_file_has_valid_definition():
 
     tool = ReadSkillFileTool()
     defn = tool.get_definition()
-    assert defn.function.name == "read_skill_file"
+    assert defn.function.name == "read_skill_companion_file"
     assert "skill_name" in defn.function.parameters.properties
     assert "file_path" in defn.function.parameters.properties

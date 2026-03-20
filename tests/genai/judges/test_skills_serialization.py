@@ -2,8 +2,6 @@ import textwrap
 
 import pytest
 
-from mlflow.genai.skills import SkillSet
-
 
 @pytest.fixture
 def skill_dir(tmp_path):

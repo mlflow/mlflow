@@ -269,8 +269,8 @@ class TestEvalCriteriaPromptGeneration:
     def test_prompt_includes_usage_instructions(self, general_quality_skill):
         ss = SkillSet([general_quality_skill])
         prompt = ss.to_prompt()
-        assert "read_skill" in prompt
-        assert "read_skill_file" in prompt
+        assert "read_skill_markdown_content" in prompt
+        assert "read_skill_companion_file" in prompt
 
 
 # -- Tests: Judge creation with eval criteria skills --
@@ -303,7 +303,7 @@ class TestEvalCriteriaJudgeCreation:
         assert "general-quality" in system_msg
         assert "tool-selection" in system_msg
         assert "sql-correctness" in system_msg
-        assert "read_skill" in system_msg
+        assert "read_skill_markdown_content" in system_msg
 
     def test_categorical_judge_with_eval_criteria(self, all_eval_criteria):
         from typing import Literal
@@ -411,7 +411,7 @@ class TestEvalCriteriaToolInvocation:
         read_call = ToolCall(
             id="call_1",
             function=FunctionToolCallArguments(
-                name="read_skill",
+                name="read_skill_markdown_content",
                 arguments=json.dumps({"skill_name": "sql-correctness"}),
             ),
         )
@@ -422,13 +422,11 @@ class TestEvalCriteriaToolInvocation:
         file_call = ToolCall(
             id="call_2",
             function=FunctionToolCallArguments(
-                name="read_skill_file",
-                arguments=json.dumps(
-                    {
-                        "skill_name": "sql-correctness",
-                        "file_path": "references/DATABRICKS_SQL_PATTERNS.md",
-                    }
-                ),
+                name="read_skill_companion_file",
+                arguments=json.dumps({
+                    "skill_name": "sql-correctness",
+                    "file_path": "references/DATABRICKS_SQL_PATTERNS.md",
+                }),
             ),
         )
         result = registry.invoke(tool_call=file_call, trace=None, skills=ss)
