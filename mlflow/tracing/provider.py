@@ -459,12 +459,17 @@ def _get_tracer(module_name: str) -> trace.Tracer:
 
 def _get_span_processor():
     """
-    Get the span processor instance that is used by the current tracer provider.
+    Get the MLflow span processor instance that is used by the current tracer provider.
     """
+    from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
+
     if (tracer_provider := provider.get()) and (
         processors := tracer_provider._active_span_processor._span_processors
     ):
-        return processors[0]
+        return next(
+            (p for p in processors if isinstance(p, BaseMlflowSpanProcessor)),
+            processors[0],
+        )
     return None
 
 
