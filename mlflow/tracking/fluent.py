@@ -54,6 +54,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.provider import (
+    _get_span_processor,
     _get_trace_exporter,
 )
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -986,8 +987,6 @@ def flush_trace_async_logging(terminate=False) -> None:
     # Flush the batch span processor first (if active), so queued spans
     # are exported before we flush the exporter's async queue.
     try:
-        from mlflow.tracing.provider import _get_span_processor
-
         if processor := _get_span_processor():
             if terminate and hasattr(processor, "shutdown"):
                 processor.shutdown()
