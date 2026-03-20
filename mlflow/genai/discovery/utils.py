@@ -66,6 +66,81 @@ def group_traces_by_session(
     return dict(groups)
 
 
+def _compute_percentiles(values: list[float], percentiles: list[int | float]) -> list[float]:
+    """
+    Compute percentiles using NumPy if available, otherwise linear interpolation.
+
+    This implementation matches NumPy's default linear interpolation method.
+
+    Args:
+        values: List of numeric values to compute percentiles from.
+        percentiles: List of percentile values to compute (e.g., [50, 75, 90, 95, 99]).
+
+    Returns:
+        List of computed percentile values in the same order as requested.
+    """
+    if not values:
+        return []
+
+    try:
+        import numpy as np
+
+        return [float(p) for p in np.percentile(values, percentiles)]
+    except ImportError:
+        # Fall back to linear interpolation (matches NumPy's default method)
+        values_sorted = sorted(values)
+        n = len(values_sorted)
+        result = []
+
+        for p in percentiles:
+            # NumPy default: linear interpolation between data points
+            # Formula: value = lower + fraction * (upper - lower)
+            # where fraction comes from (n - 1) * p / 100
+            idx_float = (n - 1) * p / 100
+            idx_lower = int(idx_float)
+            idx_upper = min(idx_lower + 1, n - 1)
+
+            fraction = idx_float - idx_lower
+            lower_val = values_sorted[idx_lower]
+            upper_val = values_sorted[idx_upper]
+            result.append(lower_val + fraction * (upper_val - lower_val))
+
+        return result
+
+
+def compute_latency_percentiles(traces: list[Trace]) -> dict[str, float] | None:
+    """
+    Compute latency percentiles from a list of traces for relative threshold context.
+
+    Args:
+        traces: List of traces to analyze.
+
+    Returns:
+        Dictionary with percentile values (p50, p75, p90, p95, p99) in seconds,
+        or None if no valid durations found.
+    """
+    durations_ms = [
+        trace.info.execution_duration
+        for trace in traces
+        if trace.info.execution_duration is not None
+    ]
+
+    if not durations_ms:
+        return None
+
+    durations_s = [d / 1000 for d in durations_ms]
+    percentile_values = _compute_percentiles(durations_s, [50, 75, 90, 95, 99])
+
+    return {
+        "p50": round(percentile_values[0], 2),
+        "p75": round(percentile_values[1], 2),
+        "p90": round(percentile_values[2], 2),
+        "p95": round(percentile_values[3], 2),
+        "p99": round(percentile_values[4], 2),
+        "count": len(durations_s),
+    }
+
+
 class _TokenCounter:
     """Thread-safe accumulator for LLM token usage across pipeline phases."""
 
@@ -363,14 +438,35 @@ def collect_affected_trace_ids(
     return trace_ids
 
 
-def format_trace_content(trace: Trace) -> str:
+def format_trace_content(trace: Trace, include_timing: bool = False) -> str:
+    """
+    Format trace content for annotation prompts.
+
+    Args:
+        trace: The trace to format.
+        include_timing: If True, include timing information (duration and slowest spans).
+                       Should be enabled when latency detection is active.
+
+    Returns:
+        Formatted trace content string.
+    """
     from mlflow.genai.discovery.extraction import extract_execution_path, extract_span_errors
+
+    # import here to avoid circular import
+    from mlflow.genai.utils.trace_utils import _extract_trace_timing_info
 
     parts = []
     if request := trace.data.request:
         parts.append(f"Input: {str(request)[:TRACE_CONTENT_TRUNCATION]}")
     if response := trace.data.response:
         parts.append(f"Output: {str(response)[:TRACE_CONTENT_TRUNCATION]}")
+
+    if include_timing:
+        if timing_info := _extract_trace_timing_info(trace):
+            parts.append(f"Total duration: {timing_info['duration_s']:.2f}s")
+            if timing_info["slowest_spans_formatted"]:
+                parts.append(f"Slowest spans: {timing_info['slowest_spans_formatted']}")
+
     if (exec_path := extract_execution_path(trace)) and exec_path != "(no routing)":
         parts.append(f"Execution path: {exec_path}")
     if errors := extract_span_errors(trace):

@@ -5,6 +5,11 @@ import pydantic
 import pytest
 
 from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.utils import (
     _call_llm,
@@ -20,6 +25,7 @@ from mlflow.genai.discovery.utils import (
     group_traces_by_session,
     log_discovery_artifacts,
 )
+from mlflow.genai.utils.trace_utils import _extract_trace_timing_info
 from mlflow.types.chat import ChatChoice, ChatCompletionResponse, ChatMessage, ChatUsage
 
 
@@ -34,6 +40,43 @@ def test_format_trace_content_no_errors(make_trace):
     trace = make_trace()
     content = format_trace_content(trace)
     assert "Errors:" not in content
+
+
+def test_format_trace_content_includes_timing_when_requested(make_trace):
+    trace = make_trace()
+    content = format_trace_content(trace, include_timing=True)
+    assert "Total duration:" in content
+    assert "Slowest spans:" in content
+
+
+def test_format_trace_content_excludes_timing_by_default(make_trace):
+    trace = make_trace()
+    content = format_trace_content(trace, include_timing=False)
+    assert "Total duration:" not in content
+    assert "Slowest spans:" not in content
+
+
+def test_extract_trace_timing_info_with_valid_trace(make_trace):
+    trace = make_trace()
+    timing_info = _extract_trace_timing_info(trace)
+    assert timing_info is not None
+    assert "duration_s" in timing_info
+    assert "slowest_spans_formatted" in timing_info
+    assert timing_info["duration_s"] > 0
+
+
+def test_extract_trace_timing_info_returns_none_without_duration():
+    trace_info = TraceInfo(
+        trace_id="test",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=0,
+        execution_duration=None,
+        state=TraceState.OK,
+    )
+    trace = Trace(trace_info, TraceData())
+
+    timing_info = _extract_trace_timing_info(trace)
+    assert timing_info is None
 
 
 def test_collect_affected_trace_ids_gathers_from_analyses():
