@@ -23,10 +23,8 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock URL.createObjectURL / revokeObjectURL
-    global.URL.createObjectURL = jest.fn(() => 'blob:mock-url') as jest.MockedFunction<
-      typeof URL.createObjectURL
-    >;
-    global.URL.revokeObjectURL = jest.fn() as jest.MockedFunction<typeof URL.revokeObjectURL>;
+    global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
+    global.URL.revokeObjectURL = jest.fn();
   });
 
   it('shows spinner while loading', () => {

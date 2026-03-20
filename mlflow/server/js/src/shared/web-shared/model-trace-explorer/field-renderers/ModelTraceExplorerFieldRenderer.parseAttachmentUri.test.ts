@@ -23,8 +23,7 @@ function parseAttachmentUri(uri: string): { attachmentId: string; traceId: strin
 
 describe('parseAttachmentUri', () => {
   it('parses a valid attachment URI', () => {
-    const uri =
-      'mlflow-attachment://abc-123-def?content_type=image%2Fpng&trace_id=tr-456';
+    const uri = 'mlflow-attachment://abc-123-def?content_type=image%2Fpng&trace_id=tr-456';
     const result = parseAttachmentUri(uri);
     expect(result).toEqual({
       attachmentId: 'abc-123-def',

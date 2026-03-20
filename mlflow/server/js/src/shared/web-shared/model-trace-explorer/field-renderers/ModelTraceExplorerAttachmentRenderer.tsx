@@ -23,6 +23,8 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   useEffect(() => {
     let revoked = false;
     let localMediaUrl: string | null = null;
+    setMediaUrl(null);
+    setError(null);
     getTraceAttachment(traceId, attachmentId)
       .then((data) => {
         if (revoked) {
