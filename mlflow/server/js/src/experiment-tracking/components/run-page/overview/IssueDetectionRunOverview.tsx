@@ -36,7 +36,7 @@ export const IssueDetectionRunOverview = ({
   const {
     status: jobStatus,
     result: rawResult,
-    metadata: jobMetadata,
+    status_details: jobStatusDetails,
     isLoading: isLoadingJobStatus,
     error: jobStatusError,
   } = useFetchJobStatus({
@@ -170,7 +170,7 @@ export const IssueDetectionRunOverview = ({
       <IssueDetectionProgress
         jobId={jobId}
         jobStatus={jobStatus}
-        jobStage={jobMetadata?.stage}
+        jobStage={jobStatusDetails?.stage}
         totalTraces={totalTraces}
         result={result}
         isLoadingJobStatus={isLoadingJobStatus}
