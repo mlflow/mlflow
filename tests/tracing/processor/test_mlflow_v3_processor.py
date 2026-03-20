@@ -415,3 +415,33 @@ def test_on_end_bypasses_batch_during_evaluation(monkeypatch):
 
     # Should call export directly (simple path), not batch delegate
     mock_exporter.export.assert_called_once_with((otel_span,))
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_set_last_active_trace_id_called_once_for_root_span(monkeypatch):
+    from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+
+    exporter = MlflowV3SpanExporter()
+    processor = _create_processor(async_logging=False, exporter=exporter, monkeypatch=monkeypatch)
+
+    trace_info = create_test_trace_info("request_id", 0)
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace("trace_id", trace_info)
+
+    otel_span = create_mock_otel_span(
+        trace_id="trace_id",
+        span_id=1,
+        parent_id=None,
+        start_time=5_000_000,
+        end_time=9_000_000,
+    )
+    LiveSpan(otel_span, "request_id")
+
+    # Patch both the canonical function and the already-imported reference
+    with mock.patch("mlflow.tracing.fluent._set_last_active_trace_id") as mock_set_id:
+        monkeypatch.setattr(
+            "mlflow.tracing.processor.base_mlflow._set_last_active_trace_id", mock_set_id
+        )
+        processor.on_end(otel_span)
+        # Must be called exactly once — from the processor only, not again in the exporter
+        mock_set_id.assert_called_once_with("request_id")

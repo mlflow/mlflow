@@ -16,7 +16,7 @@ from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
-from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
+from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     add_size_stats_to_trace_metadata,
@@ -144,7 +144,6 @@ class MlflowV3SpanExporter(SpanExporter):
                 continue
 
             trace = manager_trace.trace
-            _set_last_active_trace_id(trace.info.request_id)
 
             # Store mapping from eval request ID to trace ID so that the evaluation
             # harness can access to the trace using mlflow.get_trace(eval_request_id)

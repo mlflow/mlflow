@@ -29,6 +29,7 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.context import get_configured_trace_metadata, get_configured_trace_tags
+from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
@@ -142,8 +143,6 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         # For root spans, set the last active trace ID immediately so that
         # mlflow.get_trace() returns the correct trace even in batch mode.
         if span._parent is None and trace_id:
-            from mlflow.tracing.fluent import _set_last_active_trace_id
-
             _set_last_active_trace_id(trace_id)
 
         # During evaluation, bypass batch mode to ensure traces are available
