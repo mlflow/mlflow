@@ -1,5 +1,6 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
@@ -37,7 +38,7 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
         contentType="image/png"
       />,
     );
-    expect(screen.getByRole('img', { hidden: true })).toBeDefined(); // Spinner renders as img
+    expect(screen.getByRole('img', { hidden: true })).toBeInTheDocument(); // Spinner renders as img
   });
 
   it('renders an image for image content types', async () => {
@@ -52,9 +53,9 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
       />,
     );
     await waitFor(() => {
-      expect(screen.getByAltText('Attachment abc-123')).toBeDefined();
+      expect(screen.getByAltText('Attachment abc-123')).toBeInTheDocument();
     });
-    expect(screen.getByText('Test Image')).toBeDefined();
+    expect(screen.getByText('Test Image')).toBeInTheDocument();
   });
 
   it('renders audio element for audio content types', async () => {
@@ -69,7 +70,7 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
       />,
     );
     await waitFor(() => {
-      expect(screen.getByText('Test Audio')).toBeDefined();
+      expect(screen.getByText('Test Audio')).toBeInTheDocument();
     });
   });
 
@@ -85,7 +86,7 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
       />,
     );
     await waitFor(() => {
-      expect(screen.getByRole('link')).toBeDefined();
+      expect(screen.getByRole('link')).toBeInTheDocument();
     });
   });
 
@@ -100,7 +101,7 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
       />,
     );
     await waitFor(() => {
-      expect(screen.getByText('Failed to load attachment')).toBeDefined();
+      expect(screen.getByText('Failed to load attachment')).toBeInTheDocument();
     });
   });
 
@@ -115,7 +116,7 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
       />,
     );
     await waitFor(() => {
-      expect(screen.getByText('Failed to load attachment')).toBeDefined();
+      expect(screen.getByText('Failed to load attachment')).toBeInTheDocument();
     });
   });
 });

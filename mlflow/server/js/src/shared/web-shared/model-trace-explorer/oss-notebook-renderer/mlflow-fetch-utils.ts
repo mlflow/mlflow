@@ -35,10 +35,10 @@ export async function getTraceArtifact(requestId: string): Promise<ModelTrace | 
   }
 }
 
-export async function getTraceAttachment(traceId: string, attachmentId: string): Promise<ArrayBuffer | undefined> {
+export async function getTraceAttachment(requestId: string, attachmentId: string): Promise<ArrayBuffer | undefined> {
   try {
     const url = getAjaxUrl(
-      `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(traceId)}&path=${encodeURIComponent(attachmentId)}`,
+      `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(requestId)}&path=${encodeURIComponent(attachmentId)}`,
     );
     const response = await fetchOrFail(url);
     return await response.arrayBuffer();

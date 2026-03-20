@@ -1,8 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 
-// parseAttachmentUri is not exported, so we test it indirectly by importing the module
-// and extracting the function. Since it's a private function, we re-implement the logic
-// here for direct testing.
+// Local re-implementation of the internal (non-exported) parseAttachmentUri function
+// to mirror its logic for direct testing.
 function parseAttachmentUri(uri: string): { attachmentId: string; traceId: string; contentType: string } | null {
   try {
     const parsed = new URL(uri);
