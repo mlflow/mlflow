@@ -351,7 +351,7 @@ class ActiveRun(Run):
     """Wrapper around :py:class:`mlflow.entities.Run` to enable using Python ``with`` syntax."""
 
     def __init__(self, run):
-        Run.__init__(self, run.info, run.data)
+        Run.__init__(self, run.info, run.data, run.inputs, run.outputs)
 
     def __enter__(self):
         return self

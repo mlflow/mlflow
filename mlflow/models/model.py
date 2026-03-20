@@ -15,6 +15,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 import mlflow
 from mlflow.entities import LoggedModel, LoggedModelOutput, Metric
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.run_outputs import RunOutputs
 from mlflow.environment_variables import (
     MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
     MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
@@ -1193,9 +1194,14 @@ class Model:
 
             with _use_logged_model(model=model):
                 if run_id is not None:
-                    client.log_outputs(
-                        run_id=run_id, models=[LoggedModelOutput(model.model_id, step=step)]
-                    )
+                    model_output = LoggedModelOutput(model.model_id, step=step)
+                    client.log_outputs(run_id=run_id, models=[model_output])
+                    # Update in-memory active run outputs to keep cached state in sync
+                    if (active_run := mlflow.active_run()) is not None:
+                        if active_run.outputs is None:
+                            active_run._outputs = RunOutputs(model_outputs=[model_output])
+                        else:
+                            active_run.outputs._model_outputs.append(model_output)
                     log_model_metrics_for_step(
                         client=client, model_id=model.model_id, run_id=run_id, step=step
                     )

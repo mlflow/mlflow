@@ -2424,6 +2424,33 @@ def test_log_metric_with_dataset_entity():
         assert run_data.data.metrics["precision"] == 0.92
 
 
+def test_log_model_updates_active_run_outputs():
+    """Test that log_model updates the cached active run's outputs so that
+    log_metric can automatically infer the model_id.
+
+    Regression test for https://github.com/mlflow/mlflow/issues/21836.
+    """
+
+    class Model(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=Model())
+
+        # The cached active run should have outputs populated after log_model
+        active = mlflow.active_run()
+        assert active.outputs is not None
+        assert len(active.outputs.model_outputs) == 1
+        assert active.outputs.model_outputs[0].model_id == model_info.model_id
+
+        # _get_model_ids_for_new_metric_if_exist should find the model from cached outputs
+        from mlflow.tracking.fluent import _get_model_ids_for_new_metric_if_exist
+
+        model_ids = _get_model_ids_for_new_metric_if_exist(active, 0)
+        assert model_ids == [model_info.model_id]
+
+
 def test_get_sgc_mlflow_run_id_for_resumption_with_tag(empty_active_run_stack):
     # Create an experiment with a tag
     experiment_id = mlflow.create_experiment("test_sgc_experiment")
