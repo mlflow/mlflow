@@ -456,7 +456,7 @@ def test_tool_success():
     chain_tool = tool("chain_tool", chain)
 
     tool_input = {"question": "What up"}
-    response = chain_tool.invoke(tool_input, config={"callbacks": [callback]})
+    chain_tool.invoke(tool_input, config={"callbacks": [callback]})
 
     # str output is converted to _ChatResponse
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
@@ -486,7 +486,10 @@ def test_tool_success():
     # StrOutputParser
     output_parser_span = spans[4]
     assert output_parser_span.span_type == "CHAIN"
-    assert output_parser_span.outputs == response
+    assert output_parser_span.outputs == [
+        {"content": "You are a nice assistant.", "role": "system"},
+        {"content": "What up", "role": "user"},
+    ]
 
     _validate_trace_json_serialization(trace)
 

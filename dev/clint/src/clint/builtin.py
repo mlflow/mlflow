@@ -214,3 +214,12 @@ BUILTIN_MODULES = {
     "zlib",
     "zoneinfo",
 }
+
+# Third-party packages that are always available as core dependencies of mlflow-tracing
+# (the smallest installable unit of MLflow). Lazy imports of these packages are flagged
+# the same way as stdlib lazy imports.
+ALWAYS_AVAILABLE_MODULES = {
+    "cachetools",
+    "packaging",
+    "pydantic",
+}

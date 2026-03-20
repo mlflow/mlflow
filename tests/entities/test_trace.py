@@ -7,6 +7,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from pydantic import BaseModel
 
 import mlflow
 import mlflow.tracking.context.default_context
@@ -160,8 +161,6 @@ def test_json_deserialization(monkeypatch):
     importlib.util.find_spec("pydantic") is None, reason="Pydantic is not installed"
 )
 def test_trace_serialize_pydantic_model():
-    from pydantic import BaseModel
-
     class MyModel(BaseModel):
         x: int
         y: str

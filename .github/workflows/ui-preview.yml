@@ -15,10 +15,6 @@ on:
       - reopened
       - labeled
       - closed
-    paths:
-      - mlflow/server/js/**
-      - .github/workflows/ui-preview.yml
-      - .github/ui-preview/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'master' }}
@@ -205,11 +201,14 @@ jobs:
           URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
           echo "url=$URL" >> $GITHUB_OUTPUT
 
-      - name: Configure CORS
+      - name: Configure app environment
         env:
           APP_URL: ${{ steps.app.outputs.url }}
         run: |
+          PASSPHRASE=$(openssl rand -hex 32)
+          echo "::add-mask::$PASSPHRASE"
           sed -i "s|__APP_URL__|$APP_URL|" /tmp/app-deploy/app.yaml
+          sed -i "s|__KEK_PASSPHRASE__|$PASSPHRASE|" /tmp/app-deploy/app.yaml
 
       - name: Upload files and deploy
         env:

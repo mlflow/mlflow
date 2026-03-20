@@ -12,7 +12,6 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
     LLM_MAX_TOKENS,
-    MAX_EXAMPLE_TRACE_IDS,
     NUM_RETRIES,
     TRACE_CONTENT_TRUNCATION,
 )
@@ -122,10 +121,12 @@ def build_summary(issues: list[Issue], total_traces: int) -> str:
     ]
     for i, issue in enumerate(issues, 1):
         root_causes = "; ".join(issue.root_causes) if issue.root_causes else "Unknown"
+        categories = ", ".join(issue.categories) if issue.categories else "None"
         lines.append(
             f"### {i}. {issue.name} (severity: {issue.severity})\n\n"
             f"{issue.description}\n\n"
-            f"**Root causes:** {root_causes}\n"
+            f"**Root causes:** {root_causes}\n\n"
+            f"**Categories:** {categories}\n"
         )
     return "\n".join(lines)
 
@@ -179,15 +180,25 @@ def verify_scorer(
         )
 
 
-def collect_example_trace_ids(
+def collect_affected_trace_ids(
     issue: _IdentifiedIssue,
     analyses: list[_ConversationAnalysis],
 ) -> list[str]:
+    """
+    Collect all affected trace IDs for an identified issue.
+
+    Args:
+        issue: The identified issue containing indices into the analyses list.
+        analyses: List of per-session analyses with affected trace IDs.
+
+    Returns:
+        A list of all trace IDs affected by this issue.
+    """
     trace_ids = []
     for idx in issue.example_indices:
         if 0 <= idx < len(analyses):
             trace_ids.extend(analyses[idx].affected_trace_ids)
-    return trace_ids[:MAX_EXAMPLE_TRACE_IDS]
+    return trace_ids
 
 
 def format_trace_content(trace: Trace) -> str:
@@ -205,8 +216,13 @@ def format_trace_content(trace: Trace) -> str:
     return "\n".join(parts) if parts else "(trace content not available)"
 
 
-def format_annotation_prompt(issue: Issue, trace_content: str, triage_rationale: str) -> str:
-    return (
+def format_annotation_prompt(
+    issue: Issue,
+    trace_content: str,
+    triage_rationale: str,
+    categories: list[str] | None = None,
+) -> str:
+    prompt = (
         f"=== ISSUE ===\n"
         f"Name: {issue.name}\n"
         f"Description: {issue.description}\n"
@@ -216,3 +232,10 @@ def format_annotation_prompt(issue: Issue, trace_content: str, triage_rationale:
         f"=== TRIAGE JUDGE RATIONALE ===\n"
         f"{triage_rationale or '(not available)'}"
     )
+    if categories:
+        prompt += (
+            f"\n\n=== RELEVANT CATEGORIES ===\n"
+            f"{', '.join(categories)}\n"
+            f"Reference these categories in your rationale where applicable."
+        )
+    return prompt

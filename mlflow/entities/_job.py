@@ -23,6 +23,7 @@ class Job(_MlflowObject):
         retry_count: int,
         last_update_time: int,
         workspace: str | None = None,
+        status_details: dict[str, Any] | None = None,
     ):
         super().__init__()
         self._job_id = job_id
@@ -35,6 +36,7 @@ class Job(_MlflowObject):
         self._retry_count = retry_count
         self._last_update_time = last_update_time
         self._workspace = resolve_entity_workspace_name(workspace)
+        self._status_details = status_details
 
     @property
     def job_id(self) -> str:
@@ -109,6 +111,11 @@ class Job(_MlflowObject):
     def workspace(self) -> str | None:
         """Workspace associated with this job."""
         return self._workspace
+
+    @property
+    def status_details(self) -> dict[str, Any] | None:
+        """Job status details containing other runtime information."""
+        return self._status_details
 
     def __repr__(self) -> str:
         return f"<Job(job_id={self.job_id}, job_name={self.job_name}, workspace={self.workspace})>"

@@ -11,6 +11,7 @@ import lzma
 import os
 import shutil
 from abc import ABCMeta, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Generator, Iterator
 
@@ -993,7 +994,7 @@ class ResponsesAgent(PythonModel, metaclass=ABCMeta):
 
     @staticmethod
     def prep_msgs_for_cc_llm(
-        responses_input: list[dict[str, Any] | Message | OutputItem],
+        responses_input: Sequence[dict[str, Any] | Message | OutputItem],
     ) -> list[dict[str, Any]]:
         "Convert from Responses input items to ChatCompletion dictionaries"
         return to_chat_completions_input(responses_input)

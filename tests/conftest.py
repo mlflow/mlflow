@@ -1029,6 +1029,18 @@ def enable_mlflow_testing():
 
 
 @pytest.fixture(scope="session", autouse=True)
+def _mock_databricks_host_metadata():
+    """Prevent databricks-sdk from fetching host metadata during the test session.
+
+    databricks-sdk 0.101.0+ fetches /.well-known/databricks-config during
+    WorkspaceClient initialization, which causes timeouts with dummy hosts.
+    https://github.com/databricks/databricks-sdk-py/pull/1331
+    """
+    with mock.patch("databricks.sdk.config.Config._resolve_host_metadata"):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
 def disable_uv_auto_detect():
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("MLFLOW_UV_AUTO_DETECT", "false")

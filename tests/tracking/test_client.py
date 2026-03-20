@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 import pytest
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from pydantic import BaseModel
 
 import mlflow
 from mlflow import MlflowClient, flush_async_logging
@@ -2995,8 +2996,6 @@ def test_link_chat_prompt_version_to_run():
 
 
 def test_create_prompt_with_pydantic_response_format_client():
-    from pydantic import BaseModel
-
     class ResponseSchema(BaseModel):
         answer: str
         confidence: float
