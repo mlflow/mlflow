@@ -4,6 +4,7 @@ These tests run against a real MLflow tracking server to verify that demo data
 is correctly persisted, retrieved, and cleaned up on version bumps.
 """
 
+import json
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,10 @@ from mlflow.demo.generators.evaluation import (
     DEMO_DATASET_TRACE_LEVEL_NAME,
     EvaluationDemoGenerator,
 )
+from mlflow.demo.generators.issues import (
+    DEMO_ISSUE_DETECTION_RUN_NAME,
+    IssuesDemoGenerator,
+)
 from mlflow.demo.generators.judges import DEMO_JUDGE_PREFIX, JudgesDemoGenerator
 from mlflow.demo.generators.prompts import PromptsDemoGenerator
 from mlflow.demo.generators.traces import (
@@ -29,15 +34,23 @@ from mlflow.demo.registry import demo_registry
 from mlflow.genai.datasets import search_datasets
 from mlflow.genai.prompts import load_prompt, search_prompts
 from mlflow.genai.scorers.registry import list_scorers
+from mlflow.server import BACKEND_STORE_URI_ENV_VAR
+from mlflow.server import handlers as mlflow_handlers
+from mlflow.server.handlers import _get_job_store
+from mlflow.tracking._tracking_service.utils import _get_store
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
 
 @pytest.fixture
-def client(db_uri: str, tmp_path: Path):
+def client(db_uri: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     # Point the tracking URI directly at the SQLite database to avoid HTTP
     # overhead during data generation (3,000+ requests per test run).
+    monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, db_uri)
     set_tracking_uri(db_uri)
     yield MlflowClient(db_uri)
     set_tracking_uri(None)
+    # Clear the global job store to avoid stale database connections across tests
+    mlflow_handlers._job_store = None
 
 
 @pytest.fixture
@@ -70,6 +83,14 @@ def judges_generator():
     original_version = generator.version
     yield generator
     JudgesDemoGenerator.version = original_version
+
+
+@pytest.fixture
+def issues_generator():
+    generator = IssuesDemoGenerator()
+    original_version = generator.version
+    yield generator
+    IssuesDemoGenerator.version = original_version
 
 
 def test_generate_all_demos_generates_all_registered(client):
@@ -398,3 +419,188 @@ def test_judges_delete_removes_all(client, judges_generator):
     scorers_after = list_scorers(experiment_id=experiment.experiment_id)
     demo_judges_after = [s for s in scorers_after if s.name.startswith(DEMO_JUDGE_PREFIX)]
     assert len(demo_judges_after) == 0
+
+
+def test_issues_creates_on_server(
+    client, traces_generator, judges_generator, evaluation_generator, issues_generator
+):
+    traces_generator.generate()
+    traces_generator.store_version()
+    judges_generator.generate()
+    judges_generator.store_version()
+    evaluation_generator.generate()
+    evaluation_generator.store_version()
+
+    result = issues_generator.generate()
+    issues_generator.store_version()
+
+    store = _get_store()
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    issues = store.search_issues(
+        experiment_id=experiment.experiment_id,
+        max_results=1000,
+    )
+    demo_issues = [i for i in issues if i.created_by == "demo"]
+
+    assert len(demo_issues) > 0
+    assert len(demo_issues) == len(result.entity_ids)
+
+
+def test_issues_creates_detection_run(
+    client, traces_generator, judges_generator, evaluation_generator, issues_generator
+):
+    traces_generator.generate()
+    traces_generator.store_version()
+    judges_generator.generate()
+    judges_generator.store_version()
+    evaluation_generator.generate()
+    evaluation_generator.store_version()
+    issues_generator.generate()
+    issues_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    runs = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"tags.`{MLFLOW_RUN_TYPE}` = '{MLFLOW_RUN_TYPE_ISSUE_DETECTION}'",
+        max_results=100,
+    )
+
+    assert len(runs) == 1
+    assert runs[0].info.run_name == DEMO_ISSUE_DETECTION_RUN_NAME
+
+
+def test_issues_creates_job(
+    client, traces_generator, judges_generator, evaluation_generator, issues_generator
+):
+    traces_generator.generate()
+    traces_generator.store_version()
+    judges_generator.generate()
+    judges_generator.store_version()
+    evaluation_generator.generate()
+    evaluation_generator.store_version()
+    issues_generator.generate()
+    issues_generator.store_version()
+
+    job_store = _get_job_store()
+    jobs = list(job_store.list_jobs(job_name="demo_issue_detection", statuses=None))
+
+    assert len(jobs) == 1
+    assert jobs[0].job_name == "demo_issue_detection"
+    assert jobs[0].status.value == "SUCCEEDED"
+
+
+def test_issues_has_job_id_tag(
+    client, traces_generator, judges_generator, evaluation_generator, issues_generator
+):
+    traces_generator.generate()
+    traces_generator.store_version()
+    judges_generator.generate()
+    judges_generator.store_version()
+    evaluation_generator.generate()
+    evaluation_generator.store_version()
+    issues_generator.generate()
+    issues_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    runs = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"tags.`{MLFLOW_RUN_TYPE}` = '{MLFLOW_RUN_TYPE_ISSUE_DETECTION}'",
+        max_results=100,
+    )
+
+    assert len(runs) == 1
+    run = runs[0]
+    assert "mlflow.issueDetection.jobId" in run.data.tags
+
+
+def test_issues_linked_to_traces(
+    client, traces_generator, judges_generator, evaluation_generator, issues_generator
+):
+    traces_generator.generate()
+    traces_generator.store_version()
+    judges_generator.generate()
+    judges_generator.store_version()
+    evaluation_generator.generate()
+    evaluation_generator.store_version()
+    issues_generator.generate()
+    issues_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+
+    runs = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"tags.`{MLFLOW_RUN_TYPE}` = '{MLFLOW_RUN_TYPE_ISSUE_DETECTION}'",
+        max_results=100,
+    )
+    assert len(runs) == 1
+    run_id = runs[0].info.run_id
+
+    traces = client.search_traces(
+        locations=[experiment.experiment_id],
+        filter_string=f"trace.run_id = '{run_id}'",
+        max_results=100,
+    )
+    assert len(traces) > 0
+
+
+def test_issues_job_result_has_summary(
+    client, traces_generator, judges_generator, evaluation_generator, issues_generator
+):
+    traces_generator.generate()
+    traces_generator.store_version()
+    judges_generator.generate()
+    judges_generator.store_version()
+    evaluation_generator.generate()
+    evaluation_generator.store_version()
+    issues_generator.generate()
+    issues_generator.store_version()
+
+    job_store = _get_job_store()
+    jobs = list(job_store.list_jobs(job_name="demo_issue_detection", statuses=None))
+
+    assert len(jobs) == 1
+    job = jobs[0]
+    assert job.result is not None
+
+    result = json.loads(job.result)
+    assert "summary" in result
+    assert "issues" in result
+    assert "total_traces_analyzed" in result
+    assert result["issues"] > 0
+
+
+def test_issues_delete_removes_all(
+    client, traces_generator, judges_generator, evaluation_generator, issues_generator
+):
+    traces_generator.generate()
+    traces_generator.store_version()
+    judges_generator.generate()
+    judges_generator.store_version()
+    evaluation_generator.generate()
+    evaluation_generator.store_version()
+    issues_generator.generate()
+    issues_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+
+    jobs_before = list(_get_job_store().list_jobs(job_name="demo_issue_detection", statuses=None))
+    assert len(jobs_before) == 1
+
+    runs_before = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"tags.`{MLFLOW_RUN_TYPE}` = '{MLFLOW_RUN_TYPE_ISSUE_DETECTION}'",
+        max_results=100,
+    )
+    assert len(runs_before) == 1
+
+    issues_generator.delete_demo()
+
+    jobs_after = list(_get_job_store().list_jobs(job_name="demo_issue_detection", statuses=None))
+    assert len(jobs_after) == 0
+
+    runs_after = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"tags.`{MLFLOW_RUN_TYPE}` = '{MLFLOW_RUN_TYPE_ISSUE_DETECTION}'",
+        max_results=100,
+    )
+    assert len(runs_after) == 0
