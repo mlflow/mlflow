@@ -373,6 +373,15 @@ export const IssueDetectionModelSelection = forwardRef<
                         {PROVIDER_DISPLAY_NAMES[providerOption]}
                       </DialogComboboxOptionListSelectItem>
                     ))}
+                    <DialogComboboxSeparator />
+                    <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.md}px`, pointerEvents: 'none' }}>
+                      <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                        <FormattedMessage
+                          defaultMessage="To use other providers, create an AI Gateway endpoint in AI Gateway → Endpoints"
+                          description="Hint explaining how to use other providers via Gateway"
+                        />
+                      </Typography.Text>
+                    </div>
                   </DialogComboboxOptionList>
                 </DialogComboboxContent>
               </DialogCombobox>

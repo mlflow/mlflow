@@ -1558,6 +1558,10 @@
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
   },
+  "8IyZqg": {
+    "defaultMessage": "To use other providers, create an AI Gateway endpoint in AI Gateway → Endpoints",
+    "description": "Hint explaining how to use other providers via Gateway"
+  },
   "8Uwpjw": {
     "defaultMessage": "Create run",
     "description": "Experiment page > new run modal > \"Create run\" confirm button label"
