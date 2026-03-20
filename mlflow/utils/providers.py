@@ -590,7 +590,7 @@ def get_all_providers() -> list[str]:
 
     # When LiteLLM is not installed, only return providers that have native
     # gateway adapters so users can actually invoke endpoints they create.
-    return ["openai", "anthropic", "gemini", "azure", "mistral"]
+    return [p for p in _CORE_PROVIDER_ENV_VARS if p != "bedrock"]
 
 
 def get_models(provider: str | None = None) -> list[dict[str, Any]]:
@@ -704,6 +704,7 @@ _CORE_PROVIDER_ENV_VARS = {
     "azure": "AZURE_OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",
         "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",

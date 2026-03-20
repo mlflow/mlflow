@@ -160,9 +160,9 @@ def _call_llm_provider_api(
     from mlflow.gateway.config import Provider
     from mlflow.gateway.schemas import chat
 
-    if input_data is None and messages is None:
+    if (input_data is None) == (messages is None):
         raise MlflowException.invalid_parameter_value(
-            "Either input_data or messages must be provided."
+            "Exactly one of input_data or messages must be provided."
         )
 
     eval_parameters = eval_parameters or {}
@@ -195,7 +195,10 @@ def _call_llm_provider_api(
         }
 
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
-    chat_payload.update(eval_parameters)
+    if messages is None:
+        # eval_parameters were filtered out by the RequestPayload serialization;
+        # re-apply them. When messages is not None, they're already in the payload.
+        chat_payload.update(eval_parameters)
 
     if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
         if proxy_url or extra_headers:
@@ -292,8 +295,9 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
 
     elif provider == Provider.GEMINI:
         from mlflow.gateway.providers.gemini import GeminiConfig, GeminiProvider
+        from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
 
-        config = GeminiConfig(gemini_api_key=os.environ.get("GEMINI_API_KEY"))
+        config = GeminiConfig(gemini_api_key=os.environ.get(_CORE_PROVIDER_ENV_VARS["gemini"]))
         return GeminiProvider(_get_route_config(config))
 
     elif provider == Provider.MISTRAL:
