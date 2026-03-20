@@ -38,11 +38,12 @@ const createCacheCreationTokensDataPoint = (timeBucket: string, sum: number) => 
   values: { [AggregationType.SUM]: sum },
 });
 
-// Helper to create a total tokens data point (no time bucket)
+// Helper to create a total tokens data point (no time bucket).
+// Includes both SUM and AVG to match the combined aggregations query.
 const createTotalTokensDataPoint = (sum: number) => ({
   metric_name: TraceMetricKey.TOTAL_TOKENS,
   dimensions: {},
-  values: { [AggregationType.SUM]: sum },
+  values: { [AggregationType.SUM]: sum, [AggregationType.AVG]: sum },
 });
 
 describe('TraceTokenUsageChart', () => {
@@ -432,7 +433,7 @@ describe('TraceTokenUsageChart', () => {
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.TRACES,
           metric_name: TraceMetricKey.TOTAL_TOKENS,
-          aggregations: [{ aggregation_type: AggregationType.SUM }],
+          aggregations: [{ aggregation_type: AggregationType.SUM }, { aggregation_type: AggregationType.AVG }],
         });
         // Should NOT have time_interval_seconds for total tokens query
         expect(capturedTotalRequest?.time_interval_seconds).toBeUndefined();
