@@ -95,7 +95,7 @@ if __name__ == "__main__":
     # Get the trace ID
     trace_id = mlflow.get_last_active_trace_id()
 
-    print(f"\n✓ Trace created successfully!")
+    print("\n✓ Trace created successfully!")
     print(f"✓ Trace ID: {trace_id}")
 
     # Try to get the trace with retries (trace export is asynchronous)
@@ -122,30 +122,30 @@ if __name__ == "__main__":
     # Get experiment info for URL
     exp = mlflow.get_experiment_by_name("generic-cost-example")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
     print("VIEW THE TRACE IN THE UI:")
-    print(f"{'='*70}")
-    print(f"\nOpen this URL in your browser:")
+    print(f"{'=' * 70}")
+    print("\nOpen this URL in your browser:")
     print(f"  http://localhost:3000/#/experiments/{exp.experiment_id}/traces?selectedEvaluationId={trace_id}")
-    print(f"\nWhat to verify:")
-    print(f"  ✓ Total trace cost badge: ~$0.0368")
-    print(f"  ✓ Individual span costs:")
-    print(f"    - llm_call (LLM): $0.03 with input/output breakdown")
-    print(f"    - database_query (TOOL): $0.001 total only")
-    print(f"    - generate_embedding (EMBEDDING): $0.0005 total only")
-    print(f"    - vector_search (RETRIEVER): $0.0003 total only")
-    print(f"    - custom_processing (UNKNOWN): $0.005 total only")
+    print("\nWhat to verify:")
+    print("  ✓ Total trace cost badge: ~$0.0368")
+    print("  ✓ Individual span costs:")
+    print("    - llm_call (LLM): $0.03 with input/output breakdown")
+    print("    - database_query (TOOL): $0.001 total only")
+    print("    - generate_embedding (EMBEDDING): $0.0005 total only")
+    print("    - vector_search (RETRIEVER): $0.0003 total only")
+    print("    - custom_processing (UNKNOWN): $0.005 total only")
 
     # If we successfully got the trace, show metadata
     if trace:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print("TRACE METADATA (from database):")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         cost_json = trace.info.request_metadata.get('mlflow.trace.cost')
         if cost_json:
             cost = json.loads(cost_json)
-            print(f"\nAggregated cost breakdown:")
+            print("\nAggregated cost breakdown:")
 
             # Display all non-zero cost components
             cost_fields = [
@@ -166,4 +166,4 @@ if __name__ == "__main__":
         else:
             print("\n⚠ Cost metadata not yet available in database")
 
-    print(f"\n{'='*70}")
+    print(f"\n{'=' * 70}")
