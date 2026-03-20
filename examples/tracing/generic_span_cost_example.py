@@ -89,20 +89,24 @@ if __name__ == "__main__":
     print(f"✓ Trace ID: {trace_id}")
 
     # Try to get the trace with retries (trace export is asynchronous)
-    print("\nWaiting for trace to be fully exported...")
+    print("\nWaiting for trace to be fully exported (this may take a few seconds)...")
+
+    # Initial wait to give the export process time to start
+    time.sleep(2)
+
     trace = None
-    for i in range(10):
+    for i in range(6):  # Reduced retries since we're sleeping longer
         try:
             trace = mlflow.get_trace(trace_id)
             if trace:
                 print("✓ Trace retrieved successfully!")
                 break
         except Exception:
-            if i < 9:
-                time.sleep(0.5)
-                print("  Retrying...")
+            if i < 5:
+                # Longer sleep between retries to avoid spamming
+                time.sleep(3)
             else:
-                print("\n⚠ Trace export is still in progress.")
+                print("\n⚠ Trace export is taking longer than expected.")
                 print("  You can view it in the UI, but metadata may not be available yet.")
 
     # Get experiment info for URL
