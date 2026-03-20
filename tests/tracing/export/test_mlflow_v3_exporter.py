@@ -540,8 +540,8 @@ def test_should_export_spans_incrementally_flag(monkeypatch, incremental_export_
         exporter.export([otel_span])
 
         mock_start_trace.assert_called_once()
-        # Spans are always uploaded to artifacts (since SPANS_LOCATION is not
-        # set to TRACKING_STORE when log_spans is not called)
+        # This test's trace_info does not set SPANS_LOCATION=TRACKING_STORE,
+        # so spans are expected to be uploaded to artifacts via _upload_trace_data
         mock_upload_trace_data.assert_called_once()
 
         if incremental_export_enabled:
@@ -584,28 +584,3 @@ def test_remote_trace_exported_when_incremental_export_disabled(monkeypatch):
         # Remote trace spans should still be exported incrementally via log_spans
         # even when incremental export is disabled for local traces
         mock_log_spans.assert_called_once()
-
-
-def test_tracking_server_disables_incremental_span_export(monkeypatch):
-    monkeypatch.delenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", raising=False)
-
-    from mlflow.environment_variables import MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT
-
-    # Simulate what _run_server does: set env var in env_map if not already set
-    env_map = {}
-    if not MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.is_set():
-        env_map[MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.name] = "false"
-
-    assert env_map["MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT"] == "false"
-
-
-def test_tracking_server_respects_explicit_incremental_span_export(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "true")
-
-    from mlflow.environment_variables import MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT
-
-    env_map = {}
-    if not MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.is_set():
-        env_map[MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT.name] = "false"
-
-    assert "MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT" not in env_map
