@@ -248,7 +248,7 @@ constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
   "xgboost<3.1.0",
-  # TODO: remove when requests officially supports chardet 7.x
+  # TODO: remove once requests officially supports chardet >= 6
   # https://github.com/psf/requests/pull/7239
   "chardet<6.0",
   # pyspark 4.1.0 causes issues with documentation build
