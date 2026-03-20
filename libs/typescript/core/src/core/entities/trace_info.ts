@@ -9,6 +9,8 @@ export interface TokenUsage {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
 }
 
 /**
@@ -148,11 +150,18 @@ export class TraceInfo {
     }
 
     const usage = JSON.parse(tokenUsageJson) as TokenUsage;
-    return {
+    const result: TokenUsage = {
       input_tokens: usage.input_tokens,
       output_tokens: usage.output_tokens,
       total_tokens: usage.total_tokens,
     };
+    if (usage.cache_read_input_tokens != null) {
+      result.cache_read_input_tokens = usage.cache_read_input_tokens;
+    }
+    if (usage.cache_creation_input_tokens != null) {
+      result.cache_creation_input_tokens = usage.cache_creation_input_tokens;
+    }
+    return result;
   }
 
   /**

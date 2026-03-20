@@ -60,6 +60,7 @@ from mlflow.protos.issues_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
@@ -537,6 +538,17 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         )
         return [Trace.from_proto(proto) for proto in response_proto.traces]
 
+    def batch_get_trace_infos(
+        self, trace_ids: list[str], location: str | None = None
+    ) -> list[TraceInfo]:
+        req_body = message_to_json(BatchGetTraceInfos(trace_ids=trace_ids))
+        response_proto = self._call_endpoint(
+            BatchGetTraceInfos,
+            req_body,
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGetInfos",
+        )
+        return [TraceInfo.from_proto(proto) for proto in response_proto.trace_infos]
+
     def search_traces(
         self,
         experiment_ids: list[str] | None = None,
@@ -928,6 +940,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         filter_string: str | None = None,
         max_results: int | None = None,
         page_token: str | None = None,
+        include_trace_count: bool = False,
     ) -> PagedList[Issue]:
         """
         Search for issues matching the given filters.
@@ -937,6 +950,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
             filter_string: Optional filter string for advanced filtering.
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
 
         Returns:
             A PagedList of Issue entities.
@@ -947,6 +961,7 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
                 filter_string=filter_string,
                 max_results=max_results,
                 page_token=page_token,
+                include_trace_count=include_trace_count,
             )
         )
         response_proto = self._call_endpoint(

@@ -4,6 +4,7 @@ description: Hand off a task to GitHub Copilot.
 allowed-tools:
   - Bash(gh agent-task create:*)
   - Bash(bash .claude/skills/copilot/poll.sh *)
+  - Bash(gh api:*)
 ---
 
 ## Examples
@@ -32,3 +33,7 @@ Once Copilot starts working, poll in the background until Copilot finishes:
 ```bash
 bash .claude/skills/copilot/poll.sh {owner}/{repo} {pr_number}
 ```
+
+## Sending feedback
+
+If the PR needs changes, post inline review comments without mentioning `@copilot`. Once all comments are posted, reply to the last one (e.g., "@copilot left some comments!"). This ensures all feedback is addressed in a single session.

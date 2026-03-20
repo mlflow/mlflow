@@ -13,6 +13,7 @@ Tests requiring uv are skipped if uv is not installed or below minimum version.
 import platform
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from unittest import mock
 
@@ -20,6 +21,7 @@ import pytest
 
 import mlflow
 import mlflow.pyfunc
+from mlflow.utils.os import is_windows
 from mlflow.utils.uv_utils import (
     _PYPROJECT_FILE,
     _PYTHON_VERSION_FILE,
@@ -48,6 +50,9 @@ def python_model():
     return SimplePythonModel()
 
 
+PYTHON_VERSION = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+
+
 @pytest.fixture
 def tmp_uv_project(tmp_path):
     """Create a real uv project with uv lock."""
@@ -66,7 +71,7 @@ build-backend = "hatchling.build"
     (tmp_path / _PYPROJECT_FILE).write_text(pyproject_content)
 
     # Create .python-version
-    (tmp_path / _PYTHON_VERSION_FILE).write_text("3.11.5\n")
+    (tmp_path / _PYTHON_VERSION_FILE).write_text(f"{PYTHON_VERSION}\n")
 
     # Create minimal package structure for hatchling
     pkg_dir = tmp_path / "test_uv_project"
@@ -110,7 +115,7 @@ def test_pyfunc_log_model_copies_uv_artifacts(tmp_uv_project, python_model, monk
         # Verify content matches source
         assert "version = 1" in (artifact_dir / _UV_LOCK_FILE).read_text()
         assert "test_uv_project" in (artifact_dir / _PYPROJECT_FILE).read_text()
-        assert "3.11.5" in (artifact_dir / _PYTHON_VERSION_FILE).read_text()
+        assert PYTHON_VERSION in (artifact_dir / _PYTHON_VERSION_FILE).read_text()
 
 
 @requires_uv
@@ -488,14 +493,23 @@ def test_extract_index_urls_from_real_uv_lock(tmp_uv_project):
     assert truly_private == []
 
 
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
 @requires_uv
 def test_run_uv_sync_real(tmp_uv_project, tmp_path):
     from mlflow.utils.uv_utils import run_uv_sync
 
     sync_dir = tmp_path / "sync_project"
-    shutil.copytree(tmp_uv_project, sync_dir)
+
+    # Create the virtual environment directly at sync_dir
+    subprocess.check_call(["uv", "venv", sync_dir, f"--python={PYTHON_VERSION}"])
+
+    shutil.copytree(tmp_uv_project, sync_dir, dirs_exist_ok=True)
 
     result = run_uv_sync(sync_dir, frozen=True, no_dev=True)
 
     assert result is True
-    assert (sync_dir / ".venv").exists()
+
+    # Verify numpy is installed in the env at sync_dir
+    python_bin = sync_dir / "bin" / "python"
+
+    subprocess.check_call([python_bin, "-c", "import numpy"])

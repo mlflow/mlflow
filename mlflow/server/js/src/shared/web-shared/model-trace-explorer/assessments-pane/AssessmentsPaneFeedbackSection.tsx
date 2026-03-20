@@ -18,7 +18,7 @@ import { isEmpty, isNil, uniqBy } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 import { useModelTraceExplorerUpdateTraceContext } from '../contexts/UpdateTraceContext';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@databricks/web-shared/query-client';
 import { invalidateMlflowSearchTracesCache } from '../hooks/invalidateMlflowSearchTracesCache';
 import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import { isEvaluatingTracesInDetailsViewEnabled } from '../FeatureUtils';

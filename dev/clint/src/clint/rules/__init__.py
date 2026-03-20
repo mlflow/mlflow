@@ -40,9 +40,10 @@ from clint.rules.prefer_dict_union import PreferDictUnion
 from clint.rules.prefer_next import PreferNext
 from clint.rules.prefer_os_environ import PreferOsEnviron
 from clint.rules.pytest_mark_repeat import PytestMarkRepeat
+from clint.rules.redundant_mock_return_value import RedundantMockReturnValue
 from clint.rules.redundant_test_docstring import RedundantTestDocstring
 from clint.rules.subprocess_check_call import SubprocessCheckCall
-from clint.rules.temp_dir_in_test import TempDirInTest
+from clint.rules.tempfile_in_test import TempfileInTest
 from clint.rules.test_name_typo import TestNameTypo
 from clint.rules.typing_extensions import TypingExtensions
 from clint.rules.unknown_mlflow_arguments import UnknownMlflowArguments
@@ -99,9 +100,10 @@ __all__ = [
     "PreferNext",
     "PreferOsEnviron",
     "PytestMarkRepeat",
+    "RedundantMockReturnValue",
     "RedundantTestDocstring",
     "SubprocessCheckCall",
-    "TempDirInTest",
+    "TempfileInTest",
     "TestNameTypo",
     "UnnamedThreadPool",
     "TypingExtensions",

@@ -394,6 +394,12 @@ const getChatMessagesFromSpan = (
     }
   }
 
+  // When the output is a plain string and inputs parsed as chat messages,
+  // wrap the output as an assistant message so the chat UI can render.
+  if (messagesFromInputs.length > 0 && messagesFromOutputs.length === 0 && typeof outputs === 'string') {
+    return messagesFromInputs.concat([{ role: 'assistant', content: outputs }]);
+  }
+
   // when either input or output is not chat messages, we do not set the chat message field.
   if (messagesFromInputs.length === 0 || messagesFromOutputs.length === 0) {
     return undefined;
@@ -1431,10 +1437,10 @@ export const isSessionLevelAssessment = (assessment: Assessment): boolean => {
 
 /**
  * Filters the provided assessments to only include those that are at the trace level
- * (i.e., not associated with a specific session).
+ * (i.e., not associated with a specific session) or are IssueReferenceAssessment types.
  */
 export const getTraceLevelAssessments = (assessments?: Assessment[]) =>
-  assessments?.filter((assessment) => !isSessionLevelAssessment(assessment)) ?? [];
+  assessments?.filter((assessment) => !isSessionLevelAssessment(assessment) || 'issue' in assessment) ?? [];
 
 export const isValidException = (
   event: ModelTraceEvent,
