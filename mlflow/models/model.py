@@ -1197,11 +1197,12 @@ class Model:
                     model_output = LoggedModelOutput(model.model_id, step=step)
                     client.log_outputs(run_id=run_id, models=[model_output])
                     # Update in-memory active run outputs to keep cached state in sync
-                    if (active_run := mlflow.active_run()) is not None:
+                    active_run = mlflow.active_run()
+                    if active_run is not None and active_run.info.run_id == run_id:
                         if active_run.outputs is None:
                             active_run._outputs = RunOutputs(model_outputs=[model_output])
                         else:
-                            active_run.outputs._model_outputs.append(model_output)
+                            active_run.outputs.model_outputs.append(model_output)
                     log_model_metrics_for_step(
                         client=client, model_id=model.model_id, run_id=run_id, step=step
                     )
