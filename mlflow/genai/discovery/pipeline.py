@@ -159,7 +159,7 @@ def _annotate_issue_traces(
     if not work_items:
         return
 
-    include_timing = categories and CATEGORY_LATENCY in categories
+    include_timing = CATEGORY_LATENCY in (categories or [])
 
     def _annotate_one(item: _AnnotationWorkItem) -> str | None:
         trace = trace_lookup.get(item.trace_id)

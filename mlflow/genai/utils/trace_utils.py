@@ -335,17 +335,16 @@ def _extract_trace_timing_info(trace: Trace) -> dict[str, Any] | None:
 
     # Extract top 3 slowest spans for context on bottlenecks
     if trace.data.spans:
-        sorted_spans = sorted(
-            trace.data.spans,
-            key=lambda s: s.end_time_ns - s.start_time_ns,
-            reverse=True,
-        )[:3]
-        if sorted_spans:
-            slow_spans = [
-                f"{span.name} ({(span.end_time_ns - span.start_time_ns) / 1_000_000_000:.2f}s)"
-                for span in sorted_spans
-            ]
-            slowest_spans_formatted = ", ".join(slow_spans)
+        # Filter out spans that do not have an end time to avoid None arithmetic
+        if completed_spans := [span for span in trace.data.spans if span.end_time_ns is not None]:
+            if sorted_spans := sorted(
+                completed_spans, key=lambda s: s.end_time_ns - s.start_time_ns, reverse=True
+            )[:3]:
+                slow_spans = [
+                    f"{span.name} ({(span.end_time_ns - span.start_time_ns) / 1_000_000_000:.2f}s)"
+                    for span in sorted_spans
+                ]
+                slowest_spans_formatted = ", ".join(slow_spans)
 
     return {
         "duration_s": duration_s,
@@ -400,10 +399,8 @@ def resolve_conversation_from_session(
                 if include_timing:
                     if timing_info := _extract_trace_timing_info(trace):
                         timing_parts = [f"\n[Response duration: {timing_info['duration_s']:.2f}s"]
-                        if timing_info["slowest_spans_formatted"]:
-                            timing_parts.append(
-                                f", slowest spans: {timing_info['slowest_spans_formatted']}"
-                            )
+                        if slowest_spans_formatted := timing_info["slowest_spans_formatted"]:
+                            timing_parts.append(f", slowest spans: {slowest_spans_formatted}")
                         timing_parts.append("]")
                         assistant_content += "".join(timing_parts)
 

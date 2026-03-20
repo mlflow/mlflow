@@ -211,7 +211,7 @@ def build_satisfaction_instructions(
         latency_check = "\n" + LATENCY_CHECK_INSTRUCTIONS.format(latency_context=latency_context)
 
     if not use_conversation:
-        trace_instructions = TRACE_QUALITY_INSTRUCTIONS.format(latency_check=latency_check)
+        trace_instructions = TRACE_QUALITY_INSTRUCTIONS.replace("{latency_check}", latency_check)
         return trace_instructions + CATEGORIES_INSTRUCTIONS.format(
             categories=_format_category_list(categories)
         )

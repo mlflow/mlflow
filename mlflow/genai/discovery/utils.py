@@ -108,7 +108,7 @@ def _compute_percentiles(values: list[float], percentiles: list[int | float]) ->
         return result
 
 
-def compute_latency_percentiles(traces: list[Trace]) -> dict[str, float] | None:
+def compute_latency_percentiles(traces: list[Trace]) -> dict[str, float | int] | None:
     """
     Compute latency percentiles from a list of traces for relative threshold context.
 
@@ -116,8 +116,8 @@ def compute_latency_percentiles(traces: list[Trace]) -> dict[str, float] | None:
         traces: List of traces to analyze.
 
     Returns:
-        Dictionary with percentile values (p50, p75, p90, p95, p99) in seconds,
-        or None if no valid durations found.
+        Dictionary with percentile values (p50, p75, p90, p95, p99) in seconds
+        and count as an integer, or None if no valid durations found.
     """
     durations_ms = [
         trace.info.execution_duration
@@ -464,8 +464,8 @@ def format_trace_content(trace: Trace, include_timing: bool = False) -> str:
     if include_timing:
         if timing_info := _extract_trace_timing_info(trace):
             parts.append(f"Total duration: {timing_info['duration_s']:.2f}s")
-            if timing_info["slowest_spans_formatted"]:
-                parts.append(f"Slowest spans: {timing_info['slowest_spans_formatted']}")
+            if slowest_spans_formatted := timing_info["slowest_spans_formatted"]:
+                parts.append(f"Slowest spans: {slowest_spans_formatted}")
 
     if (exec_path := extract_execution_path(trace)) and exec_path != "(no routing)":
         parts.append(f"Execution path: {exec_path}")
