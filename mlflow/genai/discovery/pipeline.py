@@ -55,6 +55,8 @@ from mlflow.genai.discovery.utils import (
 )
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
+from mlflow.telemetry.events import DiscoverIssuesEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
@@ -475,6 +477,7 @@ def build_issue_discovery_scorer(
     )
 
 
+@record_usage_event(DiscoverIssuesEvent)
 def discover_issues(
     experiment_id: str | None = None,
     traces: list[Trace] | None = None,
