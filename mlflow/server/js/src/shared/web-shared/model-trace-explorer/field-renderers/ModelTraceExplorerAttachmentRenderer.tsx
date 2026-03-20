@@ -22,12 +22,14 @@ export const ModelTraceExplorerAttachmentRenderer = ({
 
   useEffect(() => {
     let revoked = false;
+    let localMediaUrl: string | null = null;
     getTraceAttachment(traceId, attachmentId).then((data) => {
       if (revoked) {
         return;
       }
       if (data) {
         const url = URL.createObjectURL(new Blob([data], { type: contentType }));
+        localMediaUrl = url;
         setMediaUrl(url);
       } else {
         setError('Failed to load attachment');
@@ -35,11 +37,10 @@ export const ModelTraceExplorerAttachmentRenderer = ({
     });
     return () => {
       revoked = true;
-      if (mediaUrl) {
-        URL.revokeObjectURL(mediaUrl);
+      if (localMediaUrl) {
+        URL.revokeObjectURL(localMediaUrl);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attachmentId, traceId, contentType]);
 
   if (error) {
