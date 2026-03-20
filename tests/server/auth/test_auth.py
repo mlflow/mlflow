@@ -837,7 +837,9 @@ def test_logged_model_artifact_authorization(client: MlflowClient, monkeypatch: 
     assert response.status_code == 403
 
 
-def test_logged_model_artifact_validator_respects_static_prefix():
+def test_logged_model_artifact_validator_respects_static_prefix(
+    monkeypatch: pytest.MonkeyPatch,
+):
     base = "/mlflow/logged-models/<model_id>/artifacts/files"
 
     # Without prefix — should match the bare path
@@ -845,16 +847,16 @@ def test_logged_model_artifact_validator_respects_static_prefix():
     assert pat_no_prefix.fullmatch("/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files")
 
     # With prefix — should match the prefixed path
-    with mock.patch.dict("os.environ", {STATIC_PREFIX_ENV_VAR: "/custom-prefix"}):
-        _re_compile_path.cache_clear()
-        pat_with_prefix = _re_compile_path(_get_ajax_path(base))
-        assert pat_with_prefix.fullmatch(
-            "/custom-prefix/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files"
-        )
-        # bare path should NOT match the prefixed pattern
-        assert not pat_with_prefix.fullmatch(
-            "/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files"
-        )
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/custom-prefix")
+    _re_compile_path.cache_clear()
+    pat_with_prefix = _re_compile_path(_get_ajax_path(base))
+    assert pat_with_prefix.fullmatch(
+        "/custom-prefix/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files"
+    )
+    # bare path should NOT match the prefixed pattern
+    assert not pat_with_prefix.fullmatch(
+        "/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files"
+    )
 
     _re_compile_path.cache_clear()
 
