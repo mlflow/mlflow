@@ -23,18 +23,24 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   useEffect(() => {
     let revoked = false;
     let localMediaUrl: string | null = null;
-    getTraceAttachment(traceId, attachmentId).then((data) => {
-      if (revoked) {
-        return;
-      }
-      if (data) {
-        const url = URL.createObjectURL(new Blob([data], { type: contentType }));
-        localMediaUrl = url;
-        setMediaUrl(url);
-      } else {
-        setError('Failed to load attachment');
-      }
-    });
+    getTraceAttachment(traceId, attachmentId)
+      .then((data) => {
+        if (revoked) {
+          return;
+        }
+        if (data) {
+          const url = URL.createObjectURL(new Blob([data], { type: contentType }));
+          localMediaUrl = url;
+          setMediaUrl(url);
+        } else {
+          setError('Failed to load attachment');
+        }
+      })
+      .catch(() => {
+        if (!revoked) {
+          setError('Failed to load attachment');
+        }
+      });
     return () => {
       revoked = true;
       if (localMediaUrl) {
