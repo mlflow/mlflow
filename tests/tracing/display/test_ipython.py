@@ -31,6 +31,8 @@ class MockEventRegistry:
 class MockIPython:
     def __init__(self):
         self.events = MockEventRegistry()
+        # Mimic Jupyter notebook environment for _is_in_jupyter_notebook detection
+        self.kernel = Mock()
 
     def mock_run_cell(self):
         self.events.trigger("post_run_cell")
