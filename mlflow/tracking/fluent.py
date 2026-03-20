@@ -989,7 +989,10 @@ def flush_trace_async_logging(terminate=False) -> None:
         from mlflow.tracing.provider import _get_span_processor
 
         if processor := _get_span_processor():
-            processor.force_flush()
+            if terminate and hasattr(processor, "shutdown"):
+                processor.shutdown()
+            else:
+                processor.force_flush()
     except Exception as e:
         _logger.debug(f"Failed to flush batch span processor: {e}", exc_info=True)
 
