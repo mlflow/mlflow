@@ -33,6 +33,11 @@ jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionM
   ),
 }));
 
+// Mock useLocalStorage to prevent guidance popovers from showing in tests
+jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
+  useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
+}));
+
 const mockFetchOrFail = jest.mocked(fetchOrFail);
 const mockShouldEnableIssueDetection = jest.mocked(shouldEnableIssueDetection);
 

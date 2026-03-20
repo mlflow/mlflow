@@ -19,10 +19,12 @@ if [ -n "$branch" ]; then
 fi
 
 used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
+five=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
 
 output="$dir"
 [ -n "$branch" ] && output="$output ($branch$dirty)"
 [ -n "$model" ] && output="$output | $model"
-[ -n "$used" ] && output="$output | $(printf "%.1f" "$used")%"
+[ -n "$used" ] && output="$output | ctx $(printf "%.0f" "$used")%"
+[ -n "$five" ] && output="$output | 5h $(printf "%.0f" "$five")%"
 
 echo "$output"

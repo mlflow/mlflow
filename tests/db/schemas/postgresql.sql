@@ -92,6 +92,7 @@ CREATE TABLE jobs (
 	retry_count INTEGER NOT NULL,
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) DEFAULT 'default'::character varying NOT NULL,
+	status_details JSON,
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 

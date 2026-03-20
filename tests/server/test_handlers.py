@@ -326,6 +326,7 @@ def _create_mock_job(
     params=None,
     result=None,
     creation_time=1234567890000,
+    status_details=None,
 ):
     from mlflow.entities._job import Job
     from mlflow.entities._job_status import JobStatus
@@ -347,6 +348,7 @@ def _create_mock_job(
         result=json.dumps(result) if result and status_name == "SUCCEEDED" else result,
         retry_count=0,
         last_update_time=creation_time,
+        status_details=status_details,
     )
 
 
@@ -3450,6 +3452,7 @@ def test_create_prompt_optimization_job(mock_tracking_store):
         result=None,
         retry_count=0,
         last_update_time=1234567890,
+        status_details=None,
     )
 
     mock_run = mock.MagicMock()
@@ -3516,6 +3519,7 @@ def test_create_prompt_optimization_job_zero_shot(mock_tracking_store):
         result=None,
         retry_count=0,
         last_update_time=1234567890,
+        status_details=None,
     )
 
     mock_run = mock.MagicMock()
@@ -3646,6 +3650,7 @@ def test_cancel_prompt_optimization_job():
         result=None,
         retry_count=0,
         last_update_time=1234567890,
+        status_details=None,
     )
 
     with (
@@ -3887,7 +3892,7 @@ def test_get_prompt_optimization_job_no_progress_without_max_metric_calls(mock_t
             data = response.get_json()
             job = data["job"]
             # Progress should NOT be set when max_metric_calls is not configured
-            assert "progress" not in job["state"].get("metadata", {})
+            assert "progress" not in job["state"].get("status_details", {})
 
 
 def test_search_prompt_optimization_jobs_returns_multiple_jobs(mock_job_store):
@@ -4806,6 +4811,7 @@ def test_invoke_issue_detection_handler_success(monkeypatch):
         result=None,
         retry_count=0,
         last_update_time=1234567890000,
+        status_details=None,
     )
 
     mock_run_info = mock.MagicMock()
@@ -4867,6 +4873,7 @@ def test_invoke_issue_detection_handler_with_endpoint(monkeypatch):
         result=None,
         retry_count=0,
         last_update_time=1234567890000,
+        status_details=None,
     )
 
     mock_run_info = mock.MagicMock()
@@ -4950,6 +4957,7 @@ def test_get_job_success(mock_job_store):
         result='{"summary": "Found 3 issues", "issues": 3, "total_traces_analyzed": 10}',
         retry_count=0,
         last_update_time=1234567900000,
+        status_details=None,
     )
 
     with (
@@ -4964,6 +4972,7 @@ def test_get_job_success(mock_job_store):
         assert json_response["result"]["summary"] == "Found 3 issues"
         assert json_response["result"]["issues"] == 3
         assert json_response["result"]["total_traces_analyzed"] == 10
+        assert json_response["status_details"] is None
 
 
 def test_get_job_pending(mock_job_store):
@@ -4977,6 +4986,7 @@ def test_get_job_pending(mock_job_store):
         result=None,
         retry_count=0,
         last_update_time=1234567890000,
+        status_details=None,
     )
 
     with (
@@ -4989,6 +4999,7 @@ def test_get_job_pending(mock_job_store):
 
         assert json_response["status"] == "PENDING"
         assert json_response["result"] is None
+        assert json_response["status_details"] is None
 
 
 def test_cancel_job_success(mock_job_store):
@@ -5002,6 +5013,7 @@ def test_cancel_job_success(mock_job_store):
         result=None,
         retry_count=0,
         last_update_time=1234567900000,
+        status_details=None,
     )
 
     with (

@@ -4265,6 +4265,7 @@ def _get_job(job_id):
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "status_details": job.status_details,
     })
 
 
