@@ -1135,7 +1135,24 @@ def test_evaluate_with_mixed_single_turn_and_multi_turn_scorers(server_config):
     # Validate that all single-turn scores are the same (based on our dummy response)
     response_lengths = result_df["response_length/value"].dropna()
     # All responses should be "Answer to: Qx" format, so lengths should be consistent
-    assert all(length > 0 for length in response_lengths), "All response lengths should be positive"
+    assert all(length > 0 for length in response_lengths)
+
+    # Verify multi-turn assessments were persisted to the backend (not just in-memory).
+    # Fetch each trace from the backend and check the first trace of each session has
+    # the conversation_length assessment logged.
+    all_traces = mlflow.search_traces(
+        locations=[run.info.experiment_id],
+        run_id=result.run_id,
+        return_type="list",
+    )
+    for trace in all_traces:
+        assessment_names = {a.name for a in trace.info.assessments}
+        has_session = "mlflow.trace.session" in trace.info.trace_metadata
+        is_first_in_session = "conversation_length" in assessment_names
+        if has_session and is_first_in_session:
+            a = next(a for a in trace.info.assessments if a.name == "conversation_length")
+            assert isinstance(a, Feedback)
+            assert a.value in (2.0, 3.0)
 
 
 def test_evaluate_with_evaluation_dataset_and_session_level_scorers():
