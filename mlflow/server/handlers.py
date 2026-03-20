@@ -2,7 +2,6 @@
 import io
 import json
 import logging
-import mimetypes
 import os
 import pathlib
 import posixpath
@@ -3872,16 +3871,6 @@ def get_trace_artifact_handler() -> Response:
             'Request must include the "request_id" query parameter.',
             error_code=BAD_REQUEST,
         )
-
-    if path:
-        store = _get_tracking_store()
-        trace_info = store.get_trace_info(request_id)
-        repo = _get_trace_artifact_repo(trace_info)
-        content_bytes = repo.download_trace_attachment(path)
-        buf = io.BytesIO(content_bytes)
-        mimetype, _ = mimetypes.guess_type(path)
-        mimetype = mimetype or "application/octet-stream"
-        return send_file(buf, mimetype=mimetype)
 
     store = _get_tracking_store()
 
