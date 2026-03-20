@@ -543,13 +543,21 @@ def _start_periodic_tasks_consumer_proc():
 
 
 def _launch_job_runner(env_map, server_proc_pid):
+    from mlflow.server.constants import MLFLOW_SERVER_UP_TIME
+
+    server_up_time = str(int(time.time() * 1000))
     return subprocess.Popen(
         [
             sys.executable,
             "-m",
             "mlflow.server.jobs._job_runner",
         ],
-        env={**os.environ, **env_map, "MLFLOW_SERVER_PID": str(server_proc_pid)},
+        env={
+            **os.environ,
+            **env_map,
+            "MLFLOW_SERVER_PID": str(server_proc_pid),
+            MLFLOW_SERVER_UP_TIME: server_up_time,
+        },
     )
 
 
