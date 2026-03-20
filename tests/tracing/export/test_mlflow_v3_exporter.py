@@ -57,6 +57,8 @@ def test_export(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    # Disable batch span processor — this test verifies exporter-level async logging
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
 
     mlflow.set_tracking_uri("databricks")
     mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
@@ -162,6 +164,8 @@ def test_export_catch_failure(is_async, monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+    # Disable batch span processor — this test verifies exporter-level async logging
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
 
     mlflow.set_tracking_uri("databricks")
     mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
@@ -193,6 +197,8 @@ def test_async_bulk_export(monkeypatch):
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", "1000")
+    # Disable batch span processor — this test verifies exporter-level async logging
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "false")
 
     mlflow.set_tracking_uri("databricks")
     mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=0))

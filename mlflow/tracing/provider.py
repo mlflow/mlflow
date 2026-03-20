@@ -475,10 +475,13 @@ def _get_span_processor():
 
 def _get_trace_exporter():
     """
-    Get the exporter instance that is used by the current tracer provider.
+    Get the exporter instance from the first span processor in the current tracer provider.
     """
-    if processor := _get_span_processor():
-        return processor.span_exporter
+    if (tracer_provider := provider.get()) and (
+        processors := tracer_provider._active_span_processor._span_processors
+    ):
+        return processors[0].span_exporter
+    return None
 
 
 def _initialize_tracer_provider(disabled=False):
