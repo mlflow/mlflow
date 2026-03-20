@@ -419,9 +419,9 @@ def update_cost(
         if new_cost is not None:
             # Handle simple float format (just total cost)
             if isinstance(new_cost, (int, float)):
-                current_cost[CostKey.TOTAL_COST] = (
-                    current_cost.get(CostKey.TOTAL_COST, 0.0) + float(new_cost)
-                )
+                current_cost[CostKey.TOTAL_COST] = current_cost.get(
+                    CostKey.TOTAL_COST, 0.0
+                ) + float(new_cost)
             # Handle dictionary format
             elif isinstance(new_cost, dict):
                 for key in [
