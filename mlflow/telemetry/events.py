@@ -709,3 +709,23 @@ class ScorerCallEvent(Event):
             return {"has_feedback_error": any(f.error is not None for f in result)}
 
         return {"has_feedback_error": False}
+
+
+class DiscoverIssuesEvent(Event):
+    name: str = "discover_issues"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "model": arguments.get("model"),
+            "trace_count": len(arguments.get("traces") or []),
+            "categories": arguments.get("categories"),
+        }
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        return {
+            "issue_count": len(result.issues),
+            "total_traces_analyzed": result.total_traces_analyzed,
+            "total_cost_usd": result.total_cost_usd,
+        }
