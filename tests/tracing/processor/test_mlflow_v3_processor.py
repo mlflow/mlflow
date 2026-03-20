@@ -1,10 +1,16 @@
 import json
 from unittest import mock
 
+import pytest
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
 import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+    MLFLOW_TRACKING_USERNAME,
+)
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     TraceMetadataKey,
@@ -18,6 +24,11 @@ from tests.tracing.helper import (
     create_test_trace_info,
     skip_when_testing_trace_sdk,
 )
+
+
+@pytest.fixture(autouse=True)
+def _disable_async_logging(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, "false")
 
 
 def test_on_start(monkeypatch):
@@ -173,3 +184,234 @@ def test_on_end():
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
     assert trace_info.tags == {}
+
+
+# ── Batch span processor tests ──────────────────────────────────────────
+
+
+@pytest.fixture
+def _reset_trace_manager():
+    InMemoryTraceManager.reset()
+    yield
+    InMemoryTraceManager.reset()
+
+
+def _create_processor(*, async_logging: bool, exporter=None, monkeypatch=None):
+    if monkeypatch:
+        monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, str(async_logging).lower())
+    return MlflowV3SpanProcessor(
+        span_exporter=exporter or mock.MagicMock(),
+        export_metrics=False,
+    )
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_on_end_delegates_to_batch_processor(monkeypatch):
+    mock_exporter = mock.MagicMock()
+    processor = _create_processor(
+        async_logging=True, exporter=mock_exporter, monkeypatch=monkeypatch
+    )
+
+    trace_info = create_test_trace_info("request_id", 0)
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace("trace_id", trace_info)
+
+    otel_span = create_mock_otel_span(
+        trace_id="trace_id",
+        span_id=1,
+        parent_id=None,
+        start_time=5_000_000,
+        end_time=9_000_000,
+    )
+    LiveSpan(otel_span, "request_id")
+
+    with mock.patch.object(processor._batch_delegate, "on_end") as mock_on_end:
+        processor.on_end(otel_span)
+        mock_on_end.assert_called_once_with(otel_span)
+
+    mock_exporter.export.assert_not_called()
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_on_end_uses_simple_processor_when_batch_disabled(monkeypatch):
+    mock_exporter = mock.MagicMock()
+    processor = _create_processor(
+        async_logging=False, exporter=mock_exporter, monkeypatch=monkeypatch
+    )
+
+    trace_info = create_test_trace_info("request_id", 0)
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace("trace_id", trace_info)
+
+    otel_span = create_mock_otel_span(
+        trace_id="trace_id",
+        span_id=1,
+        parent_id=None,
+        start_time=5_000_000,
+        end_time=9_000_000,
+    )
+    LiveSpan(otel_span, "request_id")
+
+    processor.on_end(otel_span)
+
+    mock_exporter.export.assert_called_once_with((otel_span,))
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_shutdown_delegates_to_batch_processor(monkeypatch):
+    processor = _create_processor(async_logging=True, monkeypatch=monkeypatch)
+
+    with mock.patch.object(processor._batch_delegate, "shutdown") as mock_shutdown:
+        processor.shutdown()
+        mock_shutdown.assert_called_once()
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_shutdown_uses_simple_processor_when_batch_disabled(monkeypatch):
+    mock_exporter = mock.MagicMock()
+    processor = _create_processor(
+        async_logging=False, exporter=mock_exporter, monkeypatch=monkeypatch
+    )
+
+    processor.shutdown()
+
+    mock_exporter.shutdown.assert_called_once()
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_force_flush_delegates_to_batch_processor(monkeypatch):
+    processor = _create_processor(async_logging=True, monkeypatch=monkeypatch)
+
+    with mock.patch.object(
+        processor._batch_delegate, "force_flush", return_value=True
+    ) as mock_flush:
+        result = processor.force_flush(timeout_millis=5000)
+        mock_flush.assert_called_once_with(5000)
+        assert result is True
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_force_flush_uses_simple_processor_when_batch_disabled(monkeypatch):
+    mock_exporter = mock.MagicMock()
+    processor = _create_processor(
+        async_logging=False, exporter=mock_exporter, monkeypatch=monkeypatch
+    )
+
+    result = processor.force_flush(timeout_millis=5000)
+
+    assert result is True
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_batch_delegate_is_none_when_batch_disabled(monkeypatch):
+    processor = _create_processor(async_logging=False, monkeypatch=monkeypatch)
+    assert processor._batch_delegate is None
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_batch_delegate_is_created_when_batch_enabled(monkeypatch):
+    processor = _create_processor(async_logging=True, monkeypatch=monkeypatch)
+    assert isinstance(processor._batch_delegate, BatchSpanProcessor)
+    processor.shutdown()
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_batch_processor_reads_existing_env_vars(monkeypatch):
+    mock_exporter = mock.MagicMock()
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, "true")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
+    monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", "256")
+
+    with mock.patch("mlflow.tracing.processor.base_mlflow.BatchSpanProcessor") as mock_batch_cls:
+        MlflowV3SpanProcessor(
+            span_exporter=mock_exporter,
+            export_metrics=False,
+        )
+        mock_batch_cls.assert_called_once_with(
+            mock_exporter,
+            schedule_delay_millis=1000,
+            max_export_batch_size=256,
+        )
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+def test_spans_exported_in_batch_mode(monkeypatch):
+    mock_exporter = mock.MagicMock(return_value=None)
+    mock_exporter.export.return_value = None
+    processor = _create_processor(
+        async_logging=True, exporter=mock_exporter, monkeypatch=monkeypatch
+    )
+
+    trace_id = 12345
+
+    spans = {}
+    span_defs = [
+        ("root", 1, None, 1_000_000, 20_000_000),
+        ("child_a", 2, 1, 2_000_000, 15_000_000),
+        ("child_b", 3, 1, 3_000_000, 18_000_000),
+        ("grandchild_a1", 4, 2, 4_000_000, 8_000_000),
+        ("grandchild_a2", 5, 2, 5_000_000, 10_000_000),
+        ("grandchild_b1", 6, 3, 6_000_000, 12_000_000),
+    ]
+    for name, span_id, parent_id, start, end in span_defs:
+        span = create_mock_otel_span(
+            name=name,
+            trace_id=trace_id,
+            span_id=span_id,
+            parent_id=parent_id,
+            start_time=start,
+            end_time=end,
+        )
+        spans[name] = span
+        processor.on_start(span)
+
+    for name in ["grandchild_a1", "grandchild_a2", "grandchild_b1", "child_a", "child_b", "root"]:
+        processor.on_end(spans[name])
+
+    processor.force_flush(timeout_millis=5000)
+
+    exported_spans = []
+    for call in mock_exporter.export.call_args_list:
+        exported_spans.extend(call[0][0])
+
+    assert len(exported_spans) == 6
+    exported_names = {s.name for s in exported_spans}
+    assert exported_names == {
+        "root",
+        "child_a",
+        "child_b",
+        "grandchild_a1",
+        "grandchild_a2",
+        "grandchild_b1",
+    }
+    processor.shutdown()
+
+
+@pytest.mark.usefixtures("_reset_trace_manager")
+@skip_when_testing_trace_sdk
+def test_on_end_bypasses_batch_during_evaluation(monkeypatch):
+    from mlflow.pyfunc.context import Context, set_prediction_context
+
+    mock_exporter = mock.MagicMock()
+    processor = _create_processor(
+        async_logging=True, exporter=mock_exporter, monkeypatch=monkeypatch
+    )
+
+    trace_info = create_test_trace_info("request_id", 0)
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace("trace_id", trace_info)
+
+    otel_span = create_mock_otel_span(
+        trace_id="trace_id",
+        span_id=1,
+        parent_id=None,
+        start_time=5_000_000,
+        end_time=9_000_000,
+    )
+    LiveSpan(otel_span, "request_id")
+
+    with set_prediction_context(Context(request_id="eval-req-1", is_evaluate=True)):
+        processor.on_end(otel_span)
+
+    # Should call export directly (simple path), not batch delegate
+    mock_exporter.export.assert_called_once_with((otel_span,))

@@ -24,16 +24,10 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
         self,
         span_exporter: SpanExporter,
         export_metrics: bool,
-        use_batch_processor: bool = False,
-        batch_schedule_delay_millis: int = 500,
-        batch_max_export_size: int = 128,
     ):
         super().__init__(
             span_exporter,
             export_metrics,
-            use_batch_processor=use_batch_processor,
-            batch_schedule_delay_millis=batch_schedule_delay_millis,
-            batch_max_export_size=batch_max_export_size,
         )
 
     def _start_trace(self, root_span: OTelSpan) -> TraceInfo:

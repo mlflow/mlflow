@@ -14,6 +14,11 @@ from opentelemetry.sdk.trace.export import (
 
 from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.environment_variables import (
+    MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS,
+    MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+)
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
@@ -45,6 +50,14 @@ from mlflow.tracking.fluent import (
 _logger = logging.getLogger(__name__)
 
 
+def _create_batch_span_processor(exporter: SpanExporter) -> BatchSpanProcessor:
+    return BatchSpanProcessor(
+        exporter,
+        schedule_delay_millis=MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS.get(),
+        max_export_batch_size=MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE.get(),
+    )
+
+
 class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
     """
     Defines custom hooks to be executed when a span is started or ended (before exporting).
@@ -55,23 +68,13 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         self,
         span_exporter: SpanExporter,
         export_metrics: bool,
-        use_batch_processor: bool = False,
-        batch_schedule_delay_millis: int = 500,
-        batch_max_export_size: int = 128,
     ):
         # Always call the full MRO __init__ chain (OtelMetricsMixin ->
         # SimpleSpanProcessor) so _trace_manager and other state is set up.
         super().__init__(span_exporter)
-        self._use_batch_processor = use_batch_processor
-        if use_batch_processor:
-            # In batch mode, delegate export to a BatchSpanProcessor that runs
-            # in a background thread, preventing trace export from blocking
-            # request handling under concurrent load (e.g., in the gateway).
-            self._batch_delegate = BatchSpanProcessor(
-                span_exporter,
-                schedule_delay_millis=batch_schedule_delay_millis,
-                max_export_batch_size=batch_max_export_size,
-            )
+        self._use_batch_processor = MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+        if self._use_batch_processor:
+            self._batch_delegate = _create_batch_span_processor(span_exporter)
         else:
             self._batch_delegate = None
         self.span_exporter = span_exporter
@@ -136,9 +139,16 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
                 else:
                     _logger.debug(f"Trace data with request ID {trace_id} not found.")
 
-        # In batch mode, queue the span for background export instead of
-        # calling the exporter inline, so the request handler isn't blocked.
-        if self._use_batch_processor:
+        # For root spans, set the last active trace ID immediately so that
+        # mlflow.get_trace() returns the correct trace even in batch mode.
+        if span._parent is None and trace_id:
+            from mlflow.tracing.fluent import _set_last_active_trace_id
+
+            _set_last_active_trace_id(trace_id)
+
+        # During evaluation, bypass batch mode to ensure traces are available
+        # synchronously for the evaluation harness.
+        if self._use_batch_processor and not maybe_get_request_id(is_evaluate=True):
             self._batch_delegate.on_end(span)
         else:
             super().on_end(span)
@@ -149,7 +159,7 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         else:
             super().shutdown()
 
-    def force_flush(self, timeout_millis: int = 30000) -> bool:
+    def force_flush(self, timeout_millis: float = 30000) -> bool:
         if self._use_batch_processor:
             return self._batch_delegate.force_flush(timeout_millis)
         return super().force_flush(timeout_millis)

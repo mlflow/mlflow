@@ -1143,29 +1143,6 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: (default: ``None`` (an active MLflow experiment will be used))
 MLFLOW_TRACING_DESTINATION = _EnvironmentVariable("MLFLOW_TRACING_DESTINATION", str, None)
 
-#: When set to ``True``, use a background thread (OTel BatchSpanProcessor) to export spans
-#: instead of exporting inline during on_end. This prevents trace export from blocking request
-#: handling under concurrent load (e.g., in the MLflow AI Gateway).
-#: (default: ``False``)
-MLFLOW_USE_BATCH_SPAN_PROCESSOR = _BooleanEnvironmentVariable(
-    "MLFLOW_USE_BATCH_SPAN_PROCESSOR", False
-)
-
-#: Schedule delay in milliseconds for the batch span processor. Controls how frequently
-#: the background thread flushes queued spans.
-#: Only used when ``MLFLOW_USE_BATCH_SPAN_PROCESSOR`` is ``True``.
-#: (default: ``500``)
-MLFLOW_BATCH_SPAN_PROCESSOR_SCHEDULE_DELAY_MILLIS = _EnvironmentVariable(
-    "MLFLOW_BATCH_SPAN_PROCESSOR_SCHEDULE_DELAY_MILLIS", int, 500
-)
-
-#: Maximum number of spans to export in a single batch for the batch span processor.
-#: Only used when ``MLFLOW_USE_BATCH_SPAN_PROCESSOR`` is ``True``.
-#: (default: ``128``)
-MLFLOW_BATCH_SPAN_PROCESSOR_MAX_EXPORT_SIZE = _EnvironmentVariable(
-    "MLFLOW_BATCH_SPAN_PROCESSOR_MAX_EXPORT_SIZE", int, 128
-)
-
 
 #######################################################################################
 # Model Logging

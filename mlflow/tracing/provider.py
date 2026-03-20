@@ -32,12 +32,9 @@ from mlflow.entities.trace_location import (
     UnityCatalog,
 )
 from mlflow.environment_variables import (
-    MLFLOW_BATCH_SPAN_PROCESSOR_MAX_EXPORT_SIZE,
-    MLFLOW_BATCH_SPAN_PROCESSOR_SCHEDULE_DELAY_MILLIS,
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
     MLFLOW_TRACE_USE_ISOLATED_RANDOM_ID_GENERATOR,
-    MLFLOW_USE_BATCH_SPAN_PROCESSOR,
     MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
@@ -743,15 +740,10 @@ def _get_mlflow_span_processor(tracking_uri: str):
     from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
-    use_batch_processor = MLFLOW_USE_BATCH_SPAN_PROCESSOR.get()
-
     exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
     return MlflowV3SpanProcessor(
         span_exporter=exporter,
         export_metrics=should_export_otlp_metrics(),
-        use_batch_processor=use_batch_processor,
-        batch_schedule_delay_millis=MLFLOW_BATCH_SPAN_PROCESSOR_SCHEDULE_DELAY_MILLIS.get(),
-        batch_max_export_size=MLFLOW_BATCH_SPAN_PROCESSOR_MAX_EXPORT_SIZE.get(),
     )
 
 
