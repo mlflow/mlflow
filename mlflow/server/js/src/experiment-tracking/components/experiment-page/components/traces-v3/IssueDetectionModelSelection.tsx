@@ -41,10 +41,10 @@ const ALLOWED_PROVIDERS = ['openai', 'azure', 'anthropic', 'gemini', 'bedrock'] 
 // Display names for providers
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   openai: 'OpenAI',
-  azure: 'Azure',
+  azure: 'Azure OpenAI',
   anthropic: 'Anthropic',
-  gemini: 'Gemini',
-  bedrock: 'Bedrock',
+  gemini: 'Google Gemini',
+  bedrock: 'Amazon Bedrock',
 };
 
 const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
