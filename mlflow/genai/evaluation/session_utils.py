@@ -24,7 +24,7 @@ from mlflow.genai.scorers import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
 
 if TYPE_CHECKING:
-    from mlflow.genai.evaluation.entities import EvalItem, ScorerStat
+    from mlflow.genai.evaluation.entities import EvalItem, EvalResult, ScorerStat
 
 
 def classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]]:
@@ -101,7 +101,7 @@ def evaluate_session_level_scorers(
     multi_turn_scorers: list[Scorer],
     scorer_rate_limiter: RateLimiter = NoOpRateLimiter(),
     max_retries: int = 0,
-) -> tuple[dict[str, list[Feedback]], dict[str, "ScorerStat"]]:
+) -> EvalResult:
     """
     Evaluate all multi-turn scorers for a single session.
 
@@ -113,15 +113,16 @@ def evaluate_session_level_scorers(
         max_retries: Max 429-retry attempts per scorer call.
 
     Returns:
-        Tuple of (assessments dict, scorer stats dict).
-        - assessments: {first_trace_id: [feedback1, feedback2, ...]}
-        - scorer_stats: {scorer_name: ScorerStat}
+        EvalResult containing the assessments from all multi-turn scorers for this session.
+        The result is associated with the first item in the session (chronologically by
+        trace timestamp), and multi-turn assessments will be logged to that trace.
     """
-    # Import lazily to avoid pulling in pandas at module load time
-    from mlflow.genai.evaluation.entities import ScorerStat
+    # Import lazily here since mlflow.genai.evaluation.entities imports pandas at the top level
+    # (needed for EvalResult.to_pd_series() and result DataFrame operations). By importing inside
+    # the function, we avoid loading pandas when this module is imported, improving startup time.
+    from mlflow.genai.evaluation.entities import EvalResult, ScorerStat
 
     first_item = get_first_trace_in_session(session_items)
-    first_trace_id = first_item.trace.info.trace_id
     session_traces = [item.trace for item in session_items]
 
     def run_scorer(scorer: Scorer) -> list[Feedback]:
@@ -178,7 +179,12 @@ def evaluate_session_level_scorers(
         failed = len(feedbacks) == 1 and feedbacks[0].error is not None
         scorer_stats[scorer_name].record_invocation(failed=failed)
         all_feedbacks.extend(feedbacks)
-    return {first_trace_id: all_feedbacks}, scorer_stats
+
+    return EvalResult(
+        eval_item=first_item,
+        assessments=all_feedbacks,
+        scorer_stats=scorer_stats,
+    )
 
 
 def validate_session_level_evaluation_inputs(scorers: list[Scorer], predict_fn: Any) -> None:
