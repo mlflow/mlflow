@@ -74,24 +74,75 @@ def process_query(query: str):
 
 
 if __name__ == "__main__":
+    import json
+    import time
+
     # Start MLflow server to see the results
     mlflow.set_experiment("generic-cost-example")
 
     result = process_query("What is machine learning?")
 
-    # Get the trace to see aggregated costs
+    # Get the trace ID
     trace_id = mlflow.get_last_active_trace_id()
-    trace = mlflow.get_trace(trace_id)
-    print(f"\nTrace ID: {trace.info.request_id}")
-    print(f"Trace metadata: {trace.info.request_metadata}")
 
-    # The trace metadata will include aggregated costs from all span types:
-    # - Total cost will be sum of all operations
-    # - Input/output costs will be sum from spans that provide breakdown
-    print("\nCosts have been aggregated across all span types:")
-    print("- LLM cost: $0.03")
-    print("- Tool cost: $0.001")
-    print("- Embedding cost: $0.0005")
-    print("- Retrieval cost: $0.0003")
-    print("- Generic span cost: $0.005")
-    print("- Total trace cost: $0.0368")
+    print(f"\n✓ Trace created successfully!")
+    print(f"✓ Trace ID: {trace_id}")
+
+    # Try to get the trace with retries (trace export is asynchronous)
+    print("\nWaiting for trace to be fully exported...")
+    trace = None
+    for i in range(10):
+        try:
+            trace = mlflow.get_trace(trace_id)
+            if trace:
+                print("✓ Trace retrieved successfully!")
+                break
+        except Exception:
+            if i < 9:
+                time.sleep(0.5)
+                print("  Retrying...")
+            else:
+                print("\n⚠ Trace export is still in progress.")
+                print("  You can view it in the UI, but metadata may not be available yet.")
+
+    # Get experiment info for URL
+    exp = mlflow.get_experiment_by_name("generic-cost-example")
+
+    print(f"\n{'='*70}")
+    print("VIEW THE TRACE IN THE UI:")
+    print(f"{'='*70}")
+    print(f"\nOpen this URL in your browser:")
+    print(f"  http://localhost:3000/experiments/{exp.experiment_id}/traces/{trace_id}")
+    print(f"\nWhat to verify:")
+    print(f"  ✓ Total trace cost badge: ~$0.0368")
+    print(f"  ✓ Individual span costs:")
+    print(f"    - llm_call: $0.03")
+    print(f"    - database_query: $0.001")
+    print(f"    - generate_embedding: $0.0005")
+    print(f"    - vector_search: $0.0003")
+    print(f"    - custom_processing: $0.005")
+
+    # If we successfully got the trace, show metadata
+    if trace:
+        print(f"\n{'='*70}")
+        print("TRACE METADATA (from database):")
+        print(f"{'='*70}")
+
+        cost_json = trace.info.request_metadata.get('mlflow.trace.cost')
+        if cost_json:
+            cost = json.loads(cost_json)
+            print(f"\nAggregated cost breakdown:")
+            print(f"  Input cost:  ${cost.get('input_cost', 0):.4f}")
+            print(f"  Output cost: ${cost.get('output_cost', 0):.4f}")
+            print(f"  Total cost:  ${cost.get('total_cost', 0):.4f}")
+
+            print(f"\nCost components:")
+            print(f"  - LLM cost:       $0.0300 (has input/output breakdown)")
+            print(f"  - Tool cost:      $0.0010 (total only)")
+            print(f"  - Embedding cost: $0.0005 (total only)")
+            print(f"  - Retrieval cost: $0.0003 (has input/output breakdown)")
+            print(f"  - Generic cost:   $0.0050 (total only)")
+        else:
+            print("\n⚠ Cost metadata not yet available in database")
+
+    print(f"\n{'='*70}")
