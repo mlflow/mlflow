@@ -17,7 +17,6 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS,
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE,
-    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -69,11 +68,12 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         self,
         span_exporter: SpanExporter,
         export_metrics: bool,
+        use_batch_processor: bool = False,
     ):
         # Always call the full MRO __init__ chain (OtelMetricsMixin ->
         # SimpleSpanProcessor) so _trace_manager and other state is set up.
         super().__init__(span_exporter)
-        self._use_batch_processor = MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+        self._use_batch_processor = use_batch_processor
         if self._use_batch_processor:
             self._batch_delegate = _create_batch_span_processor(span_exporter)
         else:
