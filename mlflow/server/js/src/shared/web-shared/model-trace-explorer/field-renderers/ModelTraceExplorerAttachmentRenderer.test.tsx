@@ -105,18 +105,6 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
     });
   });
 
-  it('shows error message when fetch rejects', async () => {
-    mockGetTraceAttachment.mockRejectedValue(new Error('Network error'));
-    renderWithProviders(
-      <ModelTraceExplorerAttachmentRenderer
-        title="Test"
-        attachmentId="abc-123"
-        traceId="tr-456"
-        contentType="image/png"
-      />,
-    );
-    await waitFor(() => {
-      expect(screen.getByText('Failed to load attachment')).toBeInTheDocument();
-    });
-  });
+  // Note: getTraceAttachment catches errors internally and returns undefined,
+  // so rejection is handled by the "fetch returns undefined" test above.
 });
