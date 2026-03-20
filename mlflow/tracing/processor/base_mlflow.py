@@ -137,13 +137,11 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
                 if trace is not None:
                     if span._parent is None:
                         self._update_trace_info(trace, span)
+                        # Set the last active trace ID immediately so that
+                        # mlflow.get_trace() returns the correct trace even in batch mode.
+                        _set_last_active_trace_id(trace_id)
                 else:
                     _logger.debug(f"Trace data with request ID {trace_id} not found.")
-
-        # For root spans, set the last active trace ID immediately so that
-        # mlflow.get_trace() returns the correct trace even in batch mode.
-        if span._parent is None and trace_id:
-            _set_last_active_trace_id(trace_id)
 
         # During evaluation, bypass batch mode to ensure traces are available
         # synchronously for the evaluation harness.
