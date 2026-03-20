@@ -29,6 +29,8 @@ export interface IssueDetectionProgressProps {
   jobId?: string;
   /** Job status from parent */
   jobStatus?: JobStatus;
+  /** Current job stage */
+  jobStage?: string;
   /** Total traces count */
   totalTraces?: number;
   /** Job result data */
@@ -44,6 +46,7 @@ export interface IssueDetectionProgressProps {
 export const IssueDetectionProgress = ({
   jobId,
   jobStatus,
+  jobStage,
   totalTraces,
   result,
   isLoadingJobStatus,
@@ -184,10 +187,12 @@ export const IssueDetectionProgress = ({
                 defaultMessage="Issue detection canceled"
                 description="Issue detection progress > Step label when canceled"
               />
+            ) : jobStage ? (
+              jobStage
             ) : (
               <FormattedMessage
                 defaultMessage="Identifying issues from traces..."
-                description="Issue detection progress > Step label"
+                description="Issue detection progress > Step label (fallback)"
               />
             )}
           </Typography.Text>

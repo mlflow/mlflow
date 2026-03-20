@@ -2319,6 +2319,12 @@ class SqlJob(Base):
     Last Update time of experiment: `BigInteger`.
     """
 
+    status_details = Column(MutableJSON, nullable=True)
+    """
+    Job status details: `JSON`.
+    Stores additional job status details.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
@@ -2354,6 +2360,7 @@ class SqlJob(Base):
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
+            status_details=self.status_details,
         )
 
 
