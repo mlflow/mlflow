@@ -88,6 +88,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
@@ -3882,7 +3883,21 @@ def get_trace_artifact_handler() -> Response:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
         repo = _get_trace_artifact_repo(trace_info)
-        content_bytes = repo.download_trace_attachment(path)
+        try:
+            content_bytes = repo.download_trace_attachment(path)
+        except MlflowException:
+            raise
+        except Exception:
+            _logger.warning(
+                "Failed to download attachment '%s' for trace '%s'",
+                path,
+                request_id,
+                exc_info=True,
+            )
+            raise MlflowException(
+                f"Failed to download attachment '{path}' for trace '{request_id}'.",
+                error_code=INTERNAL_ERROR,
+            )
         buf = io.BytesIO(content_bytes)
         file_sender_response = send_file(
             buf,
@@ -4250,6 +4265,7 @@ def _get_job(job_id):
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "status_details": job.status_details,
     })
 
 

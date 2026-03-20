@@ -474,6 +474,7 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "pyspark/ml/log_model_allowlist.txt",
             "server/auth/basic_auth.ini",
             "server/auth/db/migrations/alembic.ini",
+            "server/uvicorn_log_config.yaml",
             "models/notebook_resources/**/*",
             "ai_commands/**/*.md",
             "assistant/skills/**/*",
