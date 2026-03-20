@@ -44,8 +44,15 @@ _logger = logging.getLogger(__name__)
 # Reserved Huey instance key for periodic tasks
 HUEY_PERIODIC_TASKS_INSTANCE_KEY = "periodic_tasks"
 
-# Environment variable name for the job name set in job subprocesses
+# Environment variable names for job execution
 MLFLOW_SERVER_JOB_NAME_ENV_VAR = "_MLFLOW_SERVER_JOB_NAME"
+MLFLOW_SERVER_JOB_ID_ENV_VAR = "_MLFLOW_SERVER_JOB_ID"
+MLFLOW_SERVER_JOB_PARAMS_ENV_VAR = "_MLFLOW_SERVER_JOB_PARAMS"
+MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR = "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME"
+MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR = "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH"
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR = (
+    "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH"
+)
 
 # Number of worker threads for the periodic tasks consumer
 PERIODIC_TASKS_WORKER_COUNT = 5
@@ -230,10 +237,11 @@ def _exec_job_in_subproc(
     job_env = {
         **os.environ,
         MLFLOW_SERVER_JOB_NAME_ENV_VAR: job_name,
-        "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
-        "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
-        "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
-        "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
+        MLFLOW_SERVER_JOB_ID_ENV_VAR: job_id,
+        MLFLOW_SERVER_JOB_PARAMS_ENV_VAR: json.dumps(params),
+        MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR: function_fullname,
+        MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR: result_file,
+        MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR: transient_error_classes_file,
         **(extra_envs or {}),
     }
 
