@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 import qs from 'qs';
 import { connect } from 'react-redux';
-import { getRunApi, getExperimentApi } from '../actions';
+import { getRunApi, getExperimentApi, searchRunsApi } from '../actions';
 import RequestStateWrapper from '../../common/components/RequestStateWrapper';
 import CompareRunView from './CompareRunView';
 import { getUUID } from '../../common/utils/ActionUtils';
@@ -56,14 +56,28 @@ class CompareRunPageImpl extends Component<CompareRunPageProps> {
 
   componentDidMount() {
     this.requestIds.push(...this.fetchExperiments());
-    this.props.runUuids.forEach((runUuid) => {
-      const requestId = getUUID();
-      this.requestIds.push(requestId);
 
-      this.props.dispatch(getRunApi(runUuid, requestId)).catch((requestError: Error | ErrorWrapper) => {
+    // Batch-fetch all compared runs in a single searchRuns request instead of
+    // dispatching N individual getRun calls (which causes O(N) network round-trips
+    // and is very slow when comparing 100+ runs). Both GET_RUN_API and
+    // SEARCH_RUNS_API populate the same Redux paths (runInfosByUuid,
+    // paramsByRunUuid, tagsByRunUuid) so CompareRunView reads data correctly.
+    const requestId = getUUID();
+    this.requestIds.push(requestId);
+    const runIdsFilter = `run_id IN (${this.props.runUuids.map((id) => `'${id}'`).join(',')})`;
+    this.props
+      .dispatch(
+        searchRunsApi({
+          id: requestId,
+          experimentIds: this.props.experimentIds,
+          filter: runIdsFilter,
+          runViewType: 'ALL',
+          maxResults: this.props.runUuids.length,
+        }),
+      )
+      .catch((requestError: Error | ErrorWrapper) => {
         this.setState({ requestError });
       });
-    });
   }
 
   render() {
