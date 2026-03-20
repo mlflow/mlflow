@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button, CloseIcon, Popover, SparkleIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
@@ -29,23 +29,7 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({
     initialValue: false,
   });
 
-  // Control popover visibility
-  const [showGuidancePopover, setShowGuidancePopover] = useState(false);
-
-  // Show guidance popover on first visit
-  useEffect(() => {
-    if (!hasSeenGuidance) {
-      // Delay slightly to ensure the component is mounted and visible
-      const timer = setTimeout(() => {
-        setShowGuidancePopover(true);
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-    return undefined;
-  }, [hasSeenGuidance]);
-
   const handleDismissGuidance = () => {
-    setShowGuidancePopover(false);
     setHasSeenGuidance(true);
   };
 
@@ -68,17 +52,16 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({
   );
 
   // Wrap in Popover if guidance should be shown
-  if (showGuidancePopover) {
+  if (!hasSeenGuidance) {
     return (
       <Popover.Root
         componentId="mlflow.detect_issues.guidance"
-        open={showGuidancePopover}
+        open={!hasSeenGuidance}
         onOpenChange={(open) => {
           // Only allow closing via explicit dismiss actions, not by clicking outside
           if (!open) {
             return;
           }
-          setShowGuidancePopover(open);
         }}
         modal
       >

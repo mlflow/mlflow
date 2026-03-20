@@ -35,13 +35,10 @@ describe('DetectIssuesButton', () => {
   test('shows guidance popover on first visit when hasSeenGuidance is false', async () => {
     renderTestComponent(storageKey);
 
-    // Wait for the popover to appear after the delay
-    await waitFor(
-      () => {
-        expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
-      },
-      { timeout: 1000 },
-    );
+    // Popover should appear immediately
+    await waitFor(() => {
+      expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
+    });
 
     // Verify the guidance content is displayed
     expect(
@@ -55,9 +52,6 @@ describe('DetectIssuesButton', () => {
 
     renderTestComponent(storageKey);
 
-    // Wait to ensure popover doesn't appear
-    await new Promise((resolve) => setTimeout(resolve, 600));
-
     // Verify the guidance popover is not displayed
     expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
   });
@@ -65,13 +59,10 @@ describe('DetectIssuesButton', () => {
   test('dismissing guidance via close button persists the flag and hides popover', async () => {
     renderTestComponent(storageKey);
 
-    // Wait for the popover to appear
-    await waitFor(
-      () => {
-        expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
-      },
-      { timeout: 1000 },
-    );
+    // Popover should appear immediately
+    await waitFor(() => {
+      expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
+    });
 
     // Click the close button
     const closeButton = screen.getByLabelText('Close guidance');
@@ -90,13 +81,10 @@ describe('DetectIssuesButton', () => {
   test('dismissing guidance via "Got it" button persists the flag and hides popover', async () => {
     renderTestComponent(storageKey);
 
-    // Wait for the popover to appear
-    await waitFor(
-      () => {
-        expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
-      },
-      { timeout: 1000 },
-    );
+    // Popover should appear immediately
+    await waitFor(() => {
+      expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
+    });
 
     // Click the "Got it" button
     const gotItButton = screen.getByText('Got it');
@@ -116,13 +104,10 @@ describe('DetectIssuesButton', () => {
     // First render: guidance should show
     const { unmount } = renderTestComponent(storageKey);
 
-    // Wait for the popover to appear
-    await waitFor(
-      () => {
-        expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
-      },
-      { timeout: 1000 },
-    );
+    // Popover should appear immediately
+    await waitFor(() => {
+      expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
+    });
 
     // Dismiss the guidance
     const gotItButton = screen.getByText('Got it');
@@ -136,9 +121,6 @@ describe('DetectIssuesButton', () => {
     // Unmount and re-render the component
     unmount();
     renderTestComponent(storageKey);
-
-    // Wait to ensure popover doesn't appear again
-    await new Promise((resolve) => setTimeout(resolve, 600));
 
     // Verify the guidance does not show again
     expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
@@ -161,13 +143,10 @@ describe('DetectIssuesButton', () => {
 
     renderTestComponent();
 
-    // Wait for the popover to appear
-    await waitFor(
-      () => {
-        expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
-      },
-      { timeout: 1000 },
-    );
+    // Popover should appear immediately
+    await waitFor(() => {
+      expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
+    });
 
     // Dismiss the guidance
     const gotItButton = screen.getByText('Got it');
@@ -191,7 +170,6 @@ describe('DetectIssuesButton', () => {
       { wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider> },
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 600));
     expect(screen.queryByText('Detect Issues in Your Traces')).not.toBeInTheDocument();
 
     unmount1();
@@ -201,11 +179,8 @@ describe('DetectIssuesButton', () => {
       wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider>,
     });
 
-    await waitFor(
-      () => {
-        expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
-      },
-      { timeout: 1000 },
-    );
+    await waitFor(() => {
+      expect(screen.getByText('Detect Issues in Your Traces')).toBeInTheDocument();
+    });
   });
 });
