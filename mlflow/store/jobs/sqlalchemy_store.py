@@ -412,22 +412,23 @@ class SqlAlchemyJobStore(AbstractJobStore):
         """
         return self._update_job(job_id, JobStatus.CANCELED)
 
-    def update_job_metadata(self, job_id: str, metadata: dict[str, Any]) -> None:
+    def update_status_details(self, job_id: str, status_details: dict[str, Any]) -> None:
         """
-        Update job metadata.
+        Update job status details.
 
-        Merges the provided metadata with existing job metadata.
+        Merges the provided status details with existing job status details. For the same
+        key, the new value will overwrite the existing value.
 
         Args:
             job_id: The ID of the job to update
-            metadata: Metadata to merge into existing job metadata
+            status_details: Status details to merge into existing job status details
         """
         with self.ManagedSessionMaker() as session:
             job = self._get_sql_job(session, job_id)
 
-            # Merge new metadata with existing
-            current_metadata = job.job_metadata or {}
-            current_metadata.update(metadata)
-            job.job_metadata = current_metadata
+            # Merge new status details with existing
+            current_details = job.status_details or {}
+            current_details.update(status_details)
+            job.status_details = current_details
 
             job.last_update_time = get_current_time_millis()

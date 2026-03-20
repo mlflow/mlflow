@@ -882,44 +882,44 @@ def test_reenqueued_jobs_respect_workspace_disabled(monkeypatch, db_uri):
         assert workspace is None
 
 
-def test_update_job_metadata(tmp_path: Path):
+def test_update_status_details(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
 
     job = store.create_job("test_job", '{"param": "value"}')
-    assert job.metadata is None
+    assert job.status_details is None
 
-    store.update_job_metadata(job.job_id, {"stage": "preprocessing"})
+    store.update_status_details(job.job_id, {"stage": "preprocessing"})
     updated_job = store.get_job(job.job_id)
-    assert updated_job.metadata == {"stage": "preprocessing"}
+    assert updated_job.status_details == {"stage": "preprocessing"}
 
-    store.update_job_metadata(job.job_id, {"stage": "processing", "progress": "50%"})
+    store.update_status_details(job.job_id, {"stage": "processing", "progress": "50%"})
     updated_job = store.get_job(job.job_id)
-    assert updated_job.metadata == {"stage": "processing", "progress": "50%"}
+    assert updated_job.status_details == {"stage": "processing", "progress": "50%"}
 
 
-def test_update_job_metadata_merges_with_existing(tmp_path: Path):
+def test_update_status_details_merges_with_existing(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
 
     job = store.create_job("test_job", '{"param": "value"}')
 
-    store.update_job_metadata(job.job_id, {"stage": "preprocessing", "step": "1"})
+    store.update_status_details(job.job_id, {"stage": "preprocessing", "step": "1"})
     updated_job = store.get_job(job.job_id)
-    assert updated_job.metadata == {"stage": "preprocessing", "step": "1"}
+    assert updated_job.status_details == {"stage": "preprocessing", "step": "1"}
 
-    store.update_job_metadata(job.job_id, {"stage": "processing", "progress": "50%"})
+    store.update_status_details(job.job_id, {"stage": "processing", "progress": "50%"})
     updated_job = store.get_job(job.job_id)
-    assert updated_job.metadata == {"stage": "processing", "step": "1", "progress": "50%"}
+    assert updated_job.status_details == {"stage": "processing", "step": "1", "progress": "50%"}
 
-    store.update_job_metadata(job.job_id, {"progress": "100%"})
+    store.update_status_details(job.job_id, {"progress": "100%"})
     updated_job = store.get_job(job.job_id)
-    assert updated_job.metadata == {"stage": "processing", "step": "1", "progress": "100%"}
+    assert updated_job.status_details == {"stage": "processing", "step": "1", "progress": "100%"}
 
 
-def test_update_job_metadata_on_nonexistent_job(tmp_path: Path):
+def test_update_status_details_on_nonexistent_job(tmp_path: Path):
     backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
     store = SqlAlchemyJobStore(backend_store_uri)
 
     with pytest.raises(MlflowException, match="Job .+ not found"):
-        store.update_job_metadata("nonexistent-job-id", {"stage": "test"})
+        store.update_status_details("nonexistent-job-id", {"stage": "test"})

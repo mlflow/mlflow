@@ -2319,10 +2319,10 @@ class SqlJob(Base):
     Last Update time of experiment: `BigInteger`.
     """
 
-    job_metadata = Column(MutableJSON, nullable=True)
+    status_details = Column(MutableJSON, nullable=True)
     """
-    Job metadata: `JSON`.
-    Stores additional job metadata.
+    Job status details: `JSON`.
+    Stores additional job status details.
     """
 
     __table_args__ = (
@@ -2360,7 +2360,7 @@ class SqlJob(Base):
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
-            metadata=self.job_metadata,
+            status_details=self.status_details,
         )
 
 

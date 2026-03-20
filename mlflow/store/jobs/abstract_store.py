@@ -151,15 +151,15 @@ class AbstractJobStore(ABC):
         """
 
     @abstractmethod
-    def update_job_metadata(self, job_id: str, metadata: dict[str, Any]) -> None:
+    def update_status_details(self, job_id: str, status_details: dict[str, Any]) -> None:
         """
-        Update job metadata.
+        Update job status details.
 
-        Merges the provided metadata with existing job metadata.
+        Merges the provided status details with existing job status details.
 
         Args:
             job_id: The ID of the job to update
-            metadata: Metadata to merge into existing job metadata
+            status_details: Status details to merge into existing job status details
         """
 
     @abstractmethod
