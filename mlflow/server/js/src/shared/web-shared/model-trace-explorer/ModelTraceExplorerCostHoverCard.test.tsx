@@ -118,11 +118,17 @@ describe('ModelTraceExplorerCostHoverCard', () => {
 
     expect(screen.getByText('$0.00')).toBeInTheDocument();
 
-    // Hover to see breakdown
+    // Hover over the cost tag to trigger the hover card
     const costTrigger = screen.getByText('$0.00');
     await userEvent.hover(costTrigger);
 
-    expect(await screen.findByText('Cost breakdown')).toBeInTheDocument();
+    // Should show "Cost" header (not "Cost breakdown") when there's no breakdown
+    await screen.findByText('Cost');
+    // Should not show input/output costs when they're zero
+    expect(screen.queryByText('Input cost')).not.toBeInTheDocument();
+    expect(screen.queryByText('Output cost')).not.toBeInTheDocument();
+    // Should still show total
+    expect(await screen.findByText('Total')).toBeInTheDocument();
   });
 
   it('handles large costs correctly', () => {

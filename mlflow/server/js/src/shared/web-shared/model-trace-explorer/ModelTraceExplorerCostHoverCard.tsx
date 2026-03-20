@@ -25,6 +25,9 @@ export const ModelTraceExplorerCostHoverCard = ({ cost }: { cost: TraceCost }) =
   const inputCost = useMemo(() => formatCostUSD(cost.input_cost), [cost.input_cost]);
   const outputCost = useMemo(() => formatCostUSD(cost.output_cost), [cost.output_cost]);
 
+  // Only show input/output breakdown if they are non-zero (i.e., when trace has LLM spans)
+  const hasBreakdown = useMemo(() => cost.input_cost > 0 || cost.output_cost > 0, [cost.input_cost, cost.output_cost]);
+
   return (
     <HoverCard
       trigger={
@@ -56,7 +59,11 @@ export const ModelTraceExplorerCostHoverCard = ({ cost }: { cost: TraceCost }) =
           }}
         >
           <Typography.Title level={3} withoutMargins>
-            <FormattedMessage defaultMessage="Cost breakdown" description="Header for cost breakdown" />
+            {hasBreakdown ? (
+              <FormattedMessage defaultMessage="Cost breakdown" description="Header for cost breakdown" />
+            ) : (
+              <FormattedMessage defaultMessage="Cost" description="Header for cost" />
+            )}
           </Typography.Title>
           <div
             css={{
@@ -65,44 +72,48 @@ export const ModelTraceExplorerCostHoverCard = ({ cost }: { cost: TraceCost }) =
               gap: theme.spacing.sm,
             }}
           >
+            {hasBreakdown && (
+              <>
+                <div
+                  css={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Typography.Text size="md">
+                    <FormattedMessage defaultMessage="Input cost" description="Label for input cost" />
+                  </Typography.Text>
+                  <Tag componentId="shared.model-trace-explorer.cost-hovercard.input-cost.tag">
+                    <span>{inputCost}</span>
+                  </Tag>
+                </div>
+                <div
+                  css={{
+                    display: 'flex',
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Typography.Text size="md">
+                    <FormattedMessage defaultMessage="Output cost" description="Label for output cost" />
+                  </Typography.Text>
+                  <Tag componentId="shared.model-trace-explorer.cost-hovercard.output-cost.tag">
+                    <span>{outputCost}</span>
+                  </Tag>
+                </div>
+              </>
+            )}
             <div
               css={{
                 display: 'flex',
                 flexDirection: 'row',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-              }}
-            >
-              <Typography.Text size="md">
-                <FormattedMessage defaultMessage="Input cost" description="Label for input cost" />
-              </Typography.Text>
-              <Tag componentId="shared.model-trace-explorer.cost-hovercard.input-cost.tag">
-                <span>{inputCost}</span>
-              </Tag>
-            </div>
-            <div
-              css={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Typography.Text size="md">
-                <FormattedMessage defaultMessage="Output cost" description="Label for output cost" />
-              </Typography.Text>
-              <Tag componentId="shared.model-trace-explorer.cost-hovercard.output-cost.tag">
-                <span>{outputCost}</span>
-              </Tag>
-            </div>
-            <div
-              css={{
-                display: 'flex',
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingTop: theme.spacing.sm,
-                borderTop: `1px solid ${theme.colors.borderDecorative}`,
+                paddingTop: hasBreakdown ? theme.spacing.sm : 0,
+                borderTop: hasBreakdown ? `1px solid ${theme.colors.borderDecorative}` : 'none',
               }}
             >
               <Typography.Text size="md" bold>
