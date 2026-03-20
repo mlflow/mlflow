@@ -10,14 +10,63 @@ const SpanCostHoverCard = ({ cost }: { cost: SpanCostInfo }) => {
   const { theme } = useDesignSystemTheme();
 
   const totalCost = useMemo(() => formatCostUSD(cost.total_cost), [cost.total_cost]);
-  const inputCost = useMemo(() => formatCostUSD(cost.input_cost), [cost.input_cost]);
-  const outputCost = useMemo(() => formatCostUSD(cost.output_cost), [cost.output_cost]);
 
-  // Only show input/output breakdown if they are non-zero (i.e., for LLM spans)
-  const hasBreakdown = useMemo(
-    () => cost.input_cost > 0 || cost.output_cost > 0,
-    [cost.input_cost, cost.output_cost],
-  );
+  // Build breakdown items for all non-zero cost components
+  const breakdownItems = useMemo(() => {
+    const items: Array<{ key: string; label: string; value: string }> = [];
+
+    if ((cost.input_cost ?? 0) > 0) {
+      items.push({
+        key: 'input',
+        label: 'Input cost',
+        value: formatCostUSD(cost.input_cost!),
+      });
+    }
+
+    if ((cost.output_cost ?? 0) > 0) {
+      items.push({
+        key: 'output',
+        label: 'Output cost',
+        value: formatCostUSD(cost.output_cost!),
+      });
+    }
+
+    if ((cost.tool_cost ?? 0) > 0) {
+      items.push({
+        key: 'tool',
+        label: 'Tool cost',
+        value: formatCostUSD(cost.tool_cost!),
+      });
+    }
+
+    if ((cost.embedding_cost ?? 0) > 0) {
+      items.push({
+        key: 'embedding',
+        label: 'Embedding cost',
+        value: formatCostUSD(cost.embedding_cost!),
+      });
+    }
+
+    if ((cost.retrieval_cost ?? 0) > 0) {
+      items.push({
+        key: 'retrieval',
+        label: 'Retrieval cost',
+        value: formatCostUSD(cost.retrieval_cost!),
+      });
+    }
+
+    if ((cost.misc_cost ?? 0) > 0) {
+      items.push({
+        key: 'misc',
+        label: 'Other cost',
+        value: formatCostUSD(cost.misc_cost!),
+      });
+    }
+
+    return items;
+  }, [cost]);
+
+  const hasBreakdown = breakdownItems.length > 0;
 
   return (
     <HoverCard
@@ -63,40 +112,22 @@ const SpanCostHoverCard = ({ cost }: { cost: SpanCostInfo }) => {
               gap: theme.spacing.sm,
             }}
           >
-            {hasBreakdown && (
-              <>
-                <div
-                  css={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Typography.Text size="md">
-                    <FormattedMessage defaultMessage="Input cost" description="Label for input cost" />
-                  </Typography.Text>
-                  <Tag componentId="shared.model-trace-explorer.span-cost-hovercard.input-cost.tag">
-                    <span>{inputCost}</span>
-                  </Tag>
-                </div>
-                <div
-                  css={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                  }}
-                >
-                  <Typography.Text size="md">
-                    <FormattedMessage defaultMessage="Output cost" description="Label for output cost" />
-                  </Typography.Text>
-                  <Tag componentId="shared.model-trace-explorer.span-cost-hovercard.output-cost.tag">
-                    <span>{outputCost}</span>
-                  </Tag>
-                </div>
-              </>
-            )}
+            {breakdownItems.map((item) => (
+              <div
+                key={item.key}
+                css={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography.Text size="md">{item.label}</Typography.Text>
+                <Tag componentId={`shared.model-trace-explorer.span-cost-hovercard.${item.key}-cost.tag`}>
+                  <span>{item.value}</span>
+                </Tag>
+              </div>
+            ))}
             <div
               css={{
                 display: 'flex',
