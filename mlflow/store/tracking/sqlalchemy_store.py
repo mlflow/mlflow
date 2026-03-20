@@ -164,6 +164,7 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
+    CostKey,
     SpanAttributeKey,
     SpansLocation,
     TokenUsageKey,
@@ -4633,6 +4634,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 if span_cost:
                     span_cost = json.loads(span_cost)
+                    # Normalize float to dict format
+                    if isinstance(span_cost, (int, float)):
+                        span_cost = {CostKey.TOTAL_COST: float(span_cost)}
                     for cost_key, cost_value in span_cost.items():
                         session.merge(
                             SqlSpanMetrics(
