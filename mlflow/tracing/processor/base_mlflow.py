@@ -17,6 +17,8 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS,
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+    MLFLOW_USE_BATCH_SPAN_PROCESSOR,
 )
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -55,6 +57,14 @@ def _create_batch_span_processor(exporter: SpanExporter) -> BatchSpanProcessor:
         exporter,
         schedule_delay_millis=MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS.get(),
         max_export_batch_size=MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE.get(),
+    )
+
+
+def should_use_batch_span_processor() -> bool:
+    return (
+        MLFLOW_USE_BATCH_SPAN_PROCESSOR.get()
+        and MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
+        and MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
     )
 
 

@@ -983,6 +983,16 @@ def flush_trace_async_logging(terminate=False) -> None:
     Args:
         terminate: If True, shut down the logging threads after flushing.
     """
+    # Flush the batch span processor first (if active), so queued spans
+    # are exported before we flush the exporter's async queue.
+    try:
+        from mlflow.tracing.provider import _get_span_processor
+
+        if processor := _get_span_processor():
+            processor.force_flush()
+    except Exception as e:
+        _logger.debug(f"Failed to flush batch span processor: {e}", exc_info=True)
+
     try:
         trace_exporter = _get_trace_exporter()
     except Exception as e:

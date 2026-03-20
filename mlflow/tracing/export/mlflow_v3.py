@@ -30,26 +30,6 @@ from mlflow.utils.uri import is_databricks_uri
 _logger = logging.getLogger(__name__)
 
 
-def should_use_async_logging(tracking_uri: str | None) -> bool:
-    if (
-        is_in_databricks_notebook()
-        # NB: Not defaulting OSS backend to async logging for now to reduce blast radius.
-        or not is_databricks_uri(tracking_uri)
-    ):
-        # NB: We don't turn on async logging in Databricks notebook by default
-        # until we are confident that the async logging is working on the
-        # offline workload on Databricks, to derisk the inclusion to the
-        # standard image. When it is enabled explicitly via the env var, we
-        # will respect that.
-        return (
-            MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
-            if MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
-            else False
-        )
-
-    return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
-
-
 class MlflowV3SpanExporter(SpanExporter):
     """
     An exporter implementation that logs the traces to MLflow Tracking Server
@@ -264,7 +244,23 @@ class MlflowV3SpanExporter(SpanExporter):
             _logger.warning(f"Failed to link prompts to trace: {e}")
 
     def _should_enable_async_logging(self) -> bool:
-        return should_use_async_logging(self._client.tracking_uri)
+        if (
+            is_in_databricks_notebook()
+            # NB: Not defaulting OSS backend to async logging for now to reduce blast radius.
+            or not is_databricks_uri(self._client.tracking_uri)
+        ):
+            # NB: We don't turn on async logging in Databricks notebook by default
+            # until we are confident that the async logging is working on the
+            # offline workload on Databricks, to derisk the inclusion to the
+            # standard image. When it is enabled explicitly via the env var, we
+            # will respect that.
+            return (
+                MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+                if MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
+                else False
+            )
+
+        return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
     def _should_log_async(self) -> bool:
         # During evaluate, the eval harness relies on the generated trace objects,
