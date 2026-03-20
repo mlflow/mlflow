@@ -10,6 +10,7 @@ import mlflow
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+    MLFLOW_USE_BATCH_SPAN_PROCESSOR,
 )
 
 
@@ -43,6 +44,9 @@ def async_logging_enabled(request, monkeypatch):
     # TODO: V2 Trace depends on this env var rather than MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
     # We should remove this once the backend is fully migrated to V3
     monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_LOGGING.name, str(request.param))
+    # Disable batch span processing — this fixture tests async logging (exporter-level),
+    # not batch span processing (processor-level).
+    monkeypatch.setenv(MLFLOW_USE_BATCH_SPAN_PROCESSOR.name, "false")
     return request.param
 
 
