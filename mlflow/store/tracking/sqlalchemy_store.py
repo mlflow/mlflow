@@ -191,6 +191,7 @@ from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
+    CostKey,
     GenAiSemconvKey,
     SpanAttributeKey,
     SpansLocation,
@@ -5032,6 +5033,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 if span_cost:
                     span_cost = json.loads(span_cost)
+                    # Normalize float to dict format
+                    if isinstance(span_cost, (int, float)):
+                        span_cost = {CostKey.TOTAL_COST: float(span_cost)}
                     for cost_key, cost_value in span_cost.items():
                         all_metric_rows.append({
                             "trace_id": span.trace_id,
