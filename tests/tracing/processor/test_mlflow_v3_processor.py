@@ -302,8 +302,10 @@ def test_batch_delegate_is_none_when_batch_disabled():
 @pytest.mark.usefixtures("_reset_trace_manager")
 def test_batch_delegate_is_created_when_batch_enabled():
     processor = _create_processor(use_batch=True)
-    assert isinstance(processor._batch_delegate, BatchSpanProcessor)
-    processor.shutdown()
+    try:
+        assert isinstance(processor._batch_delegate, BatchSpanProcessor)
+    finally:
+        processor.shutdown()
 
 
 @pytest.mark.usefixtures("_reset_trace_manager")
@@ -332,50 +334,58 @@ def test_spans_exported_in_batch_mode():
     mock_exporter = mock.MagicMock()
     mock_exporter.export.return_value = SpanExportResult.SUCCESS
     processor = _create_processor(use_batch=True, exporter=mock_exporter)
+    try:
+        trace_id = 12345
 
-    trace_id = 12345
+        spans = {}
+        span_defs = [
+            ("root", 1, None, 1_000_000, 20_000_000),
+            ("child_a", 2, 1, 2_000_000, 15_000_000),
+            ("child_b", 3, 1, 3_000_000, 18_000_000),
+            ("grandchild_a1", 4, 2, 4_000_000, 8_000_000),
+            ("grandchild_a2", 5, 2, 5_000_000, 10_000_000),
+            ("grandchild_b1", 6, 3, 6_000_000, 12_000_000),
+        ]
+        for name, span_id, parent_id, start, end in span_defs:
+            span = create_mock_otel_span(
+                name=name,
+                trace_id=trace_id,
+                span_id=span_id,
+                parent_id=parent_id,
+                start_time=start,
+                end_time=end,
+            )
+            spans[name] = span
+            processor.on_start(span)
 
-    spans = {}
-    span_defs = [
-        ("root", 1, None, 1_000_000, 20_000_000),
-        ("child_a", 2, 1, 2_000_000, 15_000_000),
-        ("child_b", 3, 1, 3_000_000, 18_000_000),
-        ("grandchild_a1", 4, 2, 4_000_000, 8_000_000),
-        ("grandchild_a2", 5, 2, 5_000_000, 10_000_000),
-        ("grandchild_b1", 6, 3, 6_000_000, 12_000_000),
-    ]
-    for name, span_id, parent_id, start, end in span_defs:
-        span = create_mock_otel_span(
-            name=name,
-            trace_id=trace_id,
-            span_id=span_id,
-            parent_id=parent_id,
-            start_time=start,
-            end_time=end,
-        )
-        spans[name] = span
-        processor.on_start(span)
+        for name in [
+            "grandchild_a1",
+            "grandchild_a2",
+            "grandchild_b1",
+            "child_a",
+            "child_b",
+            "root",
+        ]:
+            processor.on_end(spans[name])
 
-    for name in ["grandchild_a1", "grandchild_a2", "grandchild_b1", "child_a", "child_b", "root"]:
-        processor.on_end(spans[name])
+        processor.force_flush(timeout_millis=5000)
 
-    processor.force_flush(timeout_millis=5000)
+        exported_spans = []
+        for call in mock_exporter.export.call_args_list:
+            exported_spans.extend(call[0][0])
 
-    exported_spans = []
-    for call in mock_exporter.export.call_args_list:
-        exported_spans.extend(call[0][0])
-
-    assert len(exported_spans) == 6
-    exported_names = {s.name for s in exported_spans}
-    assert exported_names == {
-        "root",
-        "child_a",
-        "child_b",
-        "grandchild_a1",
-        "grandchild_a2",
-        "grandchild_b1",
-    }
-    processor.shutdown()
+        assert len(exported_spans) == 6
+        exported_names = {s.name for s in exported_spans}
+        assert exported_names == {
+            "root",
+            "child_a",
+            "child_b",
+            "grandchild_a1",
+            "grandchild_a2",
+            "grandchild_b1",
+        }
+    finally:
+        processor.shutdown()
 
 
 @pytest.mark.usefixtures("_reset_trace_manager")
