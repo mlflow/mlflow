@@ -24,6 +24,7 @@ def process_query(query: str):
 
     # LLM call with structured cost (can have input/output breakdown)
     with mlflow.start_span(name="llm_call", span_type="LLM") as llm_span:
+        llm_span.set_inputs({"prompt": query})
         llm_span.set_attribute(
             SpanAttributeKey.LLM_COST,
             {
@@ -33,32 +34,41 @@ def process_query(query: str):
             },
         )
         response = "AI response to: " + query
+        llm_span.set_outputs({"response": response})
 
     # Tool invocation with simple float cost (total only)
     with mlflow.start_span(name="database_query", span_type="TOOL") as tool_span:
+        tool_span.set_inputs({"query": "SELECT * FROM data"})
         tool_span.set_attribute(SpanAttributeKey.TOOL_COST, 0.001)
         data = {"result": "some data"}
+        tool_span.set_outputs(data)
 
     # Embedding generation with dict cost (total only)
     with mlflow.start_span(name="generate_embedding", span_type="EMBEDDING") as embedding_span:
+        embedding_span.set_inputs({"text": query})
         embedding_span.set_attribute(
             SpanAttributeKey.EMBEDDING_COST,
             {"total_cost": 0.0005},
         )
         embedding = [0.1, 0.2, 0.3]
+        embedding_span.set_outputs({"embedding": embedding})
 
     # Vector DB retrieval with dict cost (total only)
     with mlflow.start_span(name="vector_search", span_type="RETRIEVER") as retrieval_span:
+        retrieval_span.set_inputs({"query_embedding": embedding})
         retrieval_span.set_attribute(
             SpanAttributeKey.RETRIEVAL_COST,
             {"total_cost": 0.0003},
         )
         docs = ["doc1", "doc2"]
+        retrieval_span.set_outputs({"documents": docs})
 
     # Generic operation with simple float cost
     with mlflow.start_span(name="custom_processing", span_type="UNKNOWN") as generic_span:
+        generic_span.set_inputs({"text": response})
         generic_span.set_attribute(SpanAttributeKey.SPAN_COST, 0.005)
         processed = f"Processed: {response}"
+        generic_span.set_outputs({"processed_text": processed})
 
     return {
         "response": response,
@@ -116,7 +126,7 @@ if __name__ == "__main__":
     print("VIEW THE TRACE IN THE UI:")
     print(f"{'='*70}")
     print(f"\nOpen this URL in your browser:")
-    print(f"  http://localhost:3000/experiments/{exp.experiment_id}/traces/{trace_id}")
+    print(f"  http://localhost:3000/#/experiments/{exp.experiment_id}/traces?selectedEvaluationId={trace_id}")
     print(f"\nWhat to verify:")
     print(f"  ✓ Total trace cost badge: ~$0.0368")
     print(f"  ✓ Individual span costs:")
