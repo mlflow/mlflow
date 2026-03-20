@@ -44,12 +44,13 @@ describe('isTraceCostType', () => {
     expect(isTraceCostType({})).toBe(false);
   });
 
-  it('should return false for object missing input_cost', () => {
-    expect(isTraceCostType({ output_cost: 0.002, total_cost: 0.003 })).toBe(false);
+  it('should return true for object with only total_cost (non-LLM span)', () => {
+    expect(isTraceCostType({ total_cost: 0.003 })).toBe(true);
   });
 
-  it('should return false for object missing output_cost', () => {
-    expect(isTraceCostType({ input_cost: 0.001, total_cost: 0.003 })).toBe(false);
+  it('should return true for object with total_cost and span-type-specific cost', () => {
+    expect(isTraceCostType({ tool_cost: 0.001, total_cost: 0.001 })).toBe(true);
+    expect(isTraceCostType({ embedding_cost: 0.0005, total_cost: 0.0005 })).toBe(true);
   });
 
   it('should return false for object missing total_cost', () => {
