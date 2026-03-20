@@ -33,7 +33,6 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.server import auth as auth_module
 from mlflow.server.auth import _authenticate_fastapi_request, _re_compile_path
-from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_ajax_path
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     CREATE_REGISTERED_MODEL_PERMISSION,
@@ -41,6 +40,7 @@ from mlflow.server.auth.routes import (
     GET_SCORER_PERMISSION,
     LIST_USERS,
 )
+from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_ajax_path
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -842,9 +842,7 @@ def test_logged_model_artifact_validator_respects_static_prefix():
 
     # Without prefix — should match the bare path
     pat_no_prefix = _re_compile_path(_get_ajax_path(base))
-    assert pat_no_prefix.fullmatch(
-        "/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files"
-    )
+    assert pat_no_prefix.fullmatch("/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files")
 
     # With prefix — should match the prefixed path
     with mock.patch.dict("os.environ", {STATIC_PREFIX_ENV_VAR: "/custom-prefix"}):

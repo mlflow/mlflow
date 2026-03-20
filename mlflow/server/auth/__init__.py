@@ -1673,9 +1673,7 @@ LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
 # can't go in routes.py/BEFORE_REQUEST_VALIDATORS (exact match) and must be added here.
 LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS[
     (
-        _re_compile_path(
-            _get_ajax_path("/mlflow/logged-models/<model_id>/artifacts/files")
-        ),
+        _re_compile_path(_get_ajax_path("/mlflow/logged-models/<model_id>/artifacts/files")),
         "GET",
     )
 ] = validate_can_read_logged_model
