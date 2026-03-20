@@ -75,7 +75,11 @@ def process_query(query: str):
 
 if __name__ == "__main__":
     import json
+    import logging
     import time
+
+    # Temporarily suppress trace export warnings (they're expected during async export)
+    logging.getLogger("mlflow.tracing.fluent").setLevel(logging.ERROR)
 
     # Start MLflow server to see the results
     mlflow.set_experiment("generic-cost-example")
