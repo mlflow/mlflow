@@ -7,7 +7,6 @@ import { SELECTED_ISSUE_ID_PARAM } from '@mlflow/mlflow/src/experiment-tracking/
 
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';
-import { AlertUtils } from '../../alert-utils';
 
 export interface Issue {
   id: string;
@@ -31,7 +30,7 @@ const IssueTag = ({ issue }: { issue: Issue }) => {
         navigate(url);
       }
     } catch (error) {
-      AlertUtils.log('Failed to fetch issue', error);
+      // fail silently
     }
   };
 

@@ -8,7 +8,6 @@
 import { first, isEmpty, isUndefined } from 'lodash';
 import React, { Component } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import { ArtifactView } from './ArtifactView';
@@ -219,7 +218,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     if (this.renderErrorCondition(shouldRenderError)) {
       const failedReq = requests[0];
       if (failedReq && failedReq.error) {
-        AlertUtils.log('Failed to load artifacts', failedReq.error);
+        // error is handled by the component below
       }
       const errorDescription = (() => {
         const error = failedReq?.error;

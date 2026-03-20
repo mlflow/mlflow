@@ -10,7 +10,6 @@ import { sortBy } from 'lodash';
 import type { NavigateFunction } from '../../common/utils/RoutingUtils';
 import { Link } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import { TagAssignmentModal } from '../../common/components/TagAssignmentModal';
 import { TagList } from '../../common/components/TagList';
 import { PromoteModelButton } from './PromoteModelButton';
@@ -200,8 +199,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       })
       .catch((ex: ErrorWrapper | Error) => {
         this.setState({ isTagsRequestPending: false });
-        AlertUtils.log('Failed to add model version tag', ex);
-
         const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
         Utils.displayGlobalErrorNotification(
@@ -222,8 +219,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
     return this.props.setModelVersionTagApi(modelName, version, name, value).catch((ex: ErrorWrapper | Error) => {
-      AlertUtils.log('Failed to set model version tag', ex);
-
       const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
       Utils.displayGlobalErrorNotification(
@@ -244,8 +239,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
     return this.props.deleteModelVersionTagApi(modelName, version, name).catch((ex: ErrorWrapper | Error) => {
-      AlertUtils.log('Failed to delete model version tag', ex);
-
       const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
       Utils.displayGlobalErrorNotification(

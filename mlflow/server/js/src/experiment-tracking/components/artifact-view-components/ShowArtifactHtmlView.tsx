@@ -6,7 +6,6 @@
  */
 
 import React, { Component } from 'react';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import {
   getArtifactContent,
   getArtifactLocationUrl,
@@ -63,7 +62,7 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
       return <ArtifactViewSkeleton className="artifact-html-view-loading" />;
     }
     if (this.state.error) {
-      AlertUtils.log('Failed to load HTML artifact', this.state.error);
+      // error is rendered to the user below
       return <div className="artifact-html-view-error">Oops we couldn't load your file because of an error.</div>;
     } else {
       return (

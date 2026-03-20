@@ -7,7 +7,6 @@
 
 import React from 'react';
 import Utils from '../../utils/Utils';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 
 type Props = {
   showServerError?: boolean;
@@ -20,7 +19,6 @@ export class SectionErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: any, errorInfo: any) {
     this.setState({ error });
-    AlertUtils.log('Section error boundary caught error', { error, errorInfo });
   }
 
   renderErrorMessage(error: any) {

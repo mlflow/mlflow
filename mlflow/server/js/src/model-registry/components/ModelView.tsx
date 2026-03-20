@@ -8,7 +8,6 @@
 import React from 'react';
 import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import type { NavigateFunction } from '../../common/utils/RoutingUtils';
 import { Link } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
@@ -235,7 +234,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
       })
       .catch((ex: ErrorWrapper | Error) => {
         this.setState({ isTagsRequestPending: false });
-        AlertUtils.log('Failed to add registered model tag', ex);
         const message = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
         Utils.displayGlobalErrorNotification('Failed to add tag. Error: ' + message);
       });
@@ -246,7 +244,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const modelName = model.name;
     return this.props.setRegisteredModelTagApi(modelName, name, value).catch((ex: ErrorWrapper | Error) => {
-      AlertUtils.log('Failed to set registered model tag', ex);
       const message = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
       Utils.displayGlobalErrorNotification('Failed to set tag. Error: ' + message);
     });
@@ -257,7 +254,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const modelName = model.name;
     return this.props.deleteRegisteredModelTagApi(modelName, name).catch((ex: ErrorWrapper | Error) => {
-      AlertUtils.log('Failed to delete registered model tag', ex);
       const message = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
       Utils.displayGlobalErrorNotification('Failed to delete tag. Error: ' + message);
     });

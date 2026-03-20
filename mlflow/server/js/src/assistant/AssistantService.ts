@@ -11,7 +11,6 @@ import type {
   InstallSkillsResponse,
 } from './types';
 import { getAjaxUrl, getDefaultHeaders } from '@mlflow/mlflow/src/common/utils/FetchUtils';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 
 const API_BASE = getAjaxUrl('ajax-api/3.0/mlflow/assistant');
 
@@ -198,7 +197,7 @@ export const sendMessageStream = async (
           }
         }
       } catch (err) {
-        AlertUtils.log('Failed to parse assistant message event', err);
+        // fail silently
       }
     });
 
@@ -216,7 +215,7 @@ export const sendMessageStream = async (
           }
         }
       } catch (err) {
-        AlertUtils.log('Failed to parse assistant stream event', err);
+        // fail silently
       }
     });
 
@@ -240,7 +239,7 @@ export const sendMessageStream = async (
         onDone();
         eventSource.close();
       } catch (err) {
-        AlertUtils.log('Failed to parse assistant done event', err);
+        // fail silently
         onToolUse?.([]);
         onDone();
         eventSource.close();

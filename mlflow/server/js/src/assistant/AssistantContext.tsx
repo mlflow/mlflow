@@ -9,7 +9,6 @@ import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './type
 import { cancelSession as cancelSessionApi, sendMessageStream, getConfig } from './AssistantService';
 import { useLocalStorage } from '../shared/web-shared/hooks/useLocalStorage';
 import { useAssistantPageContextActions } from './AssistantPageContext';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
@@ -323,7 +322,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
     // Send cancel request to backend
     cancelSessionApi(sessionId).catch((err) => {
-      AlertUtils.log('Failed to cancel assistant session', err);
+      // fail silently
     });
 
     // Mark the current streaming message as interrupted

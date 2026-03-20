@@ -8,7 +8,6 @@
 import React, { Component } from 'react';
 import './AppErrorBoundary.css';
 import defaultErrorImg from '../../static/default-error.svg';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import Utils from '../../utils/Utils';
 import { withNotifications } from '@databricks/design-system';
 
@@ -34,7 +33,6 @@ class AppErrorBoundary extends Component<React.PropsWithChildren<Props>, State> 
 
   componentDidCatch(error: any, errorInfo: any) {
     this.setState({ hasError: true });
-    AlertUtils.log('App error boundary caught error', { error, errorInfo });
   }
 
   render() {

@@ -6,7 +6,6 @@ import { fetchAPI, getAjaxUrl } from '../../../common/utils/FetchUtils';
 import { WorkflowType, useWorkflowType } from '../../../common/contexts/WorkflowTypeContext';
 import demoScreenshot from '../../../common/static/demo-tracing-screenshot.png';
 import demoScreenshotDark from '../../../common/static/demo-tracing-screenshot-dark.png';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 
 export const DEMO_BANNER_DISMISSED_KEY = 'mlflow.demo.banner.dismissed';
 
@@ -26,7 +25,7 @@ export const LaunchDemoCard = () => {
       setWorkflowType(WorkflowType.GENAI);
       navigate(url);
     } catch (error) {
-      AlertUtils.log('Failed to generate demo', error);
+      // fail silently
       navigate('/experiments');
     } finally {
       setIsLoading(false);

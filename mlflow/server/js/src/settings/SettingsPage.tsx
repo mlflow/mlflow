@@ -7,7 +7,6 @@ import { useCallback, useState } from 'react';
 import { fetchEndpointRaw, HTTPMethods } from '../common/utils/FetchUtils';
 import { useDarkThemeContext } from '../common/contexts/DarkThemeContext';
 import WebhooksSettings from './WebhooksSettings';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 
 const SettingsPage = () => {
   const { theme } = useDesignSystemTheme();
@@ -50,7 +49,7 @@ const SettingsPage = () => {
         method: HTTPMethods.POST,
       });
     } catch (error) {
-      AlertUtils.log('Failed to clear demo data', error);
+      // fail silently
     } finally {
       setIsCleaningDemo(false);
     }

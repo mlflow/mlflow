@@ -7,7 +7,6 @@
 
 import React from 'react';
 import { connect } from 'react-redux';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import {
   getModelVersionApi,
   getRegisteredModelApi,
@@ -112,7 +111,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
           this.props.deleteModelVersionApi(modelName, version, undefined, true);
           navigate(ModelRegistryRoutes.getModelPageRoute(modelName));
         } else {
-          AlertUtils.log('Failed to poll model version data', e);
+          // fail silently for non-RESOURCE_DOES_NOT_EXIST errors
         }
       });
     }
@@ -183,12 +182,16 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
       this.props
         .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
         .then(this.loadData)
-        .catch((e: unknown) => AlertUtils.log('Failed to edit model version description', e))
+        .catch(() => {
+          // fail silently
+        })
     );
   };
 
   componentDidMount() {
-    this.loadData(true).catch((e: unknown) => AlertUtils.log('Failed to load model version data', e));
+    this.loadData(true).catch(() => {
+      // fail silently
+    });
     this.loadModelDataWithAliases();
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
     this.getModelVersionMlModelFile();
@@ -201,7 +204,9 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   // Make a new initial load if model version or name has changed
   componentDidUpdate(prevProps: ModelVersionPageImplProps) {
     if (this.props.version !== prevProps.version || this.props.modelName !== prevProps.modelName) {
-      this.loadData(true).catch((e: unknown) => AlertUtils.log('Failed to load model version data', e));
+      this.loadData(true).catch(() => {
+      // fail silently
+    });
       this.getModelVersionMlModelFile();
     }
   }

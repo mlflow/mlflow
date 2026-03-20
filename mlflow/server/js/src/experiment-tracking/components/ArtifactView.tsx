@@ -10,7 +10,6 @@ import { connect } from 'react-redux';
 import type { IntlShape } from 'react-intl';
 import { injectIntl, FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../common/utils/RoutingUtils';
-import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import { getBasename } from '../../common/utils/FileUtils';
 import { ArtifactNode as ArtifactUtils, ArtifactNode } from '../utils/ArtifactUtils';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'byte... Remove this comment to see the full error message
@@ -474,7 +473,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           // or expand anything.
           ArtifactUtils.findChild(this.props.artifactNode, this.props.initialSelectedArtifactPath);
         } catch (err) {
-          AlertUtils.log('Invalid artifact path', err);
+          // invalid artifact path, skip selection
           return;
         }
       }
