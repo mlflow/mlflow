@@ -6804,7 +6804,8 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     # the matching assessment, then find all traces in
                     # those sessions.
                     session_ids_with_assessment = (
-                        session.query(SqlTraceMetadata.value)
+                        session
+                        .query(SqlTraceMetadata.value)
                         .join(
                             SqlAssessments,
                             SqlAssessments.trace_id == SqlTraceMetadata.request_id,
@@ -6820,12 +6821,9 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                             ),
                         )
                     )
-                    session_covered = (
-                        session.query(SqlTraceMetadata.request_id)
-                        .filter(
-                            SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
-                            SqlTraceMetadata.value.in_(session_ids_with_assessment),
-                        )
+                    session_covered = session.query(SqlTraceMetadata.request_id).filter(
+                        SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
+                        SqlTraceMetadata.value.in_(session_ids_with_assessment),
                     )
 
                     if comparator == "IS NULL":
@@ -6872,7 +6870,8 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 # Session expansion: for session-scoped assessments, also return
                 # all sibling traces in the same session
                 session_ids_with_assessment = (
-                    session.query(SqlTraceMetadata.value)
+                    session
+                    .query(SqlTraceMetadata.value)
                     .join(
                         SqlAssessments,
                         SqlAssessments.trace_id == SqlTraceMetadata.request_id,
@@ -6889,14 +6888,11 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         ),
                     )
                 )
-                session_siblings = (
-                    session.query(
-                        SqlTraceMetadata.request_id.label("request_id")
-                    )
-                    .filter(
-                        SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
-                        SqlTraceMetadata.value.in_(session_ids_with_assessment),
-                    )
+                session_siblings = session.query(
+                    SqlTraceMetadata.request_id.label("request_id")
+                ).filter(
+                    SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
+                    SqlTraceMetadata.value.in_(session_ids_with_assessment),
                 )
                 feedback_subquery = direct_matches.union(session_siblings).subquery()
                 span_filters.append(feedback_subquery)
