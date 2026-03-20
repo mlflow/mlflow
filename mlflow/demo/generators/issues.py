@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
@@ -97,10 +96,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
     version = 3
 
     def generate(self) -> DemoResult:
-        from mlflow.server.handlers import _get_job_store
-
         store = _get_store()
-        job_store = _get_job_store()
         experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
         if experiment is None:
             raise ValueError(f"Demo experiment '{DEMO_EXPERIMENT_NAME}' not found")
@@ -148,19 +144,6 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                 source_type=AssessmentSourceType.LLM_JUDGE,
                 source_id=run_id,
             )
-
-            job_params = json.dumps({
-                "run_id": run_id,
-                "experiment_id": experiment_id,
-                "task": "issue_detection",
-            })
-            job = job_store.create_job(
-                job_name="demo_issue_detection",
-                params=job_params,
-                timeout=300.0,
-            )
-            job_store.start_job(job.job_id)
-            mlflow.set_tag("mlflow.issueDetection.jobId", job.job_id)
 
             created_issues_info = []
             for assessment_name, failing_traces in failing_traces_by_assessment.items():
@@ -217,12 +200,10 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                 created_issues=created_issues_info,
             )
 
-            result = json.dumps({
-                "issues": len(created_issue_ids),
-                "total_traces_analyzed": len(v1_traces),
-                "summary": summary,
-            })
-            job_store.finish_job(job.job_id, result)
+            # Store result as tags so UI can display without requiring a job
+            mlflow.set_tag("mlflow.issueDetection.result.issues", str(len(created_issue_ids)))
+            mlflow.set_tag("mlflow.issueDetection.result.totalTracesAnalyzed", str(len(v1_traces)))
+            mlflow.set_tag("mlflow.issueDetection.result.summary", summary)
 
         return DemoResult(
             feature=self.name,
@@ -278,17 +259,10 @@ class IssuesDemoGenerator(BaseDemoGenerator):
             return False
 
     def delete_demo(self) -> None:
-        from mlflow.server.handlers import _get_job_store
-
         store = _get_store()
-        job_store = _get_job_store()
         experiment = store.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
         if experiment is None:
             return
-
-        if jobs := list(job_store.list_jobs(job_name="demo_issue_detection", statuses=None)):
-            job_ids = [job.job_id for job in jobs]
-            job_store.delete_jobs(job_ids=job_ids)
 
         runs = mlflow.search_runs(
             experiment_ids=[experiment.experiment_id],
