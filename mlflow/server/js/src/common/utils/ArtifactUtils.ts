@@ -7,6 +7,7 @@
 
 import { ErrorWrapper } from './ErrorWrapper';
 import { getAjaxUrl, getDefaultHeaders, HTTPMethods } from './FetchUtils';
+import { AlertUtils } from '@databricks/web-shared/alert-utils';
 
 /**
  * Async function to fetch and return the specified artifact blob from response.
@@ -98,8 +99,7 @@ export function getArtifactContent<R = unknown>(artifactLocation: string, isBina
         fileReader.readAsText(blob);
       }
     } catch (error) {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(error);
+      AlertUtils.log('Failed to read artifact content', error);
       reject(error);
     }
   });

@@ -8,6 +8,7 @@
 import { Services } from './services';
 import { getUUID } from '../common/utils/ActionUtils';
 import { getArtifactContent } from '../common/utils/ArtifactUtils';
+import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import yaml from 'js-yaml';
 import type { ModelVersionInfoEntity } from '../experiment-tracking/types';
 import type { KeyValueEntity } from '../common/types';
@@ -134,8 +135,7 @@ export const parseMlModelFile = (modelName: any, version: any, mlModelFile: any,
         meta: { id, modelName, version },
       };
     } catch (error) {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(error);
+      AlertUtils.log('Failed to parse MLmodel file', error);
       return {
         type: PARSE_MLMODEL_FILE,
         payload: Promise.reject(),

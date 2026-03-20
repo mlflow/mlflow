@@ -7,6 +7,7 @@ import { ExperimentLoggedModelStatusIndicator } from '../ExperimentLoggedModelSt
 import { ExperimentLoggedModelTableDatasetCell } from '../ExperimentLoggedModelTableDatasetCell';
 import type { LoggedModelProto } from '../../../types';
 import { compact, isEqual, values, uniq, orderBy, isObject } from 'lodash';
+import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import { ExperimentLoggedModelTableSourceRunCell } from '../ExperimentLoggedModelTableSourceRunCell';
 import {
   ExperimentLoggedModelActionsCell,
@@ -128,8 +129,7 @@ export const parseLoggedModelMetricOrderByColumnId = (metricColumnId: string) =>
       datasetDigest: parsed.datasetDigest,
     };
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to parse metric column ID:', error);
+    AlertUtils.log('Failed to parse metric column ID', error);
     return fallback;
   }
 };

@@ -14,6 +14,7 @@ import {
 } from './utils';
 import { WorkerToClientMessageType, ClientToWorkerMessageType } from './worker/types';
 import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
+import { AlertUtils } from '@databricks/web-shared/alert-utils';
 
 const LOCAL_STORAGE_INSTALLATION_ID_KEY = 'mlflow-telemetry-installation-id';
 
@@ -80,7 +81,7 @@ class TelemetryClient {
         // Listen for the "READY" message from worker
         this.port.onmessage = handleReadyMessage;
       } catch (error) {
-        console.error('[TelemetryLogger] Failed to initialize SharedWorker:', error);
+        AlertUtils.log('Failed to initialize telemetry worker', error);
         resolve(false);
       }
     });

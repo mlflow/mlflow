@@ -4,6 +4,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import ErrorUtils from './ErrorUtils';
 import { DangerIcon, Empty } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { AlertUtils } from '@databricks/web-shared/alert-utils';
 
 export type ErrorBoundaryProps = {
   children: React.Component;
@@ -28,8 +29,7 @@ function ErrorFallback() {
 
 function CustomErrorBoundary({ children, customFallbackComponent }: React.PropsWithChildren<ErrorBoundaryProps>) {
   function logErrorToConsole(error: Error, info: { componentStack: string }) {
-    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-    console.error('Caught Unexpected Error: ', error, info.componentStack);
+    AlertUtils.log('Caught unexpected error', { error, componentStack: info.componentStack });
   }
 
   if (customFallbackComponent) {

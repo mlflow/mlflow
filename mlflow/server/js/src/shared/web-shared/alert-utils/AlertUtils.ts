@@ -10,8 +10,8 @@ type DebugBlob = string | Record<string, unknown> | Error | unknown;
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class AlertUtils {
-  static log(_component: string, eventId: string, debugBlob: DebugBlob = '') {
+  static log(eventId: string, debugBlob: DebugBlob = '') {
     // eslint-disable-next-line no-console
-    console.error(`[AlertUtils] ${eventId}`, debugBlob);
+    console.error(`[${eventId}]`, debugBlob);
   }
 }

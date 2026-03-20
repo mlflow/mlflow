@@ -8,6 +8,7 @@
 import cookie from 'cookie';
 import JsonBigInt from 'json-bigint';
 import yaml from 'js-yaml';
+import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import { isNil, pickBy } from 'lodash';
 import { ErrorWrapper } from './ErrorWrapper';
 import { matchPredefinedError, matchPredefinedErrorFromResponse } from '@databricks/web-shared/errors';
@@ -93,8 +94,7 @@ export const yamlResponseParser = ({ resolve, response }: any) =>
   parseResponse({ resolve, response, parser: yaml.safeLoad });
 
 export const defaultError = ({ reject, response, err }: any) => {
-  // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-  console.error('Fetch failed: ', response || err);
+  AlertUtils.log('Fetch request failed', response || err);
   if (response) {
     response.text().then((text: any) => reject(new ErrorWrapper(text, response.status)));
   } else if (err) {

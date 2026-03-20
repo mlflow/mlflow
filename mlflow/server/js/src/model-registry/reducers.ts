@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import {
   SEARCH_REGISTERED_MODELS,
   SEARCH_MODEL_VERSIONS,
@@ -158,8 +159,7 @@ export const getModelVersionSchemas = (state: any, modelName: any, version: any)
           // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
           schemaMap['inputs'] = JSON.parse(artifact.signature.inputs.replace(/(\r\n|\n|\r)/gm, ''));
         } catch (error) {
-          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-          console.error(error);
+          AlertUtils.log('Failed to parse model signature', error);
         }
       }
       if (artifact.signature.outputs) {
@@ -167,8 +167,7 @@ export const getModelVersionSchemas = (state: any, modelName: any, version: any)
           // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
           schemaMap['outputs'] = JSON.parse(artifact.signature.outputs.replace(/(\r\n|\n|\r)/gm, ''));
         } catch (error) {
-          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-          console.error(error);
+          AlertUtils.log('Failed to parse model signature', error);
         }
       }
     }

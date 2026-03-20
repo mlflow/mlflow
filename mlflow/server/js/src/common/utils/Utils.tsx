@@ -17,6 +17,7 @@ import { ErrorWrapper } from './ErrorWrapper';
 import type { RunInfoEntity } from '../../experiment-tracking/types';
 import type { KeyValueEntity } from '../types';
 import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
+import { AlertUtils } from '@databricks/web-shared/alert-utils';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class Utils {
@@ -1005,8 +1006,7 @@ class Utils {
     duration = 3,
     passErrorToParentFrame = false,
   ) {
-    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-    console.error(e);
+    AlertUtils.log('Error logged and notified', e);
     if (typeof e === 'string') {
       Utils.displayGlobalErrorNotification(e, duration);
     } else if (e instanceof ErrorWrapper) {

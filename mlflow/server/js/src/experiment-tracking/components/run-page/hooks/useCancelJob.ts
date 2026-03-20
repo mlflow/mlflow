@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@databricks/web-shared/query-client
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { FETCH_JOB_STATUS_QUERY_KEY } from './useFetchJobStatus';
+import { AlertUtils } from '@databricks/web-shared/alert-utils';
 
 interface CancelJobParams {
   jobId: string;
@@ -30,7 +31,7 @@ export const useCancelJob = () => {
             status: 'KILLED',
           });
         } catch (e) {
-          console.error('Failed to update run status after job cancellation:', e);
+          AlertUtils.log('Job cancellation - failed to update run status', e);
         }
       }
 

@@ -24,6 +24,7 @@ async function fetchConfig(): Promise<TelemetryConfig | null> {
     }
     return await response.json();
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('[TelemetryWorker] Failed to fetch config:', error);
     return null;
   }
@@ -69,6 +70,7 @@ function handleMessage(event: MessageEvent): void {
   switch (message.type) {
     case ClientToWorkerMessageType.LOG_EVENT:
       logger.addLogToQueue(message.payload as TelemetryRecord).catch((error) => {
+        // eslint-disable-next-line no-console
         console.error('[TelemetryWorker] Error logging event:', error);
       });
       break;

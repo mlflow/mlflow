@@ -8,6 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { getApis } from '../../experiment-tracking/reducers/Reducers';
+import { AlertUtils } from '@databricks/web-shared/alert-utils';
 import { Spinner } from './Spinner';
 import { ErrorCodes } from '../constants';
 import type { ErrorWrapper } from '../utils/ErrorWrapper';
@@ -109,8 +110,7 @@ export class RequestStateWrapper extends Component<RequestStateWrapperProps, Req
 
 export const triggerError = (requests: any) => {
   // This triggers the OOPS error boundary.
-  // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-  console.error('ERROR', requests);
+  AlertUtils.log('Request failed', requests);
   throw Error(`${DEFAULT_ERROR_MESSAGE}: ${requests.error}`);
 };
 
