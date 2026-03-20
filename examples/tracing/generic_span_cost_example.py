@@ -126,7 +126,9 @@ if __name__ == "__main__":
     print("VIEW THE TRACE IN THE UI:")
     print(f"{'=' * 70}")
     print("\nOpen this URL in your browser:")
-    print(f"  http://localhost:3000/#/experiments/{exp.experiment_id}/traces?selectedEvaluationId={trace_id}")
+    print(
+        f"  http://localhost:3000/#/experiments/{exp.experiment_id}/traces?selectedEvaluationId={trace_id}"
+    )
     print("\nWhat to verify:")
     print("  ✓ Total trace cost badge: ~$0.0368")
     print("  ✓ Individual span costs:")
@@ -142,7 +144,7 @@ if __name__ == "__main__":
         print("TRACE METADATA (from database):")
         print(f"{'=' * 70}")
 
-        cost_json = trace.info.request_metadata.get('mlflow.trace.cost')
+        cost_json = trace.info.request_metadata.get("mlflow.trace.cost")
         if cost_json:
             cost = json.loads(cost_json)
             print("\nAggregated cost breakdown:")
