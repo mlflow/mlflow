@@ -146,16 +146,23 @@ if __name__ == "__main__":
         if cost_json:
             cost = json.loads(cost_json)
             print(f"\nAggregated cost breakdown:")
-            print(f"  Input cost:  ${cost.get('input_cost', 0):.4f}")
-            print(f"  Output cost: ${cost.get('output_cost', 0):.4f}")
-            print(f"  Total cost:  ${cost.get('total_cost', 0):.4f}")
 
-            print(f"\nCost components:")
-            print(f"  - LLM cost:       $0.0300 (with input/output breakdown)")
-            print(f"  - Tool cost:      $0.0010 (total only)")
-            print(f"  - Embedding cost: $0.0005 (total only)")
-            print(f"  - Retrieval cost: $0.0003 (total only)")
-            print(f"  - Generic cost:   $0.0050 (total only)")
+            # Display all non-zero cost components
+            cost_fields = [
+                ("input_cost", "Input cost"),
+                ("output_cost", "Output cost"),
+                ("tool_cost", "Tool cost"),
+                ("embedding_cost", "Embedding cost"),
+                ("retrieval_cost", "Retrieval cost"),
+                ("misc_cost", "Other cost"),
+            ]
+
+            for key, label in cost_fields:
+                if cost.get(key, 0) > 0:
+                    print(f"  {label:20s} ${cost[key]:.4f}")
+
+            print(f"  {'─' * 40}")
+            print(f"  {'Total cost':20s} ${cost['total_cost']:.4f}")
         else:
             print("\n⚠ Cost metadata not yet available in database")
 
