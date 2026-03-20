@@ -10,6 +10,12 @@ resolve the vulnerabilities they discover.
 The latest version of MLflow has continued support. If a critical vulnerability is found in the current version
 of MLflow, we may opt to backport patches to previous versions.
 
+## Bounty Platform Policy
+
+Due to an excessive volume of low-quality, AI-generated reports (including duplicates, low-effort submissions, non-reproducible claims, and spam), **we no longer accept vulnerability reports through bounty platforms such as [Huntr](https://huntr.com/)**. All reports submitted through such platforms will be automatically closed without review.
+
+Please use the reporting process described below instead.
+
 ## Reporting a Vulnerability
 
 When finding a security vulnerability in MLflow, please perform the following actions:

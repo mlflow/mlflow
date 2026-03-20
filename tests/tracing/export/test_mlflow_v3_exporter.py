@@ -78,6 +78,7 @@ def test_export(is_async, monkeypatch):
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
         ) as mock_upload_trace_data,
+        mock.patch("mlflow.tracing.client.TracingClient._upload_attachments", return_value=None),
     ):
         _predict("hello")
 

@@ -22,6 +22,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
     AdapterInvocationOutput,
@@ -264,7 +265,10 @@ def _invoke_litellm_and_handle_tools(
         config = get_gateway_litellm_config(model_name)
         api_base = config.api_base
         api_key = config.api_key
-        extra_headers = config.extra_headers
+        extra_headers = {
+            **(config.extra_headers or {}),
+            MLFLOW_GATEWAY_CALLER_HEADER: GatewayCaller.JUDGE.value,
+        }
         model = config.model
     else:
         model = f"{provider}/{model_name}"

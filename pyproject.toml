@@ -152,6 +152,7 @@ mlflow = [
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",
+  "server/uvicorn_log_config.yaml",
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
   "assistant/skills/**/*",
@@ -251,6 +252,9 @@ constraint-dependencies = [
   "pyspark<4.1.0",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
+  # claude-agent-sdk 0.1.49 only published macOS ARM64 wheel, missing all other platforms
+  # https://github.com/anthropics/claude-agent-sdk-python/issues/687
+  "claude-agent-sdk!=0.1.49",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer

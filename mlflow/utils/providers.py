@@ -65,8 +65,8 @@ def _get_model_cost():
 #   - Vertex AI: https://docs.litellm.ai/docs/providers/vertex
 #   - Databricks: https://docs.litellm.ai/docs/providers/databricks
 #
-# Only user-provided modes are included (no server-provided modes like
-# managed identity, IRSA, or ADC that require specific hosting environments).
+# Includes both user-provided credential modes and a default credential chain mode
+# that uses ambient server credentials (instance profile, IRSA, ECS task role, etc.).
 _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
     "bedrock": {
         "api_key": {
@@ -127,6 +127,31 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "description": "IAM Role ARN to assume",
                     "secret": False,
                     "required": True,
+                },
+                {
+                    "name": "aws_session_name",
+                    "description": "Session name for assumed role",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
+                    "required": False,
+                },
+            ],
+        },
+        "default_chain": {
+            "display_name": "Default Credential Chain",
+            "description": "Use the server's default AWS credentials "
+            "(instance profile, IRSA, ECS task role, ~/.aws/credentials, etc.)",
+            "fields": [
+                {
+                    "name": "aws_role_name",
+                    "description": "IAM Role ARN to assume (optional, for cross-account access)",
+                    "secret": False,
+                    "required": False,
                 },
                 {
                     "name": "aws_session_name",
@@ -341,6 +366,31 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "description": "AWS Region (e.g., us-east-1)",
                     "secret": False,
                     "required": True,
+                },
+            ],
+        },
+        "default_chain": {
+            "display_name": "Default Credential Chain",
+            "description": "Use the server's default AWS credentials "
+            "(instance profile, IRSA, ECS task role, ~/.aws/credentials, etc.)",
+            "fields": [
+                {
+                    "name": "aws_role_name",
+                    "description": "IAM Role ARN to assume (optional, for cross-account access)",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_session_name",
+                    "description": "Session name for assumed role",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
+                    "required": False,
                 },
             ],
         },

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { FETCH_ISSUE_JOB_STATUS_QUERY_KEY } from './useFetchIssueJobStatus';
+import { FETCH_JOB_STATUS_QUERY_KEY } from './useFetchJobStatus';
 
 interface CancelJobParams {
   jobId: string;
@@ -37,7 +37,7 @@ export const useCancelJob = () => {
       return response;
     },
     onSuccess: (_data, { jobId }) => {
-      queryClient.invalidateQueries([FETCH_ISSUE_JOB_STATUS_QUERY_KEY, jobId]);
+      queryClient.invalidateQueries([FETCH_JOB_STATUS_QUERY_KEY, jobId]);
     },
   });
 
