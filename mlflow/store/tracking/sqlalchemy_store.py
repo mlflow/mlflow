@@ -4612,18 +4612,20 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                                 try:
                                     parsed_cost = json.loads(cost_value)
                                     if isinstance(parsed_cost, (int, float)):
-                                        # Float value - create dict with both total_cost and span-type key
+                                        # Float: create dict with total & span-type key
                                         span_type_key = span_cost_key_mapping[cost_attr_key]
                                         normalized_cost_value = json.dumps({
                                             CostKey.TOTAL_COST: float(parsed_cost),
                                             span_type_key: float(parsed_cost),
                                         })
-                                    elif isinstance(parsed_cost, dict) and CostKey.TOTAL_COST in parsed_cost:
-                                        # Dict with total_cost but missing span-type key
-                                        span_type_key = span_cost_key_mapping[cost_attr_key]
-                                        if span_type_key not in parsed_cost:
-                                            parsed_cost[span_type_key] = parsed_cost[CostKey.TOTAL_COST]
-                                            normalized_cost_value = json.dumps(parsed_cost)
+                                    elif isinstance(parsed_cost, dict):
+                                        if CostKey.TOTAL_COST in parsed_cost:
+                                            # Dict: ensure span-type key is set
+                                            span_type_key = span_cost_key_mapping[cost_attr_key]
+                                            if span_type_key not in parsed_cost:
+                                                total = parsed_cost[CostKey.TOTAL_COST]
+                                                parsed_cost[span_type_key] = total
+                                                normalized_cost_value = json.dumps(parsed_cost)
                                 except (json.JSONDecodeError, TypeError):
                                     pass  # Keep original value if parsing fails
 
@@ -4675,12 +4677,14 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         if span_cost_attr_key in span_cost_key_mapping:
                             span_type_key = span_cost_key_mapping[span_cost_attr_key]
                             span_cost[span_type_key] = cost_value
-                    # For non-LLM spans with dict format, ensure span-type-specific key is set
-                    elif isinstance(span_cost, dict) and span_cost_attr_key in span_cost_key_mapping:
-                        span_type_key = span_cost_key_mapping[span_cost_attr_key]
-                        if CostKey.TOTAL_COST in span_cost and span_type_key not in span_cost:
-                            # If only total_cost is provided, also set the span-type-specific key
-                            span_cost[span_type_key] = span_cost[CostKey.TOTAL_COST]
+                    # For non-LLM spans with dict format, ensure span-type key is set
+                    elif isinstance(span_cost, dict):
+                        if span_cost_attr_key in span_cost_key_mapping:
+                            span_type_key = span_cost_key_mapping[span_cost_attr_key]
+                            if CostKey.TOTAL_COST in span_cost:
+                                if span_type_key not in span_cost:
+                                    # Set span-type-specific key from total_cost
+                                    span_cost[span_type_key] = span_cost[CostKey.TOTAL_COST]
                     for cost_key, cost_value in span_cost.items():
                         session.merge(
                             SqlSpanMetrics(

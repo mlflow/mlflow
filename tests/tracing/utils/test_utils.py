@@ -307,7 +307,6 @@ def test_aggregate_cost_from_spans_skips_descendant_cost():
 
 
 def test_aggregate_cost_from_spans_with_generic_cost_attributes():
-    """Test aggregation with new generic cost attributes (tool, embedding, retrieval, span)."""
     spans = [
         LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="llm"), trace_id="tr-123"),
         LiveSpan(create_mock_otel_span("trace_id", span_id=2, name="tool"), trace_id="tr-123"),
@@ -361,7 +360,6 @@ def test_aggregate_cost_from_spans_with_generic_cost_attributes():
 
 
 def test_aggregate_cost_from_spans_mixed_formats():
-    """Test that different cost formats can coexist in the same trace."""
     spans = [
         LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="span1"), trace_id="tr-123"),
         LiveSpan(create_mock_otel_span("trace_id", span_id=2, name="span2"), trace_id="tr-123"),
@@ -389,7 +387,6 @@ def test_aggregate_cost_from_spans_mixed_formats():
 
 
 def test_aggregate_cost_from_spans_no_double_counting():
-    """Test that generic cost attributes don't double-count when parent has cost."""
     spans = [
         LiveSpan(create_mock_otel_span("trace_id", span_id=1, name="root"), trace_id="tr-123"),
         LiveSpan(

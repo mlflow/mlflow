@@ -13224,7 +13224,6 @@ def test_log_spans_creates_span_metrics(store: SqlAlchemyStore) -> None:
 
 
 def test_log_spans_float_cost_values(store: SqlAlchemyStore) -> None:
-    """Test that float cost values (not dicts) work correctly for all cost attribute types."""
     experiment_id = store.create_experiment("test_log_spans_float_cost")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
