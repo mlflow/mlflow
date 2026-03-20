@@ -428,6 +428,10 @@ def update_cost(
                     CostKey.INPUT_COST,
                     CostKey.OUTPUT_COST,
                     CostKey.TOTAL_COST,
+                    CostKey.TOOL_COST,
+                    CostKey.EMBEDDING_COST,
+                    CostKey.RETRIEVAL_COST,
+                    CostKey.MISC_COST,
                 ]:
                     current_cost[key] = current_cost.get(key, 0.0) + new_cost.get(key, 0.0)
     except Exception:

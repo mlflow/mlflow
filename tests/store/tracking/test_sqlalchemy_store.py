@@ -12876,11 +12876,10 @@ def test_log_spans_cost(store: SqlAlchemyStore) -> None:
 
     # verify cost is stored in the trace info
     trace_info = store.get_trace_info(trace_id)
-    assert trace_info.cost == {
-        "input_cost": 0.01,
-        "output_cost": 0.02,
-        "total_cost": 0.03,
-    }
+    assert trace_info.cost is not None
+    assert trace_info.cost["input_cost"] == 0.01
+    assert trace_info.cost["output_cost"] == 0.02
+    assert trace_info.cost["total_cost"] == 0.03
 
     # verify loaded trace has same cost
     traces = store.batch_get_traces([trace_id])
@@ -13297,22 +13296,35 @@ def test_log_spans_float_cost_values(store: SqlAlchemyStore) -> None:
 
     # Verify span metrics were created correctly for each span
     with store.ManagedSessionMaker() as session:
-        for span, expected_cost in zip(spans, [0.001, 0.0005, 0.0003, 0.005]):
+        # Verify span metrics: each span should have both total_cost and span-type-specific cost
+        expected_span_data = [
+            (0.001, CostKey.TOOL_COST),
+            (0.0005, CostKey.EMBEDDING_COST),
+            (0.0003, CostKey.RETRIEVAL_COST),
+            (0.005, CostKey.MISC_COST),
+        ]
+
+        for span, (expected_cost, expected_type_key) in zip(spans, expected_span_data):
             metrics = (
                 session
                 .query(SqlSpanMetrics)
                 .filter(SqlSpanMetrics.trace_id == trace_id, SqlSpanMetrics.span_id == span.span_id)
                 .all()
             )
-            # Float costs should be normalized to have only total_cost
-            assert len(metrics) == 1
-            assert metrics[0].key == CostKey.TOTAL_COST
-            assert metrics[0].value == expected_cost
+            # Float costs should be normalized to have both total_cost and span-type-specific cost
+            assert len(metrics) == 2
+            metrics_by_key = {m.key: m.value for m in metrics}
+            assert metrics_by_key[CostKey.TOTAL_COST] == expected_cost
+            assert metrics_by_key[expected_type_key] == expected_cost
 
     # Verify trace-level cost aggregation
     trace_info = store.get_trace_info(trace_id)
     assert trace_info.cost is not None
-    # Float costs only have total_cost, no input/output breakdown
+    # Verify individual cost components
+    assert trace_info.cost[CostKey.TOOL_COST] == 0.001
+    assert trace_info.cost[CostKey.EMBEDDING_COST] == 0.0005
+    assert trace_info.cost[CostKey.RETRIEVAL_COST] == 0.0003
+    assert trace_info.cost[CostKey.MISC_COST] == 0.005
     assert trace_info.cost["total_cost"] == 0.001 + 0.0005 + 0.0003 + 0.005
     # Input and output costs should be 0 since we only used float values
     assert trace_info.cost.get("input_cost", 0) == 0

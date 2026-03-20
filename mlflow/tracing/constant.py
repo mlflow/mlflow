@@ -69,11 +69,20 @@ class TokenUsageKey:
 
 
 class CostKey:
-    """Key for the cost information in the `mlflow.llm.cost` span attribute."""
+    """Key for the cost information in cost attributes.
+
+    For LLM spans: uses input_cost, output_cost, and total_cost.
+    For non-LLM spans: uses span-type-specific cost key plus total_cost.
+    """
 
     INPUT_COST = "input_cost"
     OUTPUT_COST = "output_cost"
     TOTAL_COST = "total_cost"
+    # Span-type-specific cost keys for non-LLM operations
+    TOOL_COST = "tool_cost"
+    EMBEDDING_COST = "embedding_cost"
+    RETRIEVAL_COST = "retrieval_cost"
+    MISC_COST = "misc_cost"  # For generic/unknown spans
 
 
 class TraceSizeStatsKey:
