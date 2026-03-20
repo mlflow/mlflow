@@ -218,12 +218,10 @@ def test_builtin_scorer_handles_numeric_boolean_values():
 
 
 def test_meets_guidelines_oss():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "Let's think step by step. The response is correct.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. The response is correct.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
@@ -248,12 +246,10 @@ def test_meets_guidelines_oss():
 
 
 def test_is_context_relevant_oss():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "Let's think step by step. The answer is relevant to the question.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. The answer is relevant to the question.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
@@ -279,12 +275,10 @@ def test_is_context_relevant_oss():
 
 
 def test_is_correct_oss():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "Let's think step by step. The response is correct.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. The response is correct.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
@@ -325,12 +319,10 @@ def test_is_correct_rejects_both_expected_response_and_expected_facts():
 
 
 def test_is_context_sufficient_oss():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "Let's think step by step. The context is sufficient.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. The context is sufficient.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
@@ -360,12 +352,10 @@ def test_is_context_sufficient_oss():
 
 
 def test_is_grounded_oss():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "Let's think step by step. The response is grounded.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "Let's think step by step. The response is grounded.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:

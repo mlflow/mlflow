@@ -82,9 +82,7 @@ npm install @mlflow/openai openai
     # Use the client as usual - traces will be automatically captured
     response = client.chat.completions.create(
         model="accounts/fireworks/models/deepseek-v3-0324",  # For other models see: https://fireworks.ai/models
-        messages=[
-            {"role": "user", "content": "Why is open source better than closed source?"}
-        ],
+        messages=[{"role": "user", "content": "Why is open source better than closed source?"}],
     )
     ```
 
@@ -222,9 +220,7 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
 
     stream = client.chat.completions.create(
         model="accounts/fireworks/models/deepseek-v3-0324",
-        messages=[
-            {"role": "user", "content": "How fast would a glass of water freeze on Titan?"}
-        ],
+        messages=[{"role": "user", "content": "How fast would a glass of water freeze on Titan?"}],
         stream=True,  # Enable streaming response
     )
     for chunk in stream:
@@ -325,13 +321,11 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
                 else:
                     raise RuntimeError("An invalid tool is returned from the assistant!")
 
-                messages.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": tool_result,
-                    }
-                )
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": tool_result,
+                })
 
             # Send the tool results to the model and get a new response
             response = client.chat.completions.create(

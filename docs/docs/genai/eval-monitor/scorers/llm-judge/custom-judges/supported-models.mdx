@@ -2,7 +2,7 @@
 
 When no model is specified, MLflow uses a default based on your environment:
 
-- **Databricks**: `"databricks"` (a [Databricks-hosted model](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/scorers#select-the-llm-that-powers-the-judge) designed for GenAI quality assessments)
+- **Databricks**: `"databricks"` (a [Databricks-hosted model](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/scorers#select-the-llm-that-powers-the-judge) designed for LLM and AI agent quality assessments)
 - **Other environments**: `"openai:/gpt-4o-mini"`
 
 You can also explicitly specify a model from any of the following sources:
@@ -38,7 +38,7 @@ To use LiteLLM integrated models, install LiteLLM by running `pip install litell
 
 When using MLflow in Databricks, you can use Databricks-hosted models using the following formats:
 
-- **`"databricks"`** (default): a [default Databricks-hosted model](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/scorers#select-the-llm-that-powers-the-judge) designed for GenAI quality assessments.
+- **`"databricks"`** (default): a [default Databricks-hosted model](https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/concepts/scorers#select-the-llm-that-powers-the-judge) designed for LLM and AI agent quality assessments.
 - **`"databricks:/<model-name>"`**: Other Databricks-hosted models of your choice (e.g., `databricks:/databricks-gpt-5-mini`, `databricks:/databricks-claude-sonnet-4-5`). For a full list, see [LiteLLM Models](https://models.litellm.ai/) and select "databricks" as the provider.
 - **`"databricks:/<endpoint-name>"`** or **`"endpoints:/<endpoint-name>"`**: Custom model endpoints on Databricks (e.g., `databricks:/my-endpoint`).
 

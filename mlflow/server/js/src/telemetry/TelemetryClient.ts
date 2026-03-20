@@ -6,11 +6,19 @@
  */
 import { v4 as uuidv4 } from 'uuid';
 import type { TelemetryRecord } from './worker/types';
-import { isDesignSystemEvent, TELEMETRY_ENABLED_STORAGE_KEY, TELEMETRY_ENABLED_STORAGE_VERSION } from './utils';
+import {
+  isDesignSystemEvent,
+  isTelemetryDevLoggingEnabled,
+  TELEMETRY_ENABLED_STORAGE_KEY,
+  TELEMETRY_ENABLED_STORAGE_VERSION,
+} from './utils';
 import { WorkerToClientMessageType, ClientToWorkerMessageType } from './worker/types';
 import { getLocalStorageItem } from '../shared/web-shared/hooks/useLocalStorage';
 
 const LOCAL_STORAGE_INSTALLATION_ID_KEY = 'mlflow-telemetry-installation-id';
+
+// Components whose onView events should be tracked (intentional impressions, not noise)
+const VIEW_EVENT_ALLOWLIST: ReadonlySet<string> = new Set(['mlflow.gateway.setup_guide']);
 
 class TelemetryClient {
   private installationId: string = this.getInstallationId();
@@ -89,8 +97,8 @@ class TelemetryClient {
       return;
     }
 
-    // drop view events to reduce noise
-    if (record.eventType === 'onView') {
+    // drop view events to reduce noise, except for explicitly tracked impressions
+    if (record.eventType === 'onView' && !VIEW_EVENT_ALLOWLIST.has(record.componentId)) {
       return;
     }
 
@@ -110,6 +118,14 @@ class TelemetryClient {
         ...(record.value !== undefined && { value: String(record.value) }),
       },
     };
+
+    if (process.env['NODE_ENV'] === 'development' && isTelemetryDevLoggingEnabled()) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[TelemetryClient] Event "${record.eventType}" on component "${record.componentId}", payload:`,
+        payload,
+      );
+    }
 
     this.port?.postMessage({
       type: ClientToWorkerMessageType.LOG_EVENT,

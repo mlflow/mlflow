@@ -78,9 +78,9 @@ def test__parallelized_download_from_cloud(
             signed_uri="fake_signed_uri",
             type=ArtifactCredentialType.AWS_PRESIGNED_URL,
         )
-        fake_credential.headers.extend(
-            [ArtifactCredentialInfo.HttpHeader(name="fake_header_name", value="fake_header_value")]
-        )
+        fake_credential.headers.extend([
+            ArtifactCredentialInfo.HttpHeader(name="fake_header_name", value="fake_header_value")
+        ])
 
         # Set the return value of _get_read_credential_infos to the fake_credential object
         cloud_artifact_instance._get_read_credential_infos.return_value = [fake_credential]

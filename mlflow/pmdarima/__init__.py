@@ -68,6 +68,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.environment_variables import MLFLOW_ALLOW_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -76,6 +77,10 @@ from mlflow.models.utils import _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
+from mlflow.utils.databricks_utils import (
+    is_in_databricks_model_serving_environment,
+    is_in_databricks_runtime,
+)
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -530,6 +535,16 @@ def _save_model(model, path):
 
 
 def _load_model(path):
+    if (
+        not MLFLOW_ALLOW_PICKLE_DESERIALIZATION.get()
+        and not is_in_databricks_runtime()
+        and not is_in_databricks_model_serving_environment()
+    ):
+        raise MlflowException(
+            "Deserializing model using pickle is disallowed, but this model is saved "
+            "in pickle format. The workaround is to set environment variable "
+            "'MLFLOW_ALLOW_PICKLE_DESERIALIZATION' to 'true'."
+        )
     with open(path, "rb") as pickled_model:
         return pickle.load(pickled_model)
 
@@ -624,9 +639,11 @@ class _PmdarimaModelWrapper:
 
         if return_conf_int:
             ci_low, ci_high = list(zip(*raw_predictions[1]))
-            predictions = pd.DataFrame.from_dict(
-                {"yhat": raw_predictions[0], "yhat_lower": ci_low, "yhat_upper": ci_high}
-            )
+            predictions = pd.DataFrame.from_dict({
+                "yhat": raw_predictions[0],
+                "yhat_lower": ci_low,
+                "yhat_upper": ci_high,
+            })
         else:
             predictions = pd.DataFrame.from_dict({"yhat": raw_predictions})
 

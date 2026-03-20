@@ -120,15 +120,13 @@ class GeminiAdapter(ProviderAdapter):
                             call_id_to_function_name_map[tool_call["id"]] = tool_call["function"][
                                 "name"
                             ]
-                            gemini_function_calls.append(
-                                {
-                                    "functionCall": {
-                                        "id": tool_call["id"],
-                                        "name": tool_call["function"]["name"],
-                                        "args": json.loads(tool_call["function"]["arguments"]),
-                                    }
+                            gemini_function_calls.append({
+                                "functionCall": {
+                                    "id": tool_call["id"],
+                                    "name": tool_call["function"]["name"],
+                                    "args": json.loads(tool_call["function"]["arguments"]),
                                 }
-                            )
+                            })
                 if gemini_function_calls:
                     contents.append({"role": "model", "parts": gemini_function_calls})
                 else:
@@ -139,21 +137,19 @@ class GeminiAdapter(ProviderAdapter):
                 system_message["parts"].append({"text": message["content"]})
             elif role == "tool":
                 call_id = message["tool_call_id"]
-                contents.append(
-                    {
-                        "role": "user",
-                        "parts": [
-                            {
-                                "functionResponse": {
-                                    "id": call_id,
-                                    # the function name field is required by Gemini request format
-                                    "name": call_id_to_function_name_map[call_id],
-                                    "response": json.loads(message["content"]),
-                                }
+                contents.append({
+                    "role": "user",
+                    "parts": [
+                        {
+                            "functionResponse": {
+                                "id": call_id,
+                                # the function name field is required by Gemini request format
+                                "name": call_id_to_function_name_map[call_id],
+                                "response": json.loads(message["content"]),
                             }
-                        ],
-                    }
-                )
+                        }
+                    ],
+                })
 
         gemini_payload = {"contents": contents}
 
@@ -187,13 +183,11 @@ class GeminiAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                function_declarations.append(
-                    {
-                        "name": tool_function["name"],
-                        "description": tool_function["description"],
-                        "parametersJsonSchema": tool_function["parameters"],
-                    }
-                )
+                function_declarations.append({
+                    "name": tool_function["name"],
+                    "description": tool_function["description"],
+                    "parametersJsonSchema": tool_function["parameters"],
+                })
 
             gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 

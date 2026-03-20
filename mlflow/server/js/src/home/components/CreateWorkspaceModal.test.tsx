@@ -4,7 +4,6 @@ import '@testing-library/jest-dom';
 import userEvent from '@testing-library/user-event';
 import { useCreateWorkspaceModal } from './CreateWorkspaceModal';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { act } from 'react-dom/test-utils';
 
 jest.mock('../../common/utils/FetchUtils');
 

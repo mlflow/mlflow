@@ -272,14 +272,18 @@ class _Trace(_Resource):
         paths: list[str] | None = None,
         page_token: str | None = None,
         timeout: int | None = None,
+        artifact_path: str | None = None,
     ) -> tuple[list[ArtifactCredentialInfo], str | None]:
+        api = (
+            GetCredentialsForTraceDataDownload
+            if cred_type == _CredentialType.READ
+            else GetCredentialsForTraceDataUpload
+        )
+        json_body = message_to_json(api(path=artifact_path)) if artifact_path else None
         res = self.call_endpoint(
             DatabricksMlflowArtifactsService,
-            (
-                GetCredentialsForTraceDataDownload
-                if cred_type == _CredentialType.READ
-                else GetCredentialsForTraceDataUpload
-            ),
+            api,
+            json_body,
             path_params={"request_id": self.id},
             retry_timeout_seconds=timeout,
         )

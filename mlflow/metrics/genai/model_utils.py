@@ -3,6 +3,7 @@ import os
 from typing import TYPE_CHECKING, Any
 
 import requests
+from pydantic import BaseModel
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -23,8 +24,6 @@ def get_endpoint_type(endpoint_uri: str) -> str | None:
 
     if schema != "endpoints":
         return None
-
-    from pydantic import BaseModel
 
     from mlflow.deployments import get_deploy_client
 
@@ -89,6 +88,29 @@ def _parse_model_uri(model_uri: str) -> tuple[str, str]:
                 "<provider>:/<model-name>, e.g., 'openai:/gpt-4.1-mini'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+
+def convert_mlflow_uri_to_litellm(model_uri: str) -> str:
+    """
+    Convert MLflow model URI format to LiteLLM format.
+
+    MLflow uses URIs like 'openai:/gpt-4' while LiteLLM expects 'openai/gpt-4'.
+    For Databricks endpoints, MLflow uses 'endpoints:/endpoint-name' which needs
+    to be converted to 'databricks/endpoints/endpoint-name' for LiteLLM.
+
+    Args:
+        model_uri: MLflow model URI (e.g., 'openai:/gpt-4', 'endpoints:/my-endpoint')
+
+    Returns:
+        LiteLLM-compatible model string (e.g., 'openai/gpt-4', 'databricks/endpoints/my-endpoint')
+    """
+    try:
+        scheme, path = _parse_model_uri(model_uri)
+    except Exception as e:
+        raise MlflowException(f"Failed to convert MLflow model URI to LiteLLM format: {e}")
+    if scheme in ("endpoints", "databricks"):
+        return f"databricks/{path}"
+    return f"{scheme}/{path}"
 
 
 _PREDICT_ERROR_MSG = """\

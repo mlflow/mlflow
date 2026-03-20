@@ -1,6 +1,7 @@
 import type { Observable } from '@apollo/client/core';
 import { ApolloLink, type Operation, type NextLink, type FetchResult } from '@apollo/client/core';
 import { getDefaultHeaders } from './FetchUtils';
+// eslint-disable-next-line no-restricted-imports
 export * from '@apollo/client';
 export * from '@apollo/client/link/retry';
 export * from '@apollo/client/testing';

@@ -65,7 +65,7 @@ def invoke_model_without_tracing(
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     with delete_trace_if_created():
-        if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        if model_uri in (_DATABRICKS_DEFAULT_JUDGE_MODEL, _DATABRICKS_AGENTIC_JUDGE_MODEL):
             user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
 
             result = call_chat_completions(
@@ -101,6 +101,8 @@ def invoke_model_without_tracing(
             kwargs["api_base"] = config.api_base
             kwargs["api_key"] = config.api_key
             kwargs["model"] = config.model
+            if config.extra_headers:
+                kwargs["extra_headers"] = config.extra_headers
         else:
             kwargs["model"] = f"{provider}/{model_name}"
         if inference_params:

@@ -154,9 +154,7 @@ with mlflow.start_run():
         avg_loss = train_loss / len(train_loader)
         accuracy = 100.0 * correct / total
 
-        mlflow.log_metrics(
-            {"train_loss": avg_loss, "train_accuracy": accuracy}, step=epoch
-        )
+        mlflow.log_metrics({"train_loss": avg_loss, "train_accuracy": accuracy}, step=epoch)
 
     # Log final model
     mlflow.pytorch.log_model(model, name="model")
@@ -318,15 +316,13 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 
 with mlflow.start_run() as run:
     # Log parameters once at the start
-    mlflow.log_params(
-        {
-            "n_layers": 3,
-            "activation": "ReLU",
-            "criterion": "CrossEntropyLoss",
-            "optimizer": "Adam",
-            "learning_rate": 0.01,
-        }
-    )
+    mlflow.log_params({
+        "n_layers": 3,
+        "activation": "ReLU",
+        "criterion": "CrossEntropyLoss",
+        "optimizer": "Adam",
+        "learning_rate": 0.01,
+    })
 
     for epoch in range(101):
         # Training step
@@ -511,9 +507,7 @@ with mlflow.start_run():
     )
 
     # Tag for tracking
-    mlflow.set_tags(
-        {"model_type": "cnn", "dataset": "imagenet", "framework": "pytorch"}
-    )
+    mlflow.set_tags({"model_type": "cnn", "dataset": "imagenet", "framework": "pytorch"})
 
 # Set alias for production deployment
 client.set_registered_model_alias(
@@ -573,9 +567,7 @@ def train_distributed():
     # Create distributed sampler
     from torch.utils.data.distributed import DistributedSampler
 
-    sampler = DistributedSampler(
-        train_dataset, num_replicas=dist.get_world_size(), rank=rank
-    )
+    sampler = DistributedSampler(train_dataset, num_replicas=dist.get_world_size(), rank=rank)
     train_loader = DataLoader(train_dataset, batch_size=32, sampler=sampler)
 
     # Only log from rank 0

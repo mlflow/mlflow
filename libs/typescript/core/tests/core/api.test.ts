@@ -974,4 +974,114 @@ describe('API', () => {
       expect(trace.info.responsePreview).toBe('Custom response preview');
     });
   });
+
+  describe('tracingContext', () => {
+    it('should inject metadata and tags into traces created within scope', async () => {
+      mlflow.tracingContext(
+        {
+          metadata: { custom_key: 'custom_value' },
+          tags: { my_tag: 'tag_value' },
+        },
+        () => {
+          void mlflow.withSpan((_span) => {}, { name: 'test-span' });
+        },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['custom_key']).toBe('custom_value');
+      expect(trace.info.tags['my_tag']).toBe('tag_value');
+    });
+
+    it('should not inject metadata into traces created outside scope', async () => {
+      mlflow.tracingContext(
+        {
+          metadata: { scoped_key: 'scoped_value' },
+        },
+        () => {
+          // Trace created inside scope
+        },
+      );
+
+      // Trace created outside scope
+      void mlflow.withSpan((_span) => {}, { name: 'outside-span' });
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['scoped_key']).toBeUndefined();
+    });
+
+    it('should merge nested contexts with inner values winning', async () => {
+      mlflow.tracingContext(
+        {
+          metadata: { outer_key: 'outer_val', shared: 'outer' },
+          tags: { outer_tag: 'outer' },
+        },
+        () => {
+          mlflow.tracingContext(
+            {
+              metadata: { inner_key: 'inner_val', shared: 'inner' },
+              tags: { inner_tag: 'inner' },
+            },
+            () => {
+              void mlflow.withSpan((_span) => {}, { name: 'nested-span' });
+            },
+          );
+        },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['outer_key']).toBe('outer_val');
+      expect(trace.info.traceMetadata['inner_key']).toBe('inner_val');
+      expect(trace.info.traceMetadata['shared']).toBe('inner');
+      expect(trace.info.tags['outer_tag']).toBe('outer');
+      expect(trace.info.tags['inner_tag']).toBe('inner');
+    });
+
+    it('should suppress traces when enabled is false', () => {
+      let spanInstance: mlflow.LiveSpan | null = null;
+
+      mlflow.tracingContext({ enabled: false }, () => {
+        void mlflow.withSpan((span) => {
+          spanInstance = span;
+        });
+      });
+
+      // The span should be a NoOpSpan (trace ID is the no-op sentinel)
+      expect(spanInstance).not.toBeNull();
+      expect(spanInstance!.traceId).toBe('no-op-span-trace-id');
+    });
+
+    it('should inherit enabled=false from outer context', () => {
+      let spanInstance: mlflow.LiveSpan | null = null;
+
+      mlflow.tracingContext({ enabled: false }, () => {
+        mlflow.tracingContext({ metadata: { key: 'val' } }, () => {
+          void mlflow.withSpan((span) => {
+            spanInstance = span;
+          });
+        });
+      });
+
+      expect(spanInstance).not.toBeNull();
+      expect(spanInstance!.traceId).toBe('no-op-span-trace-id');
+    });
+
+    it('should support async functions', async () => {
+      await mlflow.tracingContext(
+        {
+          metadata: { async_key: 'async_value' },
+        },
+        async () => {
+          await mlflow.withSpan(
+            async (_span) => {
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            },
+            { name: 'async-span' },
+          );
+        },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['async_key']).toBe('async_value');
+    });
+  });
 });

@@ -20,6 +20,7 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.deployments import PredictionsResponse
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
@@ -224,7 +225,8 @@ def test_pyfunc_serve_and_score(data):
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
     actual_scoring_response = (
-        PredictionsResponse.from_json(scoring_response.content.decode("utf-8"))
+        PredictionsResponse
+        .from_json(scoring_response.content.decode("utf-8"))
         .get_predictions()
         .values.astype(np.float32)
     )
@@ -314,6 +316,18 @@ def test_custom_model_save_respects_user_custom_objects(custom_model, custom_lay
         # model or supplied in the load_model call, the model will not be loaded.
         incorrect_loaded = mlflow.tensorflow.load_model(model_path)
         assert incorrect_loaded is not None
+
+
+def test_load_model_with_custom_objects_disallows_pickle_deserialization(
+    model, model_path, monkeypatch
+):
+    # Passing any non-None custom_objects causes mlflow to cloudpickle them at save time.
+    # Loading must then fail when pickle deserialization is disabled.
+    mlflow.tensorflow.save_model(model, path=model_path, custom_objects={"dummy": object()})
+
+    monkeypatch.setenv("MLFLOW_ALLOW_PICKLE_DESERIALIZATION", "false")
+    with pytest.raises(MlflowException, match="MLFLOW_ALLOW_PICKLE_DESERIALIZATION"):
+        mlflow.tensorflow.load_model(model_path)
 
 
 def test_model_load_from_remote_uri_succeeds(model, model_path, mock_s3_bucket, data, predicted):

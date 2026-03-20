@@ -17,11 +17,11 @@ logger = logging.getLogger("voice-agent")
 
 def configure_mlflow_tracing():
     """Configure OpenTelemetry to send traces to MLflow."""
-    if not os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"):
+    if not os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT"):
         logger.warning("OTEL_EXPORTER_OTLP_ENDPOINT not set, tracing disabled")
         return None
 
-    service_name = os.getenv("OTEL_SERVICE_NAME", "livekit-voice-agent")
+    service_name = os.environ.get("OTEL_SERVICE_NAME", "livekit-voice-agent")
     resource = Resource.create({SERVICE_NAME: service_name})
 
     provider = TracerProvider(resource=resource)

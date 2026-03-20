@@ -19,6 +19,7 @@ import { GenAiTracesTableFilter } from './GenAiTracesTableFilter';
 import { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 import { EvaluationsOverviewColumnSelectorGrouped } from './components/EvaluationsOverviewColumnSelectorGrouped';
 import { EvaluationsOverviewSortDropdown } from './components/EvaluationsOverviewSortDropdown';
+import { DetectIssuesButton } from './components/DetectIssuesButton';
 import type {
   EvaluationsOverviewTableSort,
   TraceActions,
@@ -28,6 +29,7 @@ import type {
   TableFilterOptions,
 } from './types';
 import { shouldEnableSessionGrouping, shouldEnableTagGrouping } from './utils/FeatureUtils';
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer/ModelTrace.types';
 
 interface CountInfo {
@@ -38,6 +40,9 @@ interface CountInfo {
 }
 
 interface GenAITracesTableToolbarProps {
+  // Component ID for detect issues button (optional, defaults to mlflow.traces-table.detect-issues-button)
+  detectIssuesButtonComponentId?: string;
+
   // Experiment metadata
   experimentId?: string;
 
@@ -86,6 +91,9 @@ interface GenAITracesTableToolbarProps {
   forceGroupBySession?: boolean;
   onToggleSessionGrouping?: () => void;
 
+  // Issue detection
+  onDetectIssues?: () => void;
+
   // Additional elements to render in the toolbar
   addons?: React.ReactNode;
 }
@@ -94,6 +102,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
   (props: GenAITracesTableToolbarProps) => {
     const {
+      detectIssuesButtonComponentId = 'mlflow.traces-table.detect-issues-button',
       searchQuery,
       setSearchQuery,
       filters,
@@ -118,6 +127,7 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
       isGroupedBySession,
       forceGroupBySession,
       onToggleSessionGrouping,
+      onDetectIssues,
       addons,
     } = props;
     const { theme } = useDesignSystemTheme();
@@ -210,6 +220,9 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
                 />
               </ToggleButton>
             </Tooltip>
+          )}
+          {shouldEnableIssueDetection() && onDetectIssues && (
+            <DetectIssuesButton componentId={detectIssuesButtonComponentId} onClick={onDetectIssues} />
           )}
           {onRefresh && (
             <Tooltip

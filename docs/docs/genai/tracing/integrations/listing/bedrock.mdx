@@ -133,9 +133,7 @@ response = bedrock.converse_stream(
     messages=[
         {
             "role": "user",
-            "content": [
-                {"text": "Describe the purpose of a 'hello world' program in one line."}
-            ],
+            "content": [{"text": "Describe the purpose of a 'hello world' program in one line."}],
         }
     ],
     inferenceConfig={
@@ -221,25 +219,21 @@ def run_tool_agent(question: str) -> str:
     assistant_message = response["output"]["message"]
     messages.append(assistant_message)
     # If the model requests tool call(s), invoke the function with the specified arguments
-    tool_use = next(
-        (c["toolUse"] for c in assistant_message["content"] if "toolUse" in c), None
-    )
+    tool_use = next((c["toolUse"] for c in assistant_message["content"] if "toolUse" in c), None)
     if tool_use:
         tool_func = tool_functions[tool_use["name"]]
         tool_result = tool_func(**tool_use["input"])
-        messages.append(
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "toolResult": {
-                            "toolUseId": tool_use["toolUseId"],
-                            "content": [{"text": tool_result}],
-                        }
+        messages.append({
+            "role": "user",
+            "content": [
+                {
+                    "toolResult": {
+                        "toolUseId": tool_use["toolUseId"],
+                        "content": [{"text": tool_result}],
                     }
-                ],
-            }
-        )
+                }
+            ],
+        })
         # Send the tool results to the model and get a new response
         response = bedrock.converse(
             modelId=model_id,

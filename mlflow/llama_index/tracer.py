@@ -136,6 +136,29 @@ def _is_workflow_handler(result):
         return False
 
 
+def _extract_workflow_inputs(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Extract user-facing inputs from workflow span arguments.
+
+    In llama-index-workflows >= 2.0 (llama-index-core >= 0.14.16), the workflow runtime
+    instruments Workflow.run differently: bound_args contains internal runtime state
+    (init_state, start_event, tags) instead of the original kwargs. Extract the user kwargs
+    from the StartEvent object to produce clean span inputs.
+    """
+    start_event = arguments.get("start_event")
+    if start_event is None:
+        return arguments
+
+    try:
+        from llama_index.core.workflow import StartEvent
+
+        if isinstance(start_event, StartEvent):
+            return start_event.to_dict()
+    except ImportError:
+        pass
+
+    return arguments
+
+
 class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def __init__(self):
         super().__init__()
@@ -167,7 +190,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         parent_span = parent._mlflow_span if parent else mlflow.get_current_active_span()
 
         try:
-            input_args = bound_args.arguments
+            input_args = _extract_workflow_inputs(bound_args.arguments)
             attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
             span = start_span_no_context(
@@ -339,6 +362,9 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             attr[SpanAttributeKey.MODEL] = metadata.model_name
             if params_str := metadata.model_dump_json(exclude_unset=True):
                 attr["invocation_params"] = json.loads(params_str)
+        # LlamaIndex LLM class names map directly to providers
+        # e.g., OpenAI, Anthropic, Gemini, Bedrock, etc.
+        attr[SpanAttributeKey.MODEL_PROVIDER] = instance.__class__.__name__.lower()
         return attr
 
     @_get_instance_attributes.register
@@ -346,6 +372,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         return {
             "model_name": instance.model_name,
             SpanAttributeKey.MODEL: instance.model_name,
+            SpanAttributeKey.MODEL_PROVIDER: instance.__class__.__name__.lower(),
             "embed_batch_size": instance.embed_batch_size,
         }
 
@@ -422,12 +449,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
             **template.kwargs,
             **(event.template_args or {}),
         }
-        span.set_attributes(
-            {
-                "prmopt_template": template.get_template(),
-                "template_arguments": {var: template_args.get(var) for var in template_args},
-            }
-        )
+        span.set_attributes({
+            "prmopt_template": template.get_template(),
+            "template_arguments": {var: template_args.get(var) for var in template_args},
+        })
 
     @_handle_event.register
     def _(self, event: LLMCompletionStartEvent, span: LiveSpan):
@@ -458,12 +483,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: ReRankStartEvent, span: LiveSpan):
         span.set_attribute(SpanAttributeKey.SPAN_TYPE, SpanType.RERANKER)
-        span.set_attributes(
-            {
-                "model_name": event.model_name,
-                "top_n": event.top_n,
-            }
-        )
+        span.set_attributes({
+            "model_name": event.model_name,
+            "top_n": event.top_n,
+        })
 
     @_handle_event.register
     def _(self, event: ExceptionEvent, span: LiveSpan):
@@ -479,6 +502,10 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     def _extract_and_set_model_name(self, span: LiveSpan, model_dict: dict[str, Any] | None):
         if model_dict and (model := model_dict.get("model")):
             span.set_attribute(SpanAttributeKey.MODEL, model)
+            if isinstance(model, str):
+                match model.split("/", 1):
+                    case [provider, _]:
+                        span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
     def _extract_token_usage(self, response: ChatResponse | CompletionResponse) -> dict[str, int]:
         if raw := response.raw:

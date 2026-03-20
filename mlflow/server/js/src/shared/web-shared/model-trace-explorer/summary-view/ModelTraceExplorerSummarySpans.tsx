@@ -126,7 +126,7 @@ export const ModelTraceExplorerSummarySpans = ({
         sectionKey="summary-outputs"
         data={outputList}
         renderMode={renderMode}
-        chatMessageFormat={chatMessageFormat ?? 'openai'}
+        chatMessageFormat={chatMessageFormat}
         assessments={rootNode.assessments}
       />
     </div>

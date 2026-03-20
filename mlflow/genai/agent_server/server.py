@@ -93,8 +93,9 @@ class AgentServer:
             CHAT_PROXY_TIMEOUT_SECONDS environment variable, (defaults to 300 seconds).
             ``enable_chat_proxy`` defaults to ``False``.
 
-            The proxy allows requests to ``/``, ``/favicon.ico``, ``/assets/*``, and ``/api/*`` by
-            default. Additional paths can be configured via environment variables:
+            The proxy allows requests to ``/``, ``/favicon.ico``, ``/ping``, ``/assets/*``,
+            ``/api/*``, and ``/chat/*`` by default. Additional paths can be configured via
+            environment variables:
 
             - ``CHAT_PROXY_ALLOWED_EXACT_PATHS``: Comma-separated list of additional exact paths
               to allow (e.g., ``/custom,/another``).
@@ -121,24 +122,24 @@ class AgentServer:
     def _setup_chat_proxy_middleware(self) -> None:
         """Set up middleware to proxy static asset requests to the chat app.
 
-        Only forwards requests to allowed paths (/, /assets/*, /favicon.ico) to prevent
-        SSRF vulnerabilities.
+        Only forwards requests to allowed paths (/, /favicon.ico, /ping, /assets/*,
+        /api/*, /chat/*) to prevent SSRF vulnerabilities.
         """
-        self.chat_app_port = os.getenv("CHAT_APP_PORT", "3000")
-        self.chat_proxy_timeout = float(os.getenv("CHAT_PROXY_TIMEOUT_SECONDS", "300.0"))
+        self.chat_app_port = os.environ.get("CHAT_APP_PORT", "3000")
+        self.chat_proxy_timeout = float(os.environ.get("CHAT_PROXY_TIMEOUT_SECONDS", "300.0"))
         self.proxy_client = httpx.AsyncClient(timeout=self.chat_proxy_timeout)
 
         # Only proxy static assets to prevent SSRF vulnerabilities
-        allowed_exact_paths = {"/", "/favicon.ico"}
-        allowed_path_prefixes = {"/assets/", "/api/"}
+        allowed_exact_paths = {"/", "/favicon.ico", "/ping"}
+        allowed_path_prefixes = {"/assets/", "/api/", "/chat/"}
 
         # Add additional paths from environment variables
-        if additional_exact_paths := os.getenv("CHAT_PROXY_ALLOWED_EXACT_PATHS", ""):
+        if additional_exact_paths := os.environ.get("CHAT_PROXY_ALLOWED_EXACT_PATHS", ""):
             allowed_exact_paths |= {
                 p.strip() for p in additional_exact_paths.split(",") if p.strip()
             }
 
-        if additional_path_prefixes := os.getenv("CHAT_PROXY_ALLOWED_PATH_PREFIXES", ""):
+        if additional_path_prefixes := os.environ.get("CHAT_PROXY_ALLOWED_PATH_PREFIXES", ""):
             allowed_path_prefixes |= {
                 p.strip() for p in additional_path_prefixes.split(",") if p.strip()
             }
@@ -153,6 +154,9 @@ class AgentServer:
             - / (base path for index.html)
             - /assets/* (Vite static assets)
             - /favicon.ico
+            - /ping (health check)
+            - /api/* (backend API)
+            - /chat/* (SPA chat routes)
 
             The timeout for the proxy request is specified by the CHAT_PROXY_TIMEOUT_SECONDS
             environment variable (defaults to 300.0 seconds).
@@ -241,7 +245,7 @@ class AgentServer:
         @self.app.get("/agent/info")
         async def agent_info_endpoint() -> dict[str, Any]:
             # Get app name from environment or use default
-            app_name = os.getenv("DATABRICKS_APP_NAME", "mlflow_agent_server")
+            app_name = os.environ.get("DATABRICKS_APP_NAME", "mlflow_agent_server")
 
             # Base info payload
             info = {

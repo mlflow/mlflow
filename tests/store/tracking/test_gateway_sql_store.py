@@ -1,11 +1,13 @@
 import json
 import uuid
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
 from mlflow.entities import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -44,13 +46,19 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlOnlineScoringConfig,
     SqlScorer,
     SqlScorerVersion,
+    SqlSpan,
+    SqlSpanMetrics,
+    SqlTraceInfo,
+    SqlTraceMetadata,
 )
 from mlflow.store.tracking.gateway.config_resolver import (
     get_endpoint_config,
     get_resource_endpoint_configs,
 )
+from mlflow.store.tracking.gateway.entities import GatewayEndpointConfig, GatewayModelConfig
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.store.tracking.sqlalchemy_workspace_store import WorkspaceAwareSqlAlchemyStore
+from mlflow.tracing.constant import SpanMetricKey, TraceMetadataKey
 from mlflow.utils.workspace_context import WorkspaceContext
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -79,6 +87,10 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlOnlineScoringConfig,
             SqlScorerVersion,
             SqlScorer,
+            SqlSpanMetrics,
+            SqlSpan,
+            SqlTraceMetadata,
+            SqlTraceInfo,
             SqlExperimentTag,
             SqlExperiment,
         ):
@@ -576,6 +588,31 @@ def test_create_gateway_endpoint_auto_creates_experiment(store: SqlAlchemyStore)
     assert experiment.tags.get("mlflow.experiment.sourceType") == "GATEWAY"
     assert experiment.tags.get("mlflow.experiment.sourceId") == endpoint.endpoint_id
     assert experiment.tags.get("mlflow.experiment.isGateway") == "true"
+
+
+def test_create_gateway_endpoint_usage_tracking_defaults_to_true(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="default-ut-key", secret_value={"api_key": "value"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="default-ut-model", secret_id=secret.secret_id, provider="openai", model_name="gpt-4"
+    )
+
+    # Create endpoint without specifying usage_tracking
+    endpoint = store.create_gateway_endpoint(
+        name="default-ut-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    assert endpoint.usage_tracking is True
+    # An experiment should be auto-created since usage_tracking defaults to True
+    assert endpoint.experiment_id is not None
 
 
 def test_create_gateway_endpoint_empty_models_raises(store: SqlAlchemyStore):
@@ -1515,6 +1552,241 @@ def test_get_gateway_endpoint_config_experiment_id_is_string(store: SqlAlchemySt
 
 
 # =============================================================================
+# Serialization & Caching Tests
+# =============================================================================
+
+
+def test_gateway_model_config_roundtrip():
+    original = GatewayModelConfig(
+        model_definition_id="md-123",
+        provider="openai",
+        model_name="gpt-4",
+        secret_value={"api_key": "sk-test"},
+        auth_config={"region": "us-east-1"},
+        weight=0.7,
+        linkage_type=GatewayModelLinkageType.FALLBACK,
+        fallback_order=2,
+    )
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayModelConfig.from_dict(serialized)
+    assert restored == original
+    assert isinstance(restored.linkage_type, GatewayModelLinkageType)
+
+
+def test_gateway_endpoint_config_roundtrip_with_fallback():
+    original = GatewayEndpointConfig(
+        endpoint_id="e-abc",
+        endpoint_name="my-ep",
+        models=[
+            GatewayModelConfig(
+                model_definition_id="md-1",
+                provider="openai",
+                model_name="gpt-4",
+                secret_value={"api_key": "sk-1"},
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+            ),
+            GatewayModelConfig(
+                model_definition_id="md-2",
+                provider="anthropic",
+                model_name="claude-3",
+                secret_value={"api_key": "sk-2"},
+                linkage_type=GatewayModelLinkageType.FALLBACK,
+                fallback_order=0,
+            ),
+        ],
+        routing_strategy=RoutingStrategy.REQUEST_BASED_TRAFFIC_SPLIT,
+        fallback_config=FallbackConfig(
+            strategy=FallbackStrategy.SEQUENTIAL,
+            max_attempts=3,
+        ),
+        experiment_id="42",
+    )
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayEndpointConfig.from_dict(serialized)
+    assert restored == original
+    assert isinstance(restored.routing_strategy, RoutingStrategy)
+    assert isinstance(restored.models[0].linkage_type, GatewayModelLinkageType)
+    assert isinstance(restored.fallback_config.strategy, FallbackStrategy)
+
+
+def test_gateway_endpoint_config_roundtrip_no_fallback():
+    original = GatewayEndpointConfig(
+        endpoint_id="e-xyz",
+        endpoint_name="simple-ep",
+        models=[
+            GatewayModelConfig(
+                model_definition_id="md-1",
+                provider="openai",
+                model_name="gpt-4",
+                secret_value={"api_key": "sk-1"},
+            ),
+        ],
+    )
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayEndpointConfig.from_dict(serialized)
+    assert restored == original
+
+
+def test_endpoint_config_cache_hit_skips_db(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="cache-hit-key", secret_value={"api_key": "sk-cache"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="cache-hit-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="cache-hit-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # First call populates the cache
+    config1 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config1.endpoint_name == endpoint.name
+
+    # Second call should hit the cache and not open a new DB session
+    original_session_maker = store.ManagedSessionMaker
+    with mock.patch.object(
+        store, "ManagedSessionMaker", wraps=original_session_maker
+    ) as mock_session:
+        config2 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+        mock_session.assert_not_called()
+
+    assert config2.endpoint_name == config1.endpoint_name
+    assert config2.models[0].secret_value == config1.models[0].secret_value
+
+
+def test_endpoint_config_cache_invalidated_on_secret_update(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="cache-inv-key", secret_value={"api_key": "sk-old"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="cache-inv-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="cache-inv-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Populate cache
+    config1 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config1.models[0].secret_value == {"api_key": "sk-old"}
+
+    # Update secret — should invalidate cache
+    store.update_gateway_secret(
+        secret_id=secret.secret_id,
+        secret_value={"api_key": "sk-new"},
+    )
+
+    # Next call should fetch fresh data from DB
+    config2 = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config2.models[0].secret_value == {"api_key": "sk-new"}
+
+
+def test_endpoint_config_cache_invalidated_on_endpoint_delete(store: SqlAlchemyStore):
+    secret = store.create_gateway_secret(
+        secret_name="cache-del-key", secret_value={"api_key": "sk-del"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="cache-del-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="cache-del-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Populate cache
+    config = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config.endpoint_id == endpoint.endpoint_id
+
+    # Delete endpoint — should invalidate cache
+    store.delete_gateway_endpoint(endpoint.endpoint_id)
+
+    # Next call should hit DB and raise since endpoint is gone
+    with pytest.raises(MlflowException, match="not found"):
+        get_endpoint_config(endpoint_name=endpoint.name, store=store)
+
+
+def test_gateway_endpoint_config_roundtrip_fallback_with_none_fields():
+    original = GatewayEndpointConfig(
+        endpoint_id="e-none",
+        endpoint_name="none-fallback-ep",
+        models=[
+            GatewayModelConfig(
+                model_definition_id="md-1",
+                provider="openai",
+                model_name="gpt-4",
+                secret_value={"api_key": "sk-1"},
+            ),
+        ],
+        fallback_config=FallbackConfig(strategy=None, max_attempts=None),
+    )
+    serialized = json.loads(json.dumps(original.to_dict()))
+    restored = GatewayEndpointConfig.from_dict(serialized)
+    assert restored == original
+
+
+def test_endpoint_config_cache_workspace_isolation(store: SqlAlchemyStore, workspaces_enabled):
+    if not workspaces_enabled:
+        pytest.skip("workspace isolation only relevant when workspaces enabled")
+
+    secret = store.create_gateway_secret(
+        secret_name="ws-iso-key", secret_value={"api_key": "sk-ws"}
+    )
+    model_def = store.create_gateway_model_definition(
+        name="ws-iso-model",
+        secret_id=secret.secret_id,
+        provider="openai",
+        model_name="gpt-4",
+    )
+    endpoint = store.create_gateway_endpoint(
+        name="ws-iso-endpoint",
+        model_configs=[
+            GatewayEndpointModelConfig(
+                model_definition_id=model_def.model_definition_id,
+                linkage_type=GatewayModelLinkageType.PRIMARY,
+                weight=1.0,
+            ),
+        ],
+    )
+
+    # Populate cache in current workspace
+    config = get_endpoint_config(endpoint_name=endpoint.name, store=store)
+    assert config.endpoint_id == endpoint.endpoint_id
+
+    # Switch to a different workspace — same endpoint name should NOT be served from cache
+    with WorkspaceContext(f"other-workspace-{uuid.uuid4().hex}"):
+        with pytest.raises(MlflowException, match="not found"):
+            get_endpoint_config(endpoint_name=endpoint.name, store=store)
+
+
+# =============================================================================
 # Endpoint Tag Operations
 # =============================================================================
 
@@ -1731,14 +2003,12 @@ def test_register_scorer_resolves_endpoint_name_to_id(store: SqlAlchemyStore):
     experiment_id = store.create_experiment(f"scorer-endpoint-test-{uuid.uuid4().hex}")
     endpoint = _create_gateway_endpoint(store, "test-endpoint")
 
-    serialized_scorer = json.dumps(
-        {
-            "instructions_judge_pydantic_data": {
-                "model": f"gateway:/{endpoint.name}",
-                "instructions": "Rate the response",
-            }
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Rate the response",
         }
-    )
+    })
 
     scorer = store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
 
@@ -1751,14 +2021,12 @@ def test_register_scorer_resolves_endpoint_name_to_id(store: SqlAlchemyStore):
 def test_register_scorer_with_nonexistent_endpoint_raises(store: SqlAlchemyStore):
     experiment_id = store.create_experiment(f"scorer-nonexistent-endpoint-test-{uuid.uuid4().hex}")
 
-    serialized_scorer = json.dumps(
-        {
-            "instructions_judge_pydantic_data": {
-                "model": "gateway:/nonexistent-endpoint",
-                "instructions": "Rate the response",
-            }
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": "gateway:/nonexistent-endpoint",
+            "instructions": "Rate the response",
         }
-    )
+    })
 
     with pytest.raises(MlflowException, match="not found"):
         store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
@@ -1768,14 +2036,12 @@ def test_get_scorer_resolves_endpoint_id_to_name(store: SqlAlchemyStore):
     experiment_id = store.create_experiment(f"get-scorer-endpoint-test-{uuid.uuid4().hex}")
     endpoint = _create_gateway_endpoint(store, "get-test-endpoint")
 
-    serialized_scorer = json.dumps(
-        {
-            "instructions_judge_pydantic_data": {
-                "model": f"gateway:/{endpoint.name}",
-                "instructions": "Rate the response",
-            }
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Rate the response",
         }
-    )
+    })
 
     store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
 
@@ -1790,14 +2056,12 @@ def test_get_scorer_with_deleted_endpoint_sets_model_to_null(store: SqlAlchemySt
     experiment_id = store.create_experiment(f"deleted-endpoint-scorer-test-{uuid.uuid4().hex}")
     endpoint = _create_gateway_endpoint(store, "to-delete-endpoint")
 
-    serialized_scorer = json.dumps(
-        {
-            "instructions_judge_pydantic_data": {
-                "model": f"gateway:/{endpoint.name}",
-                "instructions": "Rate the response",
-            }
+    serialized_scorer = json.dumps({
+        "instructions_judge_pydantic_data": {
+            "model": f"gateway:/{endpoint.name}",
+            "instructions": "Rate the response",
         }
-    )
+    })
 
     store.register_scorer(experiment_id, "my-scorer", serialized_scorer)
 
@@ -1819,38 +2083,32 @@ def test_list_scorers_batch_resolves_endpoint_ids(store: SqlAlchemyStore):
     store.register_scorer(
         experiment_id,
         "scorer-1",
-        json.dumps(
-            {
-                "instructions_judge_pydantic_data": {
-                    "model": f"gateway:/{endpoint1.name}",
-                    "instructions": "Rate 1",
-                }
+        json.dumps({
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint1.name}",
+                "instructions": "Rate 1",
             }
-        ),
+        }),
     )
     store.register_scorer(
         experiment_id,
         "scorer-2",
-        json.dumps(
-            {
-                "instructions_judge_pydantic_data": {
-                    "model": f"gateway:/{endpoint2.name}",
-                    "instructions": "Rate 2",
-                }
+        json.dumps({
+            "instructions_judge_pydantic_data": {
+                "model": f"gateway:/{endpoint2.name}",
+                "instructions": "Rate 2",
             }
-        ),
+        }),
     )
     store.register_scorer(
         experiment_id,
         "scorer-3",
-        json.dumps(
-            {
-                "instructions_judge_pydantic_data": {
-                    "model": "openai:/gpt-4",
-                    "instructions": "Rate 3",
-                }
+        json.dumps({
+            "instructions_judge_pydantic_data": {
+                "model": "openai:/gpt-4",
+                "instructions": "Rate 3",
             }
-        ),
+        }),
     )
 
     scorers = store.list_scorers(experiment_id)
@@ -2018,8 +2276,7 @@ def test_create_budget_policy(store: SqlAlchemyStore):
     policy = store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
         budget_amount=100.0,
-        duration_unit=BudgetDurationUnit.MONTHS,
-        duration_value=1,
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
         created_by="admin",
@@ -2028,8 +2285,8 @@ def test_create_budget_policy(store: SqlAlchemyStore):
     assert policy.budget_policy_id.startswith("bp-")
     assert policy.budget_unit == BudgetUnit.USD
     assert policy.budget_amount == 100.0
-    assert policy.duration_unit == BudgetDurationUnit.MONTHS
-    assert policy.duration_value == 1
+    assert policy.duration.unit == BudgetDurationUnit.MONTHS
+    assert policy.duration.value == 1
     assert policy.target_scope == BudgetTargetScope.GLOBAL
     assert policy.budget_action == BudgetAction.ALERT
     assert policy.created_by == "admin"
@@ -2041,8 +2298,7 @@ def test_get_budget_policy_by_id(store: SqlAlchemyStore):
     created = store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
         budget_amount=75.0,
-        duration_unit=BudgetDurationUnit.HOURS,
-        duration_value=24,
+        duration=BudgetDuration(unit=BudgetDurationUnit.HOURS, value=24),
         target_scope=BudgetTargetScope.WORKSPACE,
         budget_action=BudgetAction.REJECT,
     )
@@ -2050,8 +2306,8 @@ def test_get_budget_policy_by_id(store: SqlAlchemyStore):
     assert fetched.budget_policy_id == created.budget_policy_id
     assert fetched.budget_unit == BudgetUnit.USD
     assert fetched.budget_amount == 75.0
-    assert fetched.duration_unit == BudgetDurationUnit.HOURS
-    assert fetched.duration_value == 24
+    assert fetched.duration.unit == BudgetDurationUnit.HOURS
+    assert fetched.duration.value == 24
     assert fetched.target_scope == BudgetTargetScope.WORKSPACE
     assert fetched.budget_action == BudgetAction.REJECT
 
@@ -2065,8 +2321,7 @@ def test_update_budget_policy(store: SqlAlchemyStore):
     created = store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
         budget_amount=100.0,
-        duration_unit=BudgetDurationUnit.MONTHS,
-        duration_value=1,
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
     )
@@ -2081,8 +2336,8 @@ def test_update_budget_policy(store: SqlAlchemyStore):
     assert updated.last_updated_by == "editor"
     assert updated.last_updated_at >= created.last_updated_at
     # Unchanged fields should remain
-    assert updated.duration_unit == BudgetDurationUnit.MONTHS
-    assert updated.duration_value == 1
+    assert updated.duration.unit == BudgetDurationUnit.MONTHS
+    assert updated.duration.value == 1
     assert updated.target_scope == BudgetTargetScope.GLOBAL
 
 
@@ -2098,8 +2353,7 @@ def test_delete_budget_policy(store: SqlAlchemyStore):
     created = store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
         budget_amount=10.0,
-        duration_unit=BudgetDurationUnit.DAYS,
-        duration_value=1,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
     )
@@ -2118,16 +2372,14 @@ def test_list_budget_policies(store: SqlAlchemyStore):
     store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
         budget_amount=100.0,
-        duration_unit=BudgetDurationUnit.MONTHS,
-        duration_value=1,
+        duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
     )
     store.create_budget_policy(
         budget_unit=BudgetUnit.USD,
         budget_amount=50.0,
-        duration_unit=BudgetDurationUnit.DAYS,
-        duration_value=7,
+        duration=BudgetDuration(unit=BudgetDurationUnit.DAYS, value=7),
         target_scope=BudgetTargetScope.WORKSPACE,
         budget_action=BudgetAction.REJECT,
     )
@@ -2148,8 +2400,7 @@ def test_list_budget_policies_pagination(store: SqlAlchemyStore):
         store.create_budget_policy(
             budget_unit=BudgetUnit.USD,
             budget_amount=100.0 + i,
-            duration_unit=BudgetDurationUnit.MONTHS,
-            duration_value=1,
+            duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
             target_scope=BudgetTargetScope.GLOBAL,
             budget_action=BudgetAction.ALERT,
         )
@@ -2176,12 +2427,11 @@ def test_create_budget_policy_all_duration_units(store: SqlAlchemyStore):
         policy = store.create_budget_policy(
             budget_unit=BudgetUnit.USD,
             budget_amount=100.0,
-            duration_unit=du,
-            duration_value=1,
+            duration=BudgetDuration(unit=du, value=1),
             target_scope=BudgetTargetScope.GLOBAL,
             budget_action=BudgetAction.ALERT,
         )
-        assert policy.duration_unit == du
+        assert policy.duration.unit == du
 
 
 def test_create_budget_policy_all_budget_actions(store: SqlAlchemyStore):
@@ -2189,9 +2439,145 @@ def test_create_budget_policy_all_budget_actions(store: SqlAlchemyStore):
         policy = store.create_budget_policy(
             budget_unit=BudgetUnit.USD,
             budget_amount=100.0,
-            duration_unit=BudgetDurationUnit.MONTHS,
-            duration_value=1,
+            duration=BudgetDuration(unit=BudgetDurationUnit.MONTHS, value=1),
             target_scope=BudgetTargetScope.GLOBAL,
             budget_action=action,
         )
         assert policy.budget_action == action
+
+
+# =============================================================================
+# sum_gateway_trace_cost Tests
+# =============================================================================
+
+
+def _insert_trace_with_cost(
+    session,
+    experiment_id,
+    trace_id,
+    timestamp_ms,
+    span_costs,
+    is_gateway=True,
+    endpoint_id="ep-test",
+):
+    trace = SqlTraceInfo(
+        request_id=trace_id,
+        experiment_id=experiment_id,
+        timestamp_ms=timestamp_ms,
+        execution_time_ms=100,
+        status="OK",
+    )
+    session.add(trace)
+    session.flush()
+
+    if is_gateway:
+        metadata = SqlTraceMetadata(
+            request_id=trace_id,
+            key=TraceMetadataKey.GATEWAY_ENDPOINT_ID,
+            value=endpoint_id,
+        )
+        session.add(metadata)
+
+    for span_id, cost in span_costs:
+        span = SqlSpan(
+            trace_id=trace_id,
+            experiment_id=experiment_id,
+            span_id=span_id,
+            status="OK",
+            start_time_unix_nano=timestamp_ms * 1_000_000,
+            end_time_unix_nano=(timestamp_ms + 100) * 1_000_000,
+            content="{}",
+        )
+        session.add(span)
+        session.flush()
+
+        metric = SqlSpanMetrics(
+            trace_id=trace_id,
+            span_id=span_id,
+            key=SpanMetricKey.TOTAL_COST,
+            value=cost,
+        )
+        session.add(metric)
+
+    session.flush()
+
+
+def test_sum_gateway_trace_cost_basic(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-basic")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "t1", 1000, [("s1", 0.05), ("s2", 0.03)])
+        _insert_trace_with_cost(session, exp_id, "t2", 2000, [("s1", 0.10)])
+
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total - 0.18) < 1e-9
+
+
+def test_sum_gateway_trace_cost_excludes_non_gateway(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-non-gw")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "gw1", 1000, [("s1", 0.10)], is_gateway=True)
+        _insert_trace_with_cost(session, exp_id, "nongw1", 1000, [("s1", 0.50)], is_gateway=False)
+
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total - 0.10) < 1e-9
+
+
+def test_sum_gateway_trace_cost_time_window(store: SqlAlchemyStore):
+    exp = store.create_experiment("cost-test-window")
+    exp_id = int(exp)
+
+    with store.ManagedSessionMaker() as session:
+        _insert_trace_with_cost(session, exp_id, "early", 500, [("s1", 0.01)])
+        _insert_trace_with_cost(session, exp_id, "in-window", 1500, [("s1", 0.05)])
+        _insert_trace_with_cost(session, exp_id, "late", 3000, [("s1", 0.99)])
+
+    # Only in-window trace should be included
+    total = store.sum_gateway_trace_cost(start_time_ms=1000, end_time_ms=2000)
+    assert abs(total - 0.05) < 1e-9
+
+
+def test_sum_gateway_trace_cost_workspace_filter(store: SqlAlchemyStore):
+    with store.ManagedSessionMaker() as session:
+        # Create two experiments in different workspaces
+        exp_ws_a = SqlExperiment(
+            name=f"cost-ws-a-{uuid.uuid4().hex}",
+            artifact_location="/tmp/a",
+            lifecycle_stage="active",
+            workspace="workspace-a",
+        )
+        exp_ws_b = SqlExperiment(
+            name=f"cost-ws-b-{uuid.uuid4().hex}",
+            artifact_location="/tmp/b",
+            lifecycle_stage="active",
+            workspace="workspace-b",
+        )
+        session.add_all([exp_ws_a, exp_ws_b])
+        session.flush()
+
+        _insert_trace_with_cost(session, exp_ws_a.experiment_id, "t-a", 1000, [("s1", 0.10)])
+        _insert_trace_with_cost(session, exp_ws_b.experiment_id, "t-b", 1000, [("s1", 0.25)])
+
+    # Filtering by workspace-a should only include 0.10
+    total_a = store.sum_gateway_trace_cost(
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-a"
+    )
+    assert abs(total_a - 0.10) < 1e-9
+
+    # Filtering by workspace-b should only include 0.25
+    total_b = store.sum_gateway_trace_cost(
+        start_time_ms=0, end_time_ms=5000, workspace="workspace-b"
+    )
+    assert abs(total_b - 0.25) < 1e-9
+
+    # No workspace filter should include both
+    total_all = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert abs(total_all - 0.35) < 1e-9
+
+
+def test_sum_gateway_trace_cost_empty(store: SqlAlchemyStore):
+    total = store.sum_gateway_trace_cost(start_time_ms=0, end_time_ms=5000)
+    assert total == 0.0

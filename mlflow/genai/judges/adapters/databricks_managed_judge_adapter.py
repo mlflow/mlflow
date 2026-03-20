@@ -31,7 +31,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _raise_iteration_limit_exceeded,
 )
 from mlflow.genai.utils.message_utils import serialize_messages_to_databricks_prompts
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
+from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.version import VERSION
 
 _logger = logging.getLogger(__name__)
@@ -388,6 +388,13 @@ class DatabricksManagedJudgeAdapter(BaseJudgeAdapter):
         return model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+        if input_params.base_url is not None or input_params.extra_headers is not None:
+            raise MlflowException(
+                "base_url and extra_headers are not supported for Databricks Managed Judge. "
+                "The endpoint is determined by Databricks workspace configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         feedback = _invoke_databricks_default_judge(
             prompt=input_params.prompt,
             assessment_name=input_params.assessment_name,

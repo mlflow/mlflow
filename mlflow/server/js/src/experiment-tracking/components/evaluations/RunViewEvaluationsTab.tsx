@@ -95,6 +95,7 @@ const RunViewEvaluationsTabInner = ({
   setCurrentRunUuid,
   showCompareSelector = false,
   showRefreshButton = false,
+  hideCompareSelector = false,
 }: {
   experimentId: string;
   runUuid: string;
@@ -103,6 +104,7 @@ const RunViewEvaluationsTabInner = ({
   showCompareSelector?: boolean;
   compareToRunUuid?: string;
   showRefreshButton?: boolean;
+  hideCompareSelector?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -275,7 +277,7 @@ const RunViewEvaluationsTabInner = ({
         overflowY: 'hidden',
       }}
     >
-      {!shouldEnableImprovedEvalRunsComparison() && !showCompareSelector && (
+      {!shouldEnableImprovedEvalRunsComparison() && !showCompareSelector && !hideCompareSelector && (
         <div
           css={{
             width: '100%',
@@ -404,6 +406,7 @@ export const RunViewEvaluationsTab = ({
   setCurrentRunUuid,
   showCompareSelector = false,
   showRefreshButton = false,
+  hideCompareSelector = false,
 }: {
   experimentId: string;
   experiment?: ExperimentEntity | UseGetRunQueryResponseExperiment;
@@ -414,6 +417,7 @@ export const RunViewEvaluationsTab = ({
   setCurrentRunUuid?: (runUuid: string) => void;
   showCompareSelector?: boolean;
   showRefreshButton?: boolean;
+  hideCompareSelector?: boolean;
 }) => {
   // Determine which tables are logged in the run
   const traceTablesLoggedInRun = useRunLoggedTraceTableArtifacts(runTags);
@@ -451,6 +455,7 @@ export const RunViewEvaluationsTab = ({
       setCurrentRunUuid={setCurrentRunUuid}
       showCompareSelector={showCompareSelector}
       showRefreshButton={showRefreshButton}
+      hideCompareSelector={hideCompareSelector}
     />
   );
 };

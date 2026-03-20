@@ -6,7 +6,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - ready_for_review
   push:
     branches:
       - master
@@ -43,10 +42,10 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     name: ${{ matrix.os == 'ubuntu-latest' && 'lint' || 'lint-macos' }}
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           # To ensure `git diff` works correctly in dev/check_function_signatures.py,
           # we need to fetch enough history to include the base branch.
@@ -104,10 +103,8 @@ jobs:
           files=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" --json files --jq '.files[].path')
           if echo "$files" | grep -q '^uv.lock$' && echo "$files" | grep -q '^pyproject.toml$'; then
             echo '::warning file=pyproject.toml,line=1,col=1::[Non-blocking]' \
-                 'Ignore if you did not intend to upgrade package versions.' \
-                 '`uv lock` does not automatically upgrade package versions' \
-                 'when relaxing version constraints (e.g., bumping max version).' \
-                 'Use `uv lock --upgrade-package <package>` to upgrade.'
+                 'Run `uv lock --upgrade-package <package>` if this PR should update package versions.' \
+                 '`uv lock` alone won'"'"'t bump them.'
           fi
 
       - name: Check unused media

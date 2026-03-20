@@ -181,7 +181,7 @@ def _make_responses_payload(outputs, tools=None):
         "error": None,
         "incomplete_details": None,
         "max_output_tokens": None,
-        "model": "gpt-4o",
+        "model": "gpt-4o-mini",
         "output": outputs,
         "parallel_tool_calls": True,
         "previous_response_id": None,

@@ -14,12 +14,7 @@ import {
   OverviewChartContainer,
   DEFAULT_CHART_CONTENT_HEIGHT,
 } from './OverviewChartComponents';
-import {
-  useChartColors,
-  useLegendHighlight,
-  calculatePieActiveShapeGeometry,
-  type ActiveShapeProps,
-} from '../utils/chartUtils';
+import { useChartColors, useLegendHighlight, type ActiveShapeProps } from '../utils/chartUtils';
 
 // Pie chart sizing constants
 const PIE_INNER_RADIUS = 50;
@@ -31,21 +26,12 @@ const PIE_PADDING_ANGLE = 2;
  */
 const renderActiveShape = (props: ActiveShapeProps, theme: DesignSystemThemeInterface['theme']) => {
   const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill, name, value, percentage } = props;
-  const { sx, sy, mx, my, ex, ey, textAnchor, cos } = calculatePieActiveShapeGeometry(props, theme);
+
+  // Label is always centered above the pie — no overflow issues regardless of slice position
+  const labelY = cy - outerRadius - theme.spacing.lg - 4;
 
   return (
     <g>
-      {/* Model name in donut center */}
-      <text
-        x={cx}
-        y={cy}
-        textAnchor="middle"
-        fill={theme.colors.textPrimary}
-        fontSize={theme.typography.fontSizeSm}
-        fontWeight={500}
-      >
-        {name}
-      </text>
       {/* Main pie sector */}
       <Sector
         cx={cx}
@@ -66,29 +52,26 @@ const renderActiveShape = (props: ActiveShapeProps, theme: DesignSystemThemeInte
         outerRadius={outerRadius + theme.spacing.sm}
         fill={fill}
       />
-      {/* Connecting line: radial segment -> horizontal segment */}
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={fill} fill="none" />
-      {/* Dot at line end */}
-      <circle cx={ex} cy={ey} r={2} fill={fill} stroke="none" />
-      {/* Cost label */}
+      {/* Model name */}
       <text
-        x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
-        y={ey}
-        textAnchor={textAnchor}
-        fill={theme.colors.textSecondary}
+        x={cx}
+        y={labelY}
+        textAnchor="middle"
+        fill={theme.colors.textPrimary}
         fontSize={theme.typography.fontSizeSm}
+        fontWeight={500}
       >
-        {formatCostUSD(value)}
+        {name}
       </text>
-      {/* Percentage label */}
+      {/* Cost and percentage */}
       <text
-        x={ex + (cos >= 0 ? 1 : -1) * theme.spacing.xs}
-        y={ey + theme.spacing.md}
-        textAnchor={textAnchor}
+        x={cx}
+        y={labelY + theme.spacing.md}
+        textAnchor="middle"
         fill={theme.colors.textSecondary}
         fontSize={theme.typography.fontSizeSm}
       >
-        {percentage.toFixed(2)}%
+        {formatCostUSD(value)}, {percentage.toFixed(2)}%
       </text>
     </g>
   );
@@ -220,7 +203,7 @@ export const TraceCostBreakdownChart: React.FC = () => {
               <Pie
                 data={coloredChartData}
                 cx="50%"
-                cy="50%"
+                cy="60%"
                 innerRadius={PIE_INNER_RADIUS}
                 outerRadius={PIE_OUTER_RADIUS}
                 paddingAngle={PIE_PADDING_ANGLE}

@@ -9,6 +9,18 @@ import TabItem from "@theme/TabItem";
 
 Once you've created an endpoint, you can call it through several different API styles depending on your needs.
 
+## Supported API Styles
+
+The following table summarizes all the ways you can query gateway endpoints:
+
+| Category        | API Style                          | URL Pattern                                                                                                                 | Description                                                                                                                        |
+| --------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Unified**     | MLflow Invocations                 | `POST /gateway/{endpoint_name}/mlflow/invocations`                                                                          | Native MLflow interface supporting chat completions and embeddings. Handles routing features like traffic splitting and fallbacks. |
+| **Unified**     | OpenAI-compatible Chat Completions | `POST /gateway/mlflow/v1/chat/completions`                                                                                  | Drop-in replacement for the OpenAI chat completions API. Use the endpoint name as the `model` parameter.                           |
+| **Passthrough** | OpenAI                             | `POST /gateway/openai/v1/chat/completions`<br/>`POST /gateway/openai/v1/embeddings`<br/>`POST /gateway/openai/v1/responses` | Full OpenAI API access including Chat Completions, Embeddings, and Responses endpoints.                                            |
+| **Passthrough** | Anthropic                          | `POST /gateway/anthropic/v1/messages`                                                                                       | Direct access to Anthropic's Messages API.                                                                                         |
+| **Passthrough** | Google Gemini                      | `POST /gateway/gemini/v1beta/models/{endpoint_name}:generateContent`                                                        | Google Gemini's native generateContent API.                                                                                        |
+
 ## Viewing Usage Examples
 
 To see code examples for your endpoint, navigate to the Endpoints list and click either the Use button or the endpoint name itself. This opens a modal with comprehensive usage examples tailored to your specific endpoint.
@@ -200,11 +212,20 @@ The OpenAI passthrough API exposes the full OpenAI API including Chat Completion
 <TabItem value="curl" label="cURL" default>
 
 ```bash
+# Chat Completions API
 curl -X POST http://localhost:5000/gateway/openai/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
     "model": "my-endpoint",
     "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# Responses API
+curl -X POST http://localhost:5000/gateway/openai/v1/responses \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "my-endpoint",
+    "input": "Hello!"
   }'
 ```
 
@@ -219,10 +240,18 @@ client = OpenAI(
     api_key="dummy",  # API key not needed, configured server-side
 )
 
+# Chat Completions API
 response = client.chat.completions.create(
     model="my-endpoint", messages=[{"role": "user", "content": "Hello!"}]
 )
 print(response.choices[0].message.content)
+
+# Responses API
+response = client.responses.create(
+    model="my-endpoint",
+    input="Hello!",
+)
+print(response.output_text)
 ```
 
 </TabItem>

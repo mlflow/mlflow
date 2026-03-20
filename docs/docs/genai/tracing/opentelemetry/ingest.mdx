@@ -19,9 +19,7 @@ MLFLOW_TRACKING_URI = "http://localhost:5000"
 MLFLOW_EXPERIMENT_ID = "123"
 
 os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = f"{MLFLOW_TRACKING_URI}/v1/traces"
-os.environ[
-    "OTEL_EXPORTER_OTLP_TRACES_HEADERS"
-] = f"x-mlflow-experiment-id={MLFLOW_EXPERIMENT_ID}"
+os.environ["OTEL_EXPORTER_OTLP_TRACES_HEADERS"] = f"x-mlflow-experiment-id={MLFLOW_EXPERIMENT_ID}"
 
 
 app = FastAPI()

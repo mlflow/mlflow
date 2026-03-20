@@ -147,12 +147,28 @@ class UnityCatalog(TraceLocationBase):
 
     catalog_name: str
     schema_name: str
-    table_prefix: str
+    table_prefix: str | None = None
 
     # These are fully qualified table names (catalog.schema.table) set by the backend.
     _otel_spans_table_name: str | None = None
     _otel_logs_table_name: str | None = None
     _annotations_table_name: str | None = None
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, UnityCatalog):
+            return NotImplemented
+        return (
+            self.catalog_name == other.catalog_name
+            and self.schema_name == other.schema_name
+            and self.table_prefix == other.table_prefix
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"UnityCatalog(catalog_name={self.catalog_name!r}, "
+            f"schema_name={self.schema_name!r}, "
+            f"table_prefix={self.table_prefix!r})"
+        )
 
     @property
     def schema_location(self) -> str:
@@ -160,6 +176,10 @@ class UnityCatalog(TraceLocationBase):
 
     @property
     def full_table_prefix(self) -> str:
+        if self.table_prefix is None:
+            raise MlflowException.invalid_parameter_value(
+                "table_prefix is required but was not set."
+            )
         return f"{self.catalog_name}.{self.schema_name}.{self.table_prefix}"
 
     @property
@@ -178,8 +198,9 @@ class UnityCatalog(TraceLocationBase):
         d = {
             "catalog_name": self.catalog_name,
             "schema_name": self.schema_name,
-            "table_prefix": self.table_prefix,
         }
+        if self.table_prefix is not None:
+            d["table_prefix"] = self.table_prefix
         if self._otel_spans_table_name:
             d["otel_spans_table_name"] = self._otel_spans_table_name
         if self._otel_logs_table_name:
@@ -193,7 +214,7 @@ class UnityCatalog(TraceLocationBase):
         location = cls(
             catalog_name=d["catalog_name"],
             schema_name=d["schema_name"],
-            table_prefix=d["table_prefix"],
+            table_prefix=d.get("table_prefix"),
         )
         if otel_spans_table_name := d.get("otel_spans_table_name"):
             location._otel_spans_table_name = otel_spans_table_name
@@ -250,14 +271,12 @@ class TraceLocation(_MlflowObject):
 
     def __post_init__(self) -> None:
         if (
-            sum(
-                [
-                    self.mlflow_experiment is not None,
-                    self.inference_table is not None,
-                    self.uc_schema is not None,
-                    self.uc_table_prefix is not None,
-                ]
-            )
+            sum([
+                self.mlflow_experiment is not None,
+                self.inference_table is not None,
+                self.uc_schema is not None,
+                self.uc_table_prefix is not None,
+            ])
             > 1
         ):
             raise MlflowException.invalid_parameter_value(
