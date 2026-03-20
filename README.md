@@ -2,14 +2,8 @@
     <a href="https://mlflow.org/">
         <img alt="MLflow logo" src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/assets/logo.svg" width="200" />
     </a>
-    <p>Deliver High-Quality AI, Fast</p>
 </h1>
-<p align="center"><strong>The Open Source AI Engineering Platform for Agents, LLMs & Models</strong></p>
-
-<p align="center">
-Building AI products is all about iteration. MLflow lets you move 10x faster by simplifying how you
-debug, evaluate, and monitor your LLM applications, Agents, and Models.
-</p>
+<h2 align="center" style="border-bottom: none">The Open Source AI Engineering Platform for Agents, LLMs & Models</h2>
 
 MLflow is the largest open source **AI engineering platform for agents, LLMs, and ML models**. MLflow enables teams of all sizes to [debug](https://mlflow.org/llm-tracing),
 [evaluate](https://mlflow.org/llm-evaluation), [monitor](https://mlflow.org/ai-monitoring), and [optimize](https://mlflow.org/prompt-optimization) production-quality AI applications while
@@ -74,7 +68,7 @@ from openai import OpenAI
 
 client = OpenAI()
 client.responses.create(
-    model="gpt-5-mini",
+    model="gpt-5.4-mini",
     input="Hello!",
 )
 ```
@@ -83,7 +77,7 @@ Explore traces and metrics in the MLflow UI at `http://localhost:5000`.
 
 ## LLMs & Agents
 
-MLflow provides everything you need to build, debug, evaluate, and deploy production-quality LLM applications and AI agents. Supports Python, TypeScript/JavaScript, Java, R, and natively integrates with [OpenTelemetry](https://opentelemetry.io/).
+MLflow provides everything you need to build, debug, evaluate, and deploy production-quality LLM applications and AI agents. Supports Python, TypeScript/JavaScript, Java and any other programming language. MLflow also natively integrates with [OpenTelemetry](https://opentelemetry.io/) and MCP.
 
 <table>
   <tr>
@@ -128,7 +122,7 @@ MLflow provides everything you need to build, debug, evaluate, and deploy produc
         <br>
         <a href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/"><strong>AI Gateway</strong></a>
         <br><br>
-        <div>Unified API gateway for all LLM providers. Route requests, manage rate limits, handle fallbacks, and control costs through an OpenAI-compatible interface.</div><br>
+        <div>Unified API gateway for all LLM providers. Route requests, manage rate limits, handle fallbacks, and control costs through an OpenAI-compatible interface with built-in credential management, guardrails and traffic splitting for A/B testing.</div><br>
         <a href="https://mlflow.org/docs/latest/genai/governance/ai-gateway/quickstart/">Getting Started →</a>
         <br><br>
     </div>
@@ -149,7 +143,7 @@ Learn more at [MLflow for Model Training](https://mlflow.org/docs/latest/ml).
 
 ## Integrations
 
-MLflow is natively integrated with **60+ popular AI agent frameworks, LLM providers, and tools**, offering one-line automatic tracing. See the [full integrations list](https://mlflow.org/docs/latest/genai/tracing/integrations/).
+MLflow supports all agent frameworks, LLM providers, tools, and programming languages. We offer one-line automatic tracing for more than 60 frameworks. See the [full integrations list](https://mlflow.org/docs/latest/genai/tracing/integrations/).
 
 ### OpenTelemetry
 
@@ -249,14 +243,13 @@ MLflow is natively integrated with **60+ popular AI agent frameworks, LLM provid
 
 <table>
   <tr>
-    <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/mlflow-ai-gateway"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/mlflow-logo.svg" height="40"><br><sub><b>MLflow AI Gateway</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/databricks-ai-gateway"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/databricks-logo.png" height="40"><br><sub><b>Databricks</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/litellm-proxy"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/litellm-logo.png" height="40"><br><sub><b>LiteLLM Proxy</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/vercel-ai-gateway"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/vercel-logo.svg" height="40"><br><sub><b>Vercel AI Gateway</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/openrouter"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/openrouter-logo.png" height="40"><br><sub><b>OpenRouter</b></sub></a></td>
+    <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/portkey"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/portkey-logo.png" height="40"><br><sub><b>Portkey</b></sub></a></td>
   </tr>
   <tr>
-    <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/portkey"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/portkey-logo.png" height="40"><br><sub><b>Portkey</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/helicone"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/helicone-logo.png" height="40"><br><sub><b>Helicone</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/kong"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/kong-logo.png" height="40"><br><sub><b>Kong AI Gateway</b></sub></a></td>
     <td align="center" width="110"><a href="https://mlflow.org/docs/latest/genai/tracing/integrations/listing/pydantic-ai-gateway"><img src="https://raw.githubusercontent.com/mlflow/mlflow/refs/heads/master/docs/static/images/logos/pydantic-ai-logo-only.png" height="40"><br><sub><b>PydanticAI Gateway</b></sub></a></td>
