@@ -350,6 +350,6 @@ def test_job_status_details_in_api_response(client: Client):
 
     assert "status_details" in job_json
     assert job_json["status_details"] is not None
-    assert job_json["status_details"].get("stage") in ["init", "processing", "done"]
+    assert job_json["status_details"].get("stage") == "done"
     assert job_json["status"] == "SUCCEEDED"
     assert job_json["result"] == "completed"

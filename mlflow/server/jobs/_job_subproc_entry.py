@@ -21,9 +21,9 @@ from mlflow.server.jobs.logging_utils import configure_logging_for_jobs
 from mlflow.server.jobs.progress import JobTracker, _set_job_tracker
 from mlflow.server.jobs.utils import (
     MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR,
+    MLFLOW_SERVER_JOB_ID_ENV_VAR,
     MLFLOW_SERVER_JOB_PARAMS_ENV_VAR,
     MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR,
-    MLFLOW_SERVER_JOB_STATUS_DETAILS_DUMP_PATH_ENV_VAR,
     MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR,
     JobResult,
     _exit_when_orphaned,
@@ -49,13 +49,13 @@ if __name__ == "__main__":
     transient_error_classes_path = os.environ[
         MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR
     ]
-    status_details_dump_path = os.environ.get(MLFLOW_SERVER_JOB_STATUS_DETAILS_DUMP_PATH_ENV_VAR)
+    job_id = os.environ.get(MLFLOW_SERVER_JOB_ID_ENV_VAR)
 
     workspace = os.environ.get(MLFLOW_WORKSPACE.name)
     ctx = WorkspaceContext(workspace) if workspace else nullcontext()
 
-    if status_details_dump_path:
-        _set_job_tracker(JobTracker(status_details_dump_path))
+    if job_id:
+        _set_job_tracker(JobTracker(job_id))
 
     transient_error_classes = []
     try:
@@ -89,5 +89,5 @@ if __name__ == "__main__":
         )
         JobResult.from_error(e, transient_error_classes).dump(result_dump_path)
     finally:
-        if status_details_dump_path:
+        if job_id:
             _set_job_tracker(None)

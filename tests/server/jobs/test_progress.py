@@ -1,6 +1,4 @@
-import json
-import threading
-from pathlib import Path
+from unittest import mock
 
 from mlflow.server.jobs.progress import (
     JobTracker,
@@ -11,40 +9,53 @@ from mlflow.server.jobs.progress import (
 )
 
 
-def test_job_tracker_writes_stage_to_file(tmp_path: Path):
-    stage_file = tmp_path / "stage.json"
-    tracker = JobTracker(str(stage_file))
+def test_job_tracker_writes_to_database():
+    job_id = "test-job-123"
+    tracker = JobTracker(job_id)
 
-    tracker.update({"stage": "preprocessing"})
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
 
-    assert stage_file.exists()
-    with open(stage_file) as f:
-        data = json.load(f)
-    assert data == {"stage": "preprocessing"}
+        tracker.update({"stage": "preprocessing"})
 
-
-def test_job_tracker_writes_stage_with_metadata(tmp_path: Path):
-    stage_file = tmp_path / "stage.json"
-    tracker = JobTracker(str(stage_file))
-
-    tracker.update({"stage": "processing", "progress": "50%", "step": "1"})
-
-    assert stage_file.exists()
-    with open(stage_file) as f:
-        data = json.load(f)
-    assert data == {"stage": "processing", "progress": "50%", "step": "1"}
+        mock_get_store.assert_called_once()
+        mock_store.update_status_details.assert_called_once_with(job_id, {"stage": "preprocessing"})
 
 
-def test_job_tracker_overwrites_previous_stage(tmp_path: Path):
-    stage_file = tmp_path / "stage.json"
-    tracker = JobTracker(str(stage_file))
+def test_job_tracker_writes_status_details_with_metadata():
+    job_id = "test-job-456"
+    tracker = JobTracker(job_id)
 
-    tracker.update({"stage": "stage1", "key": "value1"})
-    tracker.update({"stage": "stage2", "key": "value2"})
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
 
-    with open(stage_file) as f:
-        data = json.load(f)
-    assert data == {"stage": "stage2", "key": "value2"}
+        tracker.update({"stage": "processing", "progress": "50%", "step": "1"})
+
+        mock_store.update_status_details.assert_called_once_with(
+            job_id, {"stage": "processing", "progress": "50%", "step": "1"}
+        )
+
+
+def test_job_tracker_multiple_updates():
+    job_id = "test-job-789"
+    tracker = JobTracker(job_id)
+
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
+
+        tracker.update({"stage": "stage1", "key": "value1"})
+        tracker.update({"stage": "stage2", "key": "value2"})
+
+        assert mock_store.update_status_details.call_count == 2
+        mock_store.update_status_details.assert_any_call(
+            job_id, {"stage": "stage1", "key": "value1"}
+        )
+        mock_store.update_status_details.assert_any_call(
+            job_id, {"stage": "stage2", "key": "value2"}
+        )
 
 
 def test_noop_tracker_does_nothing():
@@ -61,9 +72,9 @@ def test_get_job_tracker_returns_noop_by_default():
     assert isinstance(tracker, NoOpTracker)
 
 
-def test_set_and_get_job_tracker(tmp_path: Path):
-    stage_file = tmp_path / "stage.json"
-    job_tracker = JobTracker(str(stage_file))
+def test_set_and_get_job_tracker():
+    job_id = "test-job-abc"
+    job_tracker = JobTracker(job_id)
 
     _set_job_tracker(job_tracker)
     tracker = _get_job_tracker()
@@ -74,42 +85,31 @@ def test_set_and_get_job_tracker(tmp_path: Path):
     assert isinstance(tracker, NoOpTracker)
 
 
-def test_job_tracker_is_thread_local(tmp_path: Path):
-    stage_file1 = tmp_path / "stage1.json"
-    stage_file2 = tmp_path / "stage2.json"
+def test_job_tracker_is_global():
+    job_id = "test-job-global"
+    tracker = JobTracker(job_id)
 
-    tracker1 = JobTracker(str(stage_file1))
-    tracker2 = JobTracker(str(stage_file2))
+    _set_job_tracker(tracker)
 
-    _set_job_tracker(tracker1)
-
-    result = []
-
-    def thread_func():
-        _set_job_tracker(tracker2)
-        result.append(_get_job_tracker())
-
-    thread = threading.Thread(target=thread_func)
-    thread.start()
-    thread.join()
-
-    assert _get_job_tracker() is tracker1
-    assert result[0] is tracker2
+    assert _get_job_tracker() is tracker
 
     _set_job_tracker(None)
 
 
-def test_update_status_details_uses_active_tracker(tmp_path: Path):
-    stage_file = tmp_path / "stage.json"
-    tracker = JobTracker(str(stage_file))
+def test_update_status_details_uses_active_tracker():
+    job_id = "test-job-xyz"
+    tracker = JobTracker(job_id)
 
-    _set_job_tracker(tracker)
-    update_status_details({"stage": "my_stage", "info": "test"})
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
 
-    assert stage_file.exists()
-    with open(stage_file) as f:
-        data = json.load(f)
-    assert data == {"stage": "my_stage", "info": "test"}
+        _set_job_tracker(tracker)
+        update_status_details({"stage": "my_stage", "info": "test"})
+
+        mock_store.update_status_details.assert_called_once_with(
+            job_id, {"stage": "my_stage", "info": "test"}
+        )
 
     _set_job_tracker(None)
 
@@ -121,31 +121,35 @@ def test_update_status_details_is_noop_without_tracker():
     update_status_details({"stage": "stage2", "key": "value"})
 
 
-def test_update_status_details_with_only_stage(tmp_path: Path):
-    stage_file = tmp_path / "stage.json"
-    tracker = JobTracker(str(stage_file))
+def test_update_status_details_with_only_stage():
+    job_id = "test-job-stage"
+    tracker = JobTracker(job_id)
 
-    _set_job_tracker(tracker)
-    update_status_details({"stage": "my_stage"})
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
 
-    assert stage_file.exists()
-    with open(stage_file) as f:
-        data = json.load(f)
-    assert data == {"stage": "my_stage"}
+        _set_job_tracker(tracker)
+        update_status_details({"stage": "my_stage"})
+
+        mock_store.update_status_details.assert_called_once_with(job_id, {"stage": "my_stage"})
 
     _set_job_tracker(None)
 
 
-def test_update_status_details_with_additional_fields(tmp_path: Path):
-    stage_file = tmp_path / "stage.json"
-    tracker = JobTracker(str(stage_file))
+def test_update_status_details_with_additional_fields():
+    job_id = "test-job-fields"
+    tracker = JobTracker(job_id)
 
-    _set_job_tracker(tracker)
-    update_status_details({"stage": "my_stage", "progress": "50%", "details": "processing"})
+    with mock.patch("mlflow.server.handlers._get_job_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
 
-    assert stage_file.exists()
-    with open(stage_file) as f:
-        data = json.load(f)
-    assert data == {"stage": "my_stage", "progress": "50%", "details": "processing"}
+        _set_job_tracker(tracker)
+        update_status_details({"stage": "my_stage", "progress": "50%", "details": "processing"})
+
+        mock_store.update_status_details.assert_called_once_with(
+            job_id, {"stage": "my_stage", "progress": "50%", "details": "processing"}
+        )
 
     _set_job_tracker(None)

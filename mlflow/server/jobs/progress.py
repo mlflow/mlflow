@@ -1,21 +1,21 @@
-"""Job metadata tracking for MLflow jobs using thread-local context."""
+"""Job tracking for MLflow jobs."""
 
-import json
-import threading
 from typing import Any
 
-_thread_local = threading.local()
+_job_tracker: "JobTracker | NoOpTracker | None" = None
 
 
 class JobTracker:
-    """Tracks job execution (internal use)."""
+    """Tracks job execution by writing directly to database (internal use)."""
 
-    def __init__(self, stage_file: str):
-        self.stage_file = stage_file
+    def __init__(self, job_id: str):
+        self.job_id = job_id
 
     def update(self, status_details: dict[str, Any]) -> None:
-        with open(self.stage_file, "w") as f:
-            json.dump(status_details, f)
+        from mlflow.server.handlers import _get_job_store
+
+        job_store = _get_job_store()
+        job_store.update_status_details(self.job_id, status_details)
 
 
 class NoOpTracker:
@@ -25,16 +25,13 @@ class NoOpTracker:
         pass
 
 
-def _get_job_tracker() -> JobTracker | NoOpTracker:
-    return getattr(_thread_local, "job_tracker", NoOpTracker())
+def _get_job_tracker() -> "JobTracker | NoOpTracker":
+    return _job_tracker or NoOpTracker()
 
 
-def _set_job_tracker(tracker: JobTracker | None) -> None:
-    if tracker is None:
-        if hasattr(_thread_local, "job_tracker"):
-            delattr(_thread_local, "job_tracker")
-    else:
-        _thread_local.job_tracker = tracker
+def _set_job_tracker(tracker: "JobTracker | None") -> None:
+    global _job_tracker
+    _job_tracker = tracker
 
 
 def update_status_details(status_details: dict[str, Any]) -> None:
