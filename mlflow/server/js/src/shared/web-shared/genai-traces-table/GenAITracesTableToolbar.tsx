@@ -40,7 +40,7 @@ interface CountInfo {
 }
 
 interface GenAITracesTableToolbarProps {
-  // Component ID for detect issues button (optional, defaults to traces-table)
+  // Component ID for detect issues button (optional, defaults to mlflow.traces-table.detect-issues-button)
   detectIssuesButtonComponentId?: string;
 
   // Experiment metadata
