@@ -12,22 +12,20 @@ export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componen
   const intl = useIntl();
 
   return (
-    <div>
-      <Button
-        componentId={componentId}
-        onClick={onClick}
-        aria-label={intl.formatMessage({
-          defaultMessage: 'Detect issues in traces',
-          description: 'Aria label for the detect issues button',
-        })}
-        icon={<SparkleIcon color="ai" />}
-        css={{
-          border: '1px solid transparent !important',
-          background: `linear-gradient(${theme.colors.backgroundPrimary}, ${theme.colors.backgroundPrimary}) padding-box, ${theme.gradients.aiBorderGradient} border-box`,
-        }}
-      >
-        <FormattedMessage defaultMessage="Detect Issues" description="Label for the detect issues button" />
-      </Button>
-    </div>
+    <Button
+      componentId={componentId}
+      onClick={onClick}
+      aria-label={intl.formatMessage({
+        defaultMessage: 'Detect issues in traces',
+        description: 'Aria label for the detect issues button',
+      })}
+      icon={<SparkleIcon color="ai" />}
+      css={{
+        border: '1px solid transparent !important',
+        background: `linear-gradient(${theme.colors.backgroundPrimary}, ${theme.colors.backgroundPrimary}) padding-box, ${theme.gradients.aiBorderGradient} border-box`,
+      }}
+    >
+      <FormattedMessage defaultMessage="Detect Issues" description="Label for the detect issues button" />
+    </Button>
   );
 };
