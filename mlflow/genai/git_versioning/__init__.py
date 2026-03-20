@@ -7,6 +7,7 @@ from mlflow.genai.git_versioning.git_info import GitInfo, GitOperationError
 from mlflow.telemetry.events import GitModelVersioningEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.fluent import _set_active_model
+from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ def _enable_git_model_versioning(remote_name: str) -> None:
     return context
 
 
+@experimental(version="3.4.0")
 def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
     """
     Enable automatic Git-based model versioning for MLflow traces.
@@ -118,6 +120,7 @@ def enable_git_model_versioning(remote_name: str = "origin") -> GitContext:
     return _enable_git_model_versioning(remote_name)
 
 
+@experimental(version="3.4.0")
 def disable_git_model_versioning() -> None:
     """
     Disable Git-based model versioning and clear the active model context.
