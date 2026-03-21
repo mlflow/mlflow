@@ -23,7 +23,6 @@ members = [
 ]
 constraints = [
     { name = "chardet", specifier = "<6.0" },
-    { name = "claude-agent-sdk", specifier = "!=0.1.49" },
     { name = "pyspark", specifier = "<4.1.0" },
     { name = "setuptools", specifier = "<82" },
     { name = "xgboost", specifier = "<3.1.0" },
