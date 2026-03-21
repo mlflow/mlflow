@@ -6,7 +6,6 @@ construction time, and that subsequent calls to
 ``_use_databricks_sdk`` value skip the probe ``WorkspaceClient``.
 """
 
-from functools import partial
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -120,48 +119,23 @@ def test_public_api_still_probes_every_call(mock_ws_client):
     assert mock_ws_client.call_count == 5
 
 
-# -- Regression: old callback probes every call, new callback probes once ------
+# -- Regression: store's get_host_creds callback probes only once --------------
 
 
-def test_old_callback_probes_on_every_request(mock_ws_client):
-    from mlflow.utils.databricks_utils import get_databricks_host_creds
-
-    # This is the callback that stores used before the fix:
-    #   partial(get_databricks_host_creds, store_uri)
-    old_callback = partial(get_databricks_host_creds, "databricks")
+def test_databricks_rest_store_probes_once_for_many_requests(mock_ws_client):
+    from mlflow.tracking._tracking_service.utils import _get_databricks_rest_store
 
     with patch(
         "mlflow.utils.databricks_utils._get_databricks_creds_config",
         return_value=_mock_config(),
     ):
+        # 1 probe during store construction.
+        store = _get_databricks_rest_store("databricks")
+
+        # 50 simulated REST requests via the store's get_host_creds callback.
         for _ in range(50):
-            old_callback()
+            store.get_host_creds()
 
-    # Bug: every call creates a throwaway WorkspaceClient to probe SDK auth.
-    assert mock_ws_client.call_count == 50
-
-
-def test_new_callback_probes_once(mock_ws_client):
-    from mlflow.utils.databricks_utils import (
-        _get_databricks_host_creds_impl,
-        probe_databricks_sdk_auth,
-    )
-
-    # This is the callback that stores use after the fix:
-    #   use_sdk = probe_databricks_sdk_auth(store_uri)  # once
-    #   partial(_get_databricks_host_creds_impl, store_uri, _use_databricks_sdk=use_sdk)
-    use_sdk = probe_databricks_sdk_auth("databricks")
-    new_callback = partial(
-        _get_databricks_host_creds_impl, "databricks", _use_databricks_sdk=use_sdk
-    )
-
-    with patch(
-        "mlflow.utils.databricks_utils._get_databricks_creds_config",
-        return_value=_mock_config(),
-    ):
-        for _ in range(50):
-            creds = new_callback()
-            assert creds.use_databricks_sdk is True
-
-    # Fix: 1 probe at construction time, 0 during requests.
+    # Before the fix this was 51 (1 in factory + 50 in get_host_creds).
+    # After the fix it is 1 (only the factory probe).
     assert mock_ws_client.call_count == 1
