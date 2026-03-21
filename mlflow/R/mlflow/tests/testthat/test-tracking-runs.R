@@ -11,7 +11,7 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
   run <- mlflow_start_run(
     client = client,
     experiment_id = "0",
-    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
+    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1", mlflow.runName = "my_run")
   )
 
   run <- mlflow_get_run(client = client, run$run_uuid)
@@ -23,7 +23,8 @@ test_that("mlflow_start_run()/mlflow_get_run() work properly", {
       list(
         list(key = "foz", value = "baz"),
         list(key = "foo", value = "bar"),
-        list(key = "mlflow.user", value = "user1")
+        list(key = "mlflow.user", value = "user1"),
+        list(key = "mlflow.runName", value = run$run_name)
       )
     )
   )
@@ -58,7 +59,7 @@ test_that("mlflow_end_run() works properly", {
 
   # Verify that only expected run field names are present and that all run info fields are set
   # (not NA).
-  run_info_names <- c("run_uuid", "experiment_id", "user_id", "status", "start_time",
+  run_info_names <- c("run_uuid", "experiment_id", "user_id", "run_name", "status", "start_time",
   "artifact_uri", "lifecycle_stage", "run_id", "end_time")
   run_data_names <- c("metrics", "params", "tags")
   expect_setequal(c(run_info_names, run_data_names), names(run))
@@ -80,7 +81,7 @@ test_that("mlflow_start_run()/mlflow_end_run() works properly with nested runs",
     if (i > 1) {
       tags <- run$tags[[1]]
       expect_equal(
-        tags[tags$key == "mlflow.parentRunId",]$value,
+        tags[tags$key == "mlflow.parentRunId", ]$value,
         runs[[i - 1]]$run_uuid
       )
     }
@@ -94,7 +95,7 @@ test_that("mlflow_restore_run() work properly", {
   run1 <- mlflow_start_run(
     client = client,
     experiment_id = "0",
-    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1")
+    tags = list(foo = "bar", foz = "baz", mlflow.user = "user1", mlflow.runName = "my_run")
   )
 
   run2 <- mlflow_get_run(client = client, run1$run_uuid)
@@ -109,7 +110,8 @@ test_that("mlflow_restore_run() work properly", {
         list(
           list(key = "foz", value = "baz"),
           list(key = "foo", value = "bar"),
-          list(key = "mlflow.user", value = "user1")
+          list(key = "mlflow.user", value = "user1"),
+          list(key = "mlflow.runName", value = run$run_name)
         )
       )
     )
@@ -136,6 +138,8 @@ test_that("logging functionality", {
 
   mlflow_set_tag("tag_key", "tag_value")
   mlflow_log_param("param_key", "param_value")
+  mlflow_log_param("na", NA)
+  mlflow_log_param("nan", NaN)
 
   run <- mlflow_get_run()
   metrics <- run$metrics[[1]]
@@ -148,8 +152,8 @@ test_that("logging functionality", {
   run_id <- run$run_uuid
   tags <- run$tags[[1]]
   expect_identical("tag_value", tags$value[tags$key == "tag_key"])
-  expect_identical(run$params[[1]]$key, "param_key")
-  expect_identical(run$params[[1]]$value, "param_value")
+  expect_setequal(run$params[[1]]$key, c("na", "nan", "param_key"))
+  expect_setequal(run$params[[1]]$value, c("NA", "NaN", "param_value"))
 
   mlflow_delete_tag("tag_key", run_id)
   run <- mlflow_get_run()
@@ -201,7 +205,7 @@ test_that("mlflow_log_metric() rounds step and timestamp inputs", {
   }
   expect_setequal(
     mlflow_get_metric_history("timestamp_metric")$timestamp,
-    purrr::map(round(timestamp_inputs), mlflow:::milliseconds_to_date)
+    purrr::map_vec(round(timestamp_inputs), mlflow:::milliseconds_to_date)
   )
 })
 
@@ -254,7 +258,7 @@ test_that("mlflow_log_metric() with step produces expected metric data", {
   )
   expect_setequal(
     metric_history_1$timestamp,
-    purrr::map(c(300, 100, 200), mlflow:::milliseconds_to_date)
+    purrr::map_vec(c(300, 100, 200), mlflow:::milliseconds_to_date)
   )
   expect_setequal(
     metric_history_1$step,
@@ -405,21 +409,6 @@ test_that("mlflow_log_artifact and mlflow_list_artifacts work", {
   })
 })
 
-test_that("mlflow_list_run_infos() works", {
-  mlflow_clear_test_dir("mlruns")
-  expect_equal(nrow(mlflow_list_run_infos(experiment_id = "0")), 0)
-  with(mlflow_start_run(), {
-    mlflow_log_metric("test", 10)
-  })
-  expect_equal(nrow(mlflow_list_run_infos(experiment_id = "0")), 1)
-  mlflow_set_experiment("new-experiment")
-  expect_equal(nrow(mlflow_list_run_infos()), 0)
-  with(mlflow_start_run(), {
-    mlflow_log_metric("new_experiment_metric", 20)
-  })
-  expect_equal(nrow(mlflow_list_run_infos()), 1)
-})
-
 test_that("mlflow_log_batch() works", {
   mlflow_clear_test_dir("mlruns")
   mlflow_start_run()
@@ -449,7 +438,7 @@ test_that("mlflow_log_batch() works", {
   expect_true(all(-1.7976931348623157e308 >= (metrics$value[metrics$key == "-Inf"])))
   expect_setequal(
     metrics$timestamp,
-    purrr::map(c(200, 300, 400, 500, 600), mlflow:::milliseconds_to_date)
+    purrr::map_vec(c(200, 300, 400, 500, 600), mlflow:::milliseconds_to_date)
   )
   expect_setequal(
     metrics$step,
@@ -463,7 +452,7 @@ test_that("mlflow_log_batch() works", {
   )
   expect_setequal(
     metric_history$timestamp,
-    purrr::map(c(100, 200), mlflow:::milliseconds_to_date)
+    purrr::map_vec(c(100, 200), mlflow:::milliseconds_to_date)
   )
   expect_setequal(
     metric_history$step,
@@ -688,4 +677,39 @@ test_that("mlflow observers receive tracking event callbacks", {
       tracking_events[[idx]]$set_terminated[[1]]$run_uuid, run$run_uuid
     )
   }
+})
+
+test_that("mlflow get metric history performs pagination", {
+  mlflow_clear_test_dir("mlruns")
+  run <- mlflow_start_run()
+
+  batch_size <- 1000
+  for (x in 0:25) {
+    # 0th index entries for timestamp will not work due to pagination filter default logic
+    # add a `+1` to the start and end values
+    start <- (batch_size * x) + 1
+    end <- (batch_size * (x + 1))
+    metrics <- data.frame(key = rep(c("m1"), batch_size),
+                        value = seq.int(from = start, to = end, by = 1),
+                        timestamp = seq.int(from = start, to = end, by = 1),
+                        step = seq.int(from = start, to = end, by = 1)
+                       )
+    mlflow_log_batch(metrics = metrics)
+  }
+  logged <- mlflow_get_metric_history(metric_key = "m1", run_id = run$run_id)
+
+  expect_equal(nrow(logged), 26000)
+
+  first_entry <- head(logged, n = 1)
+  expect_equal(first_entry$key, "m1")
+  expect_equal(first_entry$value, 1)
+  expect_equal(first_entry$step, 1)
+  expect_equal(first_entry$timestamp, purrr::map_vec(c(1), mlflow:::milliseconds_to_date)[[1]])
+
+  last_entry <- tail(logged, n = 1)
+  expect_equal(last_entry$key, "m1")
+  expect_equal(last_entry$value, 26000)
+  expect_equal(last_entry$step, 26000)
+  expect_equal(last_entry$timestamp, purrr::map_vec(c(26000), mlflow:::milliseconds_to_date)[[1]])
+  mlflow_end_run()
 })

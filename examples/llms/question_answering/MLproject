@@ -1,0 +1,7 @@
+name: llm_question_answering
+
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    command: python question_answering.py

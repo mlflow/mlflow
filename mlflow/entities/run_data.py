@@ -1,25 +1,25 @@
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.metric import Metric
 from mlflow.entities.param import Param
 from mlflow.entities.run_tag import RunTag
-from mlflow.protos.service_pb2 import (
-    RunData as ProtoRunData,
-    Param as ProtoParam,
-    RunTag as ProtoRunTag,
-)
+from mlflow.protos.service_pb2 import Param as ProtoParam
+from mlflow.protos.service_pb2 import RunData as ProtoRunData
+from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
 
 
-class RunData(_MLflowObject):
+class RunData(_MlflowObject):
     """
     Run data (metrics and parameters).
     """
 
     def __init__(self, metrics=None, params=None, tags=None):
-        """
-        Construct a new :py:class:`mlflow.entities.RunData` instance.
-        :param metrics: List of :py:class:`mlflow.entities.Metric`.
-        :param params: List of :py:class:`mlflow.entities.Param`.
-        :param tags: List of :py:class:`mlflow.entities.RunTag`.
+        """Construct a new mlflow.entities.RunData instance.
+
+        Args:
+            metrics: List of mlflow.entities.Metric.
+            params: List of mlflow.entities.Param.
+            tags: List of mlflow.entities.RunTag.
+
         """
         # Maintain the original list of metrics so that we can easily convert it back to
         # protobuf

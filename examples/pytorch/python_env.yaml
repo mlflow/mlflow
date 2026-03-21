@@ -1,0 +1,7 @@
+build_dependencies:
+  - pip
+dependencies:
+  - torch
+  - torchvision
+  - mlflow
+  - tensorboardX

@@ -1,8 +1,8 @@
-from abc import abstractmethod
 import pprint
+from abc import abstractmethod
 
 
-class _MLflowObject(object):
+class _MlflowObject:
     def __iter__(self):
         # Iterate through list of properties and yield as key -> value
         for prop in self._properties():
@@ -31,22 +31,22 @@ class _MLflowObject(object):
 
 
 def to_string(obj):
-    return _MLflowObjectPrinter().to_string(obj)
+    return _MlflowObjectPrinter().to_string(obj)
 
 
 def get_classname(obj):
     return type(obj).__name__
 
 
-class _MLflowObjectPrinter(object):
+class _MlflowObjectPrinter:
     def __init__(self):
         super().__init__()
         self.printer = pprint.PrettyPrinter()
 
     def to_string(self, obj):
-        if isinstance(obj, _MLflowObject):
-            return "<%s: %s>" % (get_classname(obj), self._entity_to_string(obj))
+        if isinstance(obj, _MlflowObject):
+            return f"<{get_classname(obj)}: {self._entity_to_string(obj)}>"
         return self.printer.pformat(obj)
 
     def _entity_to_string(self, entity):
-        return ", ".join(["%s=%s" % (key, self.to_string(value)) for key, value in entity])
+        return ", ".join([f"{key}={self.to_string(value)}" for key, value in entity])

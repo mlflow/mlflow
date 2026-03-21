@@ -1,9 +1,0 @@
-name: fastai-example
-channels:
-  - conda-forge
-dependencies:
-  - python=3.7.5
-  - pip
-  - pip:
-    - fastai>=2.4.1
-    - mlflow>=1.9.0

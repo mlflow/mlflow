@@ -8,32 +8,43 @@ MlflowAutologgingQueueingClient to MlflowClient in order to provide broader bene
 Remove this developer API.
 """
 
-import os
-import time
 import logging
-from collections import namedtuple
+import os
 from concurrent.futures import ThreadPoolExecutor
 from itertools import zip_longest
-from typing import Any, Dict, Optional, Union
+from typing import TYPE_CHECKING, Any, NamedTuple, Optional
 
-from mlflow.entities import Param, RunTag, Metric
+from mlflow.entities import Metric, Param, RunTag
+from mlflow.entities.dataset_input import DatasetInput
 from mlflow.exceptions import MlflowException
-from mlflow.tracking.client import MlflowClient
-from mlflow.utils import chunk_list, _truncate_dict
+from mlflow.utils import _truncate_dict, chunk_list
+from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
+    MAX_DATASETS_PER_BATCH,
     MAX_ENTITIES_PER_BATCH,
     MAX_ENTITY_KEY_LENGTH,
-    MAX_TAG_VAL_LENGTH,
+    MAX_METRICS_PER_BATCH,
     MAX_PARAM_VAL_LENGTH,
     MAX_PARAMS_TAGS_PER_BATCH,
-    MAX_METRICS_PER_BATCH,
+    MAX_TAG_VAL_LENGTH,
 )
 
+if TYPE_CHECKING:
+    from mlflow.data.dataset import Dataset
 
 _logger = logging.getLogger(__name__)
 
-_PendingCreateRun = namedtuple("_PendingCreateRun", ["experiment_id", "start_time", "tags"])
-_PendingSetTerminated = namedtuple("_PendingSetTerminated", ["status", "end_time"])
+
+class _PendingCreateRun(NamedTuple):
+    experiment_id: str
+    start_time: int | None
+    tags: list[RunTag]
+    run_name: str | None
+
+
+class _PendingSetTerminated(NamedTuple):
+    status: str | None
+    end_time: int | None
 
 
 class PendingRunId:
@@ -67,7 +78,7 @@ class RunOperations:
             raise MlflowException(
                 message=(
                     "The following failures occurred while performing one or more logging"
-                    " operations: {failures}".format(failures=failed_operations)
+                    f" operations: {failed_operations}"
                 )
             )
 
@@ -80,7 +91,10 @@ class RunOperations:
 # of CPU cores available on the system (whichever is smaller)
 num_cpus = os.cpu_count() or 4
 num_logging_workers = min(num_cpus * 2, 8)
-_AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL = ThreadPoolExecutor(max_workers=num_logging_workers)
+_AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL = ThreadPoolExecutor(
+    max_workers=num_logging_workers,
+    thread_name_prefix="MlflowAutologgingQueueingClient",
+)
 
 
 class MlflowAutologgingQueueingClient:
@@ -97,6 +111,8 @@ class MlflowAutologgingQueueingClient:
     """
 
     def __init__(self, tracking_uri=None):
+        from mlflow.tracking.client import MlflowClient
+
         self._client = MlflowClient(tracking_uri)
         self._pending_ops_by_run_id = {}
 
@@ -110,7 +126,7 @@ class MlflowAutologgingQueueingClient:
         """
         return self
 
-    def __exit__(self, exc_type, exc, traceback):  # pylint: disable=unused-argument
+    def __exit__(self, exc_type, exc, traceback):
         """
         Enables `MlflowAutologgingQueueingClient` to be used as a context manager with
         synchronous flushing upon exit, removing the need to call `flush()` for use cases
@@ -134,16 +150,18 @@ class MlflowAutologgingQueueingClient:
     def create_run(
         self,
         experiment_id: str,
-        start_time: Optional[int] = None,
-        tags: Optional[Dict[str, Any]] = None,
+        start_time: int | None = None,
+        tags: dict[str, Any] | None = None,
+        run_name: str | None = None,
     ) -> PendingRunId:
         """
         Enqueues a CreateRun operation with the specified attributes, returning a `PendingRunId`
         instance that can be used as input to other client logging APIs (e.g. `log_metrics`,
         `log_params`, ...).
 
-        :return: A `PendingRunId` that can be passed as the `run_id` parameter to other client
-                 logging APIs, such as `log_params` and `log_metrics`.
+        Returns:
+            A `PendingRunId` that can be passed as the `run_id` parameter to other client
+            logging APIs, such as `log_params` and `log_metrics`.
         """
         tags = tags or {}
         tags = _truncate_dict(
@@ -155,25 +173,26 @@ class MlflowAutologgingQueueingClient:
                 experiment_id=experiment_id,
                 start_time=start_time,
                 tags=[RunTag(key, str(value)) for key, value in tags.items()],
+                run_name=run_name,
             )
         )
         return run_id
 
     def set_terminated(
         self,
-        run_id: Union[str, PendingRunId],
-        status: Optional[str] = None,
-        end_time: Optional[int] = None,
+        run_id: str | PendingRunId,
+        status: str | None = None,
+        end_time: int | None = None,
     ) -> None:
         """
         Enqueues an UpdateRun operation with the specified `status` and `end_time` attributes
         for the specified `run_id`.
         """
         self._get_pending_operations(run_id).enqueue(
-            set_terminated=_PendingSetTerminated(status=status, end_time=end_time,)
+            set_terminated=_PendingSetTerminated(status=status, end_time=end_time)
         )
 
-    def log_params(self, run_id: Union[str, PendingRunId], params: Dict[str, Any]) -> None:
+    def log_params(self, run_id: str | PendingRunId, params: dict[str, Any]) -> None:
         """
         Enqueues a collection of Parameters to be logged to the run specified by `run_id`.
         """
@@ -183,24 +202,43 @@ class MlflowAutologgingQueueingClient:
         params_arr = [Param(key, str(value)) for key, value in params.items()]
         self._get_pending_operations(run_id).enqueue(params=params_arr)
 
+    def log_inputs(self, run_id: str | PendingRunId, datasets: list[DatasetInput] | None) -> None:
+        """
+        Enqueues a collection of Dataset to be logged to the run specified by `run_id`.
+        """
+        if datasets is None or len(datasets) == 0:
+            return
+        self._get_pending_operations(run_id).enqueue(datasets=datasets)
+
     def log_metrics(
         self,
-        run_id: Union[str, PendingRunId],
-        metrics: Dict[str, float],
-        step: Optional[int] = None,
+        run_id: str | PendingRunId,
+        metrics: dict[str, float],
+        step: int | None = None,
+        dataset: Optional["Dataset"] = None,
+        model_id: str | None = None,
     ) -> None:
         """
         Enqueues a collection of Metrics to be logged to the run specified by `run_id` at the
         step specified by `step`.
         """
         metrics = _truncate_dict(metrics, max_key_length=MAX_ENTITY_KEY_LENGTH)
-        timestamp_ms = int(time.time() * 1000)
+        timestamp_ms = get_current_time_millis()
         metrics_arr = [
-            Metric(key, value, timestamp_ms, step or 0) for key, value in metrics.items()
+            Metric(
+                key,
+                value,
+                timestamp_ms,
+                step or 0,
+                model_id=model_id,
+                dataset_name=dataset and dataset.name,
+                dataset_digest=dataset and dataset.digest,
+            )
+            for key, value in metrics.items()
         ]
         self._get_pending_operations(run_id).enqueue(metrics=metrics_arr)
 
-    def set_tags(self, run_id: Union[str, PendingRunId], tags: Dict[str, Any]) -> None:
+    def set_tags(self, run_id: str | PendingRunId, tags: dict[str, Any]) -> None:
         """
         Enqueues a collection of Tags to be logged to the run specified by `run_id`.
         """
@@ -215,22 +253,26 @@ class MlflowAutologgingQueueingClient:
         Flushes all queued run operations, resulting in the creation or mutation of runs
         and run data.
 
-        :param synchronous: If `True`, run operations are performed synchronously, and a
-                            `RunOperations` result object is only returned once all operations
-                            are complete. If `False`, run operations are performed asynchronously,
-                            and an `RunOperations` object is returned that represents the ongoing
-                            run operations.
-        :return: A `RunOperations` instance representing the flushed operations. These operations
-                 are already complete if `synchronous` is `True`. If `synchronous` is `False`, these
-                 operations may still be inflight. Operation completion can be synchronously waited
-                 on via `RunOperations.await_completion()`.
+        Args:
+            synchronous: If `True`, run operations are performed synchronously, and a
+                `RunOperations` result object is only returned once all operations
+                are complete. If `False`, run operations are performed asynchronously,
+                and an `RunOperations` object is returned that represents the ongoing
+                run operations.
+
+        Returns:
+            A `RunOperations` instance representing the flushed operations. These operations
+            are already complete if `synchronous` is `True`. If `synchronous` is `False`, these
+            operations may still be inflight. Operation completion can be synchronously waited
+            on via `RunOperations.await_completion()`.
         """
-        logging_futures = []
-        for pending_operations in self._pending_ops_by_run_id.values():
-            future = _AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL.submit(
-                self._flush_pending_operations, pending_operations=pending_operations,
+        logging_futures = [
+            _AUTOLOGGING_QUEUEING_CLIENT_THREAD_POOL.submit(
+                self._flush_pending_operations,
+                pending_operations=pending_operations,
             )
-            logging_futures.append(future)
+            for pending_operations in self._pending_ops_by_run_id.values()
+        ]
         self._pending_ops_by_run_id = {}
 
         logging_operations = RunOperations(logging_futures)
@@ -240,8 +282,9 @@ class MlflowAutologgingQueueingClient:
 
     def _get_pending_operations(self, run_id):
         """
-        :return: A `_PendingRunOperations` containing all pending operations for the
-                 specified `run_id`.
+        Returns:
+            A `_PendingRunOperations` containing all pending operations for the
+            specified `run_id`.
         """
         if run_id not in self._pending_ops_by_run_id:
             self._pending_ops_by_run_id[run_id] = _PendingRunOperations(run_id=run_id)
@@ -292,16 +335,19 @@ class MlflowAutologgingQueueingClient:
         operation_results = []
 
         param_batches_to_log = chunk_list(
-            pending_operations.params_queue, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
+            pending_operations.params_queue,
+            chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
         )
         tag_batches_to_log = chunk_list(
-            pending_operations.tags_queue, chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
+            pending_operations.tags_queue,
+            chunk_size=MAX_PARAMS_TAGS_PER_BATCH,
         )
         for params_batch, tags_batch in zip_longest(
             param_batches_to_log, tag_batches_to_log, fillvalue=[]
         ):
             metrics_batch_size = min(
-                MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch), MAX_METRICS_PER_BATCH,
+                MAX_ENTITIES_PER_BATCH - len(params_batch) - len(tags_batch),
+                MAX_METRICS_PER_BATCH,
             )
             metrics_batch_size = max(metrics_batch_size, 0)
             metrics_batch = pending_operations.metrics_queue[:metrics_batch_size]
@@ -317,12 +363,19 @@ class MlflowAutologgingQueueingClient:
                 )
             )
 
-        for metrics_batch in chunk_list(
-            pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
-        ):
-            operation_results.append(
-                self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch,)
+        operation_results.extend(
+            self._try_operation(self._client.log_batch, run_id=run_id, metrics=metrics_batch)
+            for metrics_batch in chunk_list(
+                pending_operations.metrics_queue, chunk_size=MAX_METRICS_PER_BATCH
             )
+        )
+
+        operation_results.extend(
+            self._try_operation(self._client.log_inputs, run_id=run_id, datasets=datasets_batch)
+            for datasets_batch in chunk_list(
+                pending_operations.datasets_queue, chunk_size=MAX_DATASETS_PER_BATCH
+            )
+        )
 
         if pending_operations.set_terminated:
             operation_results.append(
@@ -338,8 +391,8 @@ class MlflowAutologgingQueueingClient:
         if len(failures) > 0:
             raise MlflowException(
                 message=(
-                    "Failed to perform one or more operations on the run with ID {run_id}."
-                    " Failed operations: {failures}".format(run_id=run_id, failures=failures,)
+                    f"Failed to perform one or more operations on the run with ID {run_id}."
+                    f" Failed operations: {failures}"
                 )
             )
 
@@ -356,8 +409,17 @@ class _PendingRunOperations:
         self.params_queue = []
         self.tags_queue = []
         self.metrics_queue = []
+        self.datasets_queue = []
 
-    def enqueue(self, params=None, tags=None, metrics=None, create_run=None, set_terminated=None):
+    def enqueue(
+        self,
+        params=None,
+        tags=None,
+        metrics=None,
+        datasets=None,
+        create_run=None,
+        set_terminated=None,
+    ):
         """
         Enqueues a new pending logging operation for the associated MLflow Run.
         """
@@ -371,8 +433,4 @@ class _PendingRunOperations:
         self.params_queue += params or []
         self.tags_queue += tags or []
         self.metrics_queue += metrics or []
-
-
-__all__ = [
-    "MlflowAutologgingQueueingClient",
-]
+        self.datasets_queue += datasets or []

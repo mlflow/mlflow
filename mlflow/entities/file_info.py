@@ -1,8 +1,8 @@
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import FileInfo as ProtoFileInfo
 
 
-class FileInfo(_MLflowObject):
+class FileInfo(_MlflowObject):
     """
     Metadata about a file or directory.
     """

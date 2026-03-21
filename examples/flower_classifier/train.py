@@ -3,23 +3,25 @@ Example of image classification with MLflow using Keras to classify flowers from
 taken from ``http://download.tensorflow.org/example_images/flower_photos.tgz`` and may be
 downloaded during running this project if it is missing.
 """
+
 import math
 import os
+import tarfile
 
 import click
 import keras
-from keras.utils import np_utils
-from keras.models import Model
-from keras.callbacks import Callback
-from keras.applications import vgg16
-from keras.layers import Input, Dense, Flatten, Lambda
 import numpy as np
-from sklearn.model_selection import train_test_split
 import tensorflow as tf
+from image_pyfunc import decode_and_resize_image, log_model
+from keras.applications import vgg16
+from keras.callbacks import Callback
+from keras.layers import Dense, Flatten, Input, Lambda
+from keras.models import Model
+from keras.utils import np_utils
+from sklearn.model_selection import train_test_split
 
 import mlflow
-
-from image_pyfunc import decode_and_resize_image, log_model, KerasImageClassifierPyfunc
+from mlflow.models import infer_signature
 
 
 def download_input():
@@ -30,7 +32,6 @@ def download_input():
     r = requests.get(url)
     with open("flower_photos.tgz", "wb") as f:
         f.write(r.content)
-    import tarfile
 
     print("decompressing flower_photos.tgz to '{}'".format(os.path.abspath("flower_photos")))
     with tarfile.open("flower_photos.tgz") as tar:
@@ -38,9 +39,9 @@ def download_input():
 
 
 @click.command(
-    help="Trains an Keras model on flower_photos dataset."
-    "The input is expected as a directory tree with pictures for each category in a"
-    " folder named by the category."
+    help="Trains an Keras model on flower_photos dataset. "
+    "The input is expected as a directory tree with pictures for each category in a "
+    "folder named by the category. "
     "The model and its metrics are logged with mlflow."
 )
 @click.option("--epochs", type=click.INT, default=1, help="Maximum number of epochs to evaluate.")
@@ -64,7 +65,7 @@ def run(training_data, test_ratio, epochs, batch_size, image_width, image_height
         print("Input data not found, attempting to download the data from the web.")
         download_input()
 
-    for (dirname, _, files) in os.walk(training_data):
+    for dirname, _, files in os.walk(training_data):
         for filename in files:
             if filename.endswith("jpg"):
                 image_files.append(os.path.join(dirname, filename))
@@ -86,7 +87,7 @@ def run(training_data, test_ratio, epochs, batch_size, image_width, image_height
     )
 
 
-class MLflowLogger(Callback):
+class MlflowLogger(Callback):
     """
     Keras callback for logging metrics and final model with MLflow.
 
@@ -110,10 +111,7 @@ class MLflowLogger(Callback):
         if not logs:
             return
         for name, value in logs.items():
-            if name.startswith("val_"):
-                name = "valid_" + name[4:]
-            else:
-                name = "train_" + name
+            name = "valid_" + name[4:] if name.startswith("val_") else "train_" + name
             mlflow.log_metric(name, value)
         val_loss = logs["val_loss"]
         if val_loss < self._best_val_loss:
@@ -130,12 +128,13 @@ class MLflowLogger(Callback):
         x, y = self._train
         train_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, train_res):
-            mlflow.log_metric("train_{}".format(name), value)
+            mlflow.log_metric(f"train_{name}", value)
         x, y = self._valid
         valid_res = self._model.evaluate(x=x, y=y)
         for name, value in zip(self._model.metrics_names, valid_res):
-            mlflow.log_metric("valid_{}".format(name), value)
-        log_model(keras_model=self._model, **self._pyfunc_params)
+            mlflow.log_metric(f"valid_{name}", value)
+        signature = infer_signature(x, y)
+        log_model(keras_model=self._model, signature=signature, **self._pyfunc_params)
 
 
 def _imagenet_preprocess_tf(x):
@@ -175,23 +174,25 @@ def train(
     preprocessing together with the VGG16 Keras model. The resulting model can be applied
     directly to image base64 encoded image data.
 
-    :param image_height: Height of the input image in pixels.
-    :param image_width: Width of the input image in pixels.
-    :param image_files: List of image files to be used for training.
-    :param labels: List of labels for the image files.
-    :param domain: Dictionary representing the domain of the reponse.
-                   Provides mapping label-name -> label-id.
-    :param epochs: Number of epochs to train the model for.
-    :param batch_size: Batch size used during training.
-    :param test_ratio: Fraction of dataset to be used for validation. This data will not be used
-                       during training.
-    :param seed: Random seed. Used e.g. when splitting the dataset into train / validation.
+    Args:
+        image_files: List of image files to be used for training.
+        labels: List of labels for the image files.
+        domain: Dictionary representing the domain of the response.
+            Provides mapping label-name -> label-id.
+        image_width: Width of the input image in pixels.
+        image_height: Height of the input image in pixels.
+        epochs: Number of epochs to train the model for.
+        batch_size: Batch size used during training.
+        test_ratio: Fraction of dataset to be used for validation. This data will not be used
+            during training.
+        seed: Random seed. Used e.g. when splitting the dataset into train / validation.
+
     """
     assert len(set(labels)) == len(domain)
 
     input_shape = (image_width, image_height, 3)
 
-    with mlflow.start_run() as run:
+    with mlflow.start_run():
         mlflow.log_param("epochs", str(epochs))
         mlflow.log_param("batch_size", str(batch_size))
         mlflow.log_param("validation_ratio", str(test_ratio))
@@ -225,7 +226,7 @@ def train(
                     epochs=epochs,
                     batch_size=batch_size,
                     callbacks=[
-                        MLflowLogger(
+                        MlflowLogger(
                             model=model,
                             x_train=x_train,
                             y_train=y_train,

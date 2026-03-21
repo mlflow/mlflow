@@ -92,8 +92,7 @@ def default_filter(name, obj):
     return not (isinstance(obj, types.ModuleType) or name.startswith("_"))
 
 
-class DecoratorData(object):
-
+class DecoratorData:
     """Decorator data.
 
     Attributes
@@ -115,8 +114,7 @@ class DecoratorData(object):
         self.filter = None
 
 
-class Settings(object):
-
+class Settings:
     """Define the patching behaviour.
 
     Attributes
@@ -145,10 +143,8 @@ class Settings(object):
         self._update(**kwargs)
 
     def __repr__(self):
-        values = ", ".join(
-            ["%s=%r" % (key, value) for key, value in sorted(_iteritems(self.__dict__))]
-        )
-        return "%s(%s)" % (type(self).__name__, values)
+        values = ", ".join([f"{key}={value!r}" for key, value in sorted(_iteritems(self.__dict__))])
+        return f"{type(self).__name__}({values})"
 
     def __eq__(self, other):
         if isinstance(other, type(self)):
@@ -171,8 +167,7 @@ class Settings(object):
         self.__dict__.update(**kwargs)
 
 
-class Patch(object):
-
+class Patch:
     """Describe all the information required to apply a patch.
 
     Attributes
@@ -215,7 +210,7 @@ class Patch(object):
         self.is_inplace_patch = None
 
     def __repr__(self):
-        return "%s(destination=%r, name=%r, obj=%r, settings=%r)" % (
+        return "{}(destination={!r}, name={!r}, obj={!r}, settings={!r})".format(
             type(self).__name__,
             self.destination,
             self.name,
@@ -233,7 +228,7 @@ class Patch(object):
         is_equal = self.__eq__(other)
         return is_equal if is_equal is NotImplemented else not is_equal
 
-    def __hash__(self):  # pylint: disable=useless-super-delegation
+    def __hash__(self):
         return super().__hash__()
 
     def _update(self, **kwargs):
@@ -314,7 +309,7 @@ def apply(patch):
     else:
         if not settings.allow_hit:
             raise RuntimeError(
-                "An attribute named '%s' already exists at the destination "
+                "An attribute named '%s' already exists at the destination "  # noqa: UP031
                 "'%s'. Set a different name through the patch object to avoid "
                 "a name clash or set the setting 'allow_hit' to True to "
                 "overwrite the attribute. In the latter case, it is "
@@ -337,6 +332,7 @@ def revert(patch):
     ----------
     patch : gorilla.Patch
         Patch.
+
     Note
     ----
     This is only possible if the attribute :attr:`Settings.store_hit` was set
@@ -361,7 +357,7 @@ def revert(patch):
         # try to get attribute from parent classes if attribute not found in destination class.
         if original_name not in patch.destination.__dict__:
             raise RuntimeError(
-                "Cannot revert the attribute named '%s' since the setting "
+                "Cannot revert the attribute named '%s' since the setting "  # noqa: UP031
                 "'store_hit' was not set to True when applying the patch."
                 % (patch.destination.__name__,)
             )
@@ -494,7 +490,7 @@ def settings(**kwargs):
     return decorator
 
 
-def filter(value):  # pylint: disable=W0622
+def filter(value):
     """Modifier decorator to force the inclusion or exclusion of an attribute.
 
     This only modifies the behaviour of the :func:`create_patches` function
@@ -564,7 +560,7 @@ def find_patches(modules, recursive=True):
 
 
 def get_original_attribute(obj, name, bypass_descriptor_protocol=False):
-    """Retrieve an overriden attribute that has been stored.
+    """Retrieve an overridden attribute that has been stored.
 
     Parameters
     ----------
@@ -607,8 +603,7 @@ def get_original_attribute(obj, name, bypass_descriptor_protocol=False):
             return getattr(obj_, name_)
 
     no_original_stored_err = (
-        "Original attribute %s was not stored when patching, set "
-        "store_hit=True will address this."
+        "Original attribute %s was not stored when patching, set store_hit=True will address this."
     )
 
     if inspect.isclass(obj):
@@ -632,7 +627,7 @@ def get_original_attribute(obj, name, bypass_descriptor_protocol=False):
             else:
                 # go on checking parent classes
                 continue
-        raise AttributeError("'%s' object has no attribute '%s'" % (type(obj), name))
+        raise AttributeError(f"'{type(obj)}' object has no attribute '{name}'")
     else:
         try:
             return _get_attr(obj, original_name)
@@ -782,7 +777,7 @@ def _module_iterator(root, recursive=True):
         for path in paths:
             modules = pkgutil.iter_modules([path])
             for finder, name, is_package in modules:
-                module_name = "%s.%s" % (package.__name__, name)
+                module_name = f"{package.__name__}.{name}"
                 module = sys.modules.get(module_name, None)
                 if module is None:
                     # Import the module through the finder to support package
@@ -797,6 +792,6 @@ def _module_iterator(root, recursive=True):
                     yield module
 
 
-def _true(*args, **kwargs):  # pylint: disable=unused-argument
+def _true(*args, **kwargs):
     """Return ``True``."""
     return True

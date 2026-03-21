@@ -1,0 +1,246 @@
+// This proto file defines the MLflow Artifacts Service that provides the following REST APIs
+// for proxied artifact operations:
+// - /mlflow-artifacts/artifacts/<artifact_path> GET: Download an artifact
+// - /mlflow-artifacts/artifacts/<artifact_path> PUT: Upload an artifact
+// - /mlflow-artifacts/artifact?path=<value> GET: List artifacts
+
+syntax = "proto2";
+
+package mlflow.artifacts;
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+option (scalapb.options) = {flat_package: true};
+
+service MlflowArtifactsService {
+  rpc downloadArtifact(DownloadArtifact) returns (DownloadArtifact.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow-artifacts/artifacts/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Download Artifact"
+    };
+  }
+
+  rpc uploadArtifact(UploadArtifact) returns (UploadArtifact.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PUT"
+          path: "/mlflow-artifacts/artifacts/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Upload Artifact"
+    };
+  }
+
+  rpc listArtifacts(ListArtifacts) returns (ListArtifacts.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow-artifacts/artifacts"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Artifacts"
+    };
+  }
+
+  rpc deleteArtifact(DeleteArtifact) returns (DeleteArtifact.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow-artifacts/artifacts/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Artifacts"
+    };
+  }
+
+  rpc createMultipartUpload(CreateMultipartUpload) returns (CreateMultipartUpload.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow-artifacts/mpu/create/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create an Artifact Multipart Upload"
+    };
+  }
+
+  rpc completeMultipartUpload(CompleteMultipartUpload) returns (CompleteMultipartUpload.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow-artifacts/mpu/complete/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Complete an Artifact Multipart Upload"
+    };
+  }
+
+  rpc abortMultipartUpload(AbortMultipartUpload) returns (AbortMultipartUpload.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow-artifacts/mpu/abort/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Abort an Artifact Multipart Upload"
+    };
+  }
+
+  rpc getPresignedDownloadUrl(GetPresignedDownloadUrl) returns (GetPresignedDownloadUrl.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow-artifacts/presigned/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Presigned URL for Multipart Download"
+    };
+  }
+}
+
+message DownloadArtifact {
+  message Response {}
+}
+
+message UploadArtifact {
+  message Response {}
+}
+
+message ListArtifacts {
+  // Filter artifacts matching this path (a relative path from the root artifact directory).
+  optional string path = 1;
+
+  message Response {
+    // File location and metadata for artifacts.
+    repeated FileInfo files = 1;
+  }
+}
+
+message DeleteArtifact {
+  message Response {}
+}
+
+message FileInfo {
+  // Path relative to the root artifact directory run.
+  optional string path = 1;
+
+  // Whether the path is a directory.
+  optional bool is_dir = 2;
+
+  // Size in bytes. Unset for directories.
+  optional int64 file_size = 3;
+}
+
+message CreateMultipartUpload {
+  optional string path = 1;
+
+  optional int64 num_parts = 2;
+
+  message Response {
+    optional string upload_id = 1;
+
+    repeated MultipartUploadCredential credentials = 2;
+  }
+}
+
+message CompleteMultipartUpload {
+  optional string path = 1;
+
+  optional string upload_id = 2;
+
+  repeated MultipartUploadPart parts = 3;
+
+  message Response {}
+}
+
+message AbortMultipartUpload {
+  optional string path = 1;
+
+  optional string upload_id = 2;
+
+  message Response {}
+}
+
+message MultipartUploadCredential {
+  optional string url = 1;
+
+  optional int64 part_number = 2;
+
+  map<string, string> headers = 3;
+}
+
+message MultipartUploadPart {
+  optional int64 part_number = 1;
+
+  optional string etag = 2;
+
+  optional string url = 3;
+}
+
+message GetPresignedDownloadUrl {
+  message Response {
+    // The presigned URL for downloading the artifact directly from cloud storage.
+    optional string url = 1;
+
+    // Optional headers that must be included in the download request.
+    map<string, string> headers = 2;
+
+    // Optional size of the file in bytes.
+    optional int64 file_size = 3;
+  }
+}

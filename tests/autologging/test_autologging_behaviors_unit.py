@@ -1,23 +1,24 @@
-# pylint: disable=unused-argument
-
 import logging
 import sys
+import threading
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor
 from io import StringIO
 
-import mlflow
-from mlflow.utils.logging_utils import eprint
-from mlflow.utils.autologging_utils import autologging_integration, safe_patch
-
-import pytest
 import numpy as np
-from tests.autologging.fixtures import test_mode_off, patch_destination
-from tests.autologging.fixtures import reset_stderr  # pylint: disable=unused-import
+import pytest
 
+import mlflow
+from mlflow.utils.autologging_utils import autologging_integration, safe_patch
+from mlflow.utils.logging_utils import eprint
 
-pytestmark = pytest.mark.large
+from tests.autologging.async_helper import asyncify, run_sync_or_async
+from tests.autologging.fixtures import (
+    patch_destination,
+    reset_stderr,  # noqa: F401
+    test_mode_off,
+)
 
 
 @pytest.fixture
@@ -80,7 +81,7 @@ def test_autologging_warnings_are_redirected_as_expected(
     stream = StringIO()
     sys.stderr = stream
 
-    with pytest.warns(None) as warnings_record:
+    with warnings.catch_warnings(record=True) as warnings_record:
         autolog_function(silent=False)
         patch_destination.fn()
 
@@ -94,8 +95,8 @@ def test_autologging_warnings_are_redirected_as_expected(
     # Accordingly, we expect the following warnings to have been emitted normally: 1. MLflow
     # warnings emitted during autologging enablement, 2. non-MLflow warnings emitted during original
     # / underlying function execution
-    warning_messages = set([str(w.message) for w in warnings_record])
-    assert warning_messages == set(["enablement warning MLflow", "Test warning from OG function"])
+    warning_messages = {str(w.message) for w in warnings_record}
+    assert warning_messages == {"enablement warning MLflow", "Test warning from OG function"}
 
     # Further, We expect MLflow's logging stream to contain content from all warnings emitted during
     # the autologging preamble and postamble and non-MLflow warnings emitted during autologging
@@ -104,13 +105,13 @@ def test_autologging_warnings_are_redirected_as_expected(
         'MLflow autologging encountered a warning: "%s:5: Warning: preamble MLflow warning"',
         'MLflow autologging encountered a warning: "%s:10: Warning: postamble MLflow warning"',
     ]:
-        assert (item % mlflow.__file__) in stream.getvalue()
+        assert item % mlflow.__file__ in stream.getvalue()
     for item in [
         'MLflow autologging encountered a warning: "%s:7: UserWarning: preamble numpy warning"',
         'MLflow autologging encountered a warning: "%s:14: Warning: postamble numpy warning"',
         'MLflow autologging encountered a warning: "%s:30: Warning: enablement warning numpy"',
     ]:
-        assert (item % np.__file__) in stream.getvalue()
+        assert item % np.__file__ in stream.getvalue()
 
 
 def test_autologging_event_logging_and_warnings_respect_silent_mode(
@@ -120,7 +121,7 @@ def test_autologging_event_logging_and_warnings_respect_silent_mode(
     stream = StringIO()
     sys.stderr = stream
 
-    with pytest.warns(None) as silent_warnings_record:
+    with warnings.catch_warnings(record=True) as silent_warnings_record:
         autolog_function(silent=True)
         patch_destination.fn()
 
@@ -136,7 +137,7 @@ def test_autologging_event_logging_and_warnings_respect_silent_mode(
 
     stream.truncate(0)
 
-    with pytest.warns(None) as noisy_warnings_record:
+    with warnings.catch_warnings(record=True) as noisy_warnings_record:
         autolog_function(silent=False)
         patch_destination.fn()
 
@@ -148,7 +149,7 @@ def test_autologging_event_logging_and_warnings_respect_silent_mode(
     for item in ["patch1", "patch2", "patch3", "patch4"]:
         assert item in stream.getvalue()
 
-    warning_messages = set([str(w.message) for w in noisy_warnings_record])
+    warning_messages = {str(w.message) for w in noisy_warnings_record}
     assert "enablement warning MLflow" in warning_messages
 
     # Verify that `warnings.showwarning` was restored to its original value after training
@@ -176,18 +177,18 @@ def test_silent_mode_is_respected_in_multithreaded_environments(
         return True
 
     executions = []
-    with pytest.warns(None) as warnings_record:
+    with warnings.catch_warnings(record=True) as warnings_record:
+        warnings.simplefilter("always")
         with ThreadPoolExecutor(max_workers=50) as executor:
-            for _ in range(100):
-                executions.append(executor.submit(parallel_fn))
+            executions.extend(executor.submit(parallel_fn) for _ in range(100))
 
-    assert all([e.result() is True for e in executions])
+    assert all(e.result() is True for e in executions)
 
     # Verify that all warnings and log events from MLflow autologging code were silenced
     # and that all warnings from the original / underlying routine were emitted as normal
     assert not stream.getvalue()
     assert len(warnings_record) == 100
-    assert all(["Test warning from OG function" in str(w.message) for w in warnings_record])
+    assert all("Test warning from OG function" in str(w.message) for w in warnings_record)
 
     # Verify that `warnings.showwarning` was restored to its original value after training
     # and that MLflow event logs are enabled
@@ -224,10 +225,11 @@ def test_silent_mode_restores_warning_and_event_logging_behavior_correctly_if_er
         time.sleep(np.random.random())
         patch_destination.fn()
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="enablement error"):
         test_autolog(silent=True)
 
-    with pytest.warns(None):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
         with ThreadPoolExecutor(max_workers=50) as executor:
             for _ in range(100):
                 executor.submit(parallel_fn)
@@ -241,8 +243,7 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
     stream = StringIO()
     sys.stderr = stream
 
-    patch_destination.fn2 = lambda *args, **kwargs: "fn2"
-
+    @asyncify(patch_destination.is_async)
     def patch_impl1(original):
         warnings.warn("patchimpl1")
         original()
@@ -252,6 +253,7 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
         logger.info("autolog1")
         safe_patch("integration1", patch_destination, "fn", patch_impl1)
 
+    @asyncify(patch_destination.is_async)
     def patch_impl2(original):
         logger.info("patchimpl2")
         original()
@@ -264,12 +266,12 @@ def test_silent_mode_operates_independently_across_integrations(patch_destinatio
         logger.info("event_autolog2")
         safe_patch("integration2", patch_destination, "fn2", patch_impl2)
 
-    with pytest.warns(None) as warnings_record:
+    with warnings.catch_warnings(record=True) as warnings_record:
         autolog1(silent=True)
         autolog2(silent=False)
 
-        patch_destination.fn()
-        patch_destination.fn2()
+        run_sync_or_async(patch_destination.fn)
+        run_sync_or_async(patch_destination.fn2)
 
     warning_messages = [str(w.message) for w in warnings_record]
     assert warning_messages == ["warn_autolog2"]
@@ -311,3 +313,34 @@ def test_silent_mode_and_warning_rerouting_respect_disabled_flag(
     # Verify that nothing is printed to the stderr-backed MLflow event logger, which would indicate
     # rerouting of warning content
     assert not stream.getvalue()
+
+
+def test_autolog_function_thread_safety(patch_destination):
+    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+    AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
+
+    def original_impl():
+        pass
+
+    patch_destination.fn = original_impl
+
+    def patch_impl(original):
+        original()
+
+    @autologging_integration("test_integration")
+    def test_autolog(disable=False, silent=False):
+        time.sleep(0.2)
+        safe_patch("test_integration", patch_destination, "fn", patch_impl)
+
+    thread1 = threading.Thread(target=test_autolog, kwargs={"disable": False})
+    thread1.start()
+    time.sleep(0.1)
+    thread2 = threading.Thread(target=test_autolog, kwargs={"disable": True})
+    thread2.start()
+
+    thread1.join()
+    thread2.join()
+
+    assert AUTOLOGGING_INTEGRATIONS["test_integration"]["disable"]
+    assert patch_destination.fn is original_impl

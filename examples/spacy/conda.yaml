@@ -1,9 +1,0 @@
-name: spacy-example
-channels:
-  - conda-forge
-dependencies:
-  - python=3.6
-  - pip
-  - pip:
-    - mlflow>=1.0
-    - spacy==2.2.3

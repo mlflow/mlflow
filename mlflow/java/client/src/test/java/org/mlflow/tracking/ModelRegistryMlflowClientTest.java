@@ -1,9 +1,22 @@
 package org.mlflow.tracking;
 
+import static org.mlflow.tracking.TestUtils.createExperimentName;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+
 import com.google.common.collect.Lists;
+import java.io.File;
+import java.io.FilenameFilter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
 import org.apache.commons.io.FileUtils;
-import org.mlflow.api.proto.ModelRegistry;
 import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+import org.mlflow.api.proto.ModelRegistry.RegisteredModel;
+import org.mlflow.api.proto.Service;
 import org.mlflow.api.proto.Service.RunInfo;
 import org.mockito.Mockito;
 import org.slf4j.Logger;
@@ -13,18 +26,6 @@ import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.util.List;
-import java.util.UUID;
-
-import static org.mlflow.tracking.TestUtils.createExperimentName;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doReturn;
-
 public class ModelRegistryMlflowClientTest {
     private static final Logger logger = LoggerFactory.getLogger(ModelRegistryMlflowClientTest.class);
 
@@ -33,10 +34,9 @@ public class ModelRegistryMlflowClientTest {
     private final TestClientProvider testClientProvider = new TestClientProvider();
 
     private MlflowClient client;
+    private String source;
 
     private String modelName;
-    private File tempDir;
-    private File tempFile;
 
     private static final String content = "Hello, Worldz!";
 
@@ -51,7 +51,7 @@ public class ModelRegistryMlflowClientTest {
 
     @BeforeTest
     public void before() throws IOException {
-        client = testClientProvider.initializeClientAndSqlLiteBasedServer();
+        client = testClientProvider.initializeClientAndServer();
         modelName = "Model-" + UUID.randomUUID().toString();
 
         String expName = createExperimentName();
@@ -59,16 +59,18 @@ public class ModelRegistryMlflowClientTest {
 
         RunInfo runCreated = client.createRun(expId);
         String runId = runCreated.getRunUuid();
+        source = String.format("runs:/%s/model", runId);
 
-        tempDir = Files.createTempDirectory("tempDir").toFile();
-        tempFile = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
-
+        File tempDir = Files.createTempDirectory("tempDir").toFile();
+        File tempFile = Files.createTempFile(tempDir.toPath(), "file", ".txt").toFile();
         FileUtils.writeStringToFile(tempFile, content, StandardCharsets.UTF_8);
+        client.logArtifact(runId, tempFile, "model");
+
         client.sendPost("registered-models/create",
                 mapper.makeCreateModel(modelName));
 
         client.sendPost("model-versions/create",
-                mapper.makeCreateModelVersion(modelName, runId, tempDir.getAbsolutePath()));
+                mapper.makeCreateModelVersion(modelName, runId, String.format("runs:/%s/model", runId)));
     }
 
     @AfterTest
@@ -87,9 +89,10 @@ public class ModelRegistryMlflowClientTest {
 
         client.sendPatch("model-versions/update", mapper.makeUpdateModelVersion(modelName,
                 "1"));
-        // default stages (does not include "None")
+        // get the latest version of all stages
         List<ModelVersion> modelVersion = client.getLatestVersions(modelName);
-        Assert.assertEquals(modelVersion.size(), 0);
+        Assert.assertEquals(modelVersion.size(), 1);
+        validateDetailedModelVersion(modelVersion.get(0), modelName, "None", "1");
         client.sendPost("model-versions/transition-stage",
                 mapper.makeTransitionModelVersionStage(modelName, "1", "Staging"));
         modelVersion = client.getLatestVersions(modelName);
@@ -99,9 +102,27 @@ public class ModelRegistryMlflowClientTest {
     }
 
     @Test
+    public void testGetModelVersion() {
+        ModelVersion modelVersion = client.getModelVersion(modelName, "1");
+        validateDetailedModelVersion(modelVersion, modelName, "Staging", "1");
+    }
+
+    @Test(expectedExceptions = MlflowHttpException.class, expectedExceptionsMessageRegExp = ".*RESOURCE_DOES_NOT_EXIST.*")
+    public void testGetModelVersion_NotFound() {
+        client.getModelVersion(modelName, "2");
+    }
+
+    @Test
+    public void testGetRegisteredModel() {
+	RegisteredModel model = client.getRegisteredModel(modelName);
+	Assert.assertEquals(model.getName(), modelName);
+	validateDetailedModelVersion(model.getLatestVersions(0), modelName, "Staging", "1" );
+    }
+
+    @Test
     public void testGetModelVersionDownloadUri() {
         String downloadUri = client.getModelVersionDownloadUri(modelName, "1");
-        Assert.assertEquals(tempDir.getAbsolutePath(), downloadUri);
+        Assert.assertEquals(source, downloadUri);
     }
 
     @Test
@@ -141,5 +162,72 @@ public class ModelRegistryMlflowClientTest {
         Assert.assertEquals(details.getCurrentStage(), stage);
         Assert.assertEquals(details.getName(), modelName);
         Assert.assertEquals(details.getVersion(), version);
+    }
+
+    @Test
+    public void testSearchModelVersions() {
+        List<ModelVersion> mvsBefore = client.searchModelVersions().getItems();
+
+        // create new model version of existing registered model
+        String newVersionRunId = "newVersionRunId";
+        String newVersionSource = "runs:/newVersionRunId/model";
+        client.sendPost("model-versions/create",
+                mapper.makeCreateModelVersion(modelName, newVersionRunId, newVersionSource));
+
+        // create new registered model
+        String modelName2 = "modelName2";
+        String runId2 = "runId2";
+        String source2 = "runs:/runId2/model";
+        client.sendPost("registered-models/create",
+                mapper.makeCreateModel(modelName2));
+        client.sendPost("model-versions/create",
+                mapper.makeCreateModelVersion(modelName2, runId2, source2));
+
+        List<ModelVersion> mvsAfter = client.searchModelVersions().getItems();
+        Assert.assertEquals(mvsAfter.size(), 2 + mvsBefore.size());
+
+        String filter1 = String.format("name = '%s'", modelName);
+        List<ModelVersion> mvs1 = client.searchModelVersions(filter1).getItems();
+        Assert.assertEquals(mvs1.size(), 2);
+        Assert.assertEquals(mvs1.get(0).getName(), modelName);
+        Assert.assertEquals(mvs1.get(1).getName(), modelName);
+
+        String filter2 = String.format("name = '%s'", modelName2);
+        List<ModelVersion> mvs2 = client.searchModelVersions(filter2).getItems();
+        Assert.assertEquals(mvs2.size(), 1);
+        Assert.assertEquals(mvs2.get(0).getName(), modelName2);
+        Assert.assertEquals(mvs2.get(0).getVersion(), "1");
+
+        String filter3 = String.format("run_id = '%s'", newVersionRunId);
+        List<ModelVersion> mvs3 = client.searchModelVersions(filter3).getItems();
+        Assert.assertEquals(mvs3.size(), 1);
+        Assert.assertEquals(mvs3.get(0).getName(), modelName);
+        Assert.assertEquals(mvs3.get(0).getVersion(), "2");
+
+        ModelVersionsPage page1 = client.searchModelVersions(
+            "", 1, Arrays.asList("creation_timestamp ASC")
+        );
+        Assert.assertEquals(page1.getItems().size(), 1);
+        Assert.assertEquals(page1.getItems().get(0).getName(), modelName);
+        Assert.assertTrue(page1.getNextPageToken().isPresent());
+
+        ModelVersionsPage page2 = client.searchModelVersions(
+            "",
+            2,
+            Arrays.asList("creation_timestamp ASC"),
+            page1.getNextPageToken().get()
+        );
+        Assert.assertEquals(page2.getItems().size(), 2);
+        Assert.assertEquals(page2.getItems().get(0).getName(), modelName);
+        Assert.assertEquals(page2.getItems().get(0).getRunId(), newVersionRunId);
+        Assert.assertEquals(page2.getItems().get(1).getName(), modelName2);
+        Assert.assertEquals(page2.getItems().get(1).getRunId(), runId2);
+        Assert.assertFalse(page2.getNextPageToken().isPresent());
+
+        ModelVersionsPage nextPageFromPrevPage = (ModelVersionsPage) page1.getNextPage();
+        Assert.assertEquals(nextPageFromPrevPage.getItems().size(), 1);
+        Assert.assertEquals(page2.getItems().get(0).getName(), modelName);
+        Assert.assertEquals(page2.getItems().get(0).getRunId(), newVersionRunId);
+        Assert.assertTrue(nextPageFromPrevPage.getNextPageToken().isPresent());
     }
 }

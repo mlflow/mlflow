@@ -1,0 +1,112 @@
+import json
+import platform
+import sys
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any
+
+from mlflow.version import IS_MLFLOW_SKINNY, IS_TRACING_SDK_ONLY, VERSION
+
+
+class Status(str, Enum):
+    UNKNOWN = "unknown"
+    SUCCESS = "success"
+    FAILURE = "failure"
+
+
+@dataclass
+class Record:
+    event_name: str
+    timestamp_ns: int
+    params: dict[str, Any] | None = None
+    status: Status = Status.UNKNOWN
+    duration_ms: int | None = None
+    # installation and session ID usually comes from the telemetry client,
+    # but callers can override with these fields (e.g. in UI telemetry records)
+    installation_id: str | None = None
+    session_id: str | None = None
+    server_installation_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        result = {
+            "timestamp_ns": self.timestamp_ns,
+            "event_name": self.event_name,
+            # dump params to string so we can parse them easily in ETL pipeline
+            "params": json.dumps(self.params) if self.params else None,
+            "status": self.status.value,
+            "duration_ms": self.duration_ms,
+        }
+        if self.installation_id:
+            result["installation_id"] = self.installation_id
+        if self.session_id:
+            result["session_id"] = self.session_id
+        if self.server_installation_id:
+            result["server_installation_id"] = self.server_installation_id
+        return result
+
+
+class Environment(str, Enum):
+    KAGGLE = "kaggle"
+    COLAB = "colab"
+    AZURE_ML = "azure_ml"
+    SAGEMAKER_STUDIO = "sagemaker_studio"
+    SAGEMAKER_NOTEBOOK = "sagemaker_notebook"
+    DOCKER = "docker"
+
+
+# The following env vars were found by manually inspecting
+# env vars in the specified environments and avoiding potentially
+# PII-containing variables.
+ENV_VAR_TO_ENVIRONMENT_MAP = {
+    # Undocumented env var in Kaggle notebooks
+    # https://www.kaggle.com/discussions/general/147433
+    "KAGGLE_KERNEL_RUN_TYPE": Environment.KAGGLE,
+    # Undocumented env var in Colab notebooks
+    "COLAB_RELEASE_TAG": Environment.COLAB,
+    # Undocumented env var in AzureML notebooks
+    "AZUREML_FRAMEWORK": Environment.AZURE_ML,
+    # Internal env var that SageMaker inserts
+    # https://docs.aws.amazon.com/sagemaker/latest/dg/studio-updated-byoi-specs.html#studio-updated-byoi-specs-run
+    "SAGEMAKER_APP_TYPE": Environment.SAGEMAKER_STUDIO,
+}
+
+
+class SourceSDK(str, Enum):
+    MLFLOW_TRACING = "mlflow-tracing"
+    MLFLOW = "mlflow"
+    MLFLOW_SKINNY = "mlflow-skinny"
+
+
+def get_source_sdk() -> SourceSDK:
+    if IS_TRACING_SDK_ONLY:
+        return SourceSDK.MLFLOW_TRACING
+    elif IS_MLFLOW_SKINNY:
+        return SourceSDK.MLFLOW_SKINNY
+    else:
+        return SourceSDK.MLFLOW
+
+
+@dataclass
+class TelemetryInfo:
+    session_id: str
+    source_sdk: str = get_source_sdk().value
+    mlflow_version: str = VERSION
+    schema_version: int = 2
+    python_version: str = (
+        f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+    )
+    operating_system: str = platform.platform()
+    environment: str | None = None
+    tracking_uri_scheme: str | None = None
+    is_localhost: bool | None = None
+    installation_id: str | None = None
+    # Whether a workspace is enabled at client side or not. Using short name to
+    # minimize the payload size, because these fields are included to every
+    # telemetry event.
+    ws_enabled: bool | None = None
+
+
+@dataclass
+class TelemetryConfig:
+    ingestion_url: str
+    disable_events: set[str]

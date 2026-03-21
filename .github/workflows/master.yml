@@ -1,406 +1,407 @@
 name: MLflow tests
 
 on:
-  push:
-    branches:
-      - master
-      - branch-[0-9]+.[0-9]+
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/preview-docs.yml"
+      - "mlflow/server/js/**"
+      - ".github/workflows/js.yml"
+  push:
     branches:
       - master
       - branch-[0-9]+.[0-9]+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 # Use `bash` by default for all `run` steps in this workflow:
 # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#defaultsrun
 defaults:
   run:
-    # GitHub Actions runner executes commands specified in a run step via:
-    # $ bash --noprofile --norc -eo pipefail < commands >
-    #
-    # https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#using-a-specific-shell
     shell: bash
 
 env:
-  CONDA_DIR: /usr/share/miniconda
+  MLFLOW_HOME: ${{ github.workspace }}
+  # Note miniconda is pre-installed in the virtual environments for GitHub Actions:
+  # https://github.com/actions/virtual-environments/blob/main/images/linux/scripts/installers/miniconda.sh
+  MLFLOW_CONDA_HOME: /usr/share/miniconda
+  SPARK_LOCAL_IP: localhost
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+  PYTHONUTF8: "1"
+  _MLFLOW_TESTING_TELEMETRY: "true"
+  MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install dependencies
-      env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
-      run: |
-        source ./dev/install-common-deps.sh
-        pip install -r ./dev/lint-requirements.txt
-    - name: Run tests
-      run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
-        ./lint.sh
-  r:
-    runs-on: ubuntu-latest
-    steps:
-    - name: Uninstall default-jdk and adoptopenjdk-11-hotspot if present
-      run: |
-        # deleting other version(s) of JDK because they are not needed and they might interfere with JNI linker configuration in the 'setup-r' step
-        sudo apt-get -y remove --purge default-jdk adoptopenjdk-11-hotspot || :
-    - uses: actions/checkout@master
-    - uses: actions/setup-java@v2
-      with:
-        # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
-        # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
-        java-version: 8
-        distribution: 'adopt'
-    - name: Re-configure dynamic linker run-time bindings for adoptopenjdk-8-hotspot-amd64
-      run: |
-        sudo mkdir -p /etc/ld.so.conf.d
-        sudo bash -c "cat > /etc/ld.so.conf.d/jre.conf <<< '/usr/lib/jvm/adoptopenjdk-8-hotspot-amd64/jre/lib/amd64/server'"
-        sudo ldconfig -v
-    - uses: r-lib/actions/setup-r@v1
-    # This step dumps the current set of R dependencies and R version into files to be used
-    # as a cache key when caching/restoring R dependencies.
-    - name: Query dependencies
-      run: |
-        print(R.version)
-        install.packages('remotes')
-        saveRDS(remotes::dev_package_deps("mlflow/R/mlflow", dependencies = TRUE), ".github/depends.Rds", version = 2)
-        writeLines(sprintf("R-%i.%i", getRversion()$major, getRversion()$minor), ".github/R-version")
-      shell: Rscript {0}
-
-    - name: Get OS name
-      id: os-name
-      run: |
-        # `os_name` will be like "Ubuntu-20.04.1-LTS"
-        os_name=$(lsb_release -ds | sed 's/\s/-/g')
-        echo "::set-output name=os-name::$os_name"
-    - name: Cache R packages
-      if: runner.os != 'Windows'
-      uses: actions/cache@v2
-      with:
-        path: ${{ env.R_LIBS_USER }}
-        # We cache R dependencies based on a tuple of the current OS, the R version, and the list of
-        # R dependencies
-        key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-${{ hashFiles('.github/depends.Rds') }}
-        restore-keys: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('.github/R-version') }}-1-
-    # Cache spark archive downloaded in `mlflow/R/mlflow/.create-test-env.R`
-    - name: Cache spark archive
-      uses: actions/cache@v2
-      with:
-        path: ~/spark/spark-2.4.5-bin-hadoop2.7
-        key: ${{ hashFiles('mlflow/R/mlflow/.spark-version') }}
-    - name: Install system dependencies
-      run: |
-        sudo apt-get install -y libcurl4-openssl-dev
-        sudo R CMD javareconf
-    - name: Install dependencies
-      run: |
-        install.packages("devtools")
-        remotes::install_deps('mlflow/R/mlflow', dependencies = TRUE, upgrade = FALSE)
-      shell: Rscript {0}
-    - name: Create test environment
-      run: |
-        source ./dev/install-common-deps.sh
-        cd mlflow/R/mlflow
-        R CMD build .
-        cd tests
-        Rscript ../.create-test-env.R
-    - name: Run tests
-      env:
-        # Hack to get around this issue:
-        # https://stat.ethz.ch/pipermail/r-package-devel/2020q3/005930.html
-        #
-        # The system clock check during `R CMD check` relies on two external web APIs and fails
-        # when they are unavailable. By setting `_R_CHECK_SYSTEM_CLOCK_` to FALSE, we can skip it:
-        # https://github.com/wch/r-source/blob/59a1965239143ca6242b9cc948d8834e1194e84a/src/library/tools/R/check.R#L511
-        _R_CHECK_SYSTEM_CLOCK_: FALSE
-      run: |
-        export LINTR_COMMENT_BOT=false
-        cd mlflow/R/mlflow/tests
-        Rscript ../.run-tests.R
-    - name: Calculate code coverage
-      if: ${{ success() }}
-      run: |
-        export MLFLOW_HOME=$(pwd)
-        cd mlflow/R/mlflow/tests
-        Rscript -e 'covr::codecov()' || :
-      env:
-        COVR_RUNNING: true
-    - name: Show 00check.log on failure
-      if: ${{ failure() }}
-      run: |
-        LOG_FILE="${HOME}/build/mlflow/mlflow/mlflow/R/mlflow/mlflow.Rcheck/00check.log"
-        [ -r "${LOG_FILE}" ] && cat "${LOG_FILE}"
-        cp "${LOG_FILE}" /tmp
-    - uses: actions/upload-artifact@v1
-      if: failure()
-      with:
-        name: 00check.log
-        path: /tmp/00check.log
-
   # python-skinny tests cover a subset of mlflow functionality
   # that is meant to be supported with a smaller dependency footprint.
   # The python skinny tests cover the subset of mlflow functionality
   # while also verifying certain dependencies are omitted.
   python-skinny:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v2
-    - name: Install dependencies
-      env:
-        INSTALL_SKINNY_PYTHON_DEPS: true
-        MLFLOW_SKINNY: true
-      run: |
-        source ./dev/install-common-deps.sh
-    - name: Run tests
-      run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
-        ./dev/run-python-skinny-tests.sh
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - name: Install dependencies
+        run: |
+          source ./dev/install-common-deps.sh --skinny
+      - name: Run tests
+        run: |
+          ./dev/run-python-skinny-tests.sh
 
-  python-small:
+  python:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4]
+        include:
+          - splits: 4
     steps:
-    - uses: actions/checkout@v2
-    - name: Install dependencies
-      env:
-        INSTALL_SMALL_PYTHON_DEPS: true
-      run: |
-        source ./dev/install-common-deps.sh
-    - name: Run tests
-      run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
-        ./dev/run-small-python-tests.sh
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          submodules: true
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          uv sync --extra extras --extra gateway --extra mcp --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            -r requirements/extra-ml-requirements.txt
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Import check
+        run: |
+          # `-I` is used to avoid importing modules from user-specific site-packages
+          # that might conflict with the built-in modules (e.g. `types`).
+          uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
+      - name: Run tests
+        run: |
+          source dev/setup-ssh.sh
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+            --quiet --requires-ssh --ignore-flavors \
+            --ignore=tests/examples \
+            --ignore=tests/evaluate \
+            --ignore=tests/genai \
+            --ignore=tests/docker \
+            tests
 
-  python-large:
+      - name: Run databricks-connect related tests
+        run: |
+          # this needs to be run in a separate job because installing databricks-connect could break other
+          # tests that uses normal SparkSession instead of remote SparkSession
+          uv run --no-sync --with 'databricks-agents,databricks-connect' \
+            pytest tests/utils/test_requirements_utils.py::test_infer_pip_requirements_on_databricks_agents
+
+  database:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v2
-    - name: Increase available disk space
-      run: |
-        # Increase available disk space by removing unnecessary tool chains:
-        # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
-        rm -rf "$AGENT_TOOLSDIRECTORY"
-    - uses: actions/setup-java@v2
-      with:
-        # GitHub Actions' Ubuntu 20.04 image uses Java 11 (which is incompatible with Spark 2.4.x) by default:
-        # https://github.com/actions/virtual-environments/blob/main/images/linux/Ubuntu2004-README.md#java
-        java-version: 8
-        distribution: 'adopt'
-    - name: Install dependencies
-      env:
-        INSTALL_LARGE_PYTHON_DEPS: true
-        INSTALL_SMALL_PYTHON_DEPS: true
-      run: |
-        source ./dev/install-common-deps.sh
-    - name: Run tests
-      env:
-        # Fix for https://github.com/mlflow/mlflow/issues/4229
-        SPARK_LOCAL_IP: 127.0.0.1
-      run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
-        ./dev/run-large-python-tests.sh
-    - name: Run database initialization tests
-      run: |
-        set -x
-        # Build wheel and copy it under tests/db
-        python setup.py bdist_wheel
-        cp -r dist tests/db
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/untracked
+      - name: Build
+        run: |
+          ./tests/db/compose.sh pull -q postgresql mysql mssql
+          docker images --digests
+          ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
+      - name: Run tests
+        run: |
+          set +e
+          err=0
+          trap 'err=1' ERR
+          RESULTS=""
+          for service in $(./tests/db/compose.sh config --services | grep '^mlflow-' | sort)
+          do
+            # Set `--no-TTY` to show container logs on GitHub Actions:
+            # https://github.com/actions/virtual-environments/issues/5022
+            ./tests/db/compose.sh run --rm --no-TTY $service pytest \
+              tests/store/tracking/test_sqlalchemy_store.py \
+              tests/store/tracking/test_sqlalchemy_store_issues.py \
+              tests/store/tracking/test_sqlalchemy_store_query_trace_metrics.py \
+              tests/store/tracking/test_gateway_sql_store.py \
+              tests/store/model_registry/test_sqlalchemy_store.py \
+              tests/store/model_registry/test_sqlalchemy_workspace_store.py \
+              tests/store/workspace/test_sqlalchemy_store.py \
+              tests/store/tracking/test_sqlalchemy_workspace_store.py \
+              tests/db
+              RESULTS="$RESULTS\n$service: $(if [ $? -eq 0 ]; then echo "✅"; else echo "❌"; fi)"
+          done
 
-        # Run tests
-        cd tests/db
-        docker-compose build
-        docker-compose run mlflow-postgres python log.py
-        docker-compose run mlflow-mysql python log.py
-        docker-compose run mlflow-mssql ./init-mssql-db.sh
-        docker-compose run mlflow-mssql python log.py
+          echo -e "$RESULTS"
+          test $err = 0
 
-        # Clean up
-        docker-compose down --rmi all --volumes
-    - name: Run anaconda compatibility tests
-      run: |
-        ./dev/test-anaconda-compatibility.sh "anaconda3:2020.11"
-        ./dev/test-anaconda-compatibility.sh "anaconda3:2019.03"
+      - name: Run migration check
+        run: |
+          set +e
+          err=0
+          trap 'err=1' ERR
+
+          ./tests/db/compose.sh down --volumes --remove-orphans
+          for service in $(./tests/db/compose.sh config --services | grep '^migration-')
+          do
+            ./tests/db/compose.sh run --rm --no-TTY $service
+          done
+
+          test $err = 0
+
+      - name: Clean up
+        run: |
+          ./tests/db/compose.sh down --volumes --remove-orphans --rmi all
 
   java:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Java
-      uses: actions/setup-java@v2
-      with:
-        java-version: 8
-        distribution: 'adopt'
-    - name: Install dependencies
-      run: |
-        source ./dev/install-common-deps.sh
-    - name: Run tests
-      env:
-        SPARK_LOCAL_IP: 127.0.0.1
-      run: |
-        export PATH="$CONDA_DIR/bin:$PATH"
-        source activate test-environment
-        cd mlflow/java
-        mvn clean package -q
-
-  js:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: mlflow/server/js
-    steps:
-    - uses: actions/checkout@v2
-    - name: Set up Node
-      uses: actions/setup-node@v1
-      with:
-        node-version: 10.x
-    - name: Install dependencies
-      run: |
-        npm i
-    - name: Run lint
-      run: |
-        npm run lint
-    - name: Run tests
-      run: |
-        npm run test
-
-  protos:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - name: Test building Docker image
-      working-directory: dev
-      env:
-        DOCKER_BUILDKIT: 1
-      run: |
-        docker build -t gen-protos -f Dockerfile.protos .
-        docker run --rm gen-protos protoc --version
-    - name: Install dependencies
-      run: |
-        wget https://github.com/protocolbuffers/protobuf/releases/download/v3.6.0/protoc-3.6.0-linux-x86_64.zip -O $HOME/protoc.zip
-        sudo unzip $HOME/protoc.zip -d /usr
-    - name: Run tests
-      run: |
-        ./test-generate-protos.sh
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-java
+        with:
+          java-version: 11
+      - name: Install dependencies
+        run: |
+          uv sync --no-dev
+      - name: Run tests
+        working-directory: mlflow/java
+        run: |
+          uv run --no-dev mvn clean package -q
 
   flavors:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v2
-      - name: Increase available disk space
-        run: |
-          # Increase available disk space by removing unnecessary tool chains:
-          # https://github.com/actions/virtual-environments/issues/709#issuecomment-612569242
-          rm -rf "$AGENT_TOOLSDIRECTORY"
-      - uses: actions/setup-java@v2
-        with:
-          java-version: 8
-          distribution: 'adopt'
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
-        env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
         run: |
-          source ./dev/install-common-deps.sh
+          uv sync --extra extras
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            -r requirements/extra-ml-requirements.txt \
+            'tensorflow<2.21'
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
-          # Install libopenblas-dev for mxnet 1.8.0.post0
-          sudo apt-get install libopenblas-dev
-          ./dev/run-python-flavor-tests.sh;
+          uv run --no-sync pytest \
+            tests/tracking/fluent/test_fluent_autolog.py \
+            tests/autologging
 
-  # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
-  # run these tests in a separate job.
   models:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3]
+        include:
+          - splits: 3
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
-        with:
-          java-version: 8
-          distribution: 'adopt'
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
-        env:
-          INSTALL_SMALL_PYTHON_DEPS: true
-          INSTALL_LARGE_PYTHON_DEPS: false
         run: |
-          source ./dev/install-common-deps.sh
-          pip install pyspark
+          uv sync --extra mlserver
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            pyspark langchain langchain-community
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
-          export MLFLOW_HOME=$(pwd)
-          pytest tests/models --large
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
-  import:
+  evaluate:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1]
+        include:
+          - splits: 1
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: '3.6'
-      - name: Install mlflow
-        run: |
-          pip install -e .
-      - name: Verify mlflow can be imported without errors
-        run: |
-          python -c "import mlflow"
-
-          # Just importing mlflow should not create `mlruns` directory
-          # See: https://github.com/mlflow/mlflow/issues/3400
-          if [ -d "./mlruns" ]; then
-            exit 1
-          fi
-
-  sagemaker:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-java@v2
-        with:
-          java-version: 8
-          distribution: 'adopt'
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
       - name: Install dependencies
-        env:
-          INSTALL_LARGE_PYTHON_DEPS: true
-          INSTALL_SMALL_PYTHON_DEPS: true
         run: |
-          source ./dev/install-common-deps.sh
+          uv sync --extra extras --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            torch transformers pyspark langchain langchain-experimental shap lightgbm xgboost
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
       - name: Run tests
-        env:
-          SPARK_LOCAL_IP: 127.0.0.1
         run: |
-          export PATH="$CONDA_DIR/bin:$PATH"
-          source activate test-environment
-          ./dev/run-python-sagemaker-tests.sh;
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+      - name: Run tests with delta
+        run: |
+          uv run --no-sync pytest tests/evaluate/test_default_evaluator_delta.py
+
+  genai:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          uv sync --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            deepeval ragas arize-phoenix-evals trulens trulens-providers-litellm guardrails-ai
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Run GenAI Tests (OSS)
+        run: |
+          uv run --no-sync pytest tests/genai
+
+      - name: Run GenAI Tests (Databricks)
+        run: |
+          uv run --no-sync --with databricks-agents \
+            pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py \
+            --ignore tests/genai/optimize --ignore tests/genai/prompts
+
+  pyfunc:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3, 4]
+        include:
+          - splits: 4
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/free-disk-space
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install dependencies
+        run: |
+          uv sync --extra extras --extra gateway
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            tensorflow 'pyspark[connect]'
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Run tests
+        run: |
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+            tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
+
+          # test_spark_connect.py fails if it's run with other tests, so run it separately.
+          uv run --no-sync pytest tests/pyfunc/test_spark_connect.py
 
   windows:
+    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
     runs-on: windows-latest
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [1, 2, 3]
+        include:
+          - splits: 3
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          python-version: 3.7
-      - name: Install dependecies
+          submodules: true
+      - uses: ./.github/actions/untracked
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
+      - uses: ./.github/actions/setup-java
+      - name: Install python dependencies
         run: |
-          pip install -r dev-requirements.txt
-          pip install -r dev/small-requirements.txt
-          pip install --no-dependencies tests/resources/mlflow-test-plugin
-          pip install -e .[extras]
-      - name: Run tests
+          uv sync --extra extras --extra genai --extra mcp
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            pyspark datasets tensorflow torch transformers tf-keras openai \
+            tests/resources/mlflow-test-plugin
+      - uses: ./.github/actions/show-versions
+      - uses: ./.github/actions/pipdeptree
+      - name: Download Hadoop winutils for Spark
         run: |
-          pytest --ignore-flavors --ignore=tests/projects tests
+          git clone https://github.com/cdarlint/winutils /tmp/winutils
+      - name: Run python tests
+        env:
+          # Set Hadoop environment variables required for testing Spark integrations on Windows
+          HADOOP_HOME: /tmp/winutils/hadoop-3.2.2
+          # Use non-GUI matplotlib backend since Tkinter may not be installed properly on Windows runners
+          # https://github.com/stefmolin/data-morph/pull/273
+          MPLBACKEND: Agg
+        run: |
+          export PATH=$PATH:$HADOOP_HOME/bin
+          uv run --no-sync pytest tests \
+            --splits=${{ matrix.splits }} \
+            --group=${{ matrix.group }} \
+            --ignore-flavors \
+            --ignore=tests/projects \
+            --ignore=tests/examples \
+            --ignore=tests/evaluate \
+            --ignore=tests/optuna \
+            --ignore=tests/pyspark/optuna \
+            --ignore=tests/genai \
+            --ignore=tests/sagemaker \
+            --ignore=tests/gateway \
+            --ignore=tests/server/auth \
+            --ignore=tests/data/test_spark_dataset.py \
+            --ignore=tests/docker

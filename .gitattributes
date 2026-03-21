@@ -1,0 +1,9 @@
+* text=auto eol=lf
+
+# Collapse auto-generated protobuf files in pull request diffs on GitHub
+mlflow/protos/**/*_pb2.py linguist-generated=true
+mlflow/protos/**/*_pb2.pyi linguist-generated=true
+mlflow/protos/**/*_pb2_grpc.py linguist-generated=true
+
+# Collapse auto-generated i18n files in pull request diffs on GitHub
+mlflow/server/js/src/lang/**/*.json linguist-generated=true

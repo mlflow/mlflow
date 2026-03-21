@@ -1,16 +1,16 @@
-import mlflow.paddle
-import paddle
-from paddle.nn import Linear
-import paddle.nn.functional as F
 import numpy as np
-
-from sklearn.datasets import load_boston
-from sklearn.model_selection import train_test_split
+import paddle
+import paddle.nn.functional as F
+from paddle.nn import Linear
 from sklearn import preprocessing
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
+
+import mlflow.paddle
 
 
 def load_data():
-    X, y = load_boston(return_X_y=True)
+    X, y = load_diabetes(return_X_y=True)
 
     min_max_scaler = preprocessing.MinMaxScaler()
     X_min_max = min_max_scaler.fit_transform(X)
@@ -27,7 +27,7 @@ def load_data():
 
 class Regressor(paddle.nn.Layer):
     def __init__(self):
-        super(Regressor, self).__init__()
+        super().__init__()
 
         self.fc = Linear(in_features=13, out_features=1)
 
@@ -63,9 +63,7 @@ if __name__ == "__main__":
             loss = F.square_error_cost(predicts, label=prices)
             avg_loss = paddle.mean(loss)
             if iter_id % 20 == 0:
-                print(
-                    "epoch: {}, iter: {}, loss is: {}".format(epoch_id, iter_id, avg_loss.numpy())
-                )
+                print(f"epoch: {epoch_id}, iter: {iter_id}, loss is: {avg_loss.numpy()}")
 
             avg_loss.backward()
             opt.step()
@@ -73,8 +71,8 @@ if __name__ == "__main__":
 
     with mlflow.start_run() as run:
         mlflow.log_param("learning_rate", 0.01)
-        mlflow.paddle.log_model(model, "model")
-        print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+        mlflow.paddle.log_model(model, name="model")
+        print(f"Model saved in run {mlflow.active_run().info.run_id}")
 
         # load model
         model_path = mlflow.get_artifact_uri("model")

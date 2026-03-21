@@ -1,0 +1,25 @@
+import { describe, jest, it, expect } from '@jest/globals';
+import React from 'react';
+import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { CreateExperimentForm } from './CreateExperimentForm';
+
+describe('Render test', () => {
+  const minimalProps = {
+    visible: true,
+    form: { getFieldDecorator: jest.fn((opts) => (c: any) => c) },
+  };
+
+  it('should render with minimal props without exploding', () => {
+    renderWithIntl(<CreateExperimentForm {...minimalProps} />);
+    expect(
+      screen.getByRole('textbox', {
+        name: /experiment name/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', {
+        name: /artifact location/i,
+      }),
+    ).toBeInTheDocument();
+  });
+});

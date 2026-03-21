@@ -1,28 +1,31 @@
-from collections import namedtuple
 import os
+from typing import Any, NamedTuple
 
-
-import numpy as np
 import matplotlib.pyplot as plt
-import shap
-from sklearn.datasets import load_boston, load_iris
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+import numpy as np
 import pandas as pd
 import pytest
+import shap
+from sklearn.datasets import load_diabetes, load_iris
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 import mlflow
+from mlflow import MlflowClient
+from mlflow.utils.file_utils import local_file_uri_to_path
 
 
-ModelWithExplanation = namedtuple(
-    "ModelWithExplanation", ["model", "X", "shap_values", "base_values"]
-)
+class ModelWithExplanation(NamedTuple):
+    model: Any
+    X: Any
+    shap_values: Any
+    base_values: Any
 
 
 def yield_artifacts(run_id, path=None):
     """
     Yields all artifacts in the specified run.
     """
-    client = mlflow.tracking.MlflowClient()
+    client = MlflowClient()
     for item in client.list_artifacts(run_id, path):
         if item.is_dir:
             yield from yield_artifacts(run_id, item.path)
@@ -38,17 +41,14 @@ def get_iris():
     )
 
 
-def get_boston():
-    data = load_boston()
-    return (
-        pd.DataFrame(data.data[:100, :4], columns=data.feature_names[:4]),
-        pd.Series(data.target[:100], name="target"),
-    )
+def get_diabetes():
+    X, y = load_diabetes(return_X_y=True, as_frame=True)
+    return X.iloc[:100, :4], y.iloc[:100]
 
 
 @pytest.fixture(scope="module")
 def regressor():
-    X, y = get_boston()
+    X, y = get_diabetes()
     model = RandomForestRegressor()
     model.fit(X, y)
 
@@ -70,10 +70,8 @@ def classifier():
     return ModelWithExplanation(model, X, shap_values, explainer.expected_value)
 
 
-@pytest.mark.large
-@pytest.mark.parametrize("np_obj", [np.float(0.0), np.array([0.0])])
+@pytest.mark.parametrize("np_obj", [float(0.0), np.array([0.0])])
 def test_log_numpy(np_obj):
-
     with mlflow.start_run() as run:
         mlflow.shap._log_numpy(np_obj, "test.npy")
         mlflow.shap._log_numpy(np_obj, "test.npy", artifact_path="dir")
@@ -82,9 +80,7 @@ def test_log_numpy(np_obj):
     assert artifacts == {"test.npy", "dir/test.npy"}
 
 
-@pytest.mark.large
 def test_log_matplotlib_figure():
-
     fig, ax = plt.subplots()
     ax.plot([0, 1], [2, 3])
 
@@ -96,7 +92,6 @@ def test_log_matplotlib_figure():
     assert artifacts == {"test.png", "dir/test.png"}
 
 
-@pytest.mark.large
 def test_log_explanation_with_regressor(regressor):
     model = regressor.model
     X = regressor.X
@@ -117,13 +112,13 @@ def test_log_explanation_with_regressor(regressor):
         os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
-    shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
-    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
+    local_path = local_file_uri_to_path(explanation_path)
+    shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(local_path, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, regressor.shap_values)
     np.testing.assert_array_equal(base_values, regressor.base_values)
 
 
-@pytest.mark.large
 def test_log_explanation_with_classifier(classifier):
     model = classifier.model
     X = classifier.X
@@ -144,13 +139,13 @@ def test_log_explanation_with_classifier(classifier):
         os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
-    shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
-    base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
+    local_path = local_file_uri_to_path(explanation_uri)
+    shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(local_path, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, classifier.shap_values)
     np.testing.assert_array_equal(base_values, classifier.base_values)
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("artifact_path", ["dir", "dir1/dir2"])
 def test_log_explanation_with_artifact_path(regressor, artifact_path):
     model = regressor.model
@@ -171,22 +166,19 @@ def test_log_explanation_with_artifact_path(regressor, artifact_path):
         os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
-    shap_values = np.load(os.path.join(explanation_path, "shap_values.npy"))
-    base_values = np.load(os.path.join(explanation_path, "base_values.npy"))
+    local_path = local_file_uri_to_path(explanation_path)
+    shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(local_path, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, regressor.shap_values)
     np.testing.assert_array_equal(base_values, regressor.base_values)
 
 
-@pytest.mark.large
 def test_log_explanation_without_active_run(regressor):
     model = regressor.model
     X = regressor.X.values
 
-    try:
+    with mlflow.start_run() as run:
         explanation_uri = mlflow.shap.log_explanation(model.predict, X)
-    finally:
-        run = mlflow.active_run()
-        mlflow.end_run()
 
         # Assert no figure is open
         assert len(plt.get_fignums()) == 0
@@ -201,13 +193,13 @@ def test_log_explanation_without_active_run(regressor):
             os.path.join(artifact_path, "summary_bar_plot.png"),
         }
 
-        shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
-        base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
+        local_path = local_file_uri_to_path(explanation_uri)
+        shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
+        base_values = np.load(os.path.join(local_path, "base_values.npy"))
         np.testing.assert_array_equal(shap_values, regressor.shap_values)
         np.testing.assert_array_equal(base_values, regressor.base_values)
 
 
-@pytest.mark.large
 def test_log_explanation_with_numpy_array(regressor):
     model = regressor.model
     X = regressor.X.values
@@ -228,13 +220,13 @@ def test_log_explanation_with_numpy_array(regressor):
         os.path.join(artifact_path, "summary_bar_plot.png"),
     }
 
-    shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
-    base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
+    local_path = local_file_uri_to_path(explanation_uri)
+    shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
+    base_values = np.load(os.path.join(local_path, "base_values.npy"))
     np.testing.assert_array_equal(shap_values, regressor.shap_values)
     np.testing.assert_array_equal(base_values, regressor.base_values)
 
 
-@pytest.mark.large
 def test_log_explanation_with_small_features():
     """
     Verifies that `log_explanation` does not fail even when `features` has less records than
@@ -243,8 +235,9 @@ def test_log_explanation_with_small_features():
     num_rows = 50
     assert num_rows < mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE
 
-    X, y = get_boston()
-    X, y = X.iloc[:num_rows], y[:num_rows]
+    X, y = get_diabetes()
+    X = X.iloc[:num_rows]
+    y = y[:num_rows]
     model = RandomForestRegressor()
     model.fit(X, y)
 
@@ -264,7 +257,8 @@ def test_log_explanation_with_small_features():
     explainer = shap.KernelExplainer(model.predict, shap.kmeans(X, num_rows))
     shap_values_expected = explainer.shap_values(X)
 
-    base_values = np.load(os.path.join(explanation_uri, "base_values.npy"))
-    shap_values = np.load(os.path.join(explanation_uri, "shap_values.npy"))
+    local_path = local_file_uri_to_path(explanation_uri)
+    base_values = np.load(os.path.join(local_path, "base_values.npy"))
+    shap_values = np.load(os.path.join(local_path, "shap_values.npy"))
     np.testing.assert_array_equal(base_values, explainer.expected_value)
     np.testing.assert_array_equal(shap_values, shap_values_expected)

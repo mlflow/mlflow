@@ -1,5 +1,3 @@
-# pylint: disable=import-error
-
 """
 Generates the following test resources:
 
@@ -10,15 +8,14 @@ Generates the following test resources:
 Usage: python generate_onnx_models.py
 """
 
-
 import numpy as np
 import onnx
 import onnxmltools
 import pandas as pd
-import sklearn.datasets as datasets
 import tensorflow.compat.v1 as tf
 import tf2onnx
 from skl2onnx.common.data_types import FloatTensorType
+from sklearn import datasets
 from sklearn.linear_model import LogisticRegression
 
 tf.disable_v2_behavior()

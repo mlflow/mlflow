@@ -1,0 +1,25 @@
+# Since git version 2.23, git-blame has a feature to ignore
+# certain commits.
+#
+# This file contains a list of commits that are not likely what
+# you are looking for in `git blame`. You can set this file as
+# a default ignore file for blame by running the following
+# command.
+#
+# $ git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# PR: https://github.com/mlflow/mlflow/pull/3191
+# Commit: https://github.com/mlflow/mlflow/commit/d743a40426d5dedbde395a4e6bbdeebadbccd4dc
+# Migrate code style to Black
+d743a40426d5dedbde395a4e6bbdeebadbccd4dc
+
+# PR: https://github.com/mlflow/mlflow/pull/5548
+# Commit: https://github.com/mlflow/mlflow/commit/43c15f7aea7ca737ce41c02d1d5e996006aa3006
+# Upgrade Black version to 22.3.0
+43c15f7aea7ca737ce41c02d1d5e996006aa3006
+
+# https://github.com/mlflow/mlflow/pull/9409
+5ed36a0f88def458496382777620e9a5ebcf0f2a
+
+# https://github.com/mlflow/mlflow/pull/9424
+9df7c92567c22b00374396ec5a18cb66ea9b8a0c

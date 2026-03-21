@@ -1,16 +1,16 @@
-import time
 import json
-from collections import namedtuple
+import time
 from datetime import datetime
+from typing import Any, NamedTuple
 
-from moto.core import BaseBackend, BaseModel
-from moto.core.responses import BaseResponse
-from moto.ec2 import ec2_backends
-
-from moto.iam.models import ACCOUNT_ID
+from moto.core import DEFAULT_ACCOUNT_ID, BackendDict, BaseBackend, BaseModel
 from moto.core.models import base_decorator
+from moto.core.responses import BaseResponse
 
-SageMakerResourceWithArn = namedtuple("SageMakerResourceWithArn", ["resource", "arn"])
+
+class SageMakerResourceWithArn(NamedTuple):
+    resource: Any
+    arn: str
 
 
 class SageMakerResponse(BaseResponse):
@@ -21,7 +21,7 @@ class SageMakerResponse(BaseResponse):
 
     @property
     def sagemaker_backend(self):
-        return sagemaker_backends[self.region]
+        return sagemaker_backends[DEFAULT_ACCOUNT_ID][self.region]
 
     @property
     def request_params(self):
@@ -35,11 +35,13 @@ class SageMakerResponse(BaseResponse):
         config_name = self.request_params["EndpointConfigName"]
         production_variants = self.request_params.get("ProductionVariants")
         tags = self.request_params.get("Tags", [])
+        async_inference_config = self.request_params.get("AsyncInferenceConfig")
         new_config = self.sagemaker_backend.create_endpoint_config(
             config_name=config_name,
             production_variants=production_variants,
             tags=tags,
             region_name=self.region,
+            async_inference_config=async_inference_config,
         )
         return json.dumps({"EndpointConfigArn": new_config.arn})
 
@@ -116,9 +118,9 @@ class SageMakerResponse(BaseResponse):
         single response.
         """
         endpoint_summaries = self.sagemaker_backend.list_endpoints()
-        return json.dumps(
-            {"Endpoints": [summary.response_object for summary in endpoint_summaries]}
-        )
+        return json.dumps({
+            "Endpoints": [summary.response_object for summary in endpoint_summaries]
+        })
 
     def list_endpoint_configs(self):
         """
@@ -130,9 +132,9 @@ class SageMakerResponse(BaseResponse):
         """
         # Note:
         endpoint_config_summaries = self.sagemaker_backend.list_endpoint_configs()
-        return json.dumps(
-            {"EndpointConfigs": [summary.response_object for summary in endpoint_config_summaries]}
-        )
+        return json.dumps({
+            "EndpointConfigs": [summary.response_object for summary in endpoint_config_summaries]
+        })
 
     def list_models(self):
         """
@@ -182,6 +184,21 @@ class SageMakerResponse(BaseResponse):
         model_name = self.request_params["ModelName"]
         self.sagemaker_backend.delete_model(model_name)
         return ""
+
+    def list_tags(self):
+        """
+        Handler for the SageMaker "ListTags" API call documented here:
+        https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
+        """
+        arn = self.request_params["ResourceArn"]
+        sagemaker_resource = (
+            "models" if "model" in arn else "endpoints" if "endpoint" in arn else None
+        )
+        results = self.sagemaker_backend.list_tags(
+            resource_arn=arn, region_name=self.region, resource_type=sagemaker_resource
+        )
+
+        return json.dumps({"Tags": results, "NextToken": None})
 
     def create_transform_job(self):
         """
@@ -234,13 +251,11 @@ class SageMakerResponse(BaseResponse):
         single response.
         """
         transform_job_summaries = self.sagemaker_backend.list_transform_jobs()
-        return json.dumps(
-            {
-                "TransformJobSummaries": [
-                    summary.response_object for summary in transform_job_summaries
-                ]
-            }
-        )
+        return json.dumps({
+            "TransformJobSummaries": [
+                summary.response_object for summary in transform_job_summaries
+            ]
+        })
 
 
 class SageMakerBackend(BaseBackend):
@@ -250,7 +265,8 @@ class SageMakerBackend(BaseBackend):
 
     BASE_SAGEMAKER_ARN = "arn:aws:sagemaker:{region_name}:{account_id}:"
 
-    def __init__(self):
+    def __init__(self, region_name, account_id=None):
+        super().__init__(region_name, account_id)
         self.models = {}
         self.endpoints = {}
         self.endpoint_configs = {}
@@ -297,18 +313,20 @@ class SageMakerBackend(BaseBackend):
         specified SageMaker URLs to the mocked SageMaker backend.
         """
         urls_module_name = "tests.sagemaker.mock.mock_sagemaker_urls"
-        urls_module = __import__(urls_module_name, fromlist=["url_bases", "url_paths"])
-        return urls_module
+        return __import__(urls_module_name, fromlist=["url_bases", "url_paths"])
 
     def _get_base_arn(self, region_name):
         """
-        :return: A SageMaker ARN prefix that can be prepended to a resource name.
+        Returns:
+            A SageMaker ARN prefix that can be prepended to a resource name.
         """
         return SageMakerBackend.BASE_SAGEMAKER_ARN.format(
-            region_name=region_name, account_id=ACCOUNT_ID
+            region_name=region_name, account_id=DEFAULT_ACCOUNT_ID
         )
 
-    def create_endpoint_config(self, config_name, production_variants, tags, region_name):
+    def create_endpoint_config(
+        self, config_name, production_variants, tags, region_name, async_inference_config
+    ):
         """
         Modifies backend state during calls to the SageMaker "CreateEndpointConfig" API
         documented here:
@@ -317,8 +335,8 @@ class SageMakerBackend(BaseBackend):
         if config_name in self.endpoint_configs:
             raise ValueError(
                 "Attempted to create an endpoint configuration with name:"
-                " {config_name}, but an endpoint configuration with this"
-                " name already exists.".format(config_name=config_name)
+                f" {config_name}, but an endpoint configuration with this"
+                " name already exists."
             )
         for production_variant in production_variants:
             if "ModelName" not in production_variant:
@@ -330,7 +348,10 @@ class SageMakerBackend(BaseBackend):
                 )
 
         new_config = EndpointConfig(
-            config_name=config_name, production_variants=production_variants, tags=tags
+            config_name=config_name,
+            production_variants=production_variants,
+            tags=tags,
+            async_inference_config=async_inference_config,
         )
         new_config_arn = self._get_base_arn(region_name=region_name) + new_config.arn_descriptor
         new_resource = SageMakerResourceWithArn(resource=new_config, arn=new_config_arn)
@@ -345,8 +366,8 @@ class SageMakerBackend(BaseBackend):
         """
         if config_name not in self.endpoint_configs:
             raise ValueError(
-                "Attempted to describe an endpoint config with name: `{config_name}`"
-                " that does not exist.".format(config_name=config_name)
+                f"Attempted to describe an endpoint config with name: `{config_name}`"
+                " that does not exist."
             )
 
         config = self.endpoint_configs[config_name]
@@ -360,8 +381,8 @@ class SageMakerBackend(BaseBackend):
         """
         if config_name not in self.endpoint_configs:
             raise ValueError(
-                "Attempted to delete an endpoint config with name: `{config_name}`"
-                " that does not exist.".format(config_name=config_name)
+                f"Attempted to delete an endpoint config with name: `{config_name}`"
+                " that does not exist."
             )
 
         del self.endpoint_configs[config_name]
@@ -374,18 +395,14 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name in self.endpoints:
             raise ValueError(
-                "Attempted to create an endpoint with name: `{endpoint_name}`"
-                " but an endpoint with this name already exists.".format(
-                    endpoint_name=endpoint_name
-                )
+                f"Attempted to create an endpoint with name: `{endpoint_name}`"
+                " but an endpoint with this name already exists."
             )
 
         if endpoint_config_name not in self.endpoint_configs:
             raise ValueError(
                 "Attempted to create an endpoint with a configuration named:"
-                " `{config_name}` However, this configuration does not exist.".format(
-                    config_name=endpoint_config_name
-                )
+                f" `{endpoint_config_name}` However, this configuration does not exist."
             )
 
         new_endpoint = Endpoint(
@@ -409,8 +426,8 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                "Attempted to describe an endpoint with name: `{endpoint_name}`"
-                " that does not exist.".format(endpoint_name=endpoint_name)
+                f"Attempted to describe an endpoint with name: `{endpoint_name}`"
+                " that does not exist."
             )
 
         endpoint = self.endpoints[endpoint_name]
@@ -427,15 +444,14 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                "Attempted to update an endpoint with name: `{endpoint_name}`"
-                " that does not exist.".format(endpoint_name=endpoint_name)
+                f"Attempted to update an endpoint with name: `{endpoint_name}` that does not exist."
             )
 
         if new_config_name not in self.endpoint_configs:
             raise ValueError(
-                "Attempted to update an endpoint named `{endpoint_name}` with a new"
-                " configuration named: `{config_name}`. However, this configuration"
-                " does not exist.".format(endpoint_name=endpoint_name, config_name=new_config_name)
+                f"Attempted to update an endpoint named `{endpoint_name}` with a new"
+                f" configuration named: `{new_config_name}`. However, this configuration"
+                " does not exist."
             )
 
         endpoint = self.endpoints[endpoint_name]
@@ -453,8 +469,7 @@ class SageMakerBackend(BaseBackend):
         """
         if endpoint_name not in self.endpoints:
             raise ValueError(
-                "Attempted to delete an endpoint with name: `{endpoint_name}`"
-                " that does not exist.".format(endpoint_name=endpoint_name)
+                f"Attempted to delete an endpoint with name: `{endpoint_name}` that does not exist."
             )
 
         del self.endpoints[endpoint_name]
@@ -465,11 +480,10 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpoints.html.
         """
-        summaries = []
-        for _, endpoint in self.endpoints.items():
-            summary = EndpointSummary(endpoint=endpoint.resource, arn=endpoint.arn)
-            summaries.append(summary)
-        return summaries
+        return [
+            EndpointSummary(endpoint=endpoint.resource, arn=endpoint.arn)
+            for endpoint in self.endpoints.values()
+        ]
 
     def list_endpoint_configs(self):
         """
@@ -477,13 +491,10 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListEndpointConfigs.html.
         """
-        summaries = []
-        for _, endpoint_config in self.endpoint_configs.items():
-            summary = EndpointConfigSummary(
-                config=endpoint_config.resource, arn=endpoint_config.arn
-            )
-            summaries.append(summary)
-        return summaries
+        return [
+            EndpointConfigSummary(config=endpoint_config.resource, arn=endpoint_config.arn)
+            for endpoint_config in self.endpoint_configs.values()
+        ]
 
     def list_models(self):
         """
@@ -491,11 +502,17 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/dg/API_ListModels.html.
         """
-        summaries = []
-        for _, model in self.models.items():
-            summary = ModelSummary(model=model.resource, arn=model.arn)
-            summaries.append(summary)
-        return summaries
+        return [ModelSummary(model=model.resource, arn=model.arn) for model in self.models.values()]
+
+    def list_tags(self, resource_arn, region_name, resource_type):
+        """
+        Modifies backend state during calls to the SageMaker "ListTags" API
+        https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTags.html
+        """
+        resource_values = getattr(self, resource_type).values()
+        for sagemaker_resource in resource_values:
+            if sagemaker_resource.arn == resource_arn:
+                return sagemaker_resource.resource.tags
 
     def create_model(
         self, model_name, primary_container, execution_role_arn, tags, region_name, vpc_config=None
@@ -507,8 +524,8 @@ class SageMakerBackend(BaseBackend):
         """
         if model_name in self.models:
             raise ValueError(
-                "Attempted to create a model with name: `{model_name}`"
-                " but a model with this name already exists.".format(model_name=model_name)
+                f"Attempted to create a model with name: `{model_name}`"
+                " but a model with this name already exists."
             )
 
         new_model = Model(
@@ -531,8 +548,7 @@ class SageMakerBackend(BaseBackend):
         """
         if model_name not in self.models:
             raise ValueError(
-                "Attempted to describe a model with name: `{model_name}`"
-                " that does not exist.".format(model_name=model_name)
+                f"Attempted to describe a model with name: `{model_name}` that does not exist."
             )
 
         model = self.models[model_name]
@@ -546,8 +562,7 @@ class SageMakerBackend(BaseBackend):
         """
         if model_name not in self.models:
             raise ValueError(
-                "Attempted to delete an model with name: `{model_name}`"
-                " that does not exist.".format(model_name=model_name)
+                f"Attempted to delete an model with name: `{model_name}` that does not exist."
             )
 
         del self.models[model_name]
@@ -571,14 +586,14 @@ class SageMakerBackend(BaseBackend):
         if job_name in self.transform_jobs:
             raise ValueError(
                 "Attempted to create a transform job with name:"
-                " {job_name}, but a transform job with this"
-                " name already exists.".format(job_name=job_name)
+                f" {job_name}, but a transform job with this"
+                " name already exists."
             )
 
         if model_name not in self.models:
             raise ValueError(
                 "Attempted to create a transform job with a model named:"
-                " `{model_name}` However, this model does not exist.".format(model_name=model_name)
+                f" `{model_name}` However, this model does not exist."
             )
 
         new_job = TransformJob(
@@ -606,8 +621,8 @@ class SageMakerBackend(BaseBackend):
         """
         if job_name not in self.transform_jobs:
             raise ValueError(
-                "Attempted to describe a transform job with name: `{job_name}`"
-                " that does not exist.".format(job_name=job_name)
+                f"Attempted to describe a transform job with name: `{job_name}`"
+                " that does not exist."
             )
 
         transform_job = self.transform_jobs[job_name]
@@ -621,8 +636,7 @@ class SageMakerBackend(BaseBackend):
         """
         if job_name not in self.transform_jobs:
             raise ValueError(
-                "Attempted to stop a transform job with name: `{job_name}`"
-                " that does not exist.".format(job_name=job_name)
+                f"Attempted to stop a transform job with name: `{job_name}` that does not exist."
             )
 
         self.transform_jobs[
@@ -637,13 +651,10 @@ class SageMakerBackend(BaseBackend):
         documented here:
         https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_ListTransformJobs.html.
         """
-        summaries = []
-        for _, transform_job in self.transform_jobs.items():
-            summary = TransformJobSummary(
-                transform_job=transform_job.resource, arn=transform_job.arn
-            )
-            summaries.append(summary)
-        return summaries
+        return [
+            TransformJobSummary(transform_job=transform_job.resource, arn=transform_job.arn)
+            for transform_job in self.transform_jobs.values()
+        ]
 
 
 class TimestampedResource(BaseModel):
@@ -668,11 +679,12 @@ class Endpoint(TimestampedResource):
 
     def __init__(self, endpoint_name, config_name, tags, latest_operation):
         """
-        :param endpoint_name: The name of the Endpoint.
-        :param config_name: The name of the EndpointConfiguration to associate with the Endpoint.
-        :param tags: Arbitrary tags to associate with the endpoint.
-        :param latest_operation: The most recent operation that was invoked on the endpoint,
-                                 represented as an EndpointOperation object.
+        Args:
+            endpoint_name: The name of the Endpoint.
+            config_name: The name of the EndpointConfiguration to associate with the Endpoint.
+            tags: Arbitrary tags to associate with the endpoint.
+            latest_operation: The most recent operation that was invoked on the endpoint,
+                represented as an EndpointOperation object.
         """
         super().__init__()
         self.endpoint_name = endpoint_name
@@ -682,7 +694,7 @@ class Endpoint(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":endpoint/{endpoint_name}".format(endpoint_name=self.endpoint_name)
+        return f":endpoint/{self.endpoint_name}"
 
     @property
     def status(self):
@@ -690,7 +702,6 @@ class Endpoint(TimestampedResource):
 
 
 class TransformJob(TimestampedResource):
-
     """
     Object representing a SageMaker transform job. The SageMakerBackend will create
     and manage transform jobs.
@@ -714,17 +725,18 @@ class TransformJob(TimestampedResource):
         latest_operation,
     ):
         """
-        :param job_name: The name of the TransformJob.
-        :param model_name: The name of the model to associate with the TransformJob.
-        :param transform_input: The input data source and the way transform job consumes it.
-        :param transform_output: The output results of the transform job.
-        :param transform_resources: The ML instance types and instance count to use for the
-                                    transform job.
-        :param data_processing: The data structure to specify the inference data and associate data
-                                to the prediction results.
-        :param tags: Arbitrary tags to associate with the transform job.
-        :param latest_operation: The most recent operation that was invoked on the transform job,
-                                 represented as an TransformJobOperation object.
+        Args:
+            job_name: The name of the TransformJob.
+            model_name: The name of the model to associate with the TransformJob.
+            transform_input: The input data source and the way transform job consumes it.
+            transform_output: The output results of the transform job.
+            transform_resources: The ML instance types and instance count to use for the
+                transform job.
+            data_processing: The data structure to specify the inference data and associate data
+                to the prediction results.
+            tags: Arbitrary tags to associate with the transform job.
+            latest_operation: The most recent operation that was invoked on the transform job,
+                represented as an TransformJobOperation object.
         """
         super().__init__()
         self.job_name = job_name
@@ -738,7 +750,7 @@ class TransformJob(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":transform-job/{job_name}".format(job_name=self.job_name)
+        return f":transform-job/{self.job_name}"
 
     @property
     def status(self):
@@ -753,14 +765,15 @@ class EndpointOperation:
 
     def __init__(self, latency_seconds, pending_status, completed_status):
         """
-        :param latency: The latency of the operation, in seconds. Before the time window specified
-                        by this latency elapses, the operation will have the status specified by
-                        ``pending_status``. After the time window elapses, the operation will
-                        have the status  specified by ``completed_status``.
-        :param pending_status: The status that the operation should reflect *before* the latency
-                               window has elapsed.
-        :param completed_status: The status that the operation should reflect *after* the latency
-                                 window has elapsed.
+        Args:
+            latency_seconds: The latency of the operation, in seconds. Before the time window
+                specified by this latency elapses, the operation will have the status specified by
+                ``pending_status``. After the time window elapses, the operation will
+                have the status  specified by ``completed_status``.
+            pending_status: The status that the operation should reflect *before* the latency
+                window has elapsed.
+            completed_status: The status that the operation should reflect *after* the latency
+                window has elapsed.
         """
         self.latency_seconds = latency_seconds
         self.pending_status = pending_status
@@ -814,14 +827,15 @@ class TransformJobOperation:
 
     def __init__(self, latency_seconds, pending_status, completed_status):
         """
-        :param latency_seconds: The latency of the operation, in seconds. Before the time window
-                        specified by this latency elapses, the operation will have the status
-                        specified by ``pending_status``. After the time window elapses, the
-                        operation will have the status  specified by ``completed_status``.
-        :param pending_status: The status that the operation should reflect *before* the latency
-                               window has elapsed.
-        :param completed_status: The status that the operation should reflect *after* the latency
-                                 window has elapsed.
+        Args:
+            latency_seconds: The latency of the operation, in seconds. Before the time window
+                specified by this latency elapses, the operation will have the status
+                specified by ``pending_status``. After the time window elapses, the
+                operation will have the status specified by ``completed_status``.
+            pending_status: The status that the operation should reflect *before* the latency
+                window has elapsed.
+            completed_status: The status that the operation should reflect *after* the latency
+                window has elapsed.
         """
         self.latency_seconds = latency_seconds
         self.pending_status = pending_status
@@ -872,14 +886,13 @@ class EndpointSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointName": self.endpoint.endpoint_name,
             "CreationTime": self.endpoint.creation_time,
             "LastModifiedTime": self.endpoint.last_modified_time,
             "EndpointStatus": self.endpoint.status,
             "EndpointArn": self.arn,
         }
-        return response
 
 
 class EndpointDescription:
@@ -896,7 +909,7 @@ class EndpointDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointName": self.endpoint.endpoint_name,
             "EndpointArn": self.arn,
             "EndpointConfigName": self.endpoint.config_name,
@@ -905,7 +918,6 @@ class EndpointDescription:
             "CreationTime": self.endpoint.creation_time,
             "LastModifiedTime": self.endpoint.last_modified_time,
         }
-        return response
 
 
 class EndpointConfig(TimestampedResource):
@@ -914,15 +926,16 @@ class EndpointConfig(TimestampedResource):
     and manage EndpointConfigs.
     """
 
-    def __init__(self, config_name, production_variants, tags):
+    def __init__(self, config_name, production_variants, tags, async_inference_config=None):
         super().__init__()
         self.config_name = config_name
         self.production_variants = production_variants
         self.tags = tags
+        self.async_inference_config = async_inference_config
 
     @property
     def arn_descriptor(self):
-        return ":endpoint-config/{config_name}".format(config_name=self.config_name)
+        return f":endpoint-config/{self.config_name}"
 
 
 class EndpointConfigSummary:
@@ -938,12 +951,11 @@ class EndpointConfigSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointConfigName": self.config.config_name,
             "EndpointArn": self.arn,
             "CreationTime": self.config.creation_time,
         }
-        return response
 
 
 class EndpointConfigDescription:
@@ -959,13 +971,13 @@ class EndpointConfigDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "EndpointConfigName": self.config.config_name,
             "EndpointConfigArn": self.arn,
             "ProductionVariants": self.config.production_variants,
             "CreationTime": self.config.creation_time,
+            "AsyncInferenceConfig": self.config.async_inference_config,
         }
-        return response
 
 
 class Model(TimestampedResource):
@@ -983,7 +995,7 @@ class Model(TimestampedResource):
 
     @property
     def arn_descriptor(self):
-        return ":model/{model_name}".format(model_name=self.model_name)
+        return f":model/{self.model_name}"
 
 
 class ModelSummary:
@@ -998,12 +1010,11 @@ class ModelSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "ModelArn": self.arn,
             "ModelName": self.model.model_name,
             "CreationTime": self.model.creation_time,
         }
-        return response
 
 
 class ModelDescription:
@@ -1018,15 +1029,14 @@ class ModelDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "ModelArn": self.arn,
             "ModelName": self.model.model_name,
             "PrimaryContainer": self.model.primary_container,
             "ExecutionRoleArn": self.model.execution_role_arn,
-            "VpcConfig": self.model.vpc_config if self.model.vpc_config else {},
+            "VpcConfig": self.model.vpc_config or {},
             "CreationTime": self.model.creation_time,
         }
-        return response
 
 
 class TransformJobSummary:
@@ -1042,14 +1052,13 @@ class TransformJobSummary:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "TransformJobName": self.transform_job.job_name,
             "TransformJobArn": self.arn,
             "CreationTime": self.transform_job.creation_time,
             "LastModifiedTime": self.transform_job.last_modified_time,
             "TransformJobStatus": self.transform_job.status,
         }
-        return response
 
 
 class TransformJobDescription:
@@ -1065,7 +1074,7 @@ class TransformJobDescription:
 
     @property
     def response_object(self):
-        response = {
+        return {
             "TransformJobName": self.transform_job.job_name,
             "TransformJobArn": self.arn,
             "CreationTime": self.transform_job.creation_time,
@@ -1073,13 +1082,9 @@ class TransformJobDescription:
             "TransformJobStatus": self.transform_job.status,
             "ModelName": self.transform_job.model_name,
         }
-        return response
 
 
-# Create a SageMaker backend for each EC2 region
-sagemaker_backends = {}
-for region, ec2_backend in ec2_backends.items():
-    new_backend = SageMakerBackend()
-    sagemaker_backends[region] = new_backend
+# Create a SageMaker backend for EC2 region: "us-west-2"
+sagemaker_backends = BackendDict(SageMakerBackend, "sagemaker")
 
 mock_sagemaker = base_decorator(sagemaker_backends)

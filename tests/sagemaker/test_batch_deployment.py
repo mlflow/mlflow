@@ -1,35 +1,41 @@
 import os
-import pytest
 import time
-from collections import namedtuple
+from functools import wraps
+from typing import NamedTuple
 from unittest import mock
 
 import boto3
 import botocore
 import numpy as np
+import pytest
 from click.testing import CliRunner
+from moto.core import DEFAULT_ACCOUNT_ID
 from sklearn.linear_model import LogisticRegression
 
 import mlflow
 import mlflow.pyfunc
-import mlflow.sklearn
 import mlflow.sagemaker as mfs
 import mlflow.sagemaker.cli as mfscli
+import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import (
-    ErrorCode,
-    RESOURCE_DOES_NOT_EXIST,
-    INVALID_PARAMETER_VALUE,
     INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 
-from tests.helper_functions import set_boto_credentials  # pylint: disable=unused-import
-from tests.sagemaker.mock import mock_sagemaker, TransformJob, TransformJobOperation
+from tests.helper_functions import set_boto_credentials  # noqa: F401
+from tests.sagemaker.mock import TransformJob, TransformJobOperation, mock_sagemaker
 
-TrainedModel = namedtuple("TrainedModel", ["model_path", "run_id", "model_uri"])
+
+class TrainedModel(NamedTuple):
+    model_path: str
+    run_id: str
+    model_uri: str
 
 
 @pytest.fixture
@@ -40,7 +46,7 @@ def pretrained_model():
         y = np.array([0, 0, 1, 1, 1, 0])
         lr = LogisticRegression(solver="lbfgs")
         lr.fit(X, y)
-        mlflow.sklearn.log_model(lr, model_path)
+        mlflow.sklearn.log_model(lr, name=model_path)
         run_id = mlflow.active_run().info.run_id
         model_uri = "runs:/" + run_id + "/" + model_path
         return TrainedModel(model_path, run_id, model_uri)
@@ -52,12 +58,11 @@ def sagemaker_client():
 
 
 def get_sagemaker_backend(region_name):
-    return mock_sagemaker.backends[region_name]
+    return mock_sagemaker.backends[DEFAULT_ACCOUNT_ID][region_name]
 
 
 def mock_sagemaker_aws_services(fn):
-    from functools import wraps
-    from moto import mock_s3, mock_ecr, mock_sts, mock_iam
+    from moto import mock_ecr, mock_iam, mock_s3, mock_sts
 
     @mock_ecr
     @mock_iam
@@ -91,10 +96,10 @@ def mock_sagemaker_aws_services(fn):
     return mock_wrapper
 
 
-@pytest.mark.large
 def test_batch_deployment_with_unsupported_flavor_raises_exception(pretrained_model):
     unsupported_flavor = "this is not a valid flavor"
-    with pytest.raises(MlflowException) as exc:
+    match = "The specified flavor: `this is not a valid flavor` is not supported for deployment"
+    with pytest.raises(MlflowException, match=match) as exc:
         mfs.deploy_transform_job(
             job_name="bad_flavor",
             model_uri=pretrained_model.model_uri,
@@ -108,24 +113,6 @@ def test_batch_deployment_with_unsupported_flavor_raises_exception(pretrained_mo
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.large
-def test_batch_deployment_with_missing_flavor_raises_exception(pretrained_model):
-    missing_flavor = "mleap"
-    with pytest.raises(MlflowException) as exc:
-        mfs.deploy_transform_job(
-            job_name="missing-flavor",
-            model_uri=pretrained_model.model_uri,
-            s3_input_data_type="Some Data Type",
-            s3_input_uri="Some Input Uri",
-            content_type="Some Content Type",
-            s3_output_path="Some Output Path",
-            flavor=missing_flavor,
-        )
-
-    assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
-
-
-@pytest.mark.large
 def test_batch_deployment_of_model_with_no_supported_flavors_raises_exception(pretrained_model):
     logged_model_path = _download_artifact_from_uri(pretrained_model.model_uri)
     model_config_path = os.path.join(logged_model_path, "MLmodel")
@@ -133,7 +120,8 @@ def test_batch_deployment_of_model_with_no_supported_flavors_raises_exception(pr
     del model_config.flavors[mlflow.pyfunc.FLAVOR_NAME]
     model_config.save(path=model_config_path)
 
-    with pytest.raises(MlflowException) as exc:
+    match = "The specified model does not contain any of the supported flavors for deployment"
+    with pytest.raises(MlflowException, match=match) as exc:
         mfs.deploy_transform_job(
             job_name="missing-flavor",
             model_uri=logged_model_path,
@@ -147,11 +135,10 @@ def test_batch_deployment_of_model_with_no_supported_flavors_raises_exception(pr
     assert exc.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-@pytest.mark.large
 def test_deploy_sagemaker_transform_job_in_asynchronous_mode_without_archiving_throws_exception(
     pretrained_model,
 ):
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Resources must be archived") as exc:
         mfs.deploy_transform_job(
             job_name="test-job",
             model_uri=pretrained_model.model_uri,
@@ -163,11 +150,9 @@ def test_deploy_sagemaker_transform_job_in_asynchronous_mode_without_archiving_t
             synchronous=False,
         )
 
-    assert "Resources must be archived" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_names_from_local(
     pretrained_model, sagemaker_client
@@ -192,14 +177,13 @@ def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_n
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
     ]
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expected_names_from_local(
     pretrained_model, sagemaker_client
@@ -235,14 +219,13 @@ def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expect
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
     ]
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_names_from_s3(
     pretrained_model, sagemaker_client
@@ -251,11 +234,9 @@ def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_n
     artifact_path = "model"
     region_name = sagemaker_client.meta.region_name
     default_bucket = mfs._get_default_s3_bucket(region_name)
-    s3_artifact_repo = S3ArtifactRepository("s3://{}".format(default_bucket))
+    s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
-    model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
-        bucket_name=default_bucket, artifact_path=pretrained_model.model_path
-    )
+    model_s3_uri = f"s3://{default_bucket}/{pretrained_model.model_path}"
 
     job_name = "test-job"
     mfs.deploy_transform_job(
@@ -276,14 +257,13 @@ def test_deploy_creates_sagemaker_transform_job_and_s3_resources_with_expected_n
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
     ]
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expected_names_from_s3(
     pretrained_model, sagemaker_client
@@ -292,11 +272,9 @@ def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expect
     artifact_path = "model"
     region_name = sagemaker_client.meta.region_name
     default_bucket = mfs._get_default_s3_bucket(region_name)
-    s3_artifact_repo = S3ArtifactRepository("s3://{}".format(default_bucket))
+    s3_artifact_repo = S3ArtifactRepository(f"s3://{default_bucket}")
     s3_artifact_repo.log_artifacts(local_model_path, artifact_path=artifact_path)
-    model_s3_uri = "s3://{bucket_name}/{artifact_path}".format(
-        bucket_name=default_bucket, artifact_path=pretrained_model.model_path
-    )
+    model_s3_uri = f"s3://{default_bucket}/{pretrained_model.model_path}"
 
     job_name = "test-job"
     result = CliRunner(env={"LC_ALL": "en_US.UTF-8", "LANG": "en_US.UTF-8"}).invoke(
@@ -329,14 +307,13 @@ def test_deploy_cli_creates_sagemaker_transform_job_and_s3_resources_with_expect
     object_names = [
         entry["Key"] for entry in s3_client.list_objects(Bucket=default_bucket)["Contents"]
     ]
-    assert any([model_name in object_name for object_name in object_names])
+    assert any(model_name in object_name for object_name in object_names)
     assert job_name in [
         transform_job["TransformJobName"]
         for transform_job in sagemaker_client.list_transform_jobs()["TransformJobSummaries"]
     ]
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploying_sagemaker_transform_job_with_preexisting_name_in_create_mode_throws_exception(
     pretrained_model,
@@ -351,7 +328,9 @@ def test_deploying_sagemaker_transform_job_with_preexisting_name_in_create_mode_
         s3_output_path="Some Output Path",
     )
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(
+        MlflowException, match="a batch transform job with the same name already exists"
+    ) as exc:
         mfs.deploy_transform_job(
             job_name=job_name,
             model_uri=pretrained_model.model_uri,
@@ -361,11 +340,9 @@ def test_deploying_sagemaker_transform_job_with_preexisting_name_in_create_mode_
             s3_output_path="Some Output Path",
         )
 
-    assert "a batch transform job with the same name already exists" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_synchronous_mode_waits_for_transform_job_creation_to_complete_before_returning(
     pretrained_model, sagemaker_client
@@ -393,7 +370,6 @@ def test_deploy_in_synchronous_mode_waits_for_transform_job_creation_to_complete
     assert transform_job_description["TransformJobStatus"] == TransformJob.STATUS_COMPLETED
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_create_in_asynchronous_mode_returns_before_transform_job_creation_completes(
     pretrained_model, sagemaker_client
@@ -422,7 +398,6 @@ def test_deploy_create_in_asynchronous_mode_returns_before_transform_job_creatio
     assert transform_job_description["TransformJobStatus"] == TransformJob.STATUS_IN_PROGRESS
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_deploy_in_throw_exception_after_transform_job_creation_fails(
     pretrained_model, sagemaker_client
@@ -451,9 +426,10 @@ def test_deploy_in_throw_exception_after_transform_job_creation_fails(
             )
         return result
 
-    with mock.patch(
-        "botocore.client.BaseClient._make_api_call", new=fail_transform_job_creations
-    ), pytest.raises(MlflowException) as exc:
+    with (
+        mock.patch("botocore.client.BaseClient._make_api_call", new=fail_transform_job_creations),
+        pytest.raises(MlflowException, match="batch transform job failed") as exc,
+    ):
         mfs.deploy_transform_job(
             job_name="test-job",
             model_uri=pretrained_model.model_uri,
@@ -463,11 +439,9 @@ def test_deploy_in_throw_exception_after_transform_job_creation_fails(
             s3_output_path="Some Output Path",
         )
 
-    assert "batch transform job failed" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INTERNAL_ERROR)
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_attempting_to_terminate_in_asynchronous_mode_without_archiving_throws_exception(
     pretrained_model,
@@ -482,16 +456,16 @@ def test_attempting_to_terminate_in_asynchronous_mode_without_archiving_throws_e
         s3_output_path="Some Output Path",
     )
 
-    with pytest.raises(MlflowException) as exc:
+    with pytest.raises(MlflowException, match="Resources must be archived") as exc:
         mfs.terminate_transform_job(
-            job_name=job_name, archive=False, synchronous=False,
+            job_name=job_name,
+            archive=False,
+            synchronous=False,
         )
 
-    assert "Resources must be archived" in exc.value.message
     assert exc.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_terminate_in_sync_mode_waits_for_transform_job_termination_to_complete_before_returning(
     pretrained_model, sagemaker_client
@@ -514,9 +488,7 @@ def test_terminate_in_sync_mode_waits_for_transform_job_termination_to_complete_
         synchronous=True,
     )
 
-    mfs.terminate_transform_job(
-        job_name=job_name, synchronous=True,
-    )
+    mfs.terminate_transform_job(job_name=job_name, synchronous=True)
     termination_end_time = time.time()
 
     assert (termination_end_time - termination_start_time) >= transform_job_termination_latency
@@ -524,7 +496,6 @@ def test_terminate_in_sync_mode_waits_for_transform_job_termination_to_complete_
     assert transform_job_description["TransformJobStatus"] == TransformJob.STATUS_STOPPED
 
 
-@pytest.mark.large
 @mock_sagemaker_aws_services
 def test_terminate_in_asynchronous_mode_returns_before_transform_job_termination_completes(
     pretrained_model, sagemaker_client
@@ -547,9 +518,7 @@ def test_terminate_in_asynchronous_mode_returns_before_transform_job_termination
         synchronous=False,
     )
 
-    mfs.terminate_transform_job(
-        job_name=job_name, archive=True, synchronous=False,
-    )
+    mfs.terminate_transform_job(job_name=job_name, archive=True, synchronous=False)
     termination_end_time = time.time()
 
     assert (termination_end_time - termination_start_time) < transform_job_termination_latency

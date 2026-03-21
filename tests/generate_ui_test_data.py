@@ -3,13 +3,13 @@ Small script used to generate mock data to test the UI.
 """
 
 import argparse
-import mlflow
 import itertools
 import random
 import string
 from random import random as rand
 
-from mlflow.tracking import MlflowClient
+import mlflow
+from mlflow import MlflowClient
 
 
 def log_metrics(metrics):
@@ -72,7 +72,7 @@ if __name__ == "__main__":
         parameters = {
             "this is a pretty long parameter name": "NA10921-test_file_2018-08-10.txt",
         }
-        metrics = {"grower": [i ** 1.2 for i in range(10)]}
+        metrics = {"grower": [i**1.2 for i in range(10)]}
         log_params(parameters)
         log_metrics(metrics)
 
@@ -99,7 +99,7 @@ if __name__ == "__main__":
                 "parameters": str(rand()),
                 "in": str(rand()),
                 "this": str(rand()),
-                "experiement": str(rand()),
+                "experiment": str(rand()),
                 "run": str(rand()),
                 "because": str(rand()),
                 "we": str(rand()),
@@ -120,7 +120,7 @@ if __name__ == "__main__":
                 "parameters": [rand()],
                 "in": [rand()],
                 "this": [rand()],
-                "experiement": [rand()],
+                "experiment": [rand()],
                 "run": [rand()],
                 "because": [rand()],
                 "we": [rand()],
@@ -159,35 +159,35 @@ if __name__ == "__main__":
     # Lot's of children
     with mlflow.start_run(run_name="parent-with-lots-of-children"):
         for i in range(100):
-            with mlflow.start_run(run_name="child-{}".format(i), nested=True):
+            with mlflow.start_run(run_name=f"child-{i}", nested=True):
                 pass
     mlflow.set_experiment("my-empty-experiment")
     mlflow.set_experiment("runs-but-no-metrics-params")
     for i in range(100):
-        with mlflow.start_run(run_name="empty-run-{}".format(i)):
+        with mlflow.start_run(run_name=f"empty-run-{i}"):
             pass
     if args.large:
         mlflow.set_experiment("med-size-experiment")
         # Experiment with a mix of nested runs & non-nested runs
         for i in range(3):
-            with mlflow.start_run(run_name="parent-with-children-{}".format(i)):
+            with mlflow.start_run(run_name=f"parent-with-children-{i}"):
                 params = {rand_str(): rand_str() for _ in range(5)}
                 metrics = {rand_str(): [rand()] for _ in range(5)}
                 log_params(params)
                 log_metrics(metrics)
                 for j in range(10):
-                    with mlflow.start_run(run_name="child-{}".format(j), nested=True):
+                    with mlflow.start_run(run_name=f"child-{j}", nested=True):
                         params = {rand_str(): rand_str() for _ in range(30)}
                         metrics = {rand_str(): [rand()] for idx in range(30)}
                         log_params(params)
                         log_metrics(metrics)
             for j in range(10):
-                with mlflow.start_run(run_name="unnested-{}-{}".format(i, j)):
+                with mlflow.start_run(run_name=f"unnested-{i}-{j}"):
                     params = {rand_str(): rand_str() for _ in range(5)}
                     metrics = {rand_str(): [rand()] for _ in range(5)}
         mlflow.set_experiment("hitting-metric-param-limits")
         for i in range(50):
-            with mlflow.start_run(run_name="big-run-{}".format(i)):
+            with mlflow.start_run(run_name=f"big-run-{i}"):
                 params = {str(j) + "a" * 250: "b" * 1000 for j in range(100)}
                 metrics = {str(j) + "a" * 250: [rand()] for j in range(100)}
                 log_metrics(metrics)

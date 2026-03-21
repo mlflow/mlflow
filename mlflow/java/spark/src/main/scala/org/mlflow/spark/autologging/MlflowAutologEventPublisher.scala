@@ -134,9 +134,11 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
             s"removing it")
           Seq(replId)
         case NonFatal(e) =>
-          val msg = ExceptionUtils.getUnexpectedExceptionMessage(e, "while checking health " +
-            s"of subscriber with repl ID $replId, removing it")
-          logger.error(msg)
+          if (logger.isTraceEnabled) {
+            val msg = ExceptionUtils.getUnexpectedExceptionMessage(e, "while checking health " +
+              s"of subscriber with repl ID $replId, removing it")
+            logger.trace(msg)
+          }
           Seq(replId)
       }
     }
@@ -145,19 +147,31 @@ private[autologging] trait MlflowAutologEventPublisherImpl {
     }
   }
 
+  // https://github.com/delta-io/delta/blob/aaf3cd77dae06118f5cb7716eb2e71c791c6a148/core/src/main/scala/org/apache/spark/sql/delta/util/FileNames.scala#L26
+  private val checkpointFilePattern = ".*\\d+\\.checkpoint(\\.\\d+\\.\\d+)?\\.parquet$".r.pattern
+  private def isCheckpointFile(path: String): Boolean = checkpointFilePattern.matcher(path).matches()
+
+  private def shouldSkipPublish(path: String, format: Option[String]): Boolean = {
+    // 1. Spark first loads head of the data as unknown "text" to infer the schema, which we don't want to log
+    // 2. Checkpoint files don't provide useful information, so we filter them out
+    (format.isEmpty || format.get == "text") || isCheckpointFile(path)
+  }
+
   private[autologging] def publishEvent(
       replIdOpt: Option[String],
       sparkTableInfo: SparkTableInfo): Unit = synchronized {
     sparkTableInfo match {
-      case SparkTableInfo(path, version, format) =>
+      case SparkTableInfo(path, version, format) if !shouldSkipPublish(path, format) =>
         for ((replId, listener) <- getSubscribers) {
           if (replIdOpt.isEmpty || replId == replIdOpt.get) {
             try {
               listener.notify(path, version.getOrElse("unknown"), format.getOrElse("unknown"))
             } catch {
               case NonFatal(e) =>
-                logger.error(s"Unable to forward event to listener with repl ID $replId. " +
-                  s"Exception:\n${ExceptionUtils.serializeException(e)}")
+                if (logger.isTraceEnabled) {
+                  logger.trace(s"Unable to forward event to listener with repl ID $replId. " +
+                    s"Exception:\n${ExceptionUtils.serializeException(e)}")
+                }
             }
           }
         }

@@ -25,12 +25,12 @@ markdown_fixed <- markdown_fixed[1:last_section - 1]
 writeLines(markdown_fixed, "Reference_Manual_mlflow.md")
 
 # Clear Sphinx docs and tree to correctly generate sections
-if (dir.exists("../../../docs/build")) {
-  unlink("../../../docs/build", recursive = TRUE)
+if (dir.exists("../../../docs/api_reference/build")) {
+  unlink("../../../docs/api_reference/build", recursive = TRUE)
 }
 
 # Generate reStructuredText documentation
-rmarkdown::pandoc_convert("Reference_Manual_mlflow.md", output = "../../../docs/source/R-api.rst")
+rmarkdown::pandoc_convert("Reference_Manual_mlflow.md", output = "../../../docs/api_reference/source/R-api.rst")
 
 # Add R API header to RST docs
 rst_header <- ".. _R-api:
@@ -39,18 +39,44 @@ rst_header <- ".. _R-api:
 R API
 ========
 
-The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow :doc:`Tracking <tracking/>`, :doc:`Projects <projects/>` and :doc:`Models <models/>`.
+The MLflow `R <https://www.r-project.org/about.html>`_ API allows you to use MLflow `Tracking <../tracking/index.html>`_, `Projects <../projects/index.html>`_ and `Models <../models/index.html>`_.
 
-You can use the R API to `install MLflow <install_mlflow_>`_, start the `user interface <mlflow_ui>`_, `create <mlflow_create_experiment>`_ and `list experiments <mlflow_list_experiments_>`_, `save models <mlflow_save_model>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
+Prerequisites
+=============
+
+To use the MLflow R API, you must install `the MLflow Python package <https://pypi.org/project/mlflow/>`_.
+
+.. code-block:: bash
+
+    pip install mlflow
+
+Installing with an Available Conda Environment example:
+
+.. code-block:: bash
+    
+    conda create -n mlflow-env python
+    conda activate mlflow-env
+    pip install mlflow
+
+The above provided commands create a new Conda environment named mlflow-env, specifying the default Python version. It then activates this environment, making it the active working environment. Finally, it installs the MLflow package using pip, ensuring that MLflow is isolated within this environment, allowing for independent Python and package management for MLflow-related tasks.
+
+Optionally, you can set the ``MLFLOW_PYTHON_BIN`` and ``MLFLOW_BIN`` environment variables to specify the Python and MLflow binaries to use. By default, the R client automatically finds them using ``Sys.which('python')`` and ``Sys.which('mlflow')``.
+
+.. code-block:: bash
+
+    export MLFLOW_PYTHON_BIN=/path/to/bin/python
+    export MLFLOW_BIN=/path/to/bin/mlflow
+
+You can use the R API to start the `user interface <mlflow_ui_>`_, `create experiment <mlflow_create_experiment_>`_ and `search experiments <mlflow_search_experiments_>`_, `save models <mlflow_save_model.crate_>`_, `run projects <mlflow_run_>`_ and `serve models <mlflow_rfunc_serve_>`_ among many other functions available in the R API.
 
 .. contents:: Table of Contents
     :local:
     :depth: 1
 "
-rst_doc <- readLines("../../../docs/source/R-api.rst")
+rst_doc <- readLines("../../../docs/api_reference/source/R-api.rst")
 # Convert non-breaking spaces inserted by pandoc to regular spaces
 rst_doc <- gsub("\302\240", " ", rst_doc)
 rst_doc <- c(rst_header, rst_doc)
-writeLines(rst_doc, "../../../docs/source/R-api.rst")
+writeLines(rst_doc, "../../../docs/api_reference/source/R-api.rst")
 
 # Generate docs by using an mlflow virtualenv and running `make` from `mlflow/docs`

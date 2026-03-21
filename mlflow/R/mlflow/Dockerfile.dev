@@ -1,0 +1,23 @@
+# Our internal Jenkins job can't build an image from rocker/r-ver:>=4.2.2 (which is based on Ubuntu 22.04).
+FROM rocker/r-ver:4.2.1
+
+WORKDIR /mlflow/mlflow/R/mlflow
+RUN apt-get update -y
+RUN apt-get install lsb-release git wget libxml2-dev libgit2-dev -y
+
+# Install miniforge
+RUN wget https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh -O ~/miniforge.sh
+RUN sh ~/miniforge.sh -b -p ~/miniforge
+RUN rm ~/miniforge.sh
+ENV PATH=$PATH:/root/miniforge/bin
+
+# pandoc installed by `apt-get` is too old and contains a bug.
+RUN TEMP_DEB=$(mktemp) && \
+    wget --directory-prefix $TEMP_DEB https://github.com/jgm/pandoc/releases/download/2.16.2/pandoc-2.16.2-1-amd64.deb && \
+    dpkg --install $(find $TEMP_DEB -name '*.deb') && \
+    rm -rf $TEMP_DEB
+
+COPY DESCRIPTION .
+COPY .install-deps.R .
+COPY .Rprofile .
+RUN Rscript -e 'source(".install-deps.R", echo = TRUE)'

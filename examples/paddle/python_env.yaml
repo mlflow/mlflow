@@ -1,0 +1,6 @@
+build_dependencies:
+  - pip
+dependencies:
+  - mlflow
+  - paddlepaddle==2.1.0
+  - cloudpickle==1.6.0

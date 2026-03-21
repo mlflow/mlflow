@@ -1,0 +1,135 @@
+query,ground_truth
+How to use Amazon S3 for tracking model artifacts with MLflow?,"MLflow by default stores artifacts in the local `./mlruns` directory but also supports remote storage options like Amazon S3. To store artifacts in S3, you can start MLflow Tracking Server with `--artifacts-destination` argument with `serve-artifacts` option enabled.
+```
+mlflow.server --artifacts-destination s3://bucket --serve-artifacts
+```
+Also, please do not forget setting up the necessary credentials in the following environment varaibles.
+```
+export AWS_ACCESS_KEY_ID=""""
+export AWS_SECRET_ACCESS_KEY=""""
+```"
+Logging large LLM with Transformers flavor takes long. How to save large model efficiently?,"To save storage space when logging a Transformers model with MLflow, you can use the 'reference-only' save mode introduced in MLflow 2.11.0. Set `save_pretrained=False` when logging or saving the model, which tells MLflow to save a reference to the HuggingFace Hub repository and version instead of a full copy of the model weights. This method is more storage-efficient and faster."
+What is MLflow Run? How is it different from model?,"An MLflow run is an execution of a piece of data science code that records metadata (like metrics and parameters) and artifacts (like model weights). For example, when you train a model, the training execution is Run, and the output model weight, metrics, are artifacts."
+How to use MLflow to manage my model versions?,"To manage your model versions in MLflow, you can use MLflow Model Registry feature. Model Registry allows you to register your MLflow model with specific name, version, and attach human readable aliases. The registered model can be loaded with the URI or alias."
+I want to register my model to Unity Catalog.,"The MLflow Model Registry is integrated with Databricks Unity Catalog. You can set registry URI to point to Unity Catalog by: 
+```
+import mlflow
+mlflow.set_registry_uri(""databricks-uc"")
+```
+Then you can register your MLflow Model using MLflow API. Replace the URI and model name with your confiruations.
+```
+mlflow.register_model(model_uri, ""catalog.schema.model_name"")
+```
+Alternatively, you can specify the registered model name when logging the model, so MLflow automatically do registeration when logging.
+```
+mlflow.sklearn.log_model(model, ""model"", registered_model_name=""catalog.schema.model_name"")
+```"
+How to specify the SQLite DB file stored in the parent directory as tracking URI?,"To set MLflow to use a local SQLite database, you need to set the path `sqlite:///mlruns.db` to  the environment variable `MLFLOW_TRACKING_URI` or call `mlflow.set_tracking_uri()` function. The relative location can be specified like `sqlite:///../mlruns.db` or by an absolute path like `sqlite:////User/me/mlflow.runs.db`."
+What Deep Learning libraries are supported in MLflow?,"MLflow has native integrations with deep learning libraries such as PyTorch, Keras, and TensorFlow, SpaCy, Fast AI, and Transformers."
+Is MLflow tracking API async?,"Some MLflow Tracking APIs support asynchronous operations, such as log_metric. To use async logging, pass `synchronous=False` to the logging APIs. Data logged with async logging will be batched and queued, then sent to the tracking server by background threads."
+What is the benefit of using MLflow with OpenAI?,"MLflow 
+1. Prompt management - MLflow tracking support saving your prompt as a part of MLflow model.
+2. Autologging - MLflow provides autologging feature for OpenAI, allowing you to keep track of the request and responses, as well as model parameters.
+3. Dependency management - MLflow records the OpenAI package and dependency libraries as a part of MLflow model, reducing the risk of breaking change. "
+What are stored within MLflow model?,"In MLflow, a model is a comprehensive package that includes the following data:
+1. Model weight, or serialized object for some flavor e.g. LangChain)
+2. Additional model configurations required for inference, such as prompt template.
+3. Versions of dependency libraries.
+4. Environment information e.g. Python version
+
+The model object can be also represented by source code or notebook, since model-from-code feature was introduced in MLflow 2.14.0"
+Does MLflow model support streaming inference?,"Since MLflow 2.12.2, MLflow support streaming inference for Python Models and LangChain flavor. To get stream response, your Python model needs to implement a new `predict_stream` method. For example:
+```
+def predict_stream(data: Any, params: Optional[Dict[str, Any]] = None) → GeneratorType
+        # Yielding elements one at a time
+        for element in [""a"", ""b"", ""c"", ""d"", ""e""]:
+            yield element
+```
+For LangChain model, streaming response is only available if the underlying LangChain component implements streaming APIs.
+"
+What is model signature? Is it mandatory to save a model with a signature?,"A model signature defines the schema for model inputs, outputs, and parameters, ensuring data consistency and type validation between training and deployment. A model signature is not required for saving models. However, it is required to register a model to Databricks Unity Catalog."
+How MLflow decides model dependencies to be logged?,"MLflow automatically infers and records the required dependencies for a model by loading and making prediction and inspect libraries used during the process. Each libraries are pinned to the version installed in the development environment. The prediction is only made when an input example is provided to mlflow.log_model() or mlflow.save_model() call, otherwise MLflow only loads the model and capture libraries for that, therefore, it is recommended to specify an input example to increase the coverage of captured libraries. If either model loading or prediction fails, MLflow will fallback to the static list of dependencies defined for each flavor.
+"
+"What is ""flavor"" in MLflow?","In the MLflow ecosystem, flavors are designated wrappers for specific machine learning libraries, such as scikit-learn, pytorch, langchain, and abstracting the process of saving, loading, and handling models across different frameworks. They enable deployment tools to work with models from any ML library without specific integrations. Each flavor defines the behavior of the model for inference deployment, ensuring consistency."
+Is MLflow integrated with Pytorch?,"Yes, MLflow provides built-in support for PyTorch, offering APIs for simplified experiment tracking, model management, and effortless deployment."
+is MLflow integrated with DSPy?,"No, MLflow is not natively integrated with DSPy. You can track DSPy models using Custom Python Model feature, instead."
+How to start MLflow Deployment Server to proxy OpenAI and Claude APIs?,"To set up the MLflow Deployments Server, first install it with the command `pip install 'mlflow[genai]'`, and set your OpenAI and Anthropic API key as a n environment variable in your console. Then define a configuration YAML file for each endpoint like below:
+```config.yaml
+endpoints:
+    - name: openai-chat
+      endpoint_type: llm/v1/chat
+      model: 
+        provider: openai
+        name: gpt-4o
+        config:
+            openai_api_key: $OPENAI_API_KEY
+   - name: anthropic-chat
+      endpoint_type: llm/v1/chat
+      model:
+        provider: anthropic
+        name: claude-2.0
+        config:
+            anthropic_api_key: $ANTHROPIC_API_KEY
+```
+Once configured, you can start MLflow Deployment Server using the following command:
+```
+mlflow gateway start --config-path config.yaml --port {port} --host {host} --workers {worker count}
+```
+The endpoints can be queried via either REST API or MLflow Client API. You can also access the auto-generated API documentation at http://{host}:{port}/docs."
+How to set up authentication for MLflow Deployment Server to access Amazon Bedrock models?,"There are two different authentication methods to configure MLflow Deployment Server endpoints with Amazon Bedrock models:
+1. Key-based authentication: You can directory specify the aws_access_key_id and aws_secret_access_key to the `aws_config` parameter.
+```
+aws_config:
+    aws_access_key_id: xxx
+    aws_secret_access_key: yyy
+    aws_session_token: zzz (optional) 
+```
+2. Role-based authentication [recommended]: By specifying AWS role, MLflow Deployment Server will attempt to assume the role with using the standard credential provider chain and will review the role credentials if they have expired. 
+```
+aws_config:
+    aws_role_arn: xxx
+    session_length_seconds: 900 (optional)
+```"
+What parameters are supported by the chat endpoint in MLflow Deployment Server?,"For chat endpoints (endpoint_type being llm/v1/chat), MLflow defines the following standard paramters:
+- messages (required): A list of messages in a conversation. Each message should contain `role` and `content` as keys.
+ - n: The integer number of chat completions to generate.
+- temperature: The sampling temperature to use, between 0 to 1. Higher value will make the output more random.
+- max_tokens: The maximum completion length, between 1 and infinity (unlimited)
+- stop: Sequence(s) where the model should stop generating tokens.
+In addition to these standard parameters, you can also pass additional parameters supported by the model providers. Please refer to the corresponding provider section in the MLflow Deployment Server documentation for more details."
+How MLflow records model evaluation results? Where I can see and compare those results?,"The result of model evaluation will be recorded to the MLflow Run which was active when the `mlflow.evaluate()` function is called. You can check the evaluation result either from the `EvaluationResult` object returned from the function, or by navigating to the MLflow UI.
+
+1. EvaluateionResult object contains the evaluation results either as a dictionary of metrics (accessible via `metrics` attribute), or a table format (`tables` attribute with ""eval_results_table"" key).
+```
+with mlflow.start_run() as run:
+    results = mlflow.evaluate(...)
+print(results.metrics)
+results.table[""eval_results_table""]
+```
+2. Alternatively, navigate to the MLflow UI and your experiment. Select the list of evaluation runs and select ""Chart"" tab. It will display the graphs for evaluation metrics. In order to assess the result for each sample data, open ""Evaluation"" tab with the same runs selected."
+How to define custom LLM-as-a-judge metrics for evaluating my RAG models?,"To define custom LLM-as-a-judge metrics, use `mlflow.metrics.genai.make_genai_metric()` function. You can pass the prompt and LLM model to score the output, as well as additional reference input (e.g. documentation), parameters, aggregation configurations."
+What kind of evaluator models we can use for LLM-as-a-judge metrics in MLflow?,The `mlflow.metrics.genai.make_genai_metric` accepts either of two types of models as a judge (1) OpenAI model specified with an URI with `openai` schema e.g. `openai:/gpt-3.5-turbo` (2) MLflow Deployments Server endpoint e.g. `endopints:/my-chat-endpoint`.
+What kind models can I evaluate with MLflow Evaluation?,"MLflow supports evaluating various types of models as follows:
+1. MLflow models (with Python Model interface). Either an model instance itself or an URI pointing to the logged or registered model can be used.
+2. A Python function that takes in string inputs and outputs a single string The callable interface must match the signature of mlflow.pyfunc.PythonModel.predict(). Briefly it should has `data` as the only argument, which can be one of pandas DataFrame, numpy array, python list, dictionary, or scipy matrix, and returns one of a list, pandas DataFrame, Series, or numpy Array.
+3. An MLflow Deployments endpoint URI pointing to a local MLflow Deployment Server, Databricks Foundation Model APIs, or External Models in Databricks Model Serving.
+
+Additionally, you can also pass the prediction output data instead of model instance."
+How to organize hundreds of Runs from my hyperparameter turning experiment?,"To organize many Runs from hyperparameter turning, you can use the Parent and Child Runs feature in MLflow. Conceptually, it is a hierarchy of runs where you can create many chid runs under a parent to organize them as a single bundle. Child runs can be created by setting `nested=True`, as shown in the example below:
+```
+with mlflow.start_run() as parent_run:
+    with mlflow.start_run(nested=True) as child_run:
+       ...
+```"
+How can I start MLflow Model Registry locally?,"In order to use the MLflow Model Registry capability, you must start a MLflow Tracking Server with the databset-backend mode. To do so, specify tracking URI points to your local database like this:
+```
+mlflow server --backend-store-uri sqlite:///mlruns.db
+```"
+How to set an alias to the model in MLflow Model Registry?,"You can use either MLflow UI or programmatically with MLflow Client APIs. 
+1. UI - Navigate to the registered model, click the ""Add"" link next to the Aliases text. Enter the alias in the text box and submit.
+2. MLflow Client - Use `set_registered_model_alias()` API of MLflow client, specifying the model name and version."
+Does MLflow support authentication for accessing models?,"MLflow supports basic HTTP authentication for access control over experiments and registered models. Permissions can be granted on individual resources (e.g. run, experiment, model) for each user, with four different access levels (1) NO_PERMISSIONS (2) READ (3) EDIT (4) MANAGE.  MLflow also allows for custom authentication, including third-party plugins or custom plugins for more advanced authentication logic."
+Does MLflow support authentication method that is more advanced then username and password?,"No, MLflow does not natively support other authentication method than using username and password. However, you can utilize advanced authentication logic, such as token-based authentication, through third-party plugins or custom plugins."
+How to search Runs based on tag?,"To search for runs by filtering on tags in MLflow, you can use the search box in the MLflow UI, or Python search API `mlflow.search_runs()`.  The search query  is similar to SQL with a few exceptions. To performa a search with tags, you can use the following query string like `tags.model = gpt-4`."
+I got a syntax error when running a search with query `tags.my-tag = foo`. How to solve this problem?,"The search query syntax of MLflow is similar to SQL, therefore, fields include some special characters such as hyphen cannot be used as they are. To workaround this, you can wrap the tag name with backticks like `tags.`my-tag` = foo`.
+"

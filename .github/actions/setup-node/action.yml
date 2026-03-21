@@ -1,0 +1,14 @@
+name: "setup-node"
+description: "Set up Node"
+inputs:
+  node-version:
+    description: "Node version to use."
+    default: 20
+    required: false
+
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+      with:
+        node-version: ${{ inputs.node-version }}

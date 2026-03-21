@@ -1,13 +1,14 @@
 import os
-
-import pytest
 from shlex import quote
 from unittest import mock
+
+import pytest
 
 from mlflow.exceptions import ExecutionException
 from mlflow.projects._project_spec import EntryPoint
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
-from tests.projects.utils import load_project, TEST_PROJECT_DIR
+
+from tests.projects.utils import TEST_PROJECT_DIR, load_project
 
 
 def test_entry_point_compute_params():
@@ -30,7 +31,9 @@ def test_entry_point_compute_params():
         assert params == {"name": "friend", "greeting": "hello"}
         assert extra_params == {}
         # Raise exception on missing required parameter
-        with pytest.raises(ExecutionException):
+        with pytest.raises(
+            ExecutionException, match="No value given for missing parameters: 'name'"
+        ):
             entry_point.compute_parameters({}, storage_dir)
 
 
@@ -44,12 +47,14 @@ def test_entry_point_compute_command():
         storage_dir = tmp.path()
         command = entry_point.compute_command({"name": "friend", "excitement": 10}, storage_dir)
         assert command == "python greeter.py hi friend --excitement 10"
-        with pytest.raises(ExecutionException):
+        with pytest.raises(
+            ExecutionException, match="No value given for missing parameters: 'name'"
+        ):
             entry_point.compute_command({}, storage_dir)
         # Test shell escaping
         name_value = "friend; echo 'hi'"
         command = entry_point.compute_command({"name": name_value}, storage_dir)
-        assert command == "python greeter.py %s %s" % (quote("hi"), quote(name_value))
+        assert command == "python greeter.py {} {}".format(quote("hi"), quote(name_value))
 
 
 def test_path_parameter():
@@ -59,9 +64,8 @@ def test_path_parameter():
     project = load_project()
     entry_point = project.get_entry_point("line_count")
     with mock.patch(
-        "mlflow.tracking.artifact_utils._download_artifact_from_uri"
+        "mlflow.tracking.artifact_utils._download_artifact_from_uri", return_value=0
     ) as download_uri_mock:
-        download_uri_mock.return_value = 0
         # Verify that we don't attempt to call download_uri when passing a local file to a
         # parameter of type "path"
         with TempDir() as tmp:
@@ -81,18 +85,19 @@ def test_path_parameter():
 
         # Verify that we raise an exception when passing a non-existent local file to a
         # parameter of type "path"
-        with TempDir() as tmp, pytest.raises(ExecutionException):
+        with TempDir() as tmp:
             dst_dir = tmp.path()
-            entry_point.compute_parameters(
-                user_parameters={"path": os.path.join(dst_dir, "some/nonexistent/file")},
-                storage_dir=dst_dir,
-            )
+            with pytest.raises(ExecutionException, match="no such file or directory"):
+                entry_point.compute_parameters(
+                    user_parameters={"path": os.path.join(dst_dir, "some/nonexistent/file")},
+                    storage_dir=dst_dir,
+                )
         # Verify that we do call `download_uri` when passing a URI to a parameter of type "path"
         for i, prefix in enumerate(["dbfs:/", "s3://", "gs://"]):
             with TempDir() as tmp:
                 dst_dir = tmp.path()
                 file_to_download = "images.tgz"
-                download_path = "%s/%s" % (dst_dir, file_to_download)
+                download_path = f"{dst_dir}/{file_to_download}"
                 download_uri_mock.return_value = download_path
                 params, _ = entry_point.compute_parameters(
                     user_parameters={"path": os.path.join(prefix, file_to_download)},
@@ -103,20 +108,22 @@ def test_path_parameter():
 
 
 def test_uri_parameter():
-    """Tests parameter resolution for parameters of type `uri`."""
     project = load_project()
     entry_point = project.get_entry_point("download_uri")
-    with mock.patch(
-        "mlflow.tracking.artifact_utils._download_artifact_from_uri"
-    ) as download_uri_mock, TempDir() as tmp:
+    with (
+        mock.patch(
+            "mlflow.tracking.artifact_utils._download_artifact_from_uri"
+        ) as download_uri_mock,
+        TempDir() as tmp,
+    ):
         dst_dir = tmp.path()
         # Test that we don't attempt to locally download parameters of type URI
         entry_point.compute_command(
-            user_parameters={"uri": "file://%s" % dst_dir}, storage_dir=dst_dir
+            user_parameters={"uri": f"file://{dst_dir}"}, storage_dir=dst_dir
         )
         assert download_uri_mock.call_count == 0
         # Test that we raise an exception if a local path is passed to a parameter of type URI
-        with pytest.raises(ExecutionException):
+        with pytest.raises(ExecutionException, match="Expected URI for parameter uri"):
             entry_point.compute_command(user_parameters={"uri": dst_dir}, storage_dir=dst_dir)
 
 
@@ -130,11 +137,11 @@ def test_params():
     entry_point = EntryPoint("entry_point_name", defaults, "command_name script.py")
 
     user1 = {}
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="No value given for missing parameters"):
         entry_point._validate_parameters(user1)
 
     user_2 = {"beta": 0.004}
-    with pytest.raises(ExecutionException):
+    with pytest.raises(ExecutionException, match="No value given for missing parameters"):
         entry_point._validate_parameters(user_2)
 
     user_3 = {"alpha": 0.004, "gamma": 0.89}
@@ -195,7 +202,7 @@ def test_path_params():
     entry_point = EntryPoint("entry_point_name", defaults, "command_name script.py")
 
     with mock.patch(
-        "mlflow.tracking.artifact_utils._download_artifact_from_uri"
+        "mlflow.tracking.artifact_utils._download_artifact_from_uri", return_value=None
     ) as download_uri_mock:
         final_1, extra_1 = entry_point.compute_parameters({}, None)
         assert final_1 == {"constants": "s3://path.test/b1", "data": data_file}
@@ -211,11 +218,14 @@ def test_path_params():
         assert extra_2 == {"alpha": "0.001"}
         assert download_uri_mock.call_count == 0
 
-    with mock.patch(
-        "mlflow.tracking.artifact_utils._download_artifact_from_uri"
-    ) as download_uri_mock, TempDir() as tmp:
+    with (
+        mock.patch(
+            "mlflow.tracking.artifact_utils._download_artifact_from_uri"
+        ) as download_uri_mock,
+        TempDir() as tmp,
+    ):
         dest_path = tmp.path()
-        download_path = "%s/data_file.csv" % dest_path
+        download_path = f"{dest_path}/data_file.csv"
         download_uri_mock.return_value = download_path
         user_3 = {"alpha": 0.001}
         final_3, extra_3 = entry_point.compute_parameters(user_3, dest_path)
@@ -223,11 +233,14 @@ def test_path_params():
         assert extra_3 == {"alpha": "0.001"}
         assert download_uri_mock.call_count == 1
 
-    with mock.patch(
-        "mlflow.tracking.artifact_utils._download_artifact_from_uri"
-    ) as download_uri_mock, TempDir() as tmp:
+    with (
+        mock.patch(
+            "mlflow.tracking.artifact_utils._download_artifact_from_uri"
+        ) as download_uri_mock,
+        TempDir() as tmp,
+    ):
         dest_path = tmp.path()
-        download_path = "%s/images.tgz" % dest_path
+        download_path = f"{dest_path}/images.tgz"
         download_uri_mock.return_value = download_path
         user_4 = {"data": "s3://another.example.test/data_stash/images.tgz"}
         final_4, extra_4 = entry_point.compute_parameters(user_4, dest_path)

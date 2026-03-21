@@ -1,4 +1,4 @@
-class SourceType(object):
+class SourceType:
     """Enum for originating source of a :py:class:`mlflow.entities.Run`."""
 
     NOTEBOOK, JOB, PROJECT, LOCAL, UNKNOWN = range(1, 6)
@@ -16,8 +16,8 @@ class SourceType(object):
     def from_string(status_str):
         if status_str not in SourceType._STRING_TO_SOURCETYPE:
             raise Exception(
-                "Could not get run status corresponding to string %s. Valid run "
-                "status strings: %s" % (status_str, list(SourceType._STRING_TO_SOURCETYPE.keys()))
+                f"Could not get run status corresponding to string {status_str}. Valid run "
+                f"status strings: {list(SourceType._STRING_TO_SOURCETYPE.keys())}"
             )
         return SourceType._STRING_TO_SOURCETYPE[status_str]
 
@@ -25,7 +25,7 @@ class SourceType(object):
     def to_string(status):
         if status not in SourceType.SOURCETYPE_TO_STRING:
             raise Exception(
-                "Could not get string corresponding to run status %s. Valid run "
-                "statuses: %s" % (status, list(SourceType.SOURCETYPE_TO_STRING.keys()))
+                f"Could not get string corresponding to run status {status}. Valid run "
+                f"statuses: {list(SourceType.SOURCETYPE_TO_STRING.keys())}"
             )
         return SourceType.SOURCETYPE_TO_STRING[status]

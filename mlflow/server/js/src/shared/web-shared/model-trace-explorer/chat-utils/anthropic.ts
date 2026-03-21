@@ -1,0 +1,314 @@
+import { has, isArray, isNil, isObject, isString } from 'lodash';
+
+import type { ModelTraceChatMessage, ModelTraceContentParts } from '../ModelTrace.types';
+import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
+
+export type AnthropicMessagesInput = {
+  messages: AnthropicMessageParam[];
+};
+
+export type AnthropicMessagesOutput = {
+  id: string;
+  content: AnthropicContentBlock[];
+  role: 'assistant';
+  type: 'message';
+  // model: Model;
+  // stop_reason: StopReason | null;
+  // stop_sequence: string | null;
+  // usage: Usage;
+};
+
+type AnthropicThinkingBlock = {
+  type: 'thinking';
+  thinking: string;
+};
+
+type AnthropicContentBlock = AnthropicTextBlock | AnthropicToolUseBlock | AnthropicThinkingBlock;
+// | RedactedThinkingBlock
+// | ServerToolUseBlock
+// | WebSearchToolResultBlock;
+
+type AnthropicMessageParam = {
+  content: string | AnthropicContentBlockParam[];
+  role: 'user' | 'assistant';
+};
+
+type AnthropicContentBlockParam =
+  | AnthropicTextBlockParam
+  | AnthropicImageBlockParam
+  | AnthropicToolUseBlockParam
+  | AnthropicToolResultBlockParam
+  | AnthropicThinkingBlock;
+// | DocumentBlockParam
+// | RedactedThinkingBlockParam
+// | ServerToolUseBlockParam
+// | WebSearchToolResultBlockParam;
+
+type AnthropicTextBlockParam = {
+  text: string;
+  type: 'text';
+};
+
+type AnthropicTextBlock = {
+  text: string;
+  type: 'text';
+};
+
+type AnthropicImageBlockParam = {
+  source: AnthropicBase64ImageSource | AnthropicURLImageSource;
+  type: 'image';
+};
+
+type AnthropicBase64ImageSource = {
+  type: 'base64';
+  data: string;
+  media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp';
+};
+
+type AnthropicURLImageSource = {
+  type: 'url';
+  url: string;
+};
+
+type AnthropicToolUseBlockParam = {
+  id: string;
+  input: Record<string, any>;
+  name: string;
+  type: 'tool_use';
+};
+
+type AnthropicToolUseBlock = {
+  id: string;
+  input: Record<string, any>;
+  name: string;
+  type: 'tool_use';
+};
+
+// Content blocks that can appear inside a tool_result
+type AnthropicToolResultContentBlock = AnthropicTextBlockParam | AnthropicImageBlockParam;
+
+type AnthropicToolResultBlockParam = {
+  content: string | AnthropicToolResultContentBlock[];
+  tool_use_id: string;
+  type: 'tool_result';
+};
+
+// Helper to validate content blocks inside tool_result (text or image)
+const isAnthropicToolResultContentBlock = (obj: unknown): obj is AnthropicToolResultContentBlock => {
+  if (isNil(obj) || !isObject(obj) || !has(obj, 'type')) {
+    return false;
+  }
+  if (obj.type === 'text' && has(obj, 'text') && isString(obj.text)) {
+    return true;
+  }
+  if (obj.type === 'image' && has(obj, 'source') && has(obj.source, 'type')) {
+    if (
+      obj.source.type === 'base64' &&
+      has(obj.source, 'media_type') &&
+      isString(obj.source.media_type) &&
+      ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(obj.source.media_type) &&
+      has(obj.source, 'data') &&
+      isString(obj.source.data)
+    ) {
+      return true;
+    }
+    if (obj.source.type === 'url' && has(obj.source, 'url') && isString(obj.source.url)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const isAnthropicContentBlockParam = (obj: unknown): obj is AnthropicContentBlockParam => {
+  if (isNil(obj)) {
+    return false;
+  }
+
+  if (has(obj, 'type')) {
+    if (obj.type === 'text' && has(obj, 'text') && isString(obj.text)) {
+      return true;
+    }
+
+    if (obj.type === 'image' && has(obj, 'source') && has(obj.source, 'type')) {
+      if (
+        obj.source.type === 'base64' &&
+        has(obj.source, 'media_type') &&
+        isString(obj.source.media_type) &&
+        ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(obj.source.media_type) &&
+        has(obj.source, 'data') &&
+        isString(obj.source.data)
+      ) {
+        return true;
+      }
+
+      if (obj.source.type === 'url' && has(obj.source, 'url') && isString(obj.source.url)) {
+        return true;
+      }
+    }
+
+    if (obj.type === 'tool_use' && has(obj, 'id') && has(obj, 'name') && has(obj, 'input')) {
+      return isString(obj.id) && isString(obj.name) && isObject(obj.input);
+    }
+
+    if (obj.type === 'tool_result' && has(obj, 'tool_use_id') && has(obj, 'content')) {
+      // tool_result content can be a string or an array of content blocks (for images)
+      const contentValid =
+        isString(obj.content) || (isArray(obj.content) && obj.content.every(isAnthropicToolResultContentBlock));
+      return isString(obj.tool_use_id) && contentValid;
+    }
+
+    if (obj.type === 'thinking' && has(obj, 'thinking') && isString(obj.thinking)) {
+      return true;
+    }
+  }
+  return false;
+};
+
+const isAnthropicMessageParam = (obj: unknown): obj is AnthropicMessageParam => {
+  if (!isObject(obj)) {
+    return false;
+  }
+
+  const hasRole = has(obj, 'role') && isString(obj.role) && ['user', 'assistant'].includes(obj.role);
+  const hasContent =
+    'content' in obj &&
+    (isString(obj.content) || (isArray(obj.content) && obj.content.every(isAnthropicContentBlockParam)));
+
+  return hasRole && hasContent;
+};
+
+const normalizeAnthropicContentBlockParam = (item: AnthropicContentBlockParam): ModelTraceContentParts => {
+  switch (item.type) {
+    case 'text': {
+      return { type: 'text', text: item.text };
+    }
+    case 'image': {
+      switch (item.source.type) {
+        case 'base64': {
+          return {
+            type: 'image_url',
+            image_url: { url: `data:${item.source.media_type};base64,${item.source.data}` },
+          };
+        }
+        case 'url': {
+          return { type: 'image_url', image_url: { url: item.source.url } };
+        }
+      }
+    }
+  }
+  throw new Error(`Unsupported content block type: ${(item as any).type}`);
+};
+
+const processAnthropicMessageContent = (
+  content: AnthropicContentBlockParam[],
+): {
+  messages: ModelTraceChatMessage[];
+  textParts: ModelTraceContentParts[];
+  toolCalls: any[];
+  thinking: string | null;
+} => {
+  const messages: ModelTraceChatMessage[] = [];
+  const textParts: ModelTraceContentParts[] = [];
+  const toolCalls: any[] = [];
+  const thinkingParts: string[] = [];
+
+  for (const item of content) {
+    if (item.type === 'text' || item.type === 'image') {
+      textParts.push(normalizeAnthropicContentBlockParam(item));
+    } else if (item.type === 'tool_use') {
+      toolCalls.push({
+        id: item.id,
+        function: {
+          name: item.name,
+          arguments: JSON.stringify(item.input),
+        },
+      });
+    } else if (item.type === 'tool_result') {
+      // tool_result content can be a string or an array of content blocks (e.g., for images)
+      // Normalize array content to ModelTraceContentParts format, then use prettyPrintChatMessage
+      // to convert to the final ModelTraceChatMessage format (with string content)
+      const normalizedContent = isString(item.content)
+        ? item.content
+        : item.content.map((block) => normalizeAnthropicContentBlockParam(block));
+      const toolMessage = prettyPrintChatMessage({
+        type: 'message',
+        role: 'tool',
+        tool_call_id: item.tool_use_id,
+        content: normalizedContent,
+      });
+      if (toolMessage) {
+        messages.push(toolMessage);
+      }
+    } else if (item.type === 'thinking') {
+      thinkingParts.push((item as any).thinking);
+    }
+  }
+
+  const thinking = thinkingParts.length > 0 ? thinkingParts.join('\n\n') : null;
+  return { messages, textParts, toolCalls, thinking };
+};
+
+const processAnthropicMessage = (message: AnthropicMessageParam): ModelTraceChatMessage[] => {
+  const messages: ModelTraceChatMessage[] = [];
+
+  if (typeof message.content === 'string') {
+    const chatMessage = prettyPrintChatMessage({
+      type: 'message',
+      content: message.content,
+      role: message.role,
+    });
+    if (chatMessage) messages.push(chatMessage);
+  } else {
+    const { messages: toolMessages, textParts, toolCalls, thinking } = processAnthropicMessageContent(message.content);
+    messages.push(...toolMessages);
+
+    if (textParts.length > 0 || toolCalls.length > 0) {
+      const chatMessage = prettyPrintChatMessage({
+        type: 'message',
+        content: textParts.length > 0 ? textParts : undefined,
+        role: message.role,
+        ...(toolCalls.length > 0 && { tool_calls: toolCalls }),
+      });
+      if (chatMessage) {
+        // Attach thinking/reasoning to the message if present
+        if (thinking) {
+          messages.push({ ...chatMessage, reasoning: thinking });
+        } else {
+          messages.push(chatMessage);
+        }
+      }
+    }
+  }
+
+  return messages;
+};
+
+export const normalizeAnthropicChatInput = (obj: unknown): ModelTraceChatMessage[] | null => {
+  if (!isObject(obj)) {
+    return null;
+  }
+
+  if ('messages' in obj && isArray(obj.messages) && obj.messages.every(isAnthropicMessageParam)) {
+    const messages: ModelTraceChatMessage[] = [];
+
+    for (const message of obj.messages) {
+      messages.push(...processAnthropicMessage(message));
+    }
+
+    return messages;
+  }
+
+  return null;
+};
+
+export const normalizeAnthropicChatOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
+  if (!isObject(obj)) {
+    return null;
+  }
+
+  if (has(obj, 'type') && obj.type === 'message' && isAnthropicMessageParam(obj)) {
+    return processAnthropicMessage(obj);
+  }
+
+  return null;
+};

@@ -51,4 +51,20 @@ private[autologging] object ReflectionUtils {
         s"[${declaredMethods.map(_.getName).mkString(", ")}]"))
     method.invoke(obj, args: _*)
   }
+
+  def maybeCallMethod(obj: Any, name: Any, args: Seq[Object]): Option[Any] = {
+    var declaredMethods: mutable.Buffer[Method] = obj.getClass.getDeclaredMethods.toBuffer
+    var superClass = obj.getClass.getSuperclass
+    while (superClass != null) {
+      declaredMethods = declaredMethods ++ superClass.getDeclaredMethods
+      superClass = superClass.getSuperclass
+    }
+
+    val methodOpt = declaredMethods.find(_.getName == name)
+
+    methodOpt match {
+      case Some(method) => Some(method.invoke(obj, args: _*))
+      case None => None
+    }
+  }
 }

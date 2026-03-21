@@ -1,0 +1,13 @@
+embedding_model_query_instructions: "Represent this sentence for searching relevant passages:"
+llm_model: "databricks-dbrx-instruct"
+llm_prompt_template: "You are a trustful assistant. Answer concisely and clearly."
+retriever_config:
+  k: 5
+  use_mmr: false
+llm_parameters:
+  temperature: 0.01
+  max_tokens: 200
+llm_prompt_template_variables:
+  - "chat_history"
+  - "context"
+  - "question"

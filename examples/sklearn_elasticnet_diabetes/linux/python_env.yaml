@@ -1,0 +1,10 @@
+build_dependencies:
+  - pip
+dependencies:
+  - mlflow
+  - numpy
+  - matplotlib
+  - pandas
+  - scipy
+  - scikit-learn
+  - cloudpickle

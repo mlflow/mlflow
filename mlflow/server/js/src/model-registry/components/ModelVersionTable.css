@@ -1,11 +1,6 @@
-.model-version-table {
-    margin-bottom: 25px;
-}
-
-.model-version-table .model-version-link {
-    cursor: pointer;
-}
-
-.model-version-table .model-version-status-icon {
-    font-size: 13px;
+.mlflow-table-endpoint-text {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  display: block;
+  overflow: hidden;
 }

@@ -118,8 +118,9 @@ public class CliBasedArtifactRepository implements ArtifactRepository {
     String tag = "download artifacts for " + getTargetIdentifier(artifactPath);
     List<String> command = appendRunIdArtifactPath(
       Lists.newArrayList("download"), runId, artifactPath);
-    String localPath = forkMlflowProcess(command, tag).trim();
-    return new File(localPath);
+    String stdOutput = forkMlflowProcess(command, tag);
+    String[] splits = stdOutput.split(System.lineSeparator());
+    return new File(splits[splits.length-1].trim());
   }
 
   @Override

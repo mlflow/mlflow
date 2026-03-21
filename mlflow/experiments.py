@@ -1,14 +1,25 @@
+import json
 import os
 
 import click
-from tabulate import tabulate
 
 import mlflow
-from mlflow.data import is_uri
 from mlflow.entities import ViewType
+from mlflow.exceptions import MlflowException
+from mlflow.mcp.decorator import mlflow_mcp
+from mlflow.protos import databricks_pb2
 from mlflow.tracking import _get_store, fluent
+from mlflow.utils.data_utils import is_uri
+from mlflow.utils.string_utils import _create_table
 
 EXPERIMENT_ID = click.option("--experiment-id", "-x", type=click.STRING, required=True)
+
+
+def _validate_max_results(ctx, param, value):
+    """Validate that max_results is non-negative."""
+    if value is not None and value < 0:
+        raise click.BadParameter("max-results must be a non-negative integer")
+    return value
 
 
 @click.group("experiments")
@@ -17,10 +28,10 @@ def commands():
     Manage experiments. To manage experiments associated with a tracking server, set the
     MLFLOW_TRACKING_URI environment variable to the URL of the desired server.
     """
-    pass
 
 
 @commands.command()
+@mlflow_mcp(tool_name="create_experiment")
 @click.option("--experiment-name", "-n", type=click.STRING, required=True)
 @click.option(
     "--artifact-location",
@@ -44,23 +55,31 @@ def create(experiment_name, artifact_location):
     """
     store = _get_store()
     exp_id = store.create_experiment(experiment_name, artifact_location)
-    print("Created experiment '%s' with id %s" % (experiment_name, exp_id))
+    click.echo(f"Created experiment '{experiment_name}' with id {exp_id}")
 
 
-@commands.command("list")
+@commands.command("search")
+@mlflow_mcp(tool_name="search_experiments")
 @click.option(
     "--view",
     "-v",
     default="active_only",
-    help="Select view type for list experiments. Valid view types are "
+    help="Select view type for experiments. Valid view types are "
     "'active_only' (default), 'deleted_only', and 'all'.",
 )
-def list_experiments(view):
+@click.option(
+    "--max-results",
+    type=click.INT,
+    default=None,
+    callback=_validate_max_results,
+    help="Maximum number of experiments to return. If not provided, returns all experiments.",
+)
+def search_experiments(view, max_results):
     """
-    List all experiments in the configured tracking server.
+    Search for experiments in the configured tracking server.
     """
     view_type = ViewType.from_string(view) if view else ViewType.ACTIVE_ONLY
-    experiments = mlflow.list_experiments(view_type)
+    experiments = mlflow.search_experiments(view_type=view_type, max_results=max_results)
     table = [
         [
             exp.experiment_id,
@@ -71,10 +90,99 @@ def list_experiments(view):
         ]
         for exp in experiments
     ]
-    print(tabulate(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
+    click.echo(_create_table(sorted(table), headers=["Experiment Id", "Name", "Artifact Location"]))
+
+
+@commands.command("get")
+@mlflow_mcp(tool_name="get_experiment")
+@click.option(
+    "--experiment-id",
+    "-x",
+    type=click.STRING,
+    help="ID of the experiment to retrieve.",
+)
+@click.option(
+    "--experiment-name",
+    "-n",
+    type=click.STRING,
+    help="Name of the experiment to retrieve.",
+)
+@click.option(
+    "--output",
+    type=click.Choice(["json", "table"]),
+    default="table",
+    help="Output format: 'table' (default) or 'json'.",
+)
+def get_experiment(experiment_id, experiment_name, output):
+    """
+    Get details of an experiment by ID or name.
+
+    Displays experiment information including name, artifact location, lifecycle stage,
+    tags, creation time, and last update time.
+
+    \b
+    Examples:
+
+    .. code-block:: bash
+
+        # Get experiment by ID in table format (default)
+        mlflow experiments get --experiment-id 1
+
+        # Get experiment by name
+        mlflow experiments get --experiment-name "My Experiment"
+
+        # Get experiment in JSON format
+        mlflow experiments get --experiment-name "My Experiment" --output json
+
+        # Using short options
+        mlflow experiments get -x 0
+        mlflow experiments get -n "Default"
+    """
+    # Validate mutual exclusivity
+    if (experiment_id is not None and experiment_name is not None) or (
+        experiment_id is None and experiment_name is None
+    ):
+        raise click.UsageError("Must specify exactly one of --experiment-id or --experiment-name.")
+
+    store = _get_store()
+
+    # Retrieve experiment by ID or name
+    if experiment_id is not None:
+        experiment = store.get_experiment(experiment_id)
+    else:
+        experiment = store.get_experiment_by_name(experiment_name)
+        if experiment is None:
+            raise MlflowException(
+                f"Experiment with name '{experiment_name}' does not exist.",
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
+            )
+
+    if output == "json":
+        experiment_dict = dict(experiment)
+        click.echo(json.dumps(experiment_dict, indent=2))
+    elif output == "table":
+        table_data = [
+            ["Experiment ID", experiment.experiment_id],
+            ["Name", experiment.name],
+            ["Artifact Location", experiment.artifact_location],
+            ["Lifecycle Stage", experiment.lifecycle_stage],
+            ["Creation Time", experiment.creation_time or "N/A"],
+            ["Last Update Time", experiment.last_update_time or "N/A"],
+        ]
+
+        if experiment.tags:
+            tags_str = ", ".join([f"{k}={v}" for k, v in experiment.tags.items()])
+            table_data.append(["Tags", tags_str])
+        else:
+            table_data.append(["Tags", ""])
+
+        max_field_width = max(len(row[0]) for row in table_data)
+        for field, value in table_data:
+            click.echo(f"{field.ljust(max_field_width + 2)}: {value}")
 
 
 @commands.command("delete")
+@mlflow_mcp(tool_name="delete_experiment")
 @EXPERIMENT_ID
 def delete_experiment(experiment_id):
     """
@@ -94,10 +202,11 @@ def delete_experiment(experiment_id):
     """
     store = _get_store()
     store.delete_experiment(experiment_id)
-    print("Experiment with ID %s has been deleted." % str(experiment_id))
+    click.echo(f"Experiment with ID {experiment_id} has been deleted.")
 
 
 @commands.command("restore")
+@mlflow_mcp(tool_name="restore_experiment")
 @EXPERIMENT_ID
 def restore_experiment(experiment_id):
     """
@@ -107,10 +216,11 @@ def restore_experiment(experiment_id):
     """
     store = _get_store()
     store.restore_experiment(experiment_id)
-    print("Experiment with id %s has been restored." % str(experiment_id))
+    click.echo(f"Experiment with id {experiment_id} has been restored.")
 
 
 @commands.command("rename")
+@mlflow_mcp(tool_name="rename_experiment")
 @EXPERIMENT_ID
 @click.option("--new-name", type=click.STRING, required=True)
 def rename_experiment(experiment_id, new_name):
@@ -120,7 +230,7 @@ def rename_experiment(experiment_id, new_name):
     """
     store = _get_store()
     store.rename_experiment(experiment_id, new_name)
-    print("Experiment with id %s has been renamed to '%s'." % (experiment_id, new_name))
+    click.echo(f"Experiment with id {experiment_id} has been renamed to '{new_name}'.")
 
 
 @commands.command("csv")
@@ -134,9 +244,8 @@ def generate_csv_with_runs(experiment_id, filename):
     runs = fluent.search_runs(experiment_ids=experiment_id)
     if filename:
         runs.to_csv(filename, index=False)
-        print(
-            "Experiment with ID %s has been exported as a CSV to file: %s."
-            % (experiment_id, filename)
+        click.echo(
+            f"Experiment with ID {experiment_id} has been exported as a CSV to file: {filename}."
         )
     else:
-        print(runs.to_csv(index=False))
+        click.echo(runs.to_csv(index=False))

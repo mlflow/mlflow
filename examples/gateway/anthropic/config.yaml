@@ -1,0 +1,8 @@
+endpoints:
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: anthropic
+      name: claude-1.3-100k
+      config:
+        anthropic_api_key: $ANTHROPIC_API_KEY

@@ -26,11 +26,3 @@ test_that("MLflow finds MLFLOW_BIN environment variable", {
   Sys.setenv(MLFLOW_BIN = orig_env)
   assign("python_bin", orig_global, envir = mlflow:::.globals)
 })
-
-test_that("If conda is not available, python_conda_home will return `\"\"`", {
-  try_conda <- try(mlflow:::mlflow_conda_bin(), silent = TRUE)
-  conda_home <- mlflow:::python_conda_home()
-  if (class(try_conda) == "try-error") {
-    expect_equal(conda_home, NA)
-  }
-})

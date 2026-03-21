@@ -1,12 +1,17 @@
+import os
+import pathlib
 import posixpath
+
 import pytest
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.utils.os import is_windows
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     append_to_uri_path,
-    construct_run_url,
+    append_to_uri_query_params,
+    dbfs_hdfs_uri_to_fuse_path,
     extract_and_normalize_path,
     extract_db_type_from_uri,
     get_databricks_profile_uri_from_artifact_uri,
@@ -14,11 +19,15 @@ from mlflow.utils.uri import (
     get_uri_scheme,
     is_databricks_acled_artifacts_uri,
     is_databricks_uri,
+    is_fuse_or_uc_volumes_uri,
     is_http_uri,
     is_local_uri,
     is_valid_dbfs_uri,
     remove_databricks_profile_info_from_artifact_uri,
-    dbfs_hdfs_uri_to_fuse_path,
+    resolve_uri_if_local,
+    strip_scheme,
+    validate_path_is_safe,
+    validate_path_within_directory,
 )
 
 
@@ -33,12 +42,12 @@ def test_extract_db_type_from_uri():
         assert legit_db == get_uri_scheme(uri.format(with_driver))
 
     for unsupported_db in ["a", "aa", "sql"]:
-        with pytest.raises(MlflowException):
+        with pytest.raises(MlflowException, match="Invalid database engine"):
             extract_db_type_from_uri(unsupported_db)
 
 
 @pytest.mark.parametrize(
-    "server_uri, result",
+    ("server_uri", "result"),
     [
         ("databricks://aAbB", ("aAbB", None)),
         ("databricks://aAbB/", ("aAbB", None)),
@@ -48,10 +57,23 @@ def test_extract_db_type_from_uri():
         ("nondatabricks://profile:prefix", (None, None)),
         ("databricks://profile", ("profile", None)),
         ("databricks://profile/", ("profile", None)),
+        ("databricks-uc://profile:prefix", ("profile", "prefix")),
+        ("databricks-uc://profile:prefix/extra", ("profile", "prefix")),
+        ("databricks-uc://profile", ("profile", None)),
+        ("databricks-uc://profile/", ("profile", None)),
     ],
 )
 def test_get_db_info_from_uri(server_uri, result):
     assert get_db_info_from_uri(server_uri) == result
+
+
+@pytest.mark.parametrize(
+    "server_uri",
+    ["databricks:/profile:prefix", "databricks:/", "databricks://"],
+)
+def test_get_db_info_from_uri_errors_no_netloc(server_uri):
+    with pytest.raises(MlflowException, match="URI is formatted incorrectly"):
+        get_db_info_from_uri(server_uri)
 
 
 @pytest.mark.parametrize(
@@ -64,83 +86,53 @@ def test_get_db_info_from_uri(server_uri, result):
         "databricks://profile ",
         "databricks://profile:",
         "databricks://profile: ",
-        "databricks:/profile:prefix",
-        "databricks:/",
-        "databricks://",
     ],
 )
-def test_get_db_info_from_uri_errors(server_uri):
-    with pytest.raises(MlflowException):
+def test_get_db_info_from_uri_errors_invalid_profile(server_uri):
+    with pytest.raises(MlflowException, match="Unsupported Databricks profile"):
         get_db_info_from_uri(server_uri)
 
 
-@pytest.mark.parametrize(
-    "hostname, experiment_id, run_id, workspace_id, result",
-    [
-        (
-            "https://www.databricks.com/",
-            "19201",
-            "2231",
-            "12211",
-            "https://www.databricks.com/?o=12211#mlflow/experiments/19201/runs/2231",
-        ),
-        (
-            "https://www.databricks.com/",
-            "19201",
-            "2231",
-            None,
-            "https://www.databricks.com/#mlflow/experiments/19201/runs/2231",
-        ),
-        (
-            "https://www.databricks.com/",
-            "19201",
-            "2231",
-            "0",
-            "https://www.databricks.com/#mlflow/experiments/19201/runs/2231",
-        ),
-        (
-            "https://www.databricks.com/",
-            "19201",
-            "2231",
-            "0",
-            "https://www.databricks.com/#mlflow/experiments/19201/runs/2231",
-        ),
-    ],
-)
-def test_construct_run_url(hostname, experiment_id, run_id, workspace_id, result):
-    assert construct_run_url(hostname, experiment_id, run_id, workspace_id) == result
-
-
-@pytest.mark.parametrize(
-    "hostname, experiment_id, run_id, workspace_id",
-    [
-        (None, "19201", "2231", "0"),
-        ("https://www.databricks.com/", None, "2231", "0"),
-        ("https://www.databricks.com/", "19201", None, "0"),
-    ],
-)
-def test_construct_run_url_errors(hostname, experiment_id, run_id, workspace_id):
-    with pytest.raises(MlflowException):
-        construct_run_url(hostname, experiment_id, run_id, workspace_id)
-
-
-def test_uri_types():
+def test_is_local_uri():
     assert is_local_uri("mlruns")
     assert is_local_uri("./mlruns")
     assert is_local_uri("file:///foo/mlruns")
     assert is_local_uri("file:foo/mlruns")
+    assert is_local_uri("file://./mlruns")
+    assert is_local_uri("file://localhost/mlruns")
+    assert is_local_uri("file://localhost:5000/mlruns")
+    assert is_local_uri("file://127.0.0.1/mlruns")
+    assert is_local_uri("file://127.0.0.1:5000/mlruns")
+    assert is_local_uri("//proc/self/root")
+    assert is_local_uri("/proc/self/root")
+
     assert not is_local_uri("https://whatever")
     assert not is_local_uri("http://whatever")
     assert not is_local_uri("databricks")
     assert not is_local_uri("databricks:whatever")
     assert not is_local_uri("databricks://whatever")
 
+    with pytest.raises(MlflowException, match="is not a valid remote uri."):
+        is_local_uri("file://myhostname/path/to/file")
+
+
+@pytest.mark.skipif(not is_windows(), reason="Windows-only test")
+def test_is_local_uri_windows():
+    assert is_local_uri("C:\\foo\\mlruns")
+    assert is_local_uri("C:/foo/mlruns")
+    assert is_local_uri("file:///C:\\foo\\mlruns")
+    assert not is_local_uri("\\\\server\\aa\\bb")
+
+
+def test_is_databricks_uri():
     assert is_databricks_uri("databricks")
     assert is_databricks_uri("databricks:whatever")
     assert is_databricks_uri("databricks://whatever")
     assert not is_databricks_uri("mlruns")
     assert not is_databricks_uri("http://whatever")
 
+
+def test_is_http_uri():
     assert is_http_uri("http://whatever")
     assert is_http_uri("https://whatever")
     assert not is_http_uri("file://whatever")
@@ -155,40 +147,38 @@ def validate_append_to_uri_path_test_cases(cases):
 
 
 def test_append_to_uri_path_joins_uri_paths_and_posixpaths_correctly():
-    validate_append_to_uri_path_test_cases(
-        [
-            ("", "path", "path"),
-            ("", "/path", "/path"),
-            ("path", "", "path/"),
-            ("path", "subpath", "path/subpath"),
-            ("path/", "subpath", "path/subpath"),
-            ("path/", "/subpath", "path/subpath"),
-            ("path", "/subpath", "path/subpath"),
-            ("/path", "/subpath", "/path/subpath"),
-            ("//path", "/subpath", "//path/subpath"),
-            ("///path", "/subpath", "///path/subpath"),
-            ("/path", "/subpath/subdir", "/path/subpath/subdir"),
-            ("file:path", "", "file:path/"),
-            ("file:path/", "", "file:path/"),
-            ("file:path", "subpath", "file:path/subpath"),
-            ("file:path", "/subpath", "file:path/subpath"),
-            ("file:/", "", "file:///"),
-            ("file:/path", "/subpath", "file:///path/subpath"),
-            ("file:///", "", "file:///"),
-            ("file:///", "subpath", "file:///subpath"),
-            ("file:///path", "/subpath", "file:///path/subpath"),
-            ("file:///path/", "subpath", "file:///path/subpath"),
-            ("file:///path", "subpath", "file:///path/subpath"),
-            ("s3://", "", "s3:"),
-            ("s3://", "subpath", "s3:subpath"),
-            ("s3://", "/subpath", "s3:/subpath"),
-            ("s3://host", "subpath", "s3://host/subpath"),
-            ("s3://host", "/subpath", "s3://host/subpath"),
-            ("s3://host/", "subpath", "s3://host/subpath"),
-            ("s3://host/", "/subpath", "s3://host/subpath"),
-            ("s3://host", "subpath/subdir", "s3://host/subpath/subdir"),
-        ]
-    )
+    validate_append_to_uri_path_test_cases([
+        ("", "path", "path"),
+        ("", "/path", "/path"),
+        ("path", "", "path/"),
+        ("path", "subpath", "path/subpath"),
+        ("path/", "subpath", "path/subpath"),
+        ("path/", "/subpath", "path/subpath"),
+        ("path", "/subpath", "path/subpath"),
+        ("/path", "/subpath", "/path/subpath"),
+        ("//path", "/subpath", "//path/subpath"),
+        ("///path", "/subpath", "///path/subpath"),
+        ("/path", "/subpath/subdir", "/path/subpath/subdir"),
+        ("file:path", "", "file:path/"),
+        ("file:path/", "", "file:path/"),
+        ("file:path", "subpath", "file:path/subpath"),
+        ("file:path", "/subpath", "file:path/subpath"),
+        ("file:/", "", "file:///"),
+        ("file:/path", "/subpath", "file:///path/subpath"),
+        ("file:///", "", "file:///"),
+        ("file:///", "subpath", "file:///subpath"),
+        ("file:///path", "/subpath", "file:///path/subpath"),
+        ("file:///path/", "subpath", "file:///path/subpath"),
+        ("file:///path", "subpath", "file:///path/subpath"),
+        ("s3://", "", "s3:"),
+        ("s3://", "subpath", "s3:subpath"),
+        ("s3://", "/subpath", "s3:/subpath"),
+        ("s3://host", "subpath", "s3://host/subpath"),
+        ("s3://host", "/subpath", "s3://host/subpath"),
+        ("s3://host/", "subpath", "s3://host/subpath"),
+        ("s3://host/", "/subpath", "s3://host/subpath"),
+        ("s3://host", "subpath/subdir", "s3://host/subpath/subdir"),
+    ])
 
 
 def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
@@ -198,6 +188,13 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
     not receive special treatment. This test case verifies that `append_to_uri_path` properly joins
     POSIX paths containing these characters.
     """
+
+    def create_char_case(special_char):
+        def char_case(*case_args):
+            return tuple(item.format(c=special_char) for item in case_args)
+
+        return char_case
+
     for special_char in [
         ".",
         "-",
@@ -217,103 +214,170 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
         "'",
         ",",
     ]:
+        char_case = create_char_case(special_char)
+        validate_append_to_uri_path_test_cases([
+            char_case("", "{c}subpath", "{c}subpath"),
+            char_case("", "/{c}subpath", "/{c}subpath"),
+            char_case("dirwith{c}{c}chars", "", "dirwith{c}{c}chars/"),
+            char_case("dirwith{c}{c}chars", "subpath", "dirwith{c}{c}chars/subpath"),
+            char_case("{c}{c}charsdir", "", "{c}{c}charsdir/"),
+            char_case("/{c}{c}charsdir", "", "/{c}{c}charsdir/"),
+            char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
+            char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
+        ])
 
-        def char_case(*case_args):
-            return tuple([item.format(c=special_char) for item in case_args])
+    validate_append_to_uri_path_test_cases([
+        ("#?charsdir:", ":?subpath#", "#?charsdir:/:?subpath#"),
+        ("/#--+charsdir.//:", "/../:?subpath#", "/#--+charsdir.//:/../:?subpath#"),
+        ("$@''(,", ")]*%", "$@''(,/)]*%"),
+    ])
 
-        validate_append_to_uri_path_test_cases(
-            [
-                char_case("", "{c}subpath", "{c}subpath"),
-                char_case("", "/{c}subpath", "/{c}subpath"),
-                char_case("dirwith{c}{c}chars", "", "dirwith{c}{c}chars/"),
-                char_case("dirwith{c}{c}chars", "subpath", "dirwith{c}{c}chars/subpath"),
-                char_case("{c}{c}charsdir", "", "{c}{c}charsdir/"),
-                char_case("/{c}{c}charsdir", "", "/{c}{c}charsdir/"),
-                char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
-                char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
-            ]
-        )
 
-    validate_append_to_uri_path_test_cases(
-        [
-            ("#?charsdir:", ":?subpath#", "#?charsdir:/:?subpath#"),
-            ("/#--+charsdir.//:", "/../:?subpath#", "/#--+charsdir.//:/../:?subpath#"),
-            ("$@''(,", ")]*%", "$@''(,/)]*%"),
-        ]
-    )
+@pytest.mark.parametrize(
+    "uri",
+    [
+        # query string contains '..' (and its encoded form) are considered invalid
+        "https://example.com?..",
+        "https://example.com?/path/../path/../path",
+        "https://example.com?key=value&../../path",
+        "https://example.com?key=value&%2E%2E%2Fpath",
+        "https://example.com?key=value&%252E%252E%252Fpath",
+    ],
+)
+def test_append_to_uri_throws_for_malicious_query_string_in_uri(uri):
+    with pytest.raises(MlflowException, match=r"Invalid query string"):
+        append_to_uri_path(uri)
+
+
+@pytest.mark.parametrize(
+    ("uri", "existing_query_params", "query_params", "expected"),
+    [
+        ("https://example.com", "", [("key", "value")], "https://example.com?key=value"),
+        (
+            "https://example.com",
+            "existing_key=existing_value",
+            [("new_key", "new_value")],
+            "https://example.com?existing_key=existing_value&new_key=new_value",
+        ),
+        (
+            "https://example.com",
+            "",
+            [("key1", "value1"), ("key2", "value2"), ("key3", "value3")],
+            "https://example.com?key1=value1&key2=value2&key3=value3",
+        ),
+        (
+            "https://example.com",
+            "",
+            [("key", "value with spaces"), ("key2", "special#characters")],
+            "https://example.com?key=value+with+spaces&key2=special%23characters",
+        ),
+        ("", "", [("key", "value")], "?key=value"),
+        ("https://example.com", "", [], "https://example.com"),
+        (
+            "https://example.com",
+            "",
+            [("key1", 123), ("key2", 456)],
+            "https://example.com?key1=123&key2=456",
+        ),
+        (
+            "https://example.com?existing_key=existing_value",
+            "",
+            [("existing_key", "new_value"), ("existing_key", "new_value_2")],
+            "https://example.com?existing_key=existing_value&existing_key=new_value&existing_key=new_value_2",
+        ),
+        (
+            "s3://bucket/key",
+            "prev1=foo&prev2=bar",
+            [("param1", "value1"), ("param2", "value2")],
+            "s3://bucket/key?prev1=foo&prev2=bar&param1=value1&param2=value2",
+        ),
+        (
+            "s3://bucket/key?existing_param=existing_value",
+            "",
+            [("new_param", "new_value")],
+            "s3://bucket/key?existing_param=existing_value&new_param=new_value",
+        ),
+    ],
+)
+def test_append_to_uri_query_params_appends_as_expected(
+    uri, existing_query_params, query_params, expected
+):
+    if existing_query_params:
+        uri += f"?{existing_query_params}"
+
+    result = append_to_uri_query_params(uri, *query_params)
+    assert result == expected
 
 
 def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
-    validate_append_to_uri_path_test_cases(
-        [
-            ("dbscheme+dbdriver:", "", "dbscheme+dbdriver:"),
-            ("dbscheme+dbdriver:", "subpath", "dbscheme+dbdriver:subpath"),
-            ("dbscheme+dbdriver:path", "subpath", "dbscheme+dbdriver:path/subpath"),
-            ("dbscheme+dbdriver://host/path", "/subpath", "dbscheme+dbdriver://host/path/subpath"),
-            ("dbscheme+dbdriver:///path", "subpath", "dbscheme+dbdriver:/path/subpath"),
-            ("dbscheme+dbdriver:?somequery", "subpath", "dbscheme+dbdriver:subpath?somequery"),
-            ("dbscheme+dbdriver:?somequery", "/subpath", "dbscheme+dbdriver:/subpath?somequery"),
-            ("dbscheme+dbdriver:/?somequery", "subpath", "dbscheme+dbdriver:/subpath?somequery"),
-            ("dbscheme+dbdriver://?somequery", "subpath", "dbscheme+dbdriver:subpath?somequery"),
-            ("dbscheme+dbdriver:///?somequery", "/subpath", "dbscheme+dbdriver:/subpath?somequery"),
-            ("dbscheme+dbdriver:#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
-            ("dbscheme+dbdriver:#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
-            ("dbscheme+dbdriver:/#somefrag", "subpath", "dbscheme+dbdriver:/subpath#somefrag"),
-            ("dbscheme+dbdriver://#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
-            ("dbscheme+dbdriver:///#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
-            (
-                "dbscheme+dbdriver://root:password?creds=mycreds",
-                "subpath",
-                "dbscheme+dbdriver://root:password/subpath?creds=mycreds",
-            ),
-            (
-                "dbscheme+dbdriver://root:password/path/?creds=mycreds",
-                "/subpath/anotherpath",
-                "dbscheme+dbdriver://root:password/path/subpath/anotherpath?creds=mycreds",
-            ),
-            (
-                "dbscheme+dbdriver://root:password///path/?creds=mycreds",
-                "subpath/anotherpath",
-                "dbscheme+dbdriver://root:password///path/subpath/anotherpath?creds=mycreds",
-            ),
-            (
-                "dbscheme+dbdriver://root:password///path/?creds=mycreds",
-                "/subpath",
-                "dbscheme+dbdriver://root:password///path/subpath?creds=mycreds",
-            ),
-            (
-                "dbscheme+dbdriver://root:password#myfragment",
-                "/subpath",
-                "dbscheme+dbdriver://root:password/subpath#myfragment",
-            ),
-            (
-                "dbscheme+dbdriver://root:password//path/#myfragmentwith$pecial@",
-                "subpath/anotherpath",
-                "dbscheme+dbdriver://root:password//path/subpath/anotherpath#myfragmentwith$pecial@",  # noqa
-            ),
-            (
-                "dbscheme+dbdriver://root:password@myhostname?creds=mycreds#myfragmentwith$pecial@",
-                "subpath",
-                "dbscheme+dbdriver://root:password@myhostname/subpath?creds=mycreds#myfragmentwith$pecial@",  # noqa
-            ),
-            (
-                "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
-                "subpath/dir",
-                "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*",  # noqa
-            ),
-            (
-                "dbscheme-dbdriver://root:password@myhostname.com/path?creds=mycreds#*frag@*",
-                "subpath/dir",
-                "dbscheme-dbdriver://root:password@myhostname.com/path/subpath/dir?creds=mycreds#*frag@*",  # noqa
-            ),
-            (
-                "dbscheme+dbdriver://root:password@myhostname.com/path?creds=mycreds,param=value#*frag@*",  # noqa
-                "subpath/dir",
-                "dbscheme+dbdriver://root:password@myhostname.com/path/subpath/dir?"
-                "creds=mycreds,param=value#*frag@*",
-            ),
-        ]
-    )
+    validate_append_to_uri_path_test_cases([
+        ("dbscheme+dbdriver:", "", "dbscheme+dbdriver:"),
+        ("dbscheme+dbdriver:", "subpath", "dbscheme+dbdriver:subpath"),
+        ("dbscheme+dbdriver:path", "subpath", "dbscheme+dbdriver:path/subpath"),
+        ("dbscheme+dbdriver://host/path", "/subpath", "dbscheme+dbdriver://host/path/subpath"),
+        ("dbscheme+dbdriver:///path", "subpath", "dbscheme+dbdriver:/path/subpath"),
+        ("dbscheme+dbdriver:?somequery", "subpath", "dbscheme+dbdriver:subpath?somequery"),
+        ("dbscheme+dbdriver:?somequery", "/subpath", "dbscheme+dbdriver:/subpath?somequery"),
+        ("dbscheme+dbdriver:/?somequery", "subpath", "dbscheme+dbdriver:/subpath?somequery"),
+        ("dbscheme+dbdriver://?somequery", "subpath", "dbscheme+dbdriver:subpath?somequery"),
+        ("dbscheme+dbdriver:///?somequery", "/subpath", "dbscheme+dbdriver:/subpath?somequery"),
+        ("dbscheme+dbdriver:#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
+        ("dbscheme+dbdriver:#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
+        ("dbscheme+dbdriver:/#somefrag", "subpath", "dbscheme+dbdriver:/subpath#somefrag"),
+        ("dbscheme+dbdriver://#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
+        ("dbscheme+dbdriver:///#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
+        (
+            "dbscheme+dbdriver://root:password?creds=creds",
+            "subpath",
+            "dbscheme+dbdriver://root:password/subpath?creds=creds",
+        ),
+        (
+            "dbscheme+dbdriver://root:password/path/?creds=creds",
+            "/subpath/anotherpath",
+            "dbscheme+dbdriver://root:password/path/subpath/anotherpath?creds=creds",
+        ),
+        (
+            "dbscheme+dbdriver://root:password///path/?creds=creds",
+            "subpath/anotherpath",
+            "dbscheme+dbdriver://root:password///path/subpath/anotherpath?creds=creds",
+        ),
+        (
+            "dbscheme+dbdriver://root:password///path/?creds=creds",
+            "/subpath",
+            "dbscheme+dbdriver://root:password///path/subpath?creds=creds",
+        ),
+        (
+            "dbscheme+dbdriver://root:password#myfragment",
+            "/subpath",
+            "dbscheme+dbdriver://root:password/subpath#myfragment",
+        ),
+        (
+            "dbscheme+dbdriver://root:password//path/#fragmentwith$pecial@",
+            "subpath/anotherpath",
+            "dbscheme+dbdriver://root:password//path/subpath/anotherpath#fragmentwith$pecial@",
+        ),
+        (
+            "dbscheme+dbdriver://root:password@host?creds=creds#fragmentwith$pecial@",
+            "subpath",
+            "dbscheme+dbdriver://root:password@host/subpath?creds=creds#fragmentwith$pecial@",
+        ),
+        (
+            "dbscheme+dbdriver://root:password@host.com/path?creds=creds#*frag@*",
+            "subpath/dir",
+            "dbscheme+dbdriver://root:password@host.com/path/subpath/dir?creds=creds#*frag@*",
+        ),
+        (
+            "dbscheme-dbdriver://root:password@host.com/path?creds=creds#*frag@*",
+            "subpath/dir",
+            "dbscheme-dbdriver://root:password@host.com/path/subpath/dir?creds=creds#*frag@*",
+        ),
+        (
+            "dbscheme+dbdriver://root:password@host.com/path?creds=creds,param=value#*frag@*",
+            "subpath/dir",
+            "dbscheme+dbdriver://root:password@host.com/path/subpath/dir?"
+            "creds=creds,param=value#*frag@*",
+        ),
+    ])
 
 
 def test_extract_and_normalize_path():
@@ -374,33 +438,69 @@ def test_is_databricks_acled_artifacts_uri():
     )
 
 
+def _get_databricks_profile_uri_test_cases():
+    # Each test case is (uri, result, result_scheme)
+    test_case_groups = [
+        [
+            # URIs with no databricks profile info -> return None
+            ("ftp://user:pass@realhost:port/path/to/nowhere", None, result_scheme),
+            ("dbfs:/path/to/nowhere", None, result_scheme),
+            ("dbfs://nondatabricks/path/to/nowhere", None, result_scheme),
+            ("dbfs://incorrect:netloc:format/path/to/nowhere", None, result_scheme),
+            # URIs with legit databricks profile info
+            (f"dbfs://{result_scheme}", result_scheme, result_scheme),
+            (f"dbfs://{result_scheme}/", result_scheme, result_scheme),
+            (f"dbfs://{result_scheme}/path/to/nowhere", result_scheme, result_scheme),
+            (f"dbfs://{result_scheme}:port/path/to/nowhere", result_scheme, result_scheme),
+            (f"dbfs://@{result_scheme}/path/to/nowhere", result_scheme, result_scheme),
+            (f"dbfs://@{result_scheme}:port/path/to/nowhere", result_scheme, result_scheme),
+            (
+                f"dbfs://profile@{result_scheme}/path/to/nowhere",
+                f"{result_scheme}://profile",
+                result_scheme,
+            ),
+            (
+                f"dbfs://profile@{result_scheme}:port/path/to/nowhere",
+                f"{result_scheme}://profile",
+                result_scheme,
+            ),
+            (
+                f"dbfs://scope:key_prefix@{result_scheme}/path/abc",
+                f"{result_scheme}://scope:key_prefix",
+                result_scheme,
+            ),
+            (
+                f"dbfs://scope:key_prefix@{result_scheme}:port/path/abc",
+                f"{result_scheme}://scope:key_prefix",
+                result_scheme,
+            ),
+            # Doesn't care about the scheme of the artifact URI
+            (
+                f"runs://scope:key_prefix@{result_scheme}/path/abc",
+                f"{result_scheme}://scope:key_prefix",
+                result_scheme,
+            ),
+            (
+                f"models://scope:key_prefix@{result_scheme}/path/abc",
+                f"{result_scheme}://scope:key_prefix",
+                result_scheme,
+            ),
+            (
+                f"s3://scope:key_prefix@{result_scheme}/path/abc",
+                f"{result_scheme}://scope:key_prefix",
+                result_scheme,
+            ),
+        ]
+        for result_scheme in ["databricks", "databricks-uc"]
+    ]
+    return [test_case for test_case_group in test_case_groups for test_case in test_case_group]
+
+
 @pytest.mark.parametrize(
-    "uri, result",
-    [
-        # URIs with no databricks profile info -> return None
-        ("ftp://user:pass@realhost:port/path/to/nowhere", None),
-        ("dbfs:/path/to/nowhere", None),
-        ("dbfs://nondatabricks/path/to/nowhere", None),
-        ("dbfs://incorrect:netloc:format/path/to/nowhere", None),
-        # URIs with legit databricks profile info
-        ("dbfs://databricks", "databricks"),
-        ("dbfs://databricks/", "databricks"),
-        ("dbfs://databricks/path/to/nowhere", "databricks"),
-        ("dbfs://databricks:port/path/to/nowhere", "databricks"),
-        ("dbfs://@databricks/path/to/nowhere", "databricks"),
-        ("dbfs://@databricks:port/path/to/nowhere", "databricks"),
-        ("dbfs://profile@databricks/path/to/nowhere", "databricks://profile"),
-        ("dbfs://profile@databricks:port/path/to/nowhere", "databricks://profile"),
-        ("dbfs://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-        ("dbfs://scope:key_prefix@databricks:port/path/abc", "databricks://scope:key_prefix"),
-        # Doesn't care about the scheme of the artifact URI
-        ("runs://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-        ("models://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-        ("s3://scope:key_prefix@databricks/path/abc", "databricks://scope:key_prefix"),
-    ],
+    ("uri", "result", "result_scheme"), _get_databricks_profile_uri_test_cases()
 )
-def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
-    assert get_databricks_profile_uri_from_artifact_uri(uri) == result
+def test_get_databricks_profile_uri_from_artifact_uri(uri, result, result_scheme):
+    assert get_databricks_profile_uri_from_artifact_uri(uri, result_scheme=result_scheme) == result
 
 
 @pytest.mark.parametrize(
@@ -413,12 +513,12 @@ def test_get_databricks_profile_uri_from_artifact_uri(uri, result):
     ],
 )
 def test_get_databricks_profile_uri_from_artifact_uri_error_cases(uri):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Unsupported Databricks profile"):
         get_databricks_profile_uri_from_artifact_uri(uri)
 
 
 @pytest.mark.parametrize(
-    "uri, result",
+    ("uri", "result"),
     [
         # URIs with no databricks profile info should stay the same
         (
@@ -452,7 +552,7 @@ def test_remove_databricks_profile_info_from_artifact_uri(uri, result):
 
 
 @pytest.mark.parametrize(
-    "artifact_uri, profile_uri, result",
+    ("artifact_uri", "profile_uri", "result"),
     [
         # test various profile URIs
         ("dbfs:/path/a/b", "databricks", "dbfs://databricks/path/a/b"),
@@ -506,7 +606,7 @@ def test_add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri, 
 
 
 @pytest.mark.parametrize(
-    "artifact_uri, profile_uri",
+    ("artifact_uri", "profile_uri"),
     [
         ("dbfs:/path/a/b", "databricks://not:legit:auth"),
         ("dbfs:/path/a/b/", "databricks://scope::key"),
@@ -515,12 +615,12 @@ def test_add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri, 
     ],
 )
 def test_add_databricks_profile_info_to_artifact_uri_errors(artifact_uri, profile_uri):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="Unsupported Databricks profile"):
         add_databricks_profile_info_to_artifact_uri(artifact_uri, profile_uri)
 
 
 @pytest.mark.parametrize(
-    "uri, result",
+    ("uri", "result"),
     [
         ("dbfs:/path/a/b", True),
         ("dbfs://databricks/a/b", True),
@@ -543,7 +643,7 @@ def test_is_valid_dbfs_uri(uri, result):
 
 
 @pytest.mark.parametrize(
-    "uri, result",
+    ("uri", "result"),
     [
         ("/tmp/path", "/dbfs/tmp/path"),
         ("dbfs:/path", "/dbfs/path"),
@@ -556,8 +656,320 @@ def test_dbfs_hdfs_uri_to_fuse_path(uri, result):
 
 
 @pytest.mark.parametrize(
-    "path", ["some/relative/local/path", "s3:/some/s3/path", "C:/cool/windows/path"],
+    "path",
+    ["some/relative/local/path", "s3:/some/s3/path", "C:/cool/windows/path"],
 )
 def test_dbfs_hdfs_uri_to_fuse_path_raises(path):
-    with pytest.raises(MlflowException):
+    with pytest.raises(MlflowException, match="did not start with expected DBFS URI prefix"):
         dbfs_hdfs_uri_to_fuse_path(path)
+
+
+def _assert_resolve_uri_if_local(input_uri, expected_uri):
+    cwd = pathlib.Path.cwd().as_posix()
+    drive = pathlib.Path.cwd().drive
+    if is_windows():
+        cwd = f"/{cwd}"
+        drive = f"{drive}/"
+    assert resolve_uri_if_local(input_uri) == expected_uri.format(cwd=cwd, drive=drive)
+
+
+@pytest.mark.skipif(is_windows(), reason="This test fails on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("my/path", "{cwd}/my/path"),
+        ("#my/path?a=b", "{cwd}/#my/path?a=b"),
+        ("file://localhost/my/path", "file://localhost/my/path"),
+        ("file:///my/path", "file:///{drive}my/path"),
+        ("file:my/path", "file://{cwd}/my/path"),
+        ("/home/my/path", "/home/my/path"),
+        ("dbfs://databricks/a/b", "dbfs://databricks/a/b"),
+        ("s3://host/my/path", "s3://host/my/path"),
+    ],
+)
+def test_resolve_uri_if_local(input_uri, expected_uri):
+    _assert_resolve_uri_if_local(input_uri, expected_uri)
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    ("input_uri", "expected_uri"),
+    [
+        ("my/path", "file://{cwd}/my/path"),
+        ("#my/path?a=b", "file://{cwd}/#my/path?a=b"),
+        ("\\myhostname/my/path", "file:///{drive}myhostname/my/path"),
+        ("file:///my/path", "file:///{drive}my/path"),
+        ("file:my/path", "file://{cwd}/my/path"),
+        ("/home/my/path", "file:///{drive}home/my/path"),
+        ("dbfs://databricks/a/b", "dbfs://databricks/a/b"),
+        ("s3://host/my/path", "s3://host/my/path"),
+    ],
+)
+def test_resolve_uri_if_local_on_windows(input_uri, expected_uri):
+    _assert_resolve_uri_if_local(input_uri, expected_uri)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "/dbfs/my_path",
+        "dbfs:/my_path",
+        "/Volumes/my_path",
+        "/.fuse-mounts/my_path",
+        "//dbfs////my_path",
+        "///Volumes/",
+        "dbfs://my///path",
+        "/volumes/path/to/file",
+        "/volumes/",
+        "DBFS:/my/path",
+    ],
+)
+def test_correctly_detect_fuse_and_uc_uris(uri):
+    assert is_fuse_or_uc_volumes_uri(uri)
+
+
+@pytest.mark.parametrize(
+    "uri",
+    [
+        "/My_Volumes/my_path",
+        "s3a:/my_path",
+        "Volumes/my_path",
+        "Volume:/my_path",
+        "dbfs/my_path",
+        "/fuse-mounts/my_path",
+    ],
+)
+def test_negative_detection(uri):
+    assert not is_fuse_or_uc_volumes_uri(uri)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "path",
+        "path/",
+        "path/to/file",
+        "dog%step%100%timestamp%100",
+        "dog+step+100+timestamp+100",
+    ],
+)
+def test_validate_path_is_safe_good(path):
+    validate_path_is_safe(path)
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    "path",
+    [
+        # relative path from current directory of C: drive
+        ".../...//",
+    ],
+)
+def test_validate_path_is_safe_windows_good(path):
+    validate_path_is_safe(path)
+
+
+@pytest.mark.skipif(is_windows(), reason="This test does not pass on Windows")
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "../path",
+        "../../path",
+        "./../path",
+        "path/../to/file",
+        "path/../../to/file",
+        "file://a#/..//tmp",
+        "file://a%23/..//tmp/",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "/etc/passwd%00.html",
+        "/etc/passwd%00.txt",
+        "/etc/passwd%00.php",
+        "/etc/passwd%00.asp",
+        "/file://etc/passwd",
+        # Encoded paths with '..'
+        "%2E%2E%2Fpath",
+        "%2E%2E%2F%2E%2E%2Fpath",
+        # Some URIs are passed to urllib.parse.urlparse after validation,
+        # which strips out some whitespace characters. If they are further
+        # decoded, this could result in a path that is not safe.
+        # In this example, %2%0952e -> %2\t52e -> %252e -> %2e -> .
+        "%2%0952e%2%0952e/%2%0A52e%2%0A52e/path",
+    ],
+)
+def test_validate_path_is_safe_bad(path):
+    with pytest.raises(MlflowException, match="Invalid path"):
+        validate_path_is_safe(path)
+
+
+@pytest.mark.skipif(not is_windows(), reason="This test only passes on Windows")
+@pytest.mark.parametrize(
+    "path",
+    [
+        r"../path",
+        r"../../path",
+        r"./../path",
+        r"path/../to/file",
+        r"path/../../to/file",
+        r"..\path",
+        r"..\..\path",
+        r".\..\path",
+        r"path\..\to\file",
+        r"path\..\..\to\file",
+        # Drive-relative paths
+        r"C:path",
+        r"C:path/",
+        r"C:path/to/file",
+        r"C:../path/to/file",
+        r"C:\path",
+        r"C:/path",
+        r"C:\path\to\file",
+        r"C:\path/to/file",
+        r"C:\path\..\to\file",
+        r"C:/path/../to/file",
+        # UNC(Universal Naming Convention) paths
+        r"\\path\to\file",
+        r"\\path/to/file",
+        r"\\.\\C:\path\to\file",
+        r"\\?\C:\path\to\file",
+        r"\\?\UNC/path/to/file",
+        # Other potential attackable paths
+        r"/etc/password",
+        r"/path",
+        r"/etc/passwd%00.jpg",
+        r"/etc/passwd%00.html",
+        r"/etc/passwd%00.txt",
+        r"/etc/passwd%00.php",
+        r"/etc/passwd%00.asp",
+        r"/Windows/no/such/path",
+        r"/file://etc/passwd",
+        r"/file:c:/passwd",
+        r"/file://d:/windows/win.ini",
+        r"/file://./windows/win.ini",
+        r"file://c:/boot.ini",
+        r"file://C:path",
+        r"file://C:path/",
+        r"file://C:path/to/file",
+        r"file:///C:/Windows/System32/",
+        r"file:///etc/passwd",
+        r"file:///d:/windows/repair/sam",
+        r"file:///proc/version",
+        r"file:///inetpub/wwwroot/global.asa",
+        r"/file://../windows/win.ini",
+        r"../etc/passwd",
+        r"..\Windows\System32\\",
+        r"C:\Windows\System32\\",
+        r"/etc/passwd",
+        r"::Windows\System32",
+        r"..\..\..\..\Windows\System32\\",
+        r"../Windows/System32",
+        r"....\\",
+        r"\\?\C:\Windows\System32\\",
+        r"\\.\C:\Windows\System32\\",
+        r"\\UNC\Server\Share\\",
+        r"\\Server\Share\folder\\",
+        r"\\127.0.0.1\c$\Windows\\",
+        r"\\localhost\c$\Windows\\",
+        r"\\smbserver\share\path\\",
+        r"..\\?\C:\Windows\System32\\",
+        r"C:/Windows/../Windows/System32/",
+        r"C:\Windows\..\Windows\System32\\",
+        r"../../../../../../../../../../../../Windows/System32",
+        r"../../../../../../../../../../../../etc/passwd",
+        r"../../../../../../../../../../../../var/www/html/index.html",
+        r"../../../../../../../../../../../../usr/local/etc/openvpn/server.conf",
+        r"../../../../../../../../../../../../Program Files (x86)",
+        r"/../../../../../../../../../../../../Windows/System32",
+        r"/Windows\../etc/passwd",
+        r"/Windows\..\Windows\System32\\",
+        r"/Windows\..\Windows\System32\cmd.exe",
+        r"/Windows\..\Windows\System32\msconfig.exe",
+        r"/Windows\..\Windows\System32\regedit.exe",
+        r"/Windows\..\Windows\System32\taskmgr.exe",
+        r"/Windows\..\Windows\System32\control.exe",
+        r"/Windows\..\Windows\System32\services.msc",
+        r"/Windows\..\Windows\System32\diskmgmt.msc",
+        r"/Windows\..\Windows\System32\eventvwr.msc",
+        r"/Windows/System32/drivers/etc/hosts",
+    ],
+)
+def test_validate_path_is_safe_windows_bad(path):
+    with pytest.raises(MlflowException, match="Invalid path"):
+        validate_path_is_safe(path)
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("file:///path", "/path"),
+        ("file://host/path", "//host/path"),
+        ("file://host", "//host"),
+    ],
+)
+def test_strip_scheme(uri: str, expected: str):
+    assert strip_scheme(uri) == expected
+
+
+def test_validate_path_within_directory_allows_valid_paths(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    constructed_path = base_dir / "subdir" / "file.txt"
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)
+
+
+def test_validate_path_within_directory_blocks_symlink_escape(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    external_dir = tmp_path / "external"
+    external_dir.mkdir()
+    external_file = external_dir / "secret.txt"
+    external_file.write_text("SECRET")
+    symlink_path = base_dir / "leak"
+    os.symlink(str(external_dir), str(symlink_path))
+    constructed_path = symlink_path / "secret.txt"
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(constructed_path))
+
+
+def test_validate_path_within_directory_blocks_parent_symlink(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    symlink_path = base_dir / "parent"
+    os.symlink(str(tmp_path), str(symlink_path))
+    constructed_path = symlink_path / "artifacts" / ".." / "external"
+    with pytest.raises(MlflowException, match="resolved path is outside the artifact directory"):
+        validate_path_within_directory(str(base_dir), str(constructed_path))
+
+
+def test_validate_path_within_directory_allows_internal_symlink(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    real_file = base_dir / "real_file.txt"
+    real_file.write_text("CONTENT")
+    symlink_path = base_dir / "link"
+    os.symlink(str(real_file), str(symlink_path))
+    result = validate_path_within_directory(str(base_dir), str(symlink_path))
+    assert result == str(symlink_path)
+
+
+def test_validate_path_within_directory_allows_base_dir_itself(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    result = validate_path_within_directory(str(base_dir), str(base_dir))
+    assert result == str(base_dir)
+
+
+def test_validate_path_within_directory_allows_subdirectory_symlink(tmp_path):
+    base_dir = tmp_path / "artifacts"
+    base_dir.mkdir()
+    subdir = base_dir / "subdir"
+    subdir.mkdir()
+    file_in_subdir = subdir / "file.txt"
+    file_in_subdir.write_text("CONTENT")
+    symlink_to_subdir = base_dir / "link_to_subdir"
+    os.symlink(str(subdir), str(symlink_to_subdir))
+    constructed_path = symlink_to_subdir / "file.txt"
+    result = validate_path_within_directory(str(base_dir), str(constructed_path))
+    assert result == str(constructed_path)

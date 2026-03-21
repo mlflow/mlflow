@@ -31,9 +31,9 @@ mlflow_save_model.H2OModel <- function(model,
   )
   yaml::write_yaml(settings, file.path(model_data_path, "h2o.yaml"))
 
-  conda_env <- create_default_conda_env_if_absent(
-    path, conda_env, default_pip_deps = list("mlflow", paste0("h2o==", as.character(utils::packageVersion("h2o"))))
-  )
+  pip_deps <- list("mlflow", paste0("h2o==", as.character(utils::packageVersion("h2o"))))
+  conda_env <- create_default_conda_env_if_absent(path, conda_env, default_pip_deps = pip_deps)
+  python_env <- create_python_env(path, dependencies = pip_deps)
 
   h2o_conf <- list(
     h2o = list(h2o_version = version, data = model_data_subpath)
@@ -41,7 +41,7 @@ mlflow_save_model.H2OModel <- function(model,
   pyfunc_conf <- create_pyfunc_conf(
     loader_module = "mlflow.h2o",
     data = model_data_subpath,
-    env = conda_env
+    env = list(conda = conda_env, virtualenv = python_env)
   )
   model_spec$flavors <- c(model_spec$flavors, h2o_conf, pyfunc_conf)
   mlflow_write_model_spec(path, model_spec)

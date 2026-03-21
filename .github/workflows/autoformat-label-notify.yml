@@ -1,0 +1,26 @@
+name: Autoformat Label Notification
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  notify:
+    runs-on: ubuntu-slim
+    if: ${{ github.event.label.name == 'autoformat' }}
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write # to post a comment on the PR
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh pr comment "$PR" --repo "$REPO" --body 'Please use `/autoformat` command instead of labels.'
+          gh pr edit "$PR" --repo "$REPO" --remove-label autoformat

@@ -1,0 +1,23 @@
+{
+  "recommendations": [
+    // Python
+    "charliermarsh.ruff",
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+
+    // JavaScript/TypeScript
+    "esbenp.prettier-vscode",
+    "dbaeumer.vscode-eslint",
+
+    // Other helpful extensions
+    "eamodio.gitlens",
+    "usernamehw.errorlens"
+  ],
+  "unwantedRecommendations": [
+    // Disable extensions that conflict with Ruff
+    "ms-python.pylint",
+    "ms-python.flake8",
+    "ms-python.black-formatter",
+    "ms-python.isort"
+  ]
+}

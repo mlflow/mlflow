@@ -73,10 +73,19 @@ public class DatabricksContext {
   public String getNotebookId() {
     if (!isInDatabricksNotebook()) {
       throw new IllegalArgumentException(
-        "getNotebookPath() should not be called when isInDatabricksNotebook() is false"
+        "getNotebookId() should not be called when isInDatabricksNotebook() is false"
       );
     }
     return configProvider.get("notebookId");
+  }
+
+  public String getNotebookPath() {
+    if (!isInDatabricksNotebook()) {
+      throw new IllegalArgumentException(
+        "getNotebookPath() should not be called when isInDatabricksNotebook() is false"
+      );
+    }
+    return configProvider.get("notebookPath");
   }
 
   private boolean isInDatabricksJob() {

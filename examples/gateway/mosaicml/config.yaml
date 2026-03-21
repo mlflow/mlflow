@@ -1,0 +1,24 @@
+endpoints:
+  - name: completions
+    endpoint_type: llm/v1/completions
+    model:
+      provider: mosaicml
+      name: mpt-7b-instruct
+      config:
+        mosaicml_api_key: $MOSAICML_API_KEY
+
+  - name: embeddings
+    endpoint_type: llm/v1/embeddings
+    model:
+      provider: mosaicml
+      name: instructor-xl
+      config:
+        mosaicml_api_key: $MOSAICML_API_KEY
+
+  - name: chat
+    endpoint_type: llm/v1/chat
+    model:
+      provider: mosaicml
+      name: llama2-70b-chat
+      config:
+        mosaicml_api_key: $MOSAICML_API_KEY

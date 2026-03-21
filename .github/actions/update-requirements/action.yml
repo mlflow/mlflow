@@ -1,0 +1,24 @@
+name: "update-requirements"
+description: "Update requirements YAML specifications and re-generate requirements text files"
+
+outputs:
+  updated:
+    description: "Indicates whether the requirements have been updated"
+    value: ${{ steps.update-requirements.outputs.updated }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Update requirements
+      id: update-requirements
+      shell: bash --noprofile --norc -exo pipefail {0}
+      run: |
+        python bin/install.py
+        python dev/update_requirements.py --requirements-yaml-location requirements
+        if [ -z "$(git status --porcelain)" ]; then
+          echo "updated=false" >> $GITHUB_OUTPUT
+        else
+          python dev/pyproject.py
+          git diff --color=always
+          echo "updated=true" >> $GITHUB_OUTPUT
+        fi

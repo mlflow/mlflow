@@ -8,6 +8,18 @@ teardown({
   mlflow_clear_test_dir(testthat_model_name)
 })
 
+test_that("mlflow model creation time format", {
+  mlflow_clear_test_dir(testthat_model_name)
+  model <- lm(Sepal.Width ~ Sepal.Length, iris)
+  fn <- crate(~ stats::predict(model, .x), model = model)
+  model_spec <- mlflow_save_model(fn, testthat_model_name, model_spec = list(
+    utc_time_created = mlflow_timestamp()
+  ))
+  
+  expect_true(dir.exists(testthat_model_name))
+  expect_match(model_spec$utc_time_created, "^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]{6}")
+})
+
 test_that("mlflow can save model function", {
   mlflow_clear_test_dir(testthat_model_name)
   model <- lm(Sepal.Width ~ Sepal.Length, iris)
@@ -27,7 +39,7 @@ test_that("mlflow can save model function", {
   temp_in_json_split <- tempfile(fileext = ".json")
   temp_out <- tempfile(fileext = ".json")
   write.csv(iris, temp_in_csv, row.names = FALSE)
-  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_csv, "-o", temp_out, "-t", "csv")
+  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_csv, "-o", temp_out, "-t", "csv", "--env-manager", "uv", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
   expect_equal(
@@ -35,9 +47,8 @@ test_that("mlflow can save model function", {
     unname(predict(model, iris))
   )
   # json records
-  jsonlite::write_json(iris, temp_in_json, row.names = FALSE)
-  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_json, "-o", temp_out, "-t", "json",
-             "--json-format", "records")
+  jsonlite::write_json(list(dataframe_records = iris), temp_in_json, row.names = FALSE)
+  mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_json, "-o", temp_out, "-t", "json", "--env-manager", "uv", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
   expect_equal(
@@ -45,11 +56,14 @@ test_that("mlflow can save model function", {
     unname(predict(model, iris))
   )
   # json split
-  iris_split <- list(columns = names(iris)[1:4], index = row.names(iris),
-                     data = as.matrix(iris[, 1:4]))
+  iris_split <- list(
+    dataframe_split = list(
+      columns = names(iris)[1:4],
+      index = row.names(iris),
+      data = as.matrix(iris[, 1:4])))
   jsonlite::write_json(iris_split, temp_in_json_split, row.names = FALSE)
   mlflow_cli("models", "predict", "-m", testthat_model_name, "-i", temp_in_json_split, "-o", temp_out, "-t",
-             "json", "--json-format", "split")
+             "json", "--env-manager", "uv", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(!is.null(prediction))
   expect_equal(
@@ -64,7 +78,7 @@ test_that("mlflow can log model and load it back with a uri", {
       list(some = "stuff"),
       class = "test"
     )
-    predictor <- crate(~ mean(as.matrix(.x)), model)
+    predictor <- crate(~ mean(as.matrix(.x)), model = model)
     predicted <- predictor(0:10)
     expect_true(5 == predicted)
     mlflow_log_model(predictor, testthat_model_name)
@@ -77,13 +91,13 @@ test_that("mlflow can log model and load it back with a uri", {
   expect_true(5 == mlflow_predict(loaded_model_2, 0:10))
   temp_in  <- tempfile(fileext = ".json")
   temp_out  <- tempfile(fileext = ".json")
-  jsonlite::write_json(0:10, temp_in)
+  jsonlite::write_json(list(dataframe_records=0:10), temp_in)
   mlflow:::mlflow_cli("models", "predict", "-m", runs_uri, "-i", temp_in, "-o", temp_out,
-                      "--content-type", "json", "--json-format", "records")
+                      "--content-type", "json", "--env-manager", "uv", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
   mlflow:::mlflow_cli("models", "predict", "-m", actual_uri, "-i", temp_in, "-o", temp_out,
-                      "--content-type", "json", "--json-format", "records")
+                      "--content-type", "json", "--env-manager", "uv", "--install-mlflow")
   prediction <- unlist(jsonlite::read_json(temp_out))
   expect_true(5 == prediction)
 })
@@ -95,7 +109,7 @@ test_that("mlflow log model records correct metadata with the tracking server", 
       list(some = "stuff"),
       class = "test"
     )
-    predictor <- crate(~ mean(as.matrix(.x)), model)
+    predictor <- crate(~ mean(as.matrix(.x)), model = model)
     predicted <- predictor(0:10)
     expect_true(5 == predicted)
     mlflow_log_model(predictor, testthat_model_name)

@@ -1,0 +1,7 @@
+name: llm_summarization
+
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    command: python summarization.py

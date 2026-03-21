@@ -1,7 +1,7 @@
 from unittest import mock
 
-from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_CLUSTER_ID
 from mlflow.tracking.context.databricks_cluster_context import DatabricksClusterRunContext
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_CLUSTER_ID
 
 
 def test_databricks_cluster_run_context_in_context():
@@ -18,5 +18,4 @@ def test_databricks_cluster_run_context_tags():
 
 
 def test_databricks_notebook_run_context_tags_nones():
-
     assert DatabricksClusterRunContext().tags() == {}

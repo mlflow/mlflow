@@ -2,11 +2,11 @@ from pprint import pprint
 
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from utils import fetch_logged_data
 
 import mlflow
-from utils import fetch_logged_data
 
 
 def main():
@@ -19,13 +19,13 @@ def main():
 
     # train a model
     pipe = Pipeline([("scaler", StandardScaler()), ("lr", LinearRegression())])
-    with mlflow.start_run() as run:
-        pipe.fit(X, y)
-        print("Logged data and model in run: {}".format(run.info.run_id))
+    pipe.fit(X, y)
+    run_id = mlflow.last_active_run().info.run_id
+    print(f"Logged data and model in run: {run_id}")
 
     # show logged data
-    for key, data in fetch_logged_data(run.info.run_id).items():
-        print("\n---------- logged {} ----------".format(key))
+    for key, data in fetch_logged_data(run_id).items():
+        print(f"\n---------- logged {key} ----------")
         pprint(data)
 
 

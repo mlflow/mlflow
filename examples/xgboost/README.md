@@ -1,25 +1,3 @@
-# XGBoost Example
+# Examples for XGBoost Autologging
 
-This example trains an XGBoost classifier with the iris dataset and logs hyperparameters, metrics, and trained model.
-
-## Running the code
-
-```
-python train.py --learning-rate 0.2 --colsample-bytree 0.8 --subsample 0.9
-```
-You can try experimenting with different parameter values like:
-```
-python train.py --learning-rate 0.4 --colsample-bytree 0.7 --subsample 0.8
-```
-
-Then you can open the MLflow UI to track the experiments and compare your runs via:
-```
-mlflow ui
-```
-
-
-## Running the code as a project
-
-```
-mlflow run . -P learning_rate=0.2 -P colsample_bytree=0.8 -P subsample=0.9
-```
+Two examples are provided to demonstrate XGBoost autologging functionalities. The `xgboost_native` folder contains an example that logs a Booster model trained by `xgboost.train()`. The `xgboost_sklearn` includes another example showing how autologging works for XGBoost scikit-learn models. In fact, there is no difference in turning on autologging for all XGBoost models. That is, `mlflow.xgboost.autolog()` works for all XGBoost models.

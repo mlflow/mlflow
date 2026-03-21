@@ -3,7 +3,7 @@ const fs = require('fs');
 const { sync: globSync } = require('fast-glob');
 const { ArgumentParser } = require('argparse');
 
-const OUT_FILE = './src/i18n/default/en.json';
+const OUT_FILE = './src/lang/default/en.json';
 const FILE_PATTERN = 'src/**/*.(j|t)s?(x)';
 const FILE_IGNORE_PATTERNS = ['**/*.d.ts', '**/*.(j|t)est.(j|t)s?(x)'];
 const EXTRACT_OPTS = {
@@ -40,10 +40,7 @@ async function main(args) {
     const extractedKeys = Object.keys(extractedMessages);
     const existingKeys = new Set(Object.keys(existingMessages));
 
-    if (
-      extractedKeys.length === existingKeys.size &&
-      extractedKeys.every((key) => existingKeys.has(key))
-    ) {
+    if (extractedKeys.length === existingKeys.size && extractedKeys.every((key) => existingKeys.has(key))) {
       console.log('Extracted keys are up-to-date.');
       process.exit(0);
     } else {

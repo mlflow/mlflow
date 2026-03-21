@@ -3,7 +3,7 @@
 set -ex
 
 function retry-with-backoff() {
-    for BACKOFF in 0 1 2 4 8 16 32 64; do
+    for BACKOFF in 0 1 2; do
         sleep $BACKOFF
         if "$@"; then
             return 0
@@ -12,71 +12,72 @@ function retry-with-backoff() {
     return 1
 }
 
+while :
+do
+  case "$1" in
+    # Install skinny dependencies
+    --skinny)
+      SKINNY="true"
+      shift
+      ;;
+    # Install ML dependencies
+    --ml)
+      ML="true"
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      echo "Error: unknown option: $1" >&2
+      exit 1
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
 # Cleanup apt repository to make room for tests.
 sudo apt clean
 df -h
 
-# Miniconda is pre-installed in the virtual-environments for GitHub Actions.
-# See this repository: https://github.com/actions/virtual-environments
-CONDA_DIR=/usr/share/miniconda
-export PATH="$CONDA_DIR/bin:$PATH"
-hash -r
-conda config --set always_yes yes --set changeps1 no
-conda config --add channels conda-forge
-conda config --remove channels defaults
-conda config --get channels
-# Useful for debugging any issues with conda
-conda info -a
-conda create -q -n test-environment python=3.6
-# Uninstall `certifi` via conda to avoid encoutering the following error when installing `mlflow` via pip
-# ```
-#   Attempting uninstall: certifi
-#     Found existing installation: certifi 2016.9.26
-# ERROR: Cannot uninstall 'certifi'. It is a distutils installed project and thus we cannot
-# accurately determine which files belong to it which would lead to only a partial uninstall.
-# ```
-conda remove --name test-environment --force certifi
-source activate test-environment
-
 python --version
-pip install --upgrade pip
+pip install --upgrade pip!=25.1 setuptools wheel
 pip --version
 
-if [[ "$MLFLOW_SKINNY" == "true" ]]; then
-  pip install . --upgrade
+if [[ "$SKINNY" == "true" ]]; then
+  pip install ./libs/skinny
 else
-  pip install .[extras] --upgrade
+  pip install .[extras,gateway,mcp] --upgrade
 fi
-export MLFLOW_HOME=$(pwd)
 
+req_files=""
 # Install Python test dependencies only if we're running Python tests
-if [[ "$INSTALL_SMALL_PYTHON_DEPS" == "true" ]]; then
-  # When downloading large packages from PyPI, the connection is sometimes aborted by the
-  # remote host. See https://github.com/pypa/pip/issues/8510.
-  # As a workaround, we retry installation of large packages.
-  retry-with-backoff pip install -r ./dev/small-requirements.txt
-fi
-if [[ "$INSTALL_SKINNY_PYTHON_DEPS" == "true" ]]; then
-  retry-with-backoff pip install -r ./dev/skinny-requirements.txt
-fi
-if [[ "$INSTALL_LARGE_PYTHON_DEPS" == "true" ]]; then
-  retry-with-backoff pip install -r ./dev/large-requirements.txt
-  retry-with-backoff pip install -r ./dev/extra-ml-requirements.txt
-  # Hack: make sure all spark-* scripts are executable.
-  # Conda installs 2 version spark-* scripts and makes the ones spark
-  # uses not executable. This is a temporary fix to unblock the tests.
-  ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
-  chmod 777 $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
-  ls -lha $(find $CONDA_DIR/envs/test-environment/ -path "*bin/spark-*")
+if [[ "$ML" == "true" ]]; then
+  req_files+=" -r requirements/extra-ml-requirements.txt"
 fi
 
-# Install `mlflow-test-plugin` without dependencies
-pip install --no-dependencies tests/resources/mlflow-test-plugin
+if [[ "$SKINNY" == "true" ]]; then
+  req_files+=" -r requirements/skinny-test-requirements.txt"
+else
+  req_files+=" -r requirements/test-requirements.txt"
+fi
+
+if [[ ! -z $req_files ]]; then
+  retry-with-backoff pip install $req_files
+fi
+
+# Install `mlflow-test-plugin`
+pip install tests/resources/mlflow-test-plugin
 
 # Print current environment info
-pip list
+pip install aiohttp
 which mlflow
-echo $MLFLOW_HOME
+
+# Print mlflow version
+mlflow --version
 
 # Turn off trace output & exit-on-errors
 set +ex

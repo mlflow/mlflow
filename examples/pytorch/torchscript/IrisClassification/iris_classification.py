@@ -1,18 +1,19 @@
-# pylint: disable=abstract-method
 import argparse
+
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.datasets import load_iris
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
+from torch import nn
 
 import mlflow.pytorch
+from mlflow.models import infer_signature
 
 
 class IrisClassifier(nn.Module):
     def __init__(self):
-        super(IrisClassifier, self).__init__()
+        super().__init__()
         self.fc1 = nn.Linear(4, 10)
         self.fc2 = nn.Linear(10, 10)
         self.fc3 = nn.Linear(10, 3)
@@ -69,9 +70,8 @@ def test_model(model, X_test, y_test):
         predict_out = model(X_test)
         _, predict_y = torch.max(predict_out, 1)
 
-        print(
-            "\nprediction accuracy", float(accuracy_score(y_test.cpu(), predict_y.cpu())),
-        )
+        print("\nprediction accuracy", float(accuracy_score(y_test.cpu(), predict_y.cpu())))
+        return infer_signature(X_test.numpy(), predict_out.numpy())
 
 
 if __name__ == "__main__":
@@ -88,10 +88,12 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test, target_names = prepare_data()
     scripted_model = torch.jit.script(model)  # scripting the model
     scripted_model = train_model(scripted_model, args.epochs, X_train, y_train)
-    test_model(scripted_model, X_test, y_test)
+    signature = test_model(scripted_model, X_test, y_test)
 
     with mlflow.start_run() as run:
-        mlflow.pytorch.log_model(scripted_model, "model")  # logging scripted model
+        mlflow.pytorch.log_model(
+            scripted_model, name="model", signature=signature
+        )  # logging scripted model
         model_path = mlflow.get_artifact_uri("model")
         loaded_pytorch_model = mlflow.pytorch.load_model(model_path)  # loading scripted model
         model.eval()
@@ -100,4 +102,4 @@ if __name__ == "__main__":
             prediction = loaded_pytorch_model(test_datapoint)
             actual = "setosa"
             predicted = target_names[torch.argmax(prediction)]
-            print("\nPREDICTION RESULT: ACTUAL: {}, PREDICTED: {}".format(actual, predicted))
+            print(f"\nPREDICTION RESULT: ACTUAL: {actual}, PREDICTED: {predicted}")

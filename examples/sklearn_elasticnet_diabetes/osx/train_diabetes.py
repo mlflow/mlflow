@@ -16,19 +16,17 @@
 #    python train_diabetes.py 0.01 1.0
 #
 
-import os
-import warnings
 import sys
-
-import pandas as pd
-import numpy as np
+import warnings
 from itertools import cycle
+
 import matplotlib.pyplot as plt
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import ElasticNet
-from sklearn.linear_model import lasso_path, enet_path
+import numpy as np
+import pandas as pd
 from sklearn import datasets
+from sklearn.linear_model import ElasticNet, enet_path
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split
 
 # Load Diabetes datasets
 diabetes = datasets.load_diabetes()
@@ -45,6 +43,7 @@ data = pd.DataFrame(d, columns=cols)
 # Import mlflow
 import mlflow
 import mlflow.sklearn
+from mlflow.models import infer_signature
 
 
 # Evaluate metrics
@@ -78,10 +77,14 @@ if __name__ == "__main__":
     (rmse, mae, r2) = eval_metrics(test_y, predicted_qualities)
 
     # Print out ElasticNet model metrics
-    print("Elasticnet model (alpha=%f, l1_ratio=%f):" % (alpha, l1_ratio))
-    print("  RMSE: %s" % rmse)
-    print("  MAE: %s" % mae)
-    print("  R2: %s" % r2)
+    print(f"Elasticnet model (alpha={alpha:f}, l1_ratio={l1_ratio:f}):")
+    print(f"  RMSE: {rmse}")
+    print(f"  MAE: {mae}")
+    print(f"  R2: {r2}")
+
+    # Infer model signature
+    predictions = lr.predict(train_x)
+    signature = infer_signature(train_x, predictions)
 
     # Log mlflow attributes for mlflow UI
     mlflow.log_param("alpha", alpha)
@@ -89,13 +92,13 @@ if __name__ == "__main__":
     mlflow.log_metric("rmse", rmse)
     mlflow.log_metric("r2", r2)
     mlflow.log_metric("mae", mae)
-    mlflow.sklearn.log_model(lr, "model")
+    mlflow.sklearn.log_model(lr, name="model", signature=signature)
 
     # Compute paths
     eps = 5e-3  # the smaller it is the longer is the path
 
     print("Computing regularization path using the elastic net.")
-    alphas_enet, coefs_enet, _ = enet_path(X, y, eps=eps, l1_ratio=l1_ratio, fit_intercept=False)
+    alphas_enet, coefs_enet, _ = enet_path(X, y, eps=eps, l1_ratio=l1_ratio)
 
     # Display results
     fig = plt.figure(1)

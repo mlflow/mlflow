@@ -1,8 +1,13 @@
 context("Model")
 
 library("keras")
+library("reticulate")
 
 testthat_model_dir <- tempfile("model_")
+
+setup({
+    use_python(Sys.getenv("RETICULATE_PYTHON_BIN", "python"))
+})
 
 teardown({
   mlflow_clear_test_dir(testthat_model_dir)
@@ -29,6 +34,6 @@ test_that("mlflow can save keras model ", {
   expect_equal(
     predict(model, train_x),
     predict(model_reloaded, train_x),
-    mlflow_predict(model_reloaded, iris[, 1:4]))
+  )
   Sys.setenv(PATH = PATH)
 })

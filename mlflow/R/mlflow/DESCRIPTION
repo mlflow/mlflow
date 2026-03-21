@@ -1,11 +1,15 @@
 Type: Package
 Package: mlflow
 Title: Interface to 'MLflow'
-Version: 1.20.3
+Version: 3.11.1
 Authors@R: 
-    c(person(given = "Matei",
-             family = "Zaharia",
+    c(person(given = "Ben",
+             family = "Wilson",
              role = c("aut", "cre"),
+             email = "benjamin.wilson@databricks.com"),
+      person(given = "Matei",
+             family = "Zaharia",
+             role = "aut",
              email = "matei@databricks.com"),
       person(given = "Javier",
              family = "Luraschi",
@@ -18,7 +22,6 @@ Authors@R:
              comment = c(ORCID = "0000-0001-7803-7901")),
       person(family = "RStudio",
              role = "cph"))
-Maintainer: Matei Zaharia <matei@databricks.com>
 Description: R interface to 'MLflow', open source platform for
     the complete machine learning life cycle, see <https://mlflow.org/>.
     This package supports installing 'MLflow', tracking experiments,
@@ -30,7 +33,6 @@ Depends:
     R (>= 3.3.0)
 Imports:
     base64enc,
-    forge,
     fs,
     git2r,
     glue,
@@ -41,12 +43,10 @@ Imports:
     openssl,
     processx,
     purrr,
-    reticulate,
     rlang (>= 0.2.0),
     swagger,
     tibble (>= 2.0.0),
     withr,
-    xml2,
     yaml,
     zeallot
 Suggests:
@@ -55,19 +55,19 @@ Suggests:
     h2o,
     keras,
     lintr,
-    mleap,
     sparklyr,
-    stringi (< 1.4.4),
+    stringi,
     testthat (>= 2.0.0),
+    reticulate,
     xgboost
 Encoding: UTF-8
 RoxygenNote: 7.1.2
 Collate:
+    'cast-utils.R'
     'cli.R'
     'databricks-utils.R'
     'globals.R'
     'imports.R'
-    'install.R'
     'logging.R'
     'mlflow-package.R'
     'model-crate.R'
@@ -76,7 +76,6 @@ Collate:
     'model-utils.R'
     'model-h2o.R'
     'model-keras.R'
-    'model-mleap.R'
     'model-registry.R'
     'model-serve.R'
     'model-swagger.R'

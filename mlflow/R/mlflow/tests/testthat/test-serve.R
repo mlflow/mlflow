@@ -55,21 +55,7 @@ test_that("mlflow can serve a model function", {
     stdout = "|",
     stderr = "|"
   )
-  Sys.sleep(10)
-  tryCatch(
-    {
-      status_code <- httr::status_code(httr::GET(sprintf("http://127.0.0.1:%d/ping/", port)))
-    },
-    error = function(e) {
-      write("FAILED!", stderr())
-      error_text <- testthat_model_server$read_error()
-      testthat_model_server$kill()
-      stop(e$message, ": ", error_text)
-    }
-  )
-
-  expect_equal(status_code, 200)
-
+  wait_for_server_to_start(testthat_model_server, port)
   newdata <- iris[1:2, c("Sepal.Length", "Petal.Width")]
 
   http_prediction <- httr::content(
@@ -115,8 +101,8 @@ test_that("mlflow models server api works with R model function", {
     httr::content(
       httr::POST(
         sprintf("http://127.0.0.1:%d/invocation/", port),
-        httr::content_type("application/json; format=pandas-records"),
-        body = jsonlite::toJSON(as.list(newdata))
+        httr::content_type("application/json"),
+        body = jsonlite::toJSON(list(dataframe_records=as.list(newdata)))
       )
     )
   )
@@ -125,21 +111,17 @@ test_that("mlflow models server api works with R model function", {
     data = as.matrix(newdata)
   )
   # json split
-  for (content_type in c(
-    "application/json",
-    "application/json; format=pandas-split",
-    "application/json-numpy-split"
-  )) {
-    check_prediction(
-      httr::content(
-        httr::POST(
-          sprintf("http://127.0.0.1:%d/invocation/", port),
-          httr::content_type(content_type),
-          body = jsonlite::toJSON(newdata_split)
-        )
+  content_type <- "application/json"
+  check_prediction(
+    httr::content(
+      httr::POST(
+        sprintf("http://127.0.0.1:%d/invocation/", port),
+        httr::content_type(content_type),
+        body = jsonlite::toJSON(list(dataframe_split=newdata_split))
       )
     )
-  }
+  )
+
   # csv
   csv_header <- paste(names(newdata), collapse = ", ")
   csv_row_1 <- paste(newdata[1, ], collapse = ", ")

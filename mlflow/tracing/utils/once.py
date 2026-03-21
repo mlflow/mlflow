@@ -1,0 +1,25 @@
+# Customized from https://github.com/open-telemetry/opentelemetry-python/blob/754fc36a408dd45e86d4a0f820f84e692f14b4c1/opentelemetry-api/src/opentelemetry/util/_once.py
+from threading import Lock
+from typing import Callable
+
+
+class Once:
+    """Execute a function exactly once and block all callers until the function returns"""
+
+    def __init__(self) -> None:
+        self.__lock = Lock()
+        self._done = False
+
+    def do_once(self, func: Callable[[], None]):
+        """
+        Execute ``func`` if it hasn't been executed or return.
+        Will block until ``func`` has been called by one thread.
+        """
+        if self._done:
+            return
+
+        with self.__lock:
+            if not self._done:
+                func()
+                self._done = True
+                return

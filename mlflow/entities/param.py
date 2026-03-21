@@ -1,10 +1,10 @@
 import sys
 
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Param as ProtoParam
 
 
-class Param(_MLflowObject):
+class Param(_MlflowObject):
     """
     Parameter object.
     """
@@ -38,3 +38,12 @@ class Param(_MLflowObject):
     @classmethod
     def from_proto(cls, proto):
         return cls(proto.key, proto.value)
+
+    def __eq__(self, __o):
+        if isinstance(__o, self.__class__):
+            return self._key == __o._key
+
+        return False
+
+    def __hash__(self):
+        return hash(self._key)

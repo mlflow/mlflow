@@ -1,30 +1,30 @@
 import logging
-import docker
-import time
 import os
-from threading import RLock
+import time
 from datetime import datetime
+from shlex import quote, split
+from threading import RLock
 
+import docker
 import kubernetes
 from kubernetes.config.config_exception import ConfigException
 
+from mlflow.entities import RunStatus
 from mlflow.exceptions import ExecutionException
 from mlflow.projects.submitted_run import SubmittedRun
-from mlflow.entities import RunStatus
-
-from shlex import split
-from shlex import quote
 
 _logger = logging.getLogger(__name__)
 
+_DOCKER_API_TIMEOUT = 300
+
 
 def push_image_to_registry(image_tag):
-    client = docker.from_env()
+    client = docker.from_env(timeout=_DOCKER_API_TIMEOUT)
     _logger.info("=== Pushing docker image %s ===", image_tag)
     for line in client.images.push(repository=image_tag, stream=True, decode=True):
         if "error" in line and line["error"]:
             raise ExecutionException(
-                "Error while pushing to docker registry: " "{error}".format(error=line["error"])
+                "Error while pushing to docker registry: {error}".format(error=line["error"])
             )
     return client.images.get_registry_data(image_tag).id
 
@@ -34,7 +34,7 @@ def _get_kubernetes_job_definition(
 ):
     container_image = image_tag + "@" + image_digest
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
-    job_name = "{}-{}".format(project_name, timestamp)
+    job_name = f"{project_name}-{timestamp}"
     _logger.info("=== Creating Job %s ===", job_name)
     if os.environ.get("KUBE_MLFLOW_TRACKING_URI") is not None:
         env_vars["MLFLOW_TRACKING_URI"] = os.environ["KUBE_MLFLOW_TRACKING_URI"]
@@ -61,7 +61,7 @@ def _load_kube_context(context=None):
         # trying to load either the context passed as arg or, if None,
         # the one provided as env var `KUBECONFIG` or in `~/.kube/config`
         kubernetes.config.load_kube_config(context=context)
-    except (IOError, ConfigException) as e:
+    except (OSError, ConfigException) as e:
         _logger.debug('Error loading kube context "%s": %s', context, e)
         _logger.info("No valid kube config found, using in-cluster configuration")
         kubernetes.config.load_incluster_config()
@@ -92,9 +92,11 @@ class KubernetesSubmittedRun(SubmittedRun):
     """
     Instance of SubmittedRun corresponding to a Kubernetes Job run launched to run an MLflow
     project.
-    :param mlflow_run_id: ID of the MLflow project run.
-    :param job_name: Kubernetes job name.
-    :param job_namespace: Kubernetes job namespace.
+
+    Args:
+        mlflow_run_id: ID of the MLflow project run.
+        job_name: Kubernetes job name.
+        job_namespace: Kubernetes job namespace.
     """
 
     # How often to poll run status when waiting on a run

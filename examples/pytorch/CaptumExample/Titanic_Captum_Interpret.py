@@ -1,21 +1,22 @@
 """
 Getting started with Captum - Titanic Data Analysis
 """
+
 # Initial imports
-import numpy as np
-import torch
-from captum.attr import IntegratedGradients
-from captum.attr import LayerConductance
-from captum.attr import NeuronConductance
-import matplotlib.pyplot as plt
-import pandas as pd
-from scipy import stats
-import mlflow
-from prettytable import PrettyTable
-from sklearn.model_selection import train_test_split
 import os
 from argparse import ArgumentParser
-import torch.nn as nn
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import torch
+from captum.attr import IntegratedGradients, LayerConductance, NeuronConductance
+from prettytable import PrettyTable
+from scipy import stats
+from sklearn.model_selection import train_test_split
+from torch import nn
+
+import mlflow
 
 
 def get_titanic():
@@ -36,27 +37,33 @@ def get_titanic():
     Class1 : Binary var indicating whether passenger was in first class
     Class2 : Binary var indicating whether passenger was in second class
     Class3 : Binary var indicating whether passenger was in third class
-    url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
     """
-    url = "https://biostat.app.vumc.org/wiki/pub/Main/DataSets/titanic3.csv"
-    titanic_data = pd.read_csv(url)
+    data_path = "titanic3.csv"
+    titanic_data = pd.read_csv(data_path)
     titanic_data = pd.concat(
         [
             titanic_data,
-            pd.get_dummies(titanic_data["sex"]),
-            pd.get_dummies(titanic_data["embarked"], prefix="embark"),
-            pd.get_dummies(titanic_data["pclass"], prefix="class"),
+            pd.get_dummies(titanic_data["sex"], dtype=np.uint8),
+            pd.get_dummies(titanic_data["embarked"], prefix="embark", dtype=np.uint8),
+            pd.get_dummies(titanic_data["pclass"], prefix="class", dtype=np.uint8),
         ],
         axis=1,
     )
 
     titanic_data["age"] = titanic_data["age"].fillna(titanic_data["age"].mean())
     titanic_data["fare"] = titanic_data["fare"].fillna(titanic_data["fare"].mean())
-    titanic_data = titanic_data.drop(
-        ["name", "ticket", "cabin", "boat", "body", "home.dest", "sex", "embarked", "pclass",],
+    return titanic_data.drop(
+        [
+            "passengerid",
+            "name",
+            "ticket",
+            "cabin",
+            "sex",
+            "embarked",
+            "pclass",
+        ],
         axis=1,
     )
-    return titanic_data
 
 
 torch.manual_seed(1)  # Set seed for reproducibility.
@@ -82,6 +89,8 @@ class TitanicSimpleNNModel(nn.Module):
 def prepare():
     RANDOM_SEED = 42
     titanic_data = get_titanic()
+    print(titanic_data)
+
     labels = titanic_data["survived"].to_numpy()
     titanic_data = titanic_data.drop(["survived"], axis=1)
     feature_names = list(titanic_data.columns)
@@ -90,14 +99,15 @@ def prepare():
     train_features, test_features, train_labels, test_labels = train_test_split(
         data, labels, test_size=0.3, random_state=RANDOM_SEED, stratify=labels
     )
-    return (train_features, train_labels, test_features, test_labels, feature_names)
+    train_features = np.vstack(train_features[:, :]).astype(np.float32)
+    test_features = np.vstack(test_features[:, :]).astype(np.float32)
+    return train_features, train_labels, test_features, test_labels, feature_names
 
 
 def count_model_parameters(model):
     table = PrettyTable(["Modules", "Parameters"])
     total_params = 0
     for name, parameter in model.named_parameters():
-
         if not parameter.requires_grad:
             continue
         param = parameter.nonzero(as_tuple=False).size(0)
@@ -118,7 +128,7 @@ def visualize_importances(
     feature_imp = PrettyTable(["feature_name", "importances"])
     feature_imp_dict = {}
     for i in range(len(feature_names)):
-        print(feature_names[i], ": ", "%.3f" % (importances[i]))
+        print(feature_names[i], ": ", f"{importances[i]:.3f}")
         feature_imp.add_row([feature_names[i], importances[i]])
         feature_imp_dict[str(feature_names[i])] = importances[i]
     x_pos = np.arange(len(feature_names))
@@ -147,6 +157,7 @@ def train(USE_PRETRAINED_MODEL=False):
         mlflow.log_param("lr", dict_args["lr"])
 
         optimizer = torch.optim.Adam(net.parameters(), lr=dict_args["lr"])
+        print(train_features.dtype)
         input_tensor = torch.from_numpy(train_features).type(torch.FloatTensor)
         label_tensor = torch.from_numpy(train_labels)
         for epoch in range(num_epochs):
@@ -156,11 +167,11 @@ def train(USE_PRETRAINED_MODEL=False):
             loss.backward()
             optimizer.step()
             if epoch % 50 == 0:
-                print(
-                    "Epoch {}/{} => Train Loss: {:.2f}".format(epoch + 1, num_epochs, loss.item())
-                )
+                print(f"Epoch {epoch + 1}/{num_epochs} => Train Loss: {loss.item():.2f}")
                 mlflow.log_metric(
-                    "Epoch {} Loss".format(str(epoch + 1)), float(loss.item()), step=epoch,
+                    f"Epoch {epoch + 1!s} Loss",
+                    float(loss.item()),
+                    step=epoch,
                 )
         if not os.path.isdir("models"):
             os.makedirs("models")
@@ -230,7 +241,7 @@ def layer_conductance(net, test_input_tensor):
     To use Layer Conductance, we create a LayerConductance object passing in the model as well as the module (layer) whose output we would like to understand.
     In this case, we choose net.sigmoid1, the output of the first hidden layer.
     Now obtain the conductance values for all the test examples by calling attribute on the LayerConductance object.
-    LayerConductance also requires a target index for networks with mutliple outputs, defining the index of the output for which gradients are computed.
+    LayerConductance also requires a target index for networks with multiple outputs, defining the index of the output for which gradients are computed.
     Similar to feature attributions, we provide target = 1, corresponding to survival.
     LayerConductance also utilizes a baseline, but we simply use the default zero baseline as in integrated gradients.
     """
@@ -277,7 +288,7 @@ def neuron_conductance(net, test_input_tensor, neuron_selector=None):
     neuron_cond = NeuronConductance(net, net.sigmoid1)
 
     # We can now obtain the neuron conductance values for all the test examples by calling attribute on the NeuronConductance object.
-    # Neuron Conductance requires the neuron index in the target layer for which attributions are requested as well as the target index for networks with mutliple outputs,
+    # Neuron Conductance requires the neuron index in the target layer for which attributions are requested as well as the target index for networks with multiple outputs,
     # similar to layer conductance. As before, we provide target = 1, corresponding to survival, and compute neuron conductance for neurons 0 and 10, the significant neurons identified above.
     # The neuron index can be provided either as a tuple or as just an integer if the layer output is 1-dimensional.
 
@@ -287,7 +298,7 @@ def neuron_conductance(net, test_input_tensor, neuron_selector=None):
     neuron_cond, _ = visualize_importances(
         feature_names,
         neuron_cond_vals.mean(dim=0).detach().numpy(),
-        title="Average Feature Importances for Neuron {}".format(neuron_selector),
+        title=f"Average Feature Importances for Neuron {neuron_selector}",
     )
     mlflow.log_text(
         str(neuron_cond), "Avg_Feature_Importances_Neuron_" + str(neuron_selector) + ".txt"
@@ -295,7 +306,6 @@ def neuron_conductance(net, test_input_tensor, neuron_selector=None):
 
 
 if __name__ == "__main__":
-
     parser = ArgumentParser(description="Titanic Captum Example")
 
     parser.add_argument(
@@ -314,14 +324,18 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--lr", type=float, default=0.1, metavar="LR", help="learning rate (default: 0.1)",
+        "--lr",
+        type=float,
+        default=0.1,
+        metavar="LR",
+        help="learning rate (default: 0.1)",
     )
 
     args = parser.parse_args()
     dict_args = vars(args)
 
     with mlflow.start_run(run_name="Titanic_Captum_mlflow"):
-        (net, train_features, train_labels, test_features, test_labels, feature_names,) = train()
+        net, train_features, train_labels, test_features, test_labels, feature_names = train()
 
         compute_accuracy(net, train_features, train_labels, title="Train Accuracy")
         test_input_tensor = compute_accuracy(net, test_features, test_labels, title="Test Accuracy")

@@ -1,9 +1,11 @@
-import numpy as np
 import argparse
-import mlflow
+
+import numpy as np
 import statsmodels.api as sm
-import mlflow.statsmodels
 from sklearn.metrics import mean_squared_error
+
+import mlflow
+import mlflow.statsmodels
 
 
 def parse_args():
@@ -28,7 +30,7 @@ def main():
     np.random.seed(9876789)
     nsamples = 100
     x = np.linspace(0, 10, 100)
-    X = np.column_stack((x, x ** 2))
+    X = np.column_stack((x, x**2))
     beta = np.array([1, 0.1, 10])
     e = np.random.normal(size=nsamples)
     X = sm.add_constant(X)
@@ -38,7 +40,6 @@ def main():
     mlflow.statsmodels.autolog()
 
     with mlflow.start_run():
-
         ols = sm.OLS(y, X)
         model = ols.fit(method=args.inverse_method)
 

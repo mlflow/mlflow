@@ -66,7 +66,7 @@ test_that("429s are retried", {
     )
   }
   responses <- list(new_response(429), new_response(429), new_response(200))
-  with_mock(.env = "httr", GET = function(...) {
+  with_mocked_bindings(.package  = "httr", GET = function(...) {
     res <- responses[[next_id]]
     next_id <<- next_id + 1
     res

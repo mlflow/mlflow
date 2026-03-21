@@ -6,6 +6,7 @@ import com.google.protobuf.util.JsonFormat;
 
 import java.lang.Iterable;
 import java.net.URISyntaxException;
+import java.util.List;
 
 import org.apache.http.client.utils.URIBuilder;
 import org.mlflow.api.proto.ModelRegistry.*;
@@ -160,8 +161,27 @@ class MlflowProtobufMapper {
     return print(builder);
   }
 
-  String makeGetModelVersionDetails(String modelName, String version) {
-    return print(GetModelVersion.newBuilder().setName(modelName).setVersion(version));
+  String makeGetRegisteredModel(String modelName) {
+    try {
+      return new URIBuilder("registered-models/get")
+          .addParameter("name", modelName)
+          .build()
+          .toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException("Failed to construct request URI for get model version.", e);
+    }
+  }
+
+  String makeGetModelVersion(String modelName, String modelVersion) {
+    try {
+      return new URIBuilder("model-versions/get")
+          .addParameter("name", modelName)
+          .addParameter("version", modelVersion)
+          .build()
+          .toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException("Failed to construct request URI for get model version.", e);
+    }
   }
 
   String makeGetModelVersionDownloadUri(String modelName, String modelVersion) {
@@ -176,6 +196,30 @@ class MlflowProtobufMapper {
     }
   }
 
+  String makeSearchModelVersions(String searchFilter,
+                                 int maxResults,
+                                 List<String> orderBy,
+                                 String pageToken) {
+    try {
+      URIBuilder builder = new URIBuilder("model-versions/search")
+              .addParameter("max_results", Integer.toString(maxResults));
+      if (searchFilter != null && searchFilter != "") {
+        builder.addParameter("filter", searchFilter);
+      }
+      if (pageToken != null && pageToken != "") {
+        builder.addParameter("page_token", pageToken);
+      }
+      for( String order: orderBy) {
+        builder.addParameter("order_by", order);
+      }
+      return builder.build().toString();
+    } catch (URISyntaxException e) {
+      throw new MlflowClientException(
+              "Failed to construct request URI for search model version.",
+              e);
+    }
+  }
+
   String toJson(MessageOrBuilder mb) {
     return print(mb);
   }
@@ -186,8 +230,14 @@ class MlflowProtobufMapper {
     return builder.build();
   }
 
-  ListExperiments.Response toListExperimentsResponse(String json) {
-    ListExperiments.Response.Builder builder = ListExperiments.Response.newBuilder();
+  GetExperimentByName.Response toGetExperimentByNameResponse(String json) {
+    GetExperimentByName.Response.Builder builder = GetExperimentByName.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  SearchExperiments.Response toSearchExperimentsResponse(String json) {
+    SearchExperiments.Response.Builder builder = SearchExperiments.Response.newBuilder();
     merge(json, builder);
     return builder.build();
   }
@@ -228,11 +278,29 @@ class MlflowProtobufMapper {
     return builder.build();
   }
 
+  GetModelVersion.Response toGetModelVersionResponse(String json) {
+    GetModelVersion.Response.Builder builder = GetModelVersion.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
+  GetRegisteredModel.Response toGetRegisteredModelResponse(String json) {
+    GetRegisteredModel.Response.Builder builder = GetRegisteredModel.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
+  }
+
   String toGetModelVersionDownloadUriResponse(String json) {
     GetModelVersionDownloadUri.Response.Builder builder = GetModelVersionDownloadUri.Response
             .newBuilder();
     merge(json, builder);
     return builder.getArtifactUri();
+  }
+
+  SearchModelVersions.Response toSearchModelVersionsResponse(String json) {
+    SearchModelVersions.Response.Builder builder = SearchModelVersions.Response.newBuilder();
+    merge(json, builder);
+    return builder.build();
   }
 
   private String print(MessageOrBuilder message) {

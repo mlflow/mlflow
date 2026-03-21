@@ -1,0 +1,36 @@
+# These are the extra requirements for MLflow Gateway, which can be installed
+# on top of the core requirements using `pip install mlflow[gateway]`.
+# When we release a new major/minor version, this file is automatically updated
+# as a part of the release process.
+
+fastapi:
+  pip_release: fastapi
+  max_major_version: 0
+
+uvicorn:
+  pip_release: uvicorn
+  extras:
+    - standard
+  max_major_version: 0
+
+watchfiles:
+  pip_release: watchfiles
+  max_major_version: 1
+
+aiohttp:
+  pip_release: aiohttp
+  max_major_version: 3
+
+boto3:
+  pip_release: boto3
+  minimum: "1.28.56"
+  max_major_version: 1
+
+tiktoken:
+  pip_release: tiktoken
+  max_major_version: 0
+
+slowapi:
+  pip_release: slowapi
+  max_major_version: 0
+  minimum: "0.1.9"

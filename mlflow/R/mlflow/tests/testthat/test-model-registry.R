@@ -11,7 +11,7 @@ get_mock_client <- function() {
 }
 
 test_that("mlflow can register a model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
             mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/create")
@@ -39,8 +39,8 @@ test_that("mlflow can register a model", {
 })
 
 test_that("mlflow can register a model with tags and description", {
-  with_mock(
-    .env = "mlflow",
+  with_mocked_bindings(
+    .package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/create")
@@ -76,7 +76,7 @@ test_that("mlflow can register a model with tags and description", {
 })
 
 test_that("mlflow can get a registered model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2], collapse = "/") == "registered-models/get")
@@ -93,7 +93,7 @@ test_that("mlflow can get a registered model", {
 })
 
 test_that("mlflow can rename a registered model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_equal(paste(args[1:2], collapse = "/"), "registered-models/rename")
@@ -112,7 +112,7 @@ test_that("mlflow can rename a registered model", {
 })
 
 test_that("mlflow can update a model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_equal(paste(args[1:2], collapse = "/"), "registered-models/update")
@@ -132,7 +132,7 @@ test_that("mlflow can update a model", {
 })
 
 test_that("mlflow can delete a model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_equivalent(paste(args[1:2], collapse = "/"), "registered-models/delete")
@@ -145,11 +145,11 @@ test_that("mlflow can delete a model", {
 })
 
 test_that("mlflow can retrieve a list of registered models without args", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
-      expect_true(paste(args[1:2], collapse = "/") == "registered-models/list")
-      expect_equal(args$verb, "GET")
+      expect_true(paste(args[1:2], collapse = "/") == "registered-models/search")
+      expect_equal(args$verb, "POST")
 
       return(list(
         registered_models = list(),
@@ -157,30 +157,58 @@ test_that("mlflow can retrieve a list of registered models without args", {
       ))
     }, {
       mock_client <- get_mock_client()
-      mlflow_list_registered_models(client = mock_client)
+      search_result <- mlflow_search_registered_models(client = mock_client)
+      expect_null(search_result$next_page_token)
   })
 })
 
 test_that("mlflow can retrieve a list of registered models with args", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
-      expect_true(paste(args[1:2], collapse = "/") == "registered-models/list")
-      expect_equal(args$verb, "GET")
+      expect_true(paste(args[1:2], collapse = "/") == "registered-models/search")
+      expect_equal(args$verb, "POST")
+      expect_equal(args$data$max_results, 5)
+      expect_equal(args$data$page_token, "abc")
+      expect_equal(args$data$filter, "name LIKE '%foo'")
+      expect_equal(
+        args$data$order_by, mlflow:::cast_string_list(list("name ASC", "last_updated_timestamp"))
+      )
 
       return(list(
-        registered_models = list(),
+        registered_models = list(
+          list(
+            name = "test_model",
+            creation_timestamp = 1.6241e+12,
+            last_updated_timestamp = 1.6241e+12,
+            user_id = "donald.duck"
+          )
+        ),
         next_page_token = "def"
       ))
     }, {
       mock_client <- get_mock_client()
-      mlflow_list_registered_models(max_results = 5, page_token = "abc",
-                                    client = mock_client)
+      search_result <- mlflow_search_registered_models(filter = "name LIKE '%foo'",
+                                                       max_results = 5,
+                                                       order_by = list(
+                                                         "name ASC", "last_updated_timestamp"
+                                                       ),
+                                                       page_token = "abc",
+                                                       client = mock_client)
+      expect_equal(search_result$registered_models, list(
+        list(
+          name = "test_model",
+          creation_timestamp = 1.6241e+12,
+          last_updated_timestamp = 1.6241e+12,
+          user_id = "donald.duck"
+        )
+      ))
+      expect_equal(search_result$next_page_token, "def")
   })
 })
 
 test_that("mlflow can retrieve a list of model versions", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -195,7 +223,7 @@ test_that("mlflow can retrieve a list of model versions", {
 })
 
 test_that("mlflow can retrieve a list of model versions for given stages", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -211,7 +239,7 @@ test_that("mlflow can retrieve a list of model versions for given stages", {
 })
 
 test_that("mlflow can create a model version", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -231,7 +259,7 @@ test_that("mlflow can create a model version", {
 })
 
 test_that("mlflow can get a model version", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -251,7 +279,7 @@ test_that("mlflow can get a model version", {
 })
 
 test_that("mlflow can update a model version", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -272,7 +300,7 @@ test_that("mlflow can update a model version", {
 })
 
 test_that("mlflow can delete a model version", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
             mlflow_rest = function(...) {
               args <- list(...)
               expect_true(paste(args[1:2],
@@ -292,7 +320,7 @@ test_that("mlflow can delete a model version", {
 })
 
 test_that("mlflow can transition a model", {
-  with_mock(.env = "mlflow",
+  with_mocked_bindings(.package = "mlflow",
     mlflow_rest = function(...) {
       args <- list(...)
       expect_true(paste(args[1:2],
@@ -309,5 +337,27 @@ test_that("mlflow can transition a model", {
                                             version = 1,
                                             stage = "Production",
                                             client = mock_client)
+  })
+})
+
+test_that("mlflow can set model version tag", {
+  with_mocked_bindings(.package = "mlflow",
+    mlflow_rest = function(...) {
+      args <- list(...)
+      expect_true(paste(args[1:2],
+                  collapse = "/") == "model-versions/set-tag")
+      expect_equal(args$verb, "POST")
+      return(list(model_version = list(
+                  name = "mymodel",
+                  version = 1,
+                  source = "test_uri"
+      )))
+    }, {
+      mock_client <- get_mock_client()
+      mlflow_set_model_version_tag(name = "mymodel",
+                                   version = 1,
+                                   key = "test_key",
+                                   value = "test_value",
+                                   client = mock_client)
   })
 })

@@ -1,26 +1,23 @@
-import yaml
-import pytest
 from unittest import mock
 
 import kubernetes
+import pytest
+import yaml
 from kubernetes.config.config_exception import ConfigException
 
-from mlflow.projects import kubernetes as kb
-from mlflow.exceptions import ExecutionException
 from mlflow.entities import RunStatus
+from mlflow.exceptions import ExecutionException
+from mlflow.projects import kubernetes as kb
 
 
-def test_run_command_creation():  # pylint: disable=unused-argument
-    """
-    Tests command creation.
-    """
+def test_run_command_creation():
     command = [
         "python train.py --alpha 0.5 --l1-ratio 0.1",
         "--comment 'foo bar'",
         '--comment-bis "bar foo"',
     ]
     command = kb._get_run_command(command)
-    assert [
+    assert command == [
         "python",
         "train.py",
         "--alpha",
@@ -31,10 +28,10 @@ def test_run_command_creation():  # pylint: disable=unused-argument
         "'foo bar'",
         "--comment-bis",
         "'bar foo'",
-    ] == command
+    ]
 
 
-def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
+def test_valid_kubernetes_job_spec():
     """
     Tests job specification for Kubernetes.
     """
@@ -59,7 +56,7 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     project_name = "mlflow-docker-example"
     image_tag = "image_tag"
     image_digest = "5e74a5a"
-    command = ["mlflow", "run", ".", "--no-conda", "-P", "alpha=0.5"]
+    command = ["mlflow", "run", ".", "--env-manager", "local", "-P", "alpha=0.5"]
     env_vars = {"RUN_ID": "1"}
     job_definition = kb._get_kubernetes_job_definition(
         project_name=project_name,
@@ -73,7 +70,7 @@ def test_valid_kubernetes_job_spec():  # pylint: disable=unused-argument
     assert container_spec["name"] == project_name
     assert container_spec["image"] == image_tag + "@" + image_digest
     assert container_spec["command"] == command
-    assert 2 == len(container_spec["env"])
+    assert len(container_spec["env"]) == 2
     assert container_spec["env"][0]["name"] == "DUMMY"
     assert container_spec["env"][0]["value"] == "test_var"
     assert container_spec["env"][1]["name"] == "RUN_ID"
@@ -104,25 +101,27 @@ def test_run_kubernetes_job():
         "        command: ['perl',  '-Mbignum=bpi', '-wle']\n"
         "      restartPolicy: Never\n"
     )
-    with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
-        with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
-            submitted_run_obj = kb.run_kubernetes_job(
-                project_name=project_name,
-                active_run=active_run,
-                image_tag=image_tag,
-                image_digest=image_digest,
-                command=command,
-                env_vars=env_vars,
-                job_template=job_template,
-                kube_context=kube_context,
-            )
+    with (
+        mock.patch("kubernetes.config.load_kube_config") as kube_config_mock,
+        mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock,
+    ):
+        submitted_run_obj = kb.run_kubernetes_job(
+            project_name=project_name,
+            active_run=active_run,
+            image_tag=image_tag,
+            image_digest=image_digest,
+            command=command,
+            env_vars=env_vars,
+            job_template=job_template,
+            kube_context=kube_context,
+        )
 
-            assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
-            assert submitted_run_obj._job_name.startswith(project_name)
-            assert submitted_run_obj._job_namespace == "mlflow"
-            assert kube_api_mock.call_count == 1
-            args = kube_config_mock.call_args_list
-            assert args[0][1]["context"] == kube_context
+        assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
+        assert submitted_run_obj._job_name.startswith(project_name)
+        assert submitted_run_obj._job_namespace == "mlflow"
+        assert kube_api_mock.call_count == 1
+        args = kube_config_mock.call_args_list
+        assert args[0][1]["context"] == kube_context
 
 
 def test_run_kubernetes_job_current_kubecontext():
@@ -150,26 +149,28 @@ def test_run_kubernetes_job_current_kubecontext():
         "        command: ['perl',  '-Mbignum=bpi', '-wle']\n"
         "      restartPolicy: Never\n"
     )
-    with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
-        with mock.patch("kubernetes.config.load_incluster_config") as incluster_kube_config_mock:
-            with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
-                submitted_run_obj = kb.run_kubernetes_job(
-                    project_name=project_name,
-                    active_run=active_run,
-                    image_tag=image_tag,
-                    image_digest=image_digest,
-                    command=command,
-                    env_vars=env_vars,
-                    job_template=job_template,
-                    kube_context=kube_context,
-                )
+    with (
+        mock.patch("kubernetes.config.load_kube_config") as kube_config_mock,
+        mock.patch("kubernetes.config.load_incluster_config") as incluster_kube_config_mock,
+        mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock,
+    ):
+        submitted_run_obj = kb.run_kubernetes_job(
+            project_name=project_name,
+            active_run=active_run,
+            image_tag=image_tag,
+            image_digest=image_digest,
+            command=command,
+            env_vars=env_vars,
+            job_template=job_template,
+            kube_context=kube_context,
+        )
 
-                assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
-                assert submitted_run_obj._job_name.startswith(project_name)
-                assert submitted_run_obj._job_namespace == "mlflow"
-                assert kube_api_mock.call_count == 1
-                assert kube_config_mock.call_count == 1
-                assert incluster_kube_config_mock.call_count == 0
+        assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
+        assert submitted_run_obj._job_name.startswith(project_name)
+        assert submitted_run_obj._job_namespace == "mlflow"
+        assert kube_api_mock.call_count == 1
+        assert kube_config_mock.call_count == 1
+        assert incluster_kube_config_mock.call_count == 0
 
 
 def test_run_kubernetes_job_in_cluster():
@@ -198,25 +199,27 @@ def test_run_kubernetes_job_in_cluster():
     )
     with mock.patch("kubernetes.config.load_kube_config") as kube_config_mock:
         kube_config_mock.side_effect = ConfigException()
-        with mock.patch("kubernetes.config.load_incluster_config") as incluster_kube_config_mock:
-            with mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock:
-                submitted_run_obj = kb.run_kubernetes_job(
-                    project_name=project_name,
-                    active_run=active_run,
-                    image_tag=image_tag,
-                    image_digest=image_digest,
-                    command=command,
-                    env_vars=env_vars,
-                    job_template=job_template,
-                    kube_context=kube_context,
-                )
+        with (
+            mock.patch("kubernetes.config.load_incluster_config") as incluster_kube_config_mock,
+            mock.patch("kubernetes.client.BatchV1Api.create_namespaced_job") as kube_api_mock,
+        ):
+            submitted_run_obj = kb.run_kubernetes_job(
+                project_name=project_name,
+                active_run=active_run,
+                image_tag=image_tag,
+                image_digest=image_digest,
+                command=command,
+                env_vars=env_vars,
+                job_template=job_template,
+                kube_context=kube_context,
+            )
 
-                assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
-                assert submitted_run_obj._job_name.startswith(project_name)
-                assert submitted_run_obj._job_namespace == "mlflow"
-                assert kube_api_mock.call_count == 1
-                assert kube_config_mock.call_count == 1
-                assert incluster_kube_config_mock.call_count == 1
+            assert submitted_run_obj._mlflow_run_id == active_run.info.run_id
+            assert submitted_run_obj._job_name.startswith(project_name)
+            assert submitted_run_obj._job_namespace == "mlflow"
+            assert kube_api_mock.call_count == 1
+            assert kube_config_mock.call_count == 1
+            assert incluster_kube_config_mock.call_count == 1
 
 
 def test_push_image_to_registry():
@@ -232,7 +235,10 @@ def test_push_image_to_registry():
 
 def test_push_image_to_registry_handling_errors():
     image_uri = "dockerhub_account/mlflow-kubernetes-example"
-    with pytest.raises(ExecutionException):
+    with pytest.raises(
+        ExecutionException,
+        match="Error while pushing to docker registry: An image does not exist locally",
+    ):
         kb.push_image_to_registry(image_uri)
 
 
@@ -264,10 +270,10 @@ def test_submitted_run_get_status_failed():
         succeeded=None,
     )
     job = kubernetes.client.models.V1Job(status=job_status)
-    with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
-        kube_api_mock.return_value = job
+    with mock.patch(
+        "kubernetes.client.BatchV1Api.read_namespaced_job_status", return_value=job
+    ) as kube_api_mock:
         submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
-        print("status", submitted_run.get_status())
         assert RunStatus.FAILED == submitted_run.get_status()
         assert kube_api_mock.call_count == 1
         args = kube_api_mock.call_args_list
@@ -289,10 +295,10 @@ def test_submitted_run_get_status_succeeded():
         succeeded=1,
     )
     job = kubernetes.client.models.V1Job(status=job_status)
-    with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
-        kube_api_mock.return_value = job
+    with mock.patch(
+        "kubernetes.client.BatchV1Api.read_namespaced_job_status", return_value=job
+    ) as kube_api_mock:
         submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
-        print("status", submitted_run.get_status())
         assert RunStatus.FINISHED == submitted_run.get_status()
         assert kube_api_mock.call_count == 1
         args = kube_api_mock.call_args_list
@@ -308,13 +314,13 @@ def test_submitted_run_get_status_running():
         active=1, completion_time=None, conditions=None, failed=1, start_time=1, succeeded=1
     )
     job = kubernetes.client.models.V1Job(status=job_status)
-    with mock.patch("kubernetes.client.BatchV1Api.read_namespaced_job_status") as kube_api_mock:
-        kube_api_mock.return_value = job
+    with mock.patch(
+        "kubernetes.client.BatchV1Api.read_namespaced_job_status", return_value=job
+    ) as kube_api_mock:
         submitted_run = kb.KubernetesSubmittedRun(mlflow_run_id, job_name, job_namespace)
         assert RunStatus.RUNNING == submitted_run.get_status()
         assert kube_api_mock.call_count == 1
         args = kube_api_mock.call_args_list
-        print(args)
         assert args[0][1]["name"] == job_name
         assert args[0][1]["namespace"] == job_namespace
 

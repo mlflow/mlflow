@@ -1,0 +1,35 @@
+name: Team review
+
+on:
+  pull_request_target:
+    types:
+      - labeled
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  review:
+    runs-on: ubuntu-slim
+    if: ${{ github.event.label.name == 'team-review' }}
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+      issues: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          sparse-checkout: .github/workflows
+
+      - name: Select reviewers
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        with:
+          retries: 3
+          script: |
+            const script = require('./.github/workflows/team-review.js');
+            await script({ github, context });

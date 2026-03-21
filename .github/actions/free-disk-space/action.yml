@@ -1,0 +1,9 @@
+name: "free-disk-space"
+description: "free disk space"
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        # Run in background to save time
+        sudo rm -rf /usr/local/lib/android &

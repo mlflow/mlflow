@@ -1,0 +1,292 @@
+/* Replaceing AntD Image */
+.mlflow-ui-container .rc-image-preview {
+  height: 100%;
+  pointer-events: none;
+  text-align: center;
+}
+
+.mlflow-ui-container .rc-image-preview-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+}
+
+.mlflow-ui-container .rc-image-preview-mask img {
+  max-width: 100%;
+  max-height: 100%;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.mlflow-ui-container .rc-image-preview-mask {
+  background-color: rgba(0, 0, 0, 0.45);
+  bottom: 0;
+  height: 100%;
+  left: 0;
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1000;
+}
+
+.mlflow-ui-container .rc-image-preview-mask-hidden {
+  display: none;
+}
+
+.mlflow-ui-container .rc-image-preview-wrap {
+  -webkit-overflow-scrolling: touch;
+  bottom: 0;
+  left: 0;
+  outline: 0;
+  overflow: auto;
+  position: fixed;
+  right: 0;
+  top: 0px;
+}
+
+.mlflow-ui-container .rc-image-preview-body {
+  bottom: 0;
+  left: 0;
+  overflow: hidden;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.mlflow-ui-container .rc-image-preview-img {
+  cursor: grab;
+  max-height: 100%;
+  max-width: 100%;
+  pointer-events: auto;
+  transform: scaleX(1);
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  vertical-align: middle;
+}
+
+.mlflow-ui-container .rc-image-preview-img,
+.mlflow-ui-container .rc-image-preview-img-wrapper {
+  transition: transform 0.3s cubic-bezier(0.215, 0.61, 0.355, 1) 0s;
+}
+
+.mlflow-ui-container .rc-image-preview-img-wrapper {
+  bottom: 0;
+  left: 0;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.mlflow-ui-container .rc-image-preview-img-wrapper:before {
+  content: '';
+  display: inline-block;
+  height: 50%;
+  margin-right: -1px;
+  width: 1px;
+}
+
+.mlflow-ui-container .rc-image-preview-moving .mlflow-ui-container .rc-image-preview-img {
+  cursor: grabbing;
+}
+
+.mlflow-ui-container .rc-image-preview-moving .mlflow-ui-container .rc-image-preview-img-wrapper {
+  transition-duration: 0s;
+}
+
+.mlflow-ui-container .rc-image-preview-wrap {
+  z-index: 1080;
+}
+
+.mlflow-ui-container .rc-image-preview-operations {
+  font-feature-settings: 'tnum', 'tnum';
+  align-items: center;
+  background: rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
+  color: rgba(0, 0, 0, 0.85);
+  color: hsla(0, 0%, 100%, 0.85);
+  display: flex;
+  flex-direction: row-reverse;
+  font-size: 14px;
+  font-variant: tabular-nums;
+  line-height: 1.5715;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  pointer-events: auto;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 100%;
+  z-index: 1;
+}
+
+.mlflow-ui-container .rc-image-preview-operations-operation {
+  cursor: pointer;
+  margin-left: 12px;
+  padding: 12px;
+}
+
+.mlflow-ui-container .rc-image-preview-operations-operation-disabled {
+  color: hsla(0, 0%, 100%, 0.25);
+  pointer-events: none;
+}
+
+.mlflow-ui-container .rc-image-preview-operations-operation:last-of-type {
+  margin-left: 0;
+}
+
+.mlflow-ui-container .rc-image-preview-operations-icon {
+  font-size: 18px;
+}
+
+.mlflow-ui-container .rc-image-preview-switch-left,
+.mlflow-ui-container .rc-image-preview-switch-right {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  color: hsla(0, 0%, 100%, 0.85);
+  cursor: pointer;
+  display: flex;
+  height: 44px;
+  justify-content: center;
+  margin-top: -22px;
+  pointer-events: auto;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 44px;
+  z-index: 1;
+}
+
+.mlflow-ui-container .rc-image-preview-switch-left-disabled,
+.mlflow-ui-container .rc-image-preview-switch-right-disabled {
+  color: hsla(0, 0%, 100%, 0.25);
+  cursor: not-allowed;
+}
+
+.mlflow-ui-container .rc-image-preview-switch-left-disabled > .anticon,
+.mlflow-ui-container .rc-image-preview-switch-right-disabled > .anticon {
+  cursor: not-allowed;
+}
+
+.mlflow-ui-container .rc-image-preview-switch-left > .anticon,
+.mlflow-ui-container .rc-image-preview-switch-right > .anticon {
+  font-size: 18px;
+}
+
+.mlflow-ui-container .rc-image-preview-switch-left {
+  left: 10px;
+}
+
+.mlflow-ui-container .rc-image-preview-switch-right {
+  right: 10px;
+}
+
+.mlflow-ui-container .fade-enter,
+.mlflow-ui-container .fade-appear {
+  animation-duration: 0.3s;
+  animation-fill-mode: both;
+  animation-play-state: paused;
+}
+.mlflow-ui-container .fade-leave {
+  animation-duration: 0.3s;
+  animation-fill-mode: both;
+  animation-play-state: paused;
+}
+.mlflow-ui-container .fade-enter.fade-enter-active,
+.mlflow-ui-container .fade-appear.fade-appear-active {
+  animation-name: mlflow-rcImageFadeIn;
+  animation-play-state: running;
+}
+.mlflow-ui-container .fade-leave.fade-leave-active {
+  animation-name: mlflow-rcImageFadeOut;
+  animation-play-state: running;
+  pointer-events: none;
+}
+.mlflow-ui-container .fade-enter,
+.mlflow-ui-container .fade-appear {
+  opacity: 0;
+  animation-timing-function: linear;
+}
+.mlflow-ui-container .fade-leave {
+  animation-timing-function: linear;
+}
+
+@keyframes mlflow-rcImageFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes mlflow-rcImageFadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.mlflow-ui-container .zoom-enter,
+.mlflow-ui-container .zoom-appear {
+  animation-duration: 0.3s;
+  animation-fill-mode: both;
+  animation-play-state: paused;
+}
+.mlflow-ui-container .zoom-leave {
+  animation-duration: 0.3s;
+  animation-fill-mode: both;
+  animation-play-state: paused;
+}
+.mlflow-ui-container .zoom-enter.zoom-enter-active,
+.mlflow-ui-container .zoom-appear.zoom-appear-active {
+  animation-name: mlflow-rcImageZoomIn;
+  animation-play-state: running;
+}
+.mlflow-ui-container .zoom-leave.zoom-leave-active {
+  animation-name: mlflow-rcImageZoomOut;
+  animation-play-state: running;
+  pointer-events: none;
+}
+.mlflow-ui-container .zoom-enter,
+.mlflow-ui-container .zoom-appear {
+  transform: scale(0);
+  opacity: 0;
+  animation-timing-function: cubic-bezier(0.08, 0.82, 0.17, 1);
+}
+.mlflow-ui-container .zoom-leave {
+  animation-timing-function: cubic-bezier(0.78, 0.14, 0.15, 0.86);
+}
+
+@keyframes mlflow-rcImageZoomIn {
+  0% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes mlflow-rcImageZoomOut {
+  0% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}

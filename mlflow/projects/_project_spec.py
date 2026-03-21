@@ -1,15 +1,16 @@
 """Internal utilities for parsing MLproject YAML files."""
 
 import os
-from shlex import quote
+
 import yaml
 
-from mlflow import data
-from mlflow.exceptions import ExecutionException
+from mlflow.exceptions import ExecutionException, MlflowException
+from mlflow.projects import env_type
 from mlflow.tracking import artifact_utils
+from mlflow.utils import data_utils
+from mlflow.utils.environment import _PYTHON_ENV_FILE_NAME
 from mlflow.utils.file_utils import get_local_path_or_none
-from mlflow.utils.string_utils import is_string_type
-
+from mlflow.utils.string_utils import is_string_type, quote
 
 MLPROJECT_FILE_NAME = "mlproject"
 DEFAULT_CONDA_FILE_NAME = "conda.yaml"
@@ -32,11 +33,73 @@ def load_project(directory):
         with open(mlproject_path) as mlproject_file:
             yaml_obj = yaml.safe_load(mlproject_file)
 
+    # Validate the project config does't contain multiple environment fields
+    env_fields = set(yaml_obj.keys()).intersection(env_type.ALL)
+    if len(env_fields) > 1:
+        raise ExecutionException(
+            f"Project cannot contain multiple environment fields: {env_fields}"
+        )
+
     project_name = yaml_obj.get("name")
 
+    # Parse entry points
+    entry_points = {}
+    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
+        parameters = entry_point_yaml.get("parameters", {})
+        command = entry_point_yaml.get("command")
+        entry_points[name] = EntryPoint(name, parameters, command)
+
+    databricks_spark_job_yaml = yaml_obj.get("databricks_spark_job")
+    if databricks_spark_job_yaml is not None:
+        python_file = databricks_spark_job_yaml.get("python_file")
+
+        if python_file is None and not entry_points:
+            raise MlflowException(
+                "Databricks Spark job requires either 'databricks_spark_job.python_file' "
+                "setting or 'entry_points' setting."
+            )
+        if python_file is not None and entry_points:
+            raise MlflowException(
+                "Databricks Spark job does not allow setting both "
+                "'databricks_spark_job.python_file' and 'entry_points'."
+            )
+
+        for entry_point in entry_points.values():
+            for param in entry_point.parameters.values():
+                if param.type == "path":
+                    raise MlflowException(
+                        "Databricks Spark job does not support entry point parameter of 'path' "
+                        f"type. '{param.name}' value type is invalid."
+                    )
+
+        if env_type.DOCKER in yaml_obj:
+            raise MlflowException(
+                "Databricks Spark job does not support setting docker environment."
+            )
+
+        if env_type.PYTHON in yaml_obj:
+            raise MlflowException(
+                "Databricks Spark job does not support setting python environment."
+            )
+
+        if env_type.CONDA in yaml_obj:
+            raise MlflowException(
+                "Databricks Spark job does not support setting conda environment."
+            )
+
+        databricks_spark_job_spec = DatabricksSparkJobSpec(
+            python_file=databricks_spark_job_yaml.get("python_file"),
+            parameters=databricks_spark_job_yaml.get("parameters", []),
+            python_libraries=databricks_spark_job_yaml.get("python_libraries", []),
+        )
+        return Project(
+            databricks_spark_job_spec=databricks_spark_job_spec,
+            name=project_name,
+            entry_points=entry_points,
+        )
+
     # Validate config if docker_env parameter is present
-    docker_env = yaml_obj.get("docker_env")
-    if docker_env:
+    if docker_env := yaml_obj.get(env_type.DOCKER):
         if not docker_env.get("image"):
             raise ExecutionException(
                 "Project configuration (MLproject file) was invalid: Docker "
@@ -45,7 +108,7 @@ def load_project(directory):
         if docker_env.get("volumes"):
             if not (
                 isinstance(docker_env["volumes"], list)
-                and all([isinstance(i, str) for i in docker_env["volumes"]])
+                and all(isinstance(i, str) for i in docker_env["volumes"])
             ):
                 raise ExecutionException(
                     "Project configuration (MLproject file) was invalid: "
@@ -55,9 +118,7 @@ def load_project(directory):
         if docker_env.get("environment"):
             if not (
                 isinstance(docker_env["environment"], list)
-                and all(
-                    [isinstance(i, list) or isinstance(i, str) for i in docker_env["environment"]]
-                )
+                and all(isinstance(i, (list, str)) for i in docker_env["environment"])
             ):
                 raise ExecutionException(
                     "Project configuration (MLproject file) was invalid: "
@@ -66,68 +127,116 @@ def load_project(directory):
                     "environment variables)."
                     """E.g.: '[["NEW_VAR", "new_value"], "VAR_TO_COPY_FROM_HOST"])"""
                 )
+        return Project(
+            env_type=env_type.DOCKER,
+            env_config_path=None,
+            entry_points=entry_points,
+            docker_env=docker_env,
+            name=project_name,
+        )
 
-    # Validate config if conda_env parameter is present
-    conda_path = yaml_obj.get("conda_env")
-    if conda_path and docker_env:
-        raise ExecutionException("Project cannot contain both a docker and " "conda environment.")
+    if python_env := yaml_obj.get(env_type.PYTHON):
+        python_env_path = os.path.join(directory, python_env)
+        if not os.path.exists(python_env_path):
+            raise ExecutionException(
+                f"Project specified python_env file {python_env_path}, but no such file was found."
+            )
+        return Project(
+            env_type=env_type.PYTHON,
+            env_config_path=python_env_path,
+            entry_points=entry_points,
+            docker_env=None,
+            name=project_name,
+        )
 
-    # Parse entry points
-    entry_points = {}
-    for name, entry_point_yaml in yaml_obj.get("entry_points", {}).items():
-        parameters = entry_point_yaml.get("parameters", {})
-        command = entry_point_yaml.get("command")
-        entry_points[name] = EntryPoint(name, parameters, command)
-
-    if conda_path:
+    if conda_path := yaml_obj.get(env_type.CONDA):
         conda_env_path = os.path.join(directory, conda_path)
         if not os.path.exists(conda_env_path):
             raise ExecutionException(
-                "Project specified conda environment file %s, but no such "
-                "file was found." % conda_env_path
+                f"Project specified conda environment file {conda_env_path}, but no such "
+                "file was found."
             )
         return Project(
-            conda_env_path=conda_env_path,
+            env_type=env_type.CONDA,
+            env_config_path=conda_env_path,
             entry_points=entry_points,
-            docker_env=docker_env,
+            docker_env=None,
+            name=project_name,
+        )
+
+    default_python_env_path = os.path.join(directory, _PYTHON_ENV_FILE_NAME)
+    if os.path.exists(default_python_env_path):
+        return Project(
+            env_type=env_type.PYTHON,
+            env_config_path=default_python_env_path,
+            entry_points=entry_points,
+            docker_env=None,
             name=project_name,
         )
 
     default_conda_path = os.path.join(directory, DEFAULT_CONDA_FILE_NAME)
     if os.path.exists(default_conda_path):
         return Project(
-            conda_env_path=default_conda_path,
+            env_type=env_type.CONDA,
+            env_config_path=default_conda_path,
             entry_points=entry_points,
-            docker_env=docker_env,
+            docker_env=None,
             name=project_name,
         )
 
     return Project(
-        conda_env_path=None, entry_points=entry_points, docker_env=docker_env, name=project_name
+        env_type=env_type.PYTHON,
+        env_config_path=None,
+        entry_points=entry_points,
+        docker_env=None,
+        name=project_name,
     )
 
 
-class Project(object):
+class Project:
     """A project specification loaded from an MLproject file in the passed-in directory."""
 
-    def __init__(self, conda_env_path, entry_points, docker_env, name):
-        self.conda_env_path = conda_env_path
+    def __init__(
+        self,
+        name,
+        env_type=None,
+        env_config_path=None,
+        entry_points=None,
+        docker_env=None,
+        databricks_spark_job_spec=None,
+    ):
+        self.env_type = env_type
+        self.env_config_path = env_config_path
         self._entry_points = entry_points
         self.docker_env = docker_env
         self.name = name
+        self.databricks_spark_job_spec = databricks_spark_job_spec
 
     def get_entry_point(self, entry_point):
+        if self.databricks_spark_job_spec:
+            if self.databricks_spark_job_spec.python_file is not None:
+                # If Databricks Spark job is configured with python_file field,
+                # it does not need to configure entry_point section
+                # and the 'entry_point' param in 'mlflow run' command is ignored
+                return None
+
+            if self._entry_points is None or entry_point not in self._entry_points:
+                raise MlflowException(
+                    f"The entry point '{entry_point}' is not defined in the Databricks spark job "
+                    f"MLproject file."
+                )
+
         if entry_point in self._entry_points:
             return self._entry_points[entry_point]
         _, file_extension = os.path.splitext(entry_point)
         ext_to_cmd = {".py": "python", ".sh": os.environ.get("SHELL", "bash")}
         if file_extension in ext_to_cmd:
-            command = "%s %s" % (ext_to_cmd[file_extension], quote(entry_point))
+            command = f"{ext_to_cmd[file_extension]} {quote(entry_point)}"
             if not is_string_type(command):
                 command = command.encode("utf-8")
             return EntryPoint(name=entry_point, parameters={}, command=command)
         elif file_extension == ".R":
-            command = "Rscript -e \"mlflow::mlflow_source('%s')\" --args" % quote(entry_point)
+            command = f"Rscript -e \"mlflow::mlflow_source('{quote(entry_point)}')\" --args"
             return EntryPoint(name=entry_point, parameters={}, command=command)
         raise ExecutionException(
             "Could not find {0} among entry points {1} or interpret {0} as a "
@@ -136,7 +245,7 @@ class Project(object):
         )
 
 
-class EntryPoint(object):
+class EntryPoint:
     """An entry point in an MLproject specification."""
 
     def __init__(self, name, parameters, command):
@@ -145,14 +254,16 @@ class EntryPoint(object):
         self.command = command
 
     def _validate_parameters(self, user_parameters):
-        missing_params = []
-        for name in self.parameters:
-            if name not in user_parameters and self.parameters[name].default is None:
-                missing_params.append(name)
+        missing_params = [
+            name
+            for name in self.parameters
+            if name not in user_parameters and self.parameters[name].default is None
+        ]
         if missing_params:
             raise ExecutionException(
-                "No value given for missing parameters: %s"
-                % ", ".join(["'%s'" % name for name in missing_params])
+                "No value given for missing parameters: {}".format(
+                    ", ".join([f"'{name}'" for name in missing_params])
+                )
             )
 
     def compute_parameters(self, user_parameters, storage_dir):
@@ -191,7 +302,7 @@ class EntryPoint(object):
         params, extra_params = self.compute_parameters(user_parameters, storage_dir)
         command_with_params = self.command.format(**params)
         command_arr = [command_with_params]
-        command_arr.extend(["--%s %s" % (key, value) for key, value in extra_params.items()])
+        command_arr.extend([f"--{key} {value}" for key, value in extra_params.items()])
         return " ".join(command_arr)
 
     @staticmethod
@@ -199,7 +310,7 @@ class EntryPoint(object):
         return {str(key): quote(str(value)) for key, value in param_dict.items()}
 
 
-class Parameter(object):
+class Parameter:
     """A parameter in an MLproject entry point."""
 
     def __init__(self, name, yaml_obj):
@@ -212,22 +323,21 @@ class Parameter(object):
             self.default = yaml_obj.get("default")
 
     def _compute_uri_value(self, user_param_value):
-        if not data.is_uri(user_param_value):
+        if not data_utils.is_uri(user_param_value):
             raise ExecutionException(
-                "Expected URI for parameter %s but got " "%s" % (self.name, user_param_value)
+                f"Expected URI for parameter {self.name} but got {user_param_value}"
             )
         return user_param_value
 
     def _compute_path_value(self, user_param_value, storage_dir, key_position):
-        local_path = get_local_path_or_none(user_param_value)
-        if local_path:
+        if local_path := get_local_path_or_none(user_param_value):
             if not os.path.exists(local_path):
                 raise ExecutionException(
-                    "Got value %s for parameter %s, but no such file or "
-                    "directory was found." % (user_param_value, self.name)
+                    f"Got value {user_param_value} for parameter {self.name}, but no such file or "
+                    "directory was found."
                 )
             return os.path.abspath(local_path)
-        target_sub_dir = "param_{}".format(key_position)
+        target_sub_dir = f"param_{key_position}"
         download_dir = os.path.join(storage_dir, target_sub_dir)
         os.mkdir(download_dir)
         return artifact_utils._download_artifact_from_uri(
@@ -241,3 +351,10 @@ class Parameter(object):
             return self._compute_uri_value(param_value)
         else:
             return param_value
+
+
+class DatabricksSparkJobSpec:
+    def __init__(self, python_file, parameters, python_libraries):
+        self.python_file = python_file
+        self.parameters = parameters
+        self.python_libraries = python_libraries

@@ -1,43 +1,51 @@
-"""Hyperparameter optimization with cuML, hyperopt, and MLFlow"""
+"""Hyperparameter optimization with cuML, hyperopt, and MLflow"""
 
 import argparse
 from functools import partial
 
-import mlflow
-import mlflow.sklearn
-
+from cuml.ensemble import RandomForestClassifier
 from cuml.metrics.accuracy import accuracy_score
 from cuml.preprocessing.model_selection import train_test_split
-from cuml.ensemble import RandomForestClassifier
+from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 
-from hyperopt import fmin, tpe, hp, Trials, STATUS_OK
+import mlflow
+import mlflow.sklearn
+from mlflow.models import infer_signature
 
 
 def load_data(fpath):
     """
     Simple helper function for loading data to be used by CPU/GPU models.
 
-    :param fpath: Path to the data to be ingested
-    :return: DataFrame wrapping the data at [fpath]. Data will be in either a Pandas or RAPIDS (cuDF) DataFrame
+    Args:
+        fpath: Path to the data to be ingested
+
+    Returns:
+        DataFrame wrapping the data at [fpath]. Data will be in either a Pandas or RAPIDS (cuDF) DataFrame
     """
     import cudf
 
-    df = cudf.read_parquet(fpath)
-    X = df.drop(["ArrDelayBinary"], axis=1)
-    y = df["ArrDelayBinary"].astype("int32")
+    df = cudf.read_csv(fpath)
+    X = df.drop(["target"], axis=1)
+    y = df["target"].astype("int32")
 
     return train_test_split(X, y, test_size=0.2)
 
 
 def _train(params, fpath, hyperopt=False):
     """
-    :param params: hyperparameters. Its structure is consistent with how search space is defined. See below.
-    :param fpath: Path or URL for the training data used with the model.
-    :param hyperopt: Use hyperopt for hyperparameter search during training.
-    :return: dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run)
+    Args:
+        params: Hyperparameters. Its structure is consistent with how search space is defined.
+        fpath: Path or URL for the training data used with the model.
+        hyperopt: Use hyperopt for hyperparameter search during training.
+
+    Returns:
+        dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run).
     """
     max_depth, max_features, n_estimators = params
-    max_depth, max_features, n_estimators = (int(max_depth), float(max_features), int(n_estimators))
+    max_depth = int(max_depth)
+    max_features = float(max_features)
+    n_estimators = int(n_estimators)
 
     X_train, X_test, y_train, y_test = load_data(fpath)
 
@@ -58,7 +66,10 @@ def _train(params, fpath, hyperopt=False):
 
     mlflow.log_metric("accuracy", acc)
 
-    mlflow.sklearn.log_model(mod, "saved_models")
+    predictions = mod.predict(X_train)
+    signature = infer_signature(X_train, predictions)
+
+    mlflow.sklearn.log_model(mod, name="saved_models", signature=signature)
 
     if not hyperopt:
         return mod
@@ -69,10 +80,15 @@ def _train(params, fpath, hyperopt=False):
 def train(params, fpath, hyperopt=False):
     """
     Proxy function used to call _train
-    :param params: hyperparameters. Its structure is consistent with how search space is defined. See below.
-    :param fpath: Path or URL for the training data used with the model.
-    :param hyperopt: Use hyperopt for hyperparameter search during training.
-    :return: dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run)
+
+    Args:
+        params: Hyperparameters. Its structure is consistent with how search space is defined.
+        fpath: Path or URL for the training data used with the model.
+        hyperopt: Use hyperopt for hyperparameter search during training.
+
+    Returns:
+        dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run)
+
     """
     with mlflow.start_run(nested=True):
         return _train(params, fpath, hyperopt)
@@ -109,7 +125,7 @@ if __name__ == "__main__":
 
         mlflow.sklearn.log_model(
             final_model,
-            artifact_path=artifact_path,
+            name=artifact_path,
             registered_model_name="rapids_mlflow_cli",
             conda_env="envs/conda.yaml",
         )

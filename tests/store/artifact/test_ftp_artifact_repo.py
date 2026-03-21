@@ -1,9 +1,9 @@
-# pylint: disable=redefined-outer-name
-from unittest.mock import MagicMock
-import pytest
-import posixpath
 import ftplib
+import posixpath
 from ftplib import FTP
+from unittest.mock import MagicMock
+
+import pytest
 
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.ftp_artifact_repo import FTPArtifactRepository
@@ -64,6 +64,18 @@ def test_list_artifacts(ftp_mock):
     assert artifacts[1].path == dir_path
     assert artifacts[1].is_dir is True
     assert artifacts[1].file_size is None
+
+
+def test_list_artifacts_malicious_path(ftp_mock):
+    artifact_root_path = "/experiment_id/run_id/"
+    repo = FTPArtifactRepository("ftp://test_ftp" + artifact_root_path)
+    repo.get_ftp_client = MagicMock()
+    call_mock = MagicMock(return_value=ftp_mock)
+    repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
+    ftp_mock.nlst = MagicMock(return_value=[".", "/.", "/..", "//.."])
+
+    artifacts = repo.list_artifacts(path=None)
+    assert artifacts == []
 
 
 def test_list_artifacts_when_ftp_nlst_returns_absolute_paths(ftp_mock):
@@ -145,18 +157,19 @@ def test_list_artifacts_with_subdir(ftp_mock):
     assert artifacts[1].file_size is None
 
 
-def test_log_artifact(ftp_mock, tmpdir):
+def test_log_artifact(ftp_mock, tmp_path):
     repo = FTPArtifactRepository("ftp://test_ftp/some/path")
 
     repo.get_ftp_client = MagicMock()
     call_mock = MagicMock(return_value=ftp_mock)
     repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
-    d = tmpdir.mkdir("data")
-    f = d.join("test.txt")
-    f.write("hello world!")
-    fpath = d + "/test.txt"
-    fpath = fpath.strpath
+    d = tmp_path.joinpath("data")
+    d.mkdir()
+    f = d.joinpath("test.txt")
+    f.write_text("hello world!")
+    fpath = d.joinpath("test.txt")
+    fpath = str(fpath)
 
     ftp_mock.cwd = MagicMock(side_effect=[ftplib.error_perm, None])
 
@@ -168,23 +181,24 @@ def test_log_artifact(ftp_mock, tmpdir):
     assert ftp_mock.storbinary.call_args_list[0][0][0] == "STOR test.txt"
 
 
-def test_log_artifact_multiple_calls(ftp_mock, tmpdir):
+def test_log_artifact_multiple_calls(ftp_mock, tmp_path):
     repo = FTPArtifactRepository("ftp://test_ftp/some/path")
 
     repo.get_ftp_client = MagicMock()
     call_mock = MagicMock(return_value=ftp_mock)
     repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
-    d = tmpdir.mkdir("data")
-    file1 = d.join("test1.txt")
-    file1.write("hello world!")
-    fpath1 = d + "/test1.txt"
-    fpath1 = fpath1.strpath
+    d = tmp_path.joinpath("data")
+    d.mkdir()
+    file1 = d.joinpath("test1.txt")
+    file1.write_text("hello world!")
+    fpath1 = d.joinpath("test1.txt")
+    fpath1 = str(fpath1)
 
-    file2 = d.join("test2.txt")
-    file2.write("hello world!")
-    fpath2 = d + "/test2.txt"
-    fpath2 = fpath2.strpath
+    file2 = d.joinpath("test2.txt")
+    file2.write_text("hello world!")
+    fpath2 = d.joinpath("test2.txt")
+    fpath2 = str(fpath2)
 
     ftp_mock.cwd = MagicMock(
         side_effect=[ftplib.error_perm, None, ftplib.error_perm, None, None, None]
@@ -220,7 +234,7 @@ def __posixpath_parents(pathname, root):
 
 
 @pytest.mark.parametrize("artifact_path", [None, "dir", "dir1/dir2"])
-def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
+def test_log_artifacts(artifact_path, ftp_mock, tmp_path):
     # Setup FTP mock.
     dest_path_root = "/some/path"
     repo = FTPArtifactRepository("ftp://test_ftp" + dest_path_root)
@@ -229,7 +243,7 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
     call_mock = MagicMock(return_value=ftp_mock)
     repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
-    dirs_created = set([dest_path_root])
+    dirs_created = {dest_path_root}
     files_created = set()
     cwd_history = ["/"]
 
@@ -258,44 +272,45 @@ def test_log_artifacts(artifact_path, ftp_mock, tmpdir):
     ftp_mock.storbinary = MagicMock(side_effect=storbinary_mock)
 
     # Test
-    subd = tmpdir.mkdir("data").mkdir("subdir")
-    subd.join("a.txt").write("A")
-    subd.join("b.txt").write("B")
-    subd.join("c.txt").write("C")
-    subd.mkdir("empty1")
-    subsubd = subd.mkdir("subsubdir")
-    subsubd.join("aa.txt").write("AA")
-    subsubd.join("bb.txt").write("BB")
-    subsubd.join("cc.txt").write("CC")
-    subsubd.mkdir("empty2")
+    data = tmp_path.joinpath("data")
+    data.mkdir()
+    subd = data.joinpath("subdir")
+    subd.mkdir()
+    subd.joinpath("a.txt").write_text("A")
+    subd.joinpath("b.txt").write_text("B")
+    subd.joinpath("c.txt").write_text("C")
+    subd.joinpath("empty1").mkdir()
+    subsubd = subd.joinpath("subsubdir")
+    subsubd.mkdir()
+    subsubd.joinpath("aa.txt").write_text("AA")
+    subsubd.joinpath("bb.txt").write_text("BB")
+    subsubd.joinpath("cc.txt").write_text("CC")
+    subsubd.joinpath("empty2").mkdir()
 
     dest_path = (
         dest_path_root if artifact_path is None else posixpath.join(dest_path_root, artifact_path)
     )
-    dirs_expected = set(
-        [
-            dest_path,
-            posixpath.join(dest_path, "empty1"),
-            posixpath.join(dest_path, "subsubdir"),
-            posixpath.join(dest_path, "subsubdir", "empty2"),
-        ]
-    )
-    files_expected = set(
-        [
-            posixpath.join(dest_path, "a.txt"),
-            posixpath.join(dest_path, "b.txt"),
-            posixpath.join(dest_path, "c.txt"),
-            posixpath.join(dest_path, "subsubdir/aa.txt"),
-            posixpath.join(dest_path, "subsubdir/bb.txt"),
-            posixpath.join(dest_path, "subsubdir/cc.txt"),
-        ]
-    )
+    dirs_expected = {
+        dest_path,
+        posixpath.join(dest_path, "empty1"),
+        posixpath.join(dest_path, "subsubdir"),
+        posixpath.join(dest_path, "subsubdir", "empty2"),
+    }
+
+    files_expected = {
+        posixpath.join(dest_path, "a.txt"),
+        posixpath.join(dest_path, "b.txt"),
+        posixpath.join(dest_path, "c.txt"),
+        posixpath.join(dest_path, "subsubdir/aa.txt"),
+        posixpath.join(dest_path, "subsubdir/bb.txt"),
+        posixpath.join(dest_path, "subsubdir/cc.txt"),
+    }
 
     for dirs_expected_i in dirs_expected.copy():
         if dirs_expected_i != dest_path_root:
             dirs_expected |= set(__posixpath_parents(dirs_expected_i, root=dest_path_root))
 
-    repo.log_artifacts(subd.strpath, artifact_path)
+    repo.log_artifacts(subd, artifact_path)
     assert dirs_created == dirs_expected
     assert files_created == files_expected
 
@@ -374,7 +389,7 @@ def test_download_artifacts(ftp_mock):
         elif call_arg == empty_dir_path:
             return []
         else:
-            raise Exception("should never call nlst for non-directories {}".format(call_arg))
+            raise Exception(f"should never call nlst for non-directories {call_arg}")
 
     ftp_mock.nlst = MagicMock(side_effect=nlst_side_effect)
     repo.download_artifacts("model")
@@ -387,17 +402,18 @@ def test_download_artifacts(ftp_mock):
     assert ftp_mock.retrbinary.call_args_list[1][0][0] == "RETR " + subfile_path_full
 
 
-def test_log_artifact_reuse_ftp_client(ftp_mock, tmpdir):
+def test_log_artifact_reuse_ftp_client(ftp_mock, tmp_path):
     repo = FTPArtifactRepository("ftp://test_ftp/some/path")
 
     repo.get_ftp_client = MagicMock()
     call_mock = MagicMock(return_value=ftp_mock)
     repo.get_ftp_client.return_value = MagicMock(__enter__=call_mock)
 
-    d = tmpdir.mkdir("data")
-    file = d.join("test.txt")
-    file.write("hello world!")
-    fpath = file.strpath
+    d = tmp_path.joinpath("data")
+    d.mkdir()
+    file = d.joinpath("test.txt")
+    file.write_text("hello world!")
+    fpath = str(file)
 
     repo.log_artifact(fpath)
     repo.log_artifact(fpath, "subdir1/subdir2")

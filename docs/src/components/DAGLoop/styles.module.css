@@ -1,0 +1,437 @@
+/* Define color variables for light/dark mode - matching TileCard blues */
+:root {
+  --dag-loop-primary: #0194e2;
+  --dag-loop-primary-dark: #0066cc;
+  --dag-loop-primary-light: rgba(1, 148, 226, 0.3);
+  --dag-loop-primary-lightest: rgba(1, 148, 226, 0.1);
+  --dag-loop-background: var(--ifm-background-color);
+  --dag-loop-border: var(--ifm-border-color);
+  --dag-loop-text-primary: var(--ifm-color-emphasis-900);
+  --dag-loop-text-secondary: var(--ifm-color-emphasis-700);
+}
+
+:global([data-theme='dark']) {
+  --dag-loop-primary: #0194e2;
+  --dag-loop-primary-dark: #5cb7cc;
+  --dag-loop-primary-light: rgba(1, 148, 226, 0.3);
+  --dag-loop-primary-lightest: rgba(1, 148, 226, 0.15);
+  --dag-loop-background: var(--ifm-background-color);
+  --dag-loop-border: var(--ifm-border-color);
+  --dag-loop-text-primary: var(--ifm-color-emphasis-900);
+  --dag-loop-text-secondary: var(--ifm-color-emphasis-700);
+}
+
+.loopContainer {
+  margin: 2rem 0;
+  position: relative;
+  overflow: visible;
+  min-height: 550px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 100%;
+}
+
+.loopTitle {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+  color: var(--dag-loop-text-primary);
+  text-align: center;
+  font-weight: 600;
+  width: 100%;
+}
+
+.loopContent {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem 1rem 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* Circle layout container */
+.circleContainer {
+  position: relative;
+  margin: 1rem auto 2rem;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.svgCanvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+.arrowPath {
+  transition: opacity 0.2s ease;
+  color: var(--dag-loop-primary-light);
+}
+
+.arrowPath:hover {
+  opacity: 0.9 !important;
+}
+
+.arrowHead {
+  color: var(--dag-loop-primary-light);
+}
+
+/* Step nodes */
+.stepNode {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+  z-index: 10;
+}
+
+.stepNode:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.stepNodeContent {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--dag-loop-background);
+  border: 2px solid var(--dag-loop-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dag-loop-primary);
+  font-weight: 600;
+  font-size: 1.3rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.stepNode:hover .stepNodeContent {
+  border-color: var(--dag-loop-primary);
+  background: var(--dag-loop-primary-lightest);
+  box-shadow: 0 4px 16px rgba(1, 148, 226, 0.2);
+}
+
+.stepNode.highlighted .stepNodeContent {
+  background: var(--dag-loop-primary-lightest);
+  border-color: var(--dag-loop-primary);
+  border-width: 3px;
+}
+
+/* Focus node styling - subtle emphasis */
+.stepNode.focusNode .stepNodeContent {
+  background: var(--dag-loop-primary);
+  color: white;
+  border-color: var(--dag-loop-primary-dark);
+  border-width: 2px;
+  box-shadow: 0 4px 12px rgba(1, 148, 226, 0.25);
+}
+
+.stepNode.focusNode:hover .stepNodeContent {
+  background: var(--dag-loop-primary-dark);
+  box-shadow: 0 6px 16px rgba(1, 148, 226, 0.35);
+}
+
+.stepNumber {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--dag-loop-primary);
+}
+
+.stepLabel {
+  margin-top: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--dag-loop-text-secondary);
+  text-align: center;
+  max-width: 120px;
+  line-height: 1.3;
+}
+
+/* Center loop icon */
+.centerIcon {
+  opacity: 1;
+}
+
+.loopIconWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: var(--dag-loop-background);
+  border: 2px solid var(--dag-loop-primary-light);
+  color: var(--dag-loop-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s ease;
+}
+
+.centerIcon:hover .loopIconWrapper {
+  border-color: var(--dag-loop-primary);
+  background: var(--dag-loop-primary-lightest);
+  box-shadow: 0 4px 16px rgba(1, 148, 226, 0.2);
+}
+
+.loopText {
+  fill: var(--dag-loop-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* Tooltip */
+.tooltip {
+  position: absolute;
+  background: var(--ifm-background-surface-color);
+  border: 2px solid var(--dag-loop-primary-light);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  min-width: 250px;
+  max-width: 350px;
+  pointer-events: none;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -110%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -120%);
+  }
+}
+
+.tooltipTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: var(--dag-loop-text-primary);
+}
+
+.tooltipDescription {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--dag-loop-text-secondary);
+  margin: 0;
+}
+
+.tooltipArrow {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 16px;
+  height: 16px;
+  background: var(--ifm-background-surface-color);
+  border-right: 2px solid var(--dag-loop-primary-light);
+  border-bottom: 2px solid var(--dag-loop-primary-light);
+}
+
+/* Center tooltip */
+.centerTooltip {
+  position: absolute;
+  background: var(--ifm-background-surface-color);
+  border: 2px solid var(--dag-loop-primary-light);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  max-width: 400px;
+  min-width: 300px;
+  pointer-events: none;
+  animation: fadeIn 0.2s ease;
+  margin-top: 140px;
+}
+
+.centerTooltipDescription {
+  color: var(--dag-loop-text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+  text-align: center;
+}
+
+/* Mobile linear layout styles */
+.mobileLinearContent {
+  max-width: 100%;
+  padding: 1rem;
+}
+
+.mobileStepItem {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 0;
+}
+
+.mobileStepIndicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.mobileStepNumber {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--dag-loop-primary-lightest);
+  border: 2px solid var(--dag-loop-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dag-loop-primary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.mobileStepNumber.mobileFocusNode {
+  background: var(--dag-loop-primary);
+  color: white;
+  border-width: 2px;
+  box-shadow: 0 3px 8px rgba(1, 148, 226, 0.2);
+}
+
+.mobileStepConnector {
+  width: 2px;
+  height: 40px;
+  background: var(--dag-loop-primary-light);
+  margin: 4px 0;
+}
+
+.mobileStepContent {
+  flex: 1;
+  padding-bottom: 1.5rem;
+}
+
+.mobileStepTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: var(--dag-loop-text-primary);
+}
+
+.mobileStepDescription {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--dag-loop-text-secondary);
+  margin: 0;
+}
+
+.mobileLoopBack {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--dag-loop-background);
+  border: 2px solid var(--dag-loop-primary-light);
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.mobileLoopIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--dag-loop-primary-lightest);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dag-loop-primary);
+  flex-shrink: 0;
+}
+
+.mobileLoopContent {
+  flex: 1;
+}
+
+.mobileLoopTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem 0;
+  color: var(--dag-loop-primary);
+}
+
+.mobileLoopDescription {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--dag-loop-text-secondary);
+  margin: 0;
+}
+
+/* Mobile responsive design */
+@media (max-width: 768px) {
+  .loopContainer {
+    min-height: auto;
+    margin: 1.5rem 0;
+    padding: 0;
+  }
+
+  .loopContent {
+    padding: 1rem 0.5rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .circleContainer {
+    width: 280px;
+    height: 280px;
+    margin: 1rem auto;
+    transform: scale(0.9);
+  }
+
+  .stepNodeContent {
+    width: 44px;
+    height: 44px;
+    font-size: 1rem;
+  }
+
+  .stepLabel {
+    font-size: 0.7rem;
+    max-width: 70px;
+  }
+
+  .tooltip {
+    min-width: 200px;
+    max-width: 280px;
+    padding: 0.75rem 1rem;
+  }
+
+  .tooltipTitle {
+    font-size: 1rem;
+  }
+
+  .tooltipDescription {
+    font-size: 0.85rem;
+  }
+
+  .centerTooltip {
+    max-width: 280px;
+    min-width: 200px;
+    padding: 1rem;
+    margin-top: 100px;
+  }
+
+  .centerTooltipDescription {
+    font-size: 0.9rem;
+  }
+
+  .loopIconWrapper {
+    width: 50px;
+    height: 50px;
+  }
+
+  .loopText {
+    font-size: 0.75rem;
+  }
+}

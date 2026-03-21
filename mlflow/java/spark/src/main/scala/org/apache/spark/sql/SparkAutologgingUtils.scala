@@ -5,7 +5,7 @@ import org.apache.spark.sql.execution.QueryExecution
 
 
 /**
- * Mlflow-internal object used to access Spark-private fields in the implementation of
+ * MLflow-internal object used to access Spark-private fields in the implementation of
  * autologging Spark datasource information.
  */
 object SparkAutologgingUtils {

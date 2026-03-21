@@ -1,0 +1,208 @@
+/**
+  * Card list navigation
+  */
+
+.card-list {
+    display: flex;
+    padding: 4rem;
+    overflow-x: scroll;
+}
+
+.card {
+    display: flex;
+    position: relative;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 500px;
+    width: 400px;
+    min-width: 375px;
+    padding: 2rem;
+    border-radius: 16px;
+    background: white;
+    box-shadow: -1rem 0 2rem slategray;
+    transition: .4s;
+    flex-wrap: wrap;
+}
+
+.card:hover {
+    transform: translateY(-1rem);
+    box-shadow: -1rem 0 2rem #003b5a;
+}
+
+.card:hover~.card {
+    transform: translateX(50px);
+}
+
+.card:not(:first-child) {
+    margin-left: -50px;
+}
+
+.card-header h1 {
+    padding-bottom: 1rem;
+    font-size: 1rem;
+}
+
+.card-header h2 {
+    padding-bottom: 1rem;
+    height: 6rem;
+    overflow: hidden;
+    font-size: 1.5rem;
+}
+
+.card-header p {
+    font-size: 1rem;
+}
+
+.card-header .card-link {
+    text-decoration: none;
+    color: inherit;
+}
+
+.card-header .card-link:hover {
+    background: #0194E2;
+    text-shadow: none;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.card-header ul {
+    font-size: 0.9rem;
+    max-height: 200px;
+    overflow-y: auto;
+    position: relative;
+}
+
+.card-header li {
+    padding-bottom: 0.5rem;
+}
+
+.card-header h1, .card-header h2, .card-header p, .card-header ul {
+    margin-bottom: 1rem;
+}
+
+.card-header h1:hover {
+    background: #0194E2;
+    text-shadow: none;
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.card-header a {
+    text-decoration: none;
+    color: inherit;
+    position: relative;
+}
+
+.card-header-image {
+    position: absolute;
+    top: 0;
+    right: 1.5rem;
+    padding-left: 1rem;
+    max-height: 3.5rem;
+    padding-top: 1.5rem;
+}
+
+.card-list::-webkit-scrollbar{
+    width: 10px;
+    height: 10px;
+
+}
+
+.card-list::-webkit-scrollbar-thumb {
+    background: #0194E2;
+    border-radius: 8px;
+    box-shadow: inset 2px 2px 2px hsla(0,0%,100%,.25), inset -2px -2px -2px rgba(0,0,0,.25);
+}
+
+.card-list::-webkit-scrollbar-track {
+    background: linear-gradient(90deg, #c5e0e8, #c5e0e8 1px, #c5e0e8 0, #43c9ed);
+}
+
+.tags {
+    margin: 1rem 0 2rem;
+    padding: .5rem 0 1rem;
+    line-height: 2;
+    margin-bottom: 0;
+}
+
+.tags a {
+    font-style: normal;
+    font-weight: 700;
+    font-size: .5rem;
+    color: darkslategray;
+    text-transform: uppercase;
+    font-size: .66rem;
+    border: 3px solid lightskyblue;
+    border-radius: 2rem;
+    padding: .2rem .85rem .25rem;
+    position: relative;
+    margin-bottom: .25rem;
+    width: fit-content;
+}
+
+.tags a::before {
+    font-family: "Font Awesome 5 Free"; 
+    font-weight: 900;
+    color: #0194E2; 
+    padding-right: 8px;
+}
+
+.tags a.download::before {
+    content: "\f019"; /* download icon */
+}
+
+.tags a.view::before {
+    content: "\f06e"; /* view icon */
+}
+
+.tags a.github::before {
+    content: ""; 
+    display: inline-block; 
+    width: 1rem; 
+    height: 1rem;
+    background: url("../../../../source/_static/images/intro/github-mark.svg") no-repeat center center; 
+    background-size: contain; 
+    margin-right: 3px; 
+    vertical-align: middle;
+}
+
+.tags a:hover {
+    background: black;
+    text-shadow: none;
+    -webkit-text-fill-color: transparent;
+    -webkit-background-clip: text;
+    -webkit-box-decoration-break: clone;
+    background-clip: text;
+    border-color: darkblue;
+}
+
+
+/* Common styles for icons */
+.icon::before {
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    color: #0194E2;
+    vertical-align: middle;
+    margin-right: 3px;
+    line-height: 1;
+}
+
+/* Unique styles for each icon */
+.teacher::before {
+    content: "\f51c";
+    margin-right: 6px;
+}
+
+.bell::before {
+    content: "\f0f3";
+}
+
+.bulb::before {
+    content: "\f0eb";
+}
+
+.notebook::before {
+    content: "\f328";
+}

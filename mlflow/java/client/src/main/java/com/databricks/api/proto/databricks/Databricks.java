@@ -14,6 +14,7 @@ public final class Databricks {
     registry.add(com.databricks.api.proto.databricks.Databricks.fieldDoc);
     registry.add(com.databricks.api.proto.databricks.Databricks.rpc);
     registry.add(com.databricks.api.proto.databricks.Databricks.methodDoc);
+    registry.add(com.databricks.api.proto.databricks.Databricks.graphql);
     registry.add(com.databricks.api.proto.databricks.Databricks.messageDoc);
     registry.add(com.databricks.api.proto.databricks.Databricks.serviceDoc);
     registry.add(com.databricks.api.proto.databricks.Databricks.enumDoc);
@@ -94,6 +95,8 @@ public final class Databricks {
     }
 
     /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
      * @deprecated Use {@link #forNumber(int)} instead.
      */
     @java.lang.Deprecated
@@ -101,6 +104,10 @@ public final class Databricks {
       return forNumber(value);
     }
 
+    /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
+     */
     public static Visibility forNumber(int value) {
       switch (value) {
         case 1: return PUBLIC;
@@ -162,9 +169,14 @@ public final class Databricks {
       implements com.google.protobuf.ProtocolMessageEnum {
     /**
      * <pre>
-     * Internal, system-level error codes, which generally cannot be resolved by the user, but
-     * instead are due to service issues.
-     * Generic internal error occurred.
+     * Internal error. This means that some invariants expected by the underlying system have been
+     * broken. This error code is reserved for serious errors, which generally cannot be resolved
+     * by the user.
+     * Prefer this over all kinds of detailed error messages (e.g IO_ERROR), unless there's some
+     * automation that relies on the custom error code.
+     * Maps to:
+     * - google.rpc.Code: INTERNAL = 13;
+     * - HTTP code: 500 Internal Server Error
      * </pre>
      *
      * <code>INTERNAL_ERROR = 1;</code>
@@ -172,7 +184,13 @@ public final class Databricks {
     INTERNAL_ERROR(1),
     /**
      * <pre>
-     * An internal system could not be contacted due to a period of unavailability.
+     * The service is currently unavailable. This is most likely a transient condition, which can be
+     * corrected by retrying with a backoff. Note that it is not always safe to retrynon-idempotent
+     * operations.
+     * Prefer this over SERVICE_UNDER_MAINTENANCE, WORKSPACE_TEMPORARILY_UNAVAILABLE.
+     * Maps to:
+     * - google.rpc.Code: UNAVAILABLE = 14;
+     * - HTTP code: 503 Service Unavailable
      * </pre>
      *
      * <code>TEMPORARILY_UNAVAILABLE = 2;</code>
@@ -188,7 +206,12 @@ public final class Databricks {
     IO_ERROR(3),
     /**
      * <pre>
-     * The request is invalid.
+     * The request is invalid. Prefer more specific error code whenever possible.
+     * Also see similar recommendation for the google.rpc.Code.FAILED_PRECONDITION.
+     * Prefer this error code over MALFORMED_REQUEST, INVALID_STATE, UNPARSEABLE_HTTP_ERROR.
+     * Maps to:
+     * - google.rpc.Code: FAILED_PRECONDITION = 9;
+     * - HTTP code: 400 Bad Request
      * </pre>
      *
      * <code>BAD_REQUEST = 4;</code>
@@ -196,9 +219,118 @@ public final class Databricks {
     BAD_REQUEST(4),
     /**
      * <pre>
-     * Common application-level error codes, which were caused by the user input but may be returned
-     * by multiple services.
+     * An external service is unavailable temporarily as it is being updated/re-deployed. Indicates
+     * gateway proxy to safely retry the request.
+     * </pre>
+     *
+     * <code>SERVICE_UNDER_MAINTENANCE = 5;</code>
+     */
+    SERVICE_UNDER_MAINTENANCE(5),
+    /**
+     * <pre>
+     * A workspace is temporarily unavailable as the workspace is being re-assigned.
+     * </pre>
+     *
+     * <code>WORKSPACE_TEMPORARILY_UNAVAILABLE = 6;</code>
+     */
+    WORKSPACE_TEMPORARILY_UNAVAILABLE(6),
+    /**
+     * <pre>
+     * The deadline expired before the operation could complete. For operations that change the state
+     * of the system, this error may be returned even if the operation has completed successfully.
+     * For example, a successful response from a server could have been delayed long enough for
+     * the deadline to expire. When possible - implementations should make sure further processing of
+     * the request is aborted, e.g. by throwing an exception instead of making the RPC request,
+     * making the database query, etc.
+     * Maps to:
+     * - google.rpc.Code: DEADLINE_EXCEEDED = 4;
+     * - HTTP code: 504 Gateway Timeout
+     * </pre>
+     *
+     * <code>DEADLINE_EXCEEDED = 7;</code>
+     */
+    DEADLINE_EXCEEDED(7),
+    /**
+     * <pre>
+     * The operation was canceled by the caller. An example - client closed the connection without
+     * waiting for a response.
+     * Maps to:
+     * - google.rpc.Code: CANCELLED = 1;
+     * - HTTP code: 499 Client Closed Request
+     * </pre>
+     *
+     * <code>CANCELLED = 8;</code>
+     */
+    CANCELLED(8),
+    /**
+     * <pre>
+     * Operation is rejected due to throttling, e.g. some resource has been exhausted, per-user quota
+     * triggered, or the entire file system is out of space.
+     * Maps to:
+     * - google.rpc.Code: RESOURCE_EXHAUSTED = 8;
+     * - HTTP code: 429 Too Many Requests
+     * </pre>
+     *
+     * <code>RESOURCE_EXHAUSTED = 9;</code>
+     */
+    RESOURCE_EXHAUSTED(9),
+    /**
+     * <pre>
+     * The operation was aborted, typically due to a concurrency issue such as a sequencer
+     * check failure, transaction abort, or transaction conflict.
+     * Maps to:
+     * - google.rpc.Code: ABORTED = 10;
+     * - HTTP code: 409 Conflict
+     * </pre>
+     *
+     * <code>ABORTED = 10;</code>
+     */
+    ABORTED(10),
+    /**
+     * <pre>
+     * Operation was performed on a resource that does not exist,
+     * e.g. file or directory was not found.
+     * Maps to:
+     * - google.rpc.Code: NOT_FOUND = 5;
+     * - HTTP code: 404 Not Found
+     * </pre>
+     *
+     * <code>NOT_FOUND = 11;</code>
+     */
+    NOT_FOUND(11),
+    /**
+     * <pre>
+     * Operation was rejected due a conflict with an existing resource, e.g. attempted to create
+     * file or directory that already exists.
+     * Prefer this over RESOURCE_CONFLICT.
+     * Maps to:
+     * - google.rpc.Code: ALREADY_EXISTS = 6;
+     * - HTTP code: 409 Conflict
+     * </pre>
+     *
+     * <code>ALREADY_EXISTS = 12;</code>
+     */
+    ALREADY_EXISTS(12),
+    /**
+     * <pre>
+     * The request does not have valid authentication (AuthN) credentials for the operation.
+     * Prefer this over CUSTOMER_UNAUTHORIZED, unless you need to keep consistent behavior with legacy
+     * code.
+     * For authorization (AuthZ) errors use PERMISSION_DENIED.
+     * Maps to:
+     * - google.rpc.Code: UNAUTHENTICATED = 16;
+     * - HTTP code: 401 Unauthorized
+     * </pre>
+     *
+     * <code>UNAUTHENTICATED = 13;</code>
+     */
+    UNAUTHENTICATED(13),
+    /**
+     * <pre>
      * Supplied value for a parameter was invalid (e.g., giving a number for a string parameter).
+     * Maps to:
+     * - google.rpc.Code: INVALID_ARGUMENT = 3;
+     * - HTTP code: 400 Bad Request
      * </pre>
      *
      * <code>INVALID_PARAMETER_VALUE = 1000;</code>
@@ -206,7 +338,11 @@ public final class Databricks {
     INVALID_PARAMETER_VALUE(1000),
     /**
      * <pre>
-     * Indicates that the given API endpoint does not exist.
+     * Indicates that the given API endpoint does not exist. Legacy, when possible - NOT_IMPLEMENTED
+     * should be used instead to indicate that API doesn't exist.
+     * Maps to:
+     * - google.rpc.Code: NOT_FOUND = 5;
+     * - HTTP code: 404 Not Found
      * </pre>
      *
      * <code>ENDPOINT_NOT_FOUND = 1001;</code>
@@ -230,7 +366,16 @@ public final class Databricks {
     INVALID_STATE(1003),
     /**
      * <pre>
-     * If a given user/entity doesn't have the required permission(s) to perform an action
+     * The caller does not have permission to execute the specified operation.
+     * PERMISSION_DENIED must not be used for rejections caused by exhausting some resource,
+     * use RESOURCE_EXHAUSTED instead for those errors.
+     * PERMISSION_DENIED must not be used if the caller can not be identified,
+     * use CUSTOMER_UNAUTHORIZED instead for those errors.
+     * This error code does not imply the request is valid or the requested entity exists or
+     * satisfies other pre-conditions.
+     * Maps to:
+     * - google.rpc.Code: PERMISSION_DENIED = 7;
+     * - HTTP code: 403 Forbidden
      * </pre>
      *
      * <code>PERMISSION_DENIED = 1004;</code>
@@ -238,7 +383,10 @@ public final class Databricks {
     PERMISSION_DENIED(1004),
     /**
      * <pre>
-     * If a given user/entity is trying to use a feature which has been disabled
+     * If a given user/entity is trying to use a feature which has been disabled.
+     * Maps to:
+     * - google.rpc.Code: NOT_FOUND = 5;
+     * - HTTP code: 404 Not Found
      * </pre>
      *
      * <code>FEATURE_DISABLED = 1005;</code>
@@ -246,7 +394,20 @@ public final class Databricks {
     FEATURE_DISABLED(1005),
     /**
      * <pre>
-     * If customer-provided credentials are not authorized to perform an operation
+     * The request does not have valid authentication (AuthN) credentials for the operation.
+     * For authentication (AuthN) errors prefer using UNAUTHENTICATED, unless you need to keep
+     * consistent behavior with legacy code.
+     * For authorization (AuthZ) errors use PERMISSION_DENIED.
+     * Important: name is confusing, this error code is for authentication (AuthN) errors, not
+     * authorization (AuthZ) errors. It maps to 401 Unauthorized and suffers from the same confusing
+     * naming. See https://datatracker.ietf.org/doc/html/rfc7235#section-3.1 - "[...] status code
+     * indicates that the request has not been applied because it lacks valid authentication
+     * credentials for the target resource. [...] If the request included authentication credentials,
+     * then the 401 response indicates that authorization has been refused for those credentials."
+     * Also, see https://stackoverflow.com/a/6937030/16352922, it covers it pretty well.
+     * Maps to:
+     * - google.rpc.Code: UNAUTHENTICATED = 16;
+     * - HTTP code: 401 Unauthorized
      * </pre>
      *
      * <code>CUSTOMER_UNAUTHORIZED = 1006;</code>
@@ -254,12 +415,60 @@ public final class Databricks {
     CUSTOMER_UNAUTHORIZED(1006),
     /**
      * <pre>
-     * If the API request is rejected due to throttling
+     * If the API request is rejected due to throttling.
+     * Prefer a more generic RESOURCE_EXHAUSTED for the new use cases.
+     * Maps to:
+     * - google.rpc.Code: RESOURCE_EXHAUSTED = 8;
+     * - HTTP code: 429 Too Many Requests
      * </pre>
      *
      * <code>REQUEST_LIMIT_EXCEEDED = 1007;</code>
      */
     REQUEST_LIMIT_EXCEEDED(1007),
+    /**
+     * <pre>
+     * Indicates API request was rejected due a conflict with an existing resource.
+     * </pre>
+     *
+     * <code>RESOURCE_CONFLICT = 1008;</code>
+     */
+    RESOURCE_CONFLICT(1008),
+    /**
+     * <pre>
+     * Indicates that the HTTP response cannot be correctly deserialized.
+     * This currently is only used in DUST test clients, and not by any real service code.
+     * </pre>
+     *
+     * <code>UNPARSEABLE_HTTP_ERROR = 1009;</code>
+     */
+    UNPARSEABLE_HTTP_ERROR(1009),
+    /**
+     * <pre>
+     * The operation is not implemented or is not supported/enabled in this service.
+     * Maps to:
+     * - google.rpc.Code: UNIMPLEMENTED = 12;
+     * - HTTP code: 501 Not Implemented
+     * </pre>
+     *
+     * <code>NOT_IMPLEMENTED = 1010;</code>
+     */
+    NOT_IMPLEMENTED(1010),
+    /**
+     * <pre>
+     * Unrecoverable data loss or corruption.
+     * One of the major use cases is to indicate that server failed to validate the integrity of
+     * the request. This error can occur when the checksum specified in the `X-Databricks-Checksum`
+     * request header (or trailer) doesn't match the actual request content checksum.
+     * Note, in case of the severe corruption that results in a malformed request, the server may
+     * send a generic `400 Bad Request` response rather than sending this error code.
+     * Maps to:
+     * - google.rpc.Code: DATA_LOSS = 15;
+     * - HTTP code: 500 Internal Server Error
+     * </pre>
+     *
+     * <code>DATA_LOSS = 1011;</code>
+     */
+    DATA_LOSS(1011),
     /**
      * <pre>
      * If the user attempts to perform an invalid state transition on a shard.
@@ -279,6 +488,9 @@ public final class Databricks {
     /**
      * <pre>
      * Operation was performed on a resource that already exists.
+     * Prefer using ALREADY_EXISTS. Unlike ALREADY_EXISTS - this maps to HTTP code
+     * 500 Internal Server Error due to legacy reasons, remapping will be a backwards incompatible
+     * change.
      * </pre>
      *
      * <code>RESOURCE_ALREADY_EXISTS = 3001;</code>
@@ -287,6 +499,9 @@ public final class Databricks {
     /**
      * <pre>
      * Operation was performed on a resource that does not exist.
+     * Prefer using NOT_FOUND - see the note for the RESOURCE_ALREADY_EXISTS, because this pair of
+     * codes is related and RESOURCE_ALREADY_EXISTS has bad mapping to the HTTP codes we added
+     * new error codes NOT_FOUND and ALREADY_EXISTS, and recommend to use them instead.
      * </pre>
      *
      * <code>RESOURCE_DOES_NOT_EXIST = 3002;</code>
@@ -304,6 +519,14 @@ public final class Databricks {
      * <code>MAX_READ_SIZE_EXCEEDED = 4003;</code>
      */
     MAX_READ_SIZE_EXCEEDED(4003),
+    /**
+     * <code>PARTIAL_DELETE = 4004;</code>
+     */
+    PARTIAL_DELETE(4004),
+    /**
+     * <code>MAX_LIST_SIZE_EXCEEDED = 4005;</code>
+     */
+    MAX_LIST_SIZE_EXCEEDED(4005),
     /**
      * <code>DRY_RUN_FAILED = 5001;</code>
      */
@@ -328,13 +551,178 @@ public final class Databricks {
      * <code>MAX_NOTEBOOK_SIZE_EXCEEDED = 6003;</code>
      */
     MAX_NOTEBOOK_SIZE_EXCEEDED(6003),
+    /**
+     * <code>MAX_CHILD_NODE_SIZE_EXCEEDED = 6004;</code>
+     */
+    MAX_CHILD_NODE_SIZE_EXCEEDED(6004),
+    /**
+     * <code>SEARCH_QUERY_TOO_LONG = 6100;</code>
+     */
+    SEARCH_QUERY_TOO_LONG(6100),
+    /**
+     * <code>SEARCH_QUERY_TOO_SHORT = 6101;</code>
+     */
+    SEARCH_QUERY_TOO_SHORT(6101),
+    /**
+     * <code>MANAGED_RESOURCE_GROUP_DOES_NOT_EXIST = 7001;</code>
+     */
+    MANAGED_RESOURCE_GROUP_DOES_NOT_EXIST(7001),
+    /**
+     * <code>PERMISSION_NOT_PROPAGATED = 7002;</code>
+     */
+    PERMISSION_NOT_PROPAGATED(7002),
+    /**
+     * <code>DEPLOYMENT_TIMEOUT = 7003;</code>
+     */
+    DEPLOYMENT_TIMEOUT(7003),
+    /**
+     * <code>GIT_CONFLICT = 8001;</code>
+     */
+    GIT_CONFLICT(8001),
+    /**
+     * <code>GIT_UNKNOWN_REF = 8002;</code>
+     */
+    GIT_UNKNOWN_REF(8002),
+    /**
+     * <code>GIT_SENSITIVE_TOKEN_DETECTED = 8003;</code>
+     */
+    GIT_SENSITIVE_TOKEN_DETECTED(8003),
+    /**
+     * <code>GIT_URL_NOT_ON_ALLOW_LIST = 8004;</code>
+     */
+    GIT_URL_NOT_ON_ALLOW_LIST(8004),
+    /**
+     * <code>GIT_REMOTE_ERROR = 8005;</code>
+     */
+    GIT_REMOTE_ERROR(8005),
+    /**
+     * <code>PROJECTS_OPERATION_TIMEOUT = 8006;</code>
+     */
+    PROJECTS_OPERATION_TIMEOUT(8006),
+    /**
+     * <code>IPYNB_FILE_IN_REPO = 8007;</code>
+     */
+    IPYNB_FILE_IN_REPO(8007),
+    /**
+     * <code>INSECURE_PARTNER_RESPONSE = 8100;</code>
+     */
+    INSECURE_PARTNER_RESPONSE(8100),
+    /**
+     * <code>MALFORMED_PARTNER_RESPONSE = 8101;</code>
+     */
+    MALFORMED_PARTNER_RESPONSE(8101),
+    /**
+     * <code>METASTORE_DOES_NOT_EXIST = 9000;</code>
+     */
+    METASTORE_DOES_NOT_EXIST(9000),
+    /**
+     * <code>DAC_DOES_NOT_EXIST = 9001;</code>
+     */
+    DAC_DOES_NOT_EXIST(9001),
+    /**
+     * <code>CATALOG_DOES_NOT_EXIST = 9002;</code>
+     */
+    CATALOG_DOES_NOT_EXIST(9002),
+    /**
+     * <code>SCHEMA_DOES_NOT_EXIST = 9003;</code>
+     */
+    SCHEMA_DOES_NOT_EXIST(9003),
+    /**
+     * <code>TABLE_DOES_NOT_EXIST = 9004;</code>
+     */
+    TABLE_DOES_NOT_EXIST(9004),
+    /**
+     * <code>SHARE_DOES_NOT_EXIST = 9005;</code>
+     */
+    SHARE_DOES_NOT_EXIST(9005),
+    /**
+     * <code>RECIPIENT_DOES_NOT_EXIST = 9006;</code>
+     */
+    RECIPIENT_DOES_NOT_EXIST(9006),
+    /**
+     * <code>STORAGE_CREDENTIAL_DOES_NOT_EXIST = 9007;</code>
+     */
+    STORAGE_CREDENTIAL_DOES_NOT_EXIST(9007),
+    /**
+     * <code>EXTERNAL_LOCATION_DOES_NOT_EXIST = 9008;</code>
+     */
+    EXTERNAL_LOCATION_DOES_NOT_EXIST(9008),
+    /**
+     * <code>PRINCIPAL_DOES_NOT_EXIST = 9009;</code>
+     */
+    PRINCIPAL_DOES_NOT_EXIST(9009),
+    /**
+     * <code>PROVIDER_DOES_NOT_EXIST = 9010;</code>
+     */
+    PROVIDER_DOES_NOT_EXIST(9010),
+    /**
+     * <code>METASTORE_ALREADY_EXISTS = 9020;</code>
+     */
+    METASTORE_ALREADY_EXISTS(9020),
+    /**
+     * <code>DAC_ALREADY_EXISTS = 9021;</code>
+     */
+    DAC_ALREADY_EXISTS(9021),
+    /**
+     * <code>CATALOG_ALREADY_EXISTS = 9022;</code>
+     */
+    CATALOG_ALREADY_EXISTS(9022),
+    /**
+     * <code>SCHEMA_ALREADY_EXISTS = 9023;</code>
+     */
+    SCHEMA_ALREADY_EXISTS(9023),
+    /**
+     * <code>TABLE_ALREADY_EXISTS = 9024;</code>
+     */
+    TABLE_ALREADY_EXISTS(9024),
+    /**
+     * <code>SHARE_ALREADY_EXISTS = 9025;</code>
+     */
+    SHARE_ALREADY_EXISTS(9025),
+    /**
+     * <code>RECIPIENT_ALREADY_EXISTS = 9026;</code>
+     */
+    RECIPIENT_ALREADY_EXISTS(9026),
+    /**
+     * <code>STORAGE_CREDENTIAL_ALREADY_EXISTS = 9027;</code>
+     */
+    STORAGE_CREDENTIAL_ALREADY_EXISTS(9027),
+    /**
+     * <code>EXTERNAL_LOCATION_ALREADY_EXISTS = 9028;</code>
+     */
+    EXTERNAL_LOCATION_ALREADY_EXISTS(9028),
+    /**
+     * <code>PROVIDER_ALREADY_EXISTS = 9029;</code>
+     */
+    PROVIDER_ALREADY_EXISTS(9029),
+    /**
+     * <code>CATALOG_NOT_EMPTY = 9040;</code>
+     */
+    CATALOG_NOT_EMPTY(9040),
+    /**
+     * <code>SCHEMA_NOT_EMPTY = 9041;</code>
+     */
+    SCHEMA_NOT_EMPTY(9041),
+    /**
+     * <code>METASTORE_NOT_EMPTY = 9042;</code>
+     */
+    METASTORE_NOT_EMPTY(9042),
+    /**
+     * <code>PROVIDER_SHARE_NOT_ACCESSIBLE = 9060;</code>
+     */
+    PROVIDER_SHARE_NOT_ACCESSIBLE(9060),
     ;
 
     /**
      * <pre>
-     * Internal, system-level error codes, which generally cannot be resolved by the user, but
-     * instead are due to service issues.
-     * Generic internal error occurred.
+     * Internal error. This means that some invariants expected by the underlying system have been
+     * broken. This error code is reserved for serious errors, which generally cannot be resolved
+     * by the user.
+     * Prefer this over all kinds of detailed error messages (e.g IO_ERROR), unless there's some
+     * automation that relies on the custom error code.
+     * Maps to:
+     * - google.rpc.Code: INTERNAL = 13;
+     * - HTTP code: 500 Internal Server Error
      * </pre>
      *
      * <code>INTERNAL_ERROR = 1;</code>
@@ -342,7 +730,13 @@ public final class Databricks {
     public static final int INTERNAL_ERROR_VALUE = 1;
     /**
      * <pre>
-     * An internal system could not be contacted due to a period of unavailability.
+     * The service is currently unavailable. This is most likely a transient condition, which can be
+     * corrected by retrying with a backoff. Note that it is not always safe to retrynon-idempotent
+     * operations.
+     * Prefer this over SERVICE_UNDER_MAINTENANCE, WORKSPACE_TEMPORARILY_UNAVAILABLE.
+     * Maps to:
+     * - google.rpc.Code: UNAVAILABLE = 14;
+     * - HTTP code: 503 Service Unavailable
      * </pre>
      *
      * <code>TEMPORARILY_UNAVAILABLE = 2;</code>
@@ -358,7 +752,12 @@ public final class Databricks {
     public static final int IO_ERROR_VALUE = 3;
     /**
      * <pre>
-     * The request is invalid.
+     * The request is invalid. Prefer more specific error code whenever possible.
+     * Also see similar recommendation for the google.rpc.Code.FAILED_PRECONDITION.
+     * Prefer this error code over MALFORMED_REQUEST, INVALID_STATE, UNPARSEABLE_HTTP_ERROR.
+     * Maps to:
+     * - google.rpc.Code: FAILED_PRECONDITION = 9;
+     * - HTTP code: 400 Bad Request
      * </pre>
      *
      * <code>BAD_REQUEST = 4;</code>
@@ -366,9 +765,118 @@ public final class Databricks {
     public static final int BAD_REQUEST_VALUE = 4;
     /**
      * <pre>
-     * Common application-level error codes, which were caused by the user input but may be returned
-     * by multiple services.
+     * An external service is unavailable temporarily as it is being updated/re-deployed. Indicates
+     * gateway proxy to safely retry the request.
+     * </pre>
+     *
+     * <code>SERVICE_UNDER_MAINTENANCE = 5;</code>
+     */
+    public static final int SERVICE_UNDER_MAINTENANCE_VALUE = 5;
+    /**
+     * <pre>
+     * A workspace is temporarily unavailable as the workspace is being re-assigned.
+     * </pre>
+     *
+     * <code>WORKSPACE_TEMPORARILY_UNAVAILABLE = 6;</code>
+     */
+    public static final int WORKSPACE_TEMPORARILY_UNAVAILABLE_VALUE = 6;
+    /**
+     * <pre>
+     * The deadline expired before the operation could complete. For operations that change the state
+     * of the system, this error may be returned even if the operation has completed successfully.
+     * For example, a successful response from a server could have been delayed long enough for
+     * the deadline to expire. When possible - implementations should make sure further processing of
+     * the request is aborted, e.g. by throwing an exception instead of making the RPC request,
+     * making the database query, etc.
+     * Maps to:
+     * - google.rpc.Code: DEADLINE_EXCEEDED = 4;
+     * - HTTP code: 504 Gateway Timeout
+     * </pre>
+     *
+     * <code>DEADLINE_EXCEEDED = 7;</code>
+     */
+    public static final int DEADLINE_EXCEEDED_VALUE = 7;
+    /**
+     * <pre>
+     * The operation was canceled by the caller. An example - client closed the connection without
+     * waiting for a response.
+     * Maps to:
+     * - google.rpc.Code: CANCELLED = 1;
+     * - HTTP code: 499 Client Closed Request
+     * </pre>
+     *
+     * <code>CANCELLED = 8;</code>
+     */
+    public static final int CANCELLED_VALUE = 8;
+    /**
+     * <pre>
+     * Operation is rejected due to throttling, e.g. some resource has been exhausted, per-user quota
+     * triggered, or the entire file system is out of space.
+     * Maps to:
+     * - google.rpc.Code: RESOURCE_EXHAUSTED = 8;
+     * - HTTP code: 429 Too Many Requests
+     * </pre>
+     *
+     * <code>RESOURCE_EXHAUSTED = 9;</code>
+     */
+    public static final int RESOURCE_EXHAUSTED_VALUE = 9;
+    /**
+     * <pre>
+     * The operation was aborted, typically due to a concurrency issue such as a sequencer
+     * check failure, transaction abort, or transaction conflict.
+     * Maps to:
+     * - google.rpc.Code: ABORTED = 10;
+     * - HTTP code: 409 Conflict
+     * </pre>
+     *
+     * <code>ABORTED = 10;</code>
+     */
+    public static final int ABORTED_VALUE = 10;
+    /**
+     * <pre>
+     * Operation was performed on a resource that does not exist,
+     * e.g. file or directory was not found.
+     * Maps to:
+     * - google.rpc.Code: NOT_FOUND = 5;
+     * - HTTP code: 404 Not Found
+     * </pre>
+     *
+     * <code>NOT_FOUND = 11;</code>
+     */
+    public static final int NOT_FOUND_VALUE = 11;
+    /**
+     * <pre>
+     * Operation was rejected due a conflict with an existing resource, e.g. attempted to create
+     * file or directory that already exists.
+     * Prefer this over RESOURCE_CONFLICT.
+     * Maps to:
+     * - google.rpc.Code: ALREADY_EXISTS = 6;
+     * - HTTP code: 409 Conflict
+     * </pre>
+     *
+     * <code>ALREADY_EXISTS = 12;</code>
+     */
+    public static final int ALREADY_EXISTS_VALUE = 12;
+    /**
+     * <pre>
+     * The request does not have valid authentication (AuthN) credentials for the operation.
+     * Prefer this over CUSTOMER_UNAUTHORIZED, unless you need to keep consistent behavior with legacy
+     * code.
+     * For authorization (AuthZ) errors use PERMISSION_DENIED.
+     * Maps to:
+     * - google.rpc.Code: UNAUTHENTICATED = 16;
+     * - HTTP code: 401 Unauthorized
+     * </pre>
+     *
+     * <code>UNAUTHENTICATED = 13;</code>
+     */
+    public static final int UNAUTHENTICATED_VALUE = 13;
+    /**
+     * <pre>
      * Supplied value for a parameter was invalid (e.g., giving a number for a string parameter).
+     * Maps to:
+     * - google.rpc.Code: INVALID_ARGUMENT = 3;
+     * - HTTP code: 400 Bad Request
      * </pre>
      *
      * <code>INVALID_PARAMETER_VALUE = 1000;</code>
@@ -376,7 +884,11 @@ public final class Databricks {
     public static final int INVALID_PARAMETER_VALUE_VALUE = 1000;
     /**
      * <pre>
-     * Indicates that the given API endpoint does not exist.
+     * Indicates that the given API endpoint does not exist. Legacy, when possible - NOT_IMPLEMENTED
+     * should be used instead to indicate that API doesn't exist.
+     * Maps to:
+     * - google.rpc.Code: NOT_FOUND = 5;
+     * - HTTP code: 404 Not Found
      * </pre>
      *
      * <code>ENDPOINT_NOT_FOUND = 1001;</code>
@@ -400,7 +912,16 @@ public final class Databricks {
     public static final int INVALID_STATE_VALUE = 1003;
     /**
      * <pre>
-     * If a given user/entity doesn't have the required permission(s) to perform an action
+     * The caller does not have permission to execute the specified operation.
+     * PERMISSION_DENIED must not be used for rejections caused by exhausting some resource,
+     * use RESOURCE_EXHAUSTED instead for those errors.
+     * PERMISSION_DENIED must not be used if the caller can not be identified,
+     * use CUSTOMER_UNAUTHORIZED instead for those errors.
+     * This error code does not imply the request is valid or the requested entity exists or
+     * satisfies other pre-conditions.
+     * Maps to:
+     * - google.rpc.Code: PERMISSION_DENIED = 7;
+     * - HTTP code: 403 Forbidden
      * </pre>
      *
      * <code>PERMISSION_DENIED = 1004;</code>
@@ -408,7 +929,10 @@ public final class Databricks {
     public static final int PERMISSION_DENIED_VALUE = 1004;
     /**
      * <pre>
-     * If a given user/entity is trying to use a feature which has been disabled
+     * If a given user/entity is trying to use a feature which has been disabled.
+     * Maps to:
+     * - google.rpc.Code: NOT_FOUND = 5;
+     * - HTTP code: 404 Not Found
      * </pre>
      *
      * <code>FEATURE_DISABLED = 1005;</code>
@@ -416,7 +940,20 @@ public final class Databricks {
     public static final int FEATURE_DISABLED_VALUE = 1005;
     /**
      * <pre>
-     * If customer-provided credentials are not authorized to perform an operation
+     * The request does not have valid authentication (AuthN) credentials for the operation.
+     * For authentication (AuthN) errors prefer using UNAUTHENTICATED, unless you need to keep
+     * consistent behavior with legacy code.
+     * For authorization (AuthZ) errors use PERMISSION_DENIED.
+     * Important: name is confusing, this error code is for authentication (AuthN) errors, not
+     * authorization (AuthZ) errors. It maps to 401 Unauthorized and suffers from the same confusing
+     * naming. See https://datatracker.ietf.org/doc/html/rfc7235#section-3.1 - "[...] status code
+     * indicates that the request has not been applied because it lacks valid authentication
+     * credentials for the target resource. [...] If the request included authentication credentials,
+     * then the 401 response indicates that authorization has been refused for those credentials."
+     * Also, see https://stackoverflow.com/a/6937030/16352922, it covers it pretty well.
+     * Maps to:
+     * - google.rpc.Code: UNAUTHENTICATED = 16;
+     * - HTTP code: 401 Unauthorized
      * </pre>
      *
      * <code>CUSTOMER_UNAUTHORIZED = 1006;</code>
@@ -424,12 +961,60 @@ public final class Databricks {
     public static final int CUSTOMER_UNAUTHORIZED_VALUE = 1006;
     /**
      * <pre>
-     * If the API request is rejected due to throttling
+     * If the API request is rejected due to throttling.
+     * Prefer a more generic RESOURCE_EXHAUSTED for the new use cases.
+     * Maps to:
+     * - google.rpc.Code: RESOURCE_EXHAUSTED = 8;
+     * - HTTP code: 429 Too Many Requests
      * </pre>
      *
      * <code>REQUEST_LIMIT_EXCEEDED = 1007;</code>
      */
     public static final int REQUEST_LIMIT_EXCEEDED_VALUE = 1007;
+    /**
+     * <pre>
+     * Indicates API request was rejected due a conflict with an existing resource.
+     * </pre>
+     *
+     * <code>RESOURCE_CONFLICT = 1008;</code>
+     */
+    public static final int RESOURCE_CONFLICT_VALUE = 1008;
+    /**
+     * <pre>
+     * Indicates that the HTTP response cannot be correctly deserialized.
+     * This currently is only used in DUST test clients, and not by any real service code.
+     * </pre>
+     *
+     * <code>UNPARSEABLE_HTTP_ERROR = 1009;</code>
+     */
+    public static final int UNPARSEABLE_HTTP_ERROR_VALUE = 1009;
+    /**
+     * <pre>
+     * The operation is not implemented or is not supported/enabled in this service.
+     * Maps to:
+     * - google.rpc.Code: UNIMPLEMENTED = 12;
+     * - HTTP code: 501 Not Implemented
+     * </pre>
+     *
+     * <code>NOT_IMPLEMENTED = 1010;</code>
+     */
+    public static final int NOT_IMPLEMENTED_VALUE = 1010;
+    /**
+     * <pre>
+     * Unrecoverable data loss or corruption.
+     * One of the major use cases is to indicate that server failed to validate the integrity of
+     * the request. This error can occur when the checksum specified in the `X-Databricks-Checksum`
+     * request header (or trailer) doesn't match the actual request content checksum.
+     * Note, in case of the severe corruption that results in a malformed request, the server may
+     * send a generic `400 Bad Request` response rather than sending this error code.
+     * Maps to:
+     * - google.rpc.Code: DATA_LOSS = 15;
+     * - HTTP code: 500 Internal Server Error
+     * </pre>
+     *
+     * <code>DATA_LOSS = 1011;</code>
+     */
+    public static final int DATA_LOSS_VALUE = 1011;
     /**
      * <pre>
      * If the user attempts to perform an invalid state transition on a shard.
@@ -449,6 +1034,9 @@ public final class Databricks {
     /**
      * <pre>
      * Operation was performed on a resource that already exists.
+     * Prefer using ALREADY_EXISTS. Unlike ALREADY_EXISTS - this maps to HTTP code
+     * 500 Internal Server Error due to legacy reasons, remapping will be a backwards incompatible
+     * change.
      * </pre>
      *
      * <code>RESOURCE_ALREADY_EXISTS = 3001;</code>
@@ -457,6 +1045,9 @@ public final class Databricks {
     /**
      * <pre>
      * Operation was performed on a resource that does not exist.
+     * Prefer using NOT_FOUND - see the note for the RESOURCE_ALREADY_EXISTS, because this pair of
+     * codes is related and RESOURCE_ALREADY_EXISTS has bad mapping to the HTTP codes we added
+     * new error codes NOT_FOUND and ALREADY_EXISTS, and recommend to use them instead.
      * </pre>
      *
      * <code>RESOURCE_DOES_NOT_EXIST = 3002;</code>
@@ -474,6 +1065,14 @@ public final class Databricks {
      * <code>MAX_READ_SIZE_EXCEEDED = 4003;</code>
      */
     public static final int MAX_READ_SIZE_EXCEEDED_VALUE = 4003;
+    /**
+     * <code>PARTIAL_DELETE = 4004;</code>
+     */
+    public static final int PARTIAL_DELETE_VALUE = 4004;
+    /**
+     * <code>MAX_LIST_SIZE_EXCEEDED = 4005;</code>
+     */
+    public static final int MAX_LIST_SIZE_EXCEEDED_VALUE = 4005;
     /**
      * <code>DRY_RUN_FAILED = 5001;</code>
      */
@@ -498,6 +1097,166 @@ public final class Databricks {
      * <code>MAX_NOTEBOOK_SIZE_EXCEEDED = 6003;</code>
      */
     public static final int MAX_NOTEBOOK_SIZE_EXCEEDED_VALUE = 6003;
+    /**
+     * <code>MAX_CHILD_NODE_SIZE_EXCEEDED = 6004;</code>
+     */
+    public static final int MAX_CHILD_NODE_SIZE_EXCEEDED_VALUE = 6004;
+    /**
+     * <code>SEARCH_QUERY_TOO_LONG = 6100;</code>
+     */
+    public static final int SEARCH_QUERY_TOO_LONG_VALUE = 6100;
+    /**
+     * <code>SEARCH_QUERY_TOO_SHORT = 6101;</code>
+     */
+    public static final int SEARCH_QUERY_TOO_SHORT_VALUE = 6101;
+    /**
+     * <code>MANAGED_RESOURCE_GROUP_DOES_NOT_EXIST = 7001;</code>
+     */
+    public static final int MANAGED_RESOURCE_GROUP_DOES_NOT_EXIST_VALUE = 7001;
+    /**
+     * <code>PERMISSION_NOT_PROPAGATED = 7002;</code>
+     */
+    public static final int PERMISSION_NOT_PROPAGATED_VALUE = 7002;
+    /**
+     * <code>DEPLOYMENT_TIMEOUT = 7003;</code>
+     */
+    public static final int DEPLOYMENT_TIMEOUT_VALUE = 7003;
+    /**
+     * <code>GIT_CONFLICT = 8001;</code>
+     */
+    public static final int GIT_CONFLICT_VALUE = 8001;
+    /**
+     * <code>GIT_UNKNOWN_REF = 8002;</code>
+     */
+    public static final int GIT_UNKNOWN_REF_VALUE = 8002;
+    /**
+     * <code>GIT_SENSITIVE_TOKEN_DETECTED = 8003;</code>
+     */
+    public static final int GIT_SENSITIVE_TOKEN_DETECTED_VALUE = 8003;
+    /**
+     * <code>GIT_URL_NOT_ON_ALLOW_LIST = 8004;</code>
+     */
+    public static final int GIT_URL_NOT_ON_ALLOW_LIST_VALUE = 8004;
+    /**
+     * <code>GIT_REMOTE_ERROR = 8005;</code>
+     */
+    public static final int GIT_REMOTE_ERROR_VALUE = 8005;
+    /**
+     * <code>PROJECTS_OPERATION_TIMEOUT = 8006;</code>
+     */
+    public static final int PROJECTS_OPERATION_TIMEOUT_VALUE = 8006;
+    /**
+     * <code>IPYNB_FILE_IN_REPO = 8007;</code>
+     */
+    public static final int IPYNB_FILE_IN_REPO_VALUE = 8007;
+    /**
+     * <code>INSECURE_PARTNER_RESPONSE = 8100;</code>
+     */
+    public static final int INSECURE_PARTNER_RESPONSE_VALUE = 8100;
+    /**
+     * <code>MALFORMED_PARTNER_RESPONSE = 8101;</code>
+     */
+    public static final int MALFORMED_PARTNER_RESPONSE_VALUE = 8101;
+    /**
+     * <code>METASTORE_DOES_NOT_EXIST = 9000;</code>
+     */
+    public static final int METASTORE_DOES_NOT_EXIST_VALUE = 9000;
+    /**
+     * <code>DAC_DOES_NOT_EXIST = 9001;</code>
+     */
+    public static final int DAC_DOES_NOT_EXIST_VALUE = 9001;
+    /**
+     * <code>CATALOG_DOES_NOT_EXIST = 9002;</code>
+     */
+    public static final int CATALOG_DOES_NOT_EXIST_VALUE = 9002;
+    /**
+     * <code>SCHEMA_DOES_NOT_EXIST = 9003;</code>
+     */
+    public static final int SCHEMA_DOES_NOT_EXIST_VALUE = 9003;
+    /**
+     * <code>TABLE_DOES_NOT_EXIST = 9004;</code>
+     */
+    public static final int TABLE_DOES_NOT_EXIST_VALUE = 9004;
+    /**
+     * <code>SHARE_DOES_NOT_EXIST = 9005;</code>
+     */
+    public static final int SHARE_DOES_NOT_EXIST_VALUE = 9005;
+    /**
+     * <code>RECIPIENT_DOES_NOT_EXIST = 9006;</code>
+     */
+    public static final int RECIPIENT_DOES_NOT_EXIST_VALUE = 9006;
+    /**
+     * <code>STORAGE_CREDENTIAL_DOES_NOT_EXIST = 9007;</code>
+     */
+    public static final int STORAGE_CREDENTIAL_DOES_NOT_EXIST_VALUE = 9007;
+    /**
+     * <code>EXTERNAL_LOCATION_DOES_NOT_EXIST = 9008;</code>
+     */
+    public static final int EXTERNAL_LOCATION_DOES_NOT_EXIST_VALUE = 9008;
+    /**
+     * <code>PRINCIPAL_DOES_NOT_EXIST = 9009;</code>
+     */
+    public static final int PRINCIPAL_DOES_NOT_EXIST_VALUE = 9009;
+    /**
+     * <code>PROVIDER_DOES_NOT_EXIST = 9010;</code>
+     */
+    public static final int PROVIDER_DOES_NOT_EXIST_VALUE = 9010;
+    /**
+     * <code>METASTORE_ALREADY_EXISTS = 9020;</code>
+     */
+    public static final int METASTORE_ALREADY_EXISTS_VALUE = 9020;
+    /**
+     * <code>DAC_ALREADY_EXISTS = 9021;</code>
+     */
+    public static final int DAC_ALREADY_EXISTS_VALUE = 9021;
+    /**
+     * <code>CATALOG_ALREADY_EXISTS = 9022;</code>
+     */
+    public static final int CATALOG_ALREADY_EXISTS_VALUE = 9022;
+    /**
+     * <code>SCHEMA_ALREADY_EXISTS = 9023;</code>
+     */
+    public static final int SCHEMA_ALREADY_EXISTS_VALUE = 9023;
+    /**
+     * <code>TABLE_ALREADY_EXISTS = 9024;</code>
+     */
+    public static final int TABLE_ALREADY_EXISTS_VALUE = 9024;
+    /**
+     * <code>SHARE_ALREADY_EXISTS = 9025;</code>
+     */
+    public static final int SHARE_ALREADY_EXISTS_VALUE = 9025;
+    /**
+     * <code>RECIPIENT_ALREADY_EXISTS = 9026;</code>
+     */
+    public static final int RECIPIENT_ALREADY_EXISTS_VALUE = 9026;
+    /**
+     * <code>STORAGE_CREDENTIAL_ALREADY_EXISTS = 9027;</code>
+     */
+    public static final int STORAGE_CREDENTIAL_ALREADY_EXISTS_VALUE = 9027;
+    /**
+     * <code>EXTERNAL_LOCATION_ALREADY_EXISTS = 9028;</code>
+     */
+    public static final int EXTERNAL_LOCATION_ALREADY_EXISTS_VALUE = 9028;
+    /**
+     * <code>PROVIDER_ALREADY_EXISTS = 9029;</code>
+     */
+    public static final int PROVIDER_ALREADY_EXISTS_VALUE = 9029;
+    /**
+     * <code>CATALOG_NOT_EMPTY = 9040;</code>
+     */
+    public static final int CATALOG_NOT_EMPTY_VALUE = 9040;
+    /**
+     * <code>SCHEMA_NOT_EMPTY = 9041;</code>
+     */
+    public static final int SCHEMA_NOT_EMPTY_VALUE = 9041;
+    /**
+     * <code>METASTORE_NOT_EMPTY = 9042;</code>
+     */
+    public static final int METASTORE_NOT_EMPTY_VALUE = 9042;
+    /**
+     * <code>PROVIDER_SHARE_NOT_ACCESSIBLE = 9060;</code>
+     */
+    public static final int PROVIDER_SHARE_NOT_ACCESSIBLE_VALUE = 9060;
 
 
     public final int getNumber() {
@@ -505,6 +1264,8 @@ public final class Databricks {
     }
 
     /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
      * @deprecated Use {@link #forNumber(int)} instead.
      */
     @java.lang.Deprecated
@@ -512,12 +1273,25 @@ public final class Databricks {
       return forNumber(value);
     }
 
+    /**
+     * @param value The numeric wire value of the corresponding enum entry.
+     * @return The enum associated with the given numeric wire value.
+     */
     public static ErrorCode forNumber(int value) {
       switch (value) {
         case 1: return INTERNAL_ERROR;
         case 2: return TEMPORARILY_UNAVAILABLE;
         case 3: return IO_ERROR;
         case 4: return BAD_REQUEST;
+        case 5: return SERVICE_UNDER_MAINTENANCE;
+        case 6: return WORKSPACE_TEMPORARILY_UNAVAILABLE;
+        case 7: return DEADLINE_EXCEEDED;
+        case 8: return CANCELLED;
+        case 9: return RESOURCE_EXHAUSTED;
+        case 10: return ABORTED;
+        case 11: return NOT_FOUND;
+        case 12: return ALREADY_EXISTS;
+        case 13: return UNAUTHENTICATED;
         case 1000: return INVALID_PARAMETER_VALUE;
         case 1001: return ENDPOINT_NOT_FOUND;
         case 1002: return MALFORMED_REQUEST;
@@ -526,6 +1300,10 @@ public final class Databricks {
         case 1005: return FEATURE_DISABLED;
         case 1006: return CUSTOMER_UNAUTHORIZED;
         case 1007: return REQUEST_LIMIT_EXCEEDED;
+        case 1008: return RESOURCE_CONFLICT;
+        case 1009: return UNPARSEABLE_HTTP_ERROR;
+        case 1010: return NOT_IMPLEMENTED;
+        case 1011: return DATA_LOSS;
         case 2001: return INVALID_STATE_TRANSITION;
         case 2002: return COULD_NOT_ACQUIRE_LOCK;
         case 3001: return RESOURCE_ALREADY_EXISTS;
@@ -533,11 +1311,53 @@ public final class Databricks {
         case 4001: return QUOTA_EXCEEDED;
         case 4002: return MAX_BLOCK_SIZE_EXCEEDED;
         case 4003: return MAX_READ_SIZE_EXCEEDED;
+        case 4004: return PARTIAL_DELETE;
+        case 4005: return MAX_LIST_SIZE_EXCEEDED;
         case 5001: return DRY_RUN_FAILED;
         case 5002: return RESOURCE_LIMIT_EXCEEDED;
         case 6001: return DIRECTORY_NOT_EMPTY;
         case 6002: return DIRECTORY_PROTECTED;
         case 6003: return MAX_NOTEBOOK_SIZE_EXCEEDED;
+        case 6004: return MAX_CHILD_NODE_SIZE_EXCEEDED;
+        case 6100: return SEARCH_QUERY_TOO_LONG;
+        case 6101: return SEARCH_QUERY_TOO_SHORT;
+        case 7001: return MANAGED_RESOURCE_GROUP_DOES_NOT_EXIST;
+        case 7002: return PERMISSION_NOT_PROPAGATED;
+        case 7003: return DEPLOYMENT_TIMEOUT;
+        case 8001: return GIT_CONFLICT;
+        case 8002: return GIT_UNKNOWN_REF;
+        case 8003: return GIT_SENSITIVE_TOKEN_DETECTED;
+        case 8004: return GIT_URL_NOT_ON_ALLOW_LIST;
+        case 8005: return GIT_REMOTE_ERROR;
+        case 8006: return PROJECTS_OPERATION_TIMEOUT;
+        case 8007: return IPYNB_FILE_IN_REPO;
+        case 8100: return INSECURE_PARTNER_RESPONSE;
+        case 8101: return MALFORMED_PARTNER_RESPONSE;
+        case 9000: return METASTORE_DOES_NOT_EXIST;
+        case 9001: return DAC_DOES_NOT_EXIST;
+        case 9002: return CATALOG_DOES_NOT_EXIST;
+        case 9003: return SCHEMA_DOES_NOT_EXIST;
+        case 9004: return TABLE_DOES_NOT_EXIST;
+        case 9005: return SHARE_DOES_NOT_EXIST;
+        case 9006: return RECIPIENT_DOES_NOT_EXIST;
+        case 9007: return STORAGE_CREDENTIAL_DOES_NOT_EXIST;
+        case 9008: return EXTERNAL_LOCATION_DOES_NOT_EXIST;
+        case 9009: return PRINCIPAL_DOES_NOT_EXIST;
+        case 9010: return PROVIDER_DOES_NOT_EXIST;
+        case 9020: return METASTORE_ALREADY_EXISTS;
+        case 9021: return DAC_ALREADY_EXISTS;
+        case 9022: return CATALOG_ALREADY_EXISTS;
+        case 9023: return SCHEMA_ALREADY_EXISTS;
+        case 9024: return TABLE_ALREADY_EXISTS;
+        case 9025: return SHARE_ALREADY_EXISTS;
+        case 9026: return RECIPIENT_ALREADY_EXISTS;
+        case 9027: return STORAGE_CREDENTIAL_ALREADY_EXISTS;
+        case 9028: return EXTERNAL_LOCATION_ALREADY_EXISTS;
+        case 9029: return PROVIDER_ALREADY_EXISTS;
+        case 9040: return CATALOG_NOT_EMPTY;
+        case 9041: return SCHEMA_NOT_EMPTY;
+        case 9042: return METASTORE_NOT_EMPTY;
+        case 9060: return PROVIDER_SHARE_NOT_ACCESSIBLE;
         default: return null;
       }
     }
@@ -621,6 +1441,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.Visibility visibility = 2;</code>
+     * @return Whether the visibility field is set.
      */
     boolean hasVisibility();
     /**
@@ -629,6 +1450,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.Visibility visibility = 2;</code>
+     * @return The visibility.
      */
     com.databricks.api.proto.databricks.Databricks.Visibility getVisibility();
 
@@ -639,6 +1461,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+     * @return A list containing the errorCodes.
      */
     java.util.List<com.databricks.api.proto.databricks.Databricks.ErrorCode> getErrorCodesList();
     /**
@@ -648,6 +1471,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+     * @return The count of errorCodes.
      */
     int getErrorCodesCount();
     /**
@@ -657,6 +1481,8 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+     * @param index The index of the element to return.
+     * @return The errorCodes at the given index.
      */
     com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCodes(int index);
 
@@ -666,6 +1492,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
+     * @return Whether the rateLimit field is set.
      */
     boolean hasRateLimit();
     /**
@@ -674,6 +1501,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
+     * @return The rateLimit.
      */
     com.databricks.api.proto.databricks.Databricks.RateLimit getRateLimit();
     /**
@@ -692,6 +1520,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string rpc_doc_title = 5;</code>
+     * @return Whether the rpcDocTitle field is set.
      */
     boolean hasRpcDocTitle();
     /**
@@ -701,6 +1530,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string rpc_doc_title = 5;</code>
+     * @return The rpcDocTitle.
      */
     java.lang.String getRpcDocTitle();
     /**
@@ -710,6 +1540,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string rpc_doc_title = 5;</code>
+     * @return The bytes for rpcDocTitle.
      */
     com.google.protobuf.ByteString
         getRpcDocTitleBytes();
@@ -722,7 +1553,7 @@ public final class Databricks {
    *
    * Protobuf type {@code mlflow.DatabricksRpcOptions}
    */
-  public  static final class DatabricksRpcOptions extends
+  public static final class DatabricksRpcOptions extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.DatabricksRpcOptions)
       DatabricksRpcOptionsOrBuilder {
@@ -736,6 +1567,13 @@ public final class Databricks {
       visibility_ = 1;
       errorCodes_ = java.util.Collections.emptyList();
       rpcDocTitle_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new DatabricksRpcOptions();
     }
 
     @java.lang.Override
@@ -763,7 +1601,7 @@ public final class Databricks {
               done = true;
               break;
             case 10: {
-              if (!((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+              if (!((mutable_bitField0_ & 0x00000001) != 0)) {
                 endpoints_ = new java.util.ArrayList<com.databricks.api.proto.databricks.Databricks.HttpEndpoint>();
                 mutable_bitField0_ |= 0x00000001;
               }
@@ -790,7 +1628,7 @@ public final class Databricks {
               if (value == null) {
                 unknownFields.mergeVarintField(3, rawValue);
               } else {
-                if (!((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+                if (!((mutable_bitField0_ & 0x00000004) != 0)) {
                   errorCodes_ = new java.util.ArrayList<java.lang.Integer>();
                   mutable_bitField0_ |= 0x00000004;
                 }
@@ -808,7 +1646,7 @@ public final class Databricks {
                 if (value == null) {
                   unknownFields.mergeVarintField(3, rawValue);
                 } else {
-                  if (!((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+                  if (!((mutable_bitField0_ & 0x00000004) != 0)) {
                     errorCodes_ = new java.util.ArrayList<java.lang.Integer>();
                     mutable_bitField0_ |= 0x00000004;
                   }
@@ -820,7 +1658,7 @@ public final class Databricks {
             }
             case 34: {
               com.databricks.api.proto.databricks.Databricks.RateLimit.Builder subBuilder = null;
-              if (((bitField0_ & 0x00000002) == 0x00000002)) {
+              if (((bitField0_ & 0x00000002) != 0)) {
                 subBuilder = rateLimit_.toBuilder();
               }
               rateLimit_ = input.readMessage(com.databricks.api.proto.databricks.Databricks.RateLimit.PARSER, extensionRegistry);
@@ -852,10 +1690,10 @@ public final class Databricks {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((mutable_bitField0_ & 0x00000001) != 0)) {
           endpoints_ = java.util.Collections.unmodifiableList(endpoints_);
         }
-        if (((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((mutable_bitField0_ & 0x00000004) != 0)) {
           errorCodes_ = java.util.Collections.unmodifiableList(errorCodes_);
         }
         this.unknownFields = unknownFields.build();
@@ -881,12 +1719,14 @@ public final class Databricks {
     /**
      * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
+    @java.lang.Override
     public java.util.List<com.databricks.api.proto.databricks.Databricks.HttpEndpoint> getEndpointsList() {
       return endpoints_;
     }
     /**
      * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
+    @java.lang.Override
     public java.util.List<? extends com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder> 
         getEndpointsOrBuilderList() {
       return endpoints_;
@@ -894,18 +1734,21 @@ public final class Databricks {
     /**
      * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
+    @java.lang.Override
     public int getEndpointsCount() {
       return endpoints_.size();
     }
     /**
      * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
+    @java.lang.Override
     public com.databricks.api.proto.databricks.Databricks.HttpEndpoint getEndpoints(int index) {
       return endpoints_.get(index);
     }
     /**
      * <code>repeated .mlflow.HttpEndpoint endpoints = 1;</code>
      */
+    @java.lang.Override
     public com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder getEndpointsOrBuilder(
         int index) {
       return endpoints_.get(index);
@@ -919,9 +1762,10 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.Visibility visibility = 2;</code>
+     * @return Whether the visibility field is set.
      */
-    public boolean hasVisibility() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+    @java.lang.Override public boolean hasVisibility() {
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -929,8 +1773,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.Visibility visibility = 2;</code>
+     * @return The visibility.
      */
-    public com.databricks.api.proto.databricks.Databricks.Visibility getVisibility() {
+    @java.lang.Override public com.databricks.api.proto.databricks.Databricks.Visibility getVisibility() {
       @SuppressWarnings("deprecation")
       com.databricks.api.proto.databricks.Databricks.Visibility result = com.databricks.api.proto.databricks.Databricks.Visibility.valueOf(visibility_);
       return result == null ? com.databricks.api.proto.databricks.Databricks.Visibility.PUBLIC : result;
@@ -955,7 +1800,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+     * @return A list containing the errorCodes.
      */
+    @java.lang.Override
     public java.util.List<com.databricks.api.proto.databricks.Databricks.ErrorCode> getErrorCodesList() {
       return new com.google.protobuf.Internal.ListAdapter<
           java.lang.Integer, com.databricks.api.proto.databricks.Databricks.ErrorCode>(errorCodes_, errorCodes_converter_);
@@ -967,7 +1814,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+     * @return The count of errorCodes.
      */
+    @java.lang.Override
     public int getErrorCodesCount() {
       return errorCodes_.size();
     }
@@ -978,7 +1827,10 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+     * @param index The index of the element to return.
+     * @return The errorCodes at the given index.
      */
+    @java.lang.Override
     public com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCodes(int index) {
       return errorCodes_converter_.convert(errorCodes_.get(index));
     }
@@ -991,9 +1843,11 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
+     * @return Whether the rateLimit field is set.
      */
+    @java.lang.Override
     public boolean hasRateLimit() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
@@ -1001,7 +1855,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
+     * @return The rateLimit.
      */
+    @java.lang.Override
     public com.databricks.api.proto.databricks.Databricks.RateLimit getRateLimit() {
       return rateLimit_ == null ? com.databricks.api.proto.databricks.Databricks.RateLimit.getDefaultInstance() : rateLimit_;
     }
@@ -1012,6 +1868,7 @@ public final class Databricks {
      *
      * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
      */
+    @java.lang.Override
     public com.databricks.api.proto.databricks.Databricks.RateLimitOrBuilder getRateLimitOrBuilder() {
       return rateLimit_ == null ? com.databricks.api.proto.databricks.Databricks.RateLimit.getDefaultInstance() : rateLimit_;
     }
@@ -1025,9 +1882,11 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string rpc_doc_title = 5;</code>
+     * @return Whether the rpcDocTitle field is set.
      */
+    @java.lang.Override
     public boolean hasRpcDocTitle() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
+      return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
@@ -1036,7 +1895,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string rpc_doc_title = 5;</code>
+     * @return The rpcDocTitle.
      */
+    @java.lang.Override
     public java.lang.String getRpcDocTitle() {
       java.lang.Object ref = rpcDocTitle_;
       if (ref instanceof java.lang.String) {
@@ -1058,7 +1919,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string rpc_doc_title = 5;</code>
+     * @return The bytes for rpcDocTitle.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getRpcDocTitleBytes() {
       java.lang.Object ref = rpcDocTitle_;
@@ -1090,16 +1953,16 @@ public final class Databricks {
       for (int i = 0; i < endpoints_.size(); i++) {
         output.writeMessage(1, endpoints_.get(i));
       }
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         output.writeEnum(2, visibility_);
       }
       for (int i = 0; i < errorCodes_.size(); i++) {
         output.writeEnum(3, errorCodes_.get(i));
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         output.writeMessage(4, getRateLimit());
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000004) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 5, rpcDocTitle_);
       }
       unknownFields.writeTo(output);
@@ -1115,7 +1978,7 @@ public final class Databricks {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(1, endpoints_.get(i));
       }
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeEnumSize(2, visibility_);
       }
@@ -1128,11 +1991,11 @@ public final class Databricks {
         size += dataSize;
         size += 1 * errorCodes_.size();
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(4, getRateLimit());
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(5, rpcDocTitle_);
       }
       size += unknownFields.getSerializedSize();
@@ -1150,26 +2013,25 @@ public final class Databricks {
       }
       com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions other = (com.databricks.api.proto.databricks.Databricks.DatabricksRpcOptions) obj;
 
-      boolean result = true;
-      result = result && getEndpointsList()
-          .equals(other.getEndpointsList());
-      result = result && (hasVisibility() == other.hasVisibility());
+      if (!getEndpointsList()
+          .equals(other.getEndpointsList())) return false;
+      if (hasVisibility() != other.hasVisibility()) return false;
       if (hasVisibility()) {
-        result = result && visibility_ == other.visibility_;
+        if (visibility_ != other.visibility_) return false;
       }
-      result = result && errorCodes_.equals(other.errorCodes_);
-      result = result && (hasRateLimit() == other.hasRateLimit());
+      if (!errorCodes_.equals(other.errorCodes_)) return false;
+      if (hasRateLimit() != other.hasRateLimit()) return false;
       if (hasRateLimit()) {
-        result = result && getRateLimit()
-            .equals(other.getRateLimit());
+        if (!getRateLimit()
+            .equals(other.getRateLimit())) return false;
       }
-      result = result && (hasRpcDocTitle() == other.hasRpcDocTitle());
+      if (hasRpcDocTitle() != other.hasRpcDocTitle()) return false;
       if (hasRpcDocTitle()) {
-        result = result && getRpcDocTitle()
-            .equals(other.getRpcDocTitle());
+        if (!getRpcDocTitle()
+            .equals(other.getRpcDocTitle())) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -1386,7 +2248,7 @@ public final class Databricks {
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
         if (endpointsBuilder_ == null) {
-          if (((bitField0_ & 0x00000001) == 0x00000001)) {
+          if (((bitField0_ & 0x00000001) != 0)) {
             endpoints_ = java.util.Collections.unmodifiableList(endpoints_);
             bitField0_ = (bitField0_ & ~0x00000001);
           }
@@ -1394,24 +2256,24 @@ public final class Databricks {
         } else {
           result.endpoints_ = endpointsBuilder_.build();
         }
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
         result.visibility_ = visibility_;
-        if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((bitField0_ & 0x00000004) != 0)) {
           errorCodes_ = java.util.Collections.unmodifiableList(errorCodes_);
           bitField0_ = (bitField0_ & ~0x00000004);
         }
         result.errorCodes_ = errorCodes_;
-        if (((from_bitField0_ & 0x00000008) == 0x00000008)) {
+        if (((from_bitField0_ & 0x00000008) != 0)) {
+          if (rateLimitBuilder_ == null) {
+            result.rateLimit_ = rateLimit_;
+          } else {
+            result.rateLimit_ = rateLimitBuilder_.build();
+          }
           to_bitField0_ |= 0x00000002;
         }
-        if (rateLimitBuilder_ == null) {
-          result.rateLimit_ = rateLimit_;
-        } else {
-          result.rateLimit_ = rateLimitBuilder_.build();
-        }
-        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
+        if (((from_bitField0_ & 0x00000010) != 0)) {
           to_bitField0_ |= 0x00000004;
         }
         result.rpcDocTitle_ = rpcDocTitle_;
@@ -1422,35 +2284,35 @@ public final class Databricks {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -1544,7 +2406,7 @@ public final class Databricks {
       private java.util.List<com.databricks.api.proto.databricks.Databricks.HttpEndpoint> endpoints_ =
         java.util.Collections.emptyList();
       private void ensureEndpointsIsMutable() {
-        if (!((bitField0_ & 0x00000001) == 0x00000001)) {
+        if (!((bitField0_ & 0x00000001) != 0)) {
           endpoints_ = new java.util.ArrayList<com.databricks.api.proto.databricks.Databricks.HttpEndpoint>(endpoints_);
           bitField0_ |= 0x00000001;
          }
@@ -1773,7 +2635,7 @@ public final class Databricks {
           endpointsBuilder_ = new com.google.protobuf.RepeatedFieldBuilderV3<
               com.databricks.api.proto.databricks.Databricks.HttpEndpoint, com.databricks.api.proto.databricks.Databricks.HttpEndpoint.Builder, com.databricks.api.proto.databricks.Databricks.HttpEndpointOrBuilder>(
                   endpoints_,
-                  ((bitField0_ & 0x00000001) == 0x00000001),
+                  ((bitField0_ & 0x00000001) != 0),
                   getParentForChildren(),
                   isClean());
           endpoints_ = null;
@@ -1788,9 +2650,10 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.Visibility visibility = 2;</code>
+       * @return Whether the visibility field is set.
        */
-      public boolean hasVisibility() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+      @java.lang.Override public boolean hasVisibility() {
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
@@ -1798,7 +2661,9 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.Visibility visibility = 2;</code>
+       * @return The visibility.
        */
+      @java.lang.Override
       public com.databricks.api.proto.databricks.Databricks.Visibility getVisibility() {
         @SuppressWarnings("deprecation")
         com.databricks.api.proto.databricks.Databricks.Visibility result = com.databricks.api.proto.databricks.Databricks.Visibility.valueOf(visibility_);
@@ -1810,6 +2675,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.Visibility visibility = 2;</code>
+       * @param value The visibility to set.
+       * @return This builder for chaining.
        */
       public Builder setVisibility(com.databricks.api.proto.databricks.Databricks.Visibility value) {
         if (value == null) {
@@ -1826,6 +2693,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.Visibility visibility = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearVisibility() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -1837,7 +2705,7 @@ public final class Databricks {
       private java.util.List<java.lang.Integer> errorCodes_ =
         java.util.Collections.emptyList();
       private void ensureErrorCodesIsMutable() {
-        if (!((bitField0_ & 0x00000004) == 0x00000004)) {
+        if (!((bitField0_ & 0x00000004) != 0)) {
           errorCodes_ = new java.util.ArrayList<java.lang.Integer>(errorCodes_);
           bitField0_ |= 0x00000004;
         }
@@ -1849,6 +2717,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+       * @return A list containing the errorCodes.
        */
       public java.util.List<com.databricks.api.proto.databricks.Databricks.ErrorCode> getErrorCodesList() {
         return new com.google.protobuf.Internal.ListAdapter<
@@ -1861,6 +2730,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+       * @return The count of errorCodes.
        */
       public int getErrorCodesCount() {
         return errorCodes_.size();
@@ -1872,6 +2742,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+       * @param index The index of the element to return.
+       * @return The errorCodes at the given index.
        */
       public com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCodes(int index) {
         return errorCodes_converter_.convert(errorCodes_.get(index));
@@ -1883,6 +2755,9 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+       * @param index The index to set the value at.
+       * @param value The errorCodes to set.
+       * @return This builder for chaining.
        */
       public Builder setErrorCodes(
           int index, com.databricks.api.proto.databricks.Databricks.ErrorCode value) {
@@ -1901,6 +2776,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+       * @param value The errorCodes to add.
+       * @return This builder for chaining.
        */
       public Builder addErrorCodes(com.databricks.api.proto.databricks.Databricks.ErrorCode value) {
         if (value == null) {
@@ -1918,6 +2795,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+       * @param values The errorCodes to add.
+       * @return This builder for chaining.
        */
       public Builder addAllErrorCodes(
           java.lang.Iterable<? extends com.databricks.api.proto.databricks.Databricks.ErrorCode> values) {
@@ -1935,6 +2814,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated .mlflow.ErrorCode error_codes = 3;</code>
+       * @return This builder for chaining.
        */
       public Builder clearErrorCodes() {
         errorCodes_ = java.util.Collections.emptyList();
@@ -1943,7 +2823,7 @@ public final class Databricks {
         return this;
       }
 
-      private com.databricks.api.proto.databricks.Databricks.RateLimit rateLimit_ = null;
+      private com.databricks.api.proto.databricks.Databricks.RateLimit rateLimit_;
       private com.google.protobuf.SingleFieldBuilderV3<
           com.databricks.api.proto.databricks.Databricks.RateLimit, com.databricks.api.proto.databricks.Databricks.RateLimit.Builder, com.databricks.api.proto.databricks.Databricks.RateLimitOrBuilder> rateLimitBuilder_;
       /**
@@ -1952,9 +2832,10 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
+       * @return Whether the rateLimit field is set.
        */
       public boolean hasRateLimit() {
-        return ((bitField0_ & 0x00000008) == 0x00000008);
+        return ((bitField0_ & 0x00000008) != 0);
       }
       /**
        * <pre>
@@ -1962,6 +2843,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.RateLimit rate_limit = 4;</code>
+       * @return The rateLimit.
        */
       public com.databricks.api.proto.databricks.Databricks.RateLimit getRateLimit() {
         if (rateLimitBuilder_ == null) {
@@ -2017,7 +2899,7 @@ public final class Databricks {
        */
       public Builder mergeRateLimit(com.databricks.api.proto.databricks.Databricks.RateLimit value) {
         if (rateLimitBuilder_ == null) {
-          if (((bitField0_ & 0x00000008) == 0x00000008) &&
+          if (((bitField0_ & 0x00000008) != 0) &&
               rateLimit_ != null &&
               rateLimit_ != com.databricks.api.proto.databricks.Databricks.RateLimit.getDefaultInstance()) {
             rateLimit_ =
@@ -2105,9 +2987,10 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string rpc_doc_title = 5;</code>
+       * @return Whether the rpcDocTitle field is set.
        */
       public boolean hasRpcDocTitle() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
@@ -2116,6 +2999,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string rpc_doc_title = 5;</code>
+       * @return The rpcDocTitle.
        */
       public java.lang.String getRpcDocTitle() {
         java.lang.Object ref = rpcDocTitle_;
@@ -2138,6 +3022,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string rpc_doc_title = 5;</code>
+       * @return The bytes for rpcDocTitle.
        */
       public com.google.protobuf.ByteString
           getRpcDocTitleBytes() {
@@ -2159,6 +3044,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string rpc_doc_title = 5;</code>
+       * @param value The rpcDocTitle to set.
+       * @return This builder for chaining.
        */
       public Builder setRpcDocTitle(
           java.lang.String value) {
@@ -2177,6 +3064,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string rpc_doc_title = 5;</code>
+       * @return This builder for chaining.
        */
       public Builder clearRpcDocTitle() {
         bitField0_ = (bitField0_ & ~0x00000010);
@@ -2191,6 +3079,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string rpc_doc_title = 5;</code>
+       * @param value The bytes for rpcDocTitle to set.
+       * @return This builder for chaining.
        */
       public Builder setRpcDocTitleBytes(
           com.google.protobuf.ByteString value) {
@@ -2255,6 +3145,436 @@ public final class Databricks {
 
   }
 
+  public interface DatabricksGraphqlOptionsOrBuilder extends
+      // @@protoc_insertion_point(interface_extends:mlflow.DatabricksGraphqlOptions)
+      com.google.protobuf.MessageOrBuilder {
+  }
+  /**
+   * <pre>
+   * Defines the set of options needed for autogenerating graphql modules.
+   * Will add more fields (batch loader, renaming) later.
+   * Empty for now. The rpc will be visible for graphql module autogeneration if this field is set.
+   * </pre>
+   *
+   * Protobuf type {@code mlflow.DatabricksGraphqlOptions}
+   */
+  public static final class DatabricksGraphqlOptions extends
+      com.google.protobuf.GeneratedMessageV3 implements
+      // @@protoc_insertion_point(message_implements:mlflow.DatabricksGraphqlOptions)
+      DatabricksGraphqlOptionsOrBuilder {
+  private static final long serialVersionUID = 0L;
+    // Use DatabricksGraphqlOptions.newBuilder() to construct.
+    private DatabricksGraphqlOptions(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
+      super(builder);
+    }
+    private DatabricksGraphqlOptions() {
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new DatabricksGraphqlOptions();
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return this.unknownFields;
+    }
+    private DatabricksGraphqlOptions(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      this();
+      if (extensionRegistry == null) {
+        throw new java.lang.NullPointerException();
+      }
+      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
+          com.google.protobuf.UnknownFieldSet.newBuilder();
+      try {
+        boolean done = false;
+        while (!done) {
+          int tag = input.readTag();
+          switch (tag) {
+            case 0:
+              done = true;
+              break;
+            default: {
+              if (!parseUnknownField(
+                  input, unknownFields, extensionRegistry, tag)) {
+                done = true;
+              }
+              break;
+            }
+          }
+        }
+      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+        throw e.setUnfinishedMessage(this);
+      } catch (java.io.IOException e) {
+        throw new com.google.protobuf.InvalidProtocolBufferException(
+            e).setUnfinishedMessage(this);
+      } finally {
+        this.unknownFields = unknownFields.build();
+        makeExtensionsImmutable();
+      }
+    }
+    public static final com.google.protobuf.Descriptors.Descriptor
+        getDescriptor() {
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksGraphqlOptions_descriptor;
+    }
+
+    @java.lang.Override
+    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+        internalGetFieldAccessorTable() {
+      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksGraphqlOptions_fieldAccessorTable
+          .ensureFieldAccessorsInitialized(
+              com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.class, com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.Builder.class);
+    }
+
+    private byte memoizedIsInitialized = -1;
+    @java.lang.Override
+    public final boolean isInitialized() {
+      byte isInitialized = memoizedIsInitialized;
+      if (isInitialized == 1) return true;
+      if (isInitialized == 0) return false;
+
+      memoizedIsInitialized = 1;
+      return true;
+    }
+
+    @java.lang.Override
+    public void writeTo(com.google.protobuf.CodedOutputStream output)
+                        throws java.io.IOException {
+      unknownFields.writeTo(output);
+    }
+
+    @java.lang.Override
+    public int getSerializedSize() {
+      int size = memoizedSize;
+      if (size != -1) return size;
+
+      size = 0;
+      size += unknownFields.getSerializedSize();
+      memoizedSize = size;
+      return size;
+    }
+
+    @java.lang.Override
+    public boolean equals(final java.lang.Object obj) {
+      if (obj == this) {
+       return true;
+      }
+      if (!(obj instanceof com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions)) {
+        return super.equals(obj);
+      }
+      com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions other = (com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions) obj;
+
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
+    }
+
+    @java.lang.Override
+    public int hashCode() {
+      if (memoizedHashCode != 0) {
+        return memoizedHashCode;
+      }
+      int hash = 41;
+      hash = (19 * hash) + getDescriptor().hashCode();
+      hash = (29 * hash) + unknownFields.hashCode();
+      memoizedHashCode = hash;
+      return hash;
+    }
+
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        java.nio.ByteBuffer data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        java.nio.ByteBuffer data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input);
+    }
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessageV3
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    @java.lang.Override
+    public Builder newBuilderForType() { return newBuilder(); }
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+    public static Builder newBuilder(com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+    @java.lang.Override
+    public Builder toBuilder() {
+      return this == DEFAULT_INSTANCE
+          ? new Builder() : new Builder().mergeFrom(this);
+    }
+
+    @java.lang.Override
+    protected Builder newBuilderForType(
+        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+      Builder builder = new Builder(parent);
+      return builder;
+    }
+    /**
+     * <pre>
+     * Defines the set of options needed for autogenerating graphql modules.
+     * Will add more fields (batch loader, renaming) later.
+     * Empty for now. The rpc will be visible for graphql module autogeneration if this field is set.
+     * </pre>
+     *
+     * Protobuf type {@code mlflow.DatabricksGraphqlOptions}
+     */
+    public static final class Builder extends
+        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
+        // @@protoc_insertion_point(builder_implements:mlflow.DatabricksGraphqlOptions)
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptionsOrBuilder {
+      public static final com.google.protobuf.Descriptors.Descriptor
+          getDescriptor() {
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksGraphqlOptions_descriptor;
+      }
+
+      @java.lang.Override
+      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+          internalGetFieldAccessorTable() {
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksGraphqlOptions_fieldAccessorTable
+            .ensureFieldAccessorsInitialized(
+                com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.class, com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.Builder.class);
+      }
+
+      // Construct using com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+      private void maybeForceBuilderInitialization() {
+        if (com.google.protobuf.GeneratedMessageV3
+                .alwaysUseFieldBuilders) {
+        }
+      }
+      @java.lang.Override
+      public Builder clear() {
+        super.clear();
+        return this;
+      }
+
+      @java.lang.Override
+      public com.google.protobuf.Descriptors.Descriptor
+          getDescriptorForType() {
+        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksGraphqlOptions_descriptor;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions getDefaultInstanceForType() {
+        return com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.getDefaultInstance();
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions build() {
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions result = buildPartial();
+        if (!result.isInitialized()) {
+          throw newUninitializedMessageException(result);
+        }
+        return result;
+      }
+
+      @java.lang.Override
+      public com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions buildPartial() {
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions result = new com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions(this);
+        onBuilt();
+        return result;
+      }
+
+      @java.lang.Override
+      public Builder clone() {
+        return super.clone();
+      }
+      @java.lang.Override
+      public Builder setField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.setField(field, value);
+      }
+      @java.lang.Override
+      public Builder clearField(
+          com.google.protobuf.Descriptors.FieldDescriptor field) {
+        return super.clearField(field);
+      }
+      @java.lang.Override
+      public Builder clearOneof(
+          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
+        return super.clearOneof(oneof);
+      }
+      @java.lang.Override
+      public Builder setRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          int index, java.lang.Object value) {
+        return super.setRepeatedField(field, index, value);
+      }
+      @java.lang.Override
+      public Builder addRepeatedField(
+          com.google.protobuf.Descriptors.FieldDescriptor field,
+          java.lang.Object value) {
+        return super.addRepeatedField(field, value);
+      }
+      @java.lang.Override
+      public Builder mergeFrom(com.google.protobuf.Message other) {
+        if (other instanceof com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions) {
+          return mergeFrom((com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions)other);
+        } else {
+          super.mergeFrom(other);
+          return this;
+        }
+      }
+
+      public Builder mergeFrom(com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions other) {
+        if (other == com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.getDefaultInstance()) return this;
+        this.mergeUnknownFields(other.unknownFields);
+        onChanged();
+        return this;
+      }
+
+      @java.lang.Override
+      public final boolean isInitialized() {
+        return true;
+      }
+
+      @java.lang.Override
+      public Builder mergeFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws java.io.IOException {
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions parsedMessage = null;
+        try {
+          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
+        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
+          parsedMessage = (com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions) e.getUnfinishedMessage();
+          throw e.unwrapIOException();
+        } finally {
+          if (parsedMessage != null) {
+            mergeFrom(parsedMessage);
+          }
+        }
+        return this;
+      }
+      @java.lang.Override
+      public final Builder setUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.setUnknownFields(unknownFields);
+      }
+
+      @java.lang.Override
+      public final Builder mergeUnknownFields(
+          final com.google.protobuf.UnknownFieldSet unknownFields) {
+        return super.mergeUnknownFields(unknownFields);
+      }
+
+
+      // @@protoc_insertion_point(builder_scope:mlflow.DatabricksGraphqlOptions)
+    }
+
+    // @@protoc_insertion_point(class_scope:mlflow.DatabricksGraphqlOptions)
+    private static final com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions DEFAULT_INSTANCE;
+    static {
+      DEFAULT_INSTANCE = new com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions();
+    }
+
+    public static com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    @java.lang.Deprecated public static final com.google.protobuf.Parser<DatabricksGraphqlOptions>
+        PARSER = new com.google.protobuf.AbstractParser<DatabricksGraphqlOptions>() {
+      @java.lang.Override
+      public DatabricksGraphqlOptions parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new DatabricksGraphqlOptions(input, extensionRegistry);
+      }
+    };
+
+    public static com.google.protobuf.Parser<DatabricksGraphqlOptions> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<DatabricksGraphqlOptions> getParserForType() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
+  }
+
   public interface HttpEndpointOrBuilder extends
       // @@protoc_insertion_point(interface_extends:mlflow.HttpEndpoint)
       com.google.protobuf.MessageOrBuilder {
@@ -2265,6 +3585,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string method = 1 [default = "POST"];</code>
+     * @return Whether the method field is set.
      */
     boolean hasMethod();
     /**
@@ -2273,6 +3594,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string method = 1 [default = "POST"];</code>
+     * @return The method.
      */
     java.lang.String getMethod();
     /**
@@ -2281,6 +3603,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string method = 1 [default = "POST"];</code>
+     * @return The bytes for method.
      */
     com.google.protobuf.ByteString
         getMethodBytes();
@@ -2291,6 +3614,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return Whether the path field is set.
      */
     boolean hasPath();
     /**
@@ -2299,6 +3623,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return The path.
      */
     java.lang.String getPath();
     /**
@@ -2307,6 +3632,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return The bytes for path.
      */
     com.google.protobuf.ByteString
         getPathBytes();
@@ -2318,6 +3644,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.ApiVersion since = 3;</code>
+     * @return Whether the since field is set.
      */
     boolean hasSince();
     /**
@@ -2327,6 +3654,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.ApiVersion since = 3;</code>
+     * @return The since.
      */
     com.databricks.api.proto.databricks.Databricks.ApiVersion getSince();
     /**
@@ -2342,7 +3670,7 @@ public final class Databricks {
   /**
    * Protobuf type {@code mlflow.HttpEndpoint}
    */
-  public  static final class HttpEndpoint extends
+  public static final class HttpEndpoint extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.HttpEndpoint)
       HttpEndpointOrBuilder {
@@ -2354,6 +3682,13 @@ public final class Databricks {
     private HttpEndpoint() {
       method_ = "POST";
       path_ = "";
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new HttpEndpoint();
     }
 
     @java.lang.Override
@@ -2394,7 +3729,7 @@ public final class Databricks {
             }
             case 26: {
               com.databricks.api.proto.databricks.Databricks.ApiVersion.Builder subBuilder = null;
-              if (((bitField0_ & 0x00000004) == 0x00000004)) {
+              if (((bitField0_ & 0x00000004) != 0)) {
                 subBuilder = since_.toBuilder();
               }
               since_ = input.readMessage(com.databricks.api.proto.databricks.Databricks.ApiVersion.PARSER, extensionRegistry);
@@ -2446,9 +3781,11 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string method = 1 [default = "POST"];</code>
+     * @return Whether the method field is set.
      */
+    @java.lang.Override
     public boolean hasMethod() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -2456,7 +3793,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string method = 1 [default = "POST"];</code>
+     * @return The method.
      */
+    @java.lang.Override
     public java.lang.String getMethod() {
       java.lang.Object ref = method_;
       if (ref instanceof java.lang.String) {
@@ -2477,7 +3816,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string method = 1 [default = "POST"];</code>
+     * @return The bytes for method.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getMethodBytes() {
       java.lang.Object ref = method_;
@@ -2500,9 +3841,11 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return Whether the path field is set.
      */
+    @java.lang.Override
     public boolean hasPath() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
@@ -2510,7 +3853,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return The path.
      */
+    @java.lang.Override
     public java.lang.String getPath() {
       java.lang.Object ref = path_;
       if (ref instanceof java.lang.String) {
@@ -2531,7 +3876,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string path = 2;</code>
+     * @return The bytes for path.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getPathBytes() {
       java.lang.Object ref = path_;
@@ -2555,9 +3902,11 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.ApiVersion since = 3;</code>
+     * @return Whether the since field is set.
      */
+    @java.lang.Override
     public boolean hasSince() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
+      return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
@@ -2566,7 +3915,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.ApiVersion since = 3;</code>
+     * @return The since.
      */
+    @java.lang.Override
     public com.databricks.api.proto.databricks.Databricks.ApiVersion getSince() {
       return since_ == null ? com.databricks.api.proto.databricks.Databricks.ApiVersion.getDefaultInstance() : since_;
     }
@@ -2578,6 +3929,7 @@ public final class Databricks {
      *
      * <code>optional .mlflow.ApiVersion since = 3;</code>
      */
+    @java.lang.Override
     public com.databricks.api.proto.databricks.Databricks.ApiVersionOrBuilder getSinceOrBuilder() {
       return since_ == null ? com.databricks.api.proto.databricks.Databricks.ApiVersion.getDefaultInstance() : since_;
     }
@@ -2596,13 +3948,13 @@ public final class Databricks {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, method_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, path_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000004) != 0)) {
         output.writeMessage(3, getSince());
       }
       unknownFields.writeTo(output);
@@ -2614,13 +3966,13 @@ public final class Databricks {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, method_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, path_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeMessageSize(3, getSince());
       }
@@ -2639,24 +3991,23 @@ public final class Databricks {
       }
       com.databricks.api.proto.databricks.Databricks.HttpEndpoint other = (com.databricks.api.proto.databricks.Databricks.HttpEndpoint) obj;
 
-      boolean result = true;
-      result = result && (hasMethod() == other.hasMethod());
+      if (hasMethod() != other.hasMethod()) return false;
       if (hasMethod()) {
-        result = result && getMethod()
-            .equals(other.getMethod());
+        if (!getMethod()
+            .equals(other.getMethod())) return false;
       }
-      result = result && (hasPath() == other.hasPath());
+      if (hasPath() != other.hasPath()) return false;
       if (hasPath()) {
-        result = result && getPath()
-            .equals(other.getPath());
+        if (!getPath()
+            .equals(other.getPath())) return false;
       }
-      result = result && (hasSince() == other.hasSince());
+      if (hasSince() != other.hasSince()) return false;
       if (hasSince()) {
-        result = result && getSince()
-            .equals(other.getSince());
+        if (!getSince()
+            .equals(other.getSince())) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -2850,21 +4201,21 @@ public final class Databricks {
         com.databricks.api.proto.databricks.Databricks.HttpEndpoint result = new com.databricks.api.proto.databricks.Databricks.HttpEndpoint(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
         result.method_ = method_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
         result.path_ = path_;
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((from_bitField0_ & 0x00000004) != 0)) {
+          if (sinceBuilder_ == null) {
+            result.since_ = since_;
+          } else {
+            result.since_ = sinceBuilder_.build();
+          }
           to_bitField0_ |= 0x00000004;
-        }
-        if (sinceBuilder_ == null) {
-          result.since_ = since_;
-        } else {
-          result.since_ = sinceBuilder_.build();
         }
         result.bitField0_ = to_bitField0_;
         onBuilt();
@@ -2873,35 +4224,35 @@ public final class Databricks {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -2965,9 +4316,10 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string method = 1 [default = "POST"];</code>
+       * @return Whether the method field is set.
        */
       public boolean hasMethod() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -2975,6 +4327,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string method = 1 [default = "POST"];</code>
+       * @return The method.
        */
       public java.lang.String getMethod() {
         java.lang.Object ref = method_;
@@ -2996,6 +4349,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string method = 1 [default = "POST"];</code>
+       * @return The bytes for method.
        */
       public com.google.protobuf.ByteString
           getMethodBytes() {
@@ -3016,6 +4370,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string method = 1 [default = "POST"];</code>
+       * @param value The method to set.
+       * @return This builder for chaining.
        */
       public Builder setMethod(
           java.lang.String value) {
@@ -3033,6 +4389,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string method = 1 [default = "POST"];</code>
+       * @return This builder for chaining.
        */
       public Builder clearMethod() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -3046,6 +4403,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string method = 1 [default = "POST"];</code>
+       * @param value The bytes for method to set.
+       * @return This builder for chaining.
        */
       public Builder setMethodBytes(
           com.google.protobuf.ByteString value) {
@@ -3065,9 +4424,10 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @return Whether the path field is set.
        */
       public boolean hasPath() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
@@ -3075,6 +4435,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @return The path.
        */
       public java.lang.String getPath() {
         java.lang.Object ref = path_;
@@ -3096,6 +4457,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @return The bytes for path.
        */
       public com.google.protobuf.ByteString
           getPathBytes() {
@@ -3116,6 +4478,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @param value The path to set.
+       * @return This builder for chaining.
        */
       public Builder setPath(
           java.lang.String value) {
@@ -3133,6 +4497,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearPath() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -3146,6 +4511,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string path = 2;</code>
+       * @param value The bytes for path to set.
+       * @return This builder for chaining.
        */
       public Builder setPathBytes(
           com.google.protobuf.ByteString value) {
@@ -3158,7 +4525,7 @@ public final class Databricks {
         return this;
       }
 
-      private com.databricks.api.proto.databricks.Databricks.ApiVersion since_ = null;
+      private com.databricks.api.proto.databricks.Databricks.ApiVersion since_;
       private com.google.protobuf.SingleFieldBuilderV3<
           com.databricks.api.proto.databricks.Databricks.ApiVersion, com.databricks.api.proto.databricks.Databricks.ApiVersion.Builder, com.databricks.api.proto.databricks.Databricks.ApiVersionOrBuilder> sinceBuilder_;
       /**
@@ -3168,9 +4535,10 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.ApiVersion since = 3;</code>
+       * @return Whether the since field is set.
        */
       public boolean hasSince() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+        return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
@@ -3179,6 +4547,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.ApiVersion since = 3;</code>
+       * @return The since.
        */
       public com.databricks.api.proto.databricks.Databricks.ApiVersion getSince() {
         if (sinceBuilder_ == null) {
@@ -3237,7 +4606,7 @@ public final class Databricks {
        */
       public Builder mergeSince(com.databricks.api.proto.databricks.Databricks.ApiVersion value) {
         if (sinceBuilder_ == null) {
-          if (((bitField0_ & 0x00000004) == 0x00000004) &&
+          if (((bitField0_ & 0x00000004) != 0) &&
               since_ != null &&
               since_ != com.databricks.api.proto.databricks.Databricks.ApiVersion.getDefaultInstance()) {
             since_ =
@@ -3379,26 +4748,30 @@ public final class Databricks {
 
     /**
      * <code>optional int32 major = 1;</code>
+     * @return Whether the major field is set.
      */
     boolean hasMajor();
     /**
      * <code>optional int32 major = 1;</code>
+     * @return The major.
      */
     int getMajor();
 
     /**
      * <code>optional int32 minor = 2;</code>
+     * @return Whether the minor field is set.
      */
     boolean hasMinor();
     /**
      * <code>optional int32 minor = 2;</code>
+     * @return The minor.
      */
     int getMinor();
   }
   /**
    * Protobuf type {@code mlflow.ApiVersion}
    */
-  public  static final class ApiVersion extends
+  public static final class ApiVersion extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.ApiVersion)
       ApiVersionOrBuilder {
@@ -3408,8 +4781,13 @@ public final class Databricks {
       super(builder);
     }
     private ApiVersion() {
-      major_ = 0;
-      minor_ = 0;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new ApiVersion();
     }
 
     @java.lang.Override
@@ -3483,13 +4861,17 @@ public final class Databricks {
     private int major_;
     /**
      * <code>optional int32 major = 1;</code>
+     * @return Whether the major field is set.
      */
+    @java.lang.Override
     public boolean hasMajor() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <code>optional int32 major = 1;</code>
+     * @return The major.
      */
+    @java.lang.Override
     public int getMajor() {
       return major_;
     }
@@ -3498,13 +4880,17 @@ public final class Databricks {
     private int minor_;
     /**
      * <code>optional int32 minor = 2;</code>
+     * @return Whether the minor field is set.
      */
+    @java.lang.Override
     public boolean hasMinor() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <code>optional int32 minor = 2;</code>
+     * @return The minor.
      */
+    @java.lang.Override
     public int getMinor() {
       return minor_;
     }
@@ -3523,10 +4909,10 @@ public final class Databricks {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         output.writeInt32(1, major_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         output.writeInt32(2, minor_);
       }
       unknownFields.writeTo(output);
@@ -3538,11 +4924,11 @@ public final class Databricks {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt32Size(1, major_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt32Size(2, minor_);
       }
@@ -3561,19 +4947,18 @@ public final class Databricks {
       }
       com.databricks.api.proto.databricks.Databricks.ApiVersion other = (com.databricks.api.proto.databricks.Databricks.ApiVersion) obj;
 
-      boolean result = true;
-      result = result && (hasMajor() == other.hasMajor());
+      if (hasMajor() != other.hasMajor()) return false;
       if (hasMajor()) {
-        result = result && (getMajor()
-            == other.getMajor());
+        if (getMajor()
+            != other.getMajor()) return false;
       }
-      result = result && (hasMinor() == other.hasMinor());
+      if (hasMinor() != other.hasMinor()) return false;
       if (hasMinor()) {
-        result = result && (getMinor()
-            == other.getMinor());
+        if (getMinor()
+            != other.getMinor()) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -3756,14 +5141,14 @@ public final class Databricks {
         com.databricks.api.proto.databricks.Databricks.ApiVersion result = new com.databricks.api.proto.databricks.Databricks.ApiVersion(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          result.major_ = major_;
           to_bitField0_ |= 0x00000001;
         }
-        result.major_ = major_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          result.minor_ = minor_;
           to_bitField0_ |= 0x00000002;
         }
-        result.minor_ = minor_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -3771,35 +5156,35 @@ public final class Databricks {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -3852,18 +5237,24 @@ public final class Databricks {
       private int major_ ;
       /**
        * <code>optional int32 major = 1;</code>
+       * @return Whether the major field is set.
        */
+      @java.lang.Override
       public boolean hasMajor() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <code>optional int32 major = 1;</code>
+       * @return The major.
        */
+      @java.lang.Override
       public int getMajor() {
         return major_;
       }
       /**
        * <code>optional int32 major = 1;</code>
+       * @param value The major to set.
+       * @return This builder for chaining.
        */
       public Builder setMajor(int value) {
         bitField0_ |= 0x00000001;
@@ -3873,6 +5264,7 @@ public final class Databricks {
       }
       /**
        * <code>optional int32 major = 1;</code>
+       * @return This builder for chaining.
        */
       public Builder clearMajor() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -3884,18 +5276,24 @@ public final class Databricks {
       private int minor_ ;
       /**
        * <code>optional int32 minor = 2;</code>
+       * @return Whether the minor field is set.
        */
+      @java.lang.Override
       public boolean hasMinor() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <code>optional int32 minor = 2;</code>
+       * @return The minor.
        */
+      @java.lang.Override
       public int getMinor() {
         return minor_;
       }
       /**
        * <code>optional int32 minor = 2;</code>
+       * @param value The minor to set.
+       * @return This builder for chaining.
        */
       public Builder setMinor(int value) {
         bitField0_ |= 0x00000002;
@@ -3905,6 +5303,7 @@ public final class Databricks {
       }
       /**
        * <code>optional int32 minor = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearMinor() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -3976,6 +5375,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int64 max_burst = 1;</code>
+     * @return Whether the maxBurst field is set.
      */
     boolean hasMaxBurst();
     /**
@@ -3985,6 +5385,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int64 max_burst = 1;</code>
+     * @return The maxBurst.
      */
     long getMaxBurst();
 
@@ -3995,6 +5396,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int64 max_sustained_per_second = 2;</code>
+     * @return Whether the maxSustainedPerSecond field is set.
      */
     boolean hasMaxSustainedPerSecond();
     /**
@@ -4004,6 +5406,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int64 max_sustained_per_second = 2;</code>
+     * @return The maxSustainedPerSecond.
      */
     long getMaxSustainedPerSecond();
   }
@@ -4015,7 +5418,7 @@ public final class Databricks {
    *
    * Protobuf type {@code mlflow.RateLimit}
    */
-  public  static final class RateLimit extends
+  public static final class RateLimit extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.RateLimit)
       RateLimitOrBuilder {
@@ -4025,8 +5428,13 @@ public final class Databricks {
       super(builder);
     }
     private RateLimit() {
-      maxBurst_ = 0L;
-      maxSustainedPerSecond_ = 0L;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new RateLimit();
     }
 
     @java.lang.Override
@@ -4105,9 +5513,11 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int64 max_burst = 1;</code>
+     * @return Whether the maxBurst field is set.
      */
+    @java.lang.Override
     public boolean hasMaxBurst() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -4116,7 +5526,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int64 max_burst = 1;</code>
+     * @return The maxBurst.
      */
+    @java.lang.Override
     public long getMaxBurst() {
       return maxBurst_;
     }
@@ -4130,9 +5542,11 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int64 max_sustained_per_second = 2;</code>
+     * @return Whether the maxSustainedPerSecond field is set.
      */
+    @java.lang.Override
     public boolean hasMaxSustainedPerSecond() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
@@ -4141,7 +5555,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int64 max_sustained_per_second = 2;</code>
+     * @return The maxSustainedPerSecond.
      */
+    @java.lang.Override
     public long getMaxSustainedPerSecond() {
       return maxSustainedPerSecond_;
     }
@@ -4160,10 +5576,10 @@ public final class Databricks {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         output.writeInt64(1, maxBurst_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         output.writeInt64(2, maxSustainedPerSecond_);
       }
       unknownFields.writeTo(output);
@@ -4175,11 +5591,11 @@ public final class Databricks {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(1, maxBurst_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt64Size(2, maxSustainedPerSecond_);
       }
@@ -4198,19 +5614,18 @@ public final class Databricks {
       }
       com.databricks.api.proto.databricks.Databricks.RateLimit other = (com.databricks.api.proto.databricks.Databricks.RateLimit) obj;
 
-      boolean result = true;
-      result = result && (hasMaxBurst() == other.hasMaxBurst());
+      if (hasMaxBurst() != other.hasMaxBurst()) return false;
       if (hasMaxBurst()) {
-        result = result && (getMaxBurst()
-            == other.getMaxBurst());
+        if (getMaxBurst()
+            != other.getMaxBurst()) return false;
       }
-      result = result && (hasMaxSustainedPerSecond() == other.hasMaxSustainedPerSecond());
+      if (hasMaxSustainedPerSecond() != other.hasMaxSustainedPerSecond()) return false;
       if (hasMaxSustainedPerSecond()) {
-        result = result && (getMaxSustainedPerSecond()
-            == other.getMaxSustainedPerSecond());
+        if (getMaxSustainedPerSecond()
+            != other.getMaxSustainedPerSecond()) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -4400,14 +5815,14 @@ public final class Databricks {
         com.databricks.api.proto.databricks.Databricks.RateLimit result = new com.databricks.api.proto.databricks.Databricks.RateLimit(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
+          result.maxBurst_ = maxBurst_;
           to_bitField0_ |= 0x00000001;
         }
-        result.maxBurst_ = maxBurst_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((from_bitField0_ & 0x00000002) != 0)) {
+          result.maxSustainedPerSecond_ = maxSustainedPerSecond_;
           to_bitField0_ |= 0x00000002;
         }
-        result.maxSustainedPerSecond_ = maxSustainedPerSecond_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -4415,35 +5830,35 @@ public final class Databricks {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -4501,9 +5916,11 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int64 max_burst = 1;</code>
+       * @return Whether the maxBurst field is set.
        */
+      @java.lang.Override
       public boolean hasMaxBurst() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -4512,7 +5929,9 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int64 max_burst = 1;</code>
+       * @return The maxBurst.
        */
+      @java.lang.Override
       public long getMaxBurst() {
         return maxBurst_;
       }
@@ -4523,6 +5942,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int64 max_burst = 1;</code>
+       * @param value The maxBurst to set.
+       * @return This builder for chaining.
        */
       public Builder setMaxBurst(long value) {
         bitField0_ |= 0x00000001;
@@ -4537,6 +5958,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int64 max_burst = 1;</code>
+       * @return This builder for chaining.
        */
       public Builder clearMaxBurst() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -4553,9 +5975,11 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int64 max_sustained_per_second = 2;</code>
+       * @return Whether the maxSustainedPerSecond field is set.
        */
+      @java.lang.Override
       public boolean hasMaxSustainedPerSecond() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
@@ -4564,7 +5988,9 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int64 max_sustained_per_second = 2;</code>
+       * @return The maxSustainedPerSecond.
        */
+      @java.lang.Override
       public long getMaxSustainedPerSecond() {
         return maxSustainedPerSecond_;
       }
@@ -4575,6 +6001,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int64 max_sustained_per_second = 2;</code>
+       * @param value The maxSustainedPerSecond to set.
+       * @return This builder for chaining.
        */
       public Builder setMaxSustainedPerSecond(long value) {
         bitField0_ |= 0x00000002;
@@ -4589,6 +6017,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int64 max_sustained_per_second = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearMaxSustainedPerSecond() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -4659,6 +6088,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string docstring = 1;</code>
+     * @return Whether the docstring field is set.
      */
     boolean hasDocstring();
     /**
@@ -4667,6 +6097,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string docstring = 1;</code>
+     * @return The docstring.
      */
     java.lang.String getDocstring();
     /**
@@ -4675,6 +6106,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string docstring = 1;</code>
+     * @return The bytes for docstring.
      */
     com.google.protobuf.ByteString
         getDocstringBytes();
@@ -4687,6 +6119,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string lead_doc = 2;</code>
+     * @return Whether the leadDoc field is set.
      */
     boolean hasLeadDoc();
     /**
@@ -4697,6 +6130,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string lead_doc = 2;</code>
+     * @return The leadDoc.
      */
     java.lang.String getLeadDoc();
     /**
@@ -4707,6 +6141,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string lead_doc = 2;</code>
+     * @return The bytes for leadDoc.
      */
     com.google.protobuf.ByteString
         getLeadDocBytes();
@@ -4719,6 +6154,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.Visibility visibility = 3;</code>
+     * @return Whether the visibility field is set.
      */
     boolean hasVisibility();
     /**
@@ -4729,6 +6165,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.Visibility visibility = 3;</code>
+     * @return The visibility.
      */
     com.databricks.api.proto.databricks.Databricks.Visibility getVisibility();
 
@@ -4741,6 +6178,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated string original_proto_path = 4;</code>
+     * @return A list containing the originalProtoPath.
      */
     java.util.List<java.lang.String>
         getOriginalProtoPathList();
@@ -4753,6 +6191,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated string original_proto_path = 4;</code>
+     * @return The count of originalProtoPath.
      */
     int getOriginalProtoPathCount();
     /**
@@ -4764,6 +6203,8 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated string original_proto_path = 4;</code>
+     * @param index The index of the element to return.
+     * @return The originalProtoPath at the given index.
      */
     java.lang.String getOriginalProtoPath(int index);
     /**
@@ -4775,6 +6216,8 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated string original_proto_path = 4;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the originalProtoPath at the given index.
      */
     com.google.protobuf.ByteString
         getOriginalProtoPathBytes(int index);
@@ -4786,6 +6229,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int32 position = 5;</code>
+     * @return Whether the position field is set.
      */
     boolean hasPosition();
     /**
@@ -4795,6 +6239,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int32 position = 5;</code>
+     * @return The position.
      */
     int getPosition();
   }
@@ -4805,7 +6250,7 @@ public final class Databricks {
    *
    * Protobuf type {@code mlflow.DocumentationMetadata}
    */
-  public  static final class DocumentationMetadata extends
+  public static final class DocumentationMetadata extends
       com.google.protobuf.GeneratedMessageV3 implements
       // @@protoc_insertion_point(message_implements:mlflow.DocumentationMetadata)
       DocumentationMetadataOrBuilder {
@@ -4819,7 +6264,13 @@ public final class Databricks {
       leadDoc_ = "";
       visibility_ = 1;
       originalProtoPath_ = com.google.protobuf.LazyStringArrayList.EMPTY;
-      position_ = 0;
+    }
+
+    @java.lang.Override
+    @SuppressWarnings({"unused"})
+    protected java.lang.Object newInstance(
+        UnusedPrivateParameter unused) {
+      return new DocumentationMetadata();
     }
 
     @java.lang.Override
@@ -4872,7 +6323,7 @@ public final class Databricks {
             }
             case 34: {
               com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
+              if (!((mutable_bitField0_ & 0x00000008) != 0)) {
                 originalProtoPath_ = new com.google.protobuf.LazyStringArrayList();
                 mutable_bitField0_ |= 0x00000008;
               }
@@ -4899,7 +6350,7 @@ public final class Databricks {
         throw new com.google.protobuf.InvalidProtocolBufferException(
             e).setUnfinishedMessage(this);
       } finally {
-        if (((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
+        if (((mutable_bitField0_ & 0x00000008) != 0)) {
           originalProtoPath_ = originalProtoPath_.getUnmodifiableView();
         }
         this.unknownFields = unknownFields.build();
@@ -4928,9 +6379,11 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string docstring = 1;</code>
+     * @return Whether the docstring field is set.
      */
+    @java.lang.Override
     public boolean hasDocstring() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
+      return ((bitField0_ & 0x00000001) != 0);
     }
     /**
      * <pre>
@@ -4938,7 +6391,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string docstring = 1;</code>
+     * @return The docstring.
      */
+    @java.lang.Override
     public java.lang.String getDocstring() {
       java.lang.Object ref = docstring_;
       if (ref instanceof java.lang.String) {
@@ -4959,7 +6414,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string docstring = 1;</code>
+     * @return The bytes for docstring.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getDocstringBytes() {
       java.lang.Object ref = docstring_;
@@ -4984,9 +6441,11 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string lead_doc = 2;</code>
+     * @return Whether the leadDoc field is set.
      */
+    @java.lang.Override
     public boolean hasLeadDoc() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
+      return ((bitField0_ & 0x00000002) != 0);
     }
     /**
      * <pre>
@@ -4996,7 +6455,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string lead_doc = 2;</code>
+     * @return The leadDoc.
      */
+    @java.lang.Override
     public java.lang.String getLeadDoc() {
       java.lang.Object ref = leadDoc_;
       if (ref instanceof java.lang.String) {
@@ -5019,7 +6480,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional string lead_doc = 2;</code>
+     * @return The bytes for leadDoc.
      */
+    @java.lang.Override
     public com.google.protobuf.ByteString
         getLeadDocBytes() {
       java.lang.Object ref = leadDoc_;
@@ -5044,9 +6507,10 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.Visibility visibility = 3;</code>
+     * @return Whether the visibility field is set.
      */
-    public boolean hasVisibility() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
+    @java.lang.Override public boolean hasVisibility() {
+      return ((bitField0_ & 0x00000004) != 0);
     }
     /**
      * <pre>
@@ -5056,8 +6520,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional .mlflow.Visibility visibility = 3;</code>
+     * @return The visibility.
      */
-    public com.databricks.api.proto.databricks.Databricks.Visibility getVisibility() {
+    @java.lang.Override public com.databricks.api.proto.databricks.Databricks.Visibility getVisibility() {
       @SuppressWarnings("deprecation")
       com.databricks.api.proto.databricks.Databricks.Visibility result = com.databricks.api.proto.databricks.Databricks.Visibility.valueOf(visibility_);
       return result == null ? com.databricks.api.proto.databricks.Databricks.Visibility.PUBLIC : result;
@@ -5074,6 +6539,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated string original_proto_path = 4;</code>
+     * @return A list containing the originalProtoPath.
      */
     public com.google.protobuf.ProtocolStringList
         getOriginalProtoPathList() {
@@ -5088,6 +6554,7 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated string original_proto_path = 4;</code>
+     * @return The count of originalProtoPath.
      */
     public int getOriginalProtoPathCount() {
       return originalProtoPath_.size();
@@ -5101,6 +6568,8 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated string original_proto_path = 4;</code>
+     * @param index The index of the element to return.
+     * @return The originalProtoPath at the given index.
      */
     public java.lang.String getOriginalProtoPath(int index) {
       return originalProtoPath_.get(index);
@@ -5114,6 +6583,8 @@ public final class Databricks {
      * </pre>
      *
      * <code>repeated string original_proto_path = 4;</code>
+     * @param index The index of the value to return.
+     * @return The bytes of the originalProtoPath at the given index.
      */
     public com.google.protobuf.ByteString
         getOriginalProtoPathBytes(int index) {
@@ -5129,9 +6600,11 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int32 position = 5;</code>
+     * @return Whether the position field is set.
      */
+    @java.lang.Override
     public boolean hasPosition() {
-      return ((bitField0_ & 0x00000008) == 0x00000008);
+      return ((bitField0_ & 0x00000008) != 0);
     }
     /**
      * <pre>
@@ -5140,7 +6613,9 @@ public final class Databricks {
      * </pre>
      *
      * <code>optional int32 position = 5;</code>
+     * @return The position.
      */
+    @java.lang.Override
     public int getPosition() {
       return position_;
     }
@@ -5159,19 +6634,19 @@ public final class Databricks {
     @java.lang.Override
     public void writeTo(com.google.protobuf.CodedOutputStream output)
                         throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 1, docstring_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, leadDoc_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000004) != 0)) {
         output.writeEnum(3, visibility_);
       }
       for (int i = 0; i < originalProtoPath_.size(); i++) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, originalProtoPath_.getRaw(i));
       }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+      if (((bitField0_ & 0x00000008) != 0)) {
         output.writeInt32(5, position_);
       }
       unknownFields.writeTo(output);
@@ -5183,13 +6658,13 @@ public final class Databricks {
       if (size != -1) return size;
 
       size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
+      if (((bitField0_ & 0x00000001) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(1, docstring_);
       }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
+      if (((bitField0_ & 0x00000002) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, leadDoc_);
       }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+      if (((bitField0_ & 0x00000004) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeEnumSize(3, visibility_);
       }
@@ -5201,7 +6676,7 @@ public final class Databricks {
         size += dataSize;
         size += 1 * getOriginalProtoPathList().size();
       }
-      if (((bitField0_ & 0x00000008) == 0x00000008)) {
+      if (((bitField0_ & 0x00000008) != 0)) {
         size += com.google.protobuf.CodedOutputStream
           .computeInt32Size(5, position_);
       }
@@ -5220,30 +6695,29 @@ public final class Databricks {
       }
       com.databricks.api.proto.databricks.Databricks.DocumentationMetadata other = (com.databricks.api.proto.databricks.Databricks.DocumentationMetadata) obj;
 
-      boolean result = true;
-      result = result && (hasDocstring() == other.hasDocstring());
+      if (hasDocstring() != other.hasDocstring()) return false;
       if (hasDocstring()) {
-        result = result && getDocstring()
-            .equals(other.getDocstring());
+        if (!getDocstring()
+            .equals(other.getDocstring())) return false;
       }
-      result = result && (hasLeadDoc() == other.hasLeadDoc());
+      if (hasLeadDoc() != other.hasLeadDoc()) return false;
       if (hasLeadDoc()) {
-        result = result && getLeadDoc()
-            .equals(other.getLeadDoc());
+        if (!getLeadDoc()
+            .equals(other.getLeadDoc())) return false;
       }
-      result = result && (hasVisibility() == other.hasVisibility());
+      if (hasVisibility() != other.hasVisibility()) return false;
       if (hasVisibility()) {
-        result = result && visibility_ == other.visibility_;
+        if (visibility_ != other.visibility_) return false;
       }
-      result = result && getOriginalProtoPathList()
-          .equals(other.getOriginalProtoPathList());
-      result = result && (hasPosition() == other.hasPosition());
+      if (!getOriginalProtoPathList()
+          .equals(other.getOriginalProtoPathList())) return false;
+      if (hasPosition() != other.hasPosition()) return false;
       if (hasPosition()) {
-        result = result && (getPosition()
-            == other.getPosition());
+        if (getPosition()
+            != other.getPosition()) return false;
       }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
+      if (!unknownFields.equals(other.unknownFields)) return false;
+      return true;
     }
 
     @java.lang.Override
@@ -5448,27 +6922,27 @@ public final class Databricks {
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata result = new com.databricks.api.proto.databricks.Databricks.DocumentationMetadata(this);
         int from_bitField0_ = bitField0_;
         int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
+        if (((from_bitField0_ & 0x00000001) != 0)) {
           to_bitField0_ |= 0x00000001;
         }
         result.docstring_ = docstring_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
+        if (((from_bitField0_ & 0x00000002) != 0)) {
           to_bitField0_ |= 0x00000002;
         }
         result.leadDoc_ = leadDoc_;
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+        if (((from_bitField0_ & 0x00000004) != 0)) {
           to_bitField0_ |= 0x00000004;
         }
         result.visibility_ = visibility_;
-        if (((bitField0_ & 0x00000008) == 0x00000008)) {
+        if (((bitField0_ & 0x00000008) != 0)) {
           originalProtoPath_ = originalProtoPath_.getUnmodifiableView();
           bitField0_ = (bitField0_ & ~0x00000008);
         }
         result.originalProtoPath_ = originalProtoPath_;
-        if (((from_bitField0_ & 0x00000010) == 0x00000010)) {
+        if (((from_bitField0_ & 0x00000010) != 0)) {
+          result.position_ = position_;
           to_bitField0_ |= 0x00000008;
         }
-        result.position_ = position_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -5476,35 +6950,35 @@ public final class Databricks {
 
       @java.lang.Override
       public Builder clone() {
-        return (Builder) super.clone();
+        return super.clone();
       }
       @java.lang.Override
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.setField(field, value);
+        return super.setField(field, value);
       }
       @java.lang.Override
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
+        return super.clearField(field);
       }
       @java.lang.Override
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
+        return super.clearOneof(oneof);
       }
       @java.lang.Override
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
+        return super.setRepeatedField(field, index, value);
       }
       @java.lang.Override
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
+        return super.addRepeatedField(field, value);
       }
       @java.lang.Override
       public Builder mergeFrom(com.google.protobuf.Message other) {
@@ -5581,9 +7055,10 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string docstring = 1;</code>
+       * @return Whether the docstring field is set.
        */
       public boolean hasDocstring() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
+        return ((bitField0_ & 0x00000001) != 0);
       }
       /**
        * <pre>
@@ -5591,6 +7066,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string docstring = 1;</code>
+       * @return The docstring.
        */
       public java.lang.String getDocstring() {
         java.lang.Object ref = docstring_;
@@ -5612,6 +7088,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string docstring = 1;</code>
+       * @return The bytes for docstring.
        */
       public com.google.protobuf.ByteString
           getDocstringBytes() {
@@ -5632,6 +7109,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string docstring = 1;</code>
+       * @param value The docstring to set.
+       * @return This builder for chaining.
        */
       public Builder setDocstring(
           java.lang.String value) {
@@ -5649,6 +7128,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string docstring = 1;</code>
+       * @return This builder for chaining.
        */
       public Builder clearDocstring() {
         bitField0_ = (bitField0_ & ~0x00000001);
@@ -5662,6 +7142,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string docstring = 1;</code>
+       * @param value The bytes for docstring to set.
+       * @return This builder for chaining.
        */
       public Builder setDocstringBytes(
           com.google.protobuf.ByteString value) {
@@ -5683,9 +7165,10 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string lead_doc = 2;</code>
+       * @return Whether the leadDoc field is set.
        */
       public boolean hasLeadDoc() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
+        return ((bitField0_ & 0x00000002) != 0);
       }
       /**
        * <pre>
@@ -5695,6 +7178,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string lead_doc = 2;</code>
+       * @return The leadDoc.
        */
       public java.lang.String getLeadDoc() {
         java.lang.Object ref = leadDoc_;
@@ -5718,6 +7202,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string lead_doc = 2;</code>
+       * @return The bytes for leadDoc.
        */
       public com.google.protobuf.ByteString
           getLeadDocBytes() {
@@ -5740,6 +7225,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string lead_doc = 2;</code>
+       * @param value The leadDoc to set.
+       * @return This builder for chaining.
        */
       public Builder setLeadDoc(
           java.lang.String value) {
@@ -5759,6 +7246,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string lead_doc = 2;</code>
+       * @return This builder for chaining.
        */
       public Builder clearLeadDoc() {
         bitField0_ = (bitField0_ & ~0x00000002);
@@ -5774,6 +7262,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional string lead_doc = 2;</code>
+       * @param value The bytes for leadDoc to set.
+       * @return This builder for chaining.
        */
       public Builder setLeadDocBytes(
           com.google.protobuf.ByteString value) {
@@ -5795,9 +7285,10 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.Visibility visibility = 3;</code>
+       * @return Whether the visibility field is set.
        */
-      public boolean hasVisibility() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
+      @java.lang.Override public boolean hasVisibility() {
+        return ((bitField0_ & 0x00000004) != 0);
       }
       /**
        * <pre>
@@ -5807,7 +7298,9 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.Visibility visibility = 3;</code>
+       * @return The visibility.
        */
+      @java.lang.Override
       public com.databricks.api.proto.databricks.Databricks.Visibility getVisibility() {
         @SuppressWarnings("deprecation")
         com.databricks.api.proto.databricks.Databricks.Visibility result = com.databricks.api.proto.databricks.Databricks.Visibility.valueOf(visibility_);
@@ -5821,6 +7314,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.Visibility visibility = 3;</code>
+       * @param value The visibility to set.
+       * @return This builder for chaining.
        */
       public Builder setVisibility(com.databricks.api.proto.databricks.Databricks.Visibility value) {
         if (value == null) {
@@ -5839,6 +7334,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional .mlflow.Visibility visibility = 3;</code>
+       * @return This builder for chaining.
        */
       public Builder clearVisibility() {
         bitField0_ = (bitField0_ & ~0x00000004);
@@ -5849,7 +7345,7 @@ public final class Databricks {
 
       private com.google.protobuf.LazyStringList originalProtoPath_ = com.google.protobuf.LazyStringArrayList.EMPTY;
       private void ensureOriginalProtoPathIsMutable() {
-        if (!((bitField0_ & 0x00000008) == 0x00000008)) {
+        if (!((bitField0_ & 0x00000008) != 0)) {
           originalProtoPath_ = new com.google.protobuf.LazyStringArrayList(originalProtoPath_);
           bitField0_ |= 0x00000008;
          }
@@ -5863,6 +7359,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated string original_proto_path = 4;</code>
+       * @return A list containing the originalProtoPath.
        */
       public com.google.protobuf.ProtocolStringList
           getOriginalProtoPathList() {
@@ -5877,6 +7374,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated string original_proto_path = 4;</code>
+       * @return The count of originalProtoPath.
        */
       public int getOriginalProtoPathCount() {
         return originalProtoPath_.size();
@@ -5890,6 +7388,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated string original_proto_path = 4;</code>
+       * @param index The index of the element to return.
+       * @return The originalProtoPath at the given index.
        */
       public java.lang.String getOriginalProtoPath(int index) {
         return originalProtoPath_.get(index);
@@ -5903,6 +7403,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated string original_proto_path = 4;</code>
+       * @param index The index of the value to return.
+       * @return The bytes of the originalProtoPath at the given index.
        */
       public com.google.protobuf.ByteString
           getOriginalProtoPathBytes(int index) {
@@ -5917,6 +7419,9 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated string original_proto_path = 4;</code>
+       * @param index The index to set the value at.
+       * @param value The originalProtoPath to set.
+       * @return This builder for chaining.
        */
       public Builder setOriginalProtoPath(
           int index, java.lang.String value) {
@@ -5937,6 +7442,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated string original_proto_path = 4;</code>
+       * @param value The originalProtoPath to add.
+       * @return This builder for chaining.
        */
       public Builder addOriginalProtoPath(
           java.lang.String value) {
@@ -5957,6 +7464,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated string original_proto_path = 4;</code>
+       * @param values The originalProtoPath to add.
+       * @return This builder for chaining.
        */
       public Builder addAllOriginalProtoPath(
           java.lang.Iterable<java.lang.String> values) {
@@ -5975,6 +7484,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated string original_proto_path = 4;</code>
+       * @return This builder for chaining.
        */
       public Builder clearOriginalProtoPath() {
         originalProtoPath_ = com.google.protobuf.LazyStringArrayList.EMPTY;
@@ -5991,6 +7501,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>repeated string original_proto_path = 4;</code>
+       * @param value The bytes of the originalProtoPath to add.
+       * @return This builder for chaining.
        */
       public Builder addOriginalProtoPathBytes(
           com.google.protobuf.ByteString value) {
@@ -6011,9 +7523,11 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int32 position = 5;</code>
+       * @return Whether the position field is set.
        */
+      @java.lang.Override
       public boolean hasPosition() {
-        return ((bitField0_ & 0x00000010) == 0x00000010);
+        return ((bitField0_ & 0x00000010) != 0);
       }
       /**
        * <pre>
@@ -6022,7 +7536,9 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int32 position = 5;</code>
+       * @return The position.
        */
+      @java.lang.Override
       public int getPosition() {
         return position_;
       }
@@ -6033,6 +7549,8 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int32 position = 5;</code>
+       * @param value The position to set.
+       * @return This builder for chaining.
        */
       public Builder setPosition(int value) {
         bitField0_ |= 0x00000010;
@@ -6047,6 +7565,7 @@ public final class Databricks {
        * </pre>
        *
        * <code>optional int32 position = 5;</code>
+       * @return This builder for chaining.
        */
       public Builder clearPosition() {
         bitField0_ = (bitField0_ & ~0x00000010);
@@ -6102,862 +7621,6 @@ public final class Databricks {
 
     @java.lang.Override
     public com.databricks.api.proto.databricks.Databricks.DocumentationMetadata getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
-  public interface DatabricksServiceExceptionProtoOrBuilder extends
-      // @@protoc_insertion_point(interface_extends:mlflow.DatabricksServiceExceptionProto)
-      com.google.protobuf.MessageOrBuilder {
-
-    /**
-     * <code>optional .mlflow.ErrorCode error_code = 1;</code>
-     */
-    boolean hasErrorCode();
-    /**
-     * <code>optional .mlflow.ErrorCode error_code = 1;</code>
-     */
-    com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCode();
-
-    /**
-     * <code>optional string message = 2;</code>
-     */
-    boolean hasMessage();
-    /**
-     * <code>optional string message = 2;</code>
-     */
-    java.lang.String getMessage();
-    /**
-     * <code>optional string message = 2;</code>
-     */
-    com.google.protobuf.ByteString
-        getMessageBytes();
-
-    /**
-     * <code>optional string stack_trace = 3;</code>
-     */
-    boolean hasStackTrace();
-    /**
-     * <code>optional string stack_trace = 3;</code>
-     */
-    java.lang.String getStackTrace();
-    /**
-     * <code>optional string stack_trace = 3;</code>
-     */
-    com.google.protobuf.ByteString
-        getStackTraceBytes();
-  }
-  /**
-   * <pre>
-   * Serialization format for DatabricksServiceException.
-   * </pre>
-   *
-   * Protobuf type {@code mlflow.DatabricksServiceExceptionProto}
-   */
-  public  static final class DatabricksServiceExceptionProto extends
-      com.google.protobuf.GeneratedMessageV3 implements
-      // @@protoc_insertion_point(message_implements:mlflow.DatabricksServiceExceptionProto)
-      DatabricksServiceExceptionProtoOrBuilder {
-  private static final long serialVersionUID = 0L;
-    // Use DatabricksServiceExceptionProto.newBuilder() to construct.
-    private DatabricksServiceExceptionProto(com.google.protobuf.GeneratedMessageV3.Builder<?> builder) {
-      super(builder);
-    }
-    private DatabricksServiceExceptionProto() {
-      errorCode_ = 1;
-      message_ = "";
-      stackTrace_ = "";
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return this.unknownFields;
-    }
-    private DatabricksServiceExceptionProto(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      this();
-      if (extensionRegistry == null) {
-        throw new java.lang.NullPointerException();
-      }
-      int mutable_bitField0_ = 0;
-      com.google.protobuf.UnknownFieldSet.Builder unknownFields =
-          com.google.protobuf.UnknownFieldSet.newBuilder();
-      try {
-        boolean done = false;
-        while (!done) {
-          int tag = input.readTag();
-          switch (tag) {
-            case 0:
-              done = true;
-              break;
-            case 8: {
-              int rawValue = input.readEnum();
-                @SuppressWarnings("deprecation")
-              com.databricks.api.proto.databricks.Databricks.ErrorCode value = com.databricks.api.proto.databricks.Databricks.ErrorCode.valueOf(rawValue);
-              if (value == null) {
-                unknownFields.mergeVarintField(1, rawValue);
-              } else {
-                bitField0_ |= 0x00000001;
-                errorCode_ = rawValue;
-              }
-              break;
-            }
-            case 18: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000002;
-              message_ = bs;
-              break;
-            }
-            case 26: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              bitField0_ |= 0x00000004;
-              stackTrace_ = bs;
-              break;
-            }
-            default: {
-              if (!parseUnknownField(
-                  input, unknownFields, extensionRegistry, tag)) {
-                done = true;
-              }
-              break;
-            }
-          }
-        }
-      } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-        throw e.setUnfinishedMessage(this);
-      } catch (java.io.IOException e) {
-        throw new com.google.protobuf.InvalidProtocolBufferException(
-            e).setUnfinishedMessage(this);
-      } finally {
-        this.unknownFields = unknownFields.build();
-        makeExtensionsImmutable();
-      }
-    }
-    public static final com.google.protobuf.Descriptors.Descriptor
-        getDescriptor() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksServiceExceptionProto_descriptor;
-    }
-
-    @java.lang.Override
-    protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-        internalGetFieldAccessorTable() {
-      return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksServiceExceptionProto_fieldAccessorTable
-          .ensureFieldAccessorsInitialized(
-              com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.class, com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.Builder.class);
-    }
-
-    private int bitField0_;
-    public static final int ERROR_CODE_FIELD_NUMBER = 1;
-    private int errorCode_;
-    /**
-     * <code>optional .mlflow.ErrorCode error_code = 1;</code>
-     */
-    public boolean hasErrorCode() {
-      return ((bitField0_ & 0x00000001) == 0x00000001);
-    }
-    /**
-     * <code>optional .mlflow.ErrorCode error_code = 1;</code>
-     */
-    public com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCode() {
-      @SuppressWarnings("deprecation")
-      com.databricks.api.proto.databricks.Databricks.ErrorCode result = com.databricks.api.proto.databricks.Databricks.ErrorCode.valueOf(errorCode_);
-      return result == null ? com.databricks.api.proto.databricks.Databricks.ErrorCode.INTERNAL_ERROR : result;
-    }
-
-    public static final int MESSAGE_FIELD_NUMBER = 2;
-    private volatile java.lang.Object message_;
-    /**
-     * <code>optional string message = 2;</code>
-     */
-    public boolean hasMessage() {
-      return ((bitField0_ & 0x00000002) == 0x00000002);
-    }
-    /**
-     * <code>optional string message = 2;</code>
-     */
-    public java.lang.String getMessage() {
-      java.lang.Object ref = message_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          message_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string message = 2;</code>
-     */
-    public com.google.protobuf.ByteString
-        getMessageBytes() {
-      java.lang.Object ref = message_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        message_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    public static final int STACK_TRACE_FIELD_NUMBER = 3;
-    private volatile java.lang.Object stackTrace_;
-    /**
-     * <code>optional string stack_trace = 3;</code>
-     */
-    public boolean hasStackTrace() {
-      return ((bitField0_ & 0x00000004) == 0x00000004);
-    }
-    /**
-     * <code>optional string stack_trace = 3;</code>
-     */
-    public java.lang.String getStackTrace() {
-      java.lang.Object ref = stackTrace_;
-      if (ref instanceof java.lang.String) {
-        return (java.lang.String) ref;
-      } else {
-        com.google.protobuf.ByteString bs = 
-            (com.google.protobuf.ByteString) ref;
-        java.lang.String s = bs.toStringUtf8();
-        if (bs.isValidUtf8()) {
-          stackTrace_ = s;
-        }
-        return s;
-      }
-    }
-    /**
-     * <code>optional string stack_trace = 3;</code>
-     */
-    public com.google.protobuf.ByteString
-        getStackTraceBytes() {
-      java.lang.Object ref = stackTrace_;
-      if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
-            com.google.protobuf.ByteString.copyFromUtf8(
-                (java.lang.String) ref);
-        stackTrace_ = b;
-        return b;
-      } else {
-        return (com.google.protobuf.ByteString) ref;
-      }
-    }
-
-    private byte memoizedIsInitialized = -1;
-    @java.lang.Override
-    public final boolean isInitialized() {
-      byte isInitialized = memoizedIsInitialized;
-      if (isInitialized == 1) return true;
-      if (isInitialized == 0) return false;
-
-      memoizedIsInitialized = 1;
-      return true;
-    }
-
-    @java.lang.Override
-    public void writeTo(com.google.protobuf.CodedOutputStream output)
-                        throws java.io.IOException {
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        output.writeEnum(1, errorCode_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 2, message_);
-      }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 3, stackTrace_);
-      }
-      unknownFields.writeTo(output);
-    }
-
-    @java.lang.Override
-    public int getSerializedSize() {
-      int size = memoizedSize;
-      if (size != -1) return size;
-
-      size = 0;
-      if (((bitField0_ & 0x00000001) == 0x00000001)) {
-        size += com.google.protobuf.CodedOutputStream
-          .computeEnumSize(1, errorCode_);
-      }
-      if (((bitField0_ & 0x00000002) == 0x00000002)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, message_);
-      }
-      if (((bitField0_ & 0x00000004) == 0x00000004)) {
-        size += com.google.protobuf.GeneratedMessageV3.computeStringSize(3, stackTrace_);
-      }
-      size += unknownFields.getSerializedSize();
-      memoizedSize = size;
-      return size;
-    }
-
-    @java.lang.Override
-    public boolean equals(final java.lang.Object obj) {
-      if (obj == this) {
-       return true;
-      }
-      if (!(obj instanceof com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto)) {
-        return super.equals(obj);
-      }
-      com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto other = (com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto) obj;
-
-      boolean result = true;
-      result = result && (hasErrorCode() == other.hasErrorCode());
-      if (hasErrorCode()) {
-        result = result && errorCode_ == other.errorCode_;
-      }
-      result = result && (hasMessage() == other.hasMessage());
-      if (hasMessage()) {
-        result = result && getMessage()
-            .equals(other.getMessage());
-      }
-      result = result && (hasStackTrace() == other.hasStackTrace());
-      if (hasStackTrace()) {
-        result = result && getStackTrace()
-            .equals(other.getStackTrace());
-      }
-      result = result && unknownFields.equals(other.unknownFields);
-      return result;
-    }
-
-    @java.lang.Override
-    public int hashCode() {
-      if (memoizedHashCode != 0) {
-        return memoizedHashCode;
-      }
-      int hash = 41;
-      hash = (19 * hash) + getDescriptor().hashCode();
-      if (hasErrorCode()) {
-        hash = (37 * hash) + ERROR_CODE_FIELD_NUMBER;
-        hash = (53 * hash) + errorCode_;
-      }
-      if (hasMessage()) {
-        hash = (37 * hash) + MESSAGE_FIELD_NUMBER;
-        hash = (53 * hash) + getMessage().hashCode();
-      }
-      if (hasStackTrace()) {
-        hash = (37 * hash) + STACK_TRACE_FIELD_NUMBER;
-        hash = (53 * hash) + getStackTrace().hashCode();
-      }
-      hash = (29 * hash) + unknownFields.hashCode();
-      memoizedHashCode = hash;
-      return hash;
-    }
-
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseFrom(
-        java.nio.ByteBuffer data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseFrom(
-        java.nio.ByteBuffer data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input);
-    }
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessageV3
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
-    @java.lang.Override
-    public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
-    @java.lang.Override
-    public Builder toBuilder() {
-      return this == DEFAULT_INSTANCE
-          ? new Builder() : new Builder().mergeFrom(this);
-    }
-
-    @java.lang.Override
-    protected Builder newBuilderForType(
-        com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-      Builder builder = new Builder(parent);
-      return builder;
-    }
-    /**
-     * <pre>
-     * Serialization format for DatabricksServiceException.
-     * </pre>
-     *
-     * Protobuf type {@code mlflow.DatabricksServiceExceptionProto}
-     */
-    public static final class Builder extends
-        com.google.protobuf.GeneratedMessageV3.Builder<Builder> implements
-        // @@protoc_insertion_point(builder_implements:mlflow.DatabricksServiceExceptionProto)
-        com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProtoOrBuilder {
-      public static final com.google.protobuf.Descriptors.Descriptor
-          getDescriptor() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksServiceExceptionProto_descriptor;
-      }
-
-      @java.lang.Override
-      protected com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-          internalGetFieldAccessorTable() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksServiceExceptionProto_fieldAccessorTable
-            .ensureFieldAccessorsInitialized(
-                com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.class, com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.Builder.class);
-      }
-
-      // Construct using com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessageV3.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
-      private void maybeForceBuilderInitialization() {
-        if (com.google.protobuf.GeneratedMessageV3
-                .alwaysUseFieldBuilders) {
-        }
-      }
-      @java.lang.Override
-      public Builder clear() {
-        super.clear();
-        errorCode_ = 1;
-        bitField0_ = (bitField0_ & ~0x00000001);
-        message_ = "";
-        bitField0_ = (bitField0_ & ~0x00000002);
-        stackTrace_ = "";
-        bitField0_ = (bitField0_ & ~0x00000004);
-        return this;
-      }
-
-      @java.lang.Override
-      public com.google.protobuf.Descriptors.Descriptor
-          getDescriptorForType() {
-        return com.databricks.api.proto.databricks.Databricks.internal_static_mlflow_DatabricksServiceExceptionProto_descriptor;
-      }
-
-      @java.lang.Override
-      public com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto getDefaultInstanceForType() {
-        return com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.getDefaultInstance();
-      }
-
-      @java.lang.Override
-      public com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto build() {
-        com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto result = buildPartial();
-        if (!result.isInitialized()) {
-          throw newUninitializedMessageException(result);
-        }
-        return result;
-      }
-
-      @java.lang.Override
-      public com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto buildPartial() {
-        com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto result = new com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto(this);
-        int from_bitField0_ = bitField0_;
-        int to_bitField0_ = 0;
-        if (((from_bitField0_ & 0x00000001) == 0x00000001)) {
-          to_bitField0_ |= 0x00000001;
-        }
-        result.errorCode_ = errorCode_;
-        if (((from_bitField0_ & 0x00000002) == 0x00000002)) {
-          to_bitField0_ |= 0x00000002;
-        }
-        result.message_ = message_;
-        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
-          to_bitField0_ |= 0x00000004;
-        }
-        result.stackTrace_ = stackTrace_;
-        result.bitField0_ = to_bitField0_;
-        onBuilt();
-        return result;
-      }
-
-      @java.lang.Override
-      public Builder clone() {
-        return (Builder) super.clone();
-      }
-      @java.lang.Override
-      public Builder setField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.setField(field, value);
-      }
-      @java.lang.Override
-      public Builder clearField(
-          com.google.protobuf.Descriptors.FieldDescriptor field) {
-        return (Builder) super.clearField(field);
-      }
-      @java.lang.Override
-      public Builder clearOneof(
-          com.google.protobuf.Descriptors.OneofDescriptor oneof) {
-        return (Builder) super.clearOneof(oneof);
-      }
-      @java.lang.Override
-      public Builder setRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          int index, java.lang.Object value) {
-        return (Builder) super.setRepeatedField(field, index, value);
-      }
-      @java.lang.Override
-      public Builder addRepeatedField(
-          com.google.protobuf.Descriptors.FieldDescriptor field,
-          java.lang.Object value) {
-        return (Builder) super.addRepeatedField(field, value);
-      }
-      @java.lang.Override
-      public Builder mergeFrom(com.google.protobuf.Message other) {
-        if (other instanceof com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto) {
-          return mergeFrom((com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto)other);
-        } else {
-          super.mergeFrom(other);
-          return this;
-        }
-      }
-
-      public Builder mergeFrom(com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto other) {
-        if (other == com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto.getDefaultInstance()) return this;
-        if (other.hasErrorCode()) {
-          setErrorCode(other.getErrorCode());
-        }
-        if (other.hasMessage()) {
-          bitField0_ |= 0x00000002;
-          message_ = other.message_;
-          onChanged();
-        }
-        if (other.hasStackTrace()) {
-          bitField0_ |= 0x00000004;
-          stackTrace_ = other.stackTrace_;
-          onChanged();
-        }
-        this.mergeUnknownFields(other.unknownFields);
-        onChanged();
-        return this;
-      }
-
-      @java.lang.Override
-      public final boolean isInitialized() {
-        return true;
-      }
-
-      @java.lang.Override
-      public Builder mergeFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws java.io.IOException {
-        com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto parsedMessage = null;
-        try {
-          parsedMessage = PARSER.parsePartialFrom(input, extensionRegistry);
-        } catch (com.google.protobuf.InvalidProtocolBufferException e) {
-          parsedMessage = (com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto) e.getUnfinishedMessage();
-          throw e.unwrapIOException();
-        } finally {
-          if (parsedMessage != null) {
-            mergeFrom(parsedMessage);
-          }
-        }
-        return this;
-      }
-      private int bitField0_;
-
-      private int errorCode_ = 1;
-      /**
-       * <code>optional .mlflow.ErrorCode error_code = 1;</code>
-       */
-      public boolean hasErrorCode() {
-        return ((bitField0_ & 0x00000001) == 0x00000001);
-      }
-      /**
-       * <code>optional .mlflow.ErrorCode error_code = 1;</code>
-       */
-      public com.databricks.api.proto.databricks.Databricks.ErrorCode getErrorCode() {
-        @SuppressWarnings("deprecation")
-        com.databricks.api.proto.databricks.Databricks.ErrorCode result = com.databricks.api.proto.databricks.Databricks.ErrorCode.valueOf(errorCode_);
-        return result == null ? com.databricks.api.proto.databricks.Databricks.ErrorCode.INTERNAL_ERROR : result;
-      }
-      /**
-       * <code>optional .mlflow.ErrorCode error_code = 1;</code>
-       */
-      public Builder setErrorCode(com.databricks.api.proto.databricks.Databricks.ErrorCode value) {
-        if (value == null) {
-          throw new NullPointerException();
-        }
-        bitField0_ |= 0x00000001;
-        errorCode_ = value.getNumber();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional .mlflow.ErrorCode error_code = 1;</code>
-       */
-      public Builder clearErrorCode() {
-        bitField0_ = (bitField0_ & ~0x00000001);
-        errorCode_ = 1;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object message_ = "";
-      /**
-       * <code>optional string message = 2;</code>
-       */
-      public boolean hasMessage() {
-        return ((bitField0_ & 0x00000002) == 0x00000002);
-      }
-      /**
-       * <code>optional string message = 2;</code>
-       */
-      public java.lang.String getMessage() {
-        java.lang.Object ref = message_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            message_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string message = 2;</code>
-       */
-      public com.google.protobuf.ByteString
-          getMessageBytes() {
-        java.lang.Object ref = message_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          message_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string message = 2;</code>
-       */
-      public Builder setMessage(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        message_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string message = 2;</code>
-       */
-      public Builder clearMessage() {
-        bitField0_ = (bitField0_ & ~0x00000002);
-        message_ = getDefaultInstance().getMessage();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string message = 2;</code>
-       */
-      public Builder setMessageBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000002;
-        message_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object stackTrace_ = "";
-      /**
-       * <code>optional string stack_trace = 3;</code>
-       */
-      public boolean hasStackTrace() {
-        return ((bitField0_ & 0x00000004) == 0x00000004);
-      }
-      /**
-       * <code>optional string stack_trace = 3;</code>
-       */
-      public java.lang.String getStackTrace() {
-        java.lang.Object ref = stackTrace_;
-        if (!(ref instanceof java.lang.String)) {
-          com.google.protobuf.ByteString bs =
-              (com.google.protobuf.ByteString) ref;
-          java.lang.String s = bs.toStringUtf8();
-          if (bs.isValidUtf8()) {
-            stackTrace_ = s;
-          }
-          return s;
-        } else {
-          return (java.lang.String) ref;
-        }
-      }
-      /**
-       * <code>optional string stack_trace = 3;</code>
-       */
-      public com.google.protobuf.ByteString
-          getStackTraceBytes() {
-        java.lang.Object ref = stackTrace_;
-        if (ref instanceof String) {
-          com.google.protobuf.ByteString b = 
-              com.google.protobuf.ByteString.copyFromUtf8(
-                  (java.lang.String) ref);
-          stackTrace_ = b;
-          return b;
-        } else {
-          return (com.google.protobuf.ByteString) ref;
-        }
-      }
-      /**
-       * <code>optional string stack_trace = 3;</code>
-       */
-      public Builder setStackTrace(
-          java.lang.String value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        stackTrace_ = value;
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string stack_trace = 3;</code>
-       */
-      public Builder clearStackTrace() {
-        bitField0_ = (bitField0_ & ~0x00000004);
-        stackTrace_ = getDefaultInstance().getStackTrace();
-        onChanged();
-        return this;
-      }
-      /**
-       * <code>optional string stack_trace = 3;</code>
-       */
-      public Builder setStackTraceBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  bitField0_ |= 0x00000004;
-        stackTrace_ = value;
-        onChanged();
-        return this;
-      }
-      @java.lang.Override
-      public final Builder setUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.setUnknownFields(unknownFields);
-      }
-
-      @java.lang.Override
-      public final Builder mergeUnknownFields(
-          final com.google.protobuf.UnknownFieldSet unknownFields) {
-        return super.mergeUnknownFields(unknownFields);
-      }
-
-
-      // @@protoc_insertion_point(builder_scope:mlflow.DatabricksServiceExceptionProto)
-    }
-
-    // @@protoc_insertion_point(class_scope:mlflow.DatabricksServiceExceptionProto)
-    private static final com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto();
-    }
-
-    public static com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    @java.lang.Deprecated public static final com.google.protobuf.Parser<DatabricksServiceExceptionProto>
-        PARSER = new com.google.protobuf.AbstractParser<DatabricksServiceExceptionProto>() {
-      @java.lang.Override
-      public DatabricksServiceExceptionProto parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-        return new DatabricksServiceExceptionProto(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<DatabricksServiceExceptionProto> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<DatabricksServiceExceptionProto> getParserForType() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.databricks.api.proto.databricks.Databricks.DatabricksServiceExceptionProto getDefaultInstanceForType() {
       return DEFAULT_INSTANCE;
     }
 
@@ -7094,6 +7757,21 @@ public final class Databricks {
           .newFileScopedGeneratedExtension(
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.class,
         com.databricks.api.proto.databricks.Databricks.DocumentationMetadata.getDefaultInstance());
+  public static final int GRAPHQL_FIELD_NUMBER = 51399;
+  /**
+   * <pre>
+   * If this is set, this rpc will be visible for graphql module autogeneration.
+   * </pre>
+   *
+   * <code>extend .google.protobuf.MethodOptions { ... }</code>
+   */
+  public static final
+    com.google.protobuf.GeneratedMessage.GeneratedExtension<
+      com.google.protobuf.DescriptorProtos.MethodOptions,
+      com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions> graphql = com.google.protobuf.GeneratedMessage
+          .newFileScopedGeneratedExtension(
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.class,
+        com.databricks.api.proto.databricks.Databricks.DatabricksGraphqlOptions.getDefaultInstance());
   public static final int MESSAGE_DOC_FIELD_NUMBER = 51314;
   /**
    * <pre>
@@ -7184,6 +7862,11 @@ public final class Databricks {
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_DatabricksRpcOptions_fieldAccessorTable;
   private static final com.google.protobuf.Descriptors.Descriptor
+    internal_static_mlflow_DatabricksGraphqlOptions_descriptor;
+  private static final 
+    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
+      internal_static_mlflow_DatabricksGraphqlOptions_fieldAccessorTable;
+  private static final com.google.protobuf.Descriptors.Descriptor
     internal_static_mlflow_HttpEndpoint_descriptor;
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
@@ -7203,11 +7886,6 @@ public final class Databricks {
   private static final 
     com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
       internal_static_mlflow_DocumentationMetadata_fieldAccessorTable;
-  private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_mlflow_DatabricksServiceExceptionProto_descriptor;
-  private static final 
-    com.google.protobuf.GeneratedMessageV3.FieldAccessorTable
-      internal_static_mlflow_DatabricksServiceExceptionProto_fieldAccessorTable;
 
   public static com.google.protobuf.Descriptors.FileDescriptor
       getDescriptor() {
@@ -7224,111 +7902,141 @@ public final class Databricks {
       "ity\030\002 \001(\0162\022.mlflow.Visibility\022&\n\013error_c" +
       "odes\030\003 \003(\0162\021.mlflow.ErrorCode\022%\n\nrate_li" +
       "mit\030\004 \001(\0132\021.mlflow.RateLimit\022\025\n\rrpc_doc_" +
-      "title\030\005 \001(\t\"U\n\014HttpEndpoint\022\024\n\006method\030\001 " +
-      "\001(\t:\004POST\022\014\n\004path\030\002 \001(\t\022!\n\005since\030\003 \001(\0132\022" +
-      ".mlflow.ApiVersion\"*\n\nApiVersion\022\r\n\005majo" +
-      "r\030\001 \001(\005\022\r\n\005minor\030\002 \001(\005\"@\n\tRateLimit\022\021\n\tm" +
-      "ax_burst\030\001 \001(\003\022 \n\030max_sustained_per_seco" +
-      "nd\030\002 \001(\003\"\223\001\n\025DocumentationMetadata\022\021\n\tdo" +
-      "cstring\030\001 \001(\t\022\020\n\010lead_doc\030\002 \001(\t\022&\n\nvisib" +
-      "ility\030\003 \001(\0162\022.mlflow.Visibility\022\033\n\023origi" +
-      "nal_proto_path\030\004 \003(\t\022\020\n\010position\030\005 \001(\005\"n" +
-      "\n\037DatabricksServiceExceptionProto\022%\n\nerr" +
-      "or_code\030\001 \001(\0162\021.mlflow.ErrorCode\022\017\n\007mess" +
-      "age\030\002 \001(\t\022\023\n\013stack_trace\030\003 \001(\t*?\n\nVisibi" +
-      "lity\022\n\n\006PUBLIC\020\001\022\014\n\010INTERNAL\020\002\022\027\n\023PUBLIC" +
-      "_UNDOCUMENTED\020\003*\366\004\n\tErrorCode\022\022\n\016INTERNA" +
-      "L_ERROR\020\001\022\033\n\027TEMPORARILY_UNAVAILABLE\020\002\022\014" +
-      "\n\010IO_ERROR\020\003\022\017\n\013BAD_REQUEST\020\004\022\034\n\027INVALID" +
-      "_PARAMETER_VALUE\020\350\007\022\027\n\022ENDPOINT_NOT_FOUN" +
-      "D\020\351\007\022\026\n\021MALFORMED_REQUEST\020\352\007\022\022\n\rINVALID_" +
-      "STATE\020\353\007\022\026\n\021PERMISSION_DENIED\020\354\007\022\025\n\020FEAT" +
-      "URE_DISABLED\020\355\007\022\032\n\025CUSTOMER_UNAUTHORIZED" +
-      "\020\356\007\022\033\n\026REQUEST_LIMIT_EXCEEDED\020\357\007\022\035\n\030INVA" +
-      "LID_STATE_TRANSITION\020\321\017\022\033\n\026COULD_NOT_ACQ" +
-      "UIRE_LOCK\020\322\017\022\034\n\027RESOURCE_ALREADY_EXISTS\020" +
-      "\271\027\022\034\n\027RESOURCE_DOES_NOT_EXIST\020\272\027\022\023\n\016QUOT" +
-      "A_EXCEEDED\020\241\037\022\034\n\027MAX_BLOCK_SIZE_EXCEEDED" +
-      "\020\242\037\022\033\n\026MAX_READ_SIZE_EXCEEDED\020\243\037\022\023\n\016DRY_" +
-      "RUN_FAILED\020\211\'\022\034\n\027RESOURCE_LIMIT_EXCEEDED" +
-      "\020\212\'\022\030\n\023DIRECTORY_NOT_EMPTY\020\361.\022\030\n\023DIRECTO" +
-      "RY_PROTECTED\020\362.\022\037\n\032MAX_NOTEBOOK_SIZE_EXC" +
-      "EEDED\020\363.:G\n\nvisibility\022\035.google.protobuf" +
-      ".FieldOptions\030\356\220\003 \001(\0162\022.mlflow.Visibilit" +
-      "y::\n\021validate_required\022\035.google.protobuf" +
-      ".FieldOptions\030\357\220\003 \001(\010:4\n\013json_inline\022\035.g" +
-      "oogle.protobuf.FieldOptions\030\360\220\003 \001(\010:1\n\010j" +
-      "son_map\022\035.google.protobuf.FieldOptions\030\361" +
-      "\220\003 \001(\010:Q\n\tfield_doc\022\035.google.protobuf.Fi" +
-      "eldOptions\030\362\220\003 \003(\0132\035.mlflow.Documentatio" +
-      "nMetadata:K\n\003rpc\022\036.google.protobuf.Metho" +
-      "dOptions\030\356\220\003 \001(\0132\034.mlflow.DatabricksRpcO" +
-      "ptions:S\n\nmethod_doc\022\036.google.protobuf.M" +
-      "ethodOptions\030\362\220\003 \003(\0132\035.mlflow.Documentat" +
-      "ionMetadata:U\n\013message_doc\022\037.google.prot" +
-      "obuf.MessageOptions\030\362\220\003 \003(\0132\035.mlflow.Doc" +
-      "umentationMetadata:U\n\013service_doc\022\037.goog" +
-      "le.protobuf.ServiceOptions\030\362\220\003 \003(\0132\035.mlf" +
-      "low.DocumentationMetadata:O\n\010enum_doc\022\034." +
-      "google.protobuf.EnumOptions\030\362\220\003 \003(\0132\035.ml" +
-      "flow.DocumentationMetadata:V\n\025enum_value" +
-      "_visibility\022!.google.protobuf.EnumValueO" +
-      "ptions\030\356\220\003 \001(\0162\022.mlflow.Visibility:Z\n\016en" +
-      "um_value_doc\022!.google.protobuf.EnumValue" +
-      "Options\030\362\220\003 \003(\0132\035.mlflow.DocumentationMe" +
-      "tadataB*\n#com.databricks.api.proto.datab" +
-      "ricks\342?\002\020\001"
+      "title\030\005 \001(\t\"\032\n\030DatabricksGraphqlOptions\"" +
+      "U\n\014HttpEndpoint\022\024\n\006method\030\001 \001(\t:\004POST\022\014\n" +
+      "\004path\030\002 \001(\t\022!\n\005since\030\003 \001(\0132\022.mlflow.ApiV" +
+      "ersion\"*\n\nApiVersion\022\r\n\005major\030\001 \001(\005\022\r\n\005m" +
+      "inor\030\002 \001(\005\"@\n\tRateLimit\022\021\n\tmax_burst\030\001 \001" +
+      "(\003\022 \n\030max_sustained_per_second\030\002 \001(\003\"\223\001\n" +
+      "\025DocumentationMetadata\022\021\n\tdocstring\030\001 \001(" +
+      "\t\022\020\n\010lead_doc\030\002 \001(\t\022&\n\nvisibility\030\003 \001(\0162" +
+      "\022.mlflow.Visibility\022\033\n\023original_proto_pa" +
+      "th\030\004 \003(\t\022\020\n\010position\030\005 \001(\005*?\n\nVisibility" +
+      "\022\n\n\006PUBLIC\020\001\022\014\n\010INTERNAL\020\002\022\027\n\023PUBLIC_UND" +
+      "OCUMENTED\020\003*\375\020\n\tErrorCode\022\022\n\016INTERNAL_ER" +
+      "ROR\020\001\022\033\n\027TEMPORARILY_UNAVAILABLE\020\002\022\014\n\010IO" +
+      "_ERROR\020\003\022\017\n\013BAD_REQUEST\020\004\022\035\n\031SERVICE_UND" +
+      "ER_MAINTENANCE\020\005\022%\n!WORKSPACE_TEMPORARIL" +
+      "Y_UNAVAILABLE\020\006\022\025\n\021DEADLINE_EXCEEDED\020\007\022\r" +
+      "\n\tCANCELLED\020\010\022\026\n\022RESOURCE_EXHAUSTED\020\t\022\013\n" +
+      "\007ABORTED\020\n\022\r\n\tNOT_FOUND\020\013\022\022\n\016ALREADY_EXI" +
+      "STS\020\014\022\023\n\017UNAUTHENTICATED\020\r\022\034\n\027INVALID_PA" +
+      "RAMETER_VALUE\020\350\007\022\027\n\022ENDPOINT_NOT_FOUND\020\351" +
+      "\007\022\026\n\021MALFORMED_REQUEST\020\352\007\022\022\n\rINVALID_STA" +
+      "TE\020\353\007\022\026\n\021PERMISSION_DENIED\020\354\007\022\025\n\020FEATURE" +
+      "_DISABLED\020\355\007\022\032\n\025CUSTOMER_UNAUTHORIZED\020\356\007" +
+      "\022\033\n\026REQUEST_LIMIT_EXCEEDED\020\357\007\022\026\n\021RESOURC" +
+      "E_CONFLICT\020\360\007\022\033\n\026UNPARSEABLE_HTTP_ERROR\020" +
+      "\361\007\022\024\n\017NOT_IMPLEMENTED\020\362\007\022\016\n\tDATA_LOSS\020\363\007" +
+      "\022\035\n\030INVALID_STATE_TRANSITION\020\321\017\022\033\n\026COULD" +
+      "_NOT_ACQUIRE_LOCK\020\322\017\022\034\n\027RESOURCE_ALREADY" +
+      "_EXISTS\020\271\027\022\034\n\027RESOURCE_DOES_NOT_EXIST\020\272\027" +
+      "\022\023\n\016QUOTA_EXCEEDED\020\241\037\022\034\n\027MAX_BLOCK_SIZE_" +
+      "EXCEEDED\020\242\037\022\033\n\026MAX_READ_SIZE_EXCEEDED\020\243\037" +
+      "\022\023\n\016PARTIAL_DELETE\020\244\037\022\033\n\026MAX_LIST_SIZE_E" +
+      "XCEEDED\020\245\037\022\023\n\016DRY_RUN_FAILED\020\211\'\022\034\n\027RESOU" +
+      "RCE_LIMIT_EXCEEDED\020\212\'\022\030\n\023DIRECTORY_NOT_E" +
+      "MPTY\020\361.\022\030\n\023DIRECTORY_PROTECTED\020\362.\022\037\n\032MAX" +
+      "_NOTEBOOK_SIZE_EXCEEDED\020\363.\022!\n\034MAX_CHILD_" +
+      "NODE_SIZE_EXCEEDED\020\364.\022\032\n\025SEARCH_QUERY_TO" +
+      "O_LONG\020\324/\022\033\n\026SEARCH_QUERY_TOO_SHORT\020\325/\022*" +
+      "\n%MANAGED_RESOURCE_GROUP_DOES_NOT_EXIST\020" +
+      "\3316\022\036\n\031PERMISSION_NOT_PROPAGATED\020\3326\022\027\n\022DE" +
+      "PLOYMENT_TIMEOUT\020\3336\022\021\n\014GIT_CONFLICT\020\301>\022\024" +
+      "\n\017GIT_UNKNOWN_REF\020\302>\022!\n\034GIT_SENSITIVE_TO" +
+      "KEN_DETECTED\020\303>\022\036\n\031GIT_URL_NOT_ON_ALLOW_" +
+      "LIST\020\304>\022\025\n\020GIT_REMOTE_ERROR\020\305>\022\037\n\032PROJEC" +
+      "TS_OPERATION_TIMEOUT\020\306>\022\027\n\022IPYNB_FILE_IN" +
+      "_REPO\020\307>\022\036\n\031INSECURE_PARTNER_RESPONSE\020\244?" +
+      "\022\037\n\032MALFORMED_PARTNER_RESPONSE\020\245?\022\035\n\030MET" +
+      "ASTORE_DOES_NOT_EXIST\020\250F\022\027\n\022DAC_DOES_NOT" +
+      "_EXIST\020\251F\022\033\n\026CATALOG_DOES_NOT_EXIST\020\252F\022\032" +
+      "\n\025SCHEMA_DOES_NOT_EXIST\020\253F\022\031\n\024TABLE_DOES" +
+      "_NOT_EXIST\020\254F\022\031\n\024SHARE_DOES_NOT_EXIST\020\255F" +
+      "\022\035\n\030RECIPIENT_DOES_NOT_EXIST\020\256F\022&\n!STORA" +
+      "GE_CREDENTIAL_DOES_NOT_EXIST\020\257F\022%\n EXTER" +
+      "NAL_LOCATION_DOES_NOT_EXIST\020\260F\022\035\n\030PRINCI" +
+      "PAL_DOES_NOT_EXIST\020\261F\022\034\n\027PROVIDER_DOES_N" +
+      "OT_EXIST\020\262F\022\035\n\030METASTORE_ALREADY_EXISTS\020" +
+      "\274F\022\027\n\022DAC_ALREADY_EXISTS\020\275F\022\033\n\026CATALOG_A" +
+      "LREADY_EXISTS\020\276F\022\032\n\025SCHEMA_ALREADY_EXIST" +
+      "S\020\277F\022\031\n\024TABLE_ALREADY_EXISTS\020\300F\022\031\n\024SHARE" +
+      "_ALREADY_EXISTS\020\301F\022\035\n\030RECIPIENT_ALREADY_" +
+      "EXISTS\020\302F\022&\n!STORAGE_CREDENTIAL_ALREADY_" +
+      "EXISTS\020\303F\022%\n EXTERNAL_LOCATION_ALREADY_E" +
+      "XISTS\020\304F\022\034\n\027PROVIDER_ALREADY_EXISTS\020\305F\022\026" +
+      "\n\021CATALOG_NOT_EMPTY\020\320F\022\025\n\020SCHEMA_NOT_EMP" +
+      "TY\020\321F\022\030\n\023METASTORE_NOT_EMPTY\020\322F\022\"\n\035PROVI" +
+      "DER_SHARE_NOT_ACCESSIBLE\020\344F:G\n\nvisibilit" +
+      "y\022\035.google.protobuf.FieldOptions\030\356\220\003 \001(\016" +
+      "2\022.mlflow.Visibility::\n\021validate_require" +
+      "d\022\035.google.protobuf.FieldOptions\030\357\220\003 \001(\010" +
+      ":4\n\013json_inline\022\035.google.protobuf.FieldO" +
+      "ptions\030\360\220\003 \001(\010:1\n\010json_map\022\035.google.prot" +
+      "obuf.FieldOptions\030\361\220\003 \001(\010:Q\n\tfield_doc\022\035" +
+      ".google.protobuf.FieldOptions\030\362\220\003 \003(\0132\035." +
+      "mlflow.DocumentationMetadata:K\n\003rpc\022\036.go" +
+      "ogle.protobuf.MethodOptions\030\356\220\003 \001(\0132\034.ml" +
+      "flow.DatabricksRpcOptions:S\n\nmethod_doc\022" +
+      "\036.google.protobuf.MethodOptions\030\362\220\003 \003(\0132" +
+      "\035.mlflow.DocumentationMetadata:S\n\007graphq" +
+      "l\022\036.google.protobuf.MethodOptions\030\307\221\003 \001(" +
+      "\0132 .mlflow.DatabricksGraphqlOptions:U\n\013m" +
+      "essage_doc\022\037.google.protobuf.MessageOpti" +
+      "ons\030\362\220\003 \003(\0132\035.mlflow.DocumentationMetada" +
+      "ta:U\n\013service_doc\022\037.google.protobuf.Serv" +
+      "iceOptions\030\362\220\003 \003(\0132\035.mlflow.Documentatio" +
+      "nMetadata:O\n\010enum_doc\022\034.google.protobuf." +
+      "EnumOptions\030\362\220\003 \003(\0132\035.mlflow.Documentati" +
+      "onMetadata:V\n\025enum_value_visibility\022!.go" +
+      "ogle.protobuf.EnumValueOptions\030\356\220\003 \001(\0162\022" +
+      ".mlflow.Visibility:Z\n\016enum_value_doc\022!.g" +
+      "oogle.protobuf.EnumValueOptions\030\362\220\003 \003(\0132" +
+      "\035.mlflow.DocumentationMetadataB*\n#com.da" +
+      "tabricks.api.proto.databricks\342?\002\020\001"
     };
-    com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
-        new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
-          public com.google.protobuf.ExtensionRegistry assignDescriptors(
-              com.google.protobuf.Descriptors.FileDescriptor root) {
-            descriptor = root;
-            return null;
-          }
-        };
-    com.google.protobuf.Descriptors.FileDescriptor
+    descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
         new com.google.protobuf.Descriptors.FileDescriptor[] {
           com.google.protobuf.DescriptorProtos.getDescriptor(),
           org.mlflow.scalapb_interface.Scalapb.getDescriptor(),
-        }, assigner);
+        });
     internal_static_mlflow_DatabricksRpcOptions_descriptor =
       getDescriptor().getMessageTypes().get(0);
     internal_static_mlflow_DatabricksRpcOptions_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DatabricksRpcOptions_descriptor,
         new java.lang.String[] { "Endpoints", "Visibility", "ErrorCodes", "RateLimit", "RpcDocTitle", });
-    internal_static_mlflow_HttpEndpoint_descriptor =
+    internal_static_mlflow_DatabricksGraphqlOptions_descriptor =
       getDescriptor().getMessageTypes().get(1);
+    internal_static_mlflow_DatabricksGraphqlOptions_fieldAccessorTable = new
+      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
+        internal_static_mlflow_DatabricksGraphqlOptions_descriptor,
+        new java.lang.String[] { });
+    internal_static_mlflow_HttpEndpoint_descriptor =
+      getDescriptor().getMessageTypes().get(2);
     internal_static_mlflow_HttpEndpoint_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_HttpEndpoint_descriptor,
         new java.lang.String[] { "Method", "Path", "Since", });
     internal_static_mlflow_ApiVersion_descriptor =
-      getDescriptor().getMessageTypes().get(2);
+      getDescriptor().getMessageTypes().get(3);
     internal_static_mlflow_ApiVersion_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_ApiVersion_descriptor,
         new java.lang.String[] { "Major", "Minor", });
     internal_static_mlflow_RateLimit_descriptor =
-      getDescriptor().getMessageTypes().get(3);
+      getDescriptor().getMessageTypes().get(4);
     internal_static_mlflow_RateLimit_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RateLimit_descriptor,
         new java.lang.String[] { "MaxBurst", "MaxSustainedPerSecond", });
     internal_static_mlflow_DocumentationMetadata_descriptor =
-      getDescriptor().getMessageTypes().get(4);
+      getDescriptor().getMessageTypes().get(5);
     internal_static_mlflow_DocumentationMetadata_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DocumentationMetadata_descriptor,
         new java.lang.String[] { "Docstring", "LeadDoc", "Visibility", "OriginalProtoPath", "Position", });
-    internal_static_mlflow_DatabricksServiceExceptionProto_descriptor =
-      getDescriptor().getMessageTypes().get(5);
-    internal_static_mlflow_DatabricksServiceExceptionProto_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
-        internal_static_mlflow_DatabricksServiceExceptionProto_descriptor,
-        new java.lang.String[] { "ErrorCode", "Message", "StackTrace", });
     visibility.internalInit(descriptor.getExtensions().get(0));
     validateRequired.internalInit(descriptor.getExtensions().get(1));
     jsonInline.internalInit(descriptor.getExtensions().get(2));
@@ -7336,11 +8044,12 @@ public final class Databricks {
     fieldDoc.internalInit(descriptor.getExtensions().get(4));
     rpc.internalInit(descriptor.getExtensions().get(5));
     methodDoc.internalInit(descriptor.getExtensions().get(6));
-    messageDoc.internalInit(descriptor.getExtensions().get(7));
-    serviceDoc.internalInit(descriptor.getExtensions().get(8));
-    enumDoc.internalInit(descriptor.getExtensions().get(9));
-    enumValueVisibility.internalInit(descriptor.getExtensions().get(10));
-    enumValueDoc.internalInit(descriptor.getExtensions().get(11));
+    graphql.internalInit(descriptor.getExtensions().get(7));
+    messageDoc.internalInit(descriptor.getExtensions().get(8));
+    serviceDoc.internalInit(descriptor.getExtensions().get(9));
+    enumDoc.internalInit(descriptor.getExtensions().get(10));
+    enumValueVisibility.internalInit(descriptor.getExtensions().get(11));
+    enumValueDoc.internalInit(descriptor.getExtensions().get(12));
     com.google.protobuf.ExtensionRegistry registry =
         com.google.protobuf.ExtensionRegistry.newInstance();
     registry.add(org.mlflow.scalapb_interface.Scalapb.options);

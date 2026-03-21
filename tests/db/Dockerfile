@@ -1,11 +1,11 @@
-FROM python:3.6
+FROM python:3.11
 
-WORKDIR /tmp/mlflow
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-COPY dist ./dist
+ARG DEPENDENCIES
 
-RUN pip install dist/*.whl
-RUN pip install psycopg2 pymysql mysqlclient
-RUN pip list
+RUN uv pip install --system psycopg2 pymysql mysqlclient pytest pytest-cov pytest-asyncio
+RUN echo "${DEPENDENCIES}" > /tmp/requirements.txt && \
+    uv pip install --system -r /tmp/requirements.txt
 
-COPY log.py .
+RUN uv pip list

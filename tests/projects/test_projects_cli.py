@@ -1,30 +1,37 @@
-import json
 import hashlib
+import json
+import logging
 import os
 import shutil
-import logging
+from pathlib import Path
 from unittest import mock
 
-from click.testing import CliRunner
 import pytest
+from click.testing import CliRunner
 
-from mlflow import cli
-from mlflow.tracking.client import MlflowClient
+from mlflow import MlflowClient, cli
 from mlflow.utils import process
+from mlflow.utils.environment import _PythonEnv
+from mlflow.utils.virtualenv import _get_mlflow_virtualenv_root, _get_virtualenv_name
+
 from tests.integration.utils import invoke_cli_runner
-from tests.projects.utils import docker_example_base_image  # pylint: disable=unused-import
 from tests.projects.utils import (
-    TEST_PROJECT_DIR,
     GIT_PROJECT_URI,
     SSH_PROJECT_URI,
-    TEST_NO_SPEC_PROJECT_DIR,
     TEST_DOCKER_PROJECT_DIR,
+    TEST_PROJECT_DIR,
+    TEST_VIRTUALENV_PROJECT_DIR,
+    docker_example_base_image,  # noqa: F401
 )
 
 _logger = logging.getLogger(__name__)
 
+skip_if_skinny = pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="MLflow skinny does not have dependencies to run this test",
+)
 
-@pytest.mark.large
+
 @pytest.mark.parametrize("name", ["friend", "friend=you", "='friend'"])
 def test_run_local_params(name):
     excitement_arg = 2
@@ -37,21 +44,20 @@ def test_run_local_params(name):
             "-P",
             "greeting=hi",
             "-P",
-            "name=%s" % name,
+            f"name={name}",
             "-P",
-            "excitement=%s" % excitement_arg,
+            f"excitement={excitement_arg}",
         ],
     )
 
 
-@pytest.mark.large
-def test_run_local_with_docker_args(docker_example_base_image):  # pylint: disable=unused-argument
+@skip_if_skinny
+def test_run_local_with_docker_args(docker_example_base_image):
     # Verify that Docker project execution is successful when Docker flag and string
     # commandline arguments are supplied (`tty` and `name`, respectively)
     invoke_cli_runner(cli.run, [TEST_DOCKER_PROJECT_DIR, "-A", "tty", "-A", "name=mycontainer"])
 
 
-@pytest.mark.large
 @pytest.mark.parametrize("experiment_name", [b"test-experiment".decode("utf-8"), "test-experiment"])
 def test_run_local_experiment_specification(experiment_name):
     invoke_cli_runner(
@@ -84,13 +90,15 @@ def clean_mlruns_dir():
         shutil.rmtree(dir_path)
 
 
-@pytest.mark.large
+@skip_if_skinny
 def test_run_local_conda_env():
-    with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml"), "r") as handle:
+    with open(os.path.join(TEST_PROJECT_DIR, "conda.yaml")) as handle:
         conda_env_contents = handle.read()
-    expected_env_name = "mlflow-%s" % hashlib.sha1(conda_env_contents.encode("utf-8")).hexdigest()
+    expected_env_name = "mlflow-{}".format(
+        hashlib.sha1(conda_env_contents.encode("utf-8"), usedforsecurity=False).hexdigest()
+    )
     try:
-        process.exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
+        process._exec_cmd(cmd=["conda", "env", "remove", "--name", expected_env_name])
     except process.ShellCommandException:
         _logger.error(
             "Unable to remove conda environment %s. The environment may not have been present, "
@@ -99,54 +107,75 @@ def test_run_local_conda_env():
         )
     invoke_cli_runner(
         cli.run,
-        [TEST_PROJECT_DIR, "-e", "check_conda_env", "-P", "conda_env_name=%s" % expected_env_name],
+        [TEST_PROJECT_DIR, "-e", "check_conda_env", "-P", f"conda_env_name={expected_env_name}"],
     )
 
 
-@pytest.mark.large
-def test_run_local_no_spec():
-    # Run an example project that doesn't contain an MLproject file
-    expected_env_name = "mlflow-%s" % hashlib.sha1("".encode("utf-8")).hexdigest()
+@skip_if_skinny
+def test_run_uv_python_env():
+    python_env_path = os.path.join(TEST_VIRTUALENV_PROJECT_DIR, "python_env.yaml")
+    python_env_contents = _PythonEnv.from_yaml(python_env_path)
+
+    work_dir_path = Path(TEST_VIRTUALENV_PROJECT_DIR)
+    virtualenv_root = Path(_get_mlflow_virtualenv_root())
+    env_name = _get_virtualenv_name(python_env_contents, work_dir_path)
+    env_dir = virtualenv_root / env_name
+
+    if env_dir.exists():
+        shutil.rmtree(env_dir)
+
     invoke_cli_runner(
         cli.run,
-        [
-            TEST_NO_SPEC_PROJECT_DIR,
-            "-e",
-            "check_conda_env.py",
-            "-P",
-            "conda-env-name=%s" % expected_env_name,
-        ],
+        [TEST_VIRTUALENV_PROJECT_DIR, "-e", "test", "--env-manager", "uv"],
+        env={"UV_PRERELEASE": "allow"},
     )
 
 
-@pytest.mark.large
+@skip_if_skinny
 def test_run_git_https():
     # Invoke command twice to ensure we set Git state in an isolated manner (e.g. don't attempt to
     # create a git repo in the same directory twice, etc)
     assert GIT_PROJECT_URI.startswith("https")
-    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
-    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--env-manager", "local", "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [GIT_PROJECT_URI, "--env-manager", "local", "-P", "alpha=0.5"])
 
 
-@pytest.mark.large
-@pytest.mark.requires_ssh
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ, reason="SSH keys are unavailable in GitHub Actions"
+)
 def test_run_git_ssh():
-    # Note: this test requires SSH authentication to GitHub, and so is disabled in Travis, where SSH
-    # keys are unavailable. However it should be run locally whenever logic related to running
-    # Git projects is modified.
+    # Note: this test requires SSH authentication to GitHub, and so is disabled in GitHub Actions,
+    # where SSH keys are unavailable. However it should be run locally whenever logic related to
+    # running Git projects is modified.
     assert SSH_PROJECT_URI.startswith("git@")
-    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
-    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--env-manager", "local", "-P", "alpha=0.5"])
+    invoke_cli_runner(cli.run, [SSH_PROJECT_URI, "--env-manager", "local", "-P", "alpha=0.5"])
+
+
+@pytest.mark.skipif(
+    "GITHUB_ACTIONS" in os.environ, reason="SSH keys are unavailable in GitHub Actions"
+)
+def test_run_git_ssh_from_release_version():
+    # Note: this test requires SSH authentication to GitHub, and so is disabled in GitHub Actions,
+    # where SSH keys are unavailable. However it should be run locally whenever logic related to
+    # running Git projects is modified.
+    assert SSH_PROJECT_URI.startswith("git@")
+    invoke_cli_runner(
+        cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5", "-v", "version_testing"]
+    )
+    invoke_cli_runner(
+        cli.run, [SSH_PROJECT_URI, "--no-conda", "-P", "alpha=0.5", "-v", "version_testing"]
+    )
 
 
 @pytest.mark.notrackingurimock
-def test_run_databricks_cluster_spec(tmpdir):
+def test_run_databricks_cluster_spec(tmp_path):
     cluster_spec = {
         "spark_version": "5.0.x-scala2.11",
         "num_workers": 2,
         "node_type_id": "i3.xlarge",
     }
-    cluster_spec_path = str(tmpdir.join("cluster-spec.json"))
+    cluster_spec_path = tmp_path.joinpath("cluster-spec.json")
     with open(cluster_spec_path, "w") as handle:
         json.dump(cluster_spec, handle)
 

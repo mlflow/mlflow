@@ -1,15 +1,16 @@
 from importlib import reload
 from unittest import mock
+
 import pytest
 
 import mlflow.tracking.context.registry
+from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
+from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
+from mlflow.tracking.context.databricks_repo_context import DatabricksRepoRunContext
 from mlflow.tracking.context.default_context import DefaultRunContext
 from mlflow.tracking.context.git_context import GitRunContext
-from mlflow.tracking.context.databricks_notebook_context import DatabricksNotebookRunContext
-from mlflow.tracking.context.databricks_job_context import DatabricksJobRunContext
+from mlflow.tracking.context.jupyter_notebook_context import JupyterNotebookRunContext
 from mlflow.tracking.context.registry import RunContextProviderRegistry, resolve_tags
-
-# pylint: disable=unused-argument
 
 
 def test_run_context_provider_registry_register():
@@ -27,7 +28,7 @@ def test_run_context_provider_registry_register_entrypoints():
     mock_entrypoint.load.return_value = provider_class
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         registry = RunContextProviderRegistry()
         registry.register_entrypoints()
@@ -45,7 +46,7 @@ def test_run_context_provider_registry_register_entrypoints_handles_exception(ex
     mock_entrypoint.load.side_effect = exception
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         registry = RunContextProviderRegistry()
         # Check that the raised warning contains the message from the original exception
@@ -67,33 +68,34 @@ def test_registry_instance_defaults():
     expected_classes = {
         DefaultRunContext,
         GitRunContext,
+        JupyterNotebookRunContext,
         DatabricksNotebookRunContext,
         DatabricksJobRunContext,
+        DatabricksRepoRunContext,
     }
     assert expected_classes.issubset(_currently_registered_run_context_provider_classes())
 
 
 def test_registry_instance_loads_entrypoints():
-    class MockRunContext(object):
+    class MockRunContext:
         pass
 
     mock_entrypoint = mock.Mock()
     mock_entrypoint.load.return_value = MockRunContext
 
     with mock.patch(
-        "entrypoints.get_group_all", return_value=[mock_entrypoint]
+        "mlflow.utils.plugins._get_entry_points", return_value=[mock_entrypoint]
     ) as mock_get_group_all:
         # Entrypoints are registered at import time, so we need to reload the module to register the
-        # entrypoint given by the mocked extrypoints.get_group_all
+        # entrypoint given by the mocked entrypoints.get_group_all
         reload(mlflow.tracking.context.registry)
 
     assert MockRunContext in _currently_registered_run_context_provider_classes()
     mock_get_group_all.assert_called_once_with("mlflow.run_context_provider")
 
 
-@pytest.mark.large
-def test_run_context_provider_registry_with_installed_plugin(tmp_wkdir):
-    """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
+def test_run_context_provider_registry_with_installed_plugin(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
 
     reload(mlflow.tracking.context.registry)
 

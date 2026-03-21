@@ -1,26 +1,15 @@
+import socket
 from unittest import mock
+
 import pytest
 
 from mlflow.utils import (
-    get_unique_resource_id,
+    AttrDict,
     _chunk_dict,
-    _truncate_dict,
     _get_fully_qualified_class_name,
+    _truncate_dict,
+    merge_dicts,
 )
-
-
-def test_get_unique_resource_id_respects_max_length():
-    for max_length in range(5, 30, 5):
-        for _ in range(10000):
-            assert len(get_unique_resource_id(max_length=max_length)) <= max_length
-
-
-def test_get_unique_resource_id_with_invalid_max_length_throws_exception():
-    with pytest.raises(ValueError):
-        get_unique_resource_id(max_length=-50)
-
-    with pytest.raises(ValueError):
-        get_unique_resource_id(max_length=0)
 
 
 def test_truncate_dict():
@@ -28,22 +17,22 @@ def test_truncate_dict():
     length = 5
 
     with mock.patch("mlflow.utils._logger.warning") as mock_warning:
-        max_legnth = length - 1
+        max_length = length - 1
 
         # Truncate keys
-        assert _truncate_dict(d, max_key_length=max_legnth) == {"1...": "12345"}
+        assert _truncate_dict(d, max_key_length=max_length) == {"1...": "12345"}
         mock_warning.assert_called_once_with("Truncated the key `1...`")
         mock_warning.reset_mock()
 
         # Truncate values
-        assert _truncate_dict(d, max_value_length=max_legnth) == {"12345": "1..."}
+        assert _truncate_dict(d, max_value_length=max_length) == {"12345": "1..."}
         mock_warning.assert_called_once_with(
             "Truncated the value of the key `12345`. Truncated value: `1...`"
         )
         mock_warning.reset_mock()
 
         # Truncate both keys and values
-        assert _truncate_dict(d, max_key_length=max_legnth, max_value_length=max_legnth) == {
+        assert _truncate_dict(d, max_key_length=max_length, max_value_length=max_length) == {
             "1...": "1..."
         }
         assert mock_warning.call_count == 2
@@ -60,6 +49,20 @@ def test_truncate_dict():
         ValueError, match="Must specify at least either `max_key_length` or `max_value_length`"
     ):
         _truncate_dict(d)
+
+
+def test_merge_dicts():
+    dict_a = {"a": 3, "b": {"c": {"d": [1, 2, 3]}}, "k": "hello"}
+    dict_b = {"test_var": [1, 2]}
+    expected_ab = {"a": 3, "b": {"c": {"d": [1, 2, 3]}}, "k": "hello", "test_var": [1, 2]}
+    assert merge_dicts(dict_a, dict_b) == expected_ab
+
+    dict_c = {"a": 10}
+    with pytest.raises(ValueError, match="contains duplicate keys"):
+        merge_dicts(dict_a, dict_c)
+
+    expected_ac = {"a": 10, "b": {"c": {"d": [1, 2, 3]}}, "k": "hello"}
+    assert merge_dicts(dict_a, dict_c, raise_on_duplicates=False) == expected_ac
 
 
 def test_chunk_dict():
@@ -110,3 +113,115 @@ def test_inspect_original_var_name():
     xyz3 = object()
 
     f3(*[xyz2], **{"b1": xyz3, "expected_a1_name": "xyz2", "expected_b1_name": "xyz3"})
+
+
+def test_random_name_generation():
+    from mlflow.utils import name_utils
+
+    # Validate exhausted loop truncation
+    name = name_utils._generate_random_name(max_length=8)
+    assert len(name) == 8
+
+    # Validate default behavior while calling 1000 times that names end in integer
+    names = [name_utils._generate_random_name() for i in range(1000)]
+    assert all(len(name) <= 20 for name in names)
+    assert all(name[-1].isnumeric() for name in names)
+
+
+def test_basic_attribute_access():
+    d = AttrDict({"a": 1, "b": 2})
+    assert d.a == 1
+    assert d.b == 2
+
+
+def test_nested_attribute_access():
+    d = AttrDict({"a": 1, "b": {"c": 3, "d": 4}})
+    assert d.b.c == 3
+    assert d.b.d == 4
+
+
+def test_non_existent_attribute():
+    d = AttrDict({"a": 1, "b": 2})
+    with pytest.raises(AttributeError, match="'AttrDict' object has no attribute 'c'"):
+        _ = d.c
+
+
+def test_hasattr():
+    d = AttrDict({"a": 1, "b": {"c": 3, "d": 4}})
+    assert hasattr(d, "a")
+    assert hasattr(d, "b")
+    assert not hasattr(d, "e")
+    assert hasattr(d.b, "c")
+    assert not hasattr(d.b, "e")
+
+
+def test_subclass_hasattr():
+    class SubAttrDict(AttrDict):
+        pass
+
+    d = SubAttrDict({"a": 1, "b": {"c": 3, "d": 4}})
+    assert hasattr(d, "a")
+    assert not hasattr(d, "e")
+    assert hasattr(d.b, "c")
+    assert not hasattr(d.b, "e")
+
+    with pytest.raises(AttributeError, match="'SubAttrDict' object has no attribute 'g'"):
+        _ = d.g
+
+
+def test_setattr():
+    d = AttrDict({"a": 1, "b": 2})
+
+    # Set existing attribute
+    d.a = 10
+    assert d.a == 10
+    assert d["a"] == 10
+
+    # Set new attribute
+    d.c = 3
+    assert d.c == 3
+    assert d["c"] == 3
+    assert "c" in d
+
+
+def test_delattr():
+    d = AttrDict({"a": 1, "b": 2, "c": 3})
+
+    # Delete existing attribute
+    del d.b
+    assert "b" not in d
+    assert not hasattr(d, "b")
+
+    # Verify other attributes still exist
+    assert d.a == 1
+    assert d.c == 3
+
+
+def test_delattr_non_existent():
+    d = AttrDict({"a": 1, "b": 2, "c": 3})
+    with pytest.raises(KeyError, match="nonexistent"):
+        del d.nonexistent
+
+
+def test_find_free_port():
+    from mlflow.utils import find_free_port
+
+    port = find_free_port()
+    assert isinstance(port, int)
+    assert 1024 <= port <= 65535
+
+
+def test_is_port_available_returns_true_for_free_port():
+    from mlflow.utils import find_free_port, is_port_available
+
+    port = find_free_port()
+    assert is_port_available(port) is True
+
+
+def test_is_port_available_returns_false_for_bound_port():
+    from mlflow.utils import is_port_available
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        bound_port = s.getsockname()[1]
+        assert is_port_available(bound_port) is False

@@ -1,0 +1,13 @@
+diff --git a/lib/interceptors/ClientRequest/NodeClientRequest.js b/lib/interceptors/ClientRequest/NodeClientRequest.js
+index 176f8cbb9bb3d0fae2a129b530da83ff2666b89c..287ac73e2784d223d4220fd0747073ca246dc3c3 100644
+--- a/lib/interceptors/ClientRequest/NodeClientRequest.js
++++ b/lib/interceptors/ClientRequest/NodeClientRequest.js
+@@ -87,7 +87,7 @@ exports.NodeClientRequest = void 0;
+ var debug_1 = require("debug");
+ var http_1 = require("http");
+ var until_1 = require("@open-draft/until");
+-var lib_1 = require("headers-polyfill/lib");
++var lib_1 = require("headers-polyfill");
+ var uuid_1 = require("../../utils/uuid");
+ var concatChunkToBuffer_1 = require("./utils/concatChunkToBuffer");
+ var normalizeClientRequestEndArgs_1 = require("./utils/normalizeClientRequestEndArgs");

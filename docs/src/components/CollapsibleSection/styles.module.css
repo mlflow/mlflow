@@ -1,0 +1,60 @@
+.collapsibleContainer {
+  margin: 2rem 0;
+}
+
+.header {
+  margin-bottom: 1rem;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.toggleButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 85%;
+  padding: 1rem 1.5rem;
+  background: var(--ifm-background-surface-color);
+  border: 2px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--ifm-color-emphasis-800);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toggleButton:hover {
+  background: var(--ifm-color-emphasis-100);
+  border-color: #0194e2;
+  color: #0194e2;
+}
+
+.toggleButton:focus {
+  outline: 2px solid #0194e2;
+  outline-offset: 2px;
+}
+
+.toggleText {
+  flex: 1;
+  text-align: left;
+}
+
+.content {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .toggleButton {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    width: 85%;
+  }
+}

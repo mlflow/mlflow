@@ -1,0 +1,19 @@
+---
+title: MLflow Tracking
+---
+
+flowchart LR 
+id4[(Datalake)]
+A[Data Prep] -->B[Train]
+B --> id1
+B --> B
+id1 --> C
+C[Review & Select]
+C --> id2
+C --> B
+id2 --> D[Deploy]
+D --> E[Monitor]
+E --> id4
+id4 --> A
+id1[(Tracking backend)]
+id2[(Model Registry)]

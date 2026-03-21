@@ -1,15 +1,16 @@
-from abc import abstractmethod
-
+import logging
 import os
 import signal
-import logging
+from abc import abstractmethod
 
 from mlflow.entities import RunStatus
+from mlflow.utils.annotations import developer_stable
 
 _logger = logging.getLogger(__name__)
 
 
-class SubmittedRun(object):
+@developer_stable
+class SubmittedRun:
     """
     Wrapper around an MLflow project run (e.g. a subprocess running an entry point
     command or a Databricks job run) and exposing methods for waiting on and cancelling the run.
@@ -33,14 +34,12 @@ class SubmittedRun(object):
         that in some cases (e.g. remote execution on Databricks), we may wait until the remote job
         completes rather than until the MLflow run completes.
         """
-        pass
 
     @abstractmethod
     def get_status(self):
         """
         Get status of the run.
         """
-        pass
 
     @abstractmethod
     def cancel(self):
@@ -49,7 +48,6 @@ class SubmittedRun(object):
         waits for it to terminate. The MLflow run status may not be set correctly
         upon run cancellation.
         """
-        pass
 
     @property
     @abstractmethod

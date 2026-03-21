@@ -1,0 +1,34 @@
+# Triggers rerun-workflow-run.yml on PR approval.
+# See https://stackoverflow.com/questions/67247752/how-to-use-secret-in-pull-request-review-similar-to-pull-request-target for why we need this approach and how it works.
+name: rerun
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  upload:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    if: github.event.review.state == 'approved' && contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)
+    steps:
+      - name: Upload PR number
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          mkdir -p /tmp/pr
+          echo $PR_NUMBER > /tmp/pr/pr_number
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: pr_number
+          path: /tmp/pr/

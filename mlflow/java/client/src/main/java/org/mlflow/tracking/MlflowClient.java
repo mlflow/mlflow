@@ -9,6 +9,7 @@ import org.mlflow.api.proto.ModelRegistry.*;
 import org.mlflow.api.proto.Service.*;
 import org.mlflow.tracking.creds.*;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.Serializable;
 import java.net.URI;
@@ -22,7 +23,7 @@ import java.util.stream.Collectors;
 /**
  * Client to an MLflow Tracking Sever.
  */
-public class MlflowClient implements Serializable {
+public class MlflowClient implements Serializable, Closeable {
   protected static final String DEFAULT_EXPERIMENT_ID = "0";
   private static final String DEFAULT_MODELS_ARTIFACT_REPOSITORY_SCHEME = "models";
 
@@ -68,8 +69,21 @@ public class MlflowClient implements Serializable {
     URIBuilder builder = newURIBuilder("metrics/get-history")
       .setParameter("run_uuid", runId)
       .setParameter("run_id", runId)
-      .setParameter("metric_key", key);
-    return mapper.toGetMetricHistoryResponse(httpCaller.get(builder.toString())).getMetricsList();
+      .setParameter("metric_key", key)
+      .setParameter("max_results", "25000");
+
+    GetMetricHistory.Response response = mapper
+            .toGetMetricHistoryResponse(httpCaller.get(builder.toString()));
+    List<Metric> metrics = new ArrayList<>(response.getMetricsList());
+    String token = response.getNextPageToken();
+    while (!token.isEmpty()) {
+      URIBuilder bld = builder.setParameter("page_token", token);
+      GetMetricHistory.Response resp = mapper
+              .toGetMetricHistoryResponse(httpCaller.get(bld.toString()));
+      metrics.addAll(resp.getMetricsList());
+      token = resp.getNextPageToken();
+    }
+    return metrics;
   }
 
   /**
@@ -256,23 +270,121 @@ public class MlflowClient implements Serializable {
       searchFilter, runViewType, maxResults, orderBy, this);
   }
 
-  /** @return  A list of all experiments. */
-  public List<Experiment> listExperiments() {
-    return mapper.toListExperimentsResponse(httpCaller.get("experiments/list"))
-      .getExperimentsList();
+  /**
+   * Return experiments that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param experimentViewType ViewType for expected experiments. One of
+   *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only experiments with
+   *                           viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of experiments desired in one page.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   *
+   * @return A page of experiments that satisfy the search filter.
+   */
+  public ExperimentsPage searchExperiments(String searchFilter,
+                                           ViewType experimentViewType,
+                                           int maxResults,
+                                           List<String> orderBy) {
+    return searchExperiments(searchFilter, experimentViewType, maxResults, orderBy, null);
+  }
+
+  /**
+   * Return up to 1000 active experiments.
+   *
+   * @return A page of active experiments with up to 1000 items.
+   */
+  public ExperimentsPage searchExperiments() {
+    return searchExperiments("", null, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return up to the first 1000 active experiments that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   *
+   * @return A page of up to active 1000 experiments that satisfy the search filter.
+   */
+  public ExperimentsPage searchExperiments(String searchFilter) {
+    return searchExperiments(searchFilter, null, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return experiments that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "attribute.name = 'MyExperiment'"
+   *                         - "tags.problem_type = 'iris_regression'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param experimentViewType ViewType for expected experiments. One of
+   *                           (ACTIVE_ONLY, DELETED_ONLY, ALL). If null, only experiments with
+   *                           viewtype ACTIVE_ONLY will be searched.
+   * @param maxResults Maximum number of experiments desired in one page.
+   * @param orderBy List of properties to order by. Example: "metrics.acc DESC".
+   * @param pageToken String token specifying the next page of results. It should be obtained from
+   *             a call to {@link #searchExperiments(String)}.
+   *
+   * @return A page of experiments that satisfy the search filter.
+   */
+  public ExperimentsPage searchExperiments(String searchFilter,
+                                           ViewType experimentViewType,
+                                           int maxResults,
+                                           List<String> orderBy,
+                                           String pageToken) {
+    SearchExperiments.Builder builder = SearchExperiments.newBuilder()
+            .addAllOrderBy(orderBy)
+            .setMaxResults(maxResults);
+
+    if (searchFilter != null) {
+      builder.setFilter(searchFilter);
+    }
+    if (experimentViewType != null) {
+      builder.setViewType(experimentViewType);
+    } else {
+      builder.setViewType(ViewType.ACTIVE_ONLY);
+    }
+    if (pageToken != null) {
+      builder.setPageToken(pageToken);
+    }
+    SearchExperiments request = builder.build();
+    String ijson = mapper.toJson(request);
+    String ojson = sendPost("experiments/search", ijson);
+    SearchExperiments.Response response = mapper.toSearchExperimentsResponse(ojson);
+    return new ExperimentsPage(response.getExperimentsList(), response.getNextPageToken(),
+      searchFilter, experimentViewType, maxResults, orderBy, this);
   }
 
   /** @return  An experiment with the given ID. */
-  public GetExperiment.Response getExperiment(String experimentId) {
+  public Experiment getExperiment(String experimentId) {
     URIBuilder builder = newURIBuilder("experiments/get")
       .setParameter("experiment_id", experimentId);
-    return mapper.toGetExperimentResponse(httpCaller.get(builder.toString()));
+    return mapper.toGetExperimentResponse(httpCaller.get(builder.toString())).getExperiment();
   }
 
   /** @return  The experiment associated with the given name or Optional.empty if none exists. */
   public Optional<Experiment> getExperimentByName(String experimentName) {
-    return listExperiments().stream().filter(e -> e.getName()
-      .equals(experimentName)).findFirst();
+    URIBuilder builder = newURIBuilder("experiments/get-by-name")
+      .setParameter("experiment_name", experimentName);
+    try {
+      return Optional.of(
+          mapper.toGetExperimentByNameResponse(httpCaller.get(builder.toString())).getExperiment()
+      );
+    } catch (MlflowHttpException e) {
+      if (e.getStatusCode() == 404) {
+        return Optional.<Experiment>empty();
+      } else {
+        throw e;
+      }
+    }
   }
 
   /**
@@ -717,6 +829,40 @@ public class MlflowClient implements Serializable {
   }
 
   /**
+   *
+   *   <pre>
+   *       import org.mlflow.api.proto.ModelRegistry.ModelVersion;
+   *       ModelVersion modelVersion = getModelVersion("model", "version");
+   *   </pre>
+   *
+   * @param modelName Name of the containing registered model. *
+   * @param version Version number as a string of the model version.
+   * @return a single model version
+   *        {@link org.mlflow.api.proto.ModelRegistry.ModelVersion}
+   */
+  public ModelVersion getModelVersion(String modelName, String version) {
+    String json = sendGet(mapper.makeGetModelVersion(modelName, version));
+    GetModelVersion.Response response = mapper.toGetModelVersionResponse(json);
+    return response.getModelVersion();
+  }
+
+  /**
+   *  Returns a RegisteredModel from the model registry for the given model name.
+   *   <pre>
+   *       import org.mlflow.api.proto.ModelRegistry.RegisteredModel;
+   *       RegisteredModel registeredModel = getRegisteredModel("model");
+   *   </pre>
+   *
+   * @param modelName Name of the containing registered model. *
+   * @return a registered model {@link org.mlflow.api.proto.ModelRegistry.RegisteredModel}
+   */
+  public RegisteredModel getRegisteredModel(String modelName) {
+    String json = sendGet(mapper.makeGetRegisteredModel(modelName));
+    GetRegisteredModel.Response response = mapper.toGetRegisteredModelResponse(json);
+    return response.getRegisteredModel();
+  }
+
+  /**
    * Return the model URI containing for the given model version. The model URI can be used
    * to download the model version artifacts.
    *
@@ -783,4 +929,80 @@ public class MlflowClient implements Serializable {
       return downloadModelVersion(modelName, details.getVersion());
   }
 
+  /**
+   * Return model versions that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param maxResults Maximum number of model versions desired in one page.
+   * @param orderBy List of properties to order by. Example: "name DESC".
+   *
+   * @return A page of model versions that satisfy the search filter.
+   */
+  public ModelVersionsPage searchModelVersions(String searchFilter,
+                                               int maxResults,
+                                               List<String> orderBy) {
+    return searchModelVersions(searchFilter, maxResults, orderBy, null);
+  }
+
+  /**
+   * Return up to 1000 model versions.
+   *
+   * @return A page of model versions with up to 1000 items.
+   */
+  public ModelVersionsPage searchModelVersions() {
+    return searchModelVersions("", 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return up to 1000 model versions that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   *
+   * @return A page of model versions with up to 1000 items.
+   */
+  public ModelVersionsPage searchModelVersions(String searchFilter) {
+    return searchModelVersions(searchFilter, 1000, new ArrayList<>(), null);
+  }
+
+  /**
+   * Return model versions that satisfy the search query.
+   *
+   * @param searchFilter SQL compatible search query string.
+   *                     Examples:
+   *                         - "name = 'model_name'"
+   *                         - "run_id = '...'"
+   *                     If null, the result will be equivalent to having an empty search filter.
+   * @param maxResults Maximum number of model versions desired in one page.
+   * @param orderBy List of properties to order by. Example: "name DESC".
+   * @param pageToken String token specifying the next page of results. It should be obtained from
+   *             a call to {@link #searchModelVersions(String)}.
+   *
+   * @return A page of model versions that satisfy the search filter.
+   */
+  public ModelVersionsPage searchModelVersions(String searchFilter,
+                                               int maxResults,
+                                               List<String> orderBy,
+                                               String pageToken) {
+    String json = sendGet(mapper.makeSearchModelVersions(
+            searchFilter, maxResults, orderBy, pageToken
+    ));
+    SearchModelVersions.Response response = mapper.toSearchModelVersionsResponse(json);
+    return new ModelVersionsPage(response.getModelVersionsList(), response.getNextPageToken(),
+            searchFilter, maxResults, orderBy, this);
+  }
+
+  /**
+   * Closes the MlflowClient and releases any associated resources.
+   */
+  public void close() {
+    this.httpCaller.close();
+  }
 }

@@ -1,8 +1,8 @@
-from mlflow.entities._mlflow_object import _MLflowObject
+from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import ExperimentTag as ProtoExperimentTag
 
 
-class ExperimentTag(_MLflowObject):
+class ExperimentTag(_MlflowObject):
     """Tag object associated with an experiment."""
 
     def __init__(self, key, value):

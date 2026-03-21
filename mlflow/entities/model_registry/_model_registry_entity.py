@@ -1,8 +1,9 @@
 from abc import abstractmethod
-from mlflow.entities._mlflow_object import _MLflowObject
+
+from mlflow.entities._mlflow_object import _MlflowObject
 
 
-class _ModelRegistryEntity(_MLflowObject):
+class _ModelRegistryEntity(_MlflowObject):
     @classmethod
     @abstractmethod
     def from_proto(cls, proto):
