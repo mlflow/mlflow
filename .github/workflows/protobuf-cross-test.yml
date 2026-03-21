@@ -66,7 +66,7 @@ jobs:
           uv pip install \
             -r requirements/test-requirements.txt \
             datasets \
-            'tensorflow<2.22.0' 'tf-keras<2.20.0' \
+            'tensorflow<2.22.0' \
             torch transformers \
             "protobuf==${{ matrix.protobuf_major_version }}.*"
       - uses: ./.github/actions/show-versions

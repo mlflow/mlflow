@@ -375,7 +375,7 @@ jobs:
           uv sync --extra extras --extra genai --extra mcp
           uv pip install \
             -r requirements/test-requirements.txt \
-            pyspark datasets tensorflow torch transformers tf-keras openai \
+            pyspark datasets tensorflow torch transformers openai \
             tests/resources/mlflow-test-plugin
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree

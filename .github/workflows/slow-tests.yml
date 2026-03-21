@@ -67,7 +67,7 @@ jobs:
           uv pip install \
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt \
-            langchain_experimental tf-keras "pyarrow<18"
+            langchain_experimental "pyarrow<18"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
