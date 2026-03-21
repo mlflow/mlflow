@@ -5,6 +5,10 @@ This module defines the OpenSearch index mappings for all MLflow entities
 Each entity maps to a dedicated index for better scaling and lifecycle management.
 """
 
+from __future__ import annotations
+
+from typing import Any
+
 # Default index prefix — can be overridden via URI path or env var.
 DEFAULT_INDEX_PREFIX = "mlflow_"
 
@@ -230,7 +234,7 @@ def get_index_name(prefix: str, index_type: str) -> str:
     return f"{prefix}{index_type}"
 
 
-def get_all_index_configs(prefix: str) -> dict[str, dict]:
+def get_all_index_configs(prefix: str) -> dict[str, dict[str, Any]]:
     """Return a mapping of full index names to their configurations.
 
     Args:

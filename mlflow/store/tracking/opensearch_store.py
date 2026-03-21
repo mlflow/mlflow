@@ -21,6 +21,7 @@ import logging
 import math
 import time
 import uuid
+from typing import Any
 
 from mlflow.entities import (
     Experiment,
@@ -124,7 +125,7 @@ class OpenSearchTrackingStore(AbstractStore):
         name: str,
         artifact_location: str,
         lifecycle_stage: str,
-        tags: list,
+        tags: list[ExperimentTag],
     ):
         now = int(time.time() * 1000)
         doc = {
@@ -143,7 +144,7 @@ class OpenSearchTrackingStore(AbstractStore):
             refresh="wait_for",
         )
 
-    def _doc_to_experiment(self, doc: dict) -> Experiment:
+    def _doc_to_experiment(self, doc: dict[str, Any]) -> Experiment:
         src = doc if "_source" not in doc else doc["_source"]
         tags = [ExperimentTag(t["key"], t["value"]) for t in src.get("tags", [])]
         return Experiment(
@@ -156,7 +157,7 @@ class OpenSearchTrackingStore(AbstractStore):
             last_update_time=src.get("last_update_time"),
         )
 
-    def _doc_to_run_info(self, src: dict) -> RunInfo:
+    def _doc_to_run_info(self, src: dict[str, Any]) -> RunInfo:
         return RunInfo(
             run_id=src["run_id"],
             experiment_id=str(src["experiment_id"]),
@@ -267,8 +268,7 @@ class OpenSearchTrackingStore(AbstractStore):
             "size": max_results,
         }
 
-        sort = build_sort_clause(order_by)
-        if sort:
+        if sort := build_sort_clause(order_by):
             body["sort"] = sort
 
         if page_token:
@@ -586,8 +586,7 @@ class OpenSearchTrackingStore(AbstractStore):
             "size": max_results,
         }
 
-        sort = build_sort_clause(order_by)
-        if sort:
+        if sort := build_sort_clause(order_by):
             body["sort"] = sort
         else:
             body["sort"] = [{"start_time": {"order": "desc"}}, {"run_id": {"order": "asc"}}]

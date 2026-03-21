@@ -105,6 +105,7 @@ aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
 kubernetes = ["kubernetes"]
 langchain = ["langchain>=0.3.21,<=1.2.12"]
+opensearch = ["opensearch-py>=2.4.0"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -127,6 +128,10 @@ databricks = "mlflow.deployments.databricks"
 http = "mlflow.deployments.mlflow"
 https = "mlflow.deployments.mlflow"
 openai = "mlflow.deployments.openai"
+
+[project.entry-points."mlflow.tracking_store"]
+opensearch = "mlflow.store.tracking.opensearch_store:OpenSearchTrackingStore"
+"opensearch+https" = "mlflow.store.tracking.opensearch_store:OpenSearchTrackingStore"
 
 [tool.setuptools.package-data]
 mlflow = [

@@ -16,6 +16,7 @@ The translator handles:
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from mlflow.utils.search_utils import SearchUtils
 
@@ -59,7 +60,7 @@ class OpenSearchQueryTranslator:
         self,
         filter_string: str,
         entity_type: str = "run",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Translate a filter string into an OpenSearch query body.
 
         Args:
@@ -74,8 +75,8 @@ class OpenSearchQueryTranslator:
             return {"bool": {"must": [{"match_all": {}}]}}
 
         parsed = SearchUtils.parse_search_filter(filter_string)
-        must_clauses: list[dict] = []
-        sub_queries: list[dict] = []
+        must_clauses: list[dict[str, Any]] = []
+        sub_queries: list[dict[str, Any]] = []
 
         for parsed_filter in parsed:
             clause, sub = self._translate_single(parsed_filter, entity_type)
@@ -116,7 +117,7 @@ class OpenSearchQueryTranslator:
             _logger.warning("Unknown filter type '%s', skipping", filter_type)
             return None, None
 
-    def _translate_attribute_filter(self, key: str, comparator: str, value) -> dict:
+    def _translate_attribute_filter(self, key: str, comparator: str, value) -> dict[str, Any]:
         """Translate an attribute filter to an OpenSearch query clause."""
         comparator_upper = comparator.upper()
 
@@ -137,7 +138,7 @@ class OpenSearchQueryTranslator:
 
         return self._string_filter(key, comparator, value)
 
-    def _numeric_filter(self, field: str, comparator: str, value) -> dict:
+    def _numeric_filter(self, field: str, comparator: str, value) -> dict[str, Any]:
         """Build a range or term query for numeric fields."""
         if comparator in _RANGE_COMPARATORS:
             return {"range": {field: {_RANGE_COMPARATORS[comparator]: value}}}
@@ -147,7 +148,7 @@ class OpenSearchQueryTranslator:
             return {"bool": {"must_not": [{"term": {field: value}}]}}
         return {"term": {field: value}}
 
-    def _string_filter(self, field: str, comparator: str, value) -> dict:
+    def _string_filter(self, field: str, comparator: str, value) -> dict[str, Any]:
         """Build a term, wildcard, or regexp query for string fields."""
         comparator_upper = comparator.upper()
         str_value = str(value).strip("'\"")
@@ -171,7 +172,7 @@ class OpenSearchQueryTranslator:
             return {"regexp": {field: str_value}}
         return {"term": {field: str_value}}
 
-    def _translate_metric_filter(self, key: str, comparator: str, value) -> dict:
+    def _translate_metric_filter(self, key: str, comparator: str, value) -> dict[str, Any]:
         """Translate a metric filter into a sub-query targeting the metrics index."""
         must = [{"term": {"key": key}}]
         if comparator in _RANGE_COMPARATORS:
@@ -187,7 +188,7 @@ class OpenSearchQueryTranslator:
             "query": {"bool": {"must": must}},
         }
 
-    def _translate_param_filter(self, key: str, comparator: str, value) -> dict:
+    def _translate_param_filter(self, key: str, comparator: str, value) -> dict[str, Any]:
         """Translate a param filter into a sub-query targeting the params index."""
         str_value = str(value).strip("'\"")
         must = [{"term": {"key": key}}]
@@ -202,7 +203,7 @@ class OpenSearchQueryTranslator:
 
     def _translate_tag_filter(
         self, key: str, comparator: str, value, entity_type: str
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Translate a tag filter.
 
         For experiments (with nested tags), returns a nested query.
@@ -217,7 +218,7 @@ class OpenSearchQueryTranslator:
             return {"exists": {"field": key}}
 
         if entity_type == "experiment":
-            inner_must: list[dict] = [{"term": {"tags.key": key}}]
+            inner_must: list[dict[str, Any]] = [{"term": {"tags.key": key}}]
             if comparator == "=":
                 inner_must.append({"term": {"tags.value.keyword": str_value}})
             elif comparator_upper == "LIKE":
@@ -247,7 +248,7 @@ class OpenSearchQueryTranslator:
         # For runs/traces, tag filter is handled via sub-query
         return self._string_filter(f"tags.{key}", comparator, str_value)
 
-    def _translate_span_filter(self, key: str, comparator: str, value) -> dict:
+    def _translate_span_filter(self, key: str, comparator: str, value) -> dict[str, Any]:
         """Translate a span-level filter into a sub-query targeting the spans index."""
         str_value = str(value).strip("'\"")
         comparator_upper = comparator.upper()
@@ -278,7 +279,7 @@ class OpenSearchQueryTranslator:
         }
 
 
-def build_sort_clause(order_by: list[str] | None) -> list[dict]:
+def build_sort_clause(order_by: list[str] | None) -> list[dict[str, Any]]:
     """Convert MLflow order_by strings to OpenSearch sort clauses.
 
     Args:

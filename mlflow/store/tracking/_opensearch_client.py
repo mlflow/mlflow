@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import urllib.parse
+from typing import Any
 
 from mlflow.store.tracking.opensearch_mappings import get_all_index_configs
 
@@ -67,7 +68,7 @@ class OpenSearchClientManager:
         index_prefix = parsed.path.lstrip("/") if parsed.path and parsed.path != "/" else None
         index_prefix = index_prefix or _env("INDEX_PREFIX", "mlflow_")
 
-        kwargs: dict = {
+        kwargs: dict[str, Any] = {
             "use_ssl": use_ssl,
             "verify_certs": verify_certs,
         }
@@ -79,8 +80,7 @@ class OpenSearchClientManager:
             kwargs["http_auth"] = (username, password)
 
         # TLS certificate paths from env vars
-        ca_certs = _env("CA_CERTS")
-        if ca_certs:
+        if ca_certs := _env("CA_CERTS"):
             kwargs["ca_certs"] = ca_certs
 
         client_cert = _env("CLIENT_CERT")
@@ -148,7 +148,7 @@ class OpenSearchClientManager:
     # Bulk helpers
     # ------------------------------------------------------------------
 
-    def bulk_index(self, index: str, documents: list[dict], id_field: str | None = None):
+    def bulk_index(self, index: str, documents: list[dict[str, Any]], id_field: str | None = None):
         """Index multiple documents using the bulk API.
 
         Parameters
