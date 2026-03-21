@@ -19,3 +19,10 @@ while true; do
   fi
   sleep 30
 done
+
+# Mark PR ready for review if still in draft
+is_draft=$(gh pr view "$pr_number" --repo "$repo" --json isDraft --jq '.isDraft')
+if [[ "$is_draft" == "true" ]]; then
+  gh pr ready "$pr_number" --repo "$repo"
+  echo "Marked PR #${pr_number} as ready for review"
+fi
