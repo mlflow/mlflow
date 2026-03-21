@@ -31,9 +31,27 @@ Example:
 Once Copilot starts working, poll in the background until Copilot finishes:
 
 ```bash
-bash .claude/skills/copilot/poll.sh {owner}/{repo} {pr_number}
+bash .claude/skills/copilot/poll.sh <owner>/<repo> <pr_number>
 ```
 
 ## Sending feedback
 
-If the PR needs changes, post inline review comments without mentioning `@copilot`. Once all comments are posted, reply to the last one (e.g., "@copilot left some comments!"). This ensures all feedback is addressed in a single session.
+If the PR needs changes, batch all feedback into a single review with `@copilot` in each comment so they're addressed in one session:
+
+```bash
+gh api repos/<owner>/<repo>/pulls/<pr_number>/reviews --input - <<'EOF'
+{
+  "event": "COMMENT",
+  "comments": [
+    {
+      "path": "<file_path>",
+      "line": <line_number>,
+      "side": "RIGHT",
+      "body": "@copilot <comment>",
+      // ... more params
+    },
+    // ... more comments
+  ]
+}
+EOF
+```
