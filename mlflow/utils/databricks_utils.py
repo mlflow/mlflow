@@ -764,13 +764,12 @@ def probe_databricks_sdk_auth(server_uri=None):
     profile, key_prefix = get_db_info_from_uri(server_uri)
     profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
 
-    if key_prefix is not None:
-        config = TrackingURIConfigProvider(server_uri).get_config()
-        WorkspaceClient(host=config.host, token=config.token)
-        return True
-
     try:
-        WorkspaceClient(profile=profile)
+        if key_prefix is not None:
+            config = TrackingURIConfigProvider(server_uri).get_config()
+            WorkspaceClient(host=config.host, token=config.token)
+        else:
+            WorkspaceClient(profile=profile)
         return True
     except Exception as e:
         _logger.debug(f"SDK auth probe failed: {e!r}")
