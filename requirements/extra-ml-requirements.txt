@@ -5,6 +5,7 @@ spacy>=3.3.0
 # Required by mlflow.tensorflow
 tensorflow>=2.10.0; platform_system!="Darwin" or platform_machine!="arm64"
 tensorflow-macos>=2.10.0; platform_system=="Darwin" and platform_machine=="arm64"
+tensorboard
 # Required by mlflow.pytorch
 torch>=1.11.0
 torchvision>=0.12.0
