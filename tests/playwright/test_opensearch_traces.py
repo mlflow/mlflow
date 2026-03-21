@@ -100,7 +100,7 @@ class TestExperimentListPage:
         page.wait_for_load_state("networkidle")
         # Look for the experiment name text somewhere on the page
         content = page.content()
-        assert "playwright-opensearch-test" in content or seeded_experiment is not None
+        assert "playwright-opensearch-test" in content
 
 
 # ---------------------------------------------------------------------------
@@ -124,7 +124,7 @@ class TestExperimentRunsPage:
         page.wait_for_timeout(2000)
         content = page.content()
         # Expect some mention of the metric key or run name
-        assert "accuracy" in content.lower() or "pw-run" in content.lower() or True
+        assert "accuracy" in content.lower() or "pw-run" in content.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -160,5 +160,5 @@ class TestTracesPage:
             # Look for any search/filter input
             search_inputs = page.locator("input[type='text'], input[type='search']")
             count = search_inputs.count()
-            # Having a search input is expected but not strictly required
-            assert count >= 0
+            # Verify at least one search input is present
+            assert count > 0

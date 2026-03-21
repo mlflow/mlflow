@@ -24,6 +24,7 @@ import uuid
 
 from mlflow.entities import (
     Experiment,
+    ExperimentTag,
     Metric,
     Param,
     Run,
@@ -956,10 +957,3 @@ def _validate_experiment_name(name):
             "Invalid experiment name",
             error_code=INVALID_PARAMETER_VALUE,
         )
-
-
-# Avoid circular import — ExperimentTag is light enough to import late.
-try:
-    from mlflow.entities import ExperimentTag
-except ImportError:
-    ExperimentTag = None
