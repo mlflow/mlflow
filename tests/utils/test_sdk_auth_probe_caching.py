@@ -1,9 +1,28 @@
 """Tests for the SDK auth probe caching optimisation.
 
-Verifies that ``probe_databricks_sdk_auth`` runs once at store
-construction time, and that subsequent calls to
-``_get_databricks_host_creds_impl`` with a pre-computed
-``_use_databricks_sdk`` value skip the probe ``WorkspaceClient``.
+Background
+----------
+``WorkspaceClient.__init__`` performs SDK auth initialisation for a URI:
+it reads env vars, fetches ``/.well-known/databricks-config``, walks the
+auth chain (pat → basic → metadata-service → oauth-m2m), and fetches the
+OIDC discovery document.  This is expensive (2-4 HTTPS round-trips with
+``oauth-m2m``).
+
+Before this fix, every call to ``get_host_creds()`` — which happens on
+every MLflow REST request — re-ran this initialisation by constructing a
+throwaway ``WorkspaceClient``.  After the fix, the probe runs once at
+store construction time and the result is reused for all subsequent
+requests.
+
+These tests verify:
+1. ``probe_databricks_sdk_auth`` correctly probes once and returns a bool.
+2. ``_get_databricks_host_creds_impl`` skips the probe when given a
+   pre-computed value.
+3. ``get_databricks_host_creds`` preserves backward-compat (still probes).
+4. The store's ``get_host_creds`` callback makes no network calls after
+   store construction.
+5. ``WorkspaceClient.__init__`` (SDK auth initialisation) is called once
+   per store, not once per request.
 """
 
 from unittest.mock import MagicMock, patch
@@ -119,23 +138,53 @@ def test_public_api_still_probes_every_call(mock_ws_client):
     assert mock_ws_client.call_count == 5
 
 
-# -- Regression: store's get_host_creds callback probes only once --------------
+# -- Store-level: get_host_creds makes no network calls after construction -----
 
 
-def test_databricks_rest_store_probes_once_for_many_requests(mock_ws_client):
+def test_get_host_creds_makes_no_http_calls_after_store_construction(mock_ws_client):
+    """After a Databricks store is constructed, its get_host_creds callback
+    should return credentials without making any HTTP requests.  This is
+    the user-facing contract: REST request latency is not inflated by
+    redundant OIDC discovery round-trips.
+    """
     from mlflow.tracking._tracking_service.utils import _get_databricks_rest_store
 
     with patch(
         "mlflow.utils.databricks_utils._get_databricks_creds_config",
         return_value=_mock_config(),
     ):
-        # 1 probe during store construction.
         store = _get_databricks_rest_store("databricks")
 
-        # 50 simulated REST requests via the store's get_host_creds callback.
+        # Track all HTTP calls made after construction.
+        with patch("urllib3.HTTPSConnectionPool.urlopen") as mock_urlopen:
+            for _ in range(50):
+                store.get_host_creds()
+
+        # No HTTP calls — all auth discovery happened during construction.
+        assert mock_urlopen.call_count == 0
+
+
+def test_store_construction_initialises_sdk_auth_once(mock_ws_client):
+    """WorkspaceClient.__init__ performs SDK auth initialisation for a URI
+    (env-var parsing, OIDC discovery, auth-chain walk).  Before this fix,
+    this happened on every REST request because each get_host_creds call
+    constructed a throwaway WorkspaceClient.  After the fix, it happens
+    once during store construction.
+
+    This test asserts that WorkspaceClient is constructed exactly once for
+    the lifetime of a store, regardless of how many requests are made.
+    """
+    from mlflow.tracking._tracking_service.utils import _get_databricks_rest_store
+
+    with patch(
+        "mlflow.utils.databricks_utils._get_databricks_creds_config",
+        return_value=_mock_config(),
+    ):
+        store = _get_databricks_rest_store("databricks")
+
         for _ in range(50):
             store.get_host_creds()
 
-    # Before the fix this was 51 (1 in factory + 50 in get_host_creds).
-    # After the fix it is 1 (only the factory probe).
+    # 1 construction during store creation, 0 during get_host_creds calls.
+    # Before the fix this was 51 (1 + 50).
     assert mock_ws_client.call_count == 1
