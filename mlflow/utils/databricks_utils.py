@@ -752,8 +752,13 @@ def probe_databricks_sdk_auth(server_uri=None):
     ``_use_databricks_sdk`` parameter, avoiding the per-request probe
     that otherwise occurs inside :func:`get_databricks_host_creds`.
 
+    For secret-scope URIs (``databricks://scope:prefix``), returns
+    ``None`` — these require per-call credential resolution via dbutils
+    and cannot be pre-computed.
+
     Returns:
-        ``True`` if SDK auth succeeded, ``False`` otherwise.
+        ``True`` if SDK auth succeeded, ``False`` if it failed, or
+        ``None`` if the URI requires per-call resolution (secret-scope).
         Always ``False`` when :data:`MLFLOW_ENABLE_DB_SDK` is disabled.
     """
     if not MLFLOW_ENABLE_DB_SDK.get():
@@ -764,12 +769,13 @@ def probe_databricks_sdk_auth(server_uri=None):
     profile, key_prefix = get_db_info_from_uri(server_uri)
     profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
 
+    if key_prefix is not None:
+        # Secret-scope URI — credentials come from dbutils on each call.
+        # Cannot be pre-computed; fall back to per-call probing.
+        return None
+
     try:
-        if key_prefix is not None:
-            config = TrackingURIConfigProvider(server_uri).get_config()
-            WorkspaceClient(host=config.host, token=config.token)
-        else:
-            WorkspaceClient(profile=profile)
+        WorkspaceClient(profile=profile)
         return True
     except Exception as e:
         _logger.debug(f"SDK auth probe failed: {e!r}")
