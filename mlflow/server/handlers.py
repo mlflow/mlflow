@@ -303,7 +303,10 @@ from mlflow.tracking.context.default_context import _get_user
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import workspace_context
 from mlflow.utils.crypto import KEKManager
-from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.databricks_utils import (
+    _get_databricks_host_creds_impl,
+    probe_databricks_sdk_auth,
+)
 from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.mlflow_tags import (
@@ -391,7 +394,10 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri, artifact_uri):
-        return DatabricksTracingRestStore(partial(get_databricks_host_creds, store_uri))
+        use_sdk = probe_databricks_sdk_auth(store_uri)
+        return DatabricksTracingRestStore(
+            partial(_get_databricks_host_creds_impl, store_uri, _use_databricks_sdk=use_sdk)
+        )
 
 
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
@@ -426,7 +432,10 @@ class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri):
-        return ModelRegistryRestStore(partial(get_databricks_host_creds, store_uri))
+        use_sdk = probe_databricks_sdk_auth(store_uri)
+        return ModelRegistryRestStore(
+            partial(_get_databricks_host_creds_impl, store_uri, _use_databricks_sdk=use_sdk)
+        )
 
     @classmethod
     def _get_databricks_uc_rest_store(cls, store_uri):
