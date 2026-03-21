@@ -91,7 +91,6 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install '.[gateway]'
-
       - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
