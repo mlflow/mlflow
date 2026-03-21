@@ -742,7 +742,7 @@ class TrackingURIConfigProvider(DatabricksConfigProvider):
         return None
 
 
-def probe_databricks_sdk_auth(server_uri=None):
+def should_use_databricks_sdk(server_uri=None):
     """Probe whether the Databricks SDK can authenticate for *server_uri*.
 
     Creates a single :class:`~databricks.sdk.WorkspaceClient` to verify
@@ -819,7 +819,7 @@ def _get_databricks_host_creds_impl(server_uri=None, _use_databricks_sdk=None):
     Args:
         server_uri: Databricks tracking / registry URI.
         _use_databricks_sdk: Pre-computed result from
-            :func:`probe_databricks_sdk_auth`.  Pass ``None`` to probe
+            :func:`should_use_databricks_sdk`.  Pass ``None`` to probe
             (default).
     """
     _skip_probe = _use_databricks_sdk is not None

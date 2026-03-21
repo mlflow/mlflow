@@ -18,7 +18,7 @@ from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import (
     _get_databricks_host_creds_impl,
-    probe_databricks_sdk_auth,
+    should_use_databricks_sdk,
 )
 from mlflow.utils.file_utils import path_to_local_file_uri, path_to_local_sqlite_uri
 from mlflow.utils.uri import (
@@ -209,7 +209,7 @@ def _get_rest_store(store_uri, **_):
 
 
 def _get_databricks_rest_store(store_uri, **_):
-    use_sdk = probe_databricks_sdk_auth(store_uri)
+    use_sdk = should_use_databricks_sdk(store_uri)
     return DatabricksTracingRestStore(
         partial(_get_databricks_host_creds_impl, store_uri, _use_databricks_sdk=use_sdk)
     )

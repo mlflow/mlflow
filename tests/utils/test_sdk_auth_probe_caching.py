@@ -15,7 +15,7 @@ store construction time and the result is reused for all subsequent
 requests.
 
 These tests verify:
-1. ``probe_databricks_sdk_auth`` correctly probes once and returns a bool.
+1. ``should_use_databricks_sdk`` correctly probes once and returns a bool.
 2. ``_get_databricks_host_creds_impl`` skips the probe when given a
    pre-computed value.
 3. ``get_databricks_host_creds`` preserves backward-compat (still probes).
@@ -56,28 +56,28 @@ def mock_ws_client():
         yield mock_cls
 
 
-# -- probe_databricks_sdk_auth ------------------------------------------------
+# -- should_use_databricks_sdk -------------------------------------------------
 
 
 def test_probe_returns_true_when_sdk_auth_succeeds(mock_ws_client):
-    from mlflow.utils.databricks_utils import probe_databricks_sdk_auth
+    from mlflow.utils.databricks_utils import should_use_databricks_sdk
 
-    assert probe_databricks_sdk_auth("databricks") is True
+    assert should_use_databricks_sdk("databricks") is True
     assert mock_ws_client.call_count == 1
 
 
 def test_probe_returns_false_when_sdk_auth_fails(mock_ws_client):
     mock_ws_client.side_effect = Exception("no creds")
-    from mlflow.utils.databricks_utils import probe_databricks_sdk_auth
+    from mlflow.utils.databricks_utils import should_use_databricks_sdk
 
-    assert probe_databricks_sdk_auth("databricks") is False
+    assert should_use_databricks_sdk("databricks") is False
 
 
 def test_probe_returns_false_when_db_sdk_disabled(monkeypatch):
     monkeypatch.setenv("MLFLOW_ENABLE_DB_SDK", "false")
-    from mlflow.utils.databricks_utils import probe_databricks_sdk_auth
+    from mlflow.utils.databricks_utils import should_use_databricks_sdk
 
-    assert probe_databricks_sdk_auth("databricks") is False
+    assert should_use_databricks_sdk("databricks") is False
 
 
 # -- _get_databricks_host_creds_impl: pre-computed vs legacy -------------------
