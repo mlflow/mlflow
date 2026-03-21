@@ -8,9 +8,9 @@ import { IntlProvider } from '@databricks/i18n';
 import { ModelTraceExplorerAttachmentRenderer } from './ModelTraceExplorerAttachmentRenderer';
 
 // Mock the fetch utility
-const mockGetTraceAttachment = jest.fn();
+const mockGetTraceAttachment = jest.fn<(requestId: string, attachmentId: string) => Promise<ArrayBuffer | undefined>>();
 jest.mock('../oss-notebook-renderer/mlflow-fetch-utils', () => ({
-  getTraceAttachment: (...args) => mockGetTraceAttachment(...args),
+  getTraceAttachment: (...args: unknown[]) => mockGetTraceAttachment(...(args as [string, string])),
 }));
 
 const renderWithProviders = (ui: React.ReactElement) =>
