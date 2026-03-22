@@ -33,7 +33,6 @@ Example:
 Once Copilot starts working, poll in the background until Copilot finishes. The script automatically finds the latest session for the PR:
 
 ```bash
-# Poll using repo and PR number (finds latest session automatically)
 bash .claude/skills/copilot/poll.sh "<owner>/<repo>" <pr_number>
 ```
 
