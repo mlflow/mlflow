@@ -1,5 +1,7 @@
 import atexit
 import logging
+import os
+import signal
 import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
@@ -50,6 +52,7 @@ class AsyncTraceExportQueue:
         self._last_full_queue_warning_time = None
 
         atexit.register(self._at_exit_callback)
+        self._register_signal_handler()
 
     def put(self, task: Task):
         """Put a new task to the queue for processing."""
@@ -117,6 +120,39 @@ class AsyncTraceExportQueue:
                 exc_info=True,
             )
             _handle(task)
+
+    def _register_signal_handler(self) -> None:
+        """
+        Register a SIGTERM handler to flush the queue before process termination.
+
+        The ``atexit`` module only fires on *clean* exits (sys.exit, end of script).
+        When a process is killed externally—e.g. by PySpark ``mapInPandas``,
+        Kubernetes, or ``kill <pid>``—Python receives ``SIGTERM`` and the default
+        action is immediate termination without running atexit hooks.  This means
+        span artifacts written through the async queue are silently lost.
+
+        This handler intercepts SIGTERM, flushes the pending queue, then re-raises
+        the signal so that the process still exits with the expected status code and
+        any previously-registered SIGTERM handler is also honoured.
+
+        The handler is registered only from the **main thread** because Python only
+        allows signal handlers to be set from the main thread; a ``ValueError`` or
+        ``OSError`` is silently ignored when called from a worker thread.
+        """
+        try:
+            prev_handler = signal.getsignal(signal.SIGTERM)
+
+            def _sigterm_handler(signum: int, frame: Any) -> None:
+                self._at_exit_callback()
+                # Restore previous handler and re-raise so callers still see SIGTERM
+                signal.signal(signal.SIGTERM, prev_handler if callable(prev_handler) else signal.SIG_DFL)
+                os.kill(os.getpid(), signal.SIGTERM)
+
+            signal.signal(signal.SIGTERM, _sigterm_handler)
+        except (ValueError, OSError):
+            # Can only register signal handlers from the main thread; silently skip
+            # when called from a worker thread (e.g. inside PySpark UDFs).
+            pass
 
     def activate(self) -> None:
         """Activate the async queue to accept and handle incoming tasks."""
