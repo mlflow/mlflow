@@ -1,10 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-session_id="$1"
-repo="$2"        # owner/repo format
-pr_number="$3"
+repo="$1"        # owner/repo format
+pr_number="$2"
 max_seconds=1800  # 30 minutes
+
+# Find the latest session for this PR
+session_id=$(
+  gh agent-task list \
+    --json id,pullRequestNumber,createdAt,repository \
+    --jq "
+      [.[] | select(.repository == \"${repo}\" and .pullRequestNumber == ${pr_number})]
+      | sort_by(.createdAt)
+      | last
+      | .id
+    "
+)
+echo "Polling session $session_id for PR #${pr_number}"
 
 while true; do
   if (( SECONDS > max_seconds )); then
