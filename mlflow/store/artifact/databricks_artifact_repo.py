@@ -6,7 +6,6 @@ import posixpath
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any
 
 import requests
 
@@ -251,7 +250,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         ]
         return self._get_credential_infos(_CredentialType.WRITE, relative_remote_paths)
 
-    def download_trace_data(self) -> dict[str, Any]:
+    def download_trace_data(self, spans_location=None):
+        from mlflow.tracing.constant import SpansLocation
+
+        if spans_location == SpansLocation.ARCHIVE_REPO:
+            return super().download_trace_data(spans_location=spans_location)
+
         [cred], _ = self.resource.get_credentials(cred_type=_CredentialType.READ)
         signed_uri = cred.signed_uri
         headers = self._extract_headers_from_credentials(cred.headers)
@@ -268,7 +272,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             except json.JSONDecodeError as e:
                 raise MlflowTraceDataCorrupted(request_id=self.resource.id) from e
 
-    def upload_trace_data(self, trace_data: str) -> None:
+    def upload_trace_data(self, trace_data=None, *, spans=None, spans_location=None) -> None:
+        from mlflow.tracing.constant import SpansLocation
+
+        if spans_location == SpansLocation.ARCHIVE_REPO:
+            return super().upload_trace_data(spans=spans, spans_location=spans_location)
+
         cred = self._get_upload_trace_data_cred_info()
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             # Upload trace data synchronously to avoid ThreadPoolExecutor deadlock during Python

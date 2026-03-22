@@ -245,6 +245,60 @@ def test_trace_data(local_artifact_repo):
     assert local_artifact_repo.download_trace_data() == mock_trace_data
 
 
+def test_trace_data_pb_round_trip(local_artifact_repo):
+    from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+
+    from mlflow.entities.span import Span
+    from mlflow.tracing.constant import SpanAttributeKey, SpansLocation
+    from mlflow.tracing.utils import build_otel_context
+
+    otel_span = OTelReadableSpan(
+        name="archival_test",
+        context=build_otel_context(trace_id=42, span_id=1),
+        start_time=1_000_000,
+        end_time=2_000_000,
+        attributes={
+            SpanAttributeKey.REQUEST_ID: "tr-test42",
+            SpanAttributeKey.INPUTS: json.dumps({"q": "hello"}),
+            SpanAttributeKey.OUTPUTS: json.dumps({"a": "world"}),
+            SpanAttributeKey.SPAN_TYPE: json.dumps("UNKNOWN"),
+        },
+    )
+    span = Span(otel_span)
+
+    local_artifact_repo.upload_trace_data(spans=[span], spans_location=SpansLocation.ARCHIVE_REPO)
+    result = local_artifact_repo.download_trace_data(spans_location=SpansLocation.ARCHIVE_REPO)
+    assert len(result) == 1
+    assert result[0].name == "archival_test"
+
+
+def test_trace_data_pb_missing(local_artifact_repo):
+    from mlflow.tracing.constant import SpansLocation
+
+    with pytest.raises(MlflowTraceDataNotFound, match=r"Trace data not found"):
+        local_artifact_repo.download_trace_data(spans_location=SpansLocation.ARCHIVE_REPO)
+
+
+def test_trace_data_pb_corrupted(local_artifact_repo, local_artifact_root):
+    from mlflow.tracing.constant import SpansLocation
+
+    artifacts_dir = pathlib.Path(local_artifact_root) / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    (artifacts_dir / "traces.pb").write_bytes(b"not-valid-protobuf")
+    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted"):
+        local_artifact_repo.download_trace_data(spans_location=SpansLocation.ARCHIVE_REPO)
+
+
+def test_trace_data_pb_empty_file(local_artifact_repo, local_artifact_root):
+    from mlflow.tracing.constant import SpansLocation
+
+    artifacts_dir = pathlib.Path(local_artifact_root) / "artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    (artifacts_dir / "traces.pb").write_bytes(b"")
+    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted"):
+        local_artifact_repo.download_trace_data(spans_location=SpansLocation.ARCHIVE_REPO)
+
+
 @pytest.fixture
 def external_secret_dir(tmp_path):
     secret_dir = tmp_path.parent / "secrets_outside"

@@ -1,6 +1,5 @@
 import os
 import shutil
-from typing import Any
 
 from mlflow.store.artifact.artifact_repo import (
     ArtifactRepository,
@@ -127,16 +126,21 @@ class LocalArtifactRepository(ArtifactRepository):
             else:
                 shutil.rmtree(artifact_path)
 
-    def download_trace_data(self) -> dict[str, Any]:
-        """
-        Download the trace data.
+    def download_trace_data(self, spans_location=None):
+        from mlflow.tracing.constant import SpansLocation
 
-        Returns:
-            The trace data as a dictionary.
+        if spans_location == SpansLocation.ARCHIVE_REPO:
+            from mlflow.store.artifact.artifact_repo import _try_read_trace_data_pb
+            from mlflow.tracing.otel.otel_archival import (
+                TRACE_ARCHIVAL_ARTIFACT_PATH,
+                TRACE_ARCHIVAL_FILENAME,
+                traces_data_pb_to_spans,
+            )
 
-        Raises:
-            - `MlflowTraceDataNotFound`: The trace data is not found.
-            - `MlflowTraceDataCorrupted`: The trace data is corrupted.
-        """
+            trace_pb_path = os.path.join(
+                self.artifact_dir, TRACE_ARCHIVAL_ARTIFACT_PATH, TRACE_ARCHIVAL_FILENAME
+            )
+            return _try_read_trace_data_pb(trace_pb_path, traces_data_pb_to_spans)
+
         trace_data_path = os.path.join(self.artifact_dir, TRACE_DATA_FILE_NAME)
         return try_read_trace_data(trace_data_path)
