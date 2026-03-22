@@ -34,7 +34,13 @@ module.exports = async ({ github, context }) => {
 
     // If they are different workflow runs, prefer the one created later
     if (newRun.id !== existingRun.id) {
-      return new Date(newRun.created_at) > new Date(existingRun.created_at);
+      const newDate = new Date(newRun.created_at);
+      const existingDate = new Date(existingRun.created_at);
+      if (newDate.getTime() !== existingDate.getTime()) {
+        return newDate > existingDate;
+      }
+      // Tiebreaker: higher run ID was created later
+      return newRun.id > existingRun.id;
     }
 
     // Same workflow run: higher run_attempt takes priority (re-runs)
