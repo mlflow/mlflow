@@ -32,14 +32,8 @@ module.exports = async ({ github, context }) => {
     // Returns true if newRun should replace existingRun
     if (!existingRun) return true;
 
-    // If they are different workflow runs, prefer the one created later
+    // If they are different workflow runs, prefer the one with a higher ID (auto-incrementing)
     if (newRun.id !== existingRun.id) {
-      const newDate = new Date(newRun.created_at);
-      const existingDate = new Date(existingRun.created_at);
-      if (newDate.getTime() !== existingDate.getTime()) {
-        return newDate > existingDate;
-      }
-      // Tiebreaker: higher run ID was created later
       return newRun.id > existingRun.id;
     }
 
