@@ -163,9 +163,18 @@ class OnlineTraceScoringProcessor:
                 _logger.debug(f"No trace infos found for filter: {filter_string}")
                 continue
 
-            # Filter out traces at checkpoint boundary that have already been processed.
-            # Traces are ordered by (timestamp_ms ASC, trace_id ASC), so we filter out
-            # any traces with the checkpoint timestamp and trace_id <= checkpoint.trace_id.
+            # Filter out traces at the checkpoint boundary that were already processed
+            # in the previous window.  Traces are ordered by (timestamp_ms ASC,
+            # trace_id ASC); we remove any trace at the exact checkpoint timestamp
+            # whose trace_id is ≤ checkpoint.trace_id.
+            #
+            # Note: Traces with timestamp_ms < checkpoint.timestamp_ms (i.e. those
+            # returned because of the TRACE_COMPLETION_OVERLAP_MS extension) are
+            # intentionally *not* excluded here.  They may have been IN_PROGRESS
+            # when the previous window scanned their start time, and we want to
+            # evaluate them now that they have completed.  The small risk of
+            # re-scoring an already-evaluated trace in the overlap zone is
+            # acceptable since assessment logging is effectively idempotent.
             if checkpoint is not None and checkpoint.trace_id is not None:
                 trace_infos = [
                     t

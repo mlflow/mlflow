@@ -6,7 +6,7 @@ import time
 from dataclasses import asdict, dataclass
 
 from mlflow.entities.experiment_tag import ExperimentTag
-from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS
+from mlflow.genai.scorers.online.constants import MAX_LOOKBACK_MS, TRACE_COMPLETION_OVERLAP_MS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.mlflow_tags import MLFLOW_LATEST_ONLINE_SCORING_TRACE_CHECKPOINT
 
@@ -92,7 +92,18 @@ class OnlineTraceCheckpointManager:
         else:
             min_trace_timestamp_ms = min_lookback_time_ms
 
+        # Extend the window start backwards by TRACE_COMPLETION_OVERLAP_MS so that
+        # long-running traces which started before the checkpoint but have since
+        # transitioned to a terminal status (OK / ERROR) are still evaluated.
+        # Without this overlap, a trace whose duration exceeds the scheduler
+        # interval will be permanently skipped: it was IN_PROGRESS during its
+        # start-time window and the checkpoint has already advanced past it.
+        extended_min_ms = max(
+            min_trace_timestamp_ms - TRACE_COMPLETION_OVERLAP_MS,
+            min_lookback_time_ms,
+        )
+
         return OnlineTraceScoringTimeWindow(
-            min_trace_timestamp_ms=min_trace_timestamp_ms,
+            min_trace_timestamp_ms=extended_min_ms,
             max_trace_timestamp_ms=current_time_ms,
         )
