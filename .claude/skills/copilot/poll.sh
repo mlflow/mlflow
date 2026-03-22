@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="$1"        # owner/repo format (e.g., mlflow/mlflow)
-pr_number="$2"
+session_id="$1"
+repo="$2"        # owner/repo format
+pr_number="$3"
 max_seconds=1800  # 30 minutes
 
 while true; do
@@ -10,11 +11,9 @@ while true; do
     echo "Timed out after ${max_seconds}s waiting for Copilot to finish"
     exit 1
   fi
-  result=$(gh api "repos/${repo}/issues/${pr_number}/timeline" \
-    --paginate \
-    --jq '.[] | select(.event == "copilot_work_finished") | .created_at')
-  if [[ -n "$result" ]]; then
-    echo "Copilot finished at $result"
+  state=$(gh agent-task view "$session_id" --json state --jq '.state')
+  if [[ "$state" != "queued" && "$state" != "in_progress" ]]; then
+    echo "Copilot finished with state: $state"
     break
   fi
   sleep 30
