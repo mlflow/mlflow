@@ -52,6 +52,8 @@ jobs:
           fetch-depth: 300
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
       - uses: ./.github/actions/setup-node
       - name: Add problem matchers
         if: matrix.os == 'ubuntu-latest'
