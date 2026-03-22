@@ -16,6 +16,7 @@ def test_check_evidently_installed_raises_when_missing():
 
 
 def test_check_evidently_installed_succeeds():
+    pytest.importorskip("evidently")
     from mlflow.genai.scorers.evidently.utils import check_evidently_installed
 
     # Should not raise when evidently is installed
@@ -23,6 +24,7 @@ def test_check_evidently_installed_succeeds():
 
 
 def test_get_metric_class_valid():
+    pytest.importorskip("evidently")
     from mlflow.genai.scorers.evidently.registry import get_metric_class
 
     metric_class = get_metric_class("MissingValueCount")
@@ -30,6 +32,7 @@ def test_get_metric_class_valid():
 
 
 def test_get_metric_class_invalid():
+    pytest.importorskip("evidently")
     from mlflow.genai.scorers.evidently.registry import get_metric_class
 
     with pytest.raises(MlflowException, match="Unknown Evidently metric"):
@@ -67,6 +70,7 @@ def test_map_scorer_inputs_to_dataframe_raises_without_data():
 
 
 def test_evidently_scorer_returns_feedback():
+    pytest.importorskip("evidently")
     from mlflow.genai.scorers.evidently import EvidentlyScorer
 
     scorer = EvidentlyScorer(metric_name="MissingValueCount", column="feature_1")
@@ -78,6 +82,7 @@ def test_evidently_scorer_returns_feedback():
 
 
 def test_evidently_scorer_error_returns_feedback_with_error():
+    pytest.importorskip("evidently")
     from mlflow.genai.scorers.evidently import EvidentlyScorer
 
     scorer = EvidentlyScorer(metric_name="MissingValueCount", column="feature_1")
@@ -93,6 +98,7 @@ def test_evidently_scorer_error_returns_feedback_with_error():
 
 
 def test_get_scorer_factory():
+    pytest.importorskip("evidently")
     from mlflow.genai.scorers.evidently import get_scorer
 
     scorer = get_scorer("MissingValueCount", column="feature_1")
@@ -100,6 +106,7 @@ def test_get_scorer_factory():
 
 
 def test_concrete_scorer_classes():
+    pytest.importorskip("evidently")
     from mlflow.genai.scorers.evidently import MissingValues, UniqueValues
 
     scorer = MissingValues(column="col1")
@@ -118,6 +125,7 @@ def test_concrete_scorer_classes():
     ],
 )
 def test_concrete_scorer_metric_names(scorer_class_name: str, expected_metric: str):
+    pytest.importorskip("evidently")
     import mlflow.genai.scorers.evidently as evidently_module
 
     scorer_class = getattr(evidently_module, scorer_class_name)

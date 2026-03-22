@@ -124,7 +124,7 @@ class EvidentlyScorer(Scorer):
                 run_kwargs["reference_data"] = Dataset.from_pandas(reference_df)
 
             snapshot = report.run(**run_kwargs)
-            result_dict = snapshot.as_dict()
+            result_dict = snapshot.dict()
 
             value = self._extract_value(result_dict)
             rationale = self._extract_rationale(result_dict)
@@ -151,24 +151,22 @@ class EvidentlyScorer(Scorer):
         if not metrics:
             return 0.0
 
-        metric_result = metrics[0].get("result", {})
+        value = metrics[0].get("value")
+        if value is None:
+            return 0.0
 
-        # Check for drift-style result (has "drift_detected" boolean)
-        if "drift_detected" in metric_result:
-            return not metric_result["drift_detected"]
+        # Scalar value (e.g., ValueDrift returns a p-value float)
+        if isinstance(value, (int, float)):
+            return float(value)
 
-        # Check for count-style result (has "value" field)
-        if "value" in metric_result:
-            return float(metric_result["value"])
-
-        # Check for current_value (common in data quality metrics)
-        if "current_value" in metric_result:
-            return float(metric_result["current_value"])
-
-        # Fallback: return first numeric value found
-        for v in metric_result.values():
-            if isinstance(v, (int, float)):
-                return float(v)
+        # Dict value (e.g., MissingValueCount returns {"count": 1.0, "share": 0.33})
+        if isinstance(value, dict):
+            if "count" in value:
+                return float(value["count"])
+            # Fallback: return first numeric value found
+            for v in value.values():
+                if isinstance(v, (int, float)):
+                    return float(v)
 
         return 0.0
 
@@ -178,24 +176,19 @@ class EvidentlyScorer(Scorer):
         if not metrics:
             return None
 
-        metric_result = metrics[0].get("result", {})
+        metric = metrics[0]
+        value = metric.get("value")
         parts = []
 
-        if "drift_detected" in metric_result:
-            drift = metric_result["drift_detected"]
-            parts.append(f"Drift detected: {drift}")
-            if "drift_score" in metric_result:
-                parts.append(f"Drift score: {metric_result['drift_score']:.4f}")
-            if "stattest_name" in metric_result:
-                parts.append(f"Statistical test: {metric_result['stattest_name']}")
+        if isinstance(value, (int, float)):
+            parts.append(f"Value: {value}")
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                parts.append(f"{k}: {v}")
 
-        elif "value" in metric_result:
-            parts.append(f"Value: {metric_result['value']}")
-
-        elif "current_value" in metric_result:
-            parts.append(f"Current: {metric_result['current_value']}")
-            if "reference_value" in metric_result:
-                parts.append(f"Reference: {metric_result['reference_value']}")
+        config = metric.get("config")
+        if isinstance(config, dict) and "stattest" in config:
+            parts.append(f"Statistical test: {config['stattest']}")
 
         return "; ".join(parts) if parts else None
 
