@@ -984,10 +984,11 @@ def clean_up_mlruns_directory(request):
         return
 
     mlruns_dir = os.path.join(request.config.rootpath, "mlruns")
-    shutil.rmtree(mlruns_dir, onerror=_log_rmtree_error)
+    if os.path.exists(mlruns_dir):
+        shutil.rmtree(mlruns_dir, onerror=_log_rmtree_error)
     # In Docker, files may be owned by root. Try sudo as a fallback.
     if not is_windows() and os.path.exists(mlruns_dir):
-        subprocess.run(["sudo", "rm", "-rf", mlruns_dir])
+        subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=False)
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
