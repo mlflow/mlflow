@@ -60,6 +60,8 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
+        env:
+          PROTOBUF_MAJOR_VERSION: ${{ matrix.protobuf_major_version }}
         run: |
           uv sync --extra extras --extra genai --extra mcp
           # Test the latest minor version in protobuf_major_version
@@ -68,15 +70,18 @@ jobs:
             datasets \
             'tensorflow<2.22.0' \
             torch transformers \
-            "protobuf==${{ matrix.protobuf_major_version }}.*"
+            "protobuf==$PROTOBUF_MAJOR_VERSION.*"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
           # NB: test_mlflow_artifacts.py is excluded because it runs docker-compose with fresh
           # container builds. The protobuf version in the test environment has no effect on the
           # containers, making cross-version testing unnecessary and wasteful of disk space.
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \

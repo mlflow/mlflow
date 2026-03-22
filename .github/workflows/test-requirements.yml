@@ -93,8 +93,11 @@ jobs:
           pip install '.[gateway]'
       - uses: ./.github/actions/show-versions
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests --requires-ssh --ignore-flavors \
+          pytest --splits=$SPLITS --group=$GROUP tests --requires-ssh --ignore-flavors \
             --ignore=tests/examples --ignore=tests/evaluate \
             --ignore=tests/deployments --ignore=tests/genai

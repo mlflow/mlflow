@@ -71,5 +71,8 @@ jobs:
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/docker tests/pyfunc/docker
+          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP tests/docker tests/pyfunc/docker
