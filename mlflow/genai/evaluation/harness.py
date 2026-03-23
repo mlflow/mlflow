@@ -418,13 +418,8 @@ def _run_single(
         eval_item.trace = minimal_trace
 
     # Execute the scorers
-    assessments, scorer_stats = _compute_eval_scores(eval_item=eval_item, scorers=scorers)
-    assessments.extend(_get_new_expectations(eval_item))
-    eval_result = EvalResult(
-        eval_item=eval_item,
-        assessments=assessments,
-        scorer_stats=scorer_stats,
-    )
+    eval_result = _compute_eval_scores(eval_item=eval_item, scorers=scorers)
+    eval_result.assessments.extend(_get_new_expectations(eval_item))
 
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
     validate_tags(tags)
@@ -453,7 +448,7 @@ def _compute_eval_scores(
     *,
     eval_item: EvalItem,
     scorers: list[Scorer],
-) -> tuple[list[Feedback], dict[str, ScorerStat]]:
+) -> EvalResult:
     """Compute the per-eval-item scores.
 
     Args:
@@ -461,11 +456,10 @@ def _compute_eval_scores(
         scorers: List of scorer instances to run.
 
     Returns:
-        Tuple of (list of Feedback objects, scorer stats dict).
-        Scorer stats maps scorer_name -> ScorerStat.
+        EvalResult containing the assessments and scorer stats.
     """
     if not scorers:
-        return [], {}
+        return EvalResult(eval_item=eval_item, assessments=[], scorer_stats={})
 
     should_trace = MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
 
@@ -540,7 +534,7 @@ def _compute_eval_scores(
         failed = len(feedbacks) == 1 and feedbacks[0].error is not None
         scorer_stats[scorer_name].record_invocation(failed=failed)
         assessments.extend(feedbacks)
-    return assessments, scorer_stats
+    return EvalResult(eval_item=eval_item, assessments=assessments, scorer_stats=scorer_stats)
 
 
 def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:

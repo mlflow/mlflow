@@ -308,10 +308,11 @@ def _run_single_turn_scorer_batch(
         try:
             # Use _compute_eval_scores from harness - supports scorer tracing,
             # captures stack traces on errors
-            feedbacks, _ = _compute_eval_scores(
+            result = _compute_eval_scores(
                 eval_item=eval_item,
                 scorers=[scorer],
-            )  # Unpack tuple, discard scorer_stats
+            )
+            feedbacks = result.assessments
 
             failures = _extract_failures_from_feedbacks(feedbacks)
 

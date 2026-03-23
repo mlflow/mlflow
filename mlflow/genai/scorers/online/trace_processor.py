@@ -267,7 +267,8 @@ class OnlineTraceScoringProcessor:
             for future in as_completed(futures):
                 task = futures[future]
                 try:
-                    feedbacks, _ = future.result()
+                    result = future.result()
+                    feedbacks = result.assessments
                     if feedbacks:
                         _log_assessments(trace=task.trace, assessments=feedbacks, run_id=None)
                 except Exception as e:
