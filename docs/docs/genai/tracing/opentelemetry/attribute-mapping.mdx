@@ -298,24 +298,24 @@ Based on [Laminar](https://www.lmnr.ai/) telemetry.
 
 **Span Type** (from `lmnr.span.type`):
 
-| Source Value        | MLflow Span Type |
-| ------------------- | ---------------- |
-| `LLM`               | `LLM`            |
-| `TOOL`              | `TOOL`           |
-| `DEFAULT`           | `CHAIN`          |
-| `PIPELINE`          | `CHAIN`          |
-| `EXECUTOR`          | `AGENT`          |
-| `EVALUATOR`         | `EVALUATOR`      |
-| `HUMAN_EVALUATOR`   | `EVALUATOR`      |
-| `EVALUATION`        | `EVALUATOR`      |
-| `CACHED`            | `LLM`            |
+| Source Value      | MLflow Span Type |
+| ----------------- | ---------------- |
+| `LLM`             | `LLM`            |
+| `TOOL`            | `TOOL`           |
+| `DEFAULT`         | `CHAIN`          |
+| `PIPELINE`        | `CHAIN`          |
+| `EXECUTOR`        | `AGENT`          |
+| `EVALUATOR`       | `EVALUATOR`      |
+| `HUMAN_EVALUATOR` | `EVALUATOR`      |
+| `EVALUATION`      | `EVALUATOR`      |
+| `CACHED`          | `LLM`            |
 
 **Inputs / Outputs:**
 
-| Source Attributes   | MLflow Attribute     |
-| ------------------- | -------------------- |
-| `lmnr.span.input`   | `mlflow.spanInputs`  |
-| `lmnr.span.output`  | `mlflow.spanOutputs` |
+| Source Attributes  | MLflow Attribute     |
+| ------------------ | -------------------- |
+| `lmnr.span.input`  | `mlflow.spanInputs`  |
+| `lmnr.span.output` | `mlflow.spanOutputs` |
 
 **Token Usage:**
 
