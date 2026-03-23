@@ -861,100 +861,61 @@ EXPECTED_ANSWERS: dict[str, str] = {
 # =============================================================================
 
 
-@dataclass
-class DemoIssue:
-    """Definition of a demo issue for testing issue detection and management.
+ROOT_CAUSE_EXPLANATIONS = {
+    "prompt_engineering": ("The prompts may need refinement to better guide the model's responses"),
+    "retrieval_quality": (
+        "The retrieval system may not be finding the most relevant context documents"
+    ),
+    "model_hallucination": (
+        "The model is generating information not grounded in the provided context"
+    ),
+    "training_data": ("The model's training data may contain gaps or biases affecting accuracy"),
+    "content_filtering": ("Additional content filtering or safety guardrails may be needed"),
+    "model_behavior": (
+        "The model's default behavior patterns may require adjustment or fine-tuning"
+    ),
+}
 
-    Categories must be from mlflow.genai.discovery.constants.DEFAULT_CATEGORIES:
-    correctness, latency, execution, adherence, relevance, safety
-    """
-
-    name: str
-    description: str
-    severity: IssueSeverity
-    categories: list[str]
-    root_causes: list[str]
-
-
-DEMO_ISSUES: list[DemoIssue] = [
-    DemoIssue(
-        name="Incomplete function call responses",
-        description=(
-            "Several traces show incomplete or missing responses when function calling is "
-            "involved. The model successfully initiates function calls but fails to properly "
-            "synthesize the results into a complete user-facing response. This leads to "
-            "truncated or confusing outputs that don't fully address the user's query."
+ASSESSMENT_TO_ISSUE = {
+    "relevance": {
+        "name": "Low Relevance Responses",
+        "description": (
+            "Traces with responses that don't sufficiently address the user's question. "
+            "The model is generating content that may be tangentially related but "
+            "misses the core intent."
         ),
-        severity=IssueSeverity.HIGH,
-        categories=["correctness", "execution"],
-        root_causes=[
-            "Function call results not being properly integrated into final response",
-            "Response generation stopping prematurely after tool invocation",
-            "Missing error handling for function execution failures",
-        ],
-    ),
-    DemoIssue(
-        name="Inconsistent citation formatting",
-        description=(
-            "RAG-based responses show inconsistent citation formatting across traces. "
-            "Some responses include proper source references while others omit them entirely, "
-            "making it difficult for users to verify information or explore sources. This "
-            "reduces transparency and trustworthiness of the system."
+        "severity": IssueSeverity.MEDIUM,
+        "categories": ["relevance"],
+        "root_causes": ["prompt_engineering", "retrieval_quality"],
+    },
+    "correctness": {
+        "name": "Incorrect Information",
+        "description": (
+            "Traces where the response contains factually incorrect information or "
+            "significantly deviates from the expected answer."
         ),
-        severity=IssueSeverity.MEDIUM,
-        categories=["adherence", "correctness"],
-        root_causes=[
-            "Prompt template does not consistently enforce citation requirements",
-            "Retrieved context quality varies, affecting citation generation",
-            "Model sometimes ignores citation instructions in system prompt",
-        ],
-    ),
-    DemoIssue(
-        name="Slow response times for RAG queries",
-        description=(
-            "Retrieval-Augmented Generation traces exhibit higher latency compared to other "
-            "query types. Response times frequently exceed 3 seconds, which may impact user "
-            "experience. The delay appears to be concentrated in the retrieval phase rather "
-            "than the generation phase."
+        "severity": IssueSeverity.HIGH,
+        "categories": ["correctness"],
+        "root_causes": ["model_hallucination", "training_data"],
+    },
+    "groundedness": {
+        "name": "Ungrounded Claims",
+        "description": (
+            "Traces where responses include claims not supported by the provided context. "
+            "The model is making assertions beyond what can be verified from the "
+            "source material."
         ),
-        severity=IssueSeverity.MEDIUM,
-        categories=["latency"],
-        root_causes=[
-            "Inefficient vector similarity search implementation",
-            "Lack of caching for frequently accessed documents",
-            "Sequential rather than parallel retrieval of multiple documents",
-        ],
-    ),
-    DemoIssue(
-        name="Code review suggestions lack specificity",
-        description=(
-            "Code review responses provide generic feedback that doesn't target specific "
-            "issues in the submitted code. Reviews mention general best practices but fail "
-            "to identify actual bugs, security vulnerabilities, or performance issues present "
-            "in the code snippets being reviewed."
+        "severity": IssueSeverity.HIGH,
+        "categories": ["correctness", "safety"],
+        "root_causes": ["model_hallucination", "prompt_engineering"],
+    },
+    "safety": {
+        "name": "Potential Safety Concerns",
+        "description": (
+            "Traces with responses that may contain harmful, offensive, or inappropriate content."
         ),
-        severity=IssueSeverity.LOW,
-        categories=["relevance", "correctness"],
-        root_causes=[
-            "Prompt engineering needs improvement to focus on specific code analysis",
-            "Model may benefit from chain-of-thought reasoning for code reviews",
-            "Insufficient examples of high-quality code reviews in prompt context",
-        ],
-    ),
-    DemoIssue(
-        name="Customer support responses too formal",
-        description=(
-            "Customer support traces show responses that are overly formal and lack the "
-            "empathetic, conversational tone expected in support interactions. While "
-            "technically accurate, the responses feel robotic and may not provide the "
-            "emotional reassurance customers need when experiencing issues."
-        ),
-        severity=IssueSeverity.LOW,
-        categories=["adherence"],
-        root_causes=[
-            "System prompt emphasizes professionalism over empathy",
-            "Lack of examples demonstrating desired conversational tone",
-            "Model defaults to formal register without explicit tone guidance",
-        ],
-    ),
-]
+        "severity": IssueSeverity.HIGH,
+        "categories": ["safety"],
+        "root_causes": ["content_filtering", "model_behavior"],
+    },
+}
