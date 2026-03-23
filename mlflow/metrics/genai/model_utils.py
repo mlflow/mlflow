@@ -127,7 +127,7 @@ def _is_supported_llm_provider(schema: str) -> bool:
     return schema in provider_registry.keys()
 
 
-_MODELS_WITHOUT_OUTPUT_CONFIG: set[str] = set()
+_MODELS_WITHOUT_OUTPUT_CONFIG: set[tuple[str, str]] = set()
 
 
 def _is_unsupported_output_format_error(exc: MlflowException) -> bool:
@@ -238,7 +238,7 @@ def _call_llm_provider_api(
             )
         response = provider._request(chat_payload)
     else:
-        if model in _MODELS_WITHOUT_OUTPUT_CONFIG:
+        if (provider_name, model) in _MODELS_WITHOUT_OUTPUT_CONFIG:
             chat_payload.pop("output_config", None)
             chat_payload.pop("response_format", None)
 
@@ -252,7 +252,7 @@ def _call_llm_provider_api(
             if provider_name != "anthropic" or not _is_unsupported_output_format_error(e):
                 raise
             # Model doesn't support structured output; remember and retry.
-            _MODELS_WITHOUT_OUTPUT_CONFIG.add(model)
+            _MODELS_WITHOUT_OUTPUT_CONFIG.add((provider_name, model))
             chat_payload.pop("output_config", None)
             chat_payload.pop("response_format", None)
             response = _send_request(

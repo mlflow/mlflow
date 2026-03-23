@@ -646,7 +646,7 @@ def test_score_model_caches_unsupported_output_config(monkeypatch):
     from mlflow.metrics.genai.model_utils import _MODELS_WITHOUT_OUTPUT_CONFIG
 
     model_name = "claude-sonnet-4-20250514-cache-test"
-    _MODELS_WITHOUT_OUTPUT_CONFIG.discard(model_name)
+    _MODELS_WITHOUT_OUTPUT_CONFIG.discard(("anthropic", model_name))
 
     anthropic_resp = {
         "content": [{"text": "result", "type": "text"}],
@@ -699,7 +699,7 @@ def test_score_model_caches_unsupported_output_config(monkeypatch):
         )
         assert m.call_count == 2
 
-    assert model_name in _MODELS_WITHOUT_OUTPUT_CONFIG
+    assert ("anthropic", model_name) in _MODELS_WITHOUT_OUTPUT_CONFIG
 
     # Second call: skips output_config upfront (only 1 requests.post call)
     with mock.patch("requests.post", return_value=mock_ok_response) as m:
@@ -710,7 +710,7 @@ def test_score_model_caches_unsupported_output_config(monkeypatch):
         )
         assert m.call_count == 1
 
-    _MODELS_WITHOUT_OUTPUT_CONFIG.discard(model_name)
+    _MODELS_WITHOUT_OUTPUT_CONFIG.discard(("anthropic", model_name))
 
 
 def test_score_model_does_not_retry_on_other_400_errors(monkeypatch):
