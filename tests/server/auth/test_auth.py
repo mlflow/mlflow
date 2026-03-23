@@ -784,6 +784,11 @@ def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
             client.delete_logged_model(model_id=model.model_id)
 
 
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
 def test_logged_model_artifact_authorization(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
     username1, password1 = create_user(client.tracking_uri)
     username2, password2 = create_user(client.tracking_uri)
@@ -792,7 +797,7 @@ def test_logged_model_artifact_authorization(client: MlflowClient, monkeypatch: 
         exp_id = client.create_experiment("logged-model-artifact-authz-test")
         model = client.create_logged_model(experiment_id=exp_id)
 
-    # user1 (owner) should be able to access the artifact endpoint (may 404 since no artifact
+    # user1 (owner) should be able to access the artifact endpoint (404 since no artifact
     # exists, but should NOT be 403)
     response = requests.get(
         url=(
