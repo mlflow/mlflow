@@ -242,7 +242,7 @@ def _call_llm_provider_api(
                 payload=chat_payload,
             )
         except MlflowException as e:
-            if not _is_unsupported_output_format_error(e):
+            if provider_name != "anthropic" or not _is_unsupported_output_format_error(e):
                 raise
             # Model doesn't support structured output; drop it and retry.
             chat_payload.pop("output_config", None)
