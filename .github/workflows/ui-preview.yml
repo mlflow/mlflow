@@ -53,6 +53,7 @@ jobs:
           | | |
           |---|---|
           | **Commit** | ${HEAD_SHA} |
+          | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
 
           > Building and deploying... This comment will be updated with the preview URL."
 
@@ -242,6 +243,7 @@ jobs:
           |---|---|
           | **URL** | ${APP_URL} |
           | **Commit** | $COMMIT_SHA |
+          | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
 
           > [!NOTE]
           > This preview is only accessible to core maintainers with workspace access.
