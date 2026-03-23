@@ -112,7 +112,7 @@ jobs:
           unzip -l $WHEEL_PATH
 
       - name: Validate no JS build artifacts in wheel
-        if: matrix.type == 'skinny' || matrix.type == 'tracing'
+        if: matrix.type != 'dev'
         env:
           WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
           MATRIX_TYPE: ${{ matrix.type }}
