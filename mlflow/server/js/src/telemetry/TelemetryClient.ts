@@ -80,7 +80,7 @@ class TelemetryClient {
         // Listen for the "READY" message from worker
         this.port.onmessage = handleReadyMessage;
       } catch (error) {
-        console.error('[TelemetryLogger] Failed to initialize SharedWorker:', error);
+        // fail silently
         resolve(false);
       }
     });

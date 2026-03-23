@@ -1899,6 +1899,7 @@ def test_create_model_version_with_validation_regex(db_uri: str):
             os.environ.copy()
             | {
                 "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX": r"^mlflow-artifacts:/.*$",
+                "MLFLOW_SERVER_ENABLE_JOB_EXECUTION": "false",
             }
         ),
     ) as proc:

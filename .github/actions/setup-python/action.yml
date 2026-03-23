@@ -4,6 +4,10 @@ inputs:
   python-version:
     description: "The python version to install. If unspecified, install the minimum python version mlflow supports."
     required: false
+  pin-micro-version:
+    description: "Whether to pin to a specific micro version for Anaconda compatibility. Set to false for workflows that don't need conda/pyenv to hit the runner's pre-installed Python cache and avoid a ~9s download."
+    required: false
+    default: "true"
 outputs:
   python-version:
     description: "The installed python version"
@@ -23,21 +27,23 @@ runs:
         if [ -z "$python_version" ]; then
           python_version=$(cat .python-version)
         fi
-        if [[ "$python_version" == "3.10" ]]; then
-          if [ ${{ runner.os }} == "Linux" ]; then
-            python_version="3.10.19"
+        if [[ "${{ inputs.pin-micro-version }}" == "true" ]]; then
+          if [[ "$python_version" == "3.10" ]]; then
+            if [ ${{ runner.os }} == "Linux" ]; then
+              python_version="3.10.19"
+            else
+              python_version="3.10.11"
+            fi
+          elif [[ "$python_version" == "3.11" ]]; then
+            if [ ${{ runner.os }} == "Windows" ]; then
+              python_version="3.11.9"
+            else
+              python_version="3.11.14"
+            fi
           else
-            python_version="3.10.11"
+            echo "Invalid python version: '$python_version'. Must be '3.10', or '3.11'."
+            exit 1
           fi
-        elif [[ "$python_version" == "3.11" ]]; then
-          if [ ${{ runner.os }} == "Windows" ]; then
-            python_version="3.11.9"
-          else
-            python_version="3.11.14"
-          fi
-        else
-          echo "Invalid python version: '$python_version'. Must be '3.10', or '3.11'."
-          exit 1
         fi
         echo "version=$python_version" >> $GITHUB_OUTPUT
     - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0

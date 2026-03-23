@@ -18,7 +18,6 @@ import {
   Tag,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { ProviderSelect } from '../../../../../gateway/components/create-endpoint/ProviderSelect';
 import { ModelSelect } from '../../../../../gateway/components/create-endpoint/ModelSelect';
 import { IssueDetectionApiKeyConfigurator } from './IssueDetectionApiKeyConfigurator';
 import { IssueDetectionAdvancedSettings } from './IssueDetectionAdvancedSettings';
@@ -34,6 +33,20 @@ const CONFIGURE_DIRECTLY_VALUE = '__configure_directly__';
 
 const DEFAULT_PROVIDER = 'openai';
 
+// Allowed core providers for issue detection, for these we support fetching API keys
+// and set them when running jobs. For other providers, users should configure gateway
+// endpoints directly.
+const ALLOWED_PROVIDERS = ['openai', 'azure', 'anthropic', 'gemini', 'bedrock'] as const;
+
+// Display names for providers
+const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
+  openai: 'OpenAI',
+  azure: 'Azure OpenAI',
+  anthropic: 'Anthropic',
+  gemini: 'Google Gemini',
+  bedrock: 'Amazon Bedrock',
+};
+
 const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
   mode: 'new',
   existingSecretId: '',
@@ -48,9 +61,10 @@ const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
 // Default to recommended models for each provider
 const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
   openai: 'gpt-5.4',
+  azure: 'gpt-5.4',
   anthropic: 'claude-sonnet-4-6',
   gemini: 'gemini-2.5-pro',
-  databricks: 'databricks-gpt-5-1',
+  bedrock: 'claude-sonnet-4-5',
 };
 
 export interface ModelSelectionValues {
@@ -333,12 +347,44 @@ export const IssueDetectionModelSelection = forwardRef<
         {mode === 'direct' && (
           <>
             <div>
-              <ProviderSelect
-                value={provider}
-                onChange={handleProviderChange}
-                componentIdPrefix="mlflow.traces.issue-detection-modal.provider"
-                hideLabel
-              />
+              <DialogCombobox
+                componentId="mlflow.traces.issue-detection-modal.provider"
+                id="mlflow.traces.issue-detection-modal.provider"
+                value={provider ? [provider] : []}
+              >
+                <DialogComboboxTrigger
+                  withInlineLabel={false}
+                  allowClear={false}
+                  placeholder={intl.formatMessage({
+                    defaultMessage: 'Select provider',
+                    description: 'Placeholder for provider selector',
+                  })}
+                  renderDisplayedValue={() => (provider ? <span>{PROVIDER_DISPLAY_NAMES[provider]}</span> : null)}
+                />
+                <DialogComboboxContent>
+                  <DialogComboboxOptionList>
+                    {ALLOWED_PROVIDERS.map((providerOption) => (
+                      <DialogComboboxOptionListSelectItem
+                        key={providerOption}
+                        value={providerOption}
+                        onChange={() => handleProviderChange(providerOption)}
+                        checked={provider === providerOption}
+                      >
+                        {PROVIDER_DISPLAY_NAMES[providerOption]}
+                      </DialogComboboxOptionListSelectItem>
+                    ))}
+                    <DialogComboboxSeparator />
+                    <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.md}px`, pointerEvents: 'none' }}>
+                      <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                        <FormattedMessage
+                          defaultMessage="To use other providers, create an AI Gateway endpoint and select it."
+                          description="Hint explaining how to use other providers via Gateway"
+                        />
+                      </Typography.Text>
+                    </div>
+                  </DialogComboboxOptionList>
+                </DialogComboboxContent>
+              </DialogCombobox>
               {provider && DEFAULT_MODEL_BY_PROVIDER[provider] && (
                 <div css={{ marginTop: theme.spacing.xs }}>
                   <Tooltip

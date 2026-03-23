@@ -31,4 +31,4 @@ jobs:
             const script = require(
               `${process.env.GITHUB_WORKSPACE}/.github/workflows/auto-close-pr.js`
             );
-            await script({ context, github });
+            await script.main({ context, github });

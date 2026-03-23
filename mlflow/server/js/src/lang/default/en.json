@@ -335,6 +335,10 @@
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
   },
+  "054/rv": {
+    "defaultMessage": "Close guidance",
+    "description": "Aria label for closing the detect issues guidance popover"
+  },
   "07nYAU": {
     "defaultMessage": "Compared IDs:",
     "description": "Label for the compared IDs section in the model trace explorer"
@@ -578,10 +582,6 @@
   "1l/c+M": {
     "defaultMessage": "User frustration",
     "description": "LLM template option"
-  },
-  "1oamMA": {
-    "defaultMessage": "Detect Issues",
-    "description": "Label for the detect issues button in the traces table toolbar"
   },
   "1uyr/n": {
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
@@ -1917,6 +1917,10 @@
   "AOoWxS": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in prompts management UI"
+  },
+  "APwgn9": {
+    "defaultMessage": "Identifying issues from traces...",
+    "description": "Issue detection progress > Step label (fallback)"
   },
   "AQh8lf": {
     "defaultMessage": "Model",
@@ -3770,10 +3774,6 @@
     "defaultMessage": "Synchronizing artifacts for {runsBeingSynchronizedCount} runs...",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > loading state"
   },
-  "NHgLd1": {
-    "defaultMessage": "Detect issues in traces",
-    "description": "Aria label for the detect issues button in the traces table toolbar"
-  },
   "NHlNLj": {
     "defaultMessage": "Description",
     "description": "Label for issue description section"
@@ -3961,6 +3961,10 @@
   "OLZyxe": {
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
     "description": "Error count in tooltip"
+  },
+  "OMyvg6": {
+    "defaultMessage": "Select provider",
+    "description": "Placeholder for provider selector"
   },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
@@ -5055,6 +5059,10 @@
   "VVoQ5V": {
     "defaultMessage": "Structured output (JSON schema)",
     "description": "Label for the structured output JSON schema field in the prompt creation modal"
+  },
+  "VXPp00": {
+    "defaultMessage": "Got it",
+    "description": "Detect issues guidance dismiss button"
   },
   "VXduJD": {
     "defaultMessage": "The provided value is not valid JSON",
@@ -6315,6 +6323,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
+  "dEGUt+": {
+    "defaultMessage": "Use this button to automatically detect quality issues in your traces using AI. This feature helps you identify problems like correctness, latency, and other quality concerns in your agent.",
+    "description": "Detect issues guidance popover message"
+  },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
     "description": "Experiment page > new run modal > invalid state - no prompt template provided"
@@ -6354,6 +6366,10 @@
   "dTLq6E": {
     "defaultMessage": "expand {title}",
     "description": "Common component > collapsible section > alternative label when collapsed"
+  },
+  "dTl9NJ": {
+    "defaultMessage": "Detect issues in traces",
+    "description": "Aria label for the detect issues button"
   },
   "dUY9eq": {
     "defaultMessage": "Edit description",
@@ -7031,6 +7047,10 @@
     "defaultMessage": "Created by:",
     "description": "Label for created by"
   },
+  "hr2v8O": {
+    "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
+    "description": "Hint explaining how to use other providers via Gateway"
+  },
   "hvImg5": {
     "defaultMessage": "No resources are using this key",
     "description": "Gateway > Bindings using key drawer > Empty state"
@@ -7359,6 +7379,10 @@
     "defaultMessage": "This key is currently in use. After deleting, you will need to attach a different API key to continue using the endpoints currently using this key.",
     "description": "Gateway > Delete API key modal > Warning about endpoints using this key"
   },
+  "jzgQYP": {
+    "defaultMessage": "Detect Issues",
+    "description": "Label for the detect issues button"
+  },
   "k/AedV": {
     "defaultMessage": "Plain text",
     "description": "Tooltip content for a button that changes the render mode of the prompt to plain text"
@@ -7378,10 +7402,6 @@
   "k0m460": {
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
-  },
-  "k1mgqP": {
-    "defaultMessage": "Detect Issues",
-    "description": "Label for the detect issues button on the experiment overview page"
   },
   "k2bPN+": {
     "defaultMessage": "Last used",
@@ -7730,6 +7750,10 @@
   "mBhoMH": {
     "defaultMessage": "Last modified",
     "description": "Last modified column header"
+  },
+  "mHAue4": {
+    "defaultMessage": "Detect Issues in Your Traces",
+    "description": "Detect issues guidance popover title"
   },
   "mIFcgu": {
     "defaultMessage": "Cancel",
@@ -8170,10 +8194,6 @@
   "ogDiio": {
     "defaultMessage": "Select at least one session to enable actions",
     "description": "Tooltip for disabled actions button when no sessions are selected"
-  },
-  "ohnp9T": {
-    "defaultMessage": "Detect issues in traces",
-    "description": "Aria label for the detect issues button on the experiment overview page"
   },
   "okQ1oB": {
     "defaultMessage": "Please input a new name for the new experiment.",
@@ -8634,10 +8654,6 @@
   "rjhiii": {
     "defaultMessage": "Trace failed to render",
     "description": "Title for the error state in the model trace explorer"
-  },
-  "rk4Qif": {
-    "defaultMessage": "Identifying issues from traces...",
-    "description": "Issue detection progress > Step label"
   },
   "rmAWZX": {
     "defaultMessage": "just now",

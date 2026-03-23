@@ -935,28 +935,52 @@ def check_tarfile_security(archive_path: str) -> None:
             # Normalize backslashes to forward slashes before path validation to prevent
             # bypass on Windows where backslashes are treated as directory separators.
             path = posixpath.normpath(m.name.replace("\\", "/"))
+            _check_path_is_safe(path)
             if m.issym():
                 symlink_set.add(path)
-            else:
-                if path.startswith("/"):
-                    raise MlflowException(
-                        "Absolute path destination in the archive file is not allowed, "
-                        f"but got path {path}."
-                    )
-                path_parts = path.split("/")
-                if path_parts[0] == "..":
-                    raise MlflowException(
-                        "Escaped path destination in the archive file is not allowed, "
-                        f"but got path {path}."
+            elif m.islnk():
+                symlink_set.add(path)
+                # Hard link targets are dangerous: tar.extract creates an actual hard
+                # link to the target path, so validate they don't escape.
+                link_target = posixpath.normpath(m.linkname.replace("\\", "/"))
+                _check_path_is_safe(link_target, context=f"hard link target of {path}")
+                link_parent = posixpath.dirname(path)
+                resolved = posixpath.normpath(posixpath.join(link_parent, link_target))
+                if resolved == ".." or resolved.startswith("../"):
+                    raise MlflowException.invalid_parameter_value(
+                        "Hard link target that escapes the extraction directory is not "
+                        f"allowed, but got {path} -> {link_target}."
                     )
         for m in tar.getmembers():
-            if not m.issym():
+            if not m.issym() and not m.islnk():
                 path = posixpath.normpath(m.name.replace("\\", "/"))
                 path_parts = path.split("/")
                 for prefix_len in range(1, len(path_parts) + 1):
                     prefix_path = "/".join(path_parts[:prefix_len])
                     if prefix_path in symlink_set:
-                        raise MlflowException(
+                        raise MlflowException.invalid_parameter_value(
                             "Destination path in the archive file can not go through a symlink, "
                             f"but got path {path}."
                         )
+
+
+def _check_path_is_safe(path: str, context: str = "") -> None:
+    label = f" ({context})" if context else ""
+    # Reject Unix absolute paths
+    if path.startswith("/"):
+        raise MlflowException.invalid_parameter_value(
+            f"Absolute path destination in the archive file is not allowed, "
+            f"but got path {path}{label}."
+        )
+    # Reject Windows drive-letter absolute paths (e.g., C:/...) and UNC paths (//server/...)
+    if len(path) >= 3 and path[0].isalpha() and path[1:3] == ":/":
+        raise MlflowException.invalid_parameter_value(
+            f"Absolute path destination in the archive file is not allowed, "
+            f"but got path {path}{label}."
+        )
+    path_parts = path.split("/")
+    if path_parts[0] == "..":
+        raise MlflowException.invalid_parameter_value(
+            f"Escaped path destination in the archive file is not allowed, "
+            f"but got path {path}{label}."
+        )
