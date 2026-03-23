@@ -3,6 +3,7 @@ name: copilot
 description: Hand off a task to GitHub Copilot.
 allowed-tools:
   - Bash(gh agent-task create:*)
+  - Bash(gh agent-task list:*)
   - Bash(gh agent-task view:*)
   - Bash(bash .claude/skills/copilot/poll.sh *)
   - Bash(gh api:*)
@@ -29,16 +30,10 @@ Example:
 
 ## Polling for completion
 
-Once Copilot starts working, extract the session ID from the output URL and poll in the background until Copilot finishes:
+Once Copilot starts working, poll in the background until Copilot finishes. The script automatically finds the latest session for the PR:
 
 ```bash
-# gh agent-task create returns a URL like:
-# https://github.com/mlflow/mlflow/pull/21887/agent-sessions/523bb0e1-...
-session_url=$(gh agent-task create -F task-desc.md)
-session_id="${session_url##*/}"
-
-# Poll using session ID
-bash .claude/skills/copilot/poll.sh "$session_id" "<owner>/<repo>" <pr_number>
+bash .claude/skills/copilot/poll.sh "<owner>/<repo>" <pr_number>
 ```
 
 ## Sending feedback
