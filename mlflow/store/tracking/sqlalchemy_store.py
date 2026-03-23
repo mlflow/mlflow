@@ -25,6 +25,8 @@ from sqlalchemy.orm import Query, Session, aliased, joinedload
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.sql.selectable import Select, Subquery
 
+from mlflow.utils.crypto import KEKManager, _decrypt_secret
+
 _SqlAlchemyStatement = TypeVar("_SqlAlchemyStatement", Select, Query)
 
 import mlflow.store.db.utils
@@ -112,6 +114,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import (
     MAX_RESULTS_GET_METRIC_HISTORY,
     MAX_RESULTS_QUERY_TRACE_METRICS,
+    MAX_TRACE_LINKS_PER_REQUEST,
     SEARCH_ISSUES_DEFAULT_MAX_RESULTS,
     SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
@@ -130,6 +133,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperimentTag,
     SqlGatewayEndpoint,
     SqlGatewayEndpointBinding,
+    SqlGatewaySecret,
     SqlInput,
     SqlInputTag,
     SqlIssue,
@@ -4213,14 +4217,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         Raises:
             MlflowException: If more than 100 traces are provided.
         """
-        MAX_TRACES_PER_REQUEST = 100
-
         if not trace_ids:
             return
 
-        if len(trace_ids) > MAX_TRACES_PER_REQUEST:
+        if len(trace_ids) > MAX_TRACE_LINKS_PER_REQUEST:
             raise MlflowException(
-                f"Cannot link more than {MAX_TRACES_PER_REQUEST} traces to a run in "
+                f"Cannot link more than {MAX_TRACE_LINKS_PER_REQUEST} traces to a run in "
                 f"a single request. Provided {len(trace_ids)} traces.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -4855,7 +4857,6 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         if not trace_ids:
             return []
 
-        traces = []
         order_case = case(
             {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
             value=SqlTraceInfo.request_id,
@@ -5947,6 +5948,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         severity: IssueSeverity | None = None,
         root_causes: list[str] | None = None,
         source_run_id: str | None = None,
+        categories: list[str] | None = None,
         created_by: str | None = None,
     ) -> Issue:
         """
@@ -5960,6 +5962,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             severity: Optional severity level indicator.
             root_causes: Optional list of root cause analyses.
             source_run_id: Optional run ID that discovered this issue.
+            categories: Optional list of categories for the issue.
             created_by: Optional identifier for who created this issue.
 
         Returns:
@@ -5975,8 +5978,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Get current timestamp
             current_time = get_current_time_millis()
 
-            # Serialize root_causes to JSON
+            # Serialize root_causes and categories to JSON
             root_causes_json = json.dumps(root_causes) if root_causes else None
+            categories_json = json.dumps(categories) if categories else None
 
             # Create SqlIssue record
             sql_issue = SqlIssue(
@@ -5988,6 +5992,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 severity=severity.value if severity else None,
                 root_causes=root_causes_json,
                 source_run_id=source_run_id,
+                categories=categories_json,
                 created_timestamp=current_time,
                 last_updated_timestamp=current_time,
                 created_by=created_by,
@@ -6075,6 +6080,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         filter_string: str | None = None,
         max_results: int | None = None,
         page_token: str | None = None,
+        include_trace_count: bool = False,
     ) -> PagedList[Issue]:
         """
         Search for issues matching the given filters.
@@ -6090,6 +6096,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     - "status = 'pending' AND source_run_id != 'run456'"
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
 
         Returns:
             A PagedList of Issue entities.
@@ -6102,6 +6109,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
 
             query = self._get_query(session, SqlIssue)
+
+            if include_trace_count:
+                trace_count_label = func.count(func.distinct(SqlAssessments.trace_id)).label(
+                    "trace_count"
+                )
+                query = (
+                    query
+                    .add_columns(trace_count_label)
+                    .outerjoin(
+                        SqlAssessments,
+                        and_(
+                            SqlAssessments.name == SqlIssue.issue_id,
+                            SqlAssessments.assessment_type == "issue",
+                        ),
+                    )
+                    .group_by(SqlIssue.issue_id)
+                )
 
             if experiment_id:
                 query = query.filter(SqlIssue.experiment_id == int(experiment_id))
@@ -6120,22 +6144,31 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 value=SqlIssue.severity,
                 else_=-1,
             )
-            query = query.order_by(
-                severity_order.desc(),
+
+            order_clauses = [severity_order.desc()]
+            if include_trace_count:
+                order_clauses.append(trace_count_label.desc())
+            order_clauses.extend([
                 SqlIssue.created_timestamp.desc(),
                 SqlIssue.issue_id.desc(),
-            )
+            ])
+            query = query.order_by(*order_clauses)
 
             query = query.offset(offset).limit(max_results + 1)
 
-            sql_issues = query.all()
-
-            has_next_page = len(sql_issues) > max_results
+            results = query.all()
+            has_next_page = len(results) > max_results
             next_token = (
                 SearchTraceUtils.create_page_token(offset + max_results) if has_next_page else None
             )
 
-            issues = [sql_issue.to_mlflow_entity() for sql_issue in sql_issues[:max_results]]
+            if include_trace_count:
+                issues = [
+                    sql_issue.to_mlflow_entity(trace_count=trace_count)
+                    for sql_issue, trace_count in results[:max_results]
+                ]
+            else:
+                issues = [sql_issue.to_mlflow_entity() for sql_issue in results[:max_results]]
 
             return PagedList(issues, token=next_token)
 
@@ -6271,6 +6304,36 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 resource_type=resource_type, resource_id=resource_id
             ),
         ).delete(synchronize_session=False)
+
+    def _get_decrypted_secret(self, secret_id: str) -> dict[str, Any]:
+        """
+        Get decrypted secret value by ID.
+
+        This is a privileged operation that decrypts a secret stored in the database.
+        It should only be called server-side and never exposed to clients.
+
+        Args:
+            secret_id: ID of the secret to decrypt.
+
+        Returns:
+            Decrypted secret value as a dict.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_secret = self._get_entity_or_raise(
+                session,
+                SqlGatewaySecret,
+                {"secret_id": secret_id},
+                "GatewaySecret",
+            )
+
+            kek_manager = KEKManager()
+            return _decrypt_secret(
+                encrypted_value=sql_secret.encrypted_value,
+                wrapped_dek=sql_secret.wrapped_dek,
+                kek_manager=kek_manager,
+                secret_id=sql_secret.secret_id,
+                secret_name=sql_secret.secret_name,
+            )
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

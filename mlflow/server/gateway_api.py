@@ -30,6 +30,7 @@ from mlflow.gateway.config import (
     Provider,
     _AuthConfigKey,
 )
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
@@ -129,6 +130,15 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
             success = True
             result = None
 
+            # Extract caller header from the Request object if present,
+            # only accepting known caller values to avoid logging arbitrary input.
+            caller = None
+            request = next((a for a in (*args, *kwargs.values()) if isinstance(a, Request)), None)
+            if request is not None:
+                raw_caller = request.headers.get(MLFLOW_GATEWAY_CALLER_HEADER)
+                if raw_caller in {e.value for e in GatewayCaller}:
+                    caller = raw_caller
+
             try:
                 result = await func(*args, **kwargs)
                 return result  # noqa: RET504
@@ -137,12 +147,15 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                 raise
             finally:
                 duration_ms = int((time.time() - start_time) * 1000)
+                params = {
+                    "is_streaming": isinstance(result, StreamingResponse),
+                    "invocation_type": invocation_type,
+                }
+                if caller:
+                    params["caller"] = caller
                 _record_event(
                     GatewayInvocationEvent,
-                    params={
-                        "is_streaming": isinstance(result, StreamingResponse),
-                        "invocation_type": invocation_type,
-                    },
+                    params=params,
                     success=success,
                     duration_ms=duration_ms,
                 )

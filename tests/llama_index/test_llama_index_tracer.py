@@ -761,7 +761,11 @@ async def test_tracer_parallel_workflow():
         assert s.status.status_code == SpanStatusCode.OK
 
     root_span = traces[0].data.spans[0]
-    expected_inputs = {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
+    # In llama-index >= 0.14.16, kwargs are flattened in span inputs
+    if llama_core_version >= Version("0.14.16"):
+        expected_inputs = {"inputs": ["apple", "grape", "orange", "banana"]}
+    else:
+        expected_inputs = {"kwargs": {"inputs": ["apple", "grape", "orange", "banana"]}}
     # assert that the inputs are a superset of the expected inputs.
     # this is to make the test resilient to framework changes which may add additional inputs.
     assert all(root_span.inputs.get(k) == v for k, v in expected_inputs.items())
@@ -836,7 +840,11 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     assert all(s.status.status_code == SpanStatusCode.OK for s in spans)
 
     workflow_span = spans[0]
-    assert all(workflow_span.inputs.get(k) == v for k, v in {"kwargs": {"inputs": inputs}}.items())
+    if llama_core_version >= Version("0.14.16"):
+        expected_inputs = {"inputs": inputs}
+    else:
+        expected_inputs = {"kwargs": {"inputs": inputs}}
+    assert all(workflow_span.inputs.get(k) == v for k, v in expected_inputs.items())
     if isinstance(workflow_span.outputs, str):
         assert workflow_span.outputs == result
     else:

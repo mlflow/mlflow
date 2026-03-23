@@ -101,8 +101,8 @@ export function IssueDetectionApiKeyConfigurator({
   }, [selectedAuthMode?.secret_fields, selectedAuthMode?.config_fields, provider]);
 
   const isSingleApiKeyField = useMemo(() => {
-    return requiredFields.length === 1 && requiredFields[0].fieldType === 'secret';
-  }, [requiredFields]);
+    return requiredFields.length === 1 && requiredFields[0].fieldType === 'secret' && authModes.length <= 1;
+  }, [requiredFields, authModes.length]);
 
   useEffect(() => {
     if (value.mode === 'new' && !value.newSecret.authMode && selectedAuthMode) {

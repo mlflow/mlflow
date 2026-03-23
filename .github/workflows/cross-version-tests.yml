@@ -9,6 +9,7 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+      - "dev/clint/**"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
@@ -100,21 +101,23 @@ jobs:
         name: Set matrix
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
+          ENABLE_DEV_TESTS: ${{ fromJson(steps.check-labels.outputs.result).enable_dev_tests }}
+          ONLY_LATEST: ${{ fromJson(steps.check-labels.outputs.result).only_latest }}
+          FLAVORS: ${{ github.event.inputs.flavors }}
+          VERSIONS: ${{ github.event.inputs.versions }}
         run: |
-          EVENT_NAME="${{ github.event_name }}"
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            REPO="${{ github.repository }}"
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            BASE_REF="${{ github.base_ref }}"
             REF_VERSIONS_YAML="https://raw.githubusercontent.com/$REPO/$BASE_REF/mlflow/ml-package-versions.yml"
             CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep -v '^mlflow/server/js' || true)
-            ENABLE_DEV_TESTS="${{ fromJson(steps.check-labels.outputs.result).enable_dev_tests }}"
             NO_DEV_FLAG=$([ "$ENABLE_DEV_TESTS" == "true" ] && echo "" || echo "--no-dev")
-            ONLY_LATEST="${{ fromJson(steps.check-labels.outputs.result).only_latest }}"
             ONLY_LATEST_FLAG=$([ "$ONLY_LATEST" == "true" ] && echo "--only-latest" || echo "")
             python dev/set_matrix.py --ref-versions-yaml $REF_VERSIONS_YAML --changed-files "$CHANGED_FILES" $NO_DEV_FLAG $ONLY_LATEST_FLAG
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            python dev/set_matrix.py --flavors "${{ github.event.inputs.flavors }}" --versions "${{ github.event.inputs.versions }}"
+            python dev/set_matrix.py --flavors "$FLAVORS" --versions "$VERSIONS"
           else
             python dev/set_matrix.py
           fi
@@ -144,9 +147,11 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
       - name: Remove constraints
+        env:
+          PACKAGE: ${{ matrix.package }}
         run: |
           # Remove any constraints for the current package to prevent installation conflicts
-          sed -i '/^${{ matrix.package }}/d' requirements/constraints.txt
+          sed -i '/^'"$PACKAGE"'/d' requirements/constraints.txt
 
           if ! git diff --exit-code requirements/constraints.txt; then
             git diff
@@ -156,11 +161,13 @@ jobs:
             git commit -m "Remove constraints for testing"
           fi
       - name: Install mlflow & test dependencies
+        env:
+          MATRIX_CATEGORY: ${{ matrix.category }}
         run: |
           # setuptools 82.0.0 removed pkg_resources, this breaking change breaks some packages like transformers
           pip install -U pip wheel "setuptools<82"
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
-          if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
+          if [[ "$MATRIX_CATEGORY" == "tracing-sdk" ]]; then
             pip install libs/tracing
             pip install pytest pytest-asyncio pytest-cov
           # Other two categories of tests (model/autologging)
@@ -169,22 +176,27 @@ jobs:
             pip install -r requirements/test-requirements.txt
           fi
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
+        env:
+          MATRIX_INSTALL: ${{ matrix.install }}
         run: |
-          ${{ matrix.install }}
+          eval "$MATRIX_INSTALL"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Pre-test
         if: matrix.pre_test
+        env:
+          MATRIX_PRE_TEST: ${{ matrix.pre_test }}
         run: |
-          ${{ matrix.pre_test }}
+          eval "$MATRIX_PRE_TEST"
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: localhost
           JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
           HF_HUB_ENABLE_HF_TRANSFER: 1
+          MATRIX_RUN: ${{ matrix.run }}
         run: |
-          ${{ matrix.run }}
+          eval "$MATRIX_RUN"
 
   test2:
     needs: set-matrix

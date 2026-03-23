@@ -12,9 +12,9 @@ import {
   Tooltip,
   Typography,
   useDesignSystemTheme,
+  type RadioChangeEvent,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import type { RadioChangeEvent } from 'antd/lib/radio';
 
 import type { GraphOrientation } from './GraphView.types';
 

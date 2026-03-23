@@ -88,7 +88,13 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved, eventFilt
       }
       onSaved();
     } catch (e: any) {
-      setSubmitError(e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to save webhook' }));
+      setSubmitError(
+        e?.message ??
+          intl.formatMessage({
+            defaultMessage: 'Failed to save webhook',
+            description: 'Generic error message informing the user that webhook saving failed',
+          }),
+      );
     } finally {
       setIsSaving(false);
     }
@@ -140,7 +146,10 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved, eventFilt
                 description: 'Webhook name placeholder',
               })}
               rules={{
-                required: intl.formatMessage({ defaultMessage: 'Name is required' }),
+                required: intl.formatMessage({
+                  defaultMessage: 'Name is required',
+                  description: 'Form validation error message informing the user that the webhook name is required',
+                }),
                 validate: (value) => {
                   const trimmed = String(value).trim();
                   if (trimmed.length > 63 || !WEBHOOK_NAME_REGEX.test(trimmed)) {
@@ -168,7 +177,10 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved, eventFilt
                 description: 'Webhook URL placeholder',
               })}
               rules={{
-                required: intl.formatMessage({ defaultMessage: 'URL is required' }),
+                required: intl.formatMessage({
+                  defaultMessage: 'URL is required',
+                  description: 'Form validation error message informing the user that the webhook URL is required',
+                }),
               }}
               validationState={form.formState.errors.url ? 'error' : undefined}
             />
@@ -249,7 +261,12 @@ const WebhookFormModal = ({ visible, editingWebhook, onClose, onSaved, eventFilt
               control={form.control}
               rules={{
                 validate: (value: string[]) =>
-                  value.length > 0 || intl.formatMessage({ defaultMessage: 'At least one event must be selected' }),
+                  value.length > 0 ||
+                  intl.formatMessage({
+                    defaultMessage: 'At least one event must be selected',
+                    description:
+                      'Form validation error message informing the user that at least one event must be selected',
+                  }),
               }}
               render={({ field }) => (
                 <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>

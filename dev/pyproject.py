@@ -64,6 +64,12 @@ Additional dependencies can be installed to leverage the full feature set of MLf
 - To use SQL-based metadata storage, install `sqlalchemy`, `alembic`, and `sqlparse`.
 - To use serving-based features, install `flask` and `pandas`.
 
+**Note:** When using `mlflow-skinny`, set the tracking URI to your remote MLflow server:
+
+```bash
+export MLFLOW_TRACKING_URI="http://your-mlflow-server:5000"
+```
+
 ---
 
 <br>
@@ -468,6 +474,7 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "pyspark/ml/log_model_allowlist.txt",
             "server/auth/basic_auth.ini",
             "server/auth/db/migrations/alembic.ini",
+            "server/uvicorn_log_config.yaml",
             "models/notebook_resources/**/*",
             "ai_commands/**/*.md",
             "assistant/skills/**/*",

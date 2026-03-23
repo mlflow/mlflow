@@ -183,7 +183,7 @@ export const isScorerModelSelectionEnabled = () => {
  * Determines if issue detection feature is enabled in the traces table toolbar.
  */
 export const shouldEnableIssueDetection = () => {
-  return false;
+  return true;
 };
 
 /**
@@ -191,5 +191,5 @@ export const shouldEnableIssueDetection = () => {
  * When enabled (true), the right panel is hidden by default and only the evaluation runs table is shown.
  */
 export const shouldShowEvalRunsIssuesPanel = () => {
-  return false;
+  return true;
 };

@@ -11,7 +11,7 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.discovery.constants import (
     FAILURE_LABEL_SYSTEM_PROMPT,
 )
-from mlflow.genai.discovery.entities import _ConversationAnalysis
+from mlflow.genai.discovery.entities import _ConversationAnalysis, _TriageResult
 from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
 
 _logger = logging.getLogger(__name__)
@@ -197,6 +197,8 @@ def extract_failure_labels(
 
     def _generate_labels(analysis: _ConversationAnalysis) -> list[str]:
         rationale = analysis.rationale_summary
+        if analysis.categories:
+            rationale += f"\nIdentified categories: {', '.join(analysis.categories)}"
         response = _call_llm(
             model,
             [
@@ -232,10 +234,23 @@ def extract_failure_labels(
     return labels, label_to_analysis
 
 
+def _parse_assessment_value(value) -> tuple[bool, list[str]]:
+    """Parse a feedback value into (passed, categories).
+
+    Handles both simple bool values and dict[str, str] structured output
+    with "passed" and "categories" keys.
+    """
+    if isinstance(value, dict):
+        passed = str(value.get("passed", "true")).lower() == "true"
+        cats = [c.strip() for c in value.get("categories", "").split(",") if c.strip()]
+        return passed, cats
+    return bool(value), []
+
+
 def extract_failing_traces(
     scored_traces: list[Trace],
     scorer_names: str | list[str],
-) -> tuple[list[Trace], dict[str, str]]:
+) -> _TriageResult:
     """
     Extract failing traces and their rationales from scored trace objects.
 
@@ -250,33 +265,38 @@ def extract_failing_traces(
     Args:
         scored_traces: Traces with scorer assessments attached.
         scorer_names: One or more scorer names to check for failures.
-
-    Returns:
-        A tuple of (failing_traces, rationale_map) where rationale_map
-        maps trace_id to the combined rationale string.
     """
     if isinstance(scorer_names, str):
         scorer_names = [scorer_names]
 
     failing: list[Trace] = []
-    rationales: dict[str, str] = {}
+    rationale_map: dict[str, str] = {}
+    categories_map: dict[str, list[str]] = {}
 
     for trace in scored_traces:
-        row_failing: list[tuple[str, str]] = []
+        row_rationales: list[str] = []
+        row_categories: list[str] = []
+        is_failing = False
         for scorer_name in scorer_names:
             assessments = trace.search_assessments(scorer_name, type="feedback")
             assessment = assessments[-1] if assessments else None
             if assessment is None:
                 continue
-            if assessment.value is not None and not bool(assessment.value):
-                row_failing.append((scorer_name, assessment.rationale or ""))
+            if assessment.value is None:
+                continue
+            passed, cats = _parse_assessment_value(assessment.value)
+            row_categories.extend(cats)
+            if not passed:
+                is_failing = True
+                if assessment.rationale:
+                    row_rationales.append(assessment.rationale)
 
-        if not row_failing:
+        if not is_failing:
             continue
 
+        trace_id = trace.info.trace_id
         failing.append(trace)
-        rationales[trace.info.trace_id] = "; ".join(
-            rationale for _, rationale in row_failing if rationale
-        )
+        rationale_map[trace_id] = "; ".join(row_rationales)
+        categories_map[trace_id] = list(dict.fromkeys(row_categories))
 
-    return failing, rationales
+    return _TriageResult(failing, rationale_map, categories_map)

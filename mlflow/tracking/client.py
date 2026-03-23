@@ -686,9 +686,10 @@ class MlflowClient:
 
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
-            tags: A dictionary of tags associated with the **prompt version**.
-                This is useful for storing version-specific information, such as the author of
-                the changes. Optional.
+            tags: A dictionary of tags for the prompt.
+                These tags are stored on the prompt version and written to prompt-level metadata.
+                For OSS, later ``register_prompt()`` calls can overwrite the same keys at the
+                prompt level. Optional.
             response_format: Optional Pydantic class or dictionary defining the expected response
                 structure. This can be used to specify the schema for structured outputs from LLM
                 calls.
@@ -6332,7 +6333,6 @@ class MlflowClient:
             PromptCache.get_instance().delete_all(name)
             return
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def create_dataset(
         self,
@@ -6371,7 +6371,6 @@ class MlflowClient:
             tags=tags,
         )
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def get_dataset(self, dataset_id: str) -> EvaluationDataset:
         """
@@ -6397,7 +6396,6 @@ class MlflowClient:
         """
         return self._tracking_client.get_dataset(dataset_id)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def delete_dataset(self, dataset_id: str) -> None:
         """
@@ -6417,7 +6415,6 @@ class MlflowClient:
         """
         self._tracking_client.delete_dataset(dataset_id)
 
-    @experimental(version="3.4.0")
     def search_datasets(
         self,
         experiment_ids: list[str] | None = None,
@@ -6464,7 +6461,6 @@ class MlflowClient:
             page_token=page_token,
         )
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks(use_uc_message=True)
     def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
         """
@@ -6495,7 +6491,6 @@ class MlflowClient:
         """
         self._tracking_client.set_dataset_tags(dataset_id=dataset_id, tags=tags)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks(use_uc_message=True)
     def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
         """
@@ -6516,7 +6511,6 @@ class MlflowClient:
         """
         self._tracking_client.delete_dataset_tag(dataset_id=dataset_id, key=key)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def add_dataset_to_experiments(
         self, dataset_id: str, experiment_ids: list[str]
@@ -6547,7 +6541,6 @@ class MlflowClient:
         """
         return self._tracking_client.add_dataset_to_experiments(dataset_id, experiment_ids)
 
-    @experimental(version="3.4.0")
     @_disable_in_databricks()
     def remove_dataset_from_experiments(
         self, dataset_id: str, experiment_ids: list[str]

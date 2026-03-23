@@ -264,7 +264,7 @@ export const EndpointUsageModal = ({ open, onClose, endpointName, baseUrl }: End
     <div css={{ marginBottom: theme.spacing.md }}>
       <div css={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: theme.spacing.xs }}>
         <CopyButton
-          componentId="codegen_mlflow_app_src_oss_gateway_components_endpoints_EndpointUsageModal.tsx_147"
+          componentId={`mlflow.gateway.usage-modal.copy-${label.toLowerCase().replace(/\s+/g, '-')}`}
           copyText={code}
           icon={<CopyIcon />}
           showLabel={false}

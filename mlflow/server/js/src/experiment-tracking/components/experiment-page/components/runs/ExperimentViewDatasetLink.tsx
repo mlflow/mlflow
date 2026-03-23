@@ -25,7 +25,11 @@ export function ExperimentViewDatasetLink({ datasetWithTags, experimentId }: Dat
         icon={<TableIcon />}
         type="primary"
       >
-        <Link to={datasetsRoute} css={{ color: 'inherit', '&:hover': { color: 'inherit', textDecoration: 'none' } }}>
+        <Link
+          componentId="mlflow.experiment_tracking.dataset_link.open_dataset_link"
+          to={datasetsRoute}
+          css={{ color: 'inherit', '&:hover': { color: 'inherit', textDecoration: 'none' } }}
+        >
           <FormattedMessage
             defaultMessage="Open dataset"
             description="Text for the button that navigates to the datasets tab in the experiment run dataset drawer"

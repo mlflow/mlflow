@@ -67,6 +67,7 @@ from mlflow.entities import (
 from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -1163,6 +1164,11 @@ class SqlIssue(Base):
     *Foreign Key* into ``runs`` table. Nullable for manually created issues.
     When the source run is deleted, this field is set to NULL.
     """
+    categories = Column(Text, nullable=True)
+    """
+    Categories stored as JSON array: `Text`. Nullable if categories are not yet
+    determined.
+    """
     created_timestamp = Column(BigInteger, nullable=False)
     """
     Creation timestamp: `BigInteger` in milliseconds.
@@ -1192,9 +1198,12 @@ class SqlIssue(Base):
     def __repr__(self):
         return f"<SqlIssue({self.issue_id}, {self.name}, {self.status})>"
 
-    def to_mlflow_entity(self) -> Issue:
+    def to_mlflow_entity(self, trace_count: int | None = None) -> Issue:
         """
         Convert DB model to corresponding MLflow entity.
+
+        Args:
+            trace_count: Optional trace count to include in the Issue entity.
 
         Returns:
             :py:class:`mlflow.entities.Issue` object.
@@ -1208,9 +1217,11 @@ class SqlIssue(Base):
             severity=IssueSeverity(self.severity) if self.severity else None,
             root_causes=json.loads(self.root_causes) if self.root_causes else None,
             source_run_id=self.source_run_id,
+            categories=json.loads(self.categories) if self.categories else None,
             created_timestamp=self.created_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
             created_by=self.created_by,
+            trace_count=trace_count,
         )
 
 
@@ -2308,6 +2319,12 @@ class SqlJob(Base):
     Last Update time of experiment: `BigInteger`.
     """
 
+    status_details = Column(MutableJSON, nullable=True)
+    """
+    Job status details: `JSON`.
+    Stores additional job status details.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
@@ -2343,6 +2360,7 @@ class SqlJob(Base):
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
+            status_details=self.status_details,
         )
 
 
@@ -2967,8 +2985,10 @@ class SqlGatewayBudgetPolicy(Base):
             budget_policy_id=self.budget_policy_id,
             budget_unit=BudgetUnit(self.budget_unit),
             budget_amount=self.budget_amount,
-            duration_unit=BudgetDurationUnit(self.duration_unit),
-            duration_value=self.duration_value,
+            duration=BudgetDuration(
+                unit=BudgetDurationUnit(self.duration_unit),
+                value=self.duration_value,
+            ),
             target_scope=BudgetTargetScope(self.target_scope),
             budget_action=BudgetAction(self.budget_action),
             created_at=self.created_at,

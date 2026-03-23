@@ -198,6 +198,7 @@ class MlflowV3SpanExporter(SpanExporter):
         1. Create the trace in MLflow
         2. Upload the trace data to blob storage using the returned trace info.
         """
+        returned_trace_info = None
         try:
             if trace:
                 add_size_stats_to_trace_metadata(trace)
@@ -209,6 +210,23 @@ class MlflowV3SpanExporter(SpanExporter):
         except Exception as e:
             _logger.warning(
                 f"Failed to send trace to MLflow backend: {e}",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
+
+        # Upload attachments in a separate try-except so trace data still lands
+        # even if attachment upload fails. Runs regardless of span storage mode —
+        # in TRACKING_STORE mode, spans are in the DB but attachments still go
+        # to the artifact repo via the mlflow.artifactLocation tag.
+        try:
+            if trace and returned_trace_info:
+                attachments = {}
+                for span in trace.data.spans:
+                    attachments.update(span._attachments)
+                if attachments:
+                    self._client._upload_attachments(returned_trace_info, attachments)
+        except Exception as e:
+            _logger.warning(
+                f"Failed to upload trace attachments: {e}",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
 

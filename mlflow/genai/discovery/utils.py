@@ -12,13 +12,13 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.genai.discovery.constants import (
     LLM_MAX_TOKENS,
-    MAX_EXAMPLE_TRACE_IDS,
     NUM_RETRIES,
     TRACE_CONTENT_TRUNCATION,
 )
 from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.scorers.base import Scorer
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.provider import trace_disabled
 
 if TYPE_CHECKING:
     import litellm
@@ -85,6 +85,7 @@ class _TokenCounter:
         return result
 
 
+@trace_disabled
 def _call_llm(
     model: str,
     messages: list[dict[str, str]],
@@ -104,7 +105,7 @@ def _call_llm(
         num_retries=NUM_RETRIES,
         response_format=use_format,
         include_response_format=use_format is not None,
-        inference_params={"max_tokens": LLM_MAX_TOKENS},
+        inference_params={"max_completion_tokens": LLM_MAX_TOKENS},
     )
     if token_counter is not None:
         token_counter.track(response)
@@ -113,18 +114,19 @@ def _call_llm(
 
 def build_summary(issues: list[Issue], total_traces: int) -> str:
     if not issues:
-        return f"## Issue Discovery Summary\n\nAnalyzed {total_traces} traces. No issues found."
+        return f"Analyzed {total_traces} traces. No issues found."
 
     lines = [
-        "## Issue Discovery Summary\n",
         f"Analyzed **{total_traces}** traces. Found **{len(issues)}** issues:\n",
     ]
     for i, issue in enumerate(issues, 1):
         root_causes = "; ".join(issue.root_causes) if issue.root_causes else "Unknown"
+        categories = ", ".join(issue.categories) if issue.categories else "None"
         lines.append(
             f"### {i}. {issue.name} (severity: {issue.severity})\n\n"
             f"{issue.description}\n\n"
-            f"**Root causes:** {root_causes}\n"
+            f"**Root causes:** {root_causes}\n\n"
+            f"**Categories:** {categories}\n"
         )
     return "\n".join(lines)
 
@@ -140,6 +142,7 @@ def log_discovery_artifacts(run_id: str, artifacts: dict[str, str]) -> None:
             _logger.warning("Failed to log %s to run %s", filename, run_id, exc_info=True)
 
 
+@trace_disabled
 def verify_scorer(
     scorer: Scorer,
     trace: Trace,
@@ -177,15 +180,25 @@ def verify_scorer(
         )
 
 
-def collect_example_trace_ids(
+def collect_affected_trace_ids(
     issue: _IdentifiedIssue,
     analyses: list[_ConversationAnalysis],
 ) -> list[str]:
+    """
+    Collect all affected trace IDs for an identified issue.
+
+    Args:
+        issue: The identified issue containing indices into the analyses list.
+        analyses: List of per-session analyses with affected trace IDs.
+
+    Returns:
+        A list of all trace IDs affected by this issue.
+    """
     trace_ids = []
     for idx in issue.example_indices:
         if 0 <= idx < len(analyses):
             trace_ids.extend(analyses[idx].affected_trace_ids)
-    return trace_ids[:MAX_EXAMPLE_TRACE_IDS]
+    return trace_ids
 
 
 def format_trace_content(trace: Trace) -> str:
@@ -203,8 +216,13 @@ def format_trace_content(trace: Trace) -> str:
     return "\n".join(parts) if parts else "(trace content not available)"
 
 
-def format_annotation_prompt(issue: Issue, trace_content: str, triage_rationale: str) -> str:
-    return (
+def format_annotation_prompt(
+    issue: Issue,
+    trace_content: str,
+    triage_rationale: str,
+    categories: list[str] | None = None,
+) -> str:
+    prompt = (
         f"=== ISSUE ===\n"
         f"Name: {issue.name}\n"
         f"Description: {issue.description}\n"
@@ -214,3 +232,10 @@ def format_annotation_prompt(issue: Issue, trace_content: str, triage_rationale:
         f"=== TRIAGE JUDGE RATIONALE ===\n"
         f"{triage_rationale or '(not available)'}"
     )
+    if categories:
+        prompt += (
+            f"\n\n=== RELEVANT CATEGORIES ===\n"
+            f"{', '.join(categories)}\n"
+            f"Reference these categories in your rationale where applicable."
+        )
+    return prompt

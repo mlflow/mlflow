@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon, Spacer, Drawer } from '@databricks/design-system';
@@ -63,12 +63,20 @@ import { useGetDeleteTracesAction } from './hooks/useGetDeleteTracesAction';
 import { ExportTracesToDatasetModal } from '../../../../pages/experiment-evaluation-datasets/components/ExportTracesToDatasetModal';
 import { useRegisterSelectedIds } from '@mlflow/mlflow/src/assistant';
 import { AssistantAwareDrawer } from '@mlflow/mlflow/src/common/components/AssistantAwareDrawer';
-import { useRunScorerInTracesViewConfiguration } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
+import {
+  useRunScorerInTracesViewConfiguration,
+  useRunJudgesOnTracesConfiguration,
+} from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
 import { useIssueDetectionNotification } from './hooks/useIssueDetectionNotification';
 
-const JudgeContextProvider = ({ children }: { children: React.ReactNode }) => {
-  const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
+const JudgeContextProvider = ({
+  children,
+  runJudgeConfiguration,
+}: {
+  children: React.ReactNode;
+  runJudgeConfiguration: ReturnType<typeof useRunScorerInTracesViewConfiguration>;
+}) => {
   return (
     <ModelTraceExplorerRunJudgesContextProvider {...runJudgeConfiguration}>
       {children}
@@ -80,14 +88,20 @@ const ContextProviders = ({
   children,
   makeHtmlFromMarkdown,
   experimentId,
+  runJudgeConfiguration,
 }: {
   makeHtmlFromMarkdown: (markdown?: string) => string;
   experimentId?: string;
   children: React.ReactNode;
+  runJudgeConfiguration?: ReturnType<typeof useRunScorerInTracesViewConfiguration>;
 }) => {
   return (
     <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
-      {isEvaluatingTracesInDetailsViewEnabled() ? <JudgeContextProvider>{children}</JudgeContextProvider> : children}
+      {isEvaluatingTracesInDetailsViewEnabled() && runJudgeConfiguration ? (
+        <JudgeContextProvider runJudgeConfiguration={runJudgeConfiguration}>{children}</JudgeContextProvider>
+      ) : (
+        children
+      )}
     </GenAiTracesMarkdownConverterProvider>
   );
 };
@@ -101,11 +115,14 @@ const TracesV3LogsImpl = React.memo(
     isLoadingExperiment,
     loggedModelId,
     forceGroupBySession = false,
+    initialGroupBySession = false,
     columnStorageKeyPrefix,
+    detectIssuesButtonComponentId,
     additionalFilters,
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
+    drawerWidth,
   }: {
     /**
      * Array of experiment IDs to search traces for.
@@ -116,15 +133,23 @@ const TracesV3LogsImpl = React.memo(
     isLoadingExperiment?: boolean;
     loggedModelId?: string;
     forceGroupBySession?: boolean;
+    /** Initial state for session grouping. */
+    initialGroupBySession?: boolean;
     /**
      * Optional prefix for the localStorage key used to persist column selection.
      * Use this to separate column selection state between different views.
      */
     columnStorageKeyPrefix?: string;
+    /**
+     * Optional component ID for the detect issues button.
+     * Use this to differentiate between traces and sessions contexts.
+     */
+    detectIssuesButtonComponentId?: string;
     additionalFilters?: TableFilter[];
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
+    drawerWidth?: string | number;
   }) => {
     // When viewing a single experiment, pass its ID to enable experiment-specific
     // features (run name links, logged model links, session links, filter dropdowns).
@@ -139,7 +164,7 @@ const TracesV3LogsImpl = React.memo(
     const makeHtmlFromMarkdown = useMarkdownConverter();
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
-    const [isGroupedBySession, setIsGroupedBySession] = useState(false);
+    const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
     const { showIssueDetectionNotification, notificationContextHolder } =
       useIssueDetectionNotification(singleExperimentId);
@@ -293,6 +318,14 @@ const TracesV3LogsImpl = React.memo(
 
     const renderCustomExportTracesToDatasetsModal = ExportTracesToDatasetModal;
 
+    const runJudgeConfiguration = useRunScorerInTracesViewConfiguration();
+
+    const { showRunJudgesModal, RunJudgesModal, JudgesStatusBanner } = useRunJudgesOnTracesConfiguration(
+      runJudgeConfiguration.evaluateTraces,
+      runJudgeConfiguration.allEvaluations,
+      runJudgeConfiguration.subscribeToScorerFinished,
+    );
+
     const traceActions: TraceActions = useMemo(() => {
       return {
         deleteTracesAction,
@@ -307,6 +340,12 @@ const TracesV3LogsImpl = React.memo(
               showEditTagsModalForTrace,
               EditTagsModal,
             },
+        ...(isEvaluatingTracesInDetailsViewEnabled() && {
+          runJudgesAction: {
+            showRunJudgesModal,
+            RunJudgesModal,
+          },
+        }),
       };
     }, [
       deleteTracesAction,
@@ -314,6 +353,8 @@ const TracesV3LogsImpl = React.memo(
       EditTagsModalUnified,
       showEditTagsModalForTrace,
       EditTagsModal,
+      showRunJudgesModal,
+      RunJudgesModal,
     ]);
 
     const countInfo = useMemo(() => {
@@ -409,7 +450,11 @@ const TracesV3LogsImpl = React.memo(
                 />
               </div>
             ) : (
-              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={singleExperimentId}>
+              <ContextProviders
+                makeHtmlFromMarkdown={makeHtmlFromMarkdown}
+                experimentId={singleExperimentId}
+                runJudgeConfiguration={runJudgeConfiguration}
+              >
                 <GenAITracesTableBodyContainer
                   experimentId={singleExperimentId}
                   allColumns={allColumns}
@@ -438,6 +483,7 @@ const TracesV3LogsImpl = React.memo(
       <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
+        drawerWidth={drawerWidth}
       >
         <GenAITracesTableProvider
           experimentId={singleExperimentId}
@@ -452,6 +498,7 @@ const TracesV3LogsImpl = React.memo(
             }}
           >
             <GenAITracesTableToolbar
+              detectIssuesButtonComponentId={detectIssuesButtonComponentId}
               experimentId={singleExperimentId}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -477,6 +524,7 @@ const TracesV3LogsImpl = React.memo(
               onToggleSessionGrouping={onToggleSessionGrouping}
               onDetectIssues={disableActions ? undefined : () => setIsIssueDetectionModalOpen(true)}
             />
+            {JudgesStatusBanner}
             {renderMainContent()}
           </div>
           {!disableActions && isIssueDetectionModalOpen && (
@@ -488,6 +536,7 @@ const TracesV3LogsImpl = React.memo(
                 .map(([traceId]) => traceId)}
               availableTraceIds={traceInfos?.map((trace) => trace.trace_id) ?? []}
               onSubmitSuccess={showIssueDetectionNotification}
+              defaultGroupBySession={forceGroupBySession || isGroupedBySession}
             />
           )}
           {notificationContextHolder}

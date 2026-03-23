@@ -3,6 +3,10 @@ import invariant from 'invariant';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { Alert, Tabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
+import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
+import { DetectIssuesButton } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
+import { useIssueDetectionNotification } from '../../components/experiment-page/components/traces-v3/hooks/useIssueDetectionNotification';
 import { useIsFileStore } from '../../hooks/useServerInfo';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import {
@@ -37,7 +41,9 @@ const ExperimentGenAIOverviewPageImpl = () => {
   const { theme } = useDesignSystemTheme();
   const [activeTab, setActiveTab] = useOverviewTab();
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
+  const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
   const isFileStore = useIsFileStore();
+  const { showIssueDetectionNotification, notificationContextHolder } = useIssueDetectionNotification(experimentId);
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -162,6 +168,16 @@ const ExperimentGenAIOverviewPageImpl = () => {
             excludeOptions={['ALL']}
             refreshButtonComponentId="mlflow.experiment.overview.refresh-button"
           />
+
+          {shouldEnableIssueDetection() && (
+            <div css={{ marginLeft: 'auto' }}>
+              <DetectIssuesButton
+                componentId="mlflow.experiment.overview.detect-issues-button"
+                onClick={() => setIsIssueDetectionModalOpen(true)}
+                guidanceStorageKey="mlflow.detectIssues.overview.guidanceShown"
+              />
+            </div>
+          )}
         </div>
 
         <OverviewChartProvider
@@ -223,6 +239,14 @@ const ExperimentGenAIOverviewPageImpl = () => {
           </Tabs.Content>
         </OverviewChartProvider>
       </Tabs.Root>
+      {isIssueDetectionModalOpen && (
+        <IssueDetectionModal
+          onClose={() => setIsIssueDetectionModalOpen(false)}
+          experimentId={experimentId}
+          onSubmitSuccess={showIssueDetectionNotification}
+        />
+      )}
+      {notificationContextHolder}
     </div>
   );
 };

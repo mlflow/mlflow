@@ -26,6 +26,7 @@ from mlflow.entities._job import Job as JobEntity
 from mlflow.entities._job_status import JobStatus
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
+    BudgetDuration,
     BudgetDurationUnit,
     BudgetTargetScope,
     BudgetUnit,
@@ -91,6 +92,7 @@ from mlflow.protos.prompt_optimization_pb2 import (
     OPTIMIZER_TYPE_UNSPECIFIED,
 )
 from mlflow.protos.service_pb2 import (
+    BatchGetTraceInfos,
     BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateExperiment,
@@ -124,6 +126,7 @@ from mlflow.server.handlers import (
     ARTIFACT_STREAM_CHUNK_SIZE,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
+    _batch_get_trace_infos,
     _batch_get_traces,
     _calculate_trace_filter_correlation,
     _cancel_prompt_optimization_job,
@@ -323,6 +326,7 @@ def _create_mock_job(
     params=None,
     result=None,
     creation_time=1234567890000,
+    status_details=None,
 ):
     from mlflow.entities._job import Job
     from mlflow.entities._job_status import JobStatus
@@ -344,6 +348,7 @@ def _create_mock_job(
         result=json.dumps(result) if result and status_name == "SUCCEEDED" else result,
         retry_count=0,
         last_update_time=creation_time,
+        status_details=status_details,
     )
 
 
@@ -2289,6 +2294,44 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
     assert response.status_code == 200
 
 
+def test_batch_get_trace_infos_handler(mock_get_request_message, mock_tracking_store):
+    trace_id_1 = "test-trace-123"
+    trace_id_2 = "test-trace-456"
+
+    mock_get_request_message.return_value = BatchGetTraceInfos(trace_ids=[trace_id_1, trace_id_2])
+
+    mock_trace_info_1 = TraceInfo(
+        trace_id=trace_id_1,
+        trace_location=EntityTraceLocation.from_experiment_id("1"),
+        request_time=1234567890,
+        execution_duration=5000,
+        state=TraceState.OK,
+    )
+    mock_trace_info_2 = TraceInfo(
+        trace_id=trace_id_2,
+        trace_location=EntityTraceLocation.from_experiment_id("1"),
+        request_time=1234567890,
+        execution_duration=3000,
+        state=TraceState.OK,
+    )
+
+    mock_tracking_store.batch_get_trace_infos.return_value = [
+        mock_trace_info_1,
+        mock_trace_info_2,
+    ]
+
+    response = _batch_get_trace_infos()
+
+    mock_tracking_store.batch_get_trace_infos.assert_called_once_with([trace_id_1, trace_id_2])
+
+    assert response is not None
+    assert response.status_code == 200
+    trace_infos = json.loads(response.get_data())["trace_infos"]
+    assert len(trace_infos) == 2
+    assert trace_infos[0]["trace_id"] == trace_id_1
+    assert trace_infos[1]["trace_id"] == trace_id_2
+
+
 def test_get_trace_handler(mock_get_request_message, mock_tracking_store):
     trace_id = "test-trace-123"
 
@@ -2595,6 +2638,54 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     assert response is not None
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+
+
+def test_get_trace_artifact_handler_with_attachment_path(mock_tracking_store):
+    trace_id = "tr-test-attachment-123"
+    attachment_id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
+
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=EntityTraceLocation.from_experiment_id("3"),
+        request_time=1234567890,
+        execution_duration=4000,
+        state=TraceState.OK,
+    )
+
+    mock_tracking_store.get_trace_info.return_value = trace_info
+
+    mock_artifact_repo = mock.MagicMock()
+    mock_artifact_repo.download_trace_attachment.return_value = b"\x89PNG fake image"
+
+    with mock.patch(
+        "mlflow.server.handlers._get_trace_artifact_repo", return_value=mock_artifact_repo
+    ):
+        query = {"request_id": trace_id, "path": attachment_id}
+        with app.test_request_context(method="GET", query_string=query):
+            response = get_trace_artifact_handler()
+
+    mock_tracking_store.get_trace_info.assert_called_once_with(trace_id)
+    mock_artifact_repo.download_trace_attachment.assert_called_once_with(attachment_id)
+    assert response.status_code == 200
+    assert response.headers["Content-Type"] == "application/octet-stream"
+    assert response.headers["Content-Disposition"] == f"attachment; filename={attachment_id}"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_get_trace_artifact_handler_attachment_missing_request_id():
+    query = {"path": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"}
+    with app.test_request_context(method="GET", query_string=query):
+        response = get_trace_artifact_handler()
+    assert response.status_code == 400
+
+
+def test_get_trace_artifact_handler_attachment_trace_not_found(mock_tracking_store):
+    mock_tracking_store.get_trace_info.return_value = None
+
+    query = {"request_id": "tr-nonexistent", "path": "a1b2c3d4-e5f6-4890-abcd-ef1234567890"}
+    with app.test_request_context(method="GET", query_string=query):
+        response = get_trace_artifact_handler()
+    assert response.status_code == 404
 
 
 def test_delete_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
@@ -3361,6 +3452,7 @@ def test_create_prompt_optimization_job(mock_tracking_store):
         result=None,
         retry_count=0,
         last_update_time=1234567890,
+        status_details=None,
     )
 
     mock_run = mock.MagicMock()
@@ -3427,6 +3519,7 @@ def test_create_prompt_optimization_job_zero_shot(mock_tracking_store):
         result=None,
         retry_count=0,
         last_update_time=1234567890,
+        status_details=None,
     )
 
     mock_run = mock.MagicMock()
@@ -3557,6 +3650,7 @@ def test_cancel_prompt_optimization_job():
         result=None,
         retry_count=0,
         last_update_time=1234567890,
+        status_details=None,
     )
 
     with (
@@ -3798,7 +3892,7 @@ def test_get_prompt_optimization_job_no_progress_without_max_metric_calls(mock_t
             data = response.get_json()
             job = data["job"]
             # Progress should NOT be set when max_metric_calls is not configured
-            assert "progress" not in job["state"].get("metadata", {})
+            assert "progress" not in job["state"].get("status_details", {})
 
 
 def test_search_prompt_optimization_jobs_returns_multiple_jobs(mock_job_store):
@@ -4195,15 +4289,13 @@ def test_list_artifacts_for_proxied_run_artifact_root_applies_workspace_scoping(
 def _make_budget_policy(
     budget_policy_id="bp-test",
     budget_amount=100.0,
-    duration_unit=None,
-    duration_value=1,
+    duration=None,
 ):
     return GatewayBudgetPolicy(
         budget_policy_id=budget_policy_id,
         budget_unit=BudgetUnit.USD,
         budget_amount=budget_amount,
-        duration_unit=duration_unit or BudgetDurationUnit.DAYS,
-        duration_value=duration_value,
+        duration=duration or BudgetDuration(unit=BudgetDurationUnit.DAYS, value=1),
         target_scope=BudgetTargetScope.GLOBAL,
         budget_action=BudgetAction.ALERT,
         created_at=0,
@@ -4299,6 +4391,7 @@ def test_create_issue_with_all_fields():
     request_message.status = "pending"
     request_message.source_run_id = "run-123"
     request_message.root_causes.extend(["Database query inefficiency", "Network latency"])
+    request_message.categories.extend(["performance", "database"])
     request_message.severity = IssueSeverity.HIGH.value
     request_message.created_by = "user@example.com"
 
@@ -4310,6 +4403,7 @@ def test_create_issue_with_all_fields():
         status=IssueStatus.PENDING,
         source_run_id="run-123",
         root_causes=["Database query inefficiency", "Network latency"],
+        categories=["performance", "database"],
         severity=IssueSeverity.HIGH,
         created_timestamp=1234567890,
         last_updated_timestamp=1234567890,
@@ -4332,6 +4426,7 @@ def test_create_issue_with_all_fields():
         assert call_kwargs["status"] == IssueStatus.PENDING
         assert call_kwargs["source_run_id"] == "run-123"
         assert call_kwargs["root_causes"] == ["Database query inefficiency", "Network latency"]
+        assert call_kwargs["categories"] == ["performance", "database"]
         assert call_kwargs["severity"] == IssueSeverity.HIGH.value
         assert call_kwargs["created_by"] == "user@example.com"
 
@@ -4341,6 +4436,7 @@ def test_create_issue_with_all_fields():
             "Database query inefficiency",
             "Network latency",
         ]
+        assert json_response["issue"]["categories"] == ["performance", "database"]
 
 
 def test_create_issue_without_optional_fields():
@@ -4629,6 +4725,50 @@ def test_search_issues_empty_results():
         assert json_response["next_page_token"] == ""
 
 
+def test_search_issues_with_trace_count():
+    request_message = SearchIssues()
+    request_message.include_trace_count = True
+
+    issues = [
+        Issue(
+            issue_id="iss-1",
+            experiment_id="exp-1",
+            name="Issue with traces",
+            description="Has 2 traces",
+            status=IssueStatus.PENDING,
+            created_timestamp=1234567890,
+            last_updated_timestamp=1234567890,
+            trace_count=2,
+        ),
+        Issue(
+            issue_id="iss-2",
+            experiment_id="exp-1",
+            name="Issue without traces",
+            description="Has no traces",
+            status=IssueStatus.PENDING,
+            created_timestamp=1234567891,
+            last_updated_timestamp=1234567891,
+            trace_count=0,
+        ),
+    ]
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch("mlflow.server.handlers._get_request_message", return_value=request_message),
+    ):
+        mock_store.return_value.search_issues.return_value = PagedList(issues, token=None)
+
+        response = _search_issues()
+
+        call_kwargs = mock_store.return_value.search_issues.call_args[1]
+        assert call_kwargs["include_trace_count"] is True
+
+        json_response = json.loads(response.get_data())
+        assert len(json_response["issues"]) == 2
+        assert json_response["issues"][0]["trace_count"] == 2
+        assert json_response["issues"][1]["trace_count"] == 0
+
+
 def test_create_issue_with_empty_lists():
     request_message = CreateIssue()
     request_message.experiment_id = "exp-123"
@@ -4656,3 +4796,233 @@ def test_create_issue_with_empty_lists():
         call_kwargs = mock_store.return_value.create_issue.call_args[1]
         # Empty lists should be passed as None
         assert call_kwargs["root_causes"] is None
+
+
+def test_invoke_issue_detection_handler_success(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_job = JobEntity(
+        job_id="job-123",
+        creation_time=1234567890000,
+        job_name="invoke_issue_detection",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        status_details=None,
+    )
+
+    mock_run_info = mock.MagicMock()
+    mock_run_info.run_id = "run-123"
+    mock_run = mock.MagicMock()
+    mock_run.info = mock_run_info
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1", "trace-2"],
+        "categories": ["correctness", "safety"],
+        "provider": "openai",
+        "model": "gpt-4o",
+        "secret_id": "secret-123",
+    }
+
+    with (
+        mock.patch("mlflow.server.handlers._get_tracking_store") as mock_store,
+        mock.patch(
+            "mlflow.genai.discovery.job._fetch_provider_credentials",
+            return_value={"OPENAI_API_KEY": "test-key"},
+        ) as mock_fetch_creds,
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
+        mock.patch("mlflow.start_run", return_value=mock_run),
+        mock.patch("mlflow.set_tag"),
+        mock.patch("mlflow.end_run"),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json=request_json,
+        )
+        assert resp.status_code == 200
+        json_response = resp.get_json()
+
+        assert json_response["job_id"] == "job-123"
+        assert json_response["run_id"] == "run-123"
+
+        mock_fetch_creds.assert_called_once_with(mock_store.return_value, "openai", "secret-123")
+        mock_submit_job.assert_called_once()
+        call_kwargs = mock_submit_job.call_args.kwargs
+        assert call_kwargs["params"]["experiment_id"] == "exp-123"
+        assert call_kwargs["params"]["trace_ids"] == ["trace-1", "trace-2"]
+        assert call_kwargs["params"]["categories"] == ["correctness", "safety"]
+        assert call_kwargs["params"]["model"] == "openai:/gpt-4o"
+        assert call_kwargs["extra_envs"] == {"OPENAI_API_KEY": "test-key"}
+
+
+def test_invoke_issue_detection_handler_with_endpoint(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    mock_job = JobEntity(
+        job_id="job-456",
+        creation_time=1234567890000,
+        job_name="invoke_issue_detection",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        status_details=None,
+    )
+
+    mock_run_info = mock.MagicMock()
+    mock_run_info.run_id = "run-456"
+    mock_run = mock.MagicMock()
+    mock_run.info = mock_run_info
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "categories": ["correctness"],
+        "provider": "openai",
+        "endpoint_name": "my-endpoint",
+        "secret_id": "secret-123",
+    }
+
+    with (
+        mock.patch(
+            "mlflow.genai.discovery.job._fetch_provider_credentials",
+            return_value={"OPENAI_API_KEY": "test-key"},
+        ),
+        mock.patch("mlflow.server.jobs.submit_job", return_value=mock_job) as mock_submit_job,
+        mock.patch("mlflow.start_run", return_value=mock_run),
+        mock.patch("mlflow.set_tag"),
+        mock.patch("mlflow.end_run"),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json=request_json,
+        )
+        assert resp.status_code == 200
+        json_response = resp.get_json()
+
+        assert json_response["job_id"] == "job-456"
+        assert json_response["run_id"] == "run-456"
+
+        call_kwargs = mock_submit_job.call_args.kwargs
+        assert call_kwargs["params"]["model"] == "gateway:/my-endpoint"
+
+
+def test_invoke_issue_detection_handler_missing_required_params(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+
+    request_json = {
+        "experiment_id": "exp-123",
+        "trace_ids": ["trace-1"],
+        "categories": ["correctness"],
+        "provider": "openai",
+        # Missing both 'model' and 'endpoint_name'
+        "secret_id": "secret-123",
+    }
+
+    with (
+        mock.patch(
+            "mlflow.genai.discovery.job._fetch_provider_credentials",
+            return_value={"OPENAI_API_KEY": "test-key"},
+        ),
+        app.test_client() as c,
+    ):
+        resp = c.post(
+            "/ajax-api/3.0/mlflow/issues/invoke",
+            json=request_json,
+        )
+        assert resp.status_code == 500
+        json_response = resp.get_json()
+        assert (
+            "Either 'endpoint_name' or both 'provider' and 'model' must be provided"
+            in json_response["message"]
+        )
+
+
+def test_get_job_success(mock_job_store):
+    mock_job = JobEntity(
+        job_id="job-123",
+        creation_time=1234567890000,
+        job_name="invoke_issue_detection",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.SUCCEEDED,
+        result='{"summary": "Found 3 issues", "issues": 3, "total_traces_analyzed": 10}',
+        retry_count=0,
+        last_update_time=1234567900000,
+        status_details=None,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.get_job", return_value=mock_job),
+        app.test_client() as c,
+    ):
+        resp = c.get("/ajax-api/3.0/mlflow/jobs/job-123")
+        assert resp.status_code == 200
+        json_response = resp.get_json()
+
+        assert json_response["status"] == "SUCCEEDED"
+        assert json_response["result"]["summary"] == "Found 3 issues"
+        assert json_response["result"]["issues"] == 3
+        assert json_response["result"]["total_traces_analyzed"] == 10
+        assert json_response["status_details"] is None
+
+
+def test_get_job_pending(mock_job_store):
+    mock_job = JobEntity(
+        job_id="job-pending",
+        creation_time=1234567890000,
+        job_name="invoke_issue_detection",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.PENDING,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567890000,
+        status_details=None,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.get_job", return_value=mock_job),
+        app.test_client() as c,
+    ):
+        resp = c.get("/ajax-api/3.0/mlflow/jobs/job-pending")
+        assert resp.status_code == 200
+        json_response = resp.get_json()
+
+        assert json_response["status"] == "PENDING"
+        assert json_response["result"] is None
+        assert json_response["status_details"] is None
+
+
+def test_cancel_job_success(mock_job_store):
+    mock_job = JobEntity(
+        job_id="job-123",
+        creation_time=1234567890000,
+        job_name="invoke_issue_detection",
+        params='{"experiment_id": "exp-123"}',
+        timeout=None,
+        status=JobStatus.CANCELED,
+        result=None,
+        retry_count=0,
+        last_update_time=1234567900000,
+        status_details=None,
+    )
+
+    with (
+        mock.patch("mlflow.server.jobs.cancel_job", return_value=mock_job) as mock_cancel,
+        app.test_client() as c,
+    ):
+        resp = c.patch("/ajax-api/3.0/mlflow/jobs/cancel/job-123")
+        assert resp.status_code == 200
+        json_response = resp.get_json()
+
+        assert json_response["status"] == "CANCELED"
+        mock_cancel.assert_called_once_with("job-123")
