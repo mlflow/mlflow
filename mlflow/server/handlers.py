@@ -3423,6 +3423,7 @@ def _create_multipart_upload_artifact(artifact_path):
         },
     )
     path = request_message.path
+    path = validate_path_is_safe(path)
     num_parts = request_message.num_parts
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
@@ -3458,6 +3459,7 @@ def _complete_multipart_upload_artifact(artifact_path):
         },
     )
     path = request_message.path
+    path = validate_path_is_safe(path)
     upload_id = request_message.upload_id
     parts = [MultipartUploadPart.from_proto(part) for part in request_message.parts]
 
@@ -3491,6 +3493,7 @@ def _abort_multipart_upload_artifact(artifact_path):
         },
     )
     path = request_message.path
+    path = validate_path_is_safe(path)
     upload_id = request_message.upload_id
 
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
