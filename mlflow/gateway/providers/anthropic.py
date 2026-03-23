@@ -23,8 +23,8 @@ from mlflow.types.chat import Function, ToolCallDelta
 _logger = logging.getLogger(__name__)
 
 
-def _enforce_strict_schema(schema: dict[str, Any]) -> None:
-    """Recursively set ``additionalProperties: false`` on all object types.
+def _enforce_strict_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Return a copy of *schema* with ``additionalProperties: false`` on all object types.
 
     Anthropic's structured outputs require strict schemas where every object
     type explicitly disallows additional properties.  Pydantic-generated
@@ -32,17 +32,25 @@ def _enforce_strict_schema(schema: dict[str, Any]) -> None:
     which Anthropic rejects with a 400.
     """
     if not isinstance(schema, dict):
-        return
-    if schema.get("type") == "object":
-        schema["additionalProperties"] = False
-    for value in schema.values():
+        return schema
+
+    result = {}
+    for key, value in schema.items():
         match value:
             case dict():
-                _enforce_strict_schema(value)
+                result[key] = _enforce_strict_schema(value)
             case list():
-                for item in value:
-                    if isinstance(item, dict):
-                        _enforce_strict_schema(item)
+                result[key] = [
+                    _enforce_strict_schema(item) if isinstance(item, dict) else item
+                    for item in value
+                ]
+            case _:
+                result[key] = value
+
+    if result.get("type") == "object":
+        result["additionalProperties"] = False
+
+    return result
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -163,8 +171,7 @@ class AnthropicAdapter(ProviderAdapter):
         if response_format := payload.pop("response_format", None):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
                 json_schema = response_format["json_schema"]
-                schema = json_schema.get("schema", {})
-                _enforce_strict_schema(schema)
+                schema = _enforce_strict_schema(json_schema.get("schema", {}))
                 payload["output_config"] = {
                     "format": {
                         "type": "json_schema",

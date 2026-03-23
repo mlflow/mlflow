@@ -1138,9 +1138,11 @@ def test_enforce_strict_schema_sets_additional_properties_false():
             },
         },
     }
-    _enforce_strict_schema(schema)
-    assert schema["additionalProperties"] is False
-    assert schema["properties"]["nested"]["additionalProperties"] is False
+    result = _enforce_strict_schema(schema)
+    assert result["additionalProperties"] is False
+    assert result["properties"]["nested"]["additionalProperties"] is False
+    # Original is not mutated
+    assert "additionalProperties" not in schema
 
 
 def test_enforce_strict_schema_overwrites_dict_like_additional_properties():
@@ -1154,9 +1156,11 @@ def test_enforce_strict_schema_overwrites_dict_like_additional_properties():
             }
         },
     }
-    _enforce_strict_schema(schema)
-    assert schema["additionalProperties"] is False
-    assert schema["properties"]["tags"]["additionalProperties"] is False
+    result = _enforce_strict_schema(schema)
+    assert result["additionalProperties"] is False
+    assert result["properties"]["tags"]["additionalProperties"] is False
+    # Original is not mutated
+    assert schema["additionalProperties"] == {"type": "string"}
 
 
 def test_enforce_strict_schema_handles_arrays_with_object_items():
@@ -1172,9 +1176,9 @@ def test_enforce_strict_schema_handles_arrays_with_object_items():
             }
         },
     }
-    _enforce_strict_schema(schema)
-    assert schema["additionalProperties"] is False
-    assert schema["properties"]["items"]["items"]["additionalProperties"] is False
+    result = _enforce_strict_schema(schema)
+    assert result["additionalProperties"] is False
+    assert result["properties"]["items"]["items"]["additionalProperties"] is False
 
 
 def test_enforce_strict_schema_handles_anyof():
@@ -1192,10 +1196,10 @@ def test_enforce_strict_schema_handles_anyof():
             }
         },
     }
-    _enforce_strict_schema(schema)
-    assert schema["additionalProperties"] is False
+    result = _enforce_strict_schema(schema)
+    assert result["additionalProperties"] is False
     # The object inside anyOf should also get sanitized
-    assert schema["properties"]["value"]["anyOf"][1]["additionalProperties"] is False
+    assert result["properties"]["value"]["anyOf"][1]["additionalProperties"] is False
 
 
 def test_anthropic_extract_passthrough_token_usage():
