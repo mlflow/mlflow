@@ -817,6 +817,12 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
 #: (default: ``300``)
 MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT = _EnvironmentVariable("MLFLOW_GENAI_EVAL_ASYNC_TIMEOUT", int, 300)
 
+#: Timeout in seconds for each scorer during mlflow.genai.evaluate. If a scorer does not
+#: complete within this time, it will be treated as a scorer error. (default: ``600``)
+MLFLOW_GENAI_EVAL_SCORER_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_SCORER_TIMEOUT", int, 600
+)
+
 #: Number of sessions (or individual traces when no session metadata exists) to sample
 #: for the triage phase of ``mlflow.genai.discover_issues()``. (default: ``100``)
 MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE = _EnvironmentVariable(

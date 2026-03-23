@@ -3,6 +3,7 @@ import inspect
 import json
 import logging
 import math
+import threading
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Literal
@@ -1908,6 +1909,7 @@ class Fluency(BuiltInScorer):
         "Evaluate grammatical correctness, natural flow, and linguistic quality of text."
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
+    _judge_lock: threading.Lock = pydantic.PrivateAttr(default_factory=threading.Lock)
 
     @property
     def feedback_value_type(self) -> Any:
@@ -1915,13 +1917,15 @@ class Fluency(BuiltInScorer):
 
     def _get_judge(self) -> Judge:
         if self._judge is None:
-            self._judge = InstructionsJudge(
-                name=self.name,
-                instructions=self.instructions,
-                model=self.model,
-                description=self.description,
-                feedback_value_type=self.feedback_value_type,
-            )
+            with self._judge_lock:
+                if self._judge is None:
+                    self._judge = InstructionsJudge(
+                        name=self.name,
+                        instructions=self.instructions,
+                        model=self.model,
+                        description=self.description,
+                        feedback_value_type=self.feedback_value_type,
+                    )
         return self._judge
 
     @property
@@ -2149,6 +2153,7 @@ class SessionLevelScorer(Judge):
 
     required_columns: set[str] = {"trace"}
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
+    _judge_lock: threading.Lock = pydantic.PrivateAttr(default_factory=threading.Lock)
 
     @abstractmethod
     def _create_judge(self) -> Judge:
@@ -2160,7 +2165,9 @@ class SessionLevelScorer(Judge):
     def _get_judge(self) -> Judge:
         """Get or create the cached judge instance."""
         if self._judge is None:
-            self._judge = self._create_judge()
+            with self._judge_lock:
+                if self._judge is None:
+                    self._judge = self._create_judge()
         return self._judge
 
     @property
@@ -2983,6 +2990,7 @@ class Completeness(BuiltInScorer):
         "Evaluate whether the assistant fully addresses all user questions in a single turn."
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
+    _judge_lock: threading.Lock = pydantic.PrivateAttr(default_factory=threading.Lock)
 
     @property
     def feedback_value_type(self) -> Any:
@@ -2990,13 +2998,15 @@ class Completeness(BuiltInScorer):
 
     def _get_judge(self) -> Judge:
         if self._judge is None:
-            self._judge = InstructionsJudge(
-                name=self.name,
-                instructions=self.instructions,
-                model=self.model,
-                description=self.description,
-                feedback_value_type=self.feedback_value_type,
-            )
+            with self._judge_lock:
+                if self._judge is None:
+                    self._judge = InstructionsJudge(
+                        name=self.name,
+                        instructions=self.instructions,
+                        model=self.model,
+                        description=self.description,
+                        feedback_value_type=self.feedback_value_type,
+                    )
         return self._judge
 
     @property
@@ -3089,6 +3099,7 @@ class Summarization(BuiltInScorer):
         "coverage, and conciseness."
     )
     _judge: Judge | None = pydantic.PrivateAttr(default=None)
+    _judge_lock: threading.Lock = pydantic.PrivateAttr(default_factory=threading.Lock)
 
     @property
     def feedback_value_type(self) -> Any:
@@ -3096,13 +3107,15 @@ class Summarization(BuiltInScorer):
 
     def _get_judge(self) -> Judge:
         if self._judge is None:
-            self._judge = InstructionsJudge(
-                name=self.name,
-                instructions=self.instructions,
-                model=self.model,
-                description=self.description,
-                feedback_value_type=self.feedback_value_type,
-            )
+            with self._judge_lock:
+                if self._judge is None:
+                    self._judge = InstructionsJudge(
+                        name=self.name,
+                        instructions=self.instructions,
+                        model=self.model,
+                        description=self.description,
+                        feedback_value_type=self.feedback_value_type,
+                    )
         return self._judge
 
     @property

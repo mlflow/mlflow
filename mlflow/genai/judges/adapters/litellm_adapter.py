@@ -67,6 +67,7 @@ def is_litellm_rate_limit_retries_disabled() -> bool:
 # Global cache to track model capabilities across function calls
 # Key: model URI (e.g., "openai/gpt-4"), Value: boolean indicating response_format support
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
+_MODEL_CAPABILITIES_LOCK = threading.Lock()
 
 
 @dataclass
@@ -303,7 +304,8 @@ def _invoke_litellm_and_handle_tools(
             messages, model=model, max_tokens=max_context_length or 100000
         )
 
-    include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(model, True)
+    with _MODEL_CAPABILITIES_LOCK:
+        include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(model, True)
 
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
     iteration_count = 0
@@ -357,7 +359,8 @@ def _invoke_litellm_and_handle_tools(
                         f"Falling back to unstructured response.",
                         exc_info=True,
                     )
-                    _MODEL_RESPONSE_FORMAT_CAPABILITIES[model] = False
+                    with _MODEL_CAPABILITIES_LOCK:
+                        _MODEL_RESPONSE_FORMAT_CAPABILITIES[model] = False
                     include_response_format = False
                     continue
                 else:

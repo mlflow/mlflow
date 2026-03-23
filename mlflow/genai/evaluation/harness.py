@@ -48,6 +48,7 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_MAX_WORKERS,
     MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT,
     MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT,
+    MLFLOW_GENAI_EVAL_SCORER_TIMEOUT,
 )
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
@@ -881,7 +882,8 @@ def _compute_eval_scores(
         futures = [executor.submit(run_scorer, scorer) for scorer in scorers]
 
         try:
-            results = [future.result() for future in as_completed(futures)]
+            scorer_timeout = MLFLOW_GENAI_EVAL_SCORER_TIMEOUT.get()
+            results = [future.result(timeout=scorer_timeout) for future in as_completed(futures)]
         except KeyboardInterrupt:
             # Cancel pending futures
             executor.shutdown(cancel_futures=True)
