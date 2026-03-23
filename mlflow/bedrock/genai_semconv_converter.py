@@ -12,6 +12,13 @@ from typing import Any
 from mlflow.tracing.constant import GenAiSemconvKey
 from mlflow.tracing.export.genai_semconv.converter import GenAiSemconvConverter
 
+_INFERENCE_CONFIG_KEY_MAPPING = {
+    "temperature": GenAiSemconvKey.REQUEST_TEMPERATURE,
+    "maxTokens": GenAiSemconvKey.REQUEST_MAX_TOKENS,
+    "topP": GenAiSemconvKey.REQUEST_TOP_P,
+    "stopSequences": GenAiSemconvKey.REQUEST_STOP_SEQUENCES,
+}
+
 
 class BedrockConverseConverter(GenAiSemconvConverter):
     def convert_inputs(self, inputs: dict[str, Any]) -> list[dict[str, Any]] | None:
@@ -39,14 +46,9 @@ class BedrockConverseConverter(GenAiSemconvConverter):
     def extract_request_params(self, inputs: dict[str, Any]) -> dict[str, Any]:
         params: dict[str, Any] = {}
         if isinstance(config := inputs.get("inferenceConfig"), dict):
-            if (temp := config.get("temperature")) is not None:
-                params[GenAiSemconvKey.REQUEST_TEMPERATURE] = temp
-            if (max_tokens := config.get("maxTokens")) is not None:
-                params[GenAiSemconvKey.REQUEST_MAX_TOKENS] = max_tokens
-            if (top_p := config.get("topP")) is not None:
-                params[GenAiSemconvKey.REQUEST_TOP_P] = top_p
-            if stop := config.get("stopSequences"):
-                params[GenAiSemconvKey.REQUEST_STOP_SEQUENCES] = stop
+            for bedrock_key, semconv_key in _INFERENCE_CONFIG_KEY_MAPPING.items():
+                if (value := config.get(bedrock_key)) is not None:
+                    params[semconv_key] = value
 
         if isinstance(tool_config := inputs.get("toolConfig"), dict):
             if tools := tool_config.get("tools"):
@@ -123,7 +125,7 @@ def _convert_image(image: dict[str, Any]) -> dict[str, Any]:
     if isinstance(image_bytes, (bytes, bytearray)):
         data = base64.b64encode(image_bytes).decode("utf-8")
     else:
-        # Already base64-encoded string
+        # Bedrock should always return bytes, but casting everything else to string for safety
         data = str(image_bytes)
     return {
         "type": "blob",
