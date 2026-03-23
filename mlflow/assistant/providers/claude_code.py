@@ -581,7 +581,8 @@ class ClaudeCodeProvider(AssistantProvider):
                 return None
 
             case _:
-                return Event.from_error(f"Unknown message type: {message_type}")
+                # Gracefully ignore unknown message types (e.g., rate_limit_event)
+                return None
 
     def _should_filter_out_message(self, data: dict[str, Any]) -> bool:
         """
