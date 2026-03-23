@@ -10,6 +10,8 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetTargetScope,
     BudgetUnit,
 )
+from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.genai.discovery.entities import DiscoverIssuesResult
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
     AiCommandRunEvent,
@@ -22,6 +24,7 @@ from mlflow.telemetry.events import (
     CreateRegisteredModelEvent,
     CreateRunEvent,
     DatasetToDataFrameEvent,
+    DiscoverIssuesEvent,
     EvaluateEvent,
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
@@ -136,6 +139,7 @@ def test_event_name():
     assert AlignJudgeEvent.name == "align_judge"
     assert PromptOptimizationEvent.name == "prompt_optimization"
     assert SimulateConversationEvent.name == "simulate_conversation"
+    assert DiscoverIssuesEvent.name == "discover_issues"
 
 
 @pytest.mark.parametrize(
@@ -339,11 +343,13 @@ def test_simulate_conversation_parse_result(result, expected_params):
                 "fallback_config": {"strategy": "FAILOVER"},
                 "routing_strategy": "REQUEST_BASED_TRAFFIC_SPLIT",
                 "model_configs": [{"model_definition_id": "md-1"}, {"model_definition_id": "md-2"}],
+                "usage_tracking": True,
             },
             {
                 "has_fallback_config": True,
                 "routing_strategy": "REQUEST_BASED_TRAFFIC_SPLIT",
                 "num_model_configs": 2,
+                "usage_tracking": True,
             },
         ),
         (
@@ -351,20 +357,32 @@ def test_simulate_conversation_parse_result(result, expected_params):
                 "fallback_config": None,
                 "routing_strategy": None,
                 "model_configs": [{"model_definition_id": "md-1"}],
+                "usage_tracking": False,
             },
             {
                 "has_fallback_config": False,
                 "routing_strategy": None,
                 "num_model_configs": 1,
+                "usage_tracking": False,
             },
         ),
         (
             {"fallback_config": None, "routing_strategy": None, "model_configs": []},
-            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": 0},
+            {
+                "has_fallback_config": False,
+                "routing_strategy": None,
+                "num_model_configs": 0,
+                "usage_tracking": None,
+            },
         ),
         (
             {},
-            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": 0},
+            {
+                "has_fallback_config": False,
+                "routing_strategy": None,
+                "num_model_configs": 0,
+                "usage_tracking": None,
+            },
         ),
     ],
 )
@@ -380,20 +398,37 @@ def test_gateway_create_endpoint_parse_params(arguments, expected_params):
                 "fallback_config": {"strategy": "FAILOVER"},
                 "routing_strategy": "ROUND_ROBIN",
                 "model_configs": [{"model_definition_id": "md-1"}],
+                "usage_tracking": True,
             },
             {
                 "has_fallback_config": True,
                 "routing_strategy": "ROUND_ROBIN",
                 "num_model_configs": 1,
+                "usage_tracking": True,
             },
         ),
         (
-            {"fallback_config": None, "routing_strategy": None, "model_configs": None},
-            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": None},
+            {
+                "fallback_config": None,
+                "routing_strategy": None,
+                "model_configs": None,
+                "usage_tracking": None,
+            },
+            {
+                "has_fallback_config": False,
+                "routing_strategy": None,
+                "num_model_configs": None,
+                "usage_tracking": None,
+            },
         ),
         (
             {},
-            {"has_fallback_config": False, "routing_strategy": None, "num_model_configs": None},
+            {
+                "has_fallback_config": False,
+                "routing_strategy": None,
+                "num_model_configs": None,
+                "usage_tracking": None,
+            },
         ),
     ],
 )
@@ -519,3 +554,116 @@ def test_optimize_prompts_job_event_name():
 )
 def test_optimize_prompts_job_parse_params(arguments, expected_params):
     assert OptimizePromptsJobEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        (
+            {"model": "openai:/gpt-4", "traces": [Mock(), Mock()], "categories": ["hallucination"]},
+            {"model": "openai:/gpt-4", "trace_count": 2, "categories": ["hallucination"]},
+        ),
+        (
+            {"model": "databricks:/dbrx", "traces": [Mock()], "categories": None},
+            {"model": "databricks:/dbrx", "trace_count": 1, "categories": None},
+        ),
+        (
+            {"model": None, "traces": [], "categories": ["accuracy", "safety"]},
+            {"model": None, "trace_count": 0, "categories": ["accuracy", "safety"]},
+        ),
+        (
+            {"traces": None, "categories": []},
+            {"model": None, "trace_count": 0, "categories": []},
+        ),
+        ({}, {"model": None, "trace_count": 0, "categories": None}),
+    ],
+)
+def test_discover_issues_parse_params(arguments, expected_params):
+    assert DiscoverIssuesEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("result", "expected_params"),
+    [
+        (
+            DiscoverIssuesResult(
+                issues=[
+                    Issue(
+                        issue_id="1",
+                        experiment_id="exp",
+                        name="issue1",
+                        description="desc",
+                        status=IssueStatus.PENDING,
+                        created_timestamp=0,
+                        last_updated_timestamp=0,
+                    ),
+                    Issue(
+                        issue_id="2",
+                        experiment_id="exp",
+                        name="issue2",
+                        description="desc",
+                        status=IssueStatus.PENDING,
+                        created_timestamp=0,
+                        last_updated_timestamp=0,
+                    ),
+                    Issue(
+                        issue_id="3",
+                        experiment_id="exp",
+                        name="issue3",
+                        description="desc",
+                        status=IssueStatus.PENDING,
+                        created_timestamp=0,
+                        last_updated_timestamp=0,
+                    ),
+                ],
+                triage_run_id="run",
+                summary="summary",
+                total_traces_analyzed=100,
+                total_cost_usd=2.5,
+            ),
+            {"issue_count": 3, "total_traces_analyzed": 100, "total_cost_usd": 2.5},
+        ),
+        (
+            DiscoverIssuesResult(
+                issues=[
+                    Issue(
+                        issue_id="1",
+                        experiment_id="exp",
+                        name="issue1",
+                        description="desc",
+                        status=IssueStatus.PENDING,
+                        created_timestamp=0,
+                        last_updated_timestamp=0,
+                    )
+                ],
+                triage_run_id="run",
+                summary="summary",
+                total_traces_analyzed=50,
+                total_cost_usd=1.0,
+            ),
+            {"issue_count": 1, "total_traces_analyzed": 50, "total_cost_usd": 1.0},
+        ),
+        (
+            DiscoverIssuesResult(
+                issues=[],
+                triage_run_id="run",
+                summary="summary",
+                total_traces_analyzed=10,
+                total_cost_usd=0.0,
+            ),
+            {"issue_count": 0, "total_traces_analyzed": 10, "total_cost_usd": 0.0},
+        ),
+        (
+            DiscoverIssuesResult(
+                issues=[],
+                triage_run_id="run",
+                summary="summary",
+                total_traces_analyzed=0,
+                total_cost_usd=None,
+            ),
+            {"issue_count": 0, "total_traces_analyzed": 0, "total_cost_usd": None},
+        ),
+    ],
+)
+def test_discover_issues_parse_result(result, expected_params):
+    assert DiscoverIssuesEvent.parse_result(result) == expected_params

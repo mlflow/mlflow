@@ -125,6 +125,8 @@ def mock_invoke_judge_model(monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        base_url=None,
+        extra_headers=None,
     ):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
@@ -139,6 +141,8 @@ def mock_invoke_judge_model(monkeypatch):
             "response_format": response_format,
             "use_case": use_case,
             "inference_params": inference_params,
+            "base_url": base_url,
+            "extra_headers": extra_headers,
         })
 
         # Return appropriate Feedback based on whether trace is provided
@@ -673,6 +677,8 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        base_url=None,
+        extra_headers=None,
     ):
         captured_args.update({
             "model_uri": model_uri,
@@ -1539,6 +1545,8 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
         response_format=None,
         use_case=None,
         inference_params=None,
+        base_url=None,
+        extra_headers=None,
     ):
         nonlocal captured_prompt
         captured_prompt = prompt
@@ -3817,6 +3825,188 @@ def test_inference_params_passed_to_invoke_judge_model(mock_invoke_judge_model):
     assert mock_invoke_judge_model.captured_args.get("inference_params") == inference_params
 
 
+def test_make_judge_with_base_url():
+    judge = make_judge(
+        name="proxy_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        base_url="http://my-proxy:8080/v1",
+    )
+
+    assert judge._base_url == "http://my-proxy:8080/v1"
+
+    repr_str = repr(judge)
+    assert "base_url='http://my-proxy:8080/v1'" in repr_str
+
+
+def test_make_judge_repr_with_malformed_base_url_port():
+    judge = make_judge(
+        name="proxy_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        base_url="http://user:pass@my-proxy:abc/v1?token=secret#frag",
+    )
+
+    repr_str = repr(judge)
+    assert "base_url='http://my-proxy:abc/v1'" in repr_str
+    assert "user:pass@" not in repr_str
+    assert "token=secret" not in repr_str
+    assert "#frag" not in repr_str
+
+
+def test_make_judge_base_url_must_be_string():
+    with pytest.raises(MlflowException, match="base_url must be a string"):
+        make_judge(
+            name="test_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="openai:/gpt-4",
+            base_url=12345,
+        )
+
+
+def test_make_judge_extra_headers_must_be_dict():
+    with pytest.raises(MlflowException, match="extra_headers must be a dictionary"):
+        make_judge(
+            name="test_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="openai:/gpt-4",
+            extra_headers=["not", "a", "dict"],
+        )
+
+
+def test_make_judge_extra_headers_keys_and_values_must_be_strings():
+    with pytest.raises(MlflowException, match="must all be strings"):
+        make_judge(
+            name="test_judge",
+            instructions="Evaluate {{ outputs }}",
+            model="openai:/gpt-4",
+            extra_headers={"X-Key": 12345},
+        )
+
+
+def test_make_judge_with_extra_headers():
+    headers = {"X-Api-Key": "secret", "X-Org-Id": "org-123"}
+    judge = make_judge(
+        name="headers_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        extra_headers=headers,
+    )
+
+    assert judge._extra_headers == headers
+
+    repr_str = repr(judge)
+    assert "extra_headers=" in repr_str
+    assert "X-Api-Key" in repr_str
+    # Header values must not be exposed in repr (security)
+    assert "secret" not in repr_str
+    assert "org-123" not in repr_str
+
+
+def test_make_judge_with_base_url_and_extra_headers():
+    headers = {"Authorization": "Bearer token"}
+    judge = make_judge(
+        name="full_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        base_url="http://proxy:9090",
+        extra_headers=headers,
+    )
+
+    assert judge._base_url == "http://proxy:9090"
+    assert judge._extra_headers == headers
+
+    repr_str = repr(judge)
+    assert "base_url='http://proxy:9090'" in repr_str
+    assert "extra_headers=" in repr_str
+
+
+def test_make_judge_without_base_url_and_extra_headers():
+    judge = make_judge(
+        name="default_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    assert judge._base_url is None
+    assert judge._extra_headers is None
+
+    repr_str = repr(judge)
+    assert "base_url" not in repr_str
+    assert "extra_headers" not in repr_str
+
+
+def test_model_dump_excludes_base_url_and_extra_headers():
+    judge = make_judge(
+        name="serialization_judge",
+        instructions="Check {{ outputs }}",
+        model="openai:/gpt-4",
+        base_url="http://proxy:8080",
+        extra_headers={"X-Key": "value"},
+    )
+
+    serialized = judge.model_dump()
+
+    # base_url and extra_headers must NOT appear in serialized data (security)
+    pydantic_data = serialized["instructions_judge_pydantic_data"]
+    assert "base_url" not in pydantic_data
+    assert "extra_headers" not in pydantic_data
+
+    # Verify round-trip deserialization still works
+    deserialized = Scorer.model_validate(serialized)
+    assert isinstance(deserialized, InstructionsJudge)
+    assert deserialized.name == "serialization_judge"
+    assert deserialized.instructions == "Check {{ outputs }}"
+    assert deserialized.model == "openai:/gpt-4"
+
+    # Deserialized judge should have base_url and extra_headers as None
+    assert deserialized._base_url is None
+    assert deserialized._extra_headers is None
+
+
+def test_base_url_passed_to_invoke_judge_model(mock_invoke_judge_model):
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is good",
+        model="openai:/gpt-4",
+        base_url="http://proxy:8080",
+    )
+
+    judge(outputs="test output")
+
+    assert mock_invoke_judge_model.captured_args.get("base_url") == "http://proxy:8080"
+
+
+def test_extra_headers_passed_to_invoke_judge_model(mock_invoke_judge_model):
+    headers = {"X-Custom": "value"}
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is good",
+        model="openai:/gpt-4",
+        extra_headers=headers,
+    )
+
+    judge(outputs="test output")
+
+    assert mock_invoke_judge_model.captured_args.get("extra_headers") == headers
+
+
+def test_base_url_and_extra_headers_passed_to_invoke_judge_model(mock_invoke_judge_model):
+    headers = {"Authorization": "Bearer xyz"}
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is good",
+        model="openai:/gpt-4",
+        base_url="http://proxy:9090",
+        extra_headers=headers,
+    )
+
+    judge(outputs="test output")
+
+    assert mock_invoke_judge_model.captured_args.get("base_url") == "http://proxy:9090"
+    assert mock_invoke_judge_model.captured_args.get("extra_headers") == headers
+
+
 def test_inference_params_preserved_after_round_trip_serialization():
     inference_params = {"temperature": 0.5, "max_tokens": 200, "top_p": 0.9}
     judge = make_judge(
@@ -3832,3 +4022,31 @@ def test_inference_params_preserved_after_round_trip_serialization():
 
     assert restored.inference_params == inference_params
     assert restored_from_json.inference_params == inference_params
+
+
+@pytest.mark.parametrize("include_timing", [True, False])
+def test_conversation_with_timing_parameter(mock_invoke_judge_model, include_timing):
+    session_id = "test_session"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "Test question"}]})
+        span.set_outputs("Test response")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    judge = make_judge(
+        name="test_timing_judge",
+        instructions="Evaluate this {{ conversation }}",
+        model="openai:/gpt-4",
+        include_timing_in_conversation=include_timing,
+    )
+
+    judge(session=traces)
+
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+    user_msg = prompt[1]
+    conversation_content = user_msg.content
+
+    assert ("Response duration:" in conversation_content) is include_timing
+    assert ("slowest spans:" in conversation_content) is include_timing

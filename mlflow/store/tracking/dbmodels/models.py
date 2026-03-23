@@ -1199,9 +1199,12 @@ class SqlIssue(Base):
     def __repr__(self):
         return f"<SqlIssue({self.issue_id}, {self.name}, {self.status})>"
 
-    def to_mlflow_entity(self) -> Issue:
+    def to_mlflow_entity(self, trace_count: int | None = None) -> Issue:
         """
         Convert DB model to corresponding MLflow entity.
+
+        Args:
+            trace_count: Optional trace count to include in the Issue entity.
 
         Returns:
             :py:class:`mlflow.entities.Issue` object.
@@ -1219,6 +1222,7 @@ class SqlIssue(Base):
             created_timestamp=self.created_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
             created_by=self.created_by,
+            trace_count=trace_count,
         )
 
 
@@ -2316,6 +2320,12 @@ class SqlJob(Base):
     Last Update time of experiment: `BigInteger`.
     """
 
+    status_details = Column(MutableJSON, nullable=True)
+    """
+    Job status details: `JSON`.
+    Stores additional job status details.
+    """
+
     __table_args__ = (
         PrimaryKeyConstraint("id", name="jobs_pk"),
         Index(
@@ -2351,6 +2361,7 @@ class SqlJob(Base):
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
             workspace=self.workspace,
+            status_details=self.status_details,
         )
 
 

@@ -10,6 +10,12 @@ import type {
   JudgePrimitiveOutputType,
 } from '../types';
 import { LLM_TEMPLATE, isGuidelinesTemplate } from '../types';
+import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
+import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
+import { ScorerEvaluationScope, type ScorerType } from '../constants';
+import type { RegisterScorerResponse, MLflowScorer } from '../api';
+import { isEvaluatingSessionsInScorersEnabled } from '../../../../common/utils/FeatureUtils';
+import { isUndefined } from 'lodash';
 
 const PRIMITIVE_TO_JSON_SCHEMA: Record<JudgePrimitiveOutputType, string> = {
   bool: 'boolean',
@@ -159,12 +165,6 @@ function jsonSchemaToOutputTypeSpec(schema: Record<string, unknown> | undefined)
 
   return undefined;
 }
-import type { LLMScorerFormData } from '../LLMScorerFormRenderer';
-import type { CustomCodeScorerFormData } from '../CustomCodeScorerFormRenderer';
-import { ScorerEvaluationScope, type ScorerType } from '../constants';
-import type { RegisterScorerResponse, MLflowScorer } from '../api';
-import { isEvaluatingSessionsInScorersEnabled } from '../../../../common/utils/FeatureUtils';
-import { isUndefined } from 'lodash';
 
 // Union type for all form data - combines both form interfaces
 export type ScorerFormData = (LLMScorerFormData | CustomCodeScorerFormData) & {

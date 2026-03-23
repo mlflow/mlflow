@@ -473,8 +473,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           // or expand anything.
           ArtifactUtils.findChild(this.props.artifactNode, this.props.initialSelectedArtifactPath);
         } catch (err) {
-          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-          console.error(err);
+          // invalid artifact path, skip selection
           return;
         }
       }

@@ -2,6 +2,7 @@ import json
 import logging
 from dataclasses import asdict
 from typing import Any, Literal
+from urllib.parse import urlparse, urlunparse
 
 import pydantic
 from pydantic import PrivateAttr
@@ -86,6 +87,9 @@ class InstructionsJudge(Judge):
     _generate_rationale_first: bool = PrivateAttr(default=False)
     _include_tool_calls_in_conversation: bool = PrivateAttr(default=False)
     _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
+    _base_url: str | None = PrivateAttr(default=None)
+    _extra_headers: dict[str, str] | None = PrivateAttr(default=None)
+    _include_timing_in_conversation: bool = PrivateAttr(default=False)
 
     def __init__(
         self,
@@ -97,6 +101,9 @@ class InstructionsJudge(Judge):
         generate_rationale_first: bool = False,
         include_tool_calls_in_conversation: bool = False,
         inference_params: dict[str, Any] | None = None,
+        base_url: str | None = None,
+        extra_headers: dict[str, str] | None = None,
+        include_timing_in_conversation: bool = False,
         **kwargs,
     ):
         """
@@ -117,6 +124,16 @@ class InstructionsJudge(Judge):
             inference_params: Optional dictionary of inference parameters to pass to the
                            model (e.g., temperature, top_p, max_tokens). These parameters
                            allow fine-grained control over the model's behavior.
+            base_url: Optional base URL to route requests through. When specified, all
+                           requests to the LLM provider will be routed through this URL.
+                           Useful for enterprise environments requiring LLM access through
+                           internal gateways or security proxies.
+            extra_headers: Optional dictionary of additional HTTP headers to include in
+                           requests to the LLM provider. Can be used for authentication,
+                           tracking, or other custom requirements.
+            include_timing_in_conversation: If True, append timing information (duration and
+                           slowest spans) to assistant responses in conversation. Useful for
+                           latency-aware evaluation. Default is False for backward compatibility.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -131,6 +148,24 @@ class InstructionsJudge(Judge):
                 "instructions must be a non-empty string",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if base_url is not None and not isinstance(base_url, str):
+            raise MlflowException(
+                f"base_url must be a string, got {type(base_url).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if extra_headers is not None:
+            if not isinstance(extra_headers, dict):
+                raise MlflowException(
+                    f"extra_headers must be a dictionary, got {type(extra_headers).__name__}",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            for k, v in extra_headers.items():
+                if not isinstance(k, str) or not isinstance(v, str):
+                    raise MlflowException(
+                        "extra_headers keys and values must all be strings, "
+                        f"got key={k!r} ({type(k).__name__}), value={v!r} ({type(v).__name__}).",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
 
         self._instructions = instructions
         self._model = model or get_default_model()
@@ -138,6 +173,9 @@ class InstructionsJudge(Judge):
         self._generate_rationale_first = generate_rationale_first
         self._include_tool_calls_in_conversation = include_tool_calls_in_conversation
         self._inference_params = inference_params
+        self._base_url = base_url
+        self._extra_headers = extra_headers
+        self._include_timing_in_conversation = include_timing_in_conversation
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -513,7 +551,9 @@ class InstructionsJudge(Judge):
         if session is not None and session:
             self._validate_session(session)
             conversation = resolve_conversation_from_session(
-                session, include_tool_calls=self._include_tool_calls_in_conversation
+                session,
+                include_tool_calls=self._include_tool_calls_in_conversation,
+                include_timing=self._include_timing_in_conversation,
             )
             if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
                 expectations = resolve_expectations_from_session(expectations, session)
@@ -598,6 +638,8 @@ class InstructionsJudge(Judge):
             response_format=response_format,
             use_case=USE_CASE_AGENTIC_JUDGE,
             inference_params=self._inference_params,
+            base_url=self._base_url,
+            extra_headers=self._extra_headers,
         )
 
     def _create_response_format_model(self) -> type[pydantic.BaseModel]:
@@ -659,10 +701,30 @@ class InstructionsJudge(Judge):
         inference_params_str = (
             f", inference_params={self._inference_params}" if self._inference_params else ""
         )
+        if self._base_url:
+            try:
+                parsed = urlparse(self._base_url)
+                safe_netloc = parsed.netloc.rsplit("@", 1)[-1]
+                safe_url = urlunparse((parsed.scheme, safe_netloc, parsed.path, "", "", ""))
+            except Exception:
+                safe_url = self._base_url.split("#", 1)[0].split("?", 1)[0]
+                if "@" in safe_url:
+                    if "://" in safe_url:
+                        scheme, rest = safe_url.split("://", 1)
+                        safe_url = f"{scheme}://{rest.rsplit('@', 1)[-1]}"
+                    else:
+                        safe_url = safe_url.rsplit("@", 1)[-1]
+            base_url_str = f", base_url='{safe_url}'"
+        else:
+            base_url_str = ""
+        extra_headers_str = (
+            f", extra_headers={list(self._extra_headers.keys())}" if self._extra_headers else ""
+        )
         return (
             f"InstructionsJudge(name='{self.name}', model='{self._model}', "
             f"instructions='{instructions_preview}', "
-            f"template_variables={sorted(self.template_variables)}{inference_params_str})"
+            f"template_variables={sorted(self.template_variables)}"
+            f"{inference_params_str}{base_url_str}{extra_headers_str})"
         )
 
     @staticmethod

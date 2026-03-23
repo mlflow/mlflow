@@ -218,8 +218,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     if (this.renderErrorCondition(shouldRenderError)) {
       const failedReq = requests[0];
       if (failedReq && failedReq.error) {
-        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-        console.error(failedReq.error);
+        // error is handled by the component below
       }
       const errorDescription = (() => {
         const error = failedReq?.error;

@@ -14,6 +14,7 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+      - "dev/clint/**"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
@@ -50,13 +51,21 @@ jobs:
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-node
+      - if: matrix.type == 'dev'
+        uses: ./.github/actions/setup-node
 
       - name: Build UI
+        if: matrix.type == 'dev'
         working-directory: mlflow/server/js
         run: |
           yarn
           yarn build
+
+      - name: Create placeholder UI
+        if: matrix.type != 'dev'
+        run: |
+          mkdir -p mlflow/server/js/build
+          echo "<html></html>" > mlflow/server/js/build/index.html
 
       - name: Install dependencies
         run: |
@@ -64,15 +73,18 @@ jobs:
 
       - name: Build distribution files
         id: build-dist
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MATRIX_TYPE: ${{ matrix.type }}
         run: |
           # if workflow_dispatch is triggered, use the specified ref
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
             SHA_OPT="--sha $(git rev-parse HEAD)"
           else
             SHA_OPT=""
           fi
 
-          python dev/build.py --package-type "${{ matrix.type }}" $SHA_OPT
+          python dev/build.py --package-type "$MATRIX_TYPE" $SHA_OPT
 
           # List distribution files and check their file sizes
           ls -lh dist
@@ -88,32 +100,66 @@ jobs:
           echo "wheel-size=${wheel_size}" >> $GITHUB_OUTPUT
 
       - name: List files in source distribution
+        env:
+          SDIST_PATH: ${{ steps.build-dist.outputs.sdist-path }}
         run: |
-          tar -tf ${{ steps.build-dist.outputs.sdist-path }}
+          tar -tf $SDIST_PATH
 
       - name: List files in binary distribution
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          unzip -l ${{ steps.build-dist.outputs.wheel-path }}
+          unzip -l $WHEEL_PATH
+
+      - name: Validate JS build artifacts present in dev wheel
+        if: matrix.type == 'dev'
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
+        run: |
+          if ! unzip -l "$WHEEL_PATH" | grep -q "mlflow/server/js/build/index.html"; then
+            echo "ERROR: JS build artifacts not found in dev wheel"
+            exit 1
+          fi
+
+      - name: Validate no JS build artifacts in wheel
+        if: matrix.type != 'dev'
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
+          MATRIX_TYPE: ${{ matrix.type }}
+        run: |
+          if unzip -l "$WHEEL_PATH" | grep -q "server/js/build"; then
+            echo "ERROR: JS build artifacts found in $MATRIX_TYPE wheel"
+            exit 1
+          fi
 
       - name: Compare files in source and binary distributions
+        env:
+          SDIST_PATH: ${{ steps.build-dist.outputs.sdist-path }}
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          tar -tzf ${{ steps.build-dist.outputs.sdist-path }} | grep -v '/$' | cut -d'/' -f2- | sort > /tmp/source.txt
-          zipinfo -1 ${{ steps.build-dist.outputs.wheel-path }} | sort > /tmp/wheel.txt
+          tar -tzf $SDIST_PATH | grep -v '/$' | cut -d'/' -f2- | sort > /tmp/source.txt
+          zipinfo -1 $WHEEL_PATH | sort > /tmp/wheel.txt
           diff /tmp/source.txt /tmp/wheel.txt || true
 
       - name: Run twine check
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          twine check --strict ${{ steps.build-dist.outputs.wheel-path }}
+          twine check --strict $WHEEL_PATH
 
       - name: Test installation from tarball
+        env:
+          SDIST_PATH: ${{ steps.build-dist.outputs.sdist-path }}
         run: |
-          pip install ${{ steps.build-dist.outputs.sdist-path }}
+          pip install $SDIST_PATH
           python -c "import mlflow; print(mlflow.__version__)"
           python -c "from mlflow import *"
 
       - name: Test installation from wheel
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          pip install --force-reinstall ${{ steps.build-dist.outputs.wheel-path }}
+          pip install --force-reinstall $WHEEL_PATH
           python -c "import mlflow; print(mlflow.__version__)"
           python -c "from mlflow import *"
 
@@ -121,10 +167,11 @@ jobs:
         env:
           REPO: ${{ github.repository }}
           REF: ${{ github.ref }}
+          MATRIX_TYPE: ${{ matrix.type }}
         run: |
-          if [ "${{ matrix.type }}" == "skinny" ]; then
+          if [ "$MATRIX_TYPE" == "skinny" ]; then
             URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=libs/skinny"
-          elif [ "${{ matrix.type }}" == "tracing" ]; then
+          elif [ "$MATRIX_TYPE" == "tracing" ]; then
             URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=libs/tracing"
           else
             URL="git+https://github.com/${REPO}.git@${REF}"
@@ -134,8 +181,10 @@ jobs:
 
       - name: Test dev/install-skinny.sh
         if: github.event_name == 'pull_request'
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          dev/install-skinny.sh pull/${{ github.event.pull_request.number }}/merge
+          dev/install-skinny.sh pull/$PR_NUMBER/merge
 
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Upload wheel
@@ -150,9 +199,11 @@ jobs:
 
       - name: Generate summary
         if: github.event_name == 'workflow_dispatch'
+        env:
+          ARTIFACT_URL: ${{ steps.upload-wheel.outputs.artifact-url }}
         run: |
           echo "### Download URL" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.upload-wheel.outputs.artifact-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "$ARTIFACT_URL" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Notes" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

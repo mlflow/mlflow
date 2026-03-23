@@ -184,66 +184,30 @@ deny_push_without_branches contains msg if {
 	msg := "Push trigger must have a branches filter to avoid running on every branch."
 }
 
-deny_unsafe_interpolation contains msg if {
+deny_interpolation_in_run contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps
-	is_unsafe_interpolation(step.run)
-	msg := sprintf(
-		"Unsafe interpolation of a user-controlled github context in run block of job '%s'. Pass it via env: instead.",
-		[job_id],
-	)
-}
-
-deny_unsafe_interpolation contains msg if {
-	some job_id, job in input.jobs
-	some step in job.steps
-	startswith(step.uses, "actions/github-script@")
-	is_unsafe_interpolation(step["with"].script)
+	regex.match(`\$\{\{`, step.run)
 	msg := sprintf(
 		concat("", [
-			"Unsafe interpolation of a user-controlled github context ",
-			"in github-script of job '%s'. Use env: + process.env instead.",
+			"Direct ${{ }} interpolation in run block of job '%s'. ",
+			"Use env: to pass the value and reference it as $VAR in the script.",
 		]),
 		[job_id],
 	)
 }
 
-###########################   RULE HELPERS   ##################################
-# Top-level github contexts that are user-controlled.
-unsafe_top_level_contexts := [
-	"github.head_ref",
-	"github.ref",
-]
-
-# Suffixes of nested github.event.* contexts that are user-controlled.
-# Per https://docs.github.com/en/actions/concepts/security/script-injections
-unsafe_event_suffixes := [
-	"body",
-	"title",
-	"message",
-	"email",
-	"default_branch",
-	"label",
-	"page_name",
-	"name",
-]
-
-is_unsafe_interpolation(value) if {
-	some ctx in unsafe_top_level_contexts
-	regex.match(
-		sprintf(`\$\{\{\s*%s\s*\}\}`, [replace(ctx, ".", "\\.")]),
-		value,
-	)
-}
-
-is_unsafe_interpolation(value) if {
-	some suffix in unsafe_event_suffixes
-
-	# GitHub event context property names are always lowercase (snake_case).
-	# [a-z_.]* also prevents false positives on function calls (e.g., format(...)).
-	regex.match(
-		sprintf(`\$\{\{\s*github\.event\.[a-z_.]*\.%s\s*\}\}`, [suffix]),
-		value,
+deny_interpolation_in_github_script contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/github-script@")
+	regex.match(`\$\{\{`, step["with"].script)
+	msg := sprintf(
+		concat("", [
+			"Direct ${{ }} interpolation in github-script of job '%s'. ",
+			"Use env: to pass the value and reference it as process.env.VAR in the script.",
+		]),
+		[job_id],
 	)
 }
 
@@ -299,4 +263,25 @@ any_job_has_repo_check(jobs) if {
 
 job_has_repo_check(job) if {
 	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
+}
+
+deny_mutable_install contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	regex.match(`\bnpm install\b`, step.run)
+	msg := sprintf(
+		"'npm install' in job '%s' modifies the lockfile. Use 'npm ci' for reproducible builds.",
+		[job_id],
+	)
+}
+
+deny_mutable_install contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	regex.match(`\byarn install\b`, step.run)
+	not regex.match(`\byarn install\s+--immutable\b`, step.run)
+	msg := sprintf(
+		"'yarn install' in job '%s' may modify the lockfile. Use 'yarn install --immutable' for reproducible builds.",
+		[job_id],
+	)
 }
