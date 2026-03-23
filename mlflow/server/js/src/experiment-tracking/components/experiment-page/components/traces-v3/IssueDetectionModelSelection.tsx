@@ -377,7 +377,7 @@ export const IssueDetectionModelSelection = forwardRef<
                     <div css={{ padding: `${theme.spacing.xs}px ${theme.spacing.md}px`, pointerEvents: 'none' }}>
                       <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                         <FormattedMessage
-                          defaultMessage="To use other providers, create an AI Gateway endpoint in AI Gateway → Endpoints"
+                          defaultMessage="To use other providers, create an AI Gateway endpoint and select it."
                           description="Hint explaining how to use other providers via Gateway"
                         />
                       </Typography.Text>
