@@ -110,21 +110,10 @@ const config: Config = {
           'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
       },
     },
-    {
-      tagName: 'meta',
-      attributes: { property: 'og:url', content: 'https://mlflow.org' },
-    },
-    {
-      tagName: 'meta',
-      attributes: {
-        property: 'og:image',
-        content: 'https://mlflow.org/docs/latest/images/logos/mlflow-logo.svg',
-      },
-    },
     // Twitter Card
     {
       tagName: 'meta',
-      attributes: { name: 'twitter:card', content: 'summary_large_image' },
+      attributes: { name: 'twitter:card', content: 'summary' },
     },
     {
       tagName: 'meta',
@@ -139,13 +128,6 @@ const config: Config = {
         name: 'twitter:description',
         content:
           'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
-      },
-    },
-    {
-      tagName: 'meta',
-      attributes: {
-        name: 'twitter:image',
-        content: 'https://mlflow.org/docs/latest/images/logos/mlflow-logo.svg',
       },
     },
     {
