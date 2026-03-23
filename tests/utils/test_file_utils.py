@@ -4,7 +4,6 @@ import io
 import os
 import shutil
 import stat
-import sys
 import tarfile
 
 import pytest
@@ -271,7 +270,7 @@ def test_check_tarfile_security(tmp_path):
 
     # Windows drive-absolute path bypass (only dangerous on Windows where os.path.isabs
     # recognizes drive-letter paths; on Unix C:/foo is just a relative path and harmless)
-    if sys.platform == "win32":
+    if is_windows():
         tar5_path = str(tmp_path.joinpath("file5.tar"))
         create_tar_with_abs_path(tar5_path, "C:/Windows/Temp/poc.txt", b"ABX")
         with pytest.raises(
