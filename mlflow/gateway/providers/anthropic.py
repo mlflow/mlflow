@@ -26,10 +26,17 @@ _logger = logging.getLogger(__name__)
 def _enforce_strict_schema(schema: dict[str, Any]) -> dict[str, Any]:
     """Return a copy of *schema* with ``additionalProperties: false`` on all object types.
 
-    Anthropic's structured outputs require strict schemas where every object
-    type explicitly disallows additional properties.  Pydantic-generated
-    schemas (e.g. for ``dict[str, str]``) use ``additionalProperties: {"type": "string"}``
-    which Anthropic rejects with a 400.
+    Anthropic's structured outputs require every object node to explicitly set
+    ``additionalProperties: false``. Pydantic-generated schemas often violate
+    this — for example, ``dict[str, str]`` produces:
+
+        // Rejected by Anthropic (400)
+        {"type": "object", "additionalProperties": {"type": "string"}}
+
+    This function rewrites it to:
+
+        // Accepted by Anthropic
+        {"type": "object", "additionalProperties": false}
     """
     if not isinstance(schema, dict):
         return schema
