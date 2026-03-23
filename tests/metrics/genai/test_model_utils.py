@@ -1,14 +1,17 @@
+import copy
 import json
 import sys
 from unittest import mock
 
 import pytest
+import requests
 
 from mlflow.deployments.server.config import Endpoint
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointModelInfo
 from mlflow.metrics.genai.model_utils import (
     _parse_model_uri,
+    _send_request,
     call_deployments_api,
     get_endpoint_type,
     score_model_on_payload,
@@ -545,3 +548,116 @@ def test_call_deployments_api_no_endpoint_type(set_deployment_envs):
 def test_call_deployments_api_str_input_requires_endpoint_type(set_deployment_envs):
     with pytest.raises(MlflowException, match="If string input is provided,"):
         call_deployments_api("my-endpoint", "my prompt", endpoint_type=None)
+
+
+def test_send_request_includes_response_body_in_error():
+    mock_response = mock.MagicMock()
+    mock_response.status_code = 400
+    mock_response.text = '{"error": "bad request details"}'
+    mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+        response=mock_response
+    )
+
+    with mock.patch("requests.post", return_value=mock_response):
+        with pytest.raises(MlflowException, match="bad request details") as exc_info:
+            _send_request("http://example.com", {}, {})
+
+        # Verify exception chaining preserves the original HTTPError
+        assert isinstance(exc_info.value.__cause__, requests.exceptions.HTTPError)
+
+
+def test_score_model_retries_without_output_config_on_unsupported(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    anthropic_resp = {
+        "content": [{"text": "result text", "type": "text"}],
+        "id": "msg_test",
+        "model": "claude-sonnet-4-20250514",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+    # First call raises 400 with "does not support output format", second call succeeds
+    mock_400_response = mock.MagicMock()
+    mock_400_response.status_code = 400
+    mock_400_response.text = (
+        '{"type":"error","error":{"type":"invalid_request_error",'
+        '"message":"claude-sonnet-4-20250514 does not support output format"}}'
+    )
+    mock_400_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+        response=mock_400_response
+    )
+
+    mock_ok_response = mock.MagicMock()
+    mock_ok_response.status_code = 200
+    mock_ok_response.raise_for_status.return_value = None
+    mock_ok_response.json.return_value = anthropic_resp
+
+    # Capture payloads before they are mutated in-place by the retry logic
+    captured_payloads = []
+    original_send = None
+
+    def capture_send(endpoint, headers, payload):
+        captured_payloads.append(copy.deepcopy(payload))
+        return original_send(endpoint=endpoint, headers=headers, payload=payload)
+
+    from mlflow.metrics.genai import model_utils
+
+    original_send = model_utils._send_request
+
+    with (
+        mock.patch("requests.post", side_effect=[mock_400_response, mock_ok_response]),
+        mock.patch("mlflow.metrics.genai.model_utils._send_request", side_effect=capture_send),
+    ):
+        response = score_model_on_payload(
+            model_uri="anthropic:/claude-sonnet-4-20250514",
+            payload="test prompt",
+            eval_parameters={
+                "max_tokens": 100,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "result",
+                        "schema": {"type": "object", "properties": {"x": {"type": "string"}}},
+                    },
+                },
+            },
+        )
+
+    assert response == "result text"
+    # Verify two calls were made: first with output_config, second without
+    assert len(captured_payloads) == 2
+    assert "output_config" in captured_payloads[0]
+    assert "output_config" not in captured_payloads[1]
+    assert "response_format" not in captured_payloads[1]
+
+
+def test_score_model_does_not_retry_on_other_400_errors(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    mock_400_response = mock.MagicMock()
+    mock_400_response.status_code = 400
+    mock_400_response.text = '{"type":"error","error":{"message":"invalid api key"}}'
+    mock_400_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+        response=mock_400_response
+    )
+
+    with mock.patch("requests.post", return_value=mock_400_response):
+        with pytest.raises(MlflowException, match="invalid api key"):
+            score_model_on_payload(
+                model_uri="anthropic:/claude-sonnet-4-20250514",
+                payload="test prompt",
+                eval_parameters={
+                    "max_tokens": 100,
+                    "response_format": {
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "result",
+                            "schema": {"type": "object", "properties": {"x": {"type": "string"}}},
+                        },
+                    },
+                },
+            )

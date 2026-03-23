@@ -36,12 +36,13 @@ def _enforce_strict_schema(schema: dict[str, Any]) -> None:
     if schema.get("type") == "object":
         schema["additionalProperties"] = False
     for value in schema.values():
-        if isinstance(value, dict):
-            _enforce_strict_schema(value)
-        elif isinstance(value, list):
-            for item in value:
-                if isinstance(item, dict):
-                    _enforce_strict_schema(item)
+        match value:
+            case dict():
+                _enforce_strict_schema(value)
+            case list():
+                for item in value:
+                    if isinstance(item, dict):
+                        _enforce_strict_schema(item)
 
 
 class AnthropicAdapter(ProviderAdapter):

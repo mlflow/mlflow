@@ -192,7 +192,14 @@ def _call_llm_provider_api(
                 payload=chat_payload,
             )
         except MlflowException as e:
-            if "does not support output format" not in str(e):
+            cause = e.__cause__
+            is_unsupported_output = (
+                isinstance(cause, requests.exceptions.HTTPError)
+                and cause.response is not None
+                and cause.response.status_code == 400
+                and "does not support output format" in (cause.response.text or "")
+            )
+            if not is_unsupported_output:
                 raise
             # Model doesn't support structured output; drop it and retry.
             chat_payload.pop("output_config", None)
@@ -313,7 +320,7 @@ def _send_request(
         raise MlflowException(
             f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n"
             f"- Response body: {body}\n- Input payload: {payload}."
-        )
+        ) from e
 
     return response.json()
 
