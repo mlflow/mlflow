@@ -23,6 +23,27 @@ from mlflow.types.chat import Function, ToolCallDelta
 _logger = logging.getLogger(__name__)
 
 
+def _enforce_strict_schema(schema: dict[str, Any]) -> None:
+    """Recursively set ``additionalProperties: false`` on all object types.
+
+    Anthropic's structured outputs require strict schemas where every object
+    type explicitly disallows additional properties.  Pydantic-generated
+    schemas (e.g. for ``dict[str, str]``) use ``additionalProperties: {"type": "string"}``
+    which Anthropic rejects with a 400.
+    """
+    if not isinstance(schema, dict):
+        return
+    if schema.get("type") == "object":
+        schema["additionalProperties"] = False
+    for value in schema.values():
+        if isinstance(value, dict):
+            _enforce_strict_schema(value)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, dict):
+                    _enforce_strict_schema(item)
+
+
 class AnthropicAdapter(ProviderAdapter):
     @classmethod
     def chat_to_model(cls, payload, config):
@@ -141,10 +162,12 @@ class AnthropicAdapter(ProviderAdapter):
         if response_format := payload.pop("response_format", None):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
                 json_schema = response_format["json_schema"]
+                schema = json_schema.get("schema", {})
+                _enforce_strict_schema(schema)
                 payload["output_config"] = {
                     "format": {
                         "type": "json_schema",
-                        "schema": json_schema.get("schema", {}),
+                        "schema": schema,
                     }
                 }
 

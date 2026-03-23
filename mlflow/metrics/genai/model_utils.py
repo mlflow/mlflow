@@ -185,11 +185,23 @@ def _call_llm_provider_api(
             )
         response = provider._request(chat_payload)
     else:
-        response = _send_request(
-            endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
-            headers=provider.headers | extra_headers,
-            payload=chat_payload,
-        )
+        try:
+            response = _send_request(
+                endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+                headers=provider.headers | extra_headers,
+                payload=chat_payload,
+            )
+        except MlflowException as e:
+            if "does not support output format" not in str(e):
+                raise
+            # Model doesn't support structured output; drop it and retry.
+            chat_payload.pop("output_config", None)
+            chat_payload.pop("response_format", None)
+            response = _send_request(
+                endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+                headers=provider.headers | extra_headers,
+                payload=chat_payload,
+            )
     chat_response = provider.adapter_class.model_to_chat(response, provider.config)
     if len(chat_response.choices) == 0:
         raise MlflowException(
@@ -297,8 +309,10 @@ def _send_request(
         )
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
+        body = getattr(e.response, "text", "")
         raise MlflowException(
-            f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n- Input payload: {payload}."
+            f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n"
+            f"- Response body: {body}\n- Input payload: {payload}."
         )
 
     return response.json()
