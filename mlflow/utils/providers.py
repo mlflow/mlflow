@@ -1,7 +1,13 @@
+import functools
 import importlib.util
+import logging
+from collections.abc import Iterator
 from typing import Any, TypedDict
 
+import requests
 from typing_extensions import NotRequired
+
+_logger = logging.getLogger(__name__)
 
 _PROVIDER_BACKEND_AVAILABLE = importlib.util.find_spec("litellm") is not None
 
@@ -521,6 +527,43 @@ def _normalize_provider(provider: str) -> str:
     return provider
 
 
+def _iter_model_catalog_api(*, model: str | None = None) -> Iterator[dict[str, Any]]:
+    """Yield entries from the LiteLLM model catalog API with pagination.
+
+    Performance (page_size=500, measured 2026-03-18):
+        No filter          -> 6 pages, ~2600 records, ~8s
+        model=gpt-4o       -> 1 page,  ~80 records,   <1s
+    Always pass ``model`` when possible to avoid exhausting all pages.
+    """
+    page = 1
+    while True:
+        params = {"page": page, "page_size": 500}
+        if model:
+            params["model"] = model
+        try:
+            resp = requests.get(
+                "https://api.litellm.ai/model_catalog",
+                params=params,
+                timeout=10,
+            )
+            resp.raise_for_status()
+            body = resp.json()
+        except Exception:
+            _logger.debug("Failed to fetch model catalog from API", exc_info=True)
+            return
+
+        yield from body.get("data", [])
+
+        if not body.get("has_more", False):
+            return
+        page += 1
+
+
+@functools.lru_cache(maxsize=64)
+def _fetch_model_catalog_from_api(model: str | None = None) -> tuple[dict[str, Any], ...]:
+    return tuple(_iter_model_catalog_api(model=model))
+
+
 def get_all_providers() -> list[str]:
     """
     Get a list of all LiteLLM providers that have chat, completion, or embedding capabilities.
@@ -534,19 +577,20 @@ def get_all_providers() -> list[str]:
     Returns:
         List of provider names that support chat/completion/embedding
     """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
+    if _PROVIDER_BACKEND_AVAILABLE:
+        model_cost = _get_model_cost()
+        providers = set()
+        for _, info in model_cost.items():
+            mode = info.get("mode")
+            if mode in _SUPPORTED_MODEL_MODES:
+                if provider := info.get("litellm_provider"):
+                    if provider not in _EXCLUDED_PROVIDERS:
+                        providers.add(_normalize_provider(provider))
+        return list(providers)
 
-    model_cost = _get_model_cost()
-    providers = set()
-    for _, info in model_cost.items():
-        mode = info.get("mode")
-        if mode in _SUPPORTED_MODEL_MODES:
-            if provider := info.get("litellm_provider"):
-                if provider not in _EXCLUDED_PROVIDERS:
-                    providers.add(_normalize_provider(provider))
-
-    return list(providers)
+    # When LiteLLM is not installed, only return providers that have native
+    # gateway adapters so users can actually invoke endpoints they create.
+    return [p for p in _CORE_PROVIDER_ENV_VARS if p != "bedrock"]
 
 
 def get_models(provider: str | None = None) -> list[dict[str, Any]]:
@@ -577,18 +621,38 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - output_cost_per_token: Cost per output token (USD)
             - deprecation_date: Date when model will be deprecated (if known)
     """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
+    if _PROVIDER_BACKEND_AVAILABLE:
+        entries = (
+            (
+                name,
+                info.get("litellm_provider"),
+                info,
+            )
+            for name, info in _get_model_cost().items()
+        )
+    else:
+        entries = (
+            (
+                entry.get("id", ""),
+                entry.get("provider"),
+                entry,
+            )
+            for entry in _fetch_model_catalog_from_api()
+        )
+    return _extract_models(entries, provider_filter=provider)
 
-    model_cost = _get_model_cost()
+
+def _extract_models(
+    entries: Iterator[tuple[str, str | None, dict[str, Any]]],
+    provider_filter: str | None = None,
+) -> list[dict[str, Any]]:
     # Use dict to dedupe models by (provider, model_name) key
-    models_dict: dict[tuple[str, str], dict[str, Any]] = {}
-    for model_name, info in model_cost.items():
-        litellm_provider = info.get("litellm_provider")
-        normalized_provider = _normalize_provider(litellm_provider) if litellm_provider else None
+    models_dict: dict[tuple[str | None, str], dict[str, Any]] = {}
+    for model_name, entry_provider, info in entries:
+        normalized_provider = _normalize_provider(entry_provider) if entry_provider else None
 
         # Filter by provider (matching against the normalized provider name)
-        if provider and normalized_provider != provider:
+        if provider_filter and normalized_provider != provider_filter:
             continue
 
         mode = info.get("mode")
@@ -600,7 +664,7 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         if normalized_provider and model_name.startswith(f"{normalized_provider}/"):
             model_name = model_name.removeprefix(f"{normalized_provider}/")
 
-        # LiteLLM contains fine-tuned models with the prefix "ft:"
+        # Skip fine-tuned model variants (e.g. "ft:gpt-4o-2024-08-06:org::id")
         if model_name.startswith("ft:"):
             continue
 
@@ -609,23 +673,29 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         if key in models_dict:
             continue
 
-        models_dict[key] = {
-            "model": model_name,
-            "provider": normalized_provider,
-            "mode": mode,
-            "supports_function_calling": info.get("supports_function_calling", False),
-            "supports_vision": info.get("supports_vision", False),
-            "supports_reasoning": info.get("supports_reasoning", False),
-            "supports_prompt_caching": info.get("supports_prompt_caching", False),
-            "supports_response_schema": info.get("supports_response_schema", False),
-            "max_input_tokens": info.get("max_input_tokens"),
-            "max_output_tokens": info.get("max_output_tokens"),
-            "input_cost_per_token": info.get("input_cost_per_token"),
-            "output_cost_per_token": info.get("output_cost_per_token"),
-            "deprecation_date": info.get("deprecation_date"),
-        }
+        models_dict[key] = _build_model_dict(model_name, normalized_provider, mode, info)
 
     return list(models_dict.values())
+
+
+def _build_model_dict(
+    model_name: str, provider: str | None, mode: str | None, info: dict[str, Any]
+) -> dict[str, Any]:
+    return {
+        "model": model_name,
+        "provider": provider,
+        "mode": mode,
+        "supports_function_calling": info.get("supports_function_calling", False),
+        "supports_vision": info.get("supports_vision", False),
+        "supports_reasoning": info.get("supports_reasoning", False),
+        "supports_prompt_caching": info.get("supports_prompt_caching", False),
+        "supports_response_schema": info.get("supports_response_schema", False),
+        "max_input_tokens": info.get("max_input_tokens"),
+        "max_output_tokens": info.get("max_output_tokens"),
+        "input_cost_per_token": info.get("input_cost_per_token"),
+        "output_cost_per_token": info.get("output_cost_per_token"),
+        "deprecation_date": info.get("deprecation_date"),
+    }
 
 
 # Mapping of core providers to their environment variable names for API keys
@@ -634,6 +704,7 @@ _CORE_PROVIDER_ENV_VARS = {
     "azure": "AZURE_OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",
         "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",

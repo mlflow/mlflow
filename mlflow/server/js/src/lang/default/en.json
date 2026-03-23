@@ -3962,6 +3962,10 @@
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
     "description": "Error count in tooltip"
   },
+  "OMyvg6": {
+    "defaultMessage": "Select provider",
+    "description": "Placeholder for provider selector"
+  },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
     "description": "Menu option for showing only 10 first runs in the experiment view runs compare mode"
@@ -7042,6 +7046,10 @@
   "hpAK1G": {
     "defaultMessage": "Created by:",
     "description": "Label for created by"
+  },
+  "hr2v8O": {
+    "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
+    "description": "Hint explaining how to use other providers via Gateway"
   },
   "hvImg5": {
     "defaultMessage": "No resources are using this key",

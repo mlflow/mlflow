@@ -2896,21 +2896,26 @@ def test_get_provider_config_with_multiple_auth_modes():
         assert any(f["name"] == "aws_role_name" for f in iam_role_mode["config_fields"])
 
 
-@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
 def test_get_provider_config_missing_provider():
     with app.test_client() as c:
         response = c.get("/ajax-api/3.0/mlflow/gateway/provider-config")
         assert response.status_code == 400
 
 
-@pytest.mark.skipif(not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM tests")
-def test_litellm_not_available():
+def test_litellm_not_available_returns_native_providers():
     with mock.patch("mlflow.utils.providers._PROVIDER_BACKEND_AVAILABLE", False):
         with app.test_client() as c:
             response = c.get("/ajax-api/3.0/mlflow/gateway/supported-providers")
-            assert response.status_code == 400
+            assert response.status_code == 200
             data = response.get_json()
-            assert "LiteLLM is not installed" in data["message"]
+            assert "providers" in data
+            assert sorted(data["providers"]) == [
+                "anthropic",
+                "azure",
+                "gemini",
+                "mistral",
+                "openai",
+            ]
 
 
 @pytest.mark.parametrize(
