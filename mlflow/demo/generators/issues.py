@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import mlflow
@@ -18,8 +17,6 @@ from mlflow.entities.issue import IssueStatus
 from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
-
-_logger = logging.getLogger(__name__)
 
 DEMO_ISSUE_TAG = "mlflow.demo.issue"
 DEMO_ISSUE_DETECTION_RUN_NAME = "Demo Issue Detection"
@@ -44,31 +41,30 @@ class IssuesDemoGenerator(BaseDemoGenerator):
             raise ValueError(f"Demo experiment '{DEMO_EXPERIMENT_NAME}' not found")
 
         experiment_id = experiment.experiment_id
-        traces_df = mlflow.search_traces(locations=[experiment_id], max_results=1000)
+        traces = mlflow.search_traces(
+            locations=[experiment_id], max_results=1000, return_type="list"
+        )
         failing_traces_by_assessment = {}
 
-        for _, row in traces_df.iterrows():
-            trace_id = row.get("trace_id")
-            metadata = row.get("trace_metadata", {}) or {}
+        for trace in traces:
+            trace_id = trace.info.trace_id
+            metadata = trace.info.trace_metadata or {}
             version = metadata.get(DEMO_VERSION_TAG)
 
             if version != "v1":
                 continue
 
-            assessments = row.get("assessments", []) or []
+            assessments = trace.info.assessments or []
             for assessment in assessments:
-                if not isinstance(assessment, dict):
+                feedback_data = assessment.feedback
+                if not feedback_data or feedback_data.value != "no":
                     continue
 
-                feedback_data = assessment.get("feedback")
-                if not feedback_data or feedback_data.get("value") != "no":
-                    continue
-
-                source_id = assessment.get("source", {}).get("source_id", "")
+                source_id = assessment.source.source_id if assessment.source else ""
                 if "/" in source_id:
                     assessment_name = source_id.split("/")[-1]
                     if assessment_name in ASSESSMENT_TO_ISSUE:
-                        rationale = assessment.get("rationale", "Assessment failed")
+                        rationale = assessment.rationale or "Assessment failed"
                         failing_traces_by_assessment.setdefault(assessment_name, []).append({
                             "trace_id": trace_id,
                             "rationale": rationale,
@@ -133,9 +129,9 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                     client.link_traces_to_run(batch, run_id)
 
             v1_traces = [
-                row
-                for _, row in traces_df.iterrows()
-                if ((row.get("trace_metadata") or {}).get(DEMO_VERSION_TAG) == "v1")
+                trace
+                for trace in traces
+                if ((trace.info.trace_metadata or {}).get(DEMO_VERSION_TAG) == "v1")
             ]
             summary = self._generate_issue_summary(
                 total_traces_analyzed=len(v1_traces),
