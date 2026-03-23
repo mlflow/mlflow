@@ -119,9 +119,19 @@ def test_uc_schema_location_round_trip():
     assert UCSchemaLocation.from_dict(uc_schema.to_dict()) == uc_schema
 
 
-def test_unity_catalog_requires_table_prefix():
-    with pytest.raises(TypeError, match="table_prefix"):
-        UnityCatalog(catalog_name="catalog", schema_name="schema")
+def test_unity_catalog_default_table_prefix():
+    location = UnityCatalog(catalog_name="catalog", schema_name="schema")
+    assert location.table_prefix is None
+    with pytest.raises(MlflowException, match="table_prefix is required"):
+        location.full_table_prefix
+
+
+def test_unity_catalog_from_dict_without_table_prefix():
+    d = {"catalog_name": "catalog", "schema_name": "schema"}
+    location = UnityCatalog.from_dict(d)
+    assert location.table_prefix is None
+    assert location.catalog_name == "catalog"
+    assert location.schema_name == "schema"
 
 
 def test_unity_catalog_factory_for_table_prefix():

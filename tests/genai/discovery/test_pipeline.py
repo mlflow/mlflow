@@ -420,7 +420,7 @@ def test_annotate_traces_annotates_each_trace_with_feedback():
 
     with (
         patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            "mlflow.genai.discovery.pipeline._call_llm",
             return_value=_make_litellm_response("This trace shows slow response behavior."),
         ) as mock_completion,
         patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
@@ -444,7 +444,7 @@ def test_annotate_traces_no_work_items_returns_early():
         ),
     ]
 
-    with patch("mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm") as mock_completion:
+    with patch("mlflow.genai.discovery.pipeline._call_llm") as mock_completion:
         _annotate_issue_traces(issues, {}, {}, {}, "openai:/gpt-5-mini")
 
     mock_completion.assert_not_called()
@@ -464,7 +464,7 @@ def test_annotate_traces_llm_failure_falls_back_to_triage_rationale():
 
     with (
         patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            "mlflow.genai.discovery.pipeline._call_llm",
             side_effect=Exception("LLM unavailable"),
         ),
         patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
@@ -490,7 +490,7 @@ def test_annotate_traces_log_issue_failure_handled_gracefully():
 
     with (
         patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            "mlflow.genai.discovery.pipeline._call_llm",
             return_value=_make_litellm_response("Annotation."),
         ),
         patch(
@@ -518,7 +518,7 @@ def test_annotate_traces_multiple_issues_annotated_independently():
 
     with (
         patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            "mlflow.genai.discovery.pipeline._call_llm",
             return_value=_make_litellm_response("Annotated."),
         ),
         patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,
@@ -557,7 +557,7 @@ def test_annotate_traces_session_level_logs_on_first_trace():
 
     with (
         patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            "mlflow.genai.discovery.pipeline._call_llm",
             return_value=_make_litellm_response("Session-level annotation."),
         ),
         patch("mlflow.genai.discovery.pipeline.mlflow.log_issue") as mock_log_issue,

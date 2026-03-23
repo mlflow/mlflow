@@ -6,9 +6,9 @@ module.exports = {
   },
   configs: {
     recommended: {
-      plugins: ['mlflow'],
+      plugins: ['@mlflow'],
       rules: {
-        'mlflow/no-absolute-ajax-urls': 'error',
+        '@mlflow/no-absolute-ajax-urls': 'error',
       },
     },
   },

@@ -1162,6 +1162,7 @@ class DatabricksTracingRestStore(RestStore):
         filter_string: str | None = None,
         max_results: int | None = None,
         page_token: str | None = None,
+        include_trace_count: bool = False,
     ) -> PagedList[Issue]:
         """
         Search for issues matching the given filters.
@@ -1171,6 +1172,7 @@ class DatabricksTracingRestStore(RestStore):
             filter_string: Optional filter string for advanced filtering.
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
 
         Returns:
             A PagedList of Issue entities.

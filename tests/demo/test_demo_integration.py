@@ -21,6 +21,8 @@ from mlflow.demo.generators.evaluation import (
 from mlflow.demo.generators.judges import DEMO_JUDGE_PREFIX, JudgesDemoGenerator
 from mlflow.demo.generators.prompts import PromptsDemoGenerator
 from mlflow.demo.generators.traces import (
+    DEMO_END_TIME_TAG,
+    DEMO_START_TIME_TAG,
     DEMO_TRACE_TYPE_TAG,
     DEMO_VERSION_TAG,
     TracesDemoGenerator,
@@ -190,6 +192,17 @@ def test_traces_type_metadata(client, traces_generator):
     assert len(agent_traces) == 4
     assert len(prompt_traces) == 12
     assert len(session_traces) == 14
+
+
+def test_traces_creates_time_range_tags(client, traces_generator):
+    traces_generator.generate()
+    traces_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    tags = experiment.tags
+
+    assert DEMO_START_TIME_TAG in tags
+    assert DEMO_END_TIME_TAG in tags
 
 
 def test_traces_delete_removes_all(client, traces_generator):

@@ -88,6 +88,7 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
+    INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
     RESOURCE_DOES_NOT_EXIST,
@@ -780,8 +781,8 @@ def _assert_item_type_string(x):
 
 
 def _assert_secret_value(x):
-    """Validate secret_value is a non-empty dict without ever printing the values in errors."""
-    if not x:
+    """Validate secret_value is present. Does not print values in errors."""
+    if x is None:
         raise MlflowException(
             message="Missing value for required parameter 'secret_value'.",
             error_code=INVALID_PARAMETER_VALUE,
@@ -3863,6 +3864,7 @@ def _fetch_trace_data_from_store(
 @_disable_if_artifacts_only
 def get_trace_artifact_handler() -> Response:
     request_id = request.args.get("request_id")
+    path = request.args.get("path")
 
     if not request_id:
         raise MlflowException(
@@ -3871,6 +3873,40 @@ def get_trace_artifact_handler() -> Response:
         )
 
     store = _get_tracking_store()
+
+    if path:
+        path = validate_path_is_safe(path)
+        trace_info = store.get_trace_info(request_id)
+        if trace_info is None:
+            raise MlflowException(
+                f"Trace with ID '{request_id}' not found.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        repo = _get_trace_artifact_repo(trace_info)
+        try:
+            content_bytes = repo.download_trace_attachment(path)
+        except MlflowException:
+            raise
+        except Exception:
+            _logger.warning(
+                "Failed to download attachment '%s' for trace '%s'",
+                path,
+                request_id,
+                exc_info=True,
+            )
+            raise MlflowException(
+                f"Failed to download attachment '{path}' for trace '{request_id}'.",
+                error_code=INTERNAL_ERROR,
+            )
+        buf = io.BytesIO(content_bytes)
+        file_sender_response = send_file(
+            buf,
+            mimetype="application/octet-stream",
+            as_attachment=True,
+            download_name=path,
+        )
+        return _response_with_file_attachment_headers(path, file_sender_response)
+
     trace_data = _fetch_trace_data_from_store(store, request_id)
     if trace_data is None:
         trace_info = store.get_trace_info(request_id)
@@ -4132,6 +4168,9 @@ def _search_issues():
     if request_message.HasField("max_results"):
         search_kwargs["max_results"] = request_message.max_results
 
+    if request_message.HasField("include_trace_count"):
+        search_kwargs["include_trace_count"] = request_message.include_trace_count
+
     issues = _get_tracking_store().search_issues(**search_kwargs)
 
     issue_protos = [issue.to_proto() for issue in issues]
@@ -4219,13 +4258,14 @@ def _invoke_issue_detection_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_issue_detection_job(job_id):
+def _get_job(job_id):
     from mlflow.server.jobs import get_job
 
     job = get_job(job_id)
     return jsonify({
         "status": str(job.status),
         "result": job.parsed_result,
+        "status_details": job.status_details,
     })
 
 
@@ -5767,11 +5807,6 @@ def get_issues_detection_endpoints():
             _invoke_issue_detection_handler,
             ["POST"],
         ),
-        (
-            _get_ajax_path("/mlflow/issues/job/<job_id>", version=3),
-            _get_issue_detection_job,
-            ["GET"],
-        ),
     ]
 
 
@@ -5781,6 +5816,11 @@ def get_job_endpoints():
             _get_ajax_path("/mlflow/jobs/cancel/<job_id>", version=3),
             _cancel_job,
             ["PATCH"],
+        ),
+        (
+            _get_ajax_path("/mlflow/jobs/<job_id>", version=3),
+            _get_job,
+            ["GET"],
         ),
     ]
 

@@ -130,10 +130,13 @@ def _is_supported_llm_provider(schema: str) -> bool:
 def _call_llm_provider_api(
     provider_name: str,
     model: str,
-    input_data: str,
-    eval_parameters: dict[str, Any],
-    extra_headers: dict[str, str],
+    input_data: str | None = None,
+    eval_parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
     proxy_url: str | None = None,
+    *,
+    messages: list[dict[str, str]] | None = None,
+    response_format: dict[str, Any] | None = None,
 ) -> str:
     """
     Invoke chat endpoint of various LLM providers.
@@ -145,37 +148,57 @@ def _call_llm_provider_api(
         provider_name: The provider name, e.g., "anthropic".
         model: The model name, e.g., "claude-3-5-sonnet"
         input_data: The input string prompt to send to the model as a chat message.
+            Mutually exclusive with ``messages``.
         eval_parameters: The additional parameters to send to the model, e.g. temperature.
         extra_headers: The additional headers to send to the provider.
         proxy_url: Proxy URL to be used for the judge model. If not specified, the default
             URL for the LLM provider will be used.
+        messages: Pre-built list of message dicts (``[{"role": ..., "content": ...}]``).
+            Mutually exclusive with ``input_data``.
+        response_format: Response format dict (e.g. from ``_pydantic_to_response_format``).
     """
     from mlflow.gateway.config import Provider
     from mlflow.gateway.schemas import chat
 
+    if (input_data is None) == (messages is None):
+        raise MlflowException.invalid_parameter_value(
+            "Exactly one of input_data or messages must be provided."
+        )
+
+    eval_parameters = eval_parameters or {}
+    extra_headers = extra_headers or {}
     provider = _get_provider_instance(provider_name, model)
 
-    chat_request = chat.RequestPayload(
-        model=model,
-        messages=[
-            chat.RequestMessage(role="user", content=input_data),
-        ],
-        **eval_parameters,
-    )
+    if messages is not None:
+        payload = {"messages": messages} | eval_parameters
+        if response_format is not None:
+            payload["response_format"] = response_format
+    else:
+        chat_request = chat.RequestPayload(
+            model=model,
+            messages=[
+                chat.RequestMessage(role="user", content=input_data),
+            ],
+            **eval_parameters,
+        )
 
-    # Filter out keys in the payload to the specified ones + "messages".
-    # Does not include "model" key here because some providers do not accept it as a
-    # part of the payload. Whether or not to include "model" key must be determined
-    # by each provider implementation.
-    filtered_keys = {"messages", *eval_parameters.keys()}
+        # Filter out keys in the payload to the specified ones + "messages".
+        # Does not include "model" key here because some providers do not accept it as a
+        # part of the payload. Whether or not to include "model" key must be determined
+        # by each provider implementation.
+        filtered_keys = {"messages", *eval_parameters.keys()}
 
-    payload = {
-        k: v
-        for k, v in chat_request.model_dump(exclude_none=True).items()
-        if (v is not None) and (k in filtered_keys)
-    }
+        payload = {
+            k: v
+            for k, v in chat_request.model_dump(exclude_none=True).items()
+            if (v is not None) and (k in filtered_keys)
+        }
+
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
-    chat_payload.update(eval_parameters)
+    if messages is None:
+        # eval_parameters were filtered out by the RequestPayload serialization;
+        # re-apply them. When messages is not None, they're already in the payload.
+        chat_payload.update(eval_parameters)
 
     if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
         if proxy_url or extra_headers:
@@ -269,6 +292,13 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
 
     #     config = CohereConfig(cohere_api_key=os.environ.get("COHERE_API_KEY"))
     #     return CohereProvider(_get_route_config(config))
+
+    elif provider == Provider.GEMINI:
+        from mlflow.gateway.providers.gemini import GeminiConfig, GeminiProvider
+        from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
+
+        config = GeminiConfig(gemini_api_key=os.environ.get(_CORE_PROVIDER_ENV_VARS["gemini"]))
+        return GeminiProvider(_get_route_config(config))
 
     elif provider == Provider.MISTRAL:
         from mlflow.gateway.providers.mistral import MistralConfig, MistralProvider

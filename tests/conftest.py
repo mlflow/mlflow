@@ -2,6 +2,7 @@ import cProfile
 import inspect
 import io
 import json
+import logging
 import os
 import posixpath
 import pstats
@@ -53,6 +54,9 @@ if not IS_TRACING_SDK_ONLY:
         _reset_last_logged_model_id,
         clear_active_model,
     )
+
+
+_logger = logging.getLogger(__name__)
 
 
 # Pytest hooks and configuration from root conftest.py
@@ -964,6 +968,10 @@ def prevent_infer_pip_requirements_fallback(request):
         yield
 
 
+def _log_rmtree_error(func, path, exc_info):
+    _logger.warning("Failed to remove %s: %s", path, exc_info[1])
+
+
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_mlruns_directory(request):
     """
@@ -977,13 +985,10 @@ def clean_up_mlruns_directory(request):
 
     mlruns_dir = os.path.join(request.config.rootpath, "mlruns")
     if os.path.exists(mlruns_dir):
-        try:
-            shutil.rmtree(mlruns_dir)
-        except OSError:
-            if is_windows():
-                raise
-            # `shutil.rmtree` can't remove files owned by root in a docker container.
-            subprocess.check_call(["sudo", "rm", "-rf", mlruns_dir])
+        shutil.rmtree(mlruns_dir, onerror=_log_rmtree_error)
+    # In Docker, files may be owned by root. Try sudo as a fallback.
+    if not is_windows() and os.path.exists(mlruns_dir):
+        subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=False)
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)

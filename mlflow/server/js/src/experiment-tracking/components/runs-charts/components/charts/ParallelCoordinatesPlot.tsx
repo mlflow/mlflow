@@ -18,7 +18,7 @@ const attachCustomTooltip = (toolTipClass: string, labelText: string, targetLabe
   const tooltipGroup = document.createElementNS(svgNS, 'g');
   const newRect = document.createElementNS(svgNS, 'rect');
   const newText = document.createElementNS(svgNS, 'text');
-  newText.innerHTML = labelText;
+  newText.textContent = labelText;
   newText.setAttribute('fill', 'black');
   tooltipGroup.classList.add(toolTipClass);
   tooltipGroup.appendChild(newRect);
@@ -343,7 +343,7 @@ const ParallelCoordinatesPlotImpl = (props: {
 
       // rotate and truncate axis labels
       wrapperElement.querySelectorAll('.parcoords .label').forEach((e) => {
-        const originalLabel = e.innerHTML;
+        const originalLabel = e.textContent || '';
         if (num_axes > axesRotateThreshold) {
           e.setAttribute('transform', 'rotate(-30)');
         }
@@ -351,8 +351,8 @@ const ParallelCoordinatesPlotImpl = (props: {
         e.setAttribute('x', '20');
         const width_pre_truncation = e.getBoundingClientRect().width;
         if (width_pre_truncation > maxAxesLabelWidth) {
-          e.innerHTML = truncateChartMetricString(originalLabel, axesLabelTruncationThreshold);
-          if (originalLabel !== e.innerHTML) {
+          e.textContent = truncateChartMetricString(originalLabel, axesLabelTruncationThreshold);
+          if (originalLabel !== e.textContent) {
             attachCustomTooltip('axis-label-tooltip', originalLabel, e);
           }
         }
@@ -360,11 +360,11 @@ const ParallelCoordinatesPlotImpl = (props: {
 
       // truncate tick labels
       wrapperElement.querySelectorAll('.parcoords .tick text').forEach((e) => {
-        const originalLabel = e.innerHTML;
+        const originalLabel = e.textContent || '';
         const width_pre_truncation = e.getBoundingClientRect().width;
         if (width_pre_truncation > maxTickLabelWidth) {
-          e.innerHTML = truncateChartMetricString(originalLabel, tickLabelTruncationThreshold);
-          if (originalLabel !== e.innerHTML) {
+          e.textContent = truncateChartMetricString(originalLabel, tickLabelTruncationThreshold);
+          if (originalLabel !== e.textContent) {
             attachCustomTooltip('tick-label-tooltip', originalLabel, e);
           }
         }

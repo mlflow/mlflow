@@ -121,6 +121,7 @@ from mlflow.protos.service_pb2 import (
     GetWorkspace,
     ListArtifacts,
     ListGatewayEndpointBindings,
+    ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
     ListWorkspaces,
@@ -237,6 +238,7 @@ from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
     _disable_if_workspaces_disabled,
+    _get_ajax_path,
     _get_model_registry_store,
     _get_request_message,
     _get_tracking_store,
@@ -1652,6 +1654,7 @@ LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
     FinalizeLoggedModel: validate_can_update_logged_model,
     DeleteLoggedModelTag: validate_can_delete_logged_model,
     SetLoggedModelTags: validate_can_update_logged_model,
+    ListLoggedModelArtifacts: validate_can_read_logged_model,
     LogLoggedModelParamsRequest: validate_can_update_logged_model,
 }
 
@@ -1666,6 +1669,14 @@ LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
     for http_path, handler, methods in get_endpoints(get_logged_model_before_request_handler)
     for method in methods
 }
+# The AJAX artifact download endpoint is a plain Flask route with a path parameter, so it
+# can't go in routes.py/BEFORE_REQUEST_VALIDATORS (exact match) and must be added here.
+LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS[
+    (
+        _re_compile_path(_get_ajax_path("/mlflow/logged-models/<model_id>/artifacts/files")),
+        "GET",
+    )
+] = validate_can_read_logged_model
 
 WEBHOOK_BEFORE_REQUEST_HANDLERS = {
     CreateWebhook: sender_is_admin,
