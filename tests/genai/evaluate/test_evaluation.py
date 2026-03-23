@@ -1,4 +1,5 @@
 import json
+import queue
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -1726,6 +1727,7 @@ def test_adaptive_rate_reduces_on_429(monkeypatch):
 # ===================== Thread-Safety & Concurrency Tests =====================
 
 
+@pytest.mark.timeout(30)
 def test_evaluate_with_builtin_and_custom_scorers(monkeypatch):
     from litellm.types.utils import ModelResponse
 
@@ -1776,12 +1778,12 @@ def test_builtin_scorer_thread_safe_judge_init():
     from mlflow.genai.scorers.builtin_scorers import Completeness
 
     completeness = Completeness()
-    judges = []
+    judges = queue.Queue()
     barrier = threading.Barrier(8)
 
     def get_judge():
         barrier.wait()
-        judges.append(completeness._get_judge())
+        judges.put(completeness._get_judge())
 
     threads = [threading.Thread(target=get_judge) for _ in range(8)]
     for t in threads:
@@ -1790,5 +1792,6 @@ def test_builtin_scorer_thread_safe_judge_init():
         t.join(timeout=10)
 
     # All threads must get the same judge instance
-    assert len(judges) == 8
-    assert all(j is judges[0] for j in judges)
+    collected = [judges.get_nowait() for _ in range(8)]
+    assert len(collected) == 8
+    assert all(j is collected[0] for j in collected)

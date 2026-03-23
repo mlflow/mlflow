@@ -876,7 +876,6 @@ def _compute_eval_scores(
     # Limit concurrent scorers to prevent rate limiting errors with external LLM APIs
     max_scorer_workers = min(len(scorers), MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS.get())
     scorer_timeout = MLFLOW_GENAI_EVAL_SCORER_TIMEOUT.get()
-    deadline = time.monotonic() + scorer_timeout
 
     with ThreadPoolExecutor(
         max_workers=max_scorer_workers,
@@ -886,21 +885,22 @@ def _compute_eval_scores(
 
         results = []
         try:
-            for future in as_completed(future_to_scorer):
-                remaining = max(0, deadline - time.monotonic())
-                try:
-                    results.append(future.result(timeout=remaining))
-                except TimeoutError:
-                    scorer = future_to_scorer[future]
-                    _logger.warning(f"Scorer '{scorer.name}' timed out after {scorer_timeout}s")
+            for future in as_completed(future_to_scorer, timeout=scorer_timeout):
+                results.append(future.result())  # noqa: PERF401
+        except TimeoutError:
+            for future, scorer_obj in future_to_scorer.items():
+                if not future.done():
+                    _logger.warning(
+                        "Scorer '%s' timed out after %ss", scorer_obj.name, scorer_timeout
+                    )
                     results.append([
                         Feedback(
-                            name=scorer.name,
-                            source=make_code_type_assessment_source(scorer.name),
+                            name=scorer_obj.name,
+                            source=make_code_type_assessment_source(scorer_obj.name),
                             error=AssessmentError(
                                 error_code="SCORER_TIMEOUT",
                                 error_message=(
-                                    f"Scorer '{scorer.name}' timed out "
+                                    f"Scorer '{scorer_obj.name}' timed out "
                                     f"after {scorer_timeout} seconds"
                                 ),
                             ),
