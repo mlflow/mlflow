@@ -1106,10 +1106,10 @@ def serve_wheel(request, tmp_path_factory):
         ],
     )
     with SimpleRepositoryServer(mlflow_dir, port) as server:
-        if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
-            os.environ["PIP_EXTRA_INDEX_URL"] = f"{existing_url} {server.url}"
-        else:
-            os.environ["PIP_EXTRA_INDEX_URL"] = server.url
+        index_url = (
+            f"{url} {server.url}" if (url := os.environ.get("PIP_EXTRA_INDEX_URL")) else server.url
+        )
+        os.environ["PIP_EXTRA_INDEX_URL"] = index_url
         # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
         # url when using `uv` as environment manager
         os.environ["UV_INDEX"] = f"mlflow={server.url}"
