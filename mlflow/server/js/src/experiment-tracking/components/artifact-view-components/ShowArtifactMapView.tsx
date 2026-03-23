@@ -21,7 +21,10 @@ import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetch
 function onEachFeature(feature: any, layer: any) {
   if (feature.properties && feature.properties.popupContent) {
     const { popupContent } = feature.properties;
-    layer.bindPopup(popupContent);
+    // Sanitize popup content to prevent XSS
+    const sanitized = document.createElement('div');
+    sanitized.textContent = popupContent;
+    layer.bindPopup(sanitized);
   }
 }
 
