@@ -581,12 +581,17 @@ def test_score_model_retries_without_output_config_on_unsupported(monkeypatch):
     }
 
     # First call raises 400 with "does not support output format", second call succeeds
+    error_body = {
+        "type": "error",
+        "error": {
+            "type": "invalid_request_error",
+            "message": "claude-sonnet-4-20250514 does not support output format",
+        },
+    }
     mock_400_response = mock.MagicMock()
     mock_400_response.status_code = 400
-    mock_400_response.text = (
-        '{"type":"error","error":{"type":"invalid_request_error",'
-        '"message":"claude-sonnet-4-20250514 does not support output format"}}'
-    )
+    mock_400_response.text = json.dumps(error_body)
+    mock_400_response.json.return_value = error_body
     mock_400_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
         response=mock_400_response
     )
@@ -638,9 +643,14 @@ def test_score_model_retries_without_output_config_on_unsupported(monkeypatch):
 def test_score_model_does_not_retry_on_other_400_errors(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
+    error_body = {
+        "type": "error",
+        "error": {"type": "authentication_error", "message": "invalid api key"},
+    }
     mock_400_response = mock.MagicMock()
     mock_400_response.status_code = 400
-    mock_400_response.text = '{"type":"error","error":{"message":"invalid api key"}}'
+    mock_400_response.text = json.dumps(error_body)
+    mock_400_response.json.return_value = error_body
     mock_400_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
         response=mock_400_response
     )

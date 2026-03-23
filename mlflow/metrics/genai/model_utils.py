@@ -127,6 +127,33 @@ def _is_supported_llm_provider(schema: str) -> bool:
     return schema in provider_registry.keys()
 
 
+def _is_unsupported_output_format_error(exc: MlflowException) -> bool:
+    """Check if the error indicates the model doesn't support structured output.
+
+    Anthropic returns a structured error like:
+        {"type": "error", "error": {"type": "invalid_request_error", "message": "..."}}
+    """
+    cause = exc.__cause__
+    if not isinstance(cause, requests.exceptions.HTTPError):
+        return False
+    if cause.response is None or cause.response.status_code != 400:
+        return False
+    try:
+        body = cause.response.json()
+    except Exception:
+        return False
+    match body:
+        case {
+            "error": {
+                "type": "invalid_request_error",
+                "message": str(msg),
+            }
+        }:
+            return "does not support output format" in msg
+        case _:
+            return False
+
+
 def _call_llm_provider_api(
     provider_name: str,
     model: str,
@@ -192,14 +219,7 @@ def _call_llm_provider_api(
                 payload=chat_payload,
             )
         except MlflowException as e:
-            cause = e.__cause__
-            is_unsupported_output = (
-                isinstance(cause, requests.exceptions.HTTPError)
-                and cause.response is not None
-                and cause.response.status_code == 400
-                and "does not support output format" in (cause.response.text or "")
-            )
-            if not is_unsupported_output:
+            if not _is_unsupported_output_format_error(e):
                 raise
             # Model doesn't support structured output; drop it and retry.
             chat_payload.pop("output_config", None)
