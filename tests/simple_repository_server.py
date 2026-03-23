@@ -105,8 +105,8 @@ class SimpleRepositoryServer:
 
     @property
     def url(self) -> str:
-        host, port = self._server.server_address
-        return f"http://{host or 'localhost'}:{port}/simple"
+        _, port = self._server.server_address
+        return f"http://localhost:{port}/simple"
 
     def start(self) -> None:
         self._thread.start()
