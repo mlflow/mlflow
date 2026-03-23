@@ -1,6 +1,6 @@
 import sys
 from unittest import mock
-from unittest.mock import call
+from unittest.mock import MagicMock, call
 
 import pyarrow
 import pytest
@@ -220,3 +220,74 @@ def test_is_directory_called_with_relative_path(hdfs_system_mock):
 
     assert repo._is_directory("dir")
     get_file_info_mock.assert_called_once_with("/some/path/dir")
+
+
+def test_log_artifact_uses_chunk_size(hdfs_system_mock, monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_HDFS_CHUNK_SIZE", "5")
+
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+
+    local_file = tmp_path / "chunked_file"
+    data = b"abcdefghij"  # 10 bytes, will need 2 chunks of size 5
+    local_file.write_bytes(data)
+
+    dest_mock = MagicMock()
+    hdfs_system_mock.return_value.open_output_stream.return_value.__enter__ = lambda s: dest_mock
+    hdfs_system_mock.return_value.open_output_stream.return_value.__exit__ = MagicMock(
+        return_value=False
+    )
+
+    repo.log_artifact(str(local_file))
+
+    assert dest_mock.write.call_count == 2
+    dest_mock.write.assert_has_calls([call(b"abcde"), call(b"fghij")])
+
+
+def test_download_file_uses_chunk_size(hdfs_system_mock, monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_HDFS_CHUNK_SIZE", "4")
+
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+
+    data = b"hello world!"  # 12 bytes -> 3 chunks of size 4
+    src_mock = MagicMock()
+    src_mock.read.side_effect = [b"hell", b"o wo", b"rld!", b""]
+    hdfs_system_mock.return_value.open_input_stream.return_value.__enter__ = lambda s: src_mock
+    hdfs_system_mock.return_value.open_input_stream.return_value.__exit__ = MagicMock(
+        return_value=False
+    )
+
+    local_path = tmp_path / "downloaded"
+    repo._download_file("some/remote/file", str(local_path))
+
+    assert local_path.read_bytes() == data
+    assert src_mock.read.call_count == 4  # 3 data reads + 1 empty read that stops the loop
+
+
+def test_log_artifact_invalid_chunk_size(hdfs_system_mock, monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_HDFS_CHUNK_SIZE", "0")
+
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+    local_file = tmp_path / "sample_file"
+    local_file.write_bytes(b"data")
+
+    with pytest.raises(ValueError, match="MLFLOW_HDFS_CHUNK_SIZE must be a positive integer"):
+        repo.log_artifact(str(local_file))
+
+
+def test_log_artifacts_invalid_chunk_size(hdfs_system_mock, monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_HDFS_CHUNK_SIZE", "-1")
+
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+    (tmp_path / "f.txt").write_bytes(b"data")
+
+    with pytest.raises(ValueError, match="MLFLOW_HDFS_CHUNK_SIZE must be a positive integer"):
+        repo.log_artifacts(str(tmp_path))
+
+
+def test_download_file_invalid_chunk_size(hdfs_system_mock, monkeypatch, tmp_path):
+    monkeypatch.setenv("MLFLOW_HDFS_CHUNK_SIZE", "0")
+
+    repo = HdfsArtifactRepository("hdfs://host_name:8020/hdfs/path")
+
+    with pytest.raises(ValueError, match="MLFLOW_HDFS_CHUNK_SIZE must be a positive integer"):
+        repo._download_file("some/remote/file", str(tmp_path / "out"))
