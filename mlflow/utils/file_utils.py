@@ -938,7 +938,11 @@ def check_tarfile_security(archive_path: str) -> None:
             if m.issym():
                 symlink_set.add(path)
             else:
-                if path.startswith("/"):
+                # Use os.path.isabs to catch platform-native absolute paths,
+                # including Windows drive-absolute paths (e.g. C:/foo) on Windows.
+                # Reference: CPython's tarfile.data_filter uses the same approach.
+                # https://github.com/python/cpython/blob/v3.12.0/Lib/tarfile.py#L813
+                if os.path.isabs(path):
                     raise MlflowException(
                         "Absolute path destination in the archive file is not allowed, "
                         f"but got path {path}."

@@ -141,5 +141,5 @@ def extract_archive_to_dir(archive_path, dest_dir):
     check_tarfile_security(archive_path)
     os.makedirs(dest_dir, exist_ok=True)
     with tarfile.open(archive_path, "r") as tar:
-        tar.extractall(path=dest_dir)
+        tar.extractall(path=dest_dir, filter="data" if hasattr(tarfile, "data_filter") else None)
     return dest_dir

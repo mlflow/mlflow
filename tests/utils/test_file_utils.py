@@ -4,6 +4,7 @@ import io
 import os
 import shutil
 import stat
+import sys
 import tarfile
 
 import pytest
@@ -267,3 +268,20 @@ def test_check_tarfile_security(tmp_path):
         MlflowException, match="Escaped path destination in the archive file is not allowed"
     ):
         check_tarfile_security(tar4_path)
+
+    # Windows drive-absolute path bypass (only dangerous on Windows where os.path.isabs
+    # recognizes drive-letter paths; on Unix C:/foo is just a relative path and harmless)
+    if sys.platform == "win32":
+        tar5_path = str(tmp_path.joinpath("file5.tar"))
+        create_tar_with_abs_path(tar5_path, "C:/Windows/Temp/poc.txt", b"ABX")
+        with pytest.raises(
+            MlflowException, match="Absolute path destination in the archive file is not allowed"
+        ):
+            check_tarfile_security(tar5_path)
+
+        tar6_path = str(tmp_path.joinpath("file6.tar"))
+        create_tar_with_abs_path(tar6_path, "D:/foo/bar.txt", b"ABX")
+        with pytest.raises(
+            MlflowException, match="Absolute path destination in the archive file is not allowed"
+        ):
+            check_tarfile_security(tar6_path)
