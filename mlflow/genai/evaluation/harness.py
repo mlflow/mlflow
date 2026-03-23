@@ -875,18 +875,39 @@ def _compute_eval_scores(
     # Use a thread pool to run scorers in parallel
     # Limit concurrent scorers to prevent rate limiting errors with external LLM APIs
     max_scorer_workers = min(len(scorers), MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS.get())
+    scorer_timeout = MLFLOW_GENAI_EVAL_SCORER_TIMEOUT.get()
+    deadline = time.monotonic() + scorer_timeout
+
     with ThreadPoolExecutor(
         max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
-        futures = [executor.submit(run_scorer, scorer) for scorer in scorers]
+        future_to_scorer = {executor.submit(run_scorer, scorer): scorer for scorer in scorers}
 
+        results = []
         try:
-            scorer_timeout = MLFLOW_GENAI_EVAL_SCORER_TIMEOUT.get()
-            results = [future.result(timeout=scorer_timeout) for future in as_completed(futures)]
+            for future in as_completed(future_to_scorer):
+                remaining = max(0, deadline - time.monotonic())
+                try:
+                    results.append(future.result(timeout=remaining))
+                except TimeoutError:
+                    scorer = future_to_scorer[future]
+                    _logger.warning(f"Scorer '{scorer.name}' timed out after {scorer_timeout}s")
+                    results.append([
+                        Feedback(
+                            name=scorer.name,
+                            source=make_code_type_assessment_source(scorer.name),
+                            error=AssessmentError(
+                                error_code="SCORER_TIMEOUT",
+                                error_message=(
+                                    f"Scorer '{scorer.name}' timed out "
+                                    f"after {scorer_timeout} seconds"
+                                ),
+                            ),
+                        )
+                    ])
         except KeyboardInterrupt:
-            # Cancel pending futures
-            executor.shutdown(cancel_futures=True)
+            executor.shutdown(wait=False, cancel_futures=True)
             raise
 
     # Flatten list[list[Assessment]] into a single list[Assessment]

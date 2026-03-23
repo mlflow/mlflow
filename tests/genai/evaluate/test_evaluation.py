@@ -1,3 +1,4 @@
+import json
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -1720,3 +1721,74 @@ def test_adaptive_rate_reduces_on_429(monkeypatch):
     # At least one throttle event observed, and the rate was reduced
     assert len(rate_after_throttle) >= 1
     assert rate_after_throttle[0] < AUTO_INITIAL_RPS
+
+
+# ===================== Thread-Safety & Concurrency Tests =====================
+
+
+def test_evaluate_with_builtin_and_custom_scorers(monkeypatch):
+    from litellm.types.utils import ModelResponse
+
+    from mlflow.genai.scorers.builtin_scorers import Completeness
+
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "0")
+
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The response fully addresses the question.",
+    })
+    mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
+
+    @scorer
+    def custom_scorer(inputs, outputs):
+        return Feedback(
+            name="custom_scorer",
+            value="pass",
+            rationale="Custom check passed",
+            source=AssessmentSource(source_id="test", source_type="CODE"),
+        )
+
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "outputs": "MLflow is an open-source platform for managing the ML lifecycle.",
+        },
+        {
+            "inputs": {"question": "What is Spark?"},
+            "outputs": "Spark is a fast data processing engine.",
+        },
+    ]
+
+    with mock.patch("litellm.completion", return_value=mock_response):
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[Completeness(), custom_scorer],
+        )
+
+    assert "completeness/value" in result.result_df.columns
+    assert "custom_scorer/value" in result.result_df.columns
+    # Verify both scorers produced results for all rows
+    assert result.result_df["custom_scorer/value"].notna().all()
+
+
+def test_builtin_scorer_thread_safe_judge_init():
+    from mlflow.genai.scorers.builtin_scorers import Completeness
+
+    completeness = Completeness()
+    judges = []
+    barrier = threading.Barrier(8)
+
+    def get_judge():
+        barrier.wait()
+        judges.append(completeness._get_judge())
+
+    threads = [threading.Thread(target=get_judge) for _ in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=10)
+
+    # All threads must get the same judge instance
+    assert len(judges) == 8
+    assert all(j is judges[0] for j in judges)
