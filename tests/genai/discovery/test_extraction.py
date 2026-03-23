@@ -267,45 +267,20 @@ def test_collect_session_rationales_deduplicates(make_trace):
 # ---- _parse_assessment_value ----
 
 
-def test_parse_assessment_value_dict_passing():
-    passed, cats = _parse_assessment_value({"passed": "true", "categories": "tool_error,ux"})
-    assert passed is True
-    assert cats == ["tool_error", "ux"]
-
-
-def test_parse_assessment_value_dict_failing():
-    passed, cats = _parse_assessment_value({"passed": "false", "categories": "tool_error"})
-    assert passed is False
-    assert cats == ["tool_error"]
-
-
-def test_parse_assessment_value_json_string():
-    passed, cats = _parse_assessment_value('{"passed": "false", "categories": "ux,tool_error"}')
-    assert passed is False
-    assert cats == ["ux", "tool_error"]
-
-
-def test_parse_assessment_value_json_string_passing():
-    passed, cats = _parse_assessment_value('{"passed": "true", "categories": ""}')
-    assert passed is True
-    assert cats == []
-
-
-def test_parse_assessment_value_bool_true():
-    assert _parse_assessment_value(True) == (True, [])
-
-
-def test_parse_assessment_value_bool_false():
-    assert _parse_assessment_value(False) == (False, [])
-
-
-def test_parse_assessment_value_non_json_string():
-    passed, cats = _parse_assessment_value("some random text")
-    assert passed is True
-    assert cats == []
-
-
-def test_parse_assessment_value_empty_string():
-    passed, cats = _parse_assessment_value("")
-    assert passed is False
-    assert cats == []
+@pytest.mark.parametrize(
+    ("value", "expected_passed", "expected_cats"),
+    [
+        ({"passed": "true", "categories": "tool_error,ux"}, True, ["tool_error", "ux"]),
+        ({"passed": "false", "categories": "tool_error"}, False, ["tool_error"]),
+        ('{"passed": "false", "categories": "ux,tool_error"}', False, ["ux", "tool_error"]),
+        ('{"passed": "true", "categories": ""}', True, []),
+        (True, True, []),
+        (False, False, []),
+        ("some random text", True, []),
+        ("", False, []),
+    ],
+)
+def test_parse_assessment_value(value, expected_passed, expected_cats):
+    passed, cats = _parse_assessment_value(value)
+    assert passed is expected_passed
+    assert cats == expected_cats
