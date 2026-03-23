@@ -640,6 +640,79 @@ def test_score_model_retries_without_output_config_on_unsupported(monkeypatch):
     assert "response_format" not in captured_payloads[1]
 
 
+def test_score_model_caches_unsupported_output_config(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    from mlflow.metrics.genai.model_utils import _MODELS_WITHOUT_OUTPUT_CONFIG
+
+    model_name = "claude-sonnet-4-20250514-cache-test"
+    _MODELS_WITHOUT_OUTPUT_CONFIG.discard(model_name)
+
+    anthropic_resp = {
+        "content": [{"text": "result", "type": "text"}],
+        "id": "msg_test",
+        "model": model_name,
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+    error_body = {
+        "type": "error",
+        "error": {
+            "type": "invalid_request_error",
+            "message": f"{model_name} does not support output format",
+        },
+    }
+    mock_400_response = mock.MagicMock()
+    mock_400_response.status_code = 400
+    mock_400_response.text = json.dumps(error_body)
+    mock_400_response.json.return_value = error_body
+    mock_400_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
+        response=mock_400_response
+    )
+
+    mock_ok_response = mock.MagicMock()
+    mock_ok_response.status_code = 200
+    mock_ok_response.raise_for_status.return_value = None
+    mock_ok_response.json.return_value = anthropic_resp
+
+    eval_params = {
+        "max_tokens": 100,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "result",
+                "schema": {"type": "object", "properties": {"x": {"type": "string"}}},
+            },
+        },
+    }
+
+    # First call: triggers retry (2 requests.post calls)
+    with mock.patch("requests.post", side_effect=[mock_400_response, mock_ok_response]) as m:
+        score_model_on_payload(
+            model_uri=f"anthropic:/{model_name}",
+            payload="test prompt",
+            eval_parameters=eval_params,
+        )
+        assert m.call_count == 2
+
+    assert model_name in _MODELS_WITHOUT_OUTPUT_CONFIG
+
+    # Second call: skips output_config upfront (only 1 requests.post call)
+    with mock.patch("requests.post", return_value=mock_ok_response) as m:
+        score_model_on_payload(
+            model_uri=f"anthropic:/{model_name}",
+            payload="test prompt",
+            eval_parameters=eval_params,
+        )
+        assert m.call_count == 1
+
+    _MODELS_WITHOUT_OUTPUT_CONFIG.discard(model_name)
+
+
 def test_score_model_does_not_retry_on_other_400_errors(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
 
