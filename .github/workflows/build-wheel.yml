@@ -54,10 +54,17 @@ jobs:
       - uses: ./.github/actions/setup-node
 
       - name: Build UI
+        if: matrix.type == 'dev'
         working-directory: mlflow/server/js
         run: |
           yarn
           yarn build
+
+      - name: Create placeholder UI
+        if: matrix.type != 'dev'
+        run: |
+          mkdir -p mlflow/server/js/build
+          echo "<html></html>" > mlflow/server/js/build/index.html
 
       - name: Install dependencies
         run: |
@@ -102,6 +109,17 @@ jobs:
           WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
           unzip -l $WHEEL_PATH
+
+      - name: Validate no JS build artifacts in wheel
+        if: matrix.type == 'skinny' || matrix.type == 'tracing'
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
+          MATRIX_TYPE: ${{ matrix.type }}
+        run: |
+          if unzip -l "$WHEEL_PATH" | grep -q "server/js/build"; then
+            echo "ERROR: JS build artifacts found in $MATRIX_TYPE wheel"
+            exit 1
+          fi
 
       - name: Compare files in source and binary distributions
         env:
