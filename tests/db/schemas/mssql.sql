@@ -91,6 +91,7 @@ CREATE TABLE jobs (
 	retry_count INTEGER NOT NULL,
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	status_details NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 

@@ -117,10 +117,12 @@ const TracesV3LogsImpl = React.memo(
     forceGroupBySession = false,
     initialGroupBySession = false,
     columnStorageKeyPrefix,
+    detectIssuesButtonComponentId,
     additionalFilters,
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
+    drawerWidth,
   }: {
     /**
      * Array of experiment IDs to search traces for.
@@ -138,10 +140,16 @@ const TracesV3LogsImpl = React.memo(
      * Use this to separate column selection state between different views.
      */
     columnStorageKeyPrefix?: string;
+    /**
+     * Optional component ID for the detect issues button.
+     * Use this to differentiate between traces and sessions contexts.
+     */
+    detectIssuesButtonComponentId?: string;
     additionalFilters?: TableFilter[];
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
+    drawerWidth?: string | number;
   }) => {
     // When viewing a single experiment, pass its ID to enable experiment-specific
     // features (run name links, logged model links, session links, filter dropdowns).
@@ -475,6 +483,7 @@ const TracesV3LogsImpl = React.memo(
       <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
+        drawerWidth={drawerWidth}
       >
         <GenAITracesTableProvider
           experimentId={singleExperimentId}
@@ -489,6 +498,7 @@ const TracesV3LogsImpl = React.memo(
             }}
           >
             <GenAITracesTableToolbar
+              detectIssuesButtonComponentId={detectIssuesButtonComponentId}
               experimentId={singleExperimentId}
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}

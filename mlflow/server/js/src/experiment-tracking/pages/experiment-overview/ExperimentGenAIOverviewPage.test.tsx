@@ -9,6 +9,8 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import { fetchOrFail } from '../../../common/utils/FetchUtils';
 import { setupTestRouter, testRoute, TestRouter } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 
+import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
+
 // Mock FetchUtils
 jest.mock('../../../common/utils/FetchUtils', () => ({
   fetchOrFail: jest.fn(),
@@ -31,9 +33,12 @@ jest.mock('../../components/experiment-page/components/traces-v3/IssueDetectionM
   ),
 }));
 
-const mockFetchOrFail = jest.mocked(fetchOrFail);
+// Mock useLocalStorage to prevent guidance popovers from showing in tests
+jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
+  useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
+}));
 
-import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
+const mockFetchOrFail = jest.mocked(fetchOrFail);
 const mockShouldEnableIssueDetection = jest.mocked(shouldEnableIssueDetection);
 
 describe('ExperimentGenAIOverviewPage', () => {

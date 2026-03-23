@@ -4,7 +4,6 @@ from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.telemetry.events import MakeJudgeEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.utils.annotations import experimental
 
 
 def _validate_feedback_value_type(feedback_value_type: Any) -> None:
@@ -89,7 +88,6 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
     )
 
 
-@experimental(version="3.4.0")
 @record_usage_event(MakeJudgeEvent)
 def make_judge(
     name: str,

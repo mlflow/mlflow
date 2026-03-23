@@ -20,10 +20,6 @@ import {
   isFeedbackAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
 
-const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
-  return trace.trace_metadata?.[SESSION_ID_METADATA_KEY] ?? null;
-};
-
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { StackedComponents } from './StackedComponents';
@@ -64,6 +60,10 @@ import { SessionHeaderNumericAggregatedCell } from './SessionHeaderNumericAggreg
 import { SessionHeaderStringAggregatedCell } from './SessionHeaderStringAggregatedCell';
 import { StatusCellRenderer } from './StatusRenderer';
 import { calculateSessionDuration } from '../sessions-table/utils';
+
+const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
+  return trace.trace_metadata?.[SESSION_ID_METADATA_KEY] ?? null;
+};
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
