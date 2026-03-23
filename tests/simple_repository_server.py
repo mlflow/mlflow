@@ -100,7 +100,9 @@ class SimpleRepositoryServer:
     def __init__(self, wheel_dir: Path, port: int) -> None:
         handler = _make_handler(wheel_dir)
         self._server = HTTPServer(("", port), handler)
-        self._thread = threading.Thread(target=self._server.serve_forever, daemon=True)
+        self._thread = threading.Thread(
+            target=self._server.serve_forever, daemon=True, name="simple-repository-server"
+        )
 
     @property
     def url(self) -> str:
