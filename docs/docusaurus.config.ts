@@ -114,7 +114,7 @@ const config: Config = {
       tagName: 'meta',
       attributes: {
         property: 'og:image',
-        content: 'https://mlflow.org/docs/latest/images/og-image.png',
+        content: 'https://mlflow.org/docs/latest/images/logos/mlflow-logo.png',
       },
     },
     // Twitter Card
@@ -141,7 +141,7 @@ const config: Config = {
       tagName: 'meta',
       attributes: {
         name: 'twitter:image',
-        content: 'https://mlflow.org/docs/latest/images/og-image.png',
+        content: 'https://mlflow.org/docs/latest/images/logos/mlflow-logo.png',
       },
     },
     {
