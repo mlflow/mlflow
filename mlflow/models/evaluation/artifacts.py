@@ -88,6 +88,9 @@ class PickleEvaluationArtifact(EvaluationArtifact):
             pickle.dump(self._content, f)
 
     def _load_content_from_file(self, local_artifact_path):
+        from mlflow.utils.security_utils import check_pickle_deserialization_allowed
+
+        check_pickle_deserialization_allowed()
         with open(local_artifact_path, "rb") as f:
             self._content = pickle.load(f)
         return self._content
