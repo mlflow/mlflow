@@ -24,6 +24,7 @@ while true; do
     exit 1
   fi
   state=$(gh agent-task view "$session_id" --json state --jq '.state')
+  echo "State: $state (elapsed ${SECONDS}s)"
   if [[ "$state" != "queued" && "$state" != "in_progress" ]]; then
     echo "Copilot finished with state: $state"
     break
