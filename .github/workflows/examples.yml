@@ -73,8 +73,8 @@ jobs:
         env:
           FORCE_RUN_EXAMPLES: ${{ contains(github.event.pull_request.labels.*.name, 'examples.yml') }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
           CHANGED_FILES=$(gh pr view "$PR_NUMBER" --json files --jq '.files[].path' | grep "tests/examples\|examples" || true);
           if [ "$FORCE_RUN_EXAMPLES" = "true" ]; then
             EXAMPLES_CHANGED="true"
@@ -102,8 +102,10 @@ jobs:
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         env:
           SPARK_LOCAL_IP: localhost
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --serve-wheel tests/examples --durations=30
+          pytest --splits=$SPLITS --group=$GROUP --serve-wheel tests/examples --durations=30
 
       - name: Remove conda environments
         run: |
