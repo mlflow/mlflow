@@ -178,14 +178,12 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
   handleEditDescription = (description: any) => {
     const { modelName, version } = this.props;
-    return (
-      this.props
-        .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
-        .then(this.loadData)
-        .catch(() => {
-          // fail silently
-        })
-    );
+    return this.props
+      .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
+      .then(this.loadData)
+      .catch(() => {
+        // fail silently
+      });
   };
 
   componentDidMount() {
@@ -205,8 +203,8 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   componentDidUpdate(prevProps: ModelVersionPageImplProps) {
     if (this.props.version !== prevProps.version || this.props.modelName !== prevProps.modelName) {
       this.loadData(true).catch(() => {
-      // fail silently
-    });
+        // fail silently
+      });
       this.getModelVersionMlModelFile();
     }
   }
