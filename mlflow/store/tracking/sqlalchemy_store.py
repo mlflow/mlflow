@@ -6620,6 +6620,30 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
     return select_clauses, clauses, ordering_joins
 
 
+def _get_session_scoped_trace_ids(session, assessment_filters):
+    """Find all trace IDs covered by session-scoped assessments matching the given filters.
+
+    Two-step approach:
+    1. Find session IDs that have a matching session-scoped assessment.
+    2. Find all trace IDs belonging to those sessions.
+    """
+    session_ids = (
+        session
+        .query(SqlTraceMetadata.value)
+        .join(SqlAssessments, SqlAssessments.trace_id == SqlTraceMetadata.request_id)
+        .filter(
+            SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
+            *assessment_filters,
+            SqlAssessments.assessment_metadata.isnot(None),
+            SqlAssessments.assessment_metadata.contains(f'"{TraceMetadataKey.TRACE_SESSION}":'),
+        )
+    )
+    return session.query(SqlTraceMetadata.request_id).filter(
+        SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
+        SqlTraceMetadata.value.in_(session_ids),
+    )
+
+
 def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
     """
     Creates trace attribute filters and subqueries that will be inner-joined
@@ -6793,38 +6817,17 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
                 # Create subquery to find traces with matching assessments
                 # Filter by assessment name and check the value
+                assessment_filters = [
+                    SqlAssessments.assessment_type == key_type,
+                    SqlAssessments.name == key_name,
+                    SqlAssessments.valid == sqlalchemy.true(),
+                ]
                 if comparator in ("IS NULL", "IS NOT NULL"):
                     assessment_exists_subquery = session.query(SqlAssessments.trace_id).filter(
                         SqlAssessments.trace_id == SqlTraceInfo.request_id,
-                        SqlAssessments.assessment_type == key_type,
-                        SqlAssessments.name == key_name,
-                        SqlAssessments.valid == sqlalchemy.true(),
+                        *assessment_filters,
                     )
-                    # Two-step session expansion: find session IDs with
-                    # the matching assessment, then find all traces in
-                    # those sessions.
-                    session_ids_with_assessment = (
-                        session
-                        .query(SqlTraceMetadata.value)
-                        .join(
-                            SqlAssessments,
-                            SqlAssessments.trace_id == SqlTraceMetadata.request_id,
-                        )
-                        .filter(
-                            SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
-                            SqlAssessments.assessment_type == key_type,
-                            SqlAssessments.name == key_name,
-                            SqlAssessments.valid == sqlalchemy.true(),
-                            SqlAssessments.assessment_metadata.isnot(None),
-                            SqlAssessments.assessment_metadata.contains(
-                                f'"{TraceMetadataKey.TRACE_SESSION}"'
-                            ),
-                        )
-                    )
-                    session_covered = session.query(SqlTraceMetadata.request_id).filter(
-                        SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
-                        SqlTraceMetadata.value.in_(session_ids_with_assessment),
-                    )
+                    session_covered = _get_session_scoped_trace_ids(session, assessment_filters)
 
                     if comparator == "IS NULL":
                         exists_clause = assessment_exists_subquery.exists()
@@ -6835,16 +6838,10 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                             )
                         )
                     else:
-                        # IS NOT NULL: expand session-scoped assessments to include
-                        # all sibling traces in the same session
                         direct_matches = (
                             session
                             .query(SqlAssessments.trace_id.label("request_id"))
-                            .filter(
-                                SqlAssessments.assessment_type == key_type,
-                                SqlAssessments.name == key_name,
-                                SqlAssessments.valid == sqlalchemy.true(),
-                            )
+                            .filter(*assessment_filters)
                             .distinct()
                         )
                         combined = direct_matches.union(session_covered).subquery()
@@ -6855,44 +6852,15 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 value_filter = SearchTraceUtils._get_sql_json_comparison_func(comparator, dialect)(
                     SqlAssessments.value, value
                 )
-                # Direct matches: traces that have the matching assessment
+                assessment_filters_with_value = [*assessment_filters, value_filter]
                 direct_matches = (
                     session
                     .query(SqlAssessments.trace_id.label("request_id"))
-                    .filter(
-                        SqlAssessments.assessment_type == key_type,
-                        SqlAssessments.name == key_name,
-                        SqlAssessments.valid == sqlalchemy.true(),
-                        value_filter,
-                    )
+                    .filter(*assessment_filters_with_value)
                     .distinct()
                 )
-                # Session expansion: for session-scoped assessments, also return
-                # all sibling traces in the same session
-                session_ids_with_assessment = (
-                    session
-                    .query(SqlTraceMetadata.value)
-                    .join(
-                        SqlAssessments,
-                        SqlAssessments.trace_id == SqlTraceMetadata.request_id,
-                    )
-                    .filter(
-                        SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
-                        SqlAssessments.assessment_type == key_type,
-                        SqlAssessments.name == key_name,
-                        SqlAssessments.valid == sqlalchemy.true(),
-                        value_filter,
-                        SqlAssessments.assessment_metadata.isnot(None),
-                        SqlAssessments.assessment_metadata.contains(
-                            f'"{TraceMetadataKey.TRACE_SESSION}"'
-                        ),
-                    )
-                )
-                session_siblings = session.query(
-                    SqlTraceMetadata.request_id.label("request_id")
-                ).filter(
-                    SqlTraceMetadata.key == TraceMetadataKey.TRACE_SESSION,
-                    SqlTraceMetadata.value.in_(session_ids_with_assessment),
+                session_siblings = _get_session_scoped_trace_ids(
+                    session, assessment_filters_with_value
                 )
                 feedback_subquery = direct_matches.union(session_siblings).subquery()
                 span_filters.append(feedback_subquery)
