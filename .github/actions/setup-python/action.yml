@@ -63,8 +63,8 @@ runs:
         # https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisableprogressbars
         echo "HF_HUB_DISABLE_PROGRESS_BARS=1" >> $GITHUB_ENV
       shell: bash
-    - name: Mitigate supply chain attacks by pinning package resolution to a known-safe date
-      # https://github.com/aquasecurity/trivy/discussions/10425
+    # TODO: Remove once the incident is fully remediated
+    - name: Mitigation for https://github.com/aquasecurity/trivy/discussions/10425
       run: |
         # pip 26.0+ is required for --uploaded-prior-to support
         python -m pip install --upgrade "pip>=26.0"
