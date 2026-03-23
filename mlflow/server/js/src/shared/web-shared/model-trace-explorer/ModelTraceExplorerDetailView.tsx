@@ -2,15 +2,7 @@ import { Global } from '@emotion/react';
 import { clamp, values, isString } from 'lodash';
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import {
-  Button,
-  FullscreenExitIcon,
-  FullscreenIcon,
-  InfoFillIcon,
-  Tooltip,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useResizeObserver } from '@databricks/web-shared/hooks';
 import { FormattedMessage } from '@databricks/i18n';
 import { ResizableBox } from 'react-resizable';
@@ -29,9 +21,10 @@ import {
   getTimelineTreeNodesMap,
   SPAN_INDENT_WIDTH,
 } from './timeline-tree/TimelineTree.utils';
+import type { GraphOrientation, GraphSchema } from './graph-view/GraphView.types';
 import { DEFAULT_WORKFLOW_LAYOUT_CONFIG, EXPANDED_WORKFLOW_LAYOUT_CONFIG } from './graph-view/GraphView.types';
 import { computeWorkflowPathToRoot } from './graph-view/GraphView.utils';
-import { computeWorkflowLayout } from './graph-view/GraphView.workflow';
+import { computeLogicalFlowLayout, computeWorkflowLayout } from './graph-view/GraphView.workflow';
 import { GraphViewWorkflowCanvas } from './graph-view/GraphViewWorkflowCanvas';
 import { GraphViewSpanNavigator } from './graph-view/GraphViewSpanNavigator';
 import { useGraphTreeLinkedState } from './graph-view/useGraphTreeLinkedState';
@@ -72,6 +65,9 @@ export const ModelTraceExplorerDetailView = ({
   const [isResizing, setIsResizing] = useState(false);
   const [isGraphExpanded, setIsGraphExpanded] = useState(false);
   const preExpandPaneRatioRef = useRef<number | null>(null);
+  const [graphOrientation, setGraphOrientation] = useState<GraphOrientation>('TB');
+  const [showMinimap, setShowMinimap] = useState(false);
+  const [showStepSequence, setShowStepSequence] = useState(false);
 
   // Ratio-based graph height: same pattern as ModelTraceExplorerResizablePane.
   // Store the ratio in a ref so it persists across container resizes without
@@ -98,10 +94,34 @@ export const ModelTraceExplorerDetailView = ({
     topLevelNodes,
   } = useModelTraceExplorerViewState();
 
-  const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
+  const activeLayoutConfig = useMemo(
+    () => ({
+      ...(isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG),
+      orientation: graphOrientation,
+    }),
+    [isGraphExpanded, graphOrientation],
+  );
+
+  const graphSchema = useMemo((): GraphSchema | null => {
+    const tags =
+      modelTraceInfo && 'tags' in modelTraceInfo
+        ? (modelTraceInfo as { tags?: Record<string, string> }).tags
+        : undefined;
+    const raw = tags?.['mlflow.trace.graphSchema'];
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as GraphSchema;
+    } catch {
+      return null;
+    }
+  }, [modelTraceInfo]);
+
   const workflowLayout = useMemo(
-    () => computeWorkflowLayout(rootNode, activeLayoutConfig),
-    [rootNode, activeLayoutConfig],
+    () =>
+      graphSchema
+        ? computeLogicalFlowLayout(graphSchema, rootNode, activeLayoutConfig)
+        : computeWorkflowLayout(rootNode, activeLayoutConfig),
+    [rootNode, activeLayoutConfig, graphSchema],
   );
 
   const {
@@ -289,14 +309,11 @@ export const ModelTraceExplorerDetailView = ({
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'space-between',
           padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
           borderBottom: `1px solid ${theme.colors.border}`,
           backgroundColor: theme.colors.backgroundSecondary,
           flexShrink: 0,
           minWidth: 200,
-          flexWrap: 'wrap',
-          gap: theme.spacing.xs,
         }}
       >
         <Typography.Text size="sm" color="secondary">
@@ -306,42 +323,6 @@ export const ModelTraceExplorerDetailView = ({
             values={{ count: workflowLayout.nodes.length }}
           />
         </Typography.Text>
-        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-          <Tooltip
-            componentId="shared.model-trace-explorer.graph-navigation-hint"
-            content={
-              <FormattedMessage
-                defaultMessage="Scroll to zoom, drag background to pan, drag nodes to reposition"
-                description="Navigation hint for graph view"
-              />
-            }
-          >
-            <InfoFillIcon css={{ width: 14, height: 14, color: theme.colors.textSecondary, cursor: 'help' }} />
-          </Tooltip>
-          <Tooltip
-            componentId="shared.model-trace-explorer.graph-expand-toggle"
-            content={
-              isGraphExpanded ? (
-                <FormattedMessage
-                  defaultMessage="Collapse graph"
-                  description="Tooltip for the button that collapses the graph view to its default size"
-                />
-              ) : (
-                <FormattedMessage
-                  defaultMessage="Expand graph"
-                  description="Tooltip for the button that expands the graph view to a larger size"
-                />
-              )
-            }
-          >
-            <Button
-              componentId="shared.model-trace-explorer.graph-expand-button"
-              icon={isGraphExpanded ? <FullscreenExitIcon /> : <FullscreenIcon />}
-              size="small"
-              onClick={handleToggleGraphExpand}
-            />
-          </Tooltip>
-        </div>
       </div>
 
       <GraphViewWorkflowCanvas
@@ -351,6 +332,14 @@ export const ModelTraceExplorerDetailView = ({
         highlightedPathEdgeIds={highlightedWorkflowEdgeIds}
         onSelectNode={handleSelectWorkflowNode}
         onViewSpanDetails={handleViewSpanDetails}
+        orientation={graphOrientation}
+        onOrientationChange={setGraphOrientation}
+        showMinimap={showMinimap}
+        onShowMinimapChange={setShowMinimap}
+        showStepSequence={showStepSequence}
+        onShowStepSequenceChange={setShowStepSequence}
+        isGraphExpanded={isGraphExpanded}
+        onToggleGraphExpand={handleToggleGraphExpand}
       />
     </div>
   );

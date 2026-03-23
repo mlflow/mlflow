@@ -1,4 +1,5 @@
 import logging
+from contextvars import ContextVar
 
 from mlflow.langchain.constant import FLAVOR_NAME
 from mlflow.telemetry.events import AutologgingEvent
@@ -8,6 +9,8 @@ from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
 
 logger = logging.getLogger(__name__)
+
+_langgraph_graph_schema = ContextVar("langgraph_graph_schema", default=None)
 
 
 @autologging_integration(FLAVOR_NAME)
@@ -77,9 +80,52 @@ def autolog(
     except Exception:
         logger.debug("Failed to patch RunnableSequence or BaseCallbackManager.", exc_info=True)
 
+    try:
+        from langgraph.graph.state import CompiledStateGraph
+
+        safe_patch(FLAVOR_NAME, CompiledStateGraph, "invoke", _patched_langgraph_invoke)
+        safe_patch(FLAVOR_NAME, CompiledStateGraph, "stream", _patched_langgraph_stream)
+    except Exception:
+        logger.debug("Failed to patch CompiledStateGraph.", exc_info=True)
+
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
     )
+
+
+def _extract_langgraph_schema(graph):
+    try:
+        schema = graph.get_graph().to_json()
+    except Exception:
+        schema = None
+    return schema
+
+
+def _patched_langgraph_invoke(original, self, *args, **kwargs):
+    schema = _extract_langgraph_schema(self)
+    token = _langgraph_graph_schema.set(schema)
+    try:
+        return original(self, *args, **kwargs)
+    finally:
+        _langgraph_graph_schema.reset(token)
+
+
+def _patched_langgraph_stream(original, self, *args, **kwargs):
+    schema = _extract_langgraph_schema(self)
+    token = _langgraph_graph_schema.set(schema)
+    try:
+        gen = original(self, *args, **kwargs)
+    except BaseException:
+        _langgraph_graph_schema.reset(token)
+        raise
+
+    def _wrapper():
+        try:
+            yield from gen
+        finally:
+            _langgraph_graph_schema.reset(token)
+
+    return _wrapper()
 
 
 def _patched_callback_manager_init(original, self, *args, **kwargs):

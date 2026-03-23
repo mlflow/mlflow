@@ -3,6 +3,7 @@ export { GraphViewSpanNavigator } from './GraphViewSpanNavigator';
 export { useGraphTreeLinkedState } from './useGraphTreeLinkedState';
 export type {
   GraphLayoutConfig,
+  GraphOrientation,
   WorkflowNode,
   WorkflowEdge,
   WorkflowLayout,

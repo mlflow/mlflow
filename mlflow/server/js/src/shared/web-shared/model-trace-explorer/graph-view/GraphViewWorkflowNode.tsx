@@ -222,33 +222,163 @@ export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodePro
     onViewSpanDetails,
     nodeWidth,
     nodeHeight,
+    isStructural,
+    isExecuted,
+    executionOrder,
+    orientation,
   } = data;
 
-  const spanType = nodeType as ModelSpanType | undefined;
+  const isHorizontal = orientation === 'LR';
 
-  // Check if ANY span in this aggregated node has an exception
+  const spanType = nodeType as ModelSpanType | undefined;
+  const nodeIsExecuted = isExecuted ?? true;
+
   const errorCount = useMemo(() => spans.reduce((acc, span) => acc + getSpanExceptionCount(span), 0), [spans]);
   const hasException = errorCount > 0;
 
-  const backgroundColor = hasException
-    ? theme.isDarkMode
-      ? theme.colors.red800
-      : theme.colors.red100
-    : getNodeBackgroundColor(spanType, theme);
+  const backgroundColor = !nodeIsExecuted
+    ? 'transparent'
+    : hasException
+      ? theme.isDarkMode
+        ? theme.colors.red800
+        : theme.colors.red100
+      : isStructural
+        ? theme.colors.backgroundSecondary
+        : getNodeBackgroundColor(spanType, theme);
 
   const isHighlighted = isSelected || isOnHighlightedPath;
-  const borderColor = hasException
-    ? theme.colors.actionDangerPrimaryBackgroundDefault
-    : isHighlighted
-      ? theme.colors.actionPrimaryBackgroundDefault
-      : 'transparent';
+  const borderColor = !nodeIsExecuted
+    ? theme.isDarkMode
+      ? 'rgba(255, 255, 255, 0.15)'
+      : 'rgba(0, 0, 0, 0.1)'
+    : hasException
+      ? theme.colors.actionDangerPrimaryBackgroundDefault
+      : isHighlighted
+        ? theme.colors.actionPrimaryBackgroundDefault
+        : 'transparent';
   const borderWidth = hasException || isHighlighted ? 2 : 1;
 
   const iconType = getIconTypeForSpan(spanType ?? 'UNKNOWN');
-  // Scale truncation with node width: ~1 char per 8px of available text space.
-  // Reserve ~40px for icon (24px) + icon margin (8px) + horizontal padding (2×4px).
-  const maxTitleChars = Math.max(8, Math.floor((nodeWidth - 40) / 8));
+  const maxTitleChars = Math.max(8, Math.floor((nodeWidth - (isStructural ? 16 : 40)) / 8));
   const title = truncateText(displayName, maxTitleChars);
+
+  const nodeContent = (
+    <div
+      css={{
+        width: nodeWidth,
+        height: nodeHeight,
+        backgroundColor,
+        border: `${borderWidth}px ${!nodeIsExecuted ? 'dashed' : 'solid'} ${borderColor}`,
+        borderRadius: isStructural ? nodeHeight / 2 : theme.borders.borderRadiusMd,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: isStructural ? 'center' : 'flex-start',
+        padding: `0 ${theme.spacing.xs}px`,
+        cursor: nodeIsExecuted ? 'pointer' : 'default',
+        position: 'relative',
+        opacity: !nodeIsExecuted ? 0.4 : 1,
+        '&:hover': nodeIsExecuted ? { filter: 'brightness(0.95)' } : {},
+      }}
+    >
+      <Handle type="target" position={isHorizontal ? Position.Left : Position.Top} css={{ visibility: 'hidden' }} />
+      <Handle type="source" position={isHorizontal ? Position.Right : Position.Bottom} css={{ visibility: 'hidden' }} />
+
+      {!isStructural && (
+        <div
+          css={{
+            width: 24,
+            height: 24,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginRight: theme.spacing.sm,
+          }}
+        >
+          <ModelTraceExplorerIcon type={iconType} hasException={hasException} />
+        </div>
+      )}
+
+      <span
+        css={{
+          fontSize: isStructural ? theme.typography.fontSizeSm : theme.typography.fontSizeMd,
+          fontWeight: isStructural ? 600 : theme.typography.typographyBoldFontWeight,
+          color: hasException
+            ? theme.colors.actionDangerPrimaryBackgroundDefault
+            : !nodeIsExecuted
+              ? theme.colors.textSecondary
+              : theme.colors.textPrimary,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          letterSpacing: isStructural ? '0.05em' : undefined,
+        }}
+      >
+        {title}
+      </span>
+
+      {hasException && (
+        <div
+          css={{
+            position: 'absolute',
+            top: -10,
+            left: -10,
+            width: 20,
+            height: 20,
+            borderRadius: '50%',
+            backgroundColor: theme.colors.actionDangerPrimaryBackgroundDefault,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: theme.shadows.sm,
+          }}
+        >
+          <XCircleIcon css={{ width: 14, height: 14, color: 'white' }} />
+        </div>
+      )}
+
+      {count > 1 && (
+        <div
+          css={{
+            position: 'absolute',
+            top: -12,
+            right: -12,
+            width: 24,
+            height: 24,
+            borderRadius: '50%',
+            backgroundColor: isHighlighted ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.tagDefault,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 11,
+            fontWeight: 600,
+            color: isHighlighted ? theme.colors.white : theme.colors.textSecondary,
+          }}
+        >
+          {count > 99 ? '99+' : count}
+        </div>
+      )}
+
+      {isSelected && (
+        <div
+          css={{
+            position: 'absolute',
+            top: -5,
+            left: -5,
+            right: -5,
+            bottom: -5,
+            border: `2px dashed ${theme.colors.actionPrimaryBackgroundDefault}`,
+            borderRadius: theme.borders.borderRadiusMd + 2,
+            opacity: 0.6,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+    </div>
+  );
+
+  if (isStructural) {
+    return nodeContent;
+  }
 
   return (
     <Tooltip
@@ -265,114 +395,7 @@ export const WorkflowNode = memo(function WorkflowNode({ data }: WorkflowNodePro
       side="right"
       maxWidth={350}
     >
-      <div
-        css={{
-          width: nodeWidth,
-          height: nodeHeight,
-          backgroundColor,
-          border: `${borderWidth}px solid ${borderColor}`,
-          borderRadius: theme.borders.borderRadiusMd,
-          display: 'flex',
-          alignItems: 'center',
-          padding: `0 ${theme.spacing.xs}px`,
-          cursor: 'pointer',
-          position: 'relative',
-          '&:hover': { filter: 'brightness(0.95)' },
-        }}
-      >
-        {/* Connection handles */}
-        <Handle type="target" position={Position.Top} css={{ visibility: 'hidden' }} />
-        <Handle type="source" position={Position.Bottom} css={{ visibility: 'hidden' }} />
-
-        {/* Icon */}
-        <div
-          css={{
-            width: 24,
-            height: 24,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            marginRight: theme.spacing.sm,
-          }}
-        >
-          <ModelTraceExplorerIcon type={iconType} hasException={hasException} />
-        </div>
-
-        {/* Title */}
-        <span
-          css={{
-            fontSize: theme.typography.fontSizeMd,
-            fontWeight: theme.typography.typographyBoldFontWeight,
-            color: hasException ? theme.colors.actionDangerPrimaryBackgroundDefault : theme.colors.textPrimary,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {title}
-        </span>
-
-        {/* Error badge */}
-        {hasException && (
-          <div
-            css={{
-              position: 'absolute',
-              top: -10,
-              left: -10,
-              width: 20,
-              height: 20,
-              borderRadius: '50%',
-              backgroundColor: theme.colors.actionDangerPrimaryBackgroundDefault,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: theme.shadows.sm,
-            }}
-          >
-            <XCircleIcon css={{ width: 14, height: 14, color: 'white' }} />
-          </div>
-        )}
-
-        {/* Count badge */}
-        {count > 1 && (
-          <div
-            css={{
-              position: 'absolute',
-              top: -12,
-              right: -12,
-              width: 24,
-              height: 24,
-              borderRadius: '50%',
-              backgroundColor: isHighlighted ? theme.colors.actionPrimaryBackgroundDefault : theme.colors.tagDefault,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 11,
-              fontWeight: 600,
-              color: isHighlighted ? theme.colors.white : theme.colors.textSecondary,
-            }}
-          >
-            {count > 99 ? '99+' : count}
-          </div>
-        )}
-
-        {/* Selection indicator */}
-        {isSelected && (
-          <div
-            css={{
-              position: 'absolute',
-              top: -5,
-              left: -5,
-              right: -5,
-              bottom: -5,
-              border: `2px dashed ${theme.colors.actionPrimaryBackgroundDefault}`,
-              borderRadius: theme.borders.borderRadiusMd + 2,
-              opacity: 0.6,
-              pointerEvents: 'none',
-            }}
-          />
-        )}
-      </div>
+      {nodeContent}
     </Tooltip>
   );
 });

@@ -5,7 +5,7 @@ import pytest
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.tracing.constant import TokenUsageKey, TraceMetadataKey
+from mlflow.tracing.constant import TokenUsageKey, TraceMetadataKey, TraceTagKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
@@ -275,6 +275,45 @@ def test_langgraph_chat_agent_trace():
     assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
     assert traces[0].data.spans[0].name == "LangGraph"
     assert traces[0].data.spans[0].inputs == input_example
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.parametrize("use_stream", [False, True], ids=["invoke", "stream"])
+def test_langgraph_graph_schema_in_trace(use_stream):
+    from tests.langgraph.sample_code.langgraph_prebuilt import graph
+
+    mlflow.langchain.autolog()
+
+    input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
+
+    if use_stream:
+        list(graph.stream(input_example))
+    else:
+        graph.invoke(input_example)
+
+    traces = get_traces()
+    assert len(traces) == 1
+
+    # Verify graph schema is present in trace tags
+    schema_raw = traces[0].info.tags.get(TraceTagKey.GRAPH_SCHEMA)
+    assert schema_raw is not None
+
+    schema = json.loads(schema_raw)
+    assert "nodes" in schema
+    assert "edges" in schema
+    assert len(schema["nodes"]) > 0
+    assert len(schema["edges"]) > 0
+
+    # Verify structural nodes exist
+    node_ids = {n["id"] for n in schema["nodes"]}
+    assert "__start__" in node_ids
+    assert "__end__" in node_ids
+
+    # Verify spans have langgraph_node metadata
+    for span in traces[0].data.spans:
+        attrs = span.get_attribute("metadata") or {}
+        if "langgraph_node" in attrs:
+            assert attrs["langgraph_node"] in node_ids
 
 
 @skip_when_testing_trace_sdk

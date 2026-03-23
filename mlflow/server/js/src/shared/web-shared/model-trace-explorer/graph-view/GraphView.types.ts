@@ -3,6 +3,26 @@ import type { Node, Edge } from '@xyflow/react';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 
 /**
+ * Framework-agnostic graph schema describing node-and-edge topology.
+ * Populated from the `mlflow.trace.graphSchema` trace tag (see TraceTagKey.GRAPH_SCHEMA).
+ * Currently extracted by LangGraph autologging via CompiledGraph.get_graph().to_json();
+ * other frameworks can populate the same tag to enable the graph view.
+ */
+export interface GraphSchema {
+  nodes: Array<{
+    id: string;
+    type?: string;
+    data?: { id?: string[]; name?: string };
+  }>;
+  edges: Array<{
+    source: string;
+    target: string;
+    data?: string;
+    conditional?: boolean;
+  }>;
+}
+
+/**
  * Data payload for workflow nodes
  */
 export interface WorkflowNodeData extends Record<string, unknown> {
@@ -15,6 +35,10 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   onViewSpanDetails: (span: ModelTraceSpanNode) => void;
   nodeWidth: number;
   nodeHeight: number;
+  isStructural?: boolean;
+  isExecuted?: boolean;
+  executionOrder?: number[];
+  orientation?: GraphOrientation;
 }
 
 /**
@@ -30,12 +54,24 @@ export interface WorkflowEdgeData extends Record<string, unknown> {
   isBackEdge: boolean;
   isNestedCall: boolean;
   isHighlighted: boolean;
+  isConditional?: boolean;
+  isExecuted?: boolean;
+  conditionLabel?: string;
+  stepSequence?: number[];
+  isReturnEdge?: boolean;
+  orientation?: GraphOrientation;
 }
 
 /**
  * React Flow edge type for workflow view
  */
 export type WorkflowFlowEdge = Edge<WorkflowEdgeData>;
+
+/**
+ * Flow direction for the graph layout.
+ * 'TB' = top-to-bottom (vertical), 'LR' = left-to-right (horizontal).
+ */
+export type GraphOrientation = 'TB' | 'LR';
 
 /**
  * Layout configuration options
@@ -46,6 +82,7 @@ export interface GraphLayoutConfig {
   horizontalSpacing: number;
   verticalSpacing: number;
   padding: number;
+  orientation: GraphOrientation;
 }
 
 /**
@@ -61,6 +98,10 @@ export interface WorkflowNode {
   y: number;
   width: number;
   height: number;
+  isStructural?: boolean;
+  isExecuted?: boolean;
+  /** Step numbers showing when this node was visited during execution (1-indexed). */
+  executionOrder?: number[];
 }
 
 /**
@@ -74,6 +115,12 @@ export interface WorkflowEdge {
   isBackEdge: boolean;
   isNestedCall?: boolean;
   condition?: string;
+  isConditional?: boolean;
+  isExecuted?: boolean;
+  /** Step numbers showing when this edge was traversed during execution (1-indexed). */
+  stepSequence?: number[];
+  /** True for loop-back return edges (e.g. tool→agent). Rendered subtly. */
+  isReturnEdge?: boolean;
 }
 
 /**
@@ -95,6 +142,7 @@ export const DEFAULT_WORKFLOW_LAYOUT_CONFIG: GraphLayoutConfig = {
   horizontalSpacing: 60,
   verticalSpacing: 80,
   padding: 40,
+  orientation: 'TB',
 };
 
 /**
@@ -107,4 +155,5 @@ export const EXPANDED_WORKFLOW_LAYOUT_CONFIG: GraphLayoutConfig = {
   horizontalSpacing: 80,
   verticalSpacing: 100,
   padding: 50,
+  orientation: 'TB',
 };

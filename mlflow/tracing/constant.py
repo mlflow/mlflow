@@ -42,6 +42,9 @@ class TraceTagKey:
     # Store a list of linked prompt versions in JSON format
     # Structure: [{"name": "prompt_name", "version": "version"}]
     LINKED_PROMPTS = "mlflow.linkedPrompts"
+    # Store the graph schema (topology) from a framework's native graph structure (e.g. LangGraph).
+    # Stored as a JSON string. Uses tags instead of metadata to allow up to 4096 chars.
+    GRAPH_SCHEMA = "mlflow.trace.graphSchema"
 
 
 class TokenUsageKey:

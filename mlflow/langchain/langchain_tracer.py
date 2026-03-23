@@ -23,7 +23,7 @@ from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, Spa
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import parse_token_usage
-from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey, TraceTagKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -485,6 +485,17 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
         # NB: We need to guard this with active trace existence because sometimes LangGraph
         # execute the callback within an isolated thread where the active trace is not set.
+        if parent_run_id is None and mlflow.get_current_active_span() is not None:
+            from mlflow.langchain.autolog import _langgraph_graph_schema
+
+            if (schema := _langgraph_graph_schema.get()) is not None:
+                import json
+
+                # Store as tag (up to 4096 chars) instead of metadata (250 char limit)
+                mlflow.update_current_trace(
+                    tags={TraceTagKey.GRAPH_SCHEMA: json.dumps(schema)}
+                )
+
         if (
             metadata is not None
             and (thread_id := metadata.get("thread_id"))

@@ -5,6 +5,8 @@ import {
   useReactFlow,
   useNodesInitialized,
   ReactFlowProvider,
+  MiniMap,
+  Panel,
   applyNodeChanges,
   type OnNodesChange,
 } from '@xyflow/react';
@@ -12,9 +14,16 @@ import '@xyflow/react/dist/style.css';
 import { useDesignSystemTheme } from '@databricks/design-system';
 
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
-import type { WorkflowLayout, WorkflowNode, WorkflowFlowNode, WorkflowFlowEdge } from './GraphView.types';
+import type {
+  GraphOrientation,
+  WorkflowLayout,
+  WorkflowNode,
+  WorkflowFlowNode,
+  WorkflowFlowEdge,
+} from './GraphView.types';
 import { workflowNodeTypes } from './GraphViewWorkflowNode';
 import { WorkflowEdgeMarkerDefs, workflowEdgeTypes } from './GraphViewWorkflowEdge';
+import { GraphViewFloatingToolbar } from './GraphViewFloatingToolbar';
 
 interface GraphViewWorkflowCanvasProps {
   layout: WorkflowLayout;
@@ -23,6 +32,14 @@ interface GraphViewWorkflowCanvasProps {
   highlightedPathEdgeIds: Set<string>;
   onSelectNode: (node: WorkflowNode | null) => void;
   onViewSpanDetails: (span: ModelTraceSpanNode) => void;
+  orientation: GraphOrientation;
+  onOrientationChange: (orientation: GraphOrientation) => void;
+  showMinimap: boolean;
+  onShowMinimapChange: (show: boolean) => void;
+  showStepSequence: boolean;
+  onShowStepSequenceChange: (show: boolean) => void;
+  isGraphExpanded: boolean;
+  onToggleGraphExpand: () => void;
 }
 
 // Inner component that uses React Flow hooks
@@ -33,9 +50,17 @@ const GraphViewWorkflowCanvasInner = ({
   highlightedPathEdgeIds,
   onSelectNode,
   onViewSpanDetails,
+  orientation,
+  onOrientationChange,
+  showMinimap,
+  onShowMinimapChange,
+  showStepSequence,
+  onShowStepSequenceChange,
+  isGraphExpanded,
+  onToggleGraphExpand,
 }: GraphViewWorkflowCanvasProps) => {
   const { theme } = useDesignSystemTheme();
-  const { fitView, getZoom, setCenter } = useReactFlow();
+  const { fitView, getZoom, setCenter, zoomIn, zoomOut } = useReactFlow();
 
   // Create a map from node ID to node for callbacks
   const nodeMap = useMemo(() => {
@@ -71,26 +96,29 @@ const GraphViewWorkflowCanvasInner = ({
           onViewSpanDetails: stableOnViewSpanDetails,
           nodeWidth: node.width,
           nodeHeight: node.height,
+          isStructural: node.isStructural,
+          isExecuted: node.isExecuted,
+          executionOrder: node.executionOrder,
+          orientation,
         },
       }),
     );
-  }, [layout.nodes, selectedNodeId, highlightedPathNodeIds, stableOnViewSpanDetails]);
+  }, [layout.nodes, selectedNodeId, highlightedPathNodeIds, stableOnViewSpanDetails, orientation]);
 
   const [nodes, setNodes] = useState<WorkflowFlowNode[]>(buildFlowNodes);
 
   // Update nodes when layout or selection changes, preserving user-dragged positions
-  const layoutVersionRef = useRef(0);
   const prevLayoutRef = useRef(layout);
+  const prevOrientationRef = useRef(orientation);
   useEffect(() => {
     const layoutChanged = prevLayoutRef.current !== layout;
+    const orientationChanged = prevOrientationRef.current !== orientation;
     prevLayoutRef.current = layout;
+    prevOrientationRef.current = orientation;
 
-    if (layoutChanged) {
-      // Full layout change: reset positions from the new layout
-      layoutVersionRef.current++;
+    if (layoutChanged || orientationChanged) {
       setNodes(buildFlowNodes());
     } else {
-      // Only selection/highlight changed: update data but keep current positions
       setNodes((prev) =>
         prev.map((flowNode) => {
           const layoutNode = nodeMap.get(flowNode.id);
@@ -106,7 +134,7 @@ const GraphViewWorkflowCanvasInner = ({
         }),
       );
     }
-  }, [layout, selectedNodeId, highlightedPathNodeIds, buildFlowNodes, nodeMap]);
+  }, [layout, orientation, selectedNodeId, highlightedPathNodeIds, buildFlowNodes, nodeMap]);
 
   // Handle node changes (drag, select, etc.) to persist dragged positions
   const onNodesChange: OnNodesChange<WorkflowFlowNode> = useCallback((changes) => {
@@ -127,10 +155,16 @@ const GraphViewWorkflowCanvasInner = ({
           isBackEdge: edge.isBackEdge,
           isNestedCall: edge.isNestedCall ?? false,
           isHighlighted: highlightedPathEdgeIds.has(edgeId),
+          isConditional: edge.isConditional ?? false,
+          isExecuted: edge.isExecuted,
+          conditionLabel: edge.condition,
+          stepSequence: showStepSequence ? edge.stepSequence : undefined,
+          isReturnEdge: edge.isReturnEdge ?? false,
+          orientation,
         },
       };
     });
-  }, [layout.edges, highlightedPathEdgeIds]);
+  }, [layout.edges, highlightedPathEdgeIds, showStepSequence, orientation]);
 
   // Re-center the view when nodes are initialized or layout changes
   const nodesInitialized = useNodesInitialized();
@@ -188,6 +222,18 @@ const GraphViewWorkflowCanvasInner = ({
     onSelectNode(null);
   }, [onSelectNode]);
 
+  const handleFitView = useCallback(() => {
+    fitView({ padding: 0.2, duration: 200 });
+  }, [fitView]);
+
+  const handleZoomIn = useCallback(() => {
+    zoomIn({ duration: 200 });
+  }, [zoomIn]);
+
+  const handleZoomOut = useCallback(() => {
+    zoomOut({ duration: 200 });
+  }, [zoomOut]);
+
   return (
     <div css={{ flex: 1, width: '100%', height: '100%', position: 'relative' }}>
       {/* SVG marker definitions for edge arrows */}
@@ -213,7 +259,35 @@ const GraphViewWorkflowCanvasInner = ({
         style={{
           backgroundColor: theme.colors.backgroundPrimary,
         }}
-      />
+      >
+        {showMinimap && (
+          <MiniMap
+            nodeStrokeWidth={3}
+            pannable
+            zoomable
+            style={{
+              backgroundColor: theme.colors.backgroundSecondary,
+              border: `1px solid ${theme.colors.border}`,
+              borderRadius: theme.borders.borderRadiusMd,
+            }}
+          />
+        )}
+        <Panel position="bottom-right" css={{ margin: 0 }}>
+          <GraphViewFloatingToolbar
+            orientation={orientation}
+            onOrientationChange={onOrientationChange}
+            showMinimap={showMinimap}
+            onShowMinimapChange={onShowMinimapChange}
+            showStepSequence={showStepSequence}
+            onShowStepSequenceChange={onShowStepSequenceChange}
+            isGraphExpanded={isGraphExpanded}
+            onToggleGraphExpand={onToggleGraphExpand}
+            onFitView={handleFitView}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+          />
+        </Panel>
+      </ReactFlow>
     </div>
   );
 };
