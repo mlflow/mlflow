@@ -19,6 +19,8 @@ TRACE_CONTENT_TRUNCATION = 1000
 
 DEFAULT_MODEL = "openai:/gpt-5-mini"
 DEFAULT_SCORER_NAME = "_issue_discovery_judge"
+# Default number of slowest spans to include in timing information
+DEFAULT_TOP_N_SLOWEST_SPANS = 3
 
 # Category name constants
 CATEGORY_CORRECTNESS = "correctness"
@@ -64,8 +66,7 @@ the task{latency_context}. Consider latency problematic if ANY of the following 
       - Expressing impatience, frustration about wait time, or asking if system is working
   (b) Duration significantly exceeds typical performance for this dataset (if timing \
       context is provided, use it: e.g., >2x the p90 is very slow, >p95 is slow)
-  (c) Duration is egregiously slow in absolute terms (>60 seconds for any query)
-  (d) Trace includes error messages related to timeouts or performance issues
+  (c) Trace includes error messages related to timeouts or performance issues
 When user feedback about slowness is present (condition a), ALWAYS tag latency even if \
 duration seems reasonable by thresholds — user perception is ground truth. If "Slowest spans" \
 information is provided and latency is problematic, cite the specific slow operations \

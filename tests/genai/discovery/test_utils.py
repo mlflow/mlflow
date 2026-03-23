@@ -10,6 +10,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
+from mlflow.genai.discovery.constants import CATEGORY_LATENCY, build_satisfaction_instructions
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.utils import (
     _call_llm,
@@ -19,6 +20,7 @@ from mlflow.genai.discovery.utils import (
     _TokenCounter,
     build_summary,
     collect_affected_trace_ids,
+    compute_latency_percentiles,
     format_annotation_prompt,
     format_trace_content,
     get_session_id,
@@ -393,3 +395,89 @@ def test_lookup_model_cost_returns_none_on_network_error():
         assert _lookup_model_cost("openai:/gpt-5-mini", 100, 50) is None
 
     mock_fetch.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("durations", "expected_result"),
+    [
+        (
+            [1000, 2000, 3000, 4000, 5000],
+            {"p50": 3.0, "p75": 4.0, "p90": 4.6, "p95": 4.8, "p99": 4.96, "count": 5},
+        ),
+        ([], None),
+        ([None, None], None),
+        (
+            [1000, None, 2000],
+            {"p50": 1.5, "p75": 1.75, "p90": 1.9, "p95": 1.95, "p99": 1.99, "count": 2},
+        ),
+    ],
+    ids=["valid_traces", "empty_traces", "no_durations", "skips_without_duration"],
+)
+def test_compute_latency_percentiles(make_trace, durations, expected_result):
+    traces = [make_trace(execution_duration_ms=d) for d in durations] if durations else []
+    result = compute_latency_percentiles(traces)
+    assert result == expected_result
+
+
+@pytest.mark.parametrize(
+    ("use_conversation", "categories", "latency_stats", "expected_assertions"),
+    [
+        (
+            False,
+            [CATEGORY_LATENCY, "correctness"],
+            {"p50": 1.5, "p75": 2.0, "p90": 3.0, "p95": 4.0, "count": 100},
+            {
+                "LATENCY CHECK:": True,
+                "p50=1.5s": True,
+                "p75=2.0s": True,
+                "p90=3.0s": True,
+                "p95=4.0s": True,
+                "from 100 traces": True,
+            },
+        ),
+        (
+            False,
+            [CATEGORY_LATENCY, "correctness"],
+            None,
+            {
+                "LATENCY CHECK:": True,
+                "p50=": False,
+                "using this dataset's latency distribution": False,
+            },
+        ),
+        (
+            False,
+            ["correctness", "relevance"],
+            None,
+            {"LATENCY CHECK:": False},
+        ),
+        (
+            True,
+            [CATEGORY_LATENCY],
+            {"p50": 1.0, "p75": 1.5, "p90": 2.0, "p95": 2.5, "count": 50},
+            {
+                "LATENCY CHECK:": True,
+                "p50=1.0s": True,
+                "conversation": True,
+            },
+        ),
+    ],
+    ids=[
+        "with_stats",
+        "without_stats",
+        "no_latency_category",
+        "conversation_mode",
+    ],
+)
+def test_build_satisfaction_instructions_latency_variations(
+    use_conversation, categories, latency_stats, expected_assertions
+):
+    result = build_satisfaction_instructions(
+        use_conversation=use_conversation, categories=categories, latency_stats=latency_stats
+    )
+
+    for expected_text, should_be_present in expected_assertions.items():
+        if should_be_present:
+            assert expected_text in result or expected_text in result.lower()
+        else:
+            assert expected_text not in result

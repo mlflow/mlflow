@@ -20,6 +20,7 @@ from mlflow.environment_variables import (
     MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.discovery.constants import DEFAULT_TOP_N_SLOWEST_SPANS
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils import get_chat_completions_with_structured_output
 from mlflow.genai.utils.data_validation import check_model_prediction
@@ -316,12 +317,15 @@ def validate_session(session: list[Trace]) -> None:
         )
 
 
-def _extract_trace_timing_info(trace: Trace) -> dict[str, Any] | None:
+def _extract_trace_timing_info(
+    trace: Trace, *, top_n_slowest_spans: int = DEFAULT_TOP_N_SLOWEST_SPANS
+) -> dict[str, Any] | None:
     """
     Extract timing information from a trace for display in evaluations.
 
     Args:
         trace: The trace to extract timing from.
+        top_n_slowest_spans: Number of slowest spans to include in the output.
 
     Returns:
         Dict containing 'duration_s' (float) and 'slowest_spans_formatted' (str | None),
@@ -333,13 +337,13 @@ def _extract_trace_timing_info(trace: Trace) -> dict[str, Any] | None:
     duration_s = trace.info.execution_duration / 1000
     slowest_spans_formatted = None
 
-    # Extract top 3 slowest spans for context on bottlenecks
+    # Extract top N slowest spans for context on bottlenecks
     if trace.data.spans:
         # Filter out spans that do not have an end time to avoid None arithmetic
         if completed_spans := [span for span in trace.data.spans if span.end_time_ns is not None]:
             if sorted_spans := sorted(
                 completed_spans, key=lambda s: s.end_time_ns - s.start_time_ns, reverse=True
-            )[:3]:
+            )[:top_n_slowest_spans]:
                 slow_spans = [
                     f"{span.name} ({(span.end_time_ns - span.start_time_ns) / 1_000_000_000:.2f}s)"
                     for span in sorted_spans
