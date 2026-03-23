@@ -52,6 +52,7 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-node
+        if: matrix.type == 'dev'
 
       - name: Build UI
         if: matrix.type == 'dev'
@@ -118,6 +119,16 @@ jobs:
         run: |
           if unzip -l "$WHEEL_PATH" | grep -q "server/js/build"; then
             echo "ERROR: JS build artifacts found in $MATRIX_TYPE wheel"
+            exit 1
+          fi
+
+      - name: Validate JS build artifacts present in dev wheel
+        if: matrix.type == 'dev'
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
+        run: |
+          if ! unzip -l "$WHEEL_PATH" | grep -q "mlflow/server/js/build/index.html"; then
+            echo "ERROR: JS build artifacts not found in dev wheel"
             exit 1
           fi
 
