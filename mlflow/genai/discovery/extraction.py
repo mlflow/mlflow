@@ -236,7 +236,6 @@ def extract_failure_labels(
 
 
 def _parse_dict_value(d: dict) -> tuple[bool, list[str]]:
-    """Parse a dict with "passed" and "categories" keys."""
     passed = str(d.get("passed", "true")).lower() == "true"
     cats = [c.strip() for c in d.get("categories", "").split(",") if c.strip()]
     return passed, cats

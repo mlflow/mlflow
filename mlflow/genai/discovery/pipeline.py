@@ -460,7 +460,12 @@ def _build_issues(
                 source_run_id=source_run_id,
             )
         except Exception:
-            _logger.debug("Could not persist issue to tracking server, creating local Issue")
+            from mlflow.utils.uri import is_databricks_uri
+
+            if is_databricks_uri(mlflow.get_tracking_uri()):
+                _logger.debug("Could not persist issue to tracking server, creating local Issue")
+            else:
+                _logger.warning("Could not persist issue to tracking server, creating local Issue")
             now_ms = int(time.time() * 1000)
             issue = Issue(
                 issue_id=f"local-{uuid.uuid4().hex[:8]}",

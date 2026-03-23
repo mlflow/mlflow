@@ -17,6 +17,7 @@ from mlflow.genai.discovery.utils import (
     _lookup_model_cost,
     _ModelCost,
     _pydantic_to_response_format,
+    _resolve_refs,
     _TokenCounter,
     build_summary,
     collect_affected_trace_ids,
@@ -602,3 +603,66 @@ def test_call_llm_tracks_tokens():
         assert counter.input_tokens == 100
         assert counter.output_tokens == 50
         assert counter.cost_usd == 0.01
+
+
+# ---- _resolve_refs ----
+
+
+def test_resolve_refs_inlines_ref():
+    schema = {
+        "type": "object",
+        "properties": {"item": {"$ref": "#/$defs/Item"}},
+        "$defs": {
+            "Item": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+            }
+        },
+    }
+    result = _resolve_refs(schema)
+    assert "$ref" not in str(result)
+    assert result["properties"]["item"]["type"] == "object"
+    assert result["properties"]["item"]["properties"]["name"]["type"] == "string"
+
+
+def test_resolve_refs_adds_additional_properties_false():
+    schema = {"type": "object", "properties": {"x": {"type": "string"}}}
+    result = _resolve_refs(schema)
+    assert result["additionalProperties"] is False
+
+
+def test_resolve_refs_all_properties_required():
+    schema = {
+        "type": "object",
+        "properties": {"a": {"type": "string"}, "b": {"type": "integer"}},
+    }
+    result = _resolve_refs(schema)
+    assert set(result["required"]) == {"a", "b"}
+
+
+def test_resolve_refs_nested():
+    schema = {
+        "type": "object",
+        "properties": {"outer": {"$ref": "#/$defs/Outer"}},
+        "$defs": {
+            "Outer": {
+                "type": "object",
+                "properties": {"inner": {"$ref": "#/$defs/Inner"}},
+            },
+            "Inner": {
+                "type": "object",
+                "properties": {"val": {"type": "string"}},
+            },
+        },
+    }
+    result = _resolve_refs(schema)
+    assert "$ref" not in str(result)
+    inner = result["properties"]["outer"]["properties"]["inner"]
+    assert inner["properties"]["val"]["type"] == "string"
+    assert inner["additionalProperties"] is False
+
+
+def test_resolve_refs_no_defs_passthrough():
+    schema = {"type": "object", "properties": {"x": {"type": "string"}}}
+    result = _resolve_refs(schema)
+    assert result["properties"]["x"]["type"] == "string"

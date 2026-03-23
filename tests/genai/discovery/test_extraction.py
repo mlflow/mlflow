@@ -6,6 +6,7 @@ import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.genai.discovery.entities import _ConversationAnalysis
 from mlflow.genai.discovery.extraction import (
+    _parse_assessment_value,
     collect_session_rationales,
     extract_assessment_rationale,
     extract_execution_path,
@@ -261,3 +262,50 @@ def test_collect_session_rationales_deduplicates(make_trace):
     result = collect_session_rationales([trace], rationale_map, "scorer_a")
 
     assert result.count("same text") == 1
+
+
+# ---- _parse_assessment_value ----
+
+
+def test_parse_assessment_value_dict_passing():
+    passed, cats = _parse_assessment_value({"passed": "true", "categories": "tool_error,ux"})
+    assert passed is True
+    assert cats == ["tool_error", "ux"]
+
+
+def test_parse_assessment_value_dict_failing():
+    passed, cats = _parse_assessment_value({"passed": "false", "categories": "tool_error"})
+    assert passed is False
+    assert cats == ["tool_error"]
+
+
+def test_parse_assessment_value_json_string():
+    passed, cats = _parse_assessment_value('{"passed": "false", "categories": "ux,tool_error"}')
+    assert passed is False
+    assert cats == ["ux", "tool_error"]
+
+
+def test_parse_assessment_value_json_string_passing():
+    passed, cats = _parse_assessment_value('{"passed": "true", "categories": ""}')
+    assert passed is True
+    assert cats == []
+
+
+def test_parse_assessment_value_bool_true():
+    assert _parse_assessment_value(True) == (True, [])
+
+
+def test_parse_assessment_value_bool_false():
+    assert _parse_assessment_value(False) == (False, [])
+
+
+def test_parse_assessment_value_non_json_string():
+    passed, cats = _parse_assessment_value("some random text")
+    assert passed is True
+    assert cats == []
+
+
+def test_parse_assessment_value_empty_string():
+    passed, cats = _parse_assessment_value("")
+    assert passed is False
+    assert cats == []
