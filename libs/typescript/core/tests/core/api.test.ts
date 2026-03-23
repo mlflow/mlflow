@@ -1119,5 +1119,39 @@ describe('API', () => {
       const trace = await getLastActiveTrace();
       expect(trace.info.traceMetadata['async_key']).toBe('async_value');
     });
+
+    it('should inject sessionId and user into trace metadata', async () => {
+      mlflow.tracingContext(
+        {
+          sessionId: 'sess-123',
+          user: 'user-456',
+        },
+        () => {
+          void mlflow.withSpan((_span) => {}, { name: 'test-span' });
+        },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['mlflow.trace.session']).toBe('sess-123');
+      expect(trace.info.traceMetadata['mlflow.trace.user']).toBe('user-456');
+    });
+
+    it('should inject sessionId and user alongside explicit metadata', async () => {
+      mlflow.tracingContext(
+        {
+          sessionId: 'sess-abc',
+          user: 'user-xyz',
+          metadata: { 'custom.key': 'custom-value' },
+        },
+        () => {
+          void mlflow.withSpan((_span) => {}, { name: 'test-span' });
+        },
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.traceMetadata['mlflow.trace.session']).toBe('sess-abc');
+      expect(trace.info.traceMetadata['mlflow.trace.user']).toBe('user-xyz');
+      expect(trace.info.traceMetadata['custom.key']).toBe('custom-value');
+    });
   });
 });
