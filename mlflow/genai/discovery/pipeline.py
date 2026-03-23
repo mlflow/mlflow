@@ -3,13 +3,14 @@ from __future__ import annotations
 import json
 import logging
 import time
+import uuid
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
 import mlflow
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
-from mlflow.entities.issue import IssueSeverity
+from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_GENAI_DISCOVERY_TRIAGE_SAMPLE_SIZE,
@@ -448,15 +449,31 @@ def _build_issues(
     for ident in identified:
         affected_trace_ids = collect_affected_trace_ids(ident, analyses)
         name = ident.name.removeprefix("Issue: ").removeprefix("issue: ")
-        issue = TracingClient()._create_issue(
-            experiment_id=exp_id,
-            name=name,
-            description=ident.description,
-            severity=ident.severity,
-            categories=ident.categories,
-            root_causes=[ident.root_cause],
-            source_run_id=source_run_id,
-        )
+        try:
+            issue = TracingClient()._create_issue(
+                experiment_id=exp_id,
+                name=name,
+                description=ident.description,
+                severity=ident.severity,
+                categories=ident.categories,
+                root_causes=[ident.root_cause],
+                source_run_id=source_run_id,
+            )
+        except Exception:
+            _logger.debug("Could not persist issue to tracking server, creating local Issue")
+            now_ms = int(time.time() * 1000)
+            issue = Issue(
+                issue_id=f"local-{uuid.uuid4().hex[:8]}",
+                experiment_id=exp_id,
+                name=name,
+                description=ident.description,
+                status=IssueStatus.PENDING,
+                created_timestamp=now_ms,
+                last_updated_timestamp=now_ms,
+                severity=ident.severity,
+                categories=ident.categories,
+                root_causes=[ident.root_cause],
+            )
         issues.append(issue)
         issue_trace_ids[issue.issue_id] = affected_trace_ids
 
@@ -473,6 +490,8 @@ def build_issue_discovery_scorer(
     use_conversation: bool = True,
     latency_stats: dict[str, float] | None = None,
 ) -> Scorer:
+    from mlflow.utils.uri import is_databricks_uri
+
     model = model or DEFAULT_MODEL
     categories = categories if categories is not None else DEFAULT_CATEGORIES
 
@@ -481,11 +500,14 @@ def build_issue_discovery_scorer(
     instructions = build_satisfaction_instructions(
         use_conversation=use_conversation, categories=categories, latency_stats=latency_stats
     )
+    # Databricks tracking server only accepts primitive assessment values (not StructValue),
+    # so we use str and parse the JSON string back in _parse_assessment_value.
+    value_type = str if is_databricks_uri(mlflow.get_tracking_uri()) else dict[str, str]
     return make_judge(
         name=DEFAULT_SCORER_NAME,
         instructions=instructions,
         model=model,
-        feedback_value_type=dict[str, str],
+        feedback_value_type=value_type,
         include_timing_in_conversation=include_timing,
     )
 

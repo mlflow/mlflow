@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -234,16 +235,28 @@ def extract_failure_labels(
     return labels, label_to_analysis
 
 
+def _parse_dict_value(d: dict) -> tuple[bool, list[str]]:
+    """Parse a dict with "passed" and "categories" keys."""
+    passed = str(d.get("passed", "true")).lower() == "true"
+    cats = [c.strip() for c in d.get("categories", "").split(",") if c.strip()]
+    return passed, cats
+
+
 def _parse_assessment_value(value) -> tuple[bool, list[str]]:
     """Parse a feedback value into (passed, categories).
 
-    Handles both simple bool values and dict[str, str] structured output
-    with "passed" and "categories" keys.
+    Handles dict, JSON string, and bool feedback values.
+    The dict/JSON format has "passed" and "categories" keys.
     """
     if isinstance(value, dict):
-        passed = str(value.get("passed", "true")).lower() == "true"
-        cats = [c.strip() for c in value.get("categories", "").split(",") if c.strip()]
-        return passed, cats
+        return _parse_dict_value(value)
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+            if isinstance(parsed, dict):
+                return _parse_dict_value(parsed)
+        except (json.JSONDecodeError, AttributeError):
+            pass
     return bool(value), []
 
 

@@ -198,6 +198,56 @@ class _TokenCounter:
         return result
 
 
+def _resolve_refs(schema: dict, defs: dict | None = None) -> dict:
+    """Resolve $ref pointers and inline definitions, then add additionalProperties: false.
+
+    Databricks model serving requires:
+    1. No $ref pointers (all definitions must be inlined)
+    2. additionalProperties: false on all object schemas
+    """
+    if defs is None:
+        defs = schema.pop("$defs", {})
+
+    if "$ref" in schema:
+        ref_name = schema["$ref"].split("/")[-1]
+        resolved = defs.get(ref_name, {})
+        return _resolve_refs(dict(resolved), defs)
+
+    result = {}
+    for key, value in schema.items():
+        if key == "$defs":
+            continue
+        if isinstance(value, dict):
+            result[key] = _resolve_refs(value, defs)
+        elif isinstance(value, list):
+            result[key] = [
+                _resolve_refs(item, defs) if isinstance(item, dict) else item for item in value
+            ]
+        else:
+            result[key] = value
+
+    if result.get("type") == "object" or "properties" in result:
+        result["additionalProperties"] = False
+        # Databricks requires all properties in required
+        if "properties" in result:
+            result["required"] = list(result["properties"].keys())
+
+    return result
+
+
+def _patch_response_format(response_format: type[pydantic.BaseModel]) -> dict:
+    """Convert pydantic model to a Databricks-compatible JSON schema."""
+    schema = _resolve_refs(response_format.model_json_schema())
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": response_format.__name__,
+            "schema": schema,
+            "strict": True,
+        },
+    }
+
+
 @trace_disabled
 def _call_llm(
     model: str,
@@ -250,7 +300,12 @@ def _call_llm_via_litellm(
         api_key = None
         extra_headers = None
 
-    use_format = response_format or ({"type": "json_object"} if json_mode else None)
+    if response_format is not None:
+        use_format = _patch_response_format(response_format)
+    elif json_mode:
+        use_format = {"type": "json_object"}
+    else:
+        use_format = None
     response = _invoke_litellm(
         litellm_model=litellm_model,
         messages=messages,
