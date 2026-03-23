@@ -15,9 +15,6 @@ from typing import Any
 
 from typing_extensions import Self
 
-# A date safely before any exclude-newer cutoff so the dev wheel is always resolvable.
-_UPLOAD_TIME = "2020-01-01T00:00:00Z"
-
 
 def _make_handler(wheel_dir: Path) -> type[SimpleHTTPRequestHandler]:
     class Handler(SimpleHTTPRequestHandler):
@@ -60,7 +57,9 @@ def _make_handler(wheel_dir: Path) -> type[SimpleHTTPRequestHandler]:
                     "url": f"/mlflow/{f.name}#sha256={sha256}",
                     "hashes": {"sha256": sha256},
                     "size": f.stat().st_size,
-                    "upload-time": _UPLOAD_TIME,
+                    # A date safely before any exclude-newer cutoff so the dev
+                    # wheel is always resolvable.
+                    "upload-time": "2020-01-01T00:00:00Z",
                 })
 
             if self._wants_json():
@@ -120,3 +119,4 @@ class SimpleRepositoryServer:
 
     def __exit__(self, *args: Any) -> None:
         self.shutdown()
+        self._thread.join()
