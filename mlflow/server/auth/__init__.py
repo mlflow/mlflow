@@ -1567,7 +1567,7 @@ BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
     for method in methods
-    if "/scorers/online-config" not in http_path
+    # Removed: exclusion filter for /scorers/online-config (security fix)
 }
 
 # Auth-related routes
