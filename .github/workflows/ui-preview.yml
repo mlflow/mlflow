@@ -165,7 +165,8 @@ jobs:
 
       - name: Install Databricks CLI
         run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          # https://github.com/databricks/setup-cli/releases/tag/v0.295.0
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/2260866f83a41a2df55e1cfe7ffe038b78325bf6/install.sh | sh
           databricks --version
 
       - name: Create or update app
@@ -279,7 +280,8 @@ jobs:
     steps:
       - name: Install Databricks CLI
         run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          # https://github.com/databricks/setup-cli/releases/tag/v0.295.0
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/2260866f83a41a2df55e1cfe7ffe038b78325bf6/install.sh | sh
           databricks --version
 
       - name: Delete app
