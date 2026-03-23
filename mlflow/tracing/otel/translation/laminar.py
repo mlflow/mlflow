@@ -22,13 +22,13 @@ class LaminarTranslator(OtelSchemaTranslator):
     INPUT_VALUE_KEYS = ["lmnr.span.input"]
     OUTPUT_VALUE_KEYS = ["lmnr.span.output"]
 
+    # Laminar uses GenAI semantic conventions for metadata and token usage
     INPUT_TOKEN_KEY = "gen_ai.usage.input_tokens"
     OUTPUT_TOKEN_KEY = "gen_ai.usage.output_tokens"
 
     MODEL_NAME_KEYS = ["gen_ai.response.model", "gen_ai.request.model"]
     LLM_PROVIDER_KEY = "gen_ai.system"
 
-    # Laminar LLM spans use litellm which produces OpenAI-format messages
     DETECTION_KEYS = ["lmnr.span.type"]
 
     def get_message_format(self, attributes: dict[str, Any]) -> str | None:
