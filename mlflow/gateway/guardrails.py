@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import abc
+import asyncio
 import json
 from typing import TYPE_CHECKING, Any
-
-import requests
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
@@ -86,8 +85,8 @@ class JudgeGuardrail(Guardrail):
 
     Runs the judge on the request (BEFORE stage) or response (AFTER stage).
     For VALIDATION actions, blocks if the judge returns a failing value.
-    For SANITIZATION actions, sends the full payload to an LLM via the
-    gateway API and returns the rewritten payload.
+    For SANITIZATION actions, creates a provider from the action endpoint
+    and calls it directly to rewrite the payload.
 
     Args:
         scorer: An MLflow ``Scorer`` instance (e.g. from ``get_scorer``).
@@ -96,7 +95,6 @@ class JudgeGuardrail(Guardrail):
         name: Human-readable name for error messages.
         action_endpoint_id: Gateway endpoint name for the LLM used by sanitization.
             Required when ``action`` is ``SANITIZATION``.
-        gateway_url: Base URL of the gateway server. Defaults to ``http://localhost:5000``.
     """
 
     def __init__(
@@ -106,14 +104,12 @@ class JudgeGuardrail(Guardrail):
         action: GuardrailAction,
         name: str = "judge-guardrail",
         action_endpoint_id: str | None = None,
-        gateway_url: str = "http://localhost:5000",
     ) -> None:
         self.scorer = scorer
         self.stage = stage
         self.action = action
         self.name = name
         self.action_endpoint_id = action_endpoint_id
-        self.gateway_url = gateway_url.rstrip("/")
 
     def _extract_text(self, payload: dict[str, Any], *, is_response: bool) -> str:
         if is_response:
@@ -162,21 +158,30 @@ class JudgeGuardrail(Guardrail):
         return str(result)
 
     def _sanitize(self, payload: dict[str, Any], rationale: str) -> dict[str, Any]:
-        """Send the full payload to the action endpoint LLM for rewriting.
+        """Call the action endpoint provider directly to rewrite the payload.
 
-        Posts a chat request to the gateway API at
-        ``/gateway/{action_endpoint_id}/mlflow/invocations`` asking the LLM
-        to return a sanitized version of the full payload as JSON.
+        Uses the same internal provider infrastructure as the gateway API:
+        resolves the endpoint config, creates a provider, and calls
+        ``provider.chat()`` to get the sanitized payload.
         """
+        from mlflow.gateway.config import EndpointType
+        from mlflow.gateway.schemas import chat
+        from mlflow.server.gateway_api import _create_provider_from_endpoint_name
+        from mlflow.tracking._tracking_service.utils import _get_store
+
         if not self.action_endpoint_id:
             raise GuardrailViolation(
                 self.name,
                 "Sanitization requires an action_endpoint_id but none was configured.",
             )
 
-        url = f"{self.gateway_url}/gateway/{self.action_endpoint_id}/mlflow/invocations"
-        body = {
-            "messages": [
+        store = _get_store()
+        provider, _ = _create_provider_from_endpoint_name(
+            store, self.action_endpoint_id, EndpointType.LLM_V1_CHAT, enable_tracing=False
+        )
+
+        sanitize_payload = chat.RequestPayload(
+            messages=[
                 {
                     "role": "user",
                     "content": _SANITIZE_SYSTEM_PROMPT.format(
@@ -185,13 +190,24 @@ class JudgeGuardrail(Guardrail):
                     ),
                 },
             ],
-        }
+        )
 
-        resp = requests.post(url, json=body, timeout=30)
-        resp.raise_for_status()
-        resp_data = resp.json()
+        # provider.chat() is async; run it in the event loop if available,
+        # otherwise create a new one.
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
 
-        content = resp_data["choices"][0]["message"]["content"]
+        if loop and loop.is_running():
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                response = pool.submit(asyncio.run, provider.chat(sanitize_payload)).result()
+        else:
+            response = asyncio.run(provider.chat(sanitize_payload))
+
+        content = response.choices[0].message.content
         try:
             return json.loads(content)
         except json.JSONDecodeError as e:
