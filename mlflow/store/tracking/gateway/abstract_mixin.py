@@ -557,20 +557,25 @@ class GatewayStoreMixin:
 
     def create_gateway_guardrail(
         self,
+        name: str,
         scorer_id: str,
         scorer_version: int,
         stage: GuardrailStage,
         action: GuardrailAction,
+        action_endpoint_id: str | None = None,
         created_by: str | None = None,
     ) -> GatewayGuardrail:
         """
         Create a new guardrail backed by a scorer.
 
         Args:
+            name: Human-readable name for the guardrail.
             scorer_id: ID of the MLflow scorer to use as judge.
             scorer_version: Version of the scorer.
             stage: Whether the guardrail runs BEFORE or AFTER LLM invocation.
             action: Whether the guardrail validates (blocks) or sanitizes (modifies).
+            action_endpoint_id: Optional gateway endpoint ID for the LLM used
+                by the action (e.g. sanitization rewrite endpoint).
             created_by: Username of the creator.
 
         Returns:

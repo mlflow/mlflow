@@ -2480,6 +2480,7 @@ def test_create_gateway_guardrail(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
 
     guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.BEFORE,
@@ -2489,6 +2490,7 @@ def test_create_gateway_guardrail(store: SqlAlchemyStore):
 
     assert isinstance(guardrail, GatewayGuardrail)
     assert guardrail.guardrail_id.startswith("gr-")
+    assert guardrail.name == "test-guardrail"
     assert guardrail.scorer.scorer_id == scorer.scorer_id
     assert guardrail.scorer.scorer_version == scorer.scorer_version
     assert guardrail.stage == GuardrailStage.BEFORE
@@ -2503,6 +2505,7 @@ def test_create_gateway_guardrail_after_sanitization(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
 
     guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.AFTER,
@@ -2517,6 +2520,7 @@ def test_get_gateway_guardrail(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
 
     created = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.BEFORE,
@@ -2541,6 +2545,7 @@ def test_delete_gateway_guardrail(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
 
     guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.BEFORE,
@@ -2563,6 +2568,7 @@ def test_list_gateway_guardrails(store: SqlAlchemyStore):
 
     for stage in GuardrailStage:
         store.create_gateway_guardrail(
+            name="test-guardrail",
             scorer_id=scorer.scorer_id,
             scorer_version=scorer.scorer_version,
             stage=stage,
@@ -2585,6 +2591,7 @@ def test_list_gateway_guardrails_pagination(store: SqlAlchemyStore):
 
     for _ in range(3):
         store.create_gateway_guardrail(
+            name="test-guardrail",
             scorer_id=scorer.scorer_id,
             scorer_version=scorer.scorer_version,
             stage=GuardrailStage.BEFORE,
@@ -2608,6 +2615,7 @@ def test_add_guardrail_to_endpoint(store: SqlAlchemyStore):
     endpoint = _create_gateway_endpoint(store, f"gr-endpoint-{uuid.uuid4().hex[:8]}")
 
     guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.BEFORE,
@@ -2633,6 +2641,7 @@ def test_add_guardrail_to_endpoint_null_execution_order(store: SqlAlchemyStore):
     endpoint = _create_gateway_endpoint(store, f"gr-null-order-{uuid.uuid4().hex[:8]}")
 
     guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.BEFORE,
@@ -2652,6 +2661,7 @@ def test_add_guardrail_to_endpoint_duplicate_raises(store: SqlAlchemyStore):
     endpoint = _create_gateway_endpoint(store, f"gr-dup-{uuid.uuid4().hex[:8]}")
 
     guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.BEFORE,
@@ -2674,6 +2684,7 @@ def test_add_guardrail_to_nonexistent_endpoint_raises(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
 
     guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.BEFORE,
@@ -2702,6 +2713,7 @@ def test_remove_guardrail_from_endpoint(store: SqlAlchemyStore):
     endpoint = _create_gateway_endpoint(store, f"gr-remove-{uuid.uuid4().hex[:8]}")
 
     guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.BEFORE,
@@ -2738,6 +2750,7 @@ def test_list_endpoint_guardrail_configs(store: SqlAlchemyStore):
 
     guardrails = [
         store.create_gateway_guardrail(
+            name="test-guardrail",
             scorer_id=scorer.scorer_id,
             scorer_version=scorer.scorer_version,
             stage=GuardrailStage.BEFORE,
@@ -2777,6 +2790,7 @@ def test_delete_guardrail_cascades_to_configs(store: SqlAlchemyStore):
     endpoint = _create_gateway_endpoint(store, f"gr-cascade-{uuid.uuid4().hex[:8]}")
 
     guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.BEFORE,
@@ -2799,6 +2813,7 @@ def test_delete_endpoint_cascades_to_guardrail_configs(store: SqlAlchemyStore):
     endpoint = _create_gateway_endpoint(store, f"gr-ep-cascade-{uuid.uuid4().hex[:8]}")
 
     guardrail = store.create_gateway_guardrail(
+        name="test-guardrail",
         scorer_id=scorer.scorer_id,
         scorer_version=scorer.scorer_version,
         stage=GuardrailStage.BEFORE,

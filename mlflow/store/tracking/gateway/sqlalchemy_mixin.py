@@ -1366,10 +1366,12 @@ class SqlAlchemyGatewayStoreMixin:
 
     def create_gateway_guardrail(
         self,
+        name: str,
         scorer_id: str,
         scorer_version: int,
         stage: GuardrailStage,
         action: GuardrailAction,
+        action_endpoint_id: str | None = None,
         created_by: str | None = None,
     ) -> GatewayGuardrail:
         with self.ManagedSessionMaker() as session:
@@ -1379,10 +1381,12 @@ class SqlAlchemyGatewayStoreMixin:
             sql_guardrail = self._with_workspace_field(
                 SqlGatewayGuardrail(
                     guardrail_id=guardrail_id,
+                    name=name,
                     scorer_id=scorer_id,
                     scorer_version=scorer_version,
                     stage=stage.value if isinstance(stage, GuardrailStage) else stage,
                     action=action.value if isinstance(action, GuardrailAction) else action,
+                    action_endpoint_id=action_endpoint_id,
                     created_at=current_time,
                     last_updated_at=current_time,
                     created_by=created_by,
@@ -1497,7 +1501,10 @@ class SqlAlchemyGatewayStoreMixin:
                 self
                 ._get_query(session, SqlGatewayGuardrailConfig)
                 .filter(SqlGatewayGuardrailConfig.endpoint_id == endpoint_id)
-                .order_by(SqlGatewayGuardrailConfig.execution_order)
+                .order_by(
+                    SqlGatewayGuardrailConfig.execution_order.asc().nulls_last(),
+                    SqlGatewayGuardrailConfig.guardrail_id,
+                )
                 .all()
             )
             return [c.to_mlflow_entity() for c in configs]

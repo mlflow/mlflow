@@ -21,11 +21,13 @@ class GuardrailAction(str, Enum):
 @dataclass
 class GatewayGuardrail(_MlflowObject):
     guardrail_id: str
+    name: str
     scorer: ScorerVersion
     stage: GuardrailStage
     action: GuardrailAction
     created_at: int
     last_updated_at: int
+    action_endpoint_id: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
     workspace: str | None = None

@@ -358,6 +358,7 @@ def _insert_row(conn, table_name, workspace, overrides=None, seed=1):
         },
         "guardrails": {
             "guardrail_id": f"gr_{seed}",
+            "name": f"guardrail_{seed}",
             "scorer_id": f"scorer_{seed}",
             "scorer_version": seed,
             "stage": "BEFORE",

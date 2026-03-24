@@ -18,10 +18,12 @@ def upgrade():
     op.create_table(
         "guardrails",
         sa.Column("guardrail_id", sa.String(length=36), nullable=False),
+        sa.Column("name", sa.String(length=255), nullable=False),
         sa.Column("scorer_id", sa.String(length=255), nullable=False),
         sa.Column("scorer_version", sa.Integer(), nullable=False),
         sa.Column("stage", sa.String(length=32), nullable=False),
         sa.Column("action", sa.String(length=32), nullable=False),
+        sa.Column("action_endpoint_id", sa.String(length=36), nullable=True),
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column("created_at", sa.BigInteger(), nullable=False),
         sa.Column("last_updated_by", sa.String(length=255), nullable=True),
@@ -37,6 +39,12 @@ def upgrade():
             ["scorer_id", "scorer_version"],
             ["scorer_versions.scorer_id", "scorer_versions.scorer_version"],
             name="fk_guardrails_scorer_version",
+        ),
+        sa.ForeignKeyConstraint(
+            ["action_endpoint_id"],
+            ["endpoints.endpoint_id"],
+            name="fk_guardrails_action_endpoint_id",
+            ondelete="SET NULL",
         ),
     )
     op.create_index("idx_guardrails_workspace", "guardrails", ["workspace"])
