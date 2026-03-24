@@ -221,9 +221,9 @@ export const normalizeOpenAIResponsesOutputItem = (
 
   if (obj.type === 'image_generation_call') {
     // If result is an mlflow-attachment:// URI (from auto-extraction), use it directly
-    const imageUrl = obj.result.startsWith('mlflow-attachment://')
+    const imageUrl = obj.result?.startsWith('mlflow-attachment://')
       ? obj.result
-      : `data:image/${obj.output_format};base64,${obj.result}`;
+      : `data:image/${obj.output_format};base64,${obj.result ?? ''}`;
     return prettyPrintChatMessage({
       type: 'message',
       content: [{ type: 'image_url', image_url: { url: imageUrl } }],
