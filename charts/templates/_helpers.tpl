@@ -23,6 +23,7 @@ Build mlflow server args from .Values.server.
 Option names mirror MLflow CLI flags (underscores -> hyphens).
 */}}
 {{- define "mlflow.serverArgs" -}}
+- mlflow
 - server
 {{- range $key, $val := .Values.server }}
 {{- $flag := $key | replace "_" "-" }}
@@ -33,7 +34,7 @@ Option names mirror MLflow CLI flags (underscores -> hyphens).
 - --no-{{ $flag }}
 {{- end }}
 {{- else if $val }}
-- --{{ $flag }}={{ $val | quote }}
+- --{{ $flag }}={{ $val }}
 {{- end }}
 {{- end }}
 {{- end }}

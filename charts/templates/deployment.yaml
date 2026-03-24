@@ -40,7 +40,7 @@ spec:
         - name: mlflow
           image: {{ include "mlflow.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args:
+          command:
             {{- include "mlflow.serverArgs" . | nindent 12 }}
           ports:
             - name: http
