@@ -2,7 +2,6 @@ on:
   push:
     branches:
       - master
-      - feature/infra
 
     paths-ignore:
       - "**/README.md"
@@ -14,7 +13,7 @@ name: Uploading Image to PROD
 jobs:
   upload_to_ecr:
     name: Deploy to prod
-    # if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
