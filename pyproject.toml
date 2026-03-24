@@ -259,6 +259,9 @@ constraint-dependencies = [
   "pyspark<4.1.0",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
+  # litellm 1.82.7 and 1.82.8 contain a malicious .pth file that steals credentials
+  # https://github.com/BerriAI/litellm/issues/24512
+  "litellm<=1.82.6",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer
