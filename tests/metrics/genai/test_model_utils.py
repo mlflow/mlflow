@@ -4,8 +4,7 @@ import sys
 from unittest import mock
 
 import pytest
-from requests import Response
-from requests.exceptions import HTTPError
+import requests
 
 from mlflow.deployments.server.config import Endpoint
 from mlflow.exceptions import MlflowException
@@ -554,7 +553,7 @@ def test_call_deployments_api_str_input_requires_endpoint_type(set_deployment_en
 
 
 def test_send_request_includes_response_body_in_error():
-    resp = Response()
+    resp = requests.Response()
     resp.status_code = 400
     resp._content = b'{"error": "bad request details"}'
 
@@ -563,7 +562,7 @@ def test_send_request_includes_response_body_in_error():
             _send_request("http://example.com", {}, {})
 
         # Verify exception chaining preserves the original HTTPError
-        assert isinstance(exc_info.value.__cause__, HTTPError)
+        assert isinstance(exc_info.value.__cause__, requests.exceptions.HTTPError)
 
 
 def test_score_model_retries_without_output_config_on_unsupported(monkeypatch):
@@ -588,7 +587,7 @@ def test_score_model_retries_without_output_config_on_unsupported(monkeypatch):
             "message": "claude-sonnet-4-20250514 does not support output format",
         },
     }
-    mock_400_response = Response()
+    mock_400_response = requests.Response()
     mock_400_response.status_code = 400
     mock_400_response._content = json.dumps(error_body).encode()
 
@@ -658,7 +657,7 @@ def test_score_model_caches_unsupported_output_config(monkeypatch):
             "message": f"{model_name} does not support output format",
         },
     }
-    mock_400_response = Response()
+    mock_400_response = requests.Response()
     mock_400_response.status_code = 400
     mock_400_response._content = json.dumps(error_body).encode()
 
@@ -708,7 +707,7 @@ def test_score_model_does_not_retry_on_other_400_errors(monkeypatch):
         "type": "error",
         "error": {"type": "authentication_error", "message": "invalid api key"},
     }
-    mock_400_response = Response()
+    mock_400_response = requests.Response()
     mock_400_response.status_code = 400
     mock_400_response._content = json.dumps(error_body).encode()
 

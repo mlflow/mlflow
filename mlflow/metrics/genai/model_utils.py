@@ -4,8 +4,6 @@ from typing import TYPE_CHECKING, Any
 
 import requests
 from pydantic import BaseModel
-from requests import Response
-from requests.exceptions import HTTPError
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -149,7 +147,9 @@ def _is_unsupported_output_format_error(exc: MlflowException) -> bool:
     Newer models (e.g. claude-sonnet-4-5-20250929) support it.
     """
     match exc.__cause__:
-        case HTTPError(response=Response(status_code=400) as response):
+        case requests.exceptions.HTTPError(
+            response=requests.Response(status_code=400) as response,
+        ):
             try:
                 body = response.json()
             except Exception:
@@ -381,7 +381,7 @@ def _send_request(
             timeout=60,
         )
         response.raise_for_status()
-    except HTTPError as e:
+    except requests.exceptions.HTTPError as e:
         body = getattr(e.response, "text", "")
         raise MlflowException(
             f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n"
