@@ -34,8 +34,6 @@ export const ModelTraceExplorerSummarySection = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const [expanded, setExpanded] = useState(false);
-  const shouldTruncateItems = data.length > maxVisibleItems;
-
   // In default mode, hide scalar fields when sibling fields contain attachment refs.
   // This gives a clean media-only view (e.g., DALL-E output shows images without "created" timestamp).
   const hasAttachmentRefs = data.some((item) => item.value.includes('mlflow-attachment://'));
@@ -43,8 +41,9 @@ export const ModelTraceExplorerSummarySection = ({
     renderMode === 'default' && hasAttachmentRefs
       ? data.filter((item) => item.value.includes('mlflow-attachment://'))
       : data;
+  const shouldTruncateItems = filteredData.length > maxVisibleItems;
   const visibleItems = shouldTruncateItems && !expanded ? filteredData.slice(-maxVisibleItems) : filteredData;
-  const hiddenItemCount = shouldTruncateItems ? data.length - visibleItems.length : 0;
+  const hiddenItemCount = shouldTruncateItems ? filteredData.length - visibleItems.length : 0;
 
   return (
     <ModelTraceExplorerCollapsibleSection withBorder title={title} className={className} sectionKey={sectionKey}>
