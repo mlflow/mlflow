@@ -225,6 +225,34 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             transport=transport, url=url, headers=headers, content_type=content_type
         )
 
+    def _get_signing_kwargs(self):
+        """Build extra kwargs for blob.generate_signed_url() when credentials lack a private key.
+
+        Credentials from environments like GKE Workload Identity or Compute Engine don't have
+        a private key, so generate_signed_url() can't sign locally. Passing
+        service_account_email and access_token makes the library use the IAM signBlob API instead.
+        """
+        client_credentials = self.client._credentials
+
+        # Credentials from a JSON key file have sign_bytes() and can sign URLs locally.
+        # No extra parameters needed, return early.
+        if hasattr(client_credentials, "sign_bytes"):
+            return {}
+
+        # Credentials without sign_bytes (e.g., GKE Workload Identity, Compute Engine VM)
+        # can't sign locally. We need to pass service_account_email and access_token so
+        # the library delegates signing to Google's IAM signBlob API instead.
+        import google.auth.transport.requests
+
+        # Ensure the token is fresh, it may not have been fetched yet or could be expired.
+        if not client_credentials.token or client_credentials.expired:
+            client_credentials.refresh(google.auth.transport.requests.Request())
+
+        return {
+            "service_account_email": client_credentials.service_account_email,
+            "access_token": client_credentials.token,
+        }
+
     def create_multipart_upload(self, local_file, num_parts=1, artifact_path=None):
         self._validate_support_mpu()
         from google.resumable_media.requests import XMLMPUContainer
@@ -241,6 +269,8 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         container.initiate(transport=args.transport, content_type=args.content_type)
         upload_id = container.upload_id
 
+        signing_kwargs = self._get_signing_kwargs()
+
         credentials = []
         for i in range(1, num_parts + 1):  # part number must be in [1, 10000]
             signed_url = blob.generate_signed_url(
@@ -251,6 +281,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                     "partNumber": i,
                     "uploadId": upload_id,
                 },
+                **signing_kwargs,
             )
             credentials.append(
                 MultipartUploadCredential(
