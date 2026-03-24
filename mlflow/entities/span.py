@@ -602,7 +602,7 @@ class LiveSpan(Span):
         if not mime:
             return None
         try:
-            content_bytes = base64.b64decode(b64data)
+            content_bytes = base64.b64decode(b64data, validate=True)
         except Exception:
             return None
         return self._store_attachment(Attachment(content_type=mime, content_bytes=content_bytes))
