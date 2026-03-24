@@ -183,6 +183,126 @@ def test_mixed_content_parts():
     assert len(span._attachments) == 2
 
 
+# --- Anthropic image pattern ---
+
+
+def test_extracts_anthropic_image():
+    span = _make_live_span()
+    span.set_inputs({
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What is this?"},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": base64.b64encode(PNG_BYTES).decode(),
+                        },
+                    },
+                ],
+            }
+        ]
+    })
+
+    content = span.inputs["messages"][0]["content"]
+    assert content[1]["type"] == "image"
+    assert content[1]["source"]["data"].startswith("mlflow-attachment://")
+    assert content[1]["source"]["type"] == "base64"
+    assert content[1]["source"]["media_type"] == "image/png"
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
+
+
+def test_extracts_multiple_anthropic_images():
+    span = _make_live_span()
+    img2_bytes = b"fake jpeg bytes"
+    span.set_inputs({
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": base64.b64encode(PNG_BYTES).decode(),
+                        },
+                    },
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": base64.b64encode(img2_bytes).decode(),
+                        },
+                    },
+                ],
+            }
+        ]
+    })
+
+    content = span.inputs["messages"][0]["content"]
+    assert content[0]["source"]["data"].startswith("mlflow-attachment://")
+    assert content[1]["source"]["data"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 2
+
+
+# --- Audio output pattern ---
+
+
+def test_extracts_audio_output():
+    span = _make_live_span()
+    audio_b64 = base64.b64encode(b"RIFF\x00\x00\x00\x00WAVEfmt ").decode()
+    span.set_outputs({
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "audio": {
+                        "id": "audio_123",
+                        "data": audio_b64,
+                        "transcript": "Hello world",
+                    },
+                }
+            }
+        ]
+    })
+
+    outputs = span.outputs
+    audio = outputs["choices"][0]["message"]["audio"]
+    assert audio["data"].startswith("mlflow-attachment://")
+    assert audio["transcript"] == "Hello world"
+    assert audio["id"] == "audio_123"
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "audio/wav"
+
+
+def test_extracts_b64_json_multiple():
+    span = _make_live_span()
+    img_b64 = base64.b64encode(PNG_BYTES).decode()
+    span.set_outputs({
+        "data": [
+            {"b64_json": img_b64, "revised_prompt": "a circle"},
+            {"b64_json": img_b64, "revised_prompt": "a triangle"},
+        ]
+    })
+
+    output = span.outputs
+    assert output["data"][0]["b64_json"].startswith("mlflow-attachment://")
+    assert output["data"][1]["b64_json"].startswith("mlflow-attachment://")
+    assert output["data"][0]["revised_prompt"] == "a circle"
+    assert output["data"][1]["revised_prompt"] == "a triangle"
+    assert len(span._attachments) == 2
+
+
 # --- Opt-out ---
 
 
