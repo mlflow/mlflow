@@ -57,6 +57,8 @@ def _is_ci_env_or_testing() -> bool:
 
 # NB: implement the function here to avoid unnecessary imports inside databricks_utils
 def _is_in_databricks() -> bool:
+    from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
+
     # check if in databricks runtime
     if "DATABRICKS_RUNTIME_VERSION" in os.environ:
         return True
@@ -64,7 +66,7 @@ def _is_in_databricks() -> bool:
         return True
 
     # check if in databricks model serving environment
-    if os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false").lower() in ("true", "1"):
+    if is_in_databricks_model_serving_environment():
         return True
 
     return False
