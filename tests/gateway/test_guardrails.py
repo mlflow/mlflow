@@ -1,5 +1,3 @@
-import json
-from typing import Any
 from unittest import mock
 
 import pytest
@@ -97,139 +95,22 @@ def test_after_validation_skips_request():
 
 
 # ---------------------------------------------------------------------------
-# SANITIZATION (currently raises)
+# SANITIZATION (placeholder — raises for now)
 # ---------------------------------------------------------------------------
 
 
-def _mock_http_response(sanitized_payload: dict[str, Any]) -> mock.MagicMock:
-    """Create a mock requests.Response with LLM content set to JSON of sanitized_payload."""
-    resp = mock.MagicMock()
-    resp.status_code = 200
-    resp.json.return_value = {
-        "choices": [{"message": {"content": json.dumps(sanitized_payload)}}],
-    }
-    return resp
-
-
-def _patch_sanitization(sanitized_payload: dict[str, Any]):
-    """Context manager that mocks requests.post and mlflow.get_tracking_uri for sanitization."""
-    import contextlib
-
-    @contextlib.contextmanager
-    def _ctx():
-        with (
-            mock.patch(
-                "mlflow.gateway.guardrails.requests.post",
-                return_value=_mock_http_response(sanitized_payload),
-            ),
-            mock.patch(
-                "mlflow.gateway.guardrails.mlflow.get_tracking_uri",
-                return_value="http://localhost:5000",
-            ),
-        ):
-            yield
-
-    return _ctx()
-
-
-def test_before_sanitization_rewrites_request():
-    scorer = _mock_scorer(_feedback(value=False, rationale="contains PII"))
-    guard = JudgeGuardrail(
-        scorer,
-        GuardrailStage.BEFORE,
-        GuardrailAction.SANITIZATION,
-        action_endpoint_name="ep-sanitizer",
-    )
-    sanitized = _make_request("my SSN is [REDACTED]")
-    with _patch_sanitization(sanitized):
-        result = guard.process_request(_make_request("my SSN is 123-45-6789"))
-    assert result == sanitized
-
-
-def test_after_sanitization_rewrites_response():
-    scorer = _mock_scorer(_feedback(value=False, rationale="toxic language"))
-    guard = JudgeGuardrail(
-        scorer,
-        GuardrailStage.AFTER,
-        GuardrailAction.SANITIZATION,
-        action_endpoint_name="ep-sanitizer",
-    )
-    sanitized = _make_response("Polite version")
-    with _patch_sanitization(sanitized):
-        result = guard.process_response(_make_response("rude text"))
-    assert result == sanitized
-
-
-def test_sanitization_without_endpoint_raises():
-    scorer = _mock_scorer(_feedback(value=False, rationale="issue found"))
+def test_before_sanitization_raises():
+    scorer = _mock_scorer(_feedback(value=False, rationale="needs cleaning"))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION)
-    with pytest.raises(GuardrailViolation, match="action_endpoint_name"):
+    with pytest.raises(GuardrailViolation, match="not yet wired"):
         guard.process_request(_make_request())
 
 
-def test_sanitization_returns_full_payload():
-    scorer = _mock_scorer(_feedback(value=False, rationale="fix"))
-    guard = JudgeGuardrail(
-        scorer,
-        GuardrailStage.BEFORE,
-        GuardrailAction.SANITIZATION,
-        action_endpoint_name="ep-sanitizer",
-    )
-    original = {"messages": [{"role": "user", "content": "bad"}], "temperature": 0.5}
-    sanitized = {"messages": [{"role": "user", "content": "good"}], "temperature": 0.5}
-    with _patch_sanitization(sanitized):
-        result = guard.process_request(original)
-    assert result == sanitized
-    assert result["temperature"] == 0.5
-
-
-def test_sanitization_posts_to_correct_url():
-    scorer = _mock_scorer(_feedback(value=False, rationale="fix"))
-    guard = JudgeGuardrail(
-        scorer,
-        GuardrailStage.BEFORE,
-        GuardrailAction.SANITIZATION,
-        action_endpoint_name="my-endpoint",
-    )
-    sanitized = _make_request("clean")
-    with (
-        mock.patch(
-            "mlflow.gateway.guardrails.requests.post",
-            return_value=_mock_http_response(sanitized),
-        ) as mock_post,
-        mock.patch(
-            "mlflow.gateway.guardrails.mlflow.get_tracking_uri", return_value="http://myserver:8080"
-        ),
-    ):
-        guard.process_request(_make_request("dirty"))
-    mock_post.assert_called_once()
-    assert (
-        mock_post.call_args[0][0] == "http://myserver:8080/gateway/my-endpoint/mlflow/invocations"
-    )
-
-
-def test_sanitization_invalid_json_raises():
-    scorer = _mock_scorer(_feedback(value=False, rationale="fix"))
-    guard = JudgeGuardrail(
-        scorer,
-        GuardrailStage.BEFORE,
-        GuardrailAction.SANITIZATION,
-        action_endpoint_name="ep-sanitizer",
-    )
-    bad_resp = mock.MagicMock()
-    bad_resp.status_code = 200
-    bad_resp.json.return_value = {
-        "choices": [{"message": {"content": "not valid json at all"}}],
-    }
-    with (
-        mock.patch("mlflow.gateway.guardrails.requests.post", return_value=bad_resp),
-        mock.patch(
-            "mlflow.gateway.guardrails.mlflow.get_tracking_uri",
-            return_value="http://localhost:5000",
-        ),
-        pytest.raises(GuardrailViolation, match="invalid JSON"),
-    ):
-        guard.process_request(_make_request())
+def test_after_sanitization_raises():
+    scorer = _mock_scorer(_feedback(value=False, rationale="redact"))
+    guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.SANITIZATION)
+    with pytest.raises(GuardrailViolation, match="not yet wired"):
+        guard.process_response(_make_response())
 
 
 def test_sanitization_passes_on_good_content():
@@ -345,7 +226,7 @@ def test_empty_choices_response():
 # ---------------------------------------------------------------------------
 
 
-def test_from_entity_without_action_endpoint():
+def test_from_entity():
     mock_serialized_scorer = mock.MagicMock()
     mock_scorer_version = mock.MagicMock()
     mock_scorer_version.serialized_scorer = mock_serialized_scorer
@@ -355,6 +236,7 @@ def test_from_entity_without_action_endpoint():
     entity.name = "safety-guard"
     entity.stage = GuardrailStage.BEFORE
     entity.action = GuardrailAction.VALIDATION
+    entity.action_endpoint_id = None
 
     with mock.patch(
         "mlflow.genai.scorers.Scorer.model_validate",
@@ -367,13 +249,13 @@ def test_from_entity_without_action_endpoint():
     assert guard.stage == GuardrailStage.BEFORE
     assert guard.action == GuardrailAction.VALIDATION
     assert guard.name == "safety-guard"
-    assert guard.action_endpoint_name is None
+    assert guard.action_endpoint_id is None
 
     result = guard.process_request(_make_request())
     assert result is not None
 
 
-def test_from_entity_with_action_endpoint_name():
+def test_from_entity_with_action_endpoint():
     mock_serialized_scorer = mock.MagicMock()
     mock_scorer_version = mock.MagicMock()
     mock_scorer_version.serialized_scorer = mock_serialized_scorer
@@ -383,11 +265,12 @@ def test_from_entity_with_action_endpoint_name():
     entity.name = "sanitizer-guard"
     entity.stage = GuardrailStage.BEFORE
     entity.action = GuardrailAction.SANITIZATION
+    entity.action_endpoint_id = "e-abc123"
 
     with mock.patch(
         "mlflow.genai.scorers.Scorer.model_validate",
         return_value=_mock_scorer(_feedback(value=True)),
     ):
-        guard = from_entity(entity, action_endpoint_name="my-sanitizer-endpoint")
+        guard = from_entity(entity)
 
-    assert guard.action_endpoint_name == "my-sanitizer-endpoint"
+    assert guard.action_endpoint_id == "e-abc123"

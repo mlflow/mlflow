@@ -1,12 +1,8 @@
 from __future__ import annotations
 
 import abc
-import json
 from typing import TYPE_CHECKING, Any
 
-import requests
-
-import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
     GatewayGuardrail,
@@ -22,16 +18,6 @@ if TYPE_CHECKING:
 
 # Scorer.__call__ returns this union type.
 ScorerResult = int | float | bool | str | Feedback | list[Feedback]
-
-_SANITIZE_SYSTEM_PROMPT = """\
-You are a content sanitizer. You will receive a JSON payload and an issue description.
-Rewrite the payload to address the issue while preserving the structure and intent.
-Return ONLY a valid JSON object with the same schema as the input payload.
-
-Issue: {rationale}
-
-Input payload:
-{payload_json}"""
 
 
 class GuardrailViolation(MlflowException):
@@ -87,16 +73,15 @@ class JudgeGuardrail(Guardrail):
 
     Runs the judge on the request (BEFORE stage) or response (AFTER stage).
     For VALIDATION actions, blocks if the judge returns a failing value.
-    For SANITIZATION actions, creates a provider from the action endpoint
-    and calls it directly to rewrite the payload.
+    For SANITIZATION actions, delegates to ``_sanitize`` (implemented in a
+    future PR that wires guardrails into the gateway request flow).
 
     Args:
         scorer: An MLflow ``Scorer`` instance (e.g. from ``get_scorer``).
         stage: Whether this guardrail runs BEFORE or AFTER LLM invocation.
         action: Whether the guardrail validates (blocks) or sanitizes (modifies).
         name: Human-readable name for error messages.
-        action_endpoint_name: Gateway endpoint name for the LLM used by sanitization.
-            Required when ``action`` is ``SANITIZATION``.
+        action_endpoint_id: Gateway endpoint ID for the LLM used by sanitization.
     """
 
     def __init__(
@@ -105,13 +90,13 @@ class JudgeGuardrail(Guardrail):
         stage: GuardrailStage,
         action: GuardrailAction,
         name: str = "judge-guardrail",
-        action_endpoint_name: str | None = None,
+        action_endpoint_id: str | None = None,
     ) -> None:
         self.scorer = scorer
         self.stage = stage
         self.action = action
         self.name = name
-        self.action_endpoint_name = action_endpoint_name
+        self.action_endpoint_id = action_endpoint_id
 
     def _extract_text(self, payload: dict[str, Any], *, is_response: bool) -> str:
         if is_response:
@@ -160,43 +145,14 @@ class JudgeGuardrail(Guardrail):
         return str(result)
 
     def _sanitize(self, payload: dict[str, Any], rationale: str) -> dict[str, Any]:
-        """Call the action endpoint to rewrite the payload.
+        """Rewrite the payload using the action endpoint LLM.
 
-        Posts a chat request to the gateway invocations endpoint at
-        ``{tracking_uri}/gateway/{action_endpoint_name}/mlflow/invocations``.
-        The tracking URI is resolved from ``mlflow.get_tracking_uri()``,
-        which points to the running MLflow server.
+        Override this method or see PR4 for the gateway-integrated implementation.
         """
-        if not self.action_endpoint_name:
-            raise GuardrailViolation(
-                self.name,
-                "Sanitization requires an action_endpoint_name but none was configured.",
-            )
-
-        tracking_uri = mlflow.get_tracking_uri().rstrip("/")
-        url = f"{tracking_uri}/gateway/{self.action_endpoint_name}/mlflow/invocations"
-        body = {
-            "messages": [
-                {
-                    "role": "user",
-                    "content": _SANITIZE_SYSTEM_PROMPT.format(
-                        rationale=rationale,
-                        payload_json=json.dumps(payload, indent=2),
-                    ),
-                },
-            ],
-        }
-
-        resp = requests.post(url, json=body, timeout=60)
-        resp.raise_for_status()
-        content = resp.json()["choices"][0]["message"]["content"]
-        try:
-            return json.loads(content)
-        except json.JSONDecodeError as e:
-            raise GuardrailViolation(
-                self.name,
-                f"Sanitization LLM returned invalid JSON: {content[:200]}",
-            ) from e
+        raise GuardrailViolation(
+            self.name,
+            f"Sanitization not yet wired into the gateway. Judge feedback: {rationale}",
+        )
 
     def process_request(self, payload: dict[str, Any]) -> dict[str, Any]:
         if self.stage == GuardrailStage.AFTER:
@@ -233,10 +189,7 @@ class JudgeGuardrail(Guardrail):
         return self._sanitize(payload, rationale)
 
 
-def from_entity(
-    entity: GatewayGuardrail,
-    action_endpoint_name: str | None = None,
-) -> JudgeGuardrail:
+def from_entity(entity: GatewayGuardrail) -> JudgeGuardrail:
     """Convert a ``GatewayGuardrail`` entity (DB model) into a callable ``JudgeGuardrail``.
 
     Deserializes the scorer stored in ``entity.scorer`` (a ``ScorerVersion``)
@@ -244,10 +197,6 @@ def from_entity(
 
     Args:
         entity: A ``GatewayGuardrail`` entity containing a ``ScorerVersion``.
-        action_endpoint_name: Pre-resolved gateway endpoint name for
-            sanitization. The caller is responsible for resolving
-            ``entity.action_endpoint_id`` to an endpoint name before
-            calling this function (e.g. when loading guardrail configs).
 
     Returns:
         A ``JudgeGuardrail`` ready to process requests/responses.
@@ -260,5 +209,5 @@ def from_entity(
         stage=entity.stage,
         action=entity.action,
         name=entity.name,
-        action_endpoint_name=action_endpoint_name,
+        action_endpoint_id=entity.action_endpoint_id,
     )
