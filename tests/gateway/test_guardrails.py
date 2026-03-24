@@ -99,18 +99,108 @@ def test_after_validation_skips_request():
 # ---------------------------------------------------------------------------
 
 
-def test_before_sanitization_raises_on_fail():
-    scorer = _mock_scorer(_feedback(value=False, rationale="needs cleaning"))
+def _mock_endpoint_config():
+    """Create a mock endpoint config with provider/model info."""
+    model_config = mock.MagicMock()
+    model_config.provider = "openai"
+    model_config.model_name = "gpt-4"
+    config = mock.MagicMock()
+    config.model_configs = [model_config]
+    return config
+
+
+def _patch_sanitization(rewritten_text="Cleaned text"):
+    """Context manager that mocks both get_endpoint_config and _invoke_via_gateway."""
+    import contextlib
+
+    @contextlib.contextmanager
+    def _ctx():
+        with (
+            mock.patch(
+                "mlflow.store.tracking.gateway.config_resolver.get_endpoint_config",
+                return_value=_mock_endpoint_config(),
+            ),
+            mock.patch(
+                "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+                return_value=rewritten_text,
+            ),
+        ):
+            yield
+
+    return _ctx()
+
+
+def test_before_sanitization_rewrites_request():
+    scorer = _mock_scorer(_feedback(value=False, rationale="contains PII"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        action_endpoint_id="ep-sanitizer",
+    )
+    with _patch_sanitization("Cleaned text"):
+        result = guard.process_request(_make_request("my SSN is 123-45-6789"))
+    assert result["messages"][-1]["content"] == "Cleaned text"
+
+
+def test_after_sanitization_rewrites_response():
+    scorer = _mock_scorer(_feedback(value=False, rationale="toxic language"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.AFTER,
+        GuardrailAction.SANITIZATION,
+        action_endpoint_id="ep-sanitizer",
+    )
+    with _patch_sanitization("Polite version"):
+        result = guard.process_response(_make_response("rude text"))
+    assert result["choices"][0]["message"]["content"] == "Polite version"
+
+
+def test_sanitization_without_endpoint_raises():
+    scorer = _mock_scorer(_feedback(value=False, rationale="issue found"))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION)
-    with pytest.raises(GuardrailViolation, match="Sanitization not yet implemented"):
+    with pytest.raises(GuardrailViolation, match="action_endpoint_id"):
         guard.process_request(_make_request())
 
 
-def test_after_sanitization_raises_on_fail():
-    scorer = _mock_scorer(_feedback(value=False, rationale="redact"))
-    guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.SANITIZATION)
-    with pytest.raises(GuardrailViolation, match="Sanitization not yet implemented"):
-        guard.process_response(_make_response())
+def test_sanitization_does_not_mutate_original():
+    scorer = _mock_scorer(_feedback(value=False, rationale="fix"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        action_endpoint_id="ep-sanitizer",
+    )
+    original = _make_request("original text")
+    with _patch_sanitization("rewritten"):
+        result = guard.process_request(original)
+    assert original["messages"][-1]["content"] == "original text"
+    assert result["messages"][-1]["content"] == "rewritten"
+
+
+def test_sanitization_calls_invoke_via_gateway_with_correct_model_uri():
+    scorer = _mock_scorer(_feedback(value=False, rationale="needs fix"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        action_endpoint_id="ep-sanitizer",
+    )
+    with (
+        mock.patch(
+            "mlflow.store.tracking.gateway.config_resolver.get_endpoint_config",
+            return_value=_mock_endpoint_config(),
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter._invoke_via_gateway",
+            return_value="fixed text",
+        ) as mock_invoke,
+    ):
+        guard.process_request(_make_request("bad text"))
+    mock_invoke.assert_called_once()
+    call_args = mock_invoke.call_args
+    assert call_args[0][0] == "openai:/gpt-4"
+    assert call_args[0][1] == "openai"
 
 
 def test_sanitization_passes_on_good_content():
@@ -233,9 +323,11 @@ def test_from_entity():
 
     entity = mock.MagicMock()
     entity.scorer = mock_scorer_version
+    entity.name = "safety-guard"
     entity.stage = GuardrailStage.BEFORE
     entity.action = GuardrailAction.VALIDATION
     entity.guardrail_id = "gr-abc123"
+    entity.action_endpoint_id = None
 
     with mock.patch(
         "mlflow.genai.scorers.Scorer.model_validate",
@@ -247,7 +339,7 @@ def test_from_entity():
     assert isinstance(guard, JudgeGuardrail)
     assert guard.stage == GuardrailStage.BEFORE
     assert guard.action == GuardrailAction.VALIDATION
-    assert guard.name == "guardrail-gr-abc123"
+    assert guard.name == "safety-guard"
 
     result = guard.process_request(_make_request())
     assert result is not None

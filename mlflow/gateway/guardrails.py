@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import abc
+import copy
+import json
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.assessment import Feedback
@@ -18,6 +20,15 @@ if TYPE_CHECKING:
 
 # Scorer.__call__ returns this union type.
 ScorerResult = int | float | bool | str | Feedback | list[Feedback]
+
+_SANITIZE_SYSTEM_PROMPT = (
+    "You are a content sanitizer. Rewrite the following text to address the "
+    "issue described below. Preserve the original meaning and intent as much "
+    "as possible while resolving the problem. Output only the rewritten text "
+    "with no additional commentary.\n\n"
+    "Issue: {rationale}\n\n"
+    "Original text:\n{text}"
+)
 
 
 class GuardrailViolation(MlflowException):
@@ -73,14 +84,16 @@ class JudgeGuardrail(Guardrail):
 
     Runs the judge on the request (BEFORE stage) or response (AFTER stage).
     For VALIDATION actions, blocks if the judge returns a failing value.
-    For SANITIZATION actions, invokes an LLM to modify the payload based on
-    the judge's feedback.
+    For SANITIZATION actions, invokes an LLM via ``action_endpoint_id`` to
+    rewrite the content based on the judge's feedback.
 
     Args:
         scorer: An MLflow ``Scorer`` instance (e.g. from ``get_scorer``).
         stage: Whether this guardrail runs BEFORE or AFTER LLM invocation.
         action: Whether the guardrail validates (blocks) or sanitizes (modifies).
         name: Human-readable name for error messages.
+        action_endpoint_id: Gateway endpoint ID for the LLM used by sanitization.
+            Required when ``action`` is ``SANITIZATION``.
     """
 
     def __init__(
@@ -89,11 +102,13 @@ class JudgeGuardrail(Guardrail):
         stage: GuardrailStage,
         action: GuardrailAction,
         name: str = "judge-guardrail",
+        action_endpoint_id: str | None = None,
     ) -> None:
         self.scorer = scorer
         self.stage = stage
         self.action = action
         self.name = name
+        self.action_endpoint_id = action_endpoint_id
 
     def _extract_text(self, payload: dict[str, Any], *, is_response: bool) -> str:
         if is_response:
@@ -141,6 +156,54 @@ class JudgeGuardrail(Guardrail):
             return "; ".join(failing) if failing else ""
         return str(result)
 
+    def _sanitize(self, text: str, rationale: str) -> str:
+        """Call the action endpoint LLM to rewrite ``text`` based on ``rationale``.
+
+        Resolves the action endpoint's provider config and calls
+        ``_invoke_via_gateway`` to perform the rewrite.
+        """
+        from mlflow.genai.judges.adapters.gateway_adapter import _invoke_via_gateway
+        from mlflow.store.tracking.gateway.config_resolver import get_endpoint_config
+
+        if not self.action_endpoint_id:
+            raise GuardrailViolation(
+                self.name,
+                "Sanitization requires an action_endpoint_id but none was configured.",
+            )
+
+        endpoint_config = get_endpoint_config(self.action_endpoint_id)
+        model_config = endpoint_config.model_configs[0]
+        provider = model_config.provider
+        model_name = model_config.model_name
+        model_uri = f"{provider}:/{model_name}"
+
+        prompt = [
+            {
+                "role": "user",
+                "content": _SANITIZE_SYSTEM_PROMPT.format(rationale=rationale, text=text),
+            },
+        ]
+
+        response = _invoke_via_gateway(model_uri, provider, prompt)
+        # _invoke_via_gateway returns a JSON string; extract the text content.
+        try:
+            return json.loads(response)["result"]
+        except (json.JSONDecodeError, KeyError):
+            # If not structured JSON, the raw response is the rewritten text.
+            return response
+
+    def _apply_sanitization(
+        self, payload: dict[str, Any], rationale: str, *, is_response: bool
+    ) -> dict[str, Any]:
+        text = self._extract_text(payload, is_response=is_response)
+        rewritten = self._sanitize(text, rationale)
+        payload = copy.deepcopy(payload)
+        if is_response:
+            payload["choices"][0]["message"]["content"] = rewritten
+        else:
+            payload["messages"][-1]["content"] = rewritten
+        return payload
+
     def process_request(self, payload: dict[str, Any]) -> dict[str, Any]:
         if self.stage == GuardrailStage.AFTER:
             return payload
@@ -151,15 +214,12 @@ class JudgeGuardrail(Guardrail):
         if self._is_passing(result):
             return payload
 
-        if self.action == GuardrailAction.VALIDATION:
-            raise GuardrailViolation(self.name, self._get_rationale(result))
+        rationale = self._get_rationale(result)
 
-        # SANITIZATION: placeholder — subclasses or future work can invoke an
-        # LLM to rewrite the content. For now, raise so we don't silently drop.
-        raise GuardrailViolation(
-            self.name,
-            f"Sanitization not yet implemented. Judge feedback: {self._get_rationale(result)}",
-        )
+        if self.action == GuardrailAction.VALIDATION:
+            raise GuardrailViolation(self.name, rationale)
+
+        return self._apply_sanitization(payload, rationale, is_response=False)
 
     def process_response(self, payload: dict[str, Any]) -> dict[str, Any]:
         if self.stage == GuardrailStage.BEFORE:
@@ -171,13 +231,12 @@ class JudgeGuardrail(Guardrail):
         if self._is_passing(result):
             return payload
 
-        if self.action == GuardrailAction.VALIDATION:
-            raise GuardrailViolation(self.name, self._get_rationale(result))
+        rationale = self._get_rationale(result)
 
-        raise GuardrailViolation(
-            self.name,
-            f"Sanitization not yet implemented. Judge feedback: {self._get_rationale(result)}",
-        )
+        if self.action == GuardrailAction.VALIDATION:
+            raise GuardrailViolation(self.name, rationale)
+
+        return self._apply_sanitization(payload, rationale, is_response=True)
 
 
 def from_entity(entity: GatewayGuardrail) -> JudgeGuardrail:
@@ -199,5 +258,6 @@ def from_entity(entity: GatewayGuardrail) -> JudgeGuardrail:
         scorer=scorer,
         stage=entity.stage,
         action=entity.action,
-        name=f"guardrail-{entity.guardrail_id}",
+        name=entity.name,
+        action_endpoint_id=entity.action_endpoint_id,
     )
