@@ -3130,7 +3130,6 @@ class SqlGatewayGuardrail(Base):
             scorer=self.scorer_version_ref.to_mlflow_entity(),
             stage=GuardrailStage(self.stage),
             action=GuardrailAction(self.action),
-            action_endpoint_id=self.action_endpoint_id,
             action_llm_base_url=action_llm_base_url,
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
