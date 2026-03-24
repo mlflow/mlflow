@@ -2628,32 +2628,6 @@ def test_add_guardrail_to_endpoint(store: SqlAlchemyStore):
     assert config.created_by == "test-user"
 
 
-def test_add_guardrail_to_endpoint_with_execution_order(store: SqlAlchemyStore):
-    scorer = _create_scorer(store)
-    endpoint = _create_gateway_endpoint(store, f"gr-order-{uuid.uuid4().hex[:8]}")
-
-    guardrails = []
-    for _ in range(3):
-        g = store.create_gateway_guardrail(
-            scorer_id=scorer.scorer_id,
-            scorer_version=scorer.scorer_version,
-            stage=GuardrailStage.BEFORE,
-            action=GuardrailAction.VALIDATION,
-        )
-        guardrails.append(g)
-
-    configs = []
-    for i, g in enumerate(guardrails):
-        c = store.add_guardrail_to_endpoint(
-            endpoint_id=endpoint.endpoint_id,
-            guardrail_id=g.guardrail_id,
-            execution_order=(i + 1) * 10,
-        )
-        configs.append(c)
-
-    assert [c.execution_order for c in configs] == [10, 20, 30]
-
-
 def test_add_guardrail_to_endpoint_null_execution_order(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
     endpoint = _create_gateway_endpoint(store, f"gr-null-order-{uuid.uuid4().hex[:8]}")
@@ -2762,22 +2736,24 @@ def test_list_endpoint_guardrail_configs(store: SqlAlchemyStore):
     scorer = _create_scorer(store)
     endpoint = _create_gateway_endpoint(store, f"gr-list-{uuid.uuid4().hex[:8]}")
 
-    guardrails = []
-    for _ in range(3):
-        g = store.create_gateway_guardrail(
+    guardrails = [
+        store.create_gateway_guardrail(
             scorer_id=scorer.scorer_id,
             scorer_version=scorer.scorer_version,
             stage=GuardrailStage.BEFORE,
             action=GuardrailAction.VALIDATION,
         )
-        guardrails.append(g)
+        for _ in range(3)
+    ]
 
-    for i, g in enumerate(guardrails):
+    configs = [
         store.add_guardrail_to_endpoint(
             endpoint_id=endpoint.endpoint_id,
             guardrail_id=g.guardrail_id,
             execution_order=(i + 1) * 10,
         )
+        for i, g in enumerate(guardrails)
+    ]
 
     configs = store.list_endpoint_guardrail_configs(endpoint.endpoint_id)
     assert len(configs) == 3
