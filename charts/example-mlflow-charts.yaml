@@ -1,0 +1,73 @@
+# Example
+# Usage:
+#   helm upgrade --install mlflow ./charts --namespace mlflow --create-namespace -f example-mlflow-chart.yaml
+
+image:
+  repository: ghcr.io/mlflow/mlflow
+  tag: "v3.10.1-full"
+
+replicaCount: 1
+
+# MLflow server options — names match `mlflow server --help` flags exactly.
+server:
+  # --- Backend store (metadata) ---
+  backend_store_uri: "postgresql://<username>:<password>@<endpoint>:5432/<database-name>"
+
+  # --- Artifact store ---
+  # Leave empty to co-locate artifacts with the backend store.
+  default_artifact_root: "s3://my-bucket/mlflow"
+  # S3 / MinIO example:
+  # default_artifact_root: "s3://my-bucket/mlflow"
+  # artifacts_destination: "s3://my-bucket/mlflow"
+  # serve_artifacts: true   # proxy downloads through tracking server
+
+  host: "0.0.0.0"
+  port: 5000
+  workers: 4
+
+  # Uncomment to enable basic-auth plugin:
+  # app_name: "basic-auth"
+
+  # Expose Prometheus metrics:
+  # expose_prometheus: "/metrics"
+
+# Run `mlflow db upgrade` before the server starts (recommended for SQL backends).
+migrate:
+  enabled: true
+
+service:
+  type: ClusterIP
+  port: 5000
+
+# Expose via Ingress:
+# ingress:
+#   enabled: true
+#   className: "nginx"
+#   hosts:
+#     - host: mlflow.example.com
+#       paths:
+#         - path: /
+#           pathType: Prefix
+
+# Inject credentials as environment variables:
+# env:
+#   - name: AWS_ACCESS_KEY_ID
+#     valueFrom:
+#       secretKeyRef:
+#         name: s3-credentials
+#         key: access-key-id
+#   - name: AWS_SECRET_ACCESS_KEY
+#     valueFrom:
+#       secretKeyRef:
+#         name: s3-credentials
+#         key: secret-access-key
+#   - name: MLFLOW_S3_ENDPOINT_URL
+#     value: "http://minio:9000"
+
+resources:
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 2Gi

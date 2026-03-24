@@ -1,0 +1,91 @@
+image:
+  repository: ghcr.io/mlflow/mlflow
+  # Defaults to chart appVersion when empty
+  tag: ""
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+# MLflow server CLI options.
+# Key names match MLflow CLI flags (hyphens replaced with underscores).
+# Run `mlflow server --help` for the full list.
+server:
+  # SQL database URI for experiment/run metadata.
+  # Examples:
+  #   postgresql://user:pass@host:5432/db  (PostgreSQL)
+  #   mysql+pymysql://user:pass@host/db    (MySQL)
+  backend_store_uri: ""
+
+  # Root location for artifacts (leave empty to use <backend_store_uri>/artifacts).
+  default_artifact_root: ""
+
+  # Artifact proxy destination (used when serve_artifacts is true).
+  artifacts_destination: ""
+
+  host: "0.0.0.0"
+  port: 5000
+
+  # Proxy artifact downloads through the tracking server.
+  serve_artifacts: true
+
+  # Enable an MLflow server plugin (e.g. "basic-auth").
+  app_name: ""
+
+  # Expose Prometheus metrics at this path (e.g. "/metrics").
+  expose_prometheus: ""
+
+  # Number of gunicorn worker processes.
+  workers: 4
+
+  # Extra options forwarded to gunicorn (e.g. "--timeout 120").
+  gunicorn_opts: ""
+
+
+# Run `mlflow db upgrade` in an init container before the server starts.
+# Disable only if the database schema is managed externally.
+migrate:
+  enabled: true
+
+service:
+  type: ClusterIP
+  port: 5000
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: mlflow.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Extra environment variables injected into both init and main containers.
+# Useful for database passwords, S3 credentials, etc.
+# env:
+#   - name: MLFLOW_DATABASE_PASSWORD
+#     valueFrom:
+#       secretKeyRef:
+#         name: mlflow-db-secret
+#         key: password
+env: []
+
+# Extra envFrom sources (ConfigMaps, Secrets).
+envFrom: []
+
+resources: {}
+  # limits:
+  #   cpu: 500m
+  #   memory: 512Mi
+  # requests:
+  #   cpu: 250m
+  #   memory: 256Mi
+
+podAnnotations: {}
+podLabels: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
