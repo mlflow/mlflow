@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 
 import requests
 
-import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
     GatewayGuardrail,
@@ -95,7 +94,7 @@ class JudgeGuardrail(Guardrail):
         stage: Whether this guardrail runs BEFORE or AFTER LLM invocation.
         action: Whether the guardrail validates (blocks) or sanitizes (modifies).
         name: Human-readable name for error messages.
-        action_endpoint_id: Gateway endpoint ID for the LLM used by sanitization.
+        action_llm_base_url: Gateway endpoint ID for the LLM used by sanitization.
     """
 
     def __init__(
@@ -104,13 +103,13 @@ class JudgeGuardrail(Guardrail):
         stage: GuardrailStage,
         action: GuardrailAction,
         name: str,
-        action_endpoint_id: str | None = None,
+        action_llm_base_url: str | None = None,
     ) -> None:
         self.scorer = scorer
         self.stage = stage
         self.action = action
         self.name = name
-        self.action_endpoint_id = action_endpoint_id
+        self.action_llm_base_url = action_llm_base_url
 
     def _extract_text(self, payload: dict[str, Any], *, is_response: bool) -> str:
         if is_response:
@@ -161,16 +160,16 @@ class JudgeGuardrail(Guardrail):
     def _sanitize(self, payload: dict[str, Any], rationale: str) -> dict[str, Any]:
         """Send the full payload to the action endpoint LLM for rewriting.
 
-        Posts a chat request to the gateway invocations endpoint.
+        Posts a chat request to ``action_llm_base_url`` which is the fully
+        resolved gateway invocations URL.
         """
-        if not self.action_endpoint_id:
+        if not self.action_llm_base_url:
             raise GuardrailViolation(
                 self.name,
-                "Sanitization requires an action_endpoint_id but none was configured.",
+                "Sanitization requires an action_llm_base_url but none was configured.",
             )
 
-        tracking_uri = mlflow.get_tracking_uri().rstrip("/")
-        url = f"{tracking_uri}/gateway/{self.action_endpoint_id}/mlflow/invocations"
+        url = self.action_llm_base_url
         body = {
             "messages": [
                 {
@@ -249,5 +248,5 @@ class JudgeGuardrail(Guardrail):
             stage=entity.stage,
             action=entity.action,
             name=entity.name,
-            action_endpoint_id=entity.action_endpoint_id,
+            action_llm_base_url=entity.action_llm_base_url,
         )
