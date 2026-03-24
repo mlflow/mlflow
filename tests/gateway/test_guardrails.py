@@ -2,6 +2,7 @@ from unittest import mock
 
 import pytest
 
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
 from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail, from_entity
 
@@ -27,10 +28,8 @@ def _mock_scorer(return_value):
     return scorer
 
 
-class _FakeFeedback:
-    def __init__(self, value, rationale="some rationale"):
-        self.value = value
-        self.rationale = rationale
+def _feedback(value, rationale="some rationale"):
+    return Feedback(value=value, rationale=rationale)
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +38,7 @@ class _FakeFeedback:
 
 
 def test_before_validation_pass():
-    scorer = _mock_scorer(_FakeFeedback(value=True))
+    scorer = _mock_scorer(_feedback(value=True))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
     req = _make_request()
     result = guard.process_request(req)
@@ -48,7 +47,7 @@ def test_before_validation_pass():
 
 
 def test_before_validation_block():
-    scorer = _mock_scorer(_FakeFeedback(value=False, rationale="toxic content"))
+    scorer = _mock_scorer(_feedback(value=False, rationale="toxic content"))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, name="safety")
     with pytest.raises(GuardrailViolation, match="safety.*toxic content"):
         guard.process_request(_make_request())
@@ -56,7 +55,7 @@ def test_before_validation_block():
 
 
 def test_before_validation_skips_response():
-    scorer = _mock_scorer(_FakeFeedback(value=False))
+    scorer = _mock_scorer(_feedback(value=False))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
     resp = _make_response()
     result = guard.process_response(resp)
@@ -70,7 +69,7 @@ def test_before_validation_skips_response():
 
 
 def test_after_validation_pass():
-    scorer = _mock_scorer(_FakeFeedback(value="yes"))
+    scorer = _mock_scorer(_feedback(value="yes"))
     guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION)
     resp = _make_response()
     result = guard.process_response(resp)
@@ -79,7 +78,7 @@ def test_after_validation_pass():
 
 
 def test_after_validation_block():
-    scorer = _mock_scorer(_FakeFeedback(value="no", rationale="PII detected"))
+    scorer = _mock_scorer(_feedback(value="no", rationale="PII detected"))
     guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION, name="pii")
     with pytest.raises(GuardrailViolation, match="pii.*PII detected"):
         guard.process_response(_make_response())
@@ -87,7 +86,7 @@ def test_after_validation_block():
 
 
 def test_after_validation_skips_request():
-    scorer = _mock_scorer(_FakeFeedback(value=False))
+    scorer = _mock_scorer(_feedback(value=False))
     guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION)
     req = _make_request()
     result = guard.process_request(req)
@@ -101,28 +100,28 @@ def test_after_validation_skips_request():
 
 
 def test_before_sanitization_raises_on_fail():
-    scorer = _mock_scorer(_FakeFeedback(value=False, rationale="needs cleaning"))
+    scorer = _mock_scorer(_feedback(value=False, rationale="needs cleaning"))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION)
     with pytest.raises(GuardrailViolation, match="Sanitization not yet implemented"):
         guard.process_request(_make_request())
 
 
 def test_after_sanitization_raises_on_fail():
-    scorer = _mock_scorer(_FakeFeedback(value=False, rationale="redact"))
+    scorer = _mock_scorer(_feedback(value=False, rationale="redact"))
     guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.SANITIZATION)
     with pytest.raises(GuardrailViolation, match="Sanitization not yet implemented"):
         guard.process_response(_make_response())
 
 
 def test_sanitization_passes_on_good_content():
-    scorer = _mock_scorer(_FakeFeedback(value=True))
+    scorer = _mock_scorer(_feedback(value=True))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION)
     req = _make_request()
     assert guard.process_request(req) is req
 
 
 # ---------------------------------------------------------------------------
-# _is_passing edge cases
+# _is_passing with Feedback values
 # ---------------------------------------------------------------------------
 
 
@@ -143,8 +142,8 @@ def test_sanitization_passes_on_good_content():
         (0, False),
     ],
 )
-def test_is_passing_various_values(value, expected_pass):
-    scorer = _mock_scorer(_FakeFeedback(value=value))
+def test_is_passing_feedback_values(value, expected_pass):
+    scorer = _mock_scorer(_feedback(value=value))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
     if expected_pass:
         result = guard.process_request(_make_request())
@@ -155,12 +154,61 @@ def test_is_passing_various_values(value, expected_pass):
 
 
 # ---------------------------------------------------------------------------
+# Plain scalar return values (scorer returns int/bool/str directly)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "expected_pass"),
+    [
+        (True, True),
+        (False, False),
+        ("yes", True),
+        ("no", False),
+        (1, True),
+        (0, False),
+    ],
+)
+def test_is_passing_plain_scalar(value, expected_pass):
+    scorer = _mock_scorer(value)
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
+    if expected_pass:
+        result = guard.process_request(_make_request())
+        assert result is not None
+    else:
+        with pytest.raises(GuardrailViolation, match="blocked"):
+            guard.process_request(_make_request())
+
+
+# ---------------------------------------------------------------------------
+# list[Feedback] return value
+# ---------------------------------------------------------------------------
+
+
+def test_list_feedback_all_pass():
+    scorer = _mock_scorer([_feedback(value=True), _feedback(value="yes")])
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
+    result = guard.process_request(_make_request())
+    assert result is not None
+
+
+def test_list_feedback_one_fails():
+    scorer = _mock_scorer([
+        _feedback(value=True),
+        _feedback(value=False, rationale="unsafe"),
+    ])
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, name="multi")
+    with pytest.raises(GuardrailViolation, match="multi.*unsafe"):
+        guard.process_request(_make_request())
+
+
+# ---------------------------------------------------------------------------
 # Edge cases
 # ---------------------------------------------------------------------------
 
 
 def test_empty_messages_request():
-    scorer = _mock_scorer(_FakeFeedback(value=True))
+    scorer = _mock_scorer(_feedback(value=True))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
     result = guard.process_request({"messages": []})
     assert result == {"messages": []}
@@ -168,18 +216,11 @@ def test_empty_messages_request():
 
 
 def test_empty_choices_response():
-    scorer = _mock_scorer(_FakeFeedback(value=True))
+    scorer = _mock_scorer(_feedback(value=True))
     guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION)
     result = guard.process_response({"choices": []})
     assert result == {"choices": []}
     scorer.assert_called_once_with(outputs="")
-
-
-def test_plain_value_result():
-    scorer = _mock_scorer(True)
-    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
-    result = guard.process_request(_make_request())
-    assert result is not None
 
 
 # ---------------------------------------------------------------------------
@@ -200,7 +241,7 @@ def test_from_entity():
 
     with mock.patch(
         "mlflow.genai.scorers.Scorer.model_validate",
-        return_value=_mock_scorer(_FakeFeedback(value=True)),
+        return_value=_mock_scorer(_feedback(value=True)),
     ) as mock_validate:
         guard = from_entity(entity)
         mock_validate.assert_called_once_with(mock_serialized_scorer)
@@ -210,6 +251,5 @@ def test_from_entity():
     assert guard.action == GuardrailAction.VALIDATION
     assert guard.name == "guardrail-gr-abc123"
 
-    # Verify the resulting guardrail works
     result = guard.process_request(_make_request())
     assert result is not None

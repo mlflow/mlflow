@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 from typing import Any
 
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
     GatewayGuardrail,
     GuardrailAction,
@@ -10,6 +11,9 @@ from mlflow.entities.gateway_guardrail import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+# Scorer.__call__ returns this union type.
+ScorerResult = int | float | bool | str | Feedback | list[Feedback]
 
 
 class GuardrailViolation(MlflowException):
@@ -69,7 +73,7 @@ class JudgeGuardrail(Guardrail):
     the judge's feedback.
 
     Args:
-        scorer: An MLflow scorer instance (e.g. from ``get_scorer``).
+        scorer: An MLflow ``Scorer`` instance (e.g. from ``get_scorer``).
         stage: Whether this guardrail runs BEFORE or AFTER LLM invocation.
         action: Whether the guardrail validates (blocks) or sanitizes (modifies).
         name: Human-readable name for error messages.
@@ -77,7 +81,7 @@ class JudgeGuardrail(Guardrail):
 
     def __init__(
         self,
-        scorer: Any,
+        scorer: Any,  # Scorer — use Any to avoid circular import at module level
         stage: GuardrailStage,
         action: GuardrailAction,
         name: str = "judge-guardrail",
@@ -98,28 +102,39 @@ class JudgeGuardrail(Guardrail):
             return messages[-1].get("content", "")
         return ""
 
-    def _invoke_judge(self, text: str) -> Any:
+    def _invoke_judge(self, text: str) -> ScorerResult:
         return self.scorer(outputs=text)
 
-    def _is_passing(self, result: Any) -> bool:
+    def _is_passing(self, result: ScorerResult) -> bool:
         """Determine whether the judge result indicates a pass.
 
-        Handles ``Feedback`` objects (has ``.value``) and plain values.
-        The convention is: ``True`` / ``"yes"`` means the content is acceptable.
+        When the result is a ``Feedback``, reads ``.value``. For plain
+        scalars, interprets the value directly. ``True`` / ``"yes"`` /
+        ``"pass"`` / ``"true"`` mean the content is acceptable.
         """
-        value = getattr(result, "value", result)
+        if isinstance(result, Feedback):
+            value = result.value
+        elif isinstance(result, list):
+            # list[Feedback] — pass only if every feedback passes
+            return all(self._is_passing(f) for f in result)
+        else:
+            value = result
+
         if isinstance(value, bool):
             return value
         if isinstance(value, str):
             return value.strip().lower() in ("yes", "true", "pass")
         return bool(value)
 
-    def _get_rationale(self, result: Any) -> str:
-        rationale = getattr(result, "rationale", None)
-        if rationale:
-            return str(rationale)
-        metadata = getattr(result, "metadata", None) or {}
-        return metadata.get("rationale", str(getattr(result, "value", result)))
+    def _get_rationale(self, result: ScorerResult) -> str:
+        if isinstance(result, Feedback):
+            if result.rationale:
+                return result.rationale
+            return str(result.value)
+        if isinstance(result, list):
+            failing = [self._get_rationale(f) for f in result if not self._is_passing(f)]
+            return "; ".join(failing) if failing else ""
+        return str(result)
 
     def process_request(self, payload: dict[str, Any]) -> dict[str, Any]:
         if self.stage == GuardrailStage.AFTER:
