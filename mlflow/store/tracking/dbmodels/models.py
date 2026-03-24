@@ -3118,19 +3118,14 @@ class SqlGatewayGuardrail(Base):
     def __repr__(self):
         return f"<SqlGatewayGuardrail ({self.guardrail_id})>"
 
-    def to_mlflow_entity(self, tracking_uri: str | None = None):
-        action_llm_base_url = None
-        if self.action_endpoint and tracking_uri:
-            action_llm_base_url = (
-                f"{tracking_uri.rstrip('/')}/gateway/{self.action_endpoint.name}/mlflow/invocations"
-            )
+    def to_mlflow_entity(self):
         return GatewayGuardrail(
             guardrail_id=self.guardrail_id,
             name=self.name,
             scorer=self.scorer_version_ref.to_mlflow_entity(),
             stage=GuardrailStage(self.stage),
             action=GuardrailAction(self.action),
-            action_llm_base_url=action_llm_base_url,
+            action_endpoint_name=(self.action_endpoint.name if self.action_endpoint else None),
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
