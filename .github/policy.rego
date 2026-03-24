@@ -281,7 +281,7 @@ deny_mutable_install contains msg if {
 	regex.match(`(?m)^\s*yarn(\s+install)?\s*(?:#.*)?$`, step.run)
 	not regex.match(`\byarn install\s+--immutable\b`, step.run)
 	msg := sprintf(
-		"'yarn'/'yarn install' in job '%s' may modify the lockfile. Use 'yarn install --immutable'.",
+		"yarn or yarn install in job '%s' may modify the lockfile. Use 'yarn install --immutable'.",
 		[job_id],
 	)
 }
