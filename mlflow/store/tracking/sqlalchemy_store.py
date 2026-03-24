@@ -7027,32 +7027,41 @@ def _bulk_upsert(session: Session, model_class: type, rows: list[dict[str, Any]]
 
     for i in range(0, len(rows), _BULK_UPSERT_BATCH_SIZE):
         batch = rows[i : i + _BULK_UPSERT_BATCH_SIZE]
+        _upsert_batch(session, model_class, table, batch, pk_columns, update_columns, dialect)
 
-        if dialect in ("sqlite", "postgresql"):
-            if dialect == "sqlite":
-                from sqlalchemy.dialects.sqlite import insert
-            else:
-                from sqlalchemy.dialects.postgresql import insert
 
-            stmt = insert(table).values(batch)
-            if update_columns:
-                stmt = stmt.on_conflict_do_update(
-                    index_elements=pk_columns,
-                    set_={col: stmt.excluded[col] for col in update_columns},
-                )
-            else:
-                stmt = stmt.on_conflict_do_nothing()
-            session.execute(stmt)
-        elif dialect == "mysql":
-            from sqlalchemy.dialects.mysql import insert
-
-            stmt = insert(table).values(batch)
-            if update_columns:
-                stmt = stmt.on_duplicate_key_update({
-                    col: stmt.inserted[col] for col in update_columns
-                })
-            session.execute(stmt)
+def _upsert_batch(
+    session: Session,
+    model_class: type,
+    table: sqlalchemy.Table,
+    rows: list[dict[str, Any]],
+    pk_columns: list[str],
+    update_columns: list[str],
+    dialect: str,
+) -> None:
+    if dialect in ("sqlite", "postgresql"):
+        if dialect == "sqlite":
+            from sqlalchemy.dialects.sqlite import insert
         else:
-            # Fallback for MSSQL and other dialects
-            for row in batch:
-                session.merge(model_class(**row))
+            from sqlalchemy.dialects.postgresql import insert
+
+        stmt = insert(table).values(rows)
+        if update_columns:
+            stmt = stmt.on_conflict_do_update(
+                index_elements=pk_columns,
+                set_={col: stmt.excluded[col] for col in update_columns},
+            )
+        else:
+            stmt = stmt.on_conflict_do_nothing()
+        session.execute(stmt)
+    elif dialect == "mysql":
+        from sqlalchemy.dialects.mysql import insert
+
+        stmt = insert(table).values(rows)
+        if update_columns:
+            stmt = stmt.on_duplicate_key_update({col: stmt.inserted[col] for col in update_columns})
+        session.execute(stmt)
+    else:
+        # Fallback for MSSQL and other dialects
+        for row in rows:
+            session.merge(model_class(**row))
