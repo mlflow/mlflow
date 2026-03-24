@@ -1,7 +1,5 @@
 import base64
 
-import pytest
-
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.attachments import Attachment
 

@@ -557,18 +557,18 @@ class LiveSpan(Span):
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
-        inputs = self._extract_attachments(inputs)
+        inputs = self._extract_attachments(inputs, self._should_extract_base64())
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
 
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
-        outputs = self._extract_attachments(outputs)
+        outputs = self._extract_attachments(outputs, self._should_extract_base64())
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
 
-    def _extract_attachments(self, value: Any) -> Any:
+    def _extract_attachments(self, value: Any, extract_base64: bool) -> Any:
         if isinstance(value, Attachment):
             return self._store_attachment(value)
-        if self._should_extract_base64():
+        if extract_base64:
             if isinstance(value, str):
                 converted = self._try_convert_data_uri(value)
                 if converted is not None:
@@ -578,9 +578,9 @@ class LiveSpan(Span):
                 if converted is not None:
                     return converted
         if isinstance(value, dict):
-            return {k: self._extract_attachments(v) for k, v in value.items()}
+            return {k: self._extract_attachments(v, extract_base64) for k, v in value.items()}
         if isinstance(value, (list, tuple)):
-            return [self._extract_attachments(item) for item in value]
+            return [self._extract_attachments(item, extract_base64) for item in value]
         return value
 
     def _store_attachment(self, attachment: Attachment) -> str:
@@ -628,6 +628,7 @@ class LiveSpan(Span):
                 }
 
         # DALL-E output: {"b64_json": "<base64>", ...}
+        # DALL-E always returns PNG; other APIs using b64_json are not known
         if isinstance(b64 := value.get("b64_json"), str) and b64:
             try:
                 content_bytes = base64.b64decode(b64)
