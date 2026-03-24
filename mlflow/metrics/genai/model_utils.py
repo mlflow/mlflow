@@ -146,25 +146,25 @@ def _is_unsupported_output_format_error(exc: MlflowException) -> bool:
 
     Newer models (e.g. claude-sonnet-4-5-20250929) support it.
     """
-    cause = exc.__cause__
-    if not isinstance(cause, requests.exceptions.HTTPError):
-        return False
-    if cause.response is None or cause.response.status_code != 400:
-        return False
-    try:
-        body = cause.response.json()
-    except Exception:
-        return False
-    match body:
-        case {
-            "error": {
-                "type": "invalid_request_error",
-                "message": str(msg),
-            }
-        }:
-            return "does not support output format" in msg.lower()
+    match exc.__cause__:
+        case requests.exceptions.HTTPError(response=response) if (
+            response is not None and response.status_code == 400
+        ):
+            try:
+                body = response.json()
+            except Exception:
+                return False
+            match body:
+                case {
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": str(msg),
+                    }
+                }:
+                    return "does not support output format" in msg.lower()
         case _:
-            return False
+            pass
+    return False
 
 
 def _call_llm_provider_api(
