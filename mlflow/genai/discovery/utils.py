@@ -306,7 +306,7 @@ def _call_llm_via_litellm(
         if is_databricks_uri(mlflow.get_tracking_uri()):
             use_format = _patch_response_format(response_format)
         else:
-            use_format = _pydantic_to_response_format(response_format)
+            use_format = response_format
     elif json_mode:
         use_format = {"type": "json_object"}
     else:
