@@ -198,7 +198,7 @@ class _TokenCounter:
         return result
 
 
-def _resolve_refs(schema: dict, defs: dict | None = None) -> dict:
+def _resolve_refs(schema: dict[str, Any], defs: dict[str, Any] | None = None) -> dict[str, Any]:
     """Resolve $ref pointers and inline definitions, then add additionalProperties: false.
 
     Databricks model serving requires:
@@ -235,7 +235,7 @@ def _resolve_refs(schema: dict, defs: dict | None = None) -> dict:
     return result
 
 
-def _patch_response_format(response_format: type[pydantic.BaseModel]) -> dict:
+def _patch_response_format(response_format: type[pydantic.BaseModel]) -> dict[str, Any]:
     """Convert pydantic model to a Databricks-compatible JSON schema."""
     schema = _resolve_refs(response_format.model_json_schema())
     return {
@@ -301,7 +301,12 @@ def _call_llm_via_litellm(
         extra_headers = None
 
     if response_format is not None:
-        use_format = _patch_response_format(response_format)
+        from mlflow.utils.uri import is_databricks_uri
+
+        if is_databricks_uri(mlflow.get_tracking_uri()):
+            use_format = _patch_response_format(response_format)
+        else:
+            use_format = _pydantic_to_response_format(response_format)
     elif json_mode:
         use_format = {"type": "json_object"}
     else:
