@@ -101,39 +101,33 @@ def test_after_validation_skips_request():
 # ---------------------------------------------------------------------------
 
 
-def _mock_provider_response(sanitized_payload: dict[str, Any]) -> mock.MagicMock:
-    """Create a mock chat.ResponsePayload with content set to JSON of sanitized_payload."""
+def _mock_http_response(sanitized_payload: dict[str, Any]) -> mock.MagicMock:
+    """Create a mock requests.Response with LLM content set to JSON of sanitized_payload."""
     resp = mock.MagicMock()
-    resp.choices = [mock.MagicMock()]
-    resp.choices[0].message.content = json.dumps(sanitized_payload)
+    resp.status_code = 200
+    resp.json.return_value = {
+        "choices": [{"message": {"content": json.dumps(sanitized_payload)}}],
+    }
     return resp
 
 
 def _patch_sanitization(sanitized_payload: dict[str, Any]):
-    """Context manager that mocks the provider creation and async chat call."""
+    """Context manager that mocks requests.post and mlflow.get_tracking_uri for sanitization."""
     import contextlib
-
-    provider_resp = _mock_provider_response(sanitized_payload)
-
-    async def _fake_chat(payload):
-        return provider_resp
-
-    mock_provider = mock.MagicMock()
-    mock_provider.chat = _fake_chat
 
     @contextlib.contextmanager
     def _ctx():
         with (
             mock.patch(
-                "mlflow.server.gateway_api._create_provider_from_endpoint_name",
-                return_value=(mock_provider, mock.MagicMock()),
+                "mlflow.gateway.guardrails.requests.post",
+                return_value=_mock_http_response(sanitized_payload),
             ),
             mock.patch(
-                "mlflow.tracking._tracking_service.utils._get_store",
-                return_value=mock.MagicMock(),
+                "mlflow.gateway.guardrails.mlflow.get_tracking_uri",
+                return_value="http://localhost:5000",
             ),
         ):
-            yield mock_provider
+            yield
 
     return _ctx()
 
@@ -189,6 +183,31 @@ def test_sanitization_returns_full_payload():
     assert result["temperature"] == 0.5
 
 
+def test_sanitization_posts_to_correct_url():
+    scorer = _mock_scorer(_feedback(value=False, rationale="fix"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        action_endpoint_id="my-endpoint",
+    )
+    sanitized = _make_request("clean")
+    with (
+        mock.patch(
+            "mlflow.gateway.guardrails.requests.post",
+            return_value=_mock_http_response(sanitized),
+        ) as mock_post,
+        mock.patch(
+            "mlflow.gateway.guardrails.mlflow.get_tracking_uri", return_value="http://myserver:8080"
+        ),
+    ):
+        guard.process_request(_make_request("dirty"))
+    mock_post.assert_called_once()
+    assert (
+        mock_post.call_args[0][0] == "http://myserver:8080/gateway/my-endpoint/mlflow/invocations"
+    )
+
+
 def test_sanitization_invalid_json_raises():
     scorer = _mock_scorer(_feedback(value=False, rationale="fix"))
     guard = JudgeGuardrail(
@@ -197,23 +216,16 @@ def test_sanitization_invalid_json_raises():
         GuardrailAction.SANITIZATION,
         action_endpoint_id="ep-sanitizer",
     )
-
-    async def _bad_chat(payload):
-        resp = mock.MagicMock()
-        resp.choices = [mock.MagicMock()]
-        resp.choices[0].message.content = "not valid json at all"
-        return resp
-
-    mock_provider = mock.MagicMock()
-    mock_provider.chat = _bad_chat
+    bad_resp = mock.MagicMock()
+    bad_resp.status_code = 200
+    bad_resp.json.return_value = {
+        "choices": [{"message": {"content": "not valid json at all"}}],
+    }
     with (
+        mock.patch("mlflow.gateway.guardrails.requests.post", return_value=bad_resp),
         mock.patch(
-            "mlflow.server.gateway_api._create_provider_from_endpoint_name",
-            return_value=(mock_provider, mock.MagicMock()),
-        ),
-        mock.patch(
-            "mlflow.tracking._tracking_service.utils._get_store",
-            return_value=mock.MagicMock(),
+            "mlflow.gateway.guardrails.mlflow.get_tracking_uri",
+            return_value="http://localhost:5000",
         ),
         pytest.raises(GuardrailViolation, match="invalid JSON"),
     ):

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import abc
-import asyncio
 import json
 from typing import TYPE_CHECKING, Any
 
+import requests
+
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
     GatewayGuardrail,
@@ -158,30 +160,23 @@ class JudgeGuardrail(Guardrail):
         return str(result)
 
     def _sanitize(self, payload: dict[str, Any], rationale: str) -> dict[str, Any]:
-        """Call the action endpoint provider directly to rewrite the payload.
+        """Call the action endpoint to rewrite the payload.
 
-        Uses the same internal provider infrastructure as the gateway API:
-        resolves the endpoint config, creates a provider, and calls
-        ``provider.chat()`` to get the sanitized payload.
+        Posts a chat request to the gateway invocations endpoint at
+        ``{tracking_uri}/gateway/{action_endpoint_id}/mlflow/invocations``.
+        The tracking URI is resolved from ``mlflow.get_tracking_uri()``,
+        which points to the running MLflow server.
         """
-        from mlflow.gateway.config import EndpointType
-        from mlflow.gateway.schemas import chat
-        from mlflow.server.gateway_api import _create_provider_from_endpoint_name
-        from mlflow.tracking._tracking_service.utils import _get_store
-
         if not self.action_endpoint_id:
             raise GuardrailViolation(
                 self.name,
                 "Sanitization requires an action_endpoint_id but none was configured.",
             )
 
-        store = _get_store()
-        provider, _ = _create_provider_from_endpoint_name(
-            store, self.action_endpoint_id, EndpointType.LLM_V1_CHAT, enable_tracing=False
-        )
-
-        sanitize_payload = chat.RequestPayload(
-            messages=[
+        tracking_uri = mlflow.get_tracking_uri().rstrip("/")
+        url = f"{tracking_uri}/gateway/{self.action_endpoint_id}/mlflow/invocations"
+        body = {
+            "messages": [
                 {
                     "role": "user",
                     "content": _SANITIZE_SYSTEM_PROMPT.format(
@@ -190,24 +185,11 @@ class JudgeGuardrail(Guardrail):
                     ),
                 },
             ],
-        )
+        }
 
-        # provider.chat() is async; run it in the event loop if available,
-        # otherwise create a new one.
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-
-        if loop and loop.is_running():
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as pool:
-                response = pool.submit(asyncio.run, provider.chat(sanitize_payload)).result()
-        else:
-            response = asyncio.run(provider.chat(sanitize_payload))
-
-        content = response.choices[0].message.content
+        resp = requests.post(url, json=body, timeout=60)
+        resp.raise_for_status()
+        content = resp.json()["choices"][0]["message"]["content"]
         try:
             return json.loads(content)
         except json.JSONDecodeError as e:
