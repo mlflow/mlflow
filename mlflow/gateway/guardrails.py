@@ -94,7 +94,8 @@ class JudgeGuardrail(Guardrail):
         stage: Whether this guardrail runs BEFORE or AFTER LLM invocation.
         action: Whether the guardrail validates (blocks) or sanitizes (modifies).
         name: Human-readable name for error messages.
-        action_llm_base_url: Gateway endpoint ID for the LLM used by sanitization.
+        action_llm_url: Full gateway invocations URL for the sanitization LLM.
+            Built by the caller from the endpoint name and server address.
     """
 
     def __init__(
@@ -103,13 +104,13 @@ class JudgeGuardrail(Guardrail):
         stage: GuardrailStage,
         action: GuardrailAction,
         name: str,
-        action_llm_base_url: str | None = None,
+        action_llm_url: str | None = None,
     ) -> None:
         self.scorer = scorer
         self.stage = stage
         self.action = action
         self.name = name
-        self.action_llm_base_url = action_llm_base_url
+        self.action_llm_url = action_llm_url
 
     def _extract_text(self, payload: dict[str, Any], *, is_response: bool) -> str:
         if is_response:
@@ -160,16 +161,16 @@ class JudgeGuardrail(Guardrail):
     def _sanitize(self, payload: dict[str, Any], rationale: str) -> dict[str, Any]:
         """Send the full payload to the action endpoint LLM for rewriting.
 
-        Posts a chat request to ``action_llm_base_url`` which is the fully
+        Posts a chat request to ``action_llm_url`` which is the fully
         resolved gateway invocations URL.
         """
-        if not self.action_llm_base_url:
+        if not self.action_llm_url:
             raise GuardrailViolation(
                 self.name,
-                "Sanitization requires an action_llm_base_url but none was configured.",
+                "Sanitization requires an action_llm_url but none was configured.",
             )
 
-        url = self.action_llm_base_url
+        url = self.action_llm_url
         body = {
             "messages": [
                 {
@@ -228,7 +229,7 @@ class JudgeGuardrail(Guardrail):
         return self._sanitize(payload, rationale)
 
     @classmethod
-    def from_entity(cls, entity: GatewayGuardrail) -> JudgeGuardrail:
+    def from_entity(cls, entity: GatewayGuardrail, server_url: str | None = None) -> JudgeGuardrail:
         """Convert a ``GatewayGuardrail`` entity into a callable ``JudgeGuardrail``.
 
         Deserializes the scorer stored in ``entity.scorer`` (a ``ScorerVersion``)
@@ -236,11 +237,20 @@ class JudgeGuardrail(Guardrail):
 
         Args:
             entity: A ``GatewayGuardrail`` entity containing a ``ScorerVersion``.
+            server_url: Base URL of the MLflow server (e.g. ``http://localhost:5000``).
+                Used to build the sanitization invocations URL from
+                ``entity.action_endpoint_name``.
 
         Returns:
             A ``JudgeGuardrail`` ready to process requests/responses.
         """
         from mlflow.genai.scorers import Scorer
+
+        action_llm_url = None
+        if entity.action_endpoint_name and server_url:
+            action_llm_url = (
+                f"{server_url.rstrip('/')}/gateway/{entity.action_endpoint_name}/mlflow/invocations"
+            )
 
         scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
         return cls(
@@ -248,5 +258,5 @@ class JudgeGuardrail(Guardrail):
             stage=entity.stage,
             action=entity.action,
             name=entity.name,
-            action_llm_base_url=entity.action_llm_base_url,
+            action_llm_url=action_llm_url,
         )
