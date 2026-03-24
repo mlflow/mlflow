@@ -126,13 +126,16 @@ from mlflow.server.handlers import (
     ARTIFACT_STREAM_CHUNK_SIZE,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
+    _abort_multipart_upload_artifact,
     _batch_get_trace_infos,
     _batch_get_traces,
     _calculate_trace_filter_correlation,
     _cancel_prompt_optimization_job,
+    _complete_multipart_upload_artifact,
     _convert_path_parameter_to_flask_format,
     _create_dataset_handler,
     _create_experiment,
+    _create_multipart_upload_artifact,
     _create_issue,
     _create_model_version,
     _create_prompt_optimization_job,
@@ -1198,6 +1201,63 @@ def test_get_presigned_download_url_unsupported_repo(enable_serve_artifacts, tmp
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(NOT_IMPLEMENTED)
     assert "multipart" in json_response["message"].lower()
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "path/../to/file",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "/file://etc/passwd",
+        "%2E%2E%2F%2E%2E%2Fpath",
+    ],
+)
+def test_create_multipart_upload_artifact_throws_for_malicious_path(enable_serve_artifacts, path):
+    response = _create_multipart_upload_artifact(path)
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert json_response["message"] == "Invalid path"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "path/../to/file",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "/file://etc/passwd",
+        "%2E%2E%2F%2E%2E%2Fpath",
+    ],
+)
+def test_complete_multipart_upload_artifact_throws_for_malicious_path(enable_serve_artifacts, path):
+    response = _complete_multipart_upload_artifact(path)
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert json_response["message"] == "Invalid path"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/path",
+        "path/../to/file",
+        "/etc/passwd",
+        "/etc/passwd%00.jpg",
+        "/file://etc/passwd",
+        "%2E%2E%2F%2E%2E%2Fpath",
+    ],
+)
+def test_abort_multipart_upload_artifact_throws_for_malicious_path(enable_serve_artifacts, path):
+    response = _abort_multipart_upload_artifact(path)
+    assert response.status_code == 400
+    json_response = json.loads(response.get_data())
+    assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+    assert json_response["message"] == "Invalid path"
 
 
 @pytest.mark.parametrize(
