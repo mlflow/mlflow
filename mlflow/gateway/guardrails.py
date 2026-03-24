@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import abc
+import json
 from typing import TYPE_CHECKING, Any
 
+import requests
+
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
     GatewayGuardrail,
@@ -18,6 +22,16 @@ if TYPE_CHECKING:
 
 # Scorer.__call__ returns this union type.
 ScorerResult = int | float | bool | str | Feedback | list[Feedback]
+
+_SANITIZE_SYSTEM_PROMPT = """\
+You are a content sanitizer. You will receive a JSON payload and an issue description.
+Rewrite the payload to address the issue while preserving the structure and intent.
+Return ONLY a valid JSON object with the same schema as the input payload.
+
+Issue: {rationale}
+
+Input payload:
+{payload_json}"""
 
 
 class GuardrailViolation(MlflowException):
@@ -145,14 +159,40 @@ class JudgeGuardrail(Guardrail):
         return str(result)
 
     def _sanitize(self, payload: dict[str, Any], rationale: str) -> dict[str, Any]:
-        """Rewrite the payload using the action endpoint LLM.
+        """Send the full payload to the action endpoint LLM for rewriting.
 
-        Override this method or see PR4 for the gateway-integrated implementation.
+        Posts a chat request to the gateway invocations endpoint.
         """
-        raise GuardrailViolation(
-            self.name,
-            f"Sanitization not yet wired into the gateway. Judge feedback: {rationale}",
-        )
+        if not self.action_endpoint_id:
+            raise GuardrailViolation(
+                self.name,
+                "Sanitization requires an action_endpoint_id but none was configured.",
+            )
+
+        tracking_uri = mlflow.get_tracking_uri().rstrip("/")
+        url = f"{tracking_uri}/gateway/{self.action_endpoint_id}/mlflow/invocations"
+        body = {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": _SANITIZE_SYSTEM_PROMPT.format(
+                        rationale=rationale,
+                        payload_json=json.dumps(payload, indent=2),
+                    ),
+                },
+            ],
+        }
+
+        resp = requests.post(url, json=body, timeout=60)
+        resp.raise_for_status()
+        content = resp.json()["choices"][0]["message"]["content"]
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError as e:
+            raise GuardrailViolation(
+                self.name,
+                f"Sanitization LLM returned invalid JSON: {content[:200]}",
+            ) from e
 
     def process_request(self, payload: dict[str, Any]) -> dict[str, Any]:
         if self.stage == GuardrailStage.AFTER:
@@ -188,26 +228,26 @@ class JudgeGuardrail(Guardrail):
 
         return self._sanitize(payload, rationale)
 
+    @classmethod
+    def from_entity(cls, entity: GatewayGuardrail) -> JudgeGuardrail:
+        """Convert a ``GatewayGuardrail`` entity into a callable ``JudgeGuardrail``.
 
-def from_entity(entity: GatewayGuardrail) -> JudgeGuardrail:
-    """Convert a ``GatewayGuardrail`` entity (DB model) into a callable ``JudgeGuardrail``.
+        Deserializes the scorer stored in ``entity.scorer`` (a ``ScorerVersion``)
+        back into a live ``Scorer`` instance.
 
-    Deserializes the scorer stored in ``entity.scorer`` (a ``ScorerVersion``)
-    back into a live ``Scorer`` instance and wraps it in a ``JudgeGuardrail``.
+        Args:
+            entity: A ``GatewayGuardrail`` entity containing a ``ScorerVersion``.
 
-    Args:
-        entity: A ``GatewayGuardrail`` entity containing a ``ScorerVersion``.
+        Returns:
+            A ``JudgeGuardrail`` ready to process requests/responses.
+        """
+        from mlflow.genai.scorers import Scorer
 
-    Returns:
-        A ``JudgeGuardrail`` ready to process requests/responses.
-    """
-    from mlflow.genai.scorers import Scorer
-
-    scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
-    return JudgeGuardrail(
-        scorer=scorer,
-        stage=entity.stage,
-        action=entity.action,
-        name=entity.name,
-        action_endpoint_id=entity.action_endpoint_id,
-    )
+        scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
+        return cls(
+            scorer=scorer,
+            stage=entity.stage,
+            action=entity.action,
+            name=entity.name,
+            action_endpoint_id=entity.action_endpoint_id,
+        )

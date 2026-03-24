@@ -1,10 +1,11 @@
+import json
 from unittest import mock
 
 import pytest
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
-from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail, from_entity
+from mlflow.gateway.guardrails import GuardrailViolation, JudgeGuardrail
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -99,18 +100,86 @@ def test_after_validation_skips_request():
 # ---------------------------------------------------------------------------
 
 
-def test_before_sanitization_raises():
-    scorer = _mock_scorer(_feedback(value=False, rationale="needs cleaning"))
+def _mock_http_response(sanitized_payload):
+    resp = mock.MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = {
+        "choices": [{"message": {"content": json.dumps(sanitized_payload)}}],
+    }
+    return resp
+
+
+def test_before_sanitization_rewrites_request():
+    scorer = _mock_scorer(_feedback(value=False, rationale="contains PII"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        action_endpoint_id="ep-sanitizer",
+    )
+    sanitized = _make_request("my SSN is [REDACTED]")
+    with (
+        mock.patch(
+            "mlflow.gateway.guardrails.requests.post", return_value=_mock_http_response(sanitized)
+        ),
+        mock.patch(
+            "mlflow.gateway.guardrails.mlflow.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
+    ):
+        result = guard.process_request(_make_request("my SSN is 123-45-6789"))
+    assert result == sanitized
+
+
+def test_after_sanitization_rewrites_response():
+    scorer = _mock_scorer(_feedback(value=False, rationale="toxic language"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.AFTER,
+        GuardrailAction.SANITIZATION,
+        action_endpoint_id="ep-sanitizer",
+    )
+    sanitized = _make_response("Polite version")
+    with (
+        mock.patch(
+            "mlflow.gateway.guardrails.requests.post", return_value=_mock_http_response(sanitized)
+        ),
+        mock.patch(
+            "mlflow.gateway.guardrails.mlflow.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
+    ):
+        result = guard.process_response(_make_response("rude text"))
+    assert result == sanitized
+
+
+def test_sanitization_without_endpoint_raises():
+    scorer = _mock_scorer(_feedback(value=False, rationale="issue found"))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION)
-    with pytest.raises(GuardrailViolation, match="not yet wired"):
+    with pytest.raises(GuardrailViolation, match="action_endpoint_id"):
         guard.process_request(_make_request())
 
 
-def test_after_sanitization_raises():
-    scorer = _mock_scorer(_feedback(value=False, rationale="redact"))
-    guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.SANITIZATION)
-    with pytest.raises(GuardrailViolation, match="not yet wired"):
-        guard.process_response(_make_response())
+def test_sanitization_invalid_json_raises():
+    scorer = _mock_scorer(_feedback(value=False, rationale="fix"))
+    guard = JudgeGuardrail(
+        scorer,
+        GuardrailStage.BEFORE,
+        GuardrailAction.SANITIZATION,
+        action_endpoint_id="ep-sanitizer",
+    )
+    bad_resp = mock.MagicMock()
+    bad_resp.status_code = 200
+    bad_resp.json.return_value = {"choices": [{"message": {"content": "not json"}}]}
+    with (
+        mock.patch("mlflow.gateway.guardrails.requests.post", return_value=bad_resp),
+        mock.patch(
+            "mlflow.gateway.guardrails.mlflow.get_tracking_uri",
+            return_value="http://localhost:5000",
+        ),
+        pytest.raises(GuardrailViolation, match="invalid JSON"),
+    ):
+        guard.process_request(_make_request())
 
 
 def test_sanitization_passes_on_good_content():
@@ -242,7 +311,7 @@ def test_from_entity():
         "mlflow.genai.scorers.Scorer.model_validate",
         return_value=_mock_scorer(_feedback(value=True)),
     ) as mock_validate:
-        guard = from_entity(entity)
+        guard = JudgeGuardrail.from_entity(entity)
         mock_validate.assert_called_once_with(mock_serialized_scorer)
 
     assert isinstance(guard, JudgeGuardrail)
@@ -271,6 +340,6 @@ def test_from_entity_with_action_endpoint():
         "mlflow.genai.scorers.Scorer.model_validate",
         return_value=_mock_scorer(_feedback(value=True)),
     ):
-        guard = from_entity(entity)
+        guard = JudgeGuardrail.from_entity(entity)
 
     assert guard.action_endpoint_id == "e-abc123"
