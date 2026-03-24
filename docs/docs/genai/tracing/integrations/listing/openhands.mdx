@@ -10,6 +10,9 @@ import ImageBox from "@site/src/components/ImageBox";
 import StepHeader from "@site/src/components/StepHeader";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 import { Users, BookOpen, Scale } from "lucide-react";
 
 # Tracing OpenHands
@@ -18,7 +21,7 @@ import { Users, BookOpen, Scale } from "lucide-react";
 
 <ImageBox src="/images/llms/openhands/openhands-trace.png" alt="OpenHands Tracing" />
 
-OpenHands emits [OpenTelemetry](https://opentelemetry.io/) traces natively, and MLflow accepts them out of the box. After setting up the connection, MLflow will automatically capture traces of your OpenHands agent runs. The trace automatically captures information such as:
+OpenHands emits [OpenTelemetry](https://opentelemetry.io/) traces natively, and MLflow accepts them out of the box. Whether you use OpenHands through the [SDK](https://docs.openhands.dev/sdk) or the [CLI](https://docs.openhands.dev/overview/quickstart), after setting up the connection, MLflow will automatically capture traces of your OpenHands agent runs. The trace automatically captures information such as:
 
 - User prompts and assistant responses
 - Tool usage (terminal commands, file editing, web browsing, etc.)
@@ -28,19 +31,32 @@ OpenHands emits [OpenTelemetry](https://opentelemetry.io/) traces natively, and 
 
 ## Setup
 
-OpenHands tracing is configured using OpenTelemetry environment variables that point to your MLflow server.
+OpenHands tracing is configured using OpenTelemetry environment variables that point to your MLflow server. Select the **SDK** or **CLI** tab below depending on how you use OpenHands.
 
 <StepHeader number={1} title="Install OpenHands" />
 
-Install the [OpenHands Software Agent SDK](https://docs.openhands.dev/sdk):
+Install the OpenHands [SDK](https://docs.openhands.dev/sdk) or [CLI](https://docs.openhands.dev/overview/quickstart).
+
+<Tabs>
+  <TabItem value="sdk" label="SDK" default>
 
 ```bash
 pip install openhands-sdk
 ```
 
+  </TabItem>
+  <TabItem value="cli" label="CLI">
+
+```bash
+uv tool install openhands --python 3.12
+```
+
+  </TabItem>
+</Tabs>
+
 <StepHeader number={2} title="Start MLflow Server" />
 
-[Start an MLflow server](/genai/getting-started/connect-environment/) if you haven't already:
+[Start an MLflow server](/genai/getting-started/connect-environment/) if you haven't already. This step is common to both the SDK and CLI.
 
 ```bash
 mlflow server
@@ -53,6 +69,9 @@ docker compose up -d
 ```
 
 <StepHeader number={3} title="Set Environment Variables" />
+
+<Tabs>
+  <TabItem value="sdk" label="SDK" default>
 
 Set the following environment variables to connect OpenHands traces to your MLflow server:
 
@@ -67,7 +86,24 @@ os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = (
 os.environ["OTEL_EXPORTER_OTLP_TRACES_PROTOCOL"] = "http/protobuf"
 ```
 
+  </TabItem>
+  <TabItem value="cli" label="CLI">
+
+Set the following environment variables before running the CLI:
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:5000"
+export OTEL_EXPORTER_OTLP_HEADERS="x-mlflow-experiment-id=123"  # Replace "123" with your MLflow experiment ID
+export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf"
+```
+
+  </TabItem>
+</Tabs>
+
 <StepHeader number={4} title="Run OpenHands" />
+
+<Tabs>
+  <TabItem value="sdk" label="SDK" default>
 
 With the environment variables set, run your OpenHands agent. Every LLM call, tool invocation, and agent step will be automatically traced.
 
@@ -95,6 +131,18 @@ conversation.send_message("Write 3 facts about the current project into FACTS.tx
 conversation.run()
 print("All done!")
 ```
+
+  </TabItem>
+  <TabItem value="cli" label="CLI">
+
+With the environment variables set, run OpenHands from the command line. Every LLM call, tool invocation, and agent step will be automatically traced.
+
+```bash
+openhands -t "Write 3 facts about the current project into FACTS.txt."
+```
+
+  </TabItem>
+</Tabs>
 
 Once the agent finishes, navigate to the MLflow UI (e.g. `http://localhost:5000`), select the experiment, and open the "Traces" tab to view the recorded traces.
 
