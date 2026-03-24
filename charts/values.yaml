@@ -44,7 +44,7 @@ server:
 # Run `mlflow db upgrade` in an init container before the server starts.
 # Disable only if the database schema is managed externally.
 migrate:
-  enabled: true
+  enabled: false
 
 service:
   type: ClusterIP
