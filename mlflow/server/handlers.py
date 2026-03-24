@@ -5573,10 +5573,12 @@ def _create_gateway_guardrail():
     request_message = _get_request_message(
         CreateGatewayGuardrail(),
         schema={
+            "name": [_assert_required, _assert_string],
             "scorer_id": [_assert_required, _assert_string],
             "scorer_version": [_assert_required, _assert_intlike],
             "stage": [_assert_required],
             "action": [_assert_required],
+            "action_endpoint_id": [_assert_string],
         },
     )
     from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
@@ -5594,10 +5596,12 @@ def _create_gateway_guardrail():
             error_code=INVALID_PARAMETER_VALUE,
         )
     guardrail = _get_tracking_store().create_gateway_guardrail(
+        name=request_message.name,
         scorer_id=request_message.scorer_id,
         scorer_version=request_message.scorer_version,
         stage=stage,
         action=action,
+        action_endpoint_id=request_message.action_endpoint_id or None,
         created_by=_get_user(),
     )
     response_message = CreateGatewayGuardrail.Response()

@@ -721,20 +721,24 @@ class RestGatewayStoreMixin:
 
     def create_gateway_guardrail(
         self,
+        name: str,
         scorer_id: str,
         scorer_version: int,
         stage: GuardrailStage,
         action: GuardrailAction,
+        action_endpoint_id: str | None = None,
         created_by: str | None = None,
     ) -> GatewayGuardrail:
-        req_body = message_to_json(
-            CreateGatewayGuardrail(
-                scorer_id=scorer_id,
-                scorer_version=scorer_version,
-                stage=stage.to_proto(),
-                action=action.to_proto(),
-            )
-        )
+        kwargs = {
+            "name": name,
+            "scorer_id": scorer_id,
+            "scorer_version": scorer_version,
+            "stage": stage.to_proto(),
+            "action": action.to_proto(),
+        }
+        if action_endpoint_id is not None:
+            kwargs["action_endpoint_id"] = action_endpoint_id
+        req_body = message_to_json(CreateGatewayGuardrail(**kwargs))
         response_proto = self._call_endpoint(CreateGatewayGuardrail, req_body)
         return GatewayGuardrail.from_proto(response_proto.guardrail)
 

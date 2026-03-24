@@ -2465,24 +2465,28 @@ class ListGatewayBudgetWindows(_message.Message):
     def __init__(self) -> None: ...
 
 class GatewayGuardrail(_message.Message):
-    __slots__ = ("guardrail_id", "scorer", "stage", "action", "created_by", "created_at", "last_updated_by", "last_updated_at")
+    __slots__ = ("guardrail_id", "name", "scorer", "stage", "action", "action_endpoint_id", "created_by", "created_at", "last_updated_by", "last_updated_at")
     GUARDRAIL_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
     SCORER_FIELD_NUMBER: _ClassVar[int]
     STAGE_FIELD_NUMBER: _ClassVar[int]
     ACTION_FIELD_NUMBER: _ClassVar[int]
+    ACTION_ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     guardrail_id: str
+    name: str
     scorer: Scorer
     stage: GuardrailStage
     action: GuardrailAction
+    action_endpoint_id: str
     created_by: str
     created_at: int
     last_updated_by: str
     last_updated_at: int
-    def __init__(self, guardrail_id: _Optional[str] = ..., scorer: _Optional[_Union[Scorer, _Mapping]] = ..., stage: _Optional[_Union[GuardrailStage, str]] = ..., action: _Optional[_Union[GuardrailAction, str]] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_by: _Optional[str] = ..., last_updated_at: _Optional[int] = ...) -> None: ...
+    def __init__(self, guardrail_id: _Optional[str] = ..., name: _Optional[str] = ..., scorer: _Optional[_Union[Scorer, _Mapping]] = ..., stage: _Optional[_Union[GuardrailStage, str]] = ..., action: _Optional[_Union[GuardrailAction, str]] = ..., action_endpoint_id: _Optional[str] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_by: _Optional[str] = ..., last_updated_at: _Optional[int] = ...) -> None: ...
 
 class GatewayGuardrailConfig(_message.Message):
     __slots__ = ("endpoint_id", "guardrail_id", "execution_order", "created_by", "created_at")
@@ -2499,21 +2503,25 @@ class GatewayGuardrailConfig(_message.Message):
     def __init__(self, endpoint_id: _Optional[str] = ..., guardrail_id: _Optional[str] = ..., execution_order: _Optional[int] = ..., created_by: _Optional[str] = ..., created_at: _Optional[int] = ...) -> None: ...
 
 class CreateGatewayGuardrail(_message.Message):
-    __slots__ = ("scorer_id", "scorer_version", "stage", "action")
+    __slots__ = ("name", "scorer_id", "scorer_version", "stage", "action", "action_endpoint_id")
     class Response(_message.Message):
         __slots__ = ("guardrail",)
         GUARDRAIL_FIELD_NUMBER: _ClassVar[int]
         guardrail: GatewayGuardrail
         def __init__(self, guardrail: _Optional[_Union[GatewayGuardrail, _Mapping]] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
     SCORER_ID_FIELD_NUMBER: _ClassVar[int]
     SCORER_VERSION_FIELD_NUMBER: _ClassVar[int]
     STAGE_FIELD_NUMBER: _ClassVar[int]
     ACTION_FIELD_NUMBER: _ClassVar[int]
+    ACTION_ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
+    name: str
     scorer_id: str
     scorer_version: int
     stage: GuardrailStage
     action: GuardrailAction
-    def __init__(self, scorer_id: _Optional[str] = ..., scorer_version: _Optional[int] = ..., stage: _Optional[_Union[GuardrailStage, str]] = ..., action: _Optional[_Union[GuardrailAction, str]] = ...) -> None: ...
+    action_endpoint_id: str
+    def __init__(self, name: _Optional[str] = ..., scorer_id: _Optional[str] = ..., scorer_version: _Optional[int] = ..., stage: _Optional[_Union[GuardrailStage, str]] = ..., action: _Optional[_Union[GuardrailAction, str]] = ..., action_endpoint_id: _Optional[str] = ...) -> None: ...
 
 class GetGatewayGuardrail(_message.Message):
     __slots__ = ("guardrail_id",)

@@ -5376,19 +5376,24 @@ message ListGatewayBudgetWindows {
 message GatewayGuardrail {
   optional string guardrail_id = 1;
 
-  optional Scorer scorer = 2;
+  optional string name = 2;
 
-  optional GuardrailStage stage = 3;
+  optional Scorer scorer = 3;
 
-  optional GuardrailAction action = 4;
+  optional GuardrailStage stage = 4;
 
-  optional string created_by = 5;
+  optional GuardrailAction action = 5;
 
-  optional int64 created_at = 6;
+  // Optional gateway endpoint ID for the LLM used by the action (e.g. sanitization).
+  optional string action_endpoint_id = 6;
 
-  optional string last_updated_by = 7;
+  optional string created_by = 7;
 
-  optional int64 last_updated_at = 8;
+  optional int64 created_at = 8;
+
+  optional string last_updated_by = 9;
+
+  optional int64 last_updated_at = 10;
 }
 
 message GatewayGuardrailConfig {
@@ -5406,13 +5411,18 @@ message GatewayGuardrailConfig {
 message CreateGatewayGuardrail {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
-  optional string scorer_id = 1;
+  optional string name = 1;
 
-  optional int64 scorer_version = 2;
+  optional string scorer_id = 2;
 
-  optional GuardrailStage stage = 3;
+  optional int64 scorer_version = 3;
 
-  optional GuardrailAction action = 4;
+  optional GuardrailStage stage = 4;
+
+  optional GuardrailAction action = 5;
+
+  // Optional gateway endpoint ID for the LLM used by the action.
+  optional string action_endpoint_id = 6;
 
   message Response {
     optional GatewayGuardrail guardrail = 1;
