@@ -9,7 +9,9 @@ import requests
 from mlflow.deployments.server.config import Endpoint
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointModelInfo
+from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.model_utils import (
+    _MODELS_WITHOUT_OUTPUT_CONFIG,
     _parse_model_uri,
     _send_request,
     call_deployments_api,
@@ -609,8 +611,6 @@ def test_score_model_retries_without_output_config_on_unsupported(monkeypatch):
         captured_payloads.append(copy.deepcopy(payload))
         return original_send(endpoint=endpoint, headers=headers, payload=payload)
 
-    from mlflow.metrics.genai import model_utils
-
     original_send = model_utils._send_request
 
     with (
@@ -642,8 +642,6 @@ def test_score_model_retries_without_output_config_on_unsupported(monkeypatch):
 
 def test_score_model_caches_unsupported_output_config(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-
-    from mlflow.metrics.genai.model_utils import _MODELS_WITHOUT_OUTPUT_CONFIG
 
     model_name = "claude-sonnet-4-20250514-cache-test"
     _MODELS_WITHOUT_OUTPUT_CONFIG.discard(("anthropic", model_name))
