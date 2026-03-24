@@ -36,7 +36,14 @@ export const ModelTraceExplorerSummarySection = ({
   const [expanded, setExpanded] = useState(false);
   const shouldTruncateItems = data.length > maxVisibleItems;
 
-  const visibleItems = shouldTruncateItems && !expanded ? data.slice(-maxVisibleItems) : data;
+  // In default mode, hide scalar fields when sibling fields contain attachment refs.
+  // This gives a clean media-only view (e.g., DALL-E output shows images without "created" timestamp).
+  const hasAttachmentRefs = data.some((item) => item.value.includes('mlflow-attachment://'));
+  const filteredData =
+    renderMode === 'default' && hasAttachmentRefs
+      ? data.filter((item) => item.value.includes('mlflow-attachment://'))
+      : data;
+  const visibleItems = shouldTruncateItems && !expanded ? filteredData.slice(-maxVisibleItems) : filteredData;
   const hiddenItemCount = shouldTruncateItems ? data.length - visibleItems.length : 0;
 
   return (

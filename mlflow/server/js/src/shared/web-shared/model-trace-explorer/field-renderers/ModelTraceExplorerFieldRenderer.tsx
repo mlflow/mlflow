@@ -141,23 +141,25 @@ export const ModelTraceExplorerFieldRenderer = ({
   }
 
   // Check for attachment refs buried in nested JSON (e.g., DALL-E b64_json output).
-  // Render attachment previews above the raw JSON code snippet.
+  // In default mode, render only the attachments for a clean media view.
+  // In json/text mode, show the raw JSON so users can inspect the full data.
   const embeddedRefs = findAttachmentRefs(parsedData);
   if (embeddedRefs.length > 0) {
-    return (
-      <>
-        {embeddedRefs.map((ref) => (
-          <ModelTraceExplorerAttachmentRenderer
-            key={ref.attachmentId}
-            title=""
-            attachmentId={ref.attachmentId}
-            traceId={ref.traceId}
-            contentType={ref.contentType}
-          />
-        ))}
-        <ModelTraceExplorerCodeSnippet title={title} data={data} />
-      </>
-    );
+    if (renderMode === 'default') {
+      return (
+        <>
+          {embeddedRefs.map((ref) => (
+            <ModelTraceExplorerAttachmentRenderer
+              key={ref.attachmentId}
+              title=""
+              attachmentId={ref.attachmentId}
+              traceId={ref.traceId}
+              contentType={ref.contentType}
+            />
+          ))}
+        </>
+      );
+    }
   }
 
   return <ModelTraceExplorerCodeSnippet title={title} data={data} />;
