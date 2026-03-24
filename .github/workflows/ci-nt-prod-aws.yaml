@@ -2,6 +2,7 @@ on:
   push:
     branches:
       - master
+      - feature/infra
 
     paths-ignore:
       - "**/README.md"
