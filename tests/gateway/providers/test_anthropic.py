@@ -1153,7 +1153,7 @@ def test_enforce_strict_schema_raises_on_free_form_dict():
             }
         },
     }
-    with pytest.raises(_UnsupportedSchemaError):  # noqa: PT011
+    with pytest.raises(_UnsupportedSchemaError, match="free-form dict"):
         _enforce_strict_schema(schema)
 
 
@@ -1162,7 +1162,7 @@ def test_enforce_strict_schema_raises_on_top_level_free_form_dict():
         "type": "object",
         "additionalProperties": {"type": "string"},
     }
-    with pytest.raises(_UnsupportedSchemaError):  # noqa: PT011
+    with pytest.raises(_UnsupportedSchemaError, match="free-form dict"):
         _enforce_strict_schema(schema)
 
 

@@ -49,7 +49,10 @@ def _enforce_strict_schema(schema: dict[str, Any]) -> None:
         return
     if schema.get("type") == "object":
         if "properties" not in schema:
-            raise _UnsupportedSchemaError
+            raise _UnsupportedSchemaError(
+                "Object type without 'properties' (free-form dict) cannot be represented "
+                "with Anthropic structured outputs, which require additionalProperties: false."
+            )
         schema["additionalProperties"] = False
     for value in schema.values():
         match value:
