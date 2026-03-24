@@ -97,13 +97,15 @@ class JudgeGuardrail(Guardrail):
 
     def _extract_text(self, payload: dict[str, Any], *, is_response: bool) -> str:
         if is_response:
-            choices = payload.get("choices", [])
-            if choices:
-                return choices[0].get("message", {}).get("content", "")
+            if (choices := payload.get("choices", [])) and (
+                content := choices[0].get("message", {}).get("content", "")
+            ):
+                return content
             return ""
-        messages = payload.get("messages", [])
-        if messages:
-            return messages[-1].get("content", "")
+        if (messages := payload.get("messages", [])) and (
+            content := messages[-1].get("content", "")
+        ):
+            return content
         return ""
 
     def _invoke_judge(self, text: str) -> ScorerResult:
