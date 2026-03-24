@@ -269,6 +269,7 @@ test_that("databricks get run context succeeds when job info function is unavail
       mlflow:::mlflow_client("databricks"),
       experiment_id = 0
     )
-    expect_true(!is.null(context$tags))
+    expect_equal(context$tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]], MLFLOW_SOURCE_TYPE$LOCAL)
+    expect_false(any(startsWith(names(context$tags), "mlflow.databricks.")))
   }, notebook_info = NULL, job_info = NULL)
 })
