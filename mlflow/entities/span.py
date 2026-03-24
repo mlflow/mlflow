@@ -653,6 +653,24 @@ class LiveSpan(Span):
                     "input_audio": {**audio, "data": ref},
                 }
 
+        # Anthropic image: {"type": "image", "source": {"type": "base64", "media_type": "...", "data": "..."}}
+        if value.get("type") == "image" and isinstance(source := value.get("source"), dict):
+            if source.get("type") == "base64":
+                data = source.get("data")
+                media_type = source.get("media_type", "image/png")
+                if isinstance(data, str) and data:
+                    try:
+                        content_bytes = base64.b64decode(data, validate=True)
+                    except Exception:
+                        return None
+                    ref = self._store_attachment(
+                        Attachment(content_type=media_type, content_bytes=content_bytes)
+                    )
+                    return {
+                        **value,
+                        "source": {**source, "data": ref},
+                    }
+
         # DALL-E output: {"b64_json": "<base64>", ...}
         # DALL-E always returns PNG; other APIs using b64_json are not known
         if isinstance(b64 := value.get("b64_json"), str) and b64:
