@@ -1,24 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 
-// Local re-implementation of the internal (non-exported) parseAttachmentUri function
-// to mirror its logic for direct testing.
-function parseAttachmentUri(uri: string): { attachmentId: string; traceId: string; contentType: string } | null {
-  try {
-    const parsed = new URL(uri);
-    if (parsed.protocol !== 'mlflow-attachment:') {
-      return null;
-    }
-    const attachmentId = parsed.hostname;
-    const contentType = parsed.searchParams.get('content_type');
-    const traceId = parsed.searchParams.get('trace_id');
-    if (!attachmentId || !contentType || !traceId) {
-      return null;
-    }
-    return { attachmentId, contentType, traceId };
-  } catch {
-    return null;
-  }
-}
+import { parseAttachmentUri } from './attachment-utils';
 
 describe('parseAttachmentUri', () => {
   it('parses a valid attachment URI', () => {

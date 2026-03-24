@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react';
-
 import { Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { getTraceAttachment } from '../oss-notebook-renderer/mlflow-fetch-utils';
+import { useTraceAttachment } from '../hooks/useTraceAttachment';
 
 export const ModelTraceExplorerAttachmentRenderer = ({
   title,
@@ -17,33 +15,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   contentType: string;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let revoked = false;
-    let localMediaUrl: string | null = null;
-    setMediaUrl(null);
-    setError(null);
-    getTraceAttachment(traceId, attachmentId).then((data) => {
-      if (revoked) {
-        return;
-      }
-      if (data) {
-        const url = URL.createObjectURL(new Blob([data], { type: contentType }));
-        localMediaUrl = url;
-        setMediaUrl(url);
-      } else {
-        setError('Failed to load attachment');
-      }
-    });
-    return () => {
-      revoked = true;
-      if (localMediaUrl) {
-        URL.revokeObjectURL(localMediaUrl);
-      }
-    };
-  }, [attachmentId, traceId, contentType]);
+  const { objectUrl, isLoading, error } = useTraceAttachment({ traceId, attachmentId, contentType });
 
   if (error) {
     return (
@@ -56,7 +28,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
     );
   }
 
-  if (!mediaUrl) {
+  if (isLoading || !objectUrl) {
     return <Spinner size="small" />;
   }
 
@@ -69,7 +41,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
           </Typography.Text>
         )}
         <img
-          src={mediaUrl}
+          src={objectUrl}
           alt={`Attachment ${attachmentId}`}
           css={{ maxWidth: '100%', maxHeight: 400, borderRadius: theme.borders.borderRadiusSm }}
         />
@@ -87,7 +59,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
         )}
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <audio controls>
-          <source src={mediaUrl} type={contentType} />
+          <source src={objectUrl} type={contentType} />
         </audio>
       </div>
     );
@@ -102,7 +74,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
           </Typography.Text>
         )}
         <iframe
-          src={mediaUrl}
+          src={objectUrl}
           title={`PDF Attachment ${attachmentId}`}
           css={{
             width: '100%',
@@ -117,7 +89,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
 
   return (
     <div css={{ padding: theme.spacing.sm }}>
-      <a href={mediaUrl} download={`attachment-${attachmentId}`}>
+      <a href={objectUrl} download={`attachment-${attachmentId}`}>
         <FormattedMessage
           defaultMessage="Download attachment ({contentType})"
           description="Download link for trace attachment with unknown content type"
