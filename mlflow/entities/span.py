@@ -557,13 +557,39 @@ class LiveSpan(Span):
 
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
-        inputs = self._extract_attachments(inputs, self._should_extract_base64())
+        extract_base64 = self._should_extract_base64()
+        attachments_before = len(self._attachments)
+        inputs = self._extract_attachments(inputs, extract_base64)
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
+        # Post-process only if the first pass didn't extract anything.
+        # This handles framework objects (e.g., LangChain BaseMessage) that
+        # only become plain dicts after JSON serialization.
+        if extract_base64 and len(self._attachments) == attachments_before:
+            self._extract_attachments_from_serialized(SpanAttributeKey.INPUTS)
 
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
-        outputs = self._extract_attachments(outputs, self._should_extract_base64())
+        extract_base64 = self._should_extract_base64()
+        attachments_before = len(self._attachments)
+        outputs = self._extract_attachments(outputs, extract_base64)
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
+        if extract_base64 and len(self._attachments) == attachments_before:
+            self._extract_attachments_from_serialized(SpanAttributeKey.OUTPUTS)
+
+    def _extract_attachments_from_serialized(self, attr_key: str):
+        """Re-extract attachments from the serialized attribute value.
+
+        Handles cases where the first extraction pass couldn't recurse into
+        framework-specific objects (e.g., LangChain BaseMessage) that only
+        become plain dicts after JSON serialization.
+        """
+        serialized = self._attributes.get(attr_key)
+        if serialized is None:
+            return
+        extracted = self._extract_attachments(serialized, extract_base64=True)
+        if self._attachments:
+            self.set_attribute(attr_key, extracted)
+>>>>>>> 0306fb7c6 (Add post-serialization attachment extraction for framework objects)
 
     def _extract_attachments(self, value: Any, extract_base64: bool) -> Any:
         if isinstance(value, Attachment):
