@@ -7039,29 +7039,35 @@ def _upsert_batch(
     update_columns: list[str],
     dialect: str,
 ) -> None:
-    if dialect in ("sqlite", "postgresql"):
-        if dialect == "sqlite":
-            from sqlalchemy.dialects.sqlite import insert
-        else:
-            from sqlalchemy.dialects.postgresql import insert
+    match dialect:
+        case "sqlite" | "postgresql":
+            if dialect == "sqlite":
+                from sqlalchemy.dialects.sqlite import insert
+            else:
+                from sqlalchemy.dialects.postgresql import insert
 
-        stmt = insert(table).values(rows)
-        if update_columns:
-            stmt = stmt.on_conflict_do_update(
-                index_elements=pk_columns,
-                set_={col: stmt.excluded[col] for col in update_columns},
-            )
-        else:
-            stmt = stmt.on_conflict_do_nothing()
-        session.execute(stmt)
-    elif dialect == "mysql":
-        from sqlalchemy.dialects.mysql import insert
+            stmt = insert(table).values(rows)
+            if update_columns:
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=pk_columns,
+                    set_={col: stmt.excluded[col] for col in update_columns},
+                )
+            else:
+                stmt = stmt.on_conflict_do_nothing()
+            session.execute(stmt)
+        case "mysql":
+            from sqlalchemy.dialects.mysql import insert
 
-        stmt = insert(table).values(rows)
-        if update_columns:
-            stmt = stmt.on_duplicate_key_update({col: stmt.inserted[col] for col in update_columns})
-        session.execute(stmt)
-    else:
-        # Fallback for MSSQL and other dialects
-        for row in rows:
-            session.merge(model_class(**row))
+            stmt = insert(table).values(rows)
+            if update_columns:
+                stmt = stmt.on_duplicate_key_update({
+                    col: stmt.inserted[col] for col in update_columns
+                })
+            else:
+                # No-op update on PK to silently skip duplicates
+                stmt = stmt.on_duplicate_key_update({pk_columns[0]: stmt.inserted[pk_columns[0]]})
+            session.execute(stmt)
+        case _:
+            # Fallback for MSSQL and other dialects
+            for row in rows:
+                session.merge(model_class(**row))
