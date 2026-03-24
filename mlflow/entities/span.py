@@ -683,6 +683,23 @@ class LiveSpan(Span):
             )
             return {**value, "b64_json": ref}
 
+        # OpenAI audio output: {"audio": {"data": "<base64>", "transcript": "..."}, ...}
+        # Returned by gpt-4o-audio-preview with modalities=["text", "audio"]
+        if isinstance(audio := value.get("audio"), dict):
+            data = audio.get("data")
+            if isinstance(data, str) and data and not data.startswith("mlflow-attachment://"):
+                try:
+                    content_bytes = base64.b64decode(data, validate=True)
+                except Exception:
+                    return None
+                ref = self._store_attachment(
+                    Attachment(content_type="audio/wav", content_bytes=content_bytes)
+                )
+                return {
+                    **value,
+                    "audio": {**audio, "data": ref},
+                }
+
         return None
 
     def set_attributes(self, attributes: dict[str, Any]):
