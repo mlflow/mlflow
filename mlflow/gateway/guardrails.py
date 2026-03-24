@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import abc
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.gateway_guardrail import (
@@ -10,7 +10,11 @@ from mlflow.entities.gateway_guardrail import (
     GuardrailStage,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+if TYPE_CHECKING:
+    from mlflow.genai.scorers import Scorer
 
 # Scorer.__call__ returns this union type.
 ScorerResult = int | float | bool | str | Feedback | list[Feedback]
@@ -81,7 +85,7 @@ class JudgeGuardrail(Guardrail):
 
     def __init__(
         self,
-        scorer: Any,  # Scorer — use Any to avoid circular import at module level
+        scorer: Scorer,
         stage: GuardrailStage,
         action: GuardrailAction,
         name: str = "judge-guardrail",
@@ -109,13 +113,12 @@ class JudgeGuardrail(Guardrail):
         """Determine whether the judge result indicates a pass.
 
         When the result is a ``Feedback``, reads ``.value``. For plain
-        scalars, interprets the value directly. ``True`` / ``"yes"`` /
-        ``"pass"`` / ``"true"`` mean the content is acceptable.
+        scalars, interprets the value directly. String values are compared
+        against ``CategoricalRating.YES``.
         """
         if isinstance(result, Feedback):
             value = result.value
         elif isinstance(result, list):
-            # list[Feedback] — pass only if every feedback passes
             return all(self._is_passing(f) for f in result)
         else:
             value = result
@@ -123,7 +126,7 @@ class JudgeGuardrail(Guardrail):
         if isinstance(value, bool):
             return value
         if isinstance(value, str):
-            return value.strip().lower() in ("yes", "true", "pass")
+            return value.strip().lower() == CategoricalRating.YES.value
         return bool(value)
 
     def _get_rationale(self, result: ScorerResult) -> str:
