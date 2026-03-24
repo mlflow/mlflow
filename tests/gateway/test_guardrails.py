@@ -40,7 +40,7 @@ def _feedback(value, rationale="some rationale"):
 
 def test_before_validation_pass():
     scorer = _mock_scorer(_feedback(value=True))
-    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
     req = _make_request()
     result = guard.process_request(req)
     assert result is req
@@ -57,7 +57,7 @@ def test_before_validation_block():
 
 def test_before_validation_skips_response():
     scorer = _mock_scorer(_feedback(value=False))
-    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
     resp = _make_response()
     result = guard.process_response(resp)
     assert result is resp
@@ -71,7 +71,7 @@ def test_before_validation_skips_response():
 
 def test_after_validation_pass():
     scorer = _mock_scorer(_feedback(value="yes"))
-    guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION, "test")
     resp = _make_response()
     result = guard.process_response(resp)
     assert result is resp
@@ -88,7 +88,7 @@ def test_after_validation_block():
 
 def test_after_validation_skips_request():
     scorer = _mock_scorer(_feedback(value=False))
-    guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION, "test")
     req = _make_request()
     result = guard.process_request(req)
     assert result is req
@@ -115,6 +115,7 @@ def test_before_sanitization_rewrites_request():
         scorer,
         GuardrailStage.BEFORE,
         GuardrailAction.SANITIZATION,
+        "test",
         action_endpoint_id="ep-sanitizer",
     )
     sanitized = _make_request("my SSN is [REDACTED]")
@@ -137,6 +138,7 @@ def test_after_sanitization_rewrites_response():
         scorer,
         GuardrailStage.AFTER,
         GuardrailAction.SANITIZATION,
+        "test",
         action_endpoint_id="ep-sanitizer",
     )
     sanitized = _make_response("Polite version")
@@ -155,7 +157,7 @@ def test_after_sanitization_rewrites_response():
 
 def test_sanitization_without_endpoint_raises():
     scorer = _mock_scorer(_feedback(value=False, rationale="issue found"))
-    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION, "test")
     with pytest.raises(GuardrailViolation, match="action_endpoint_id"):
         guard.process_request(_make_request())
 
@@ -166,6 +168,7 @@ def test_sanitization_invalid_json_raises():
         scorer,
         GuardrailStage.BEFORE,
         GuardrailAction.SANITIZATION,
+        "test",
         action_endpoint_id="ep-sanitizer",
     )
     bad_resp = mock.MagicMock()
@@ -184,7 +187,7 @@ def test_sanitization_invalid_json_raises():
 
 def test_sanitization_passes_on_good_content():
     scorer = _mock_scorer(_feedback(value=True))
-    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION, "test")
     req = _make_request()
     assert guard.process_request(req) is req
 
@@ -211,7 +214,7 @@ def test_sanitization_passes_on_good_content():
 )
 def test_is_passing_feedback_values(value, expected_pass):
     scorer = _mock_scorer(_feedback(value=value))
-    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
     if expected_pass:
         result = guard.process_request(_make_request())
         assert result is not None
@@ -238,7 +241,7 @@ def test_is_passing_feedback_values(value, expected_pass):
 )
 def test_is_passing_plain_scalar(value, expected_pass):
     scorer = _mock_scorer(value)
-    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
     if expected_pass:
         result = guard.process_request(_make_request())
         assert result is not None
@@ -254,7 +257,7 @@ def test_is_passing_plain_scalar(value, expected_pass):
 
 def test_list_feedback_all_pass():
     scorer = _mock_scorer([_feedback(value=True), _feedback(value="yes")])
-    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
     result = guard.process_request(_make_request())
     assert result is not None
 
@@ -276,7 +279,7 @@ def test_list_feedback_one_fails():
 
 def test_empty_messages_request():
     scorer = _mock_scorer(_feedback(value=True))
-    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.VALIDATION, "test")
     result = guard.process_request({"messages": []})
     assert result == {"messages": []}
     scorer.assert_called_once_with(outputs="")
@@ -284,7 +287,7 @@ def test_empty_messages_request():
 
 def test_empty_choices_response():
     scorer = _mock_scorer(_feedback(value=True))
-    guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION)
+    guard = JudgeGuardrail(scorer, GuardrailStage.AFTER, GuardrailAction.VALIDATION, "test")
     result = guard.process_response({"choices": []})
     assert result == {"choices": []}
     scorer.assert_called_once_with(outputs="")

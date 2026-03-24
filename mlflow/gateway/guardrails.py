@@ -103,7 +103,7 @@ class JudgeGuardrail(Guardrail):
         scorer: Scorer,
         stage: GuardrailStage,
         action: GuardrailAction,
-        name: str = "judge-guardrail",
+        name: str,
         action_endpoint_id: str | None = None,
     ) -> None:
         self.scorer = scorer
