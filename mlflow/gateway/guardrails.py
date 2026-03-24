@@ -233,17 +233,21 @@ class JudgeGuardrail(Guardrail):
         return self._sanitize(payload, rationale)
 
 
-def from_entity(entity: GatewayGuardrail, store=None) -> JudgeGuardrail:
+def from_entity(
+    entity: GatewayGuardrail,
+    action_endpoint_name: str | None = None,
+) -> JudgeGuardrail:
     """Convert a ``GatewayGuardrail`` entity (DB model) into a callable ``JudgeGuardrail``.
 
     Deserializes the scorer stored in ``entity.scorer`` (a ``ScorerVersion``)
     back into a live ``Scorer`` instance and wraps it in a ``JudgeGuardrail``.
-    If the entity has an ``action_endpoint_id``, resolves it to an endpoint
-    name via the store.
 
     Args:
         entity: A ``GatewayGuardrail`` entity containing a ``ScorerVersion``.
-        store: Optional tracking store. If ``None``, retrieved automatically.
+        action_endpoint_name: Pre-resolved gateway endpoint name for
+            sanitization. The caller is responsible for resolving
+            ``entity.action_endpoint_id`` to an endpoint name before
+            calling this function (e.g. when loading guardrail configs).
 
     Returns:
         A ``JudgeGuardrail`` ready to process requests/responses.
@@ -251,16 +255,6 @@ def from_entity(entity: GatewayGuardrail, store=None) -> JudgeGuardrail:
     from mlflow.genai.scorers import Scorer
 
     scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
-
-    action_endpoint_name = None
-    if entity.action_endpoint_id:
-        if store is None:
-            from mlflow.tracking._tracking_service.utils import _get_store
-
-            store = _get_store()
-        endpoint = store.get_gateway_endpoint(endpoint_id=entity.action_endpoint_id)
-        action_endpoint_name = endpoint.name
-
     return JudgeGuardrail(
         scorer=scorer,
         stage=entity.stage,

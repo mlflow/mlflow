@@ -355,8 +355,6 @@ def test_from_entity_without_action_endpoint():
     entity.name = "safety-guard"
     entity.stage = GuardrailStage.BEFORE
     entity.action = GuardrailAction.VALIDATION
-    entity.guardrail_id = "gr-abc123"
-    entity.action_endpoint_id = None
 
     with mock.patch(
         "mlflow.genai.scorers.Scorer.model_validate",
@@ -375,7 +373,7 @@ def test_from_entity_without_action_endpoint():
     assert result is not None
 
 
-def test_from_entity_resolves_endpoint_id_to_name():
+def test_from_entity_with_action_endpoint_name():
     mock_serialized_scorer = mock.MagicMock()
     mock_scorer_version = mock.MagicMock()
     mock_scorer_version.serialized_scorer = mock_serialized_scorer
@@ -385,19 +383,11 @@ def test_from_entity_resolves_endpoint_id_to_name():
     entity.name = "sanitizer-guard"
     entity.stage = GuardrailStage.BEFORE
     entity.action = GuardrailAction.SANITIZATION
-    entity.guardrail_id = "gr-def456"
-    entity.action_endpoint_id = "e-abc123"
-
-    mock_store = mock.MagicMock()
-    mock_endpoint = mock.MagicMock()
-    mock_endpoint.name = "my-sanitizer-endpoint"
-    mock_store.get_gateway_endpoint.return_value = mock_endpoint
 
     with mock.patch(
         "mlflow.genai.scorers.Scorer.model_validate",
         return_value=_mock_scorer(_feedback(value=True)),
     ):
-        guard = from_entity(entity, store=mock_store)
+        guard = from_entity(entity, action_endpoint_name="my-sanitizer-endpoint")
 
     assert guard.action_endpoint_name == "my-sanitizer-endpoint"
-    mock_store.get_gateway_endpoint.assert_called_once_with(endpoint_id="e-abc123")
