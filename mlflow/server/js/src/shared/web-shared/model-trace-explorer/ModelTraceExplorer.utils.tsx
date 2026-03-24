@@ -1188,6 +1188,11 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
         case 'image_url':
           const url = part?.image_url?.url;
           return url ? `![](${url})` : '[image]';
+        case 'image': {
+          // Anthropic format: {"type": "image", "source": {"type": "base64", "data": "..."}}
+          const imageData = (part as any)?.source?.data;
+          return imageData ? `![](${imageData})` : '[image]';
+        }
         case 'input_audio':
           // Audio parts are rendered as <audio> elements by the component,
           // so they are excluded from the markdown string
