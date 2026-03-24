@@ -1572,8 +1572,7 @@ def test_backpressure_limits_in_flight_items(monkeypatch):
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", str(workers))
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_PREDICT_RATE_LIMIT", "0")
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_SCORER_RATE_LIMIT", "0")
-    # Skip pre-flight validation call to predict_fn (check_model_prediction) which runs outside
-    # the backpressure semaphore and would inflate the in_flight counter.
+    # Skip pre-flight predict_fn call that runs outside the backpressure semaphore
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", "true")
     buffer = backpressure_buffer(workers)
 
