@@ -183,8 +183,8 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
         AsyncCompletions: SpanType.LLM,
         Embeddings: SpanType.EMBEDDING,
         AsyncEmbeddings: SpanType.EMBEDDING,
-        Images: SpanType.LLM,
-        AsyncImages: SpanType.LLM,
+        Images: SpanType.TOOL,
+        AsyncImages: SpanType.TOOL,
     }
 
     try:

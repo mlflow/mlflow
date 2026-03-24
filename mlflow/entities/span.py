@@ -589,7 +589,6 @@ class LiveSpan(Span):
         extracted = self._extract_attachments(serialized, extract_base64=True)
         if self._attachments:
             self.set_attribute(attr_key, extracted)
->>>>>>> 0306fb7c6 (Add post-serialization attachment extraction for framework objects)
 
     def _extract_attachments(self, value: Any, extract_base64: bool) -> Any:
         if isinstance(value, Attachment):
@@ -642,7 +641,7 @@ class LiveSpan(Span):
             fmt = audio.get("format", "wav")
             if isinstance(data, str) and data:
                 try:
-                    content_bytes = base64.b64decode(data)
+                    content_bytes = base64.b64decode(data, validate=True)
                 except Exception:
                     return None
                 ref = self._store_attachment(
@@ -653,7 +652,7 @@ class LiveSpan(Span):
                     "input_audio": {**audio, "data": ref},
                 }
 
-        # Anthropic image: {"type": "image", "source": {"type": "base64", "media_type": "...", "data": "..."}}
+        # Anthropic image content part
         if value.get("type") == "image" and isinstance(source := value.get("source"), dict):
             if source.get("type") == "base64":
                 data = source.get("data")
@@ -675,7 +674,7 @@ class LiveSpan(Span):
         # DALL-E always returns PNG; other APIs using b64_json are not known
         if isinstance(b64 := value.get("b64_json"), str) and b64:
             try:
-                content_bytes = base64.b64decode(b64)
+                content_bytes = base64.b64decode(b64, validate=True)
             except Exception:
                 return None
             ref = self._store_attachment(
