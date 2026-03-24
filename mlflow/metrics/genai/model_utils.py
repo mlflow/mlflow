@@ -133,8 +133,18 @@ _MODELS_WITHOUT_OUTPUT_CONFIG: set[tuple[str, str]] = set()
 def _is_unsupported_output_format_error(exc: MlflowException) -> bool:
     """Check if the error indicates the model doesn't support structured output.
 
-    Anthropic returns a structured error like:
-        {"type": "error", "error": {"type": "invalid_request_error", "message": "..."}}
+    Older Anthropic models (e.g. claude-sonnet-4-20250514) don't support ``output_config``
+    and return a 400 with::
+
+        {
+            "type": "error",
+            "error": {
+                "type": "invalid_request_error",
+                "message": "'claude-sonnet-4-20250514' does not support output format.",
+            },
+        }
+
+    Newer models (e.g. claude-sonnet-4-5-20250929) support it.
     """
     cause = exc.__cause__
     if not isinstance(cause, requests.exceptions.HTTPError):
@@ -152,7 +162,7 @@ def _is_unsupported_output_format_error(exc: MlflowException) -> bool:
                 "message": str(msg),
             }
         }:
-            return "does not support output format" in msg
+            return "does not support output format" in msg.lower()
         case _:
             return False
 
