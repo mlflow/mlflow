@@ -238,10 +238,14 @@ export function ModelTraceExplorerChatMessage({
   const shouldDisplayCodeSnippet = isJson && (message.role === 'tool' || message.role === 'function');
   // if the content is JSON, truncation will be handled by the code
   // snippet. otherwise, we need to truncate the content manually.
-  const isExpandable = !shouldDisplayCodeSnippet && getDisplayLength(content) > CONTENT_TRUNCATION_LIMIT;
+  // Increase truncation limit when attachment refs are present since the refs themselves
+  // are lightweight (~120 chars each) and truncating mid-ref breaks markdown rendering.
+  const attachmentRefCount = content.split('mlflow-attachment://').length - 1;
+  const effectiveLimit = CONTENT_TRUNCATION_LIMIT + attachmentRefCount * 150;
+  const isExpandable = !shouldDisplayCodeSnippet && getDisplayLength(content) > effectiveLimit;
 
   const displayedContent =
-    isExpandable && !expanded ? truncatePreservingImages(content, CONTENT_TRUNCATION_LIMIT) : content;
+    isExpandable && !expanded ? truncatePreservingImages(content, effectiveLimit) : content;
 
   return (
     <div
