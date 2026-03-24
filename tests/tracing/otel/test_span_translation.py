@@ -16,6 +16,7 @@ from mlflow.tracing.otel.translation import (
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
+from mlflow.tracing.otel.translation.laminar import LaminarTranslator
 from mlflow.tracing.otel.translation.langfuse import LangfuseTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
@@ -54,6 +55,12 @@ from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
         (LangfuseTranslator, "evaluator", SpanType.EVALUATOR),
         (LangfuseTranslator, "guardrail", SpanType.GUARDRAIL),
         (LangfuseTranslator, "span", SpanType.UNKNOWN),
+        (LaminarTranslator, "LLM", SpanType.LLM),
+        (LaminarTranslator, "TOOL", SpanType.TOOL),
+        (LaminarTranslator, "DEFAULT", SpanType.CHAIN),
+        (LaminarTranslator, "PIPELINE", SpanType.CHAIN),
+        (LaminarTranslator, "EXECUTOR", SpanType.AGENT),
+        (LaminarTranslator, "EVALUATOR", SpanType.EVALUATOR),
     ],
 )
 def test_translate_span_type_from_otel(
@@ -84,6 +91,7 @@ def test_translate_span_type_returns_none(attributes):
         (TraceloopTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("agent"), SpanType.AGENT),
         (VercelAITranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("ai.generateText"), SpanType.LLM),
         (VercelAITranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("ai.toolCall"), SpanType.TOOL),
+        (LaminarTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("LLM"), SpanType.LLM),
     ],
 )
 def test_json_serialized_values(attr_key, attr_value, expected_type):
@@ -227,7 +235,13 @@ def test_translate_token_usage_edge_cases(
 
 @pytest.mark.parametrize(
     "translator",
-    [OpenInferenceTranslator, GenAiTranslator, GoogleADKTranslator, LangfuseTranslator],
+    [
+        OpenInferenceTranslator,
+        GenAiTranslator,
+        GoogleADKTranslator,
+        LangfuseTranslator,
+        LaminarTranslator,
+    ],
 )
 @pytest.mark.parametrize(
     "input_value",
@@ -274,7 +288,13 @@ def test_translate_inputs_for_spans_traceloop(input_key: str, input_value: Any):
 
 @pytest.mark.parametrize(
     "translator",
-    [OpenInferenceTranslator, GenAiTranslator, GoogleADKTranslator, LangfuseTranslator],
+    [
+        OpenInferenceTranslator,
+        GenAiTranslator,
+        GoogleADKTranslator,
+        LangfuseTranslator,
+        LaminarTranslator,
+    ],
 )
 @pytest.mark.parametrize("parent_id", [None, "parent_123"])
 def test_translate_outputs_for_spans(parent_id: str | None, translator: OtelSchemaTranslator):

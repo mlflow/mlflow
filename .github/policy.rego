@@ -264,3 +264,24 @@ any_job_has_repo_check(jobs) if {
 job_has_repo_check(job) if {
 	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
 }
+
+deny_mutable_install contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	regex.match(`\bnpm install\b`, step.run)
+	msg := sprintf(
+		"'npm install' in job '%s' modifies the lockfile. Use 'npm ci' for reproducible builds.",
+		[job_id],
+	)
+}
+
+deny_mutable_install contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	regex.match(`\byarn install\b`, step.run)
+	not regex.match(`\byarn install\s+--immutable\b`, step.run)
+	msg := sprintf(
+		"'yarn install' in job '%s' may modify the lockfile. Use 'yarn install --immutable' for reproducible builds.",
+		[job_id],
+	)
+}
