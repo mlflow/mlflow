@@ -4,34 +4,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { ModelTraceExplorerAttachmentRenderer } from './ModelTraceExplorerAttachmentRenderer';
 import { ModelTraceExplorerChatToolsRenderer } from './ModelTraceExplorerChatToolsRenderer';
 import { ModelTraceExplorerRetrieverFieldRenderer } from './ModelTraceExplorerRetrieverFieldRenderer';
 import { ModelTraceExplorerTextFieldRenderer } from './ModelTraceExplorerTextFieldRenderer';
-import { parseAttachmentUri } from './attachment-utils';
 import type { Assessment } from '../ModelTrace.types';
 import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
-
-/**
- * Recursively finds all mlflow-attachment:// URIs in a nested data structure.
- */
-function findAttachmentRefs(data: any): { uri: string; attachmentId: string; traceId: string; contentType: string }[] {
-  const refs: { uri: string; attachmentId: string; traceId: string; contentType: string }[] = [];
-  if (isString(data)) {
-    const parsed = parseAttachmentUri(data);
-    if (parsed) {
-      refs.push({ uri: data, ...parsed });
-    }
-  } else if (Array.isArray(data)) {
-    data.forEach((item) => refs.push(...findAttachmentRefs(item)));
-  } else if (data && typeof data === 'object') {
-    Object.values(data).forEach((value) => refs.push(...findAttachmentRefs(value)));
-  }
-  return refs;
-}
 
 export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 
@@ -140,28 +120,6 @@ export const ModelTraceExplorerFieldRenderer = ({
 
   if (isRetrieverDocuments) {
     return <ModelTraceExplorerRetrieverFieldRenderer title={title} documents={parsedData} assessments={assessments} />;
-  }
-
-  // Check for attachment refs buried in nested JSON (e.g., DALL-E b64_json output).
-  // In default mode, render only the attachments for a clean media view.
-  // In json/text mode, show the raw JSON so users can inspect the full data.
-  const embeddedRefs = findAttachmentRefs(parsedData);
-  if (embeddedRefs.length > 0) {
-    if (renderMode === 'default') {
-      return (
-        <>
-          {embeddedRefs.map((ref) => (
-            <ModelTraceExplorerAttachmentRenderer
-              key={ref.attachmentId}
-              title=""
-              attachmentId={ref.attachmentId}
-              traceId={ref.traceId}
-              contentType={ref.contentType}
-            />
-          ))}
-        </>
-      );
-    }
   }
 
   return <ModelTraceExplorerCodeSnippet title={title} data={data} />;
