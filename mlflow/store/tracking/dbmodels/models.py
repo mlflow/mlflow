@@ -3091,6 +3091,13 @@ class SqlGatewayGuardrail(Base):
     Workspace: `String` (limit 63 characters). Workspace scope for logical isolation.
     """
 
+    action_endpoint = relationship(
+        "SqlGatewayEndpoint",
+        foreign_keys=[action_endpoint_id],
+        viewonly=True,
+        lazy="joined",
+    )
+
     configs = relationship(
         "SqlGatewayGuardrailConfig",
         backref="guardrail",
@@ -3111,7 +3118,12 @@ class SqlGatewayGuardrail(Base):
     def __repr__(self):
         return f"<SqlGatewayGuardrail ({self.guardrail_id})>"
 
-    def to_mlflow_entity(self):
+    def to_mlflow_entity(self, tracking_uri: str | None = None):
+        action_llm_base_url = None
+        if self.action_endpoint and tracking_uri:
+            action_llm_base_url = (
+                f"{tracking_uri.rstrip('/')}/gateway/{self.action_endpoint.name}/mlflow/invocations"
+            )
         return GatewayGuardrail(
             guardrail_id=self.guardrail_id,
             name=self.name,
@@ -3119,6 +3131,7 @@ class SqlGatewayGuardrail(Base):
             stage=GuardrailStage(self.stage),
             action=GuardrailAction(self.action),
             action_endpoint_id=self.action_endpoint_id,
+            action_llm_base_url=action_llm_base_url,
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,

@@ -28,6 +28,7 @@ class GatewayGuardrail(_MlflowObject):
     created_at: int
     last_updated_at: int
     action_endpoint_id: str | None = None
+    action_llm_base_url: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
     workspace: str | None = None

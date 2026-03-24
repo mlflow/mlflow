@@ -9,6 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
+import mlflow
 from mlflow.entities import (
     FallbackConfig,
     GatewayEndpoint,
@@ -1397,7 +1398,7 @@ class SqlAlchemyGatewayStoreMixin:
             session.add(sql_guardrail)
             session.flush()
 
-            return sql_guardrail.to_mlflow_entity()
+            return sql_guardrail.to_mlflow_entity(tracking_uri=mlflow.get_tracking_uri())
 
     def get_gateway_guardrail(self, guardrail_id: str) -> GatewayGuardrail:
         with self.ManagedSessionMaker() as session:
@@ -1407,7 +1408,7 @@ class SqlAlchemyGatewayStoreMixin:
                 {"guardrail_id": guardrail_id},
                 "Guardrail",
             )
-            return sql_guardrail.to_mlflow_entity()
+            return sql_guardrail.to_mlflow_entity(tracking_uri=mlflow.get_tracking_uri())
 
     def delete_gateway_guardrail(self, guardrail_id: str) -> None:
         with self.ManagedSessionMaker() as session:
@@ -1434,7 +1435,8 @@ class SqlAlchemyGatewayStoreMixin:
                 .offset(offset)
                 .limit(max_results + 1)
             )
-            guardrails = [g.to_mlflow_entity() for g in query.all()]
+            tracking_uri = mlflow.get_tracking_uri()
+            guardrails = [g.to_mlflow_entity(tracking_uri=tracking_uri) for g in query.all()]
             next_token = None
             if len(guardrails) > max_results:
                 next_token = SearchUtils.create_page_token(offset + max_results)
