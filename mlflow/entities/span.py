@@ -586,8 +586,9 @@ class LiveSpan(Span):
         serialized = self._attributes.get(attr_key)
         if serialized is None:
             return
+        attachments_before = len(self._attachments)
         extracted = self._extract_attachments(serialized, extract_base64=True)
-        if self._attachments:
+        if len(self._attachments) > attachments_before:
             self.set_attribute(attr_key, extracted)
 
     def _extract_attachments(self, value: Any, extract_base64: bool) -> Any:
@@ -644,8 +645,9 @@ class LiveSpan(Span):
                     content_bytes = base64.b64decode(data, validate=True)
                 except Exception:
                     return None
+                content_type = "audio/mpeg" if fmt == "mp3" else f"audio/{fmt}"
                 ref = self._store_attachment(
-                    Attachment(content_type=f"audio/{fmt}", content_bytes=content_bytes)
+                    Attachment(content_type=content_type, content_bytes=content_bytes)
                 )
                 return {
                     **value,

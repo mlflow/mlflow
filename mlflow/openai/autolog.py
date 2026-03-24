@@ -128,12 +128,9 @@ def _autolog(
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
     from openai.resources.embeddings import AsyncEmbeddings, Embeddings
-    from openai.resources.images import AsyncImages, Images
 
     for task in (ChatCompletions, Completions, Embeddings):
         safe_patch(FLAVOR_NAME, task, "create", patched_call)
-
-    safe_patch(FLAVOR_NAME, Images, "generate", patched_call)
 
     if hasattr(ChatCompletions, "parse"):
         # In openai>=1.92.0, `ChatCompletions` has a `parse` method:
@@ -143,7 +140,13 @@ def _autolog(
     for task in (AsyncChatCompletions, AsyncCompletions, AsyncEmbeddings):
         safe_patch(FLAVOR_NAME, task, "create", async_patched_call)
 
-    safe_patch(FLAVOR_NAME, AsyncImages, "generate", async_patched_call)
+    try:
+        from openai.resources.images import AsyncImages, Images
+
+        safe_patch(FLAVOR_NAME, Images, "generate", patched_call)
+        safe_patch(FLAVOR_NAME, AsyncImages, "generate", async_patched_call)
+    except ImportError:
+        pass
 
     if hasattr(AsyncChatCompletions, "parse"):
         # In openai>=1.92.0, `AsyncChatCompletions` has a `parse` method:
@@ -174,7 +177,6 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
     from openai.resources.embeddings import AsyncEmbeddings, Embeddings
-    from openai.resources.images import AsyncImages, Images
 
     span_type_mapping = {
         ChatCompletions: SpanType.CHAT_MODEL,
@@ -183,9 +185,15 @@ def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
         AsyncCompletions: SpanType.LLM,
         Embeddings: SpanType.EMBEDDING,
         AsyncEmbeddings: SpanType.EMBEDDING,
-        Images: SpanType.TOOL,
-        AsyncImages: SpanType.TOOL,
     }
+
+    try:
+        from openai.resources.images import AsyncImages, Images
+
+        span_type_mapping[Images] = SpanType.TOOL
+        span_type_mapping[AsyncImages] = SpanType.TOOL
+    except ImportError:
+        pass
 
     try:
         # Only available in openai>=1.40.0
