@@ -138,7 +138,7 @@ def test_before_sanitization_rewrites_request():
         scorer,
         GuardrailStage.BEFORE,
         GuardrailAction.SANITIZATION,
-        action_endpoint_id="ep-sanitizer",
+        action_endpoint_name="ep-sanitizer",
     )
     sanitized = _make_request("my SSN is [REDACTED]")
     with _patch_sanitization(sanitized):
@@ -152,7 +152,7 @@ def test_after_sanitization_rewrites_response():
         scorer,
         GuardrailStage.AFTER,
         GuardrailAction.SANITIZATION,
-        action_endpoint_id="ep-sanitizer",
+        action_endpoint_name="ep-sanitizer",
     )
     sanitized = _make_response("Polite version")
     with _patch_sanitization(sanitized):
@@ -163,7 +163,7 @@ def test_after_sanitization_rewrites_response():
 def test_sanitization_without_endpoint_raises():
     scorer = _mock_scorer(_feedback(value=False, rationale="issue found"))
     guard = JudgeGuardrail(scorer, GuardrailStage.BEFORE, GuardrailAction.SANITIZATION)
-    with pytest.raises(GuardrailViolation, match="action_endpoint_id"):
+    with pytest.raises(GuardrailViolation, match="action_endpoint_name"):
         guard.process_request(_make_request())
 
 
@@ -173,7 +173,7 @@ def test_sanitization_returns_full_payload():
         scorer,
         GuardrailStage.BEFORE,
         GuardrailAction.SANITIZATION,
-        action_endpoint_id="ep-sanitizer",
+        action_endpoint_name="ep-sanitizer",
     )
     original = {"messages": [{"role": "user", "content": "bad"}], "temperature": 0.5}
     sanitized = {"messages": [{"role": "user", "content": "good"}], "temperature": 0.5}
@@ -189,7 +189,7 @@ def test_sanitization_posts_to_correct_url():
         scorer,
         GuardrailStage.BEFORE,
         GuardrailAction.SANITIZATION,
-        action_endpoint_id="my-endpoint",
+        action_endpoint_name="my-endpoint",
     )
     sanitized = _make_request("clean")
     with (
@@ -214,7 +214,7 @@ def test_sanitization_invalid_json_raises():
         scorer,
         GuardrailStage.BEFORE,
         GuardrailAction.SANITIZATION,
-        action_endpoint_id="ep-sanitizer",
+        action_endpoint_name="ep-sanitizer",
     )
     bad_resp = mock.MagicMock()
     bad_resp.status_code = 200
@@ -345,7 +345,7 @@ def test_empty_choices_response():
 # ---------------------------------------------------------------------------
 
 
-def test_from_entity():
+def test_from_entity_without_action_endpoint():
     mock_serialized_scorer = mock.MagicMock()
     mock_scorer_version = mock.MagicMock()
     mock_scorer_version.serialized_scorer = mock_serialized_scorer
@@ -369,6 +369,35 @@ def test_from_entity():
     assert guard.stage == GuardrailStage.BEFORE
     assert guard.action == GuardrailAction.VALIDATION
     assert guard.name == "safety-guard"
+    assert guard.action_endpoint_name is None
 
     result = guard.process_request(_make_request())
     assert result is not None
+
+
+def test_from_entity_resolves_endpoint_id_to_name():
+    mock_serialized_scorer = mock.MagicMock()
+    mock_scorer_version = mock.MagicMock()
+    mock_scorer_version.serialized_scorer = mock_serialized_scorer
+
+    entity = mock.MagicMock()
+    entity.scorer = mock_scorer_version
+    entity.name = "sanitizer-guard"
+    entity.stage = GuardrailStage.BEFORE
+    entity.action = GuardrailAction.SANITIZATION
+    entity.guardrail_id = "gr-def456"
+    entity.action_endpoint_id = "e-abc123"
+
+    mock_store = mock.MagicMock()
+    mock_endpoint = mock.MagicMock()
+    mock_endpoint.name = "my-sanitizer-endpoint"
+    mock_store.get_gateway_endpoint.return_value = mock_endpoint
+
+    with mock.patch(
+        "mlflow.genai.scorers.Scorer.model_validate",
+        return_value=_mock_scorer(_feedback(value=True)),
+    ):
+        guard = from_entity(entity, store=mock_store)
+
+    assert guard.action_endpoint_name == "my-sanitizer-endpoint"
+    mock_store.get_gateway_endpoint.assert_called_once_with(endpoint_id="e-abc123")

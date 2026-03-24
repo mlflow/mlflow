@@ -95,7 +95,7 @@ class JudgeGuardrail(Guardrail):
         stage: Whether this guardrail runs BEFORE or AFTER LLM invocation.
         action: Whether the guardrail validates (blocks) or sanitizes (modifies).
         name: Human-readable name for error messages.
-        action_endpoint_id: Gateway endpoint name for the LLM used by sanitization.
+        action_endpoint_name: Gateway endpoint name for the LLM used by sanitization.
             Required when ``action`` is ``SANITIZATION``.
     """
 
@@ -105,13 +105,13 @@ class JudgeGuardrail(Guardrail):
         stage: GuardrailStage,
         action: GuardrailAction,
         name: str = "judge-guardrail",
-        action_endpoint_id: str | None = None,
+        action_endpoint_name: str | None = None,
     ) -> None:
         self.scorer = scorer
         self.stage = stage
         self.action = action
         self.name = name
-        self.action_endpoint_id = action_endpoint_id
+        self.action_endpoint_name = action_endpoint_name
 
     def _extract_text(self, payload: dict[str, Any], *, is_response: bool) -> str:
         if is_response:
@@ -163,18 +163,18 @@ class JudgeGuardrail(Guardrail):
         """Call the action endpoint to rewrite the payload.
 
         Posts a chat request to the gateway invocations endpoint at
-        ``{tracking_uri}/gateway/{action_endpoint_id}/mlflow/invocations``.
+        ``{tracking_uri}/gateway/{action_endpoint_name}/mlflow/invocations``.
         The tracking URI is resolved from ``mlflow.get_tracking_uri()``,
         which points to the running MLflow server.
         """
-        if not self.action_endpoint_id:
+        if not self.action_endpoint_name:
             raise GuardrailViolation(
                 self.name,
-                "Sanitization requires an action_endpoint_id but none was configured.",
+                "Sanitization requires an action_endpoint_name but none was configured.",
             )
 
         tracking_uri = mlflow.get_tracking_uri().rstrip("/")
-        url = f"{tracking_uri}/gateway/{self.action_endpoint_id}/mlflow/invocations"
+        url = f"{tracking_uri}/gateway/{self.action_endpoint_name}/mlflow/invocations"
         body = {
             "messages": [
                 {
@@ -233,14 +233,17 @@ class JudgeGuardrail(Guardrail):
         return self._sanitize(payload, rationale)
 
 
-def from_entity(entity: GatewayGuardrail) -> JudgeGuardrail:
+def from_entity(entity: GatewayGuardrail, store=None) -> JudgeGuardrail:
     """Convert a ``GatewayGuardrail`` entity (DB model) into a callable ``JudgeGuardrail``.
 
     Deserializes the scorer stored in ``entity.scorer`` (a ``ScorerVersion``)
     back into a live ``Scorer`` instance and wraps it in a ``JudgeGuardrail``.
+    If the entity has an ``action_endpoint_id``, resolves it to an endpoint
+    name via the store.
 
     Args:
         entity: A ``GatewayGuardrail`` entity containing a ``ScorerVersion``.
+        store: Optional tracking store. If ``None``, retrieved automatically.
 
     Returns:
         A ``JudgeGuardrail`` ready to process requests/responses.
@@ -248,10 +251,20 @@ def from_entity(entity: GatewayGuardrail) -> JudgeGuardrail:
     from mlflow.genai.scorers import Scorer
 
     scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
+
+    action_endpoint_name = None
+    if entity.action_endpoint_id:
+        if store is None:
+            from mlflow.tracking._tracking_service.utils import _get_store
+
+            store = _get_store()
+        endpoint = store.get_gateway_endpoint(endpoint_id=entity.action_endpoint_id)
+        action_endpoint_name = endpoint.name
+
     return JudgeGuardrail(
         scorer=scorer,
         stage=entity.stage,
         action=entity.action,
         name=entity.name,
-        action_endpoint_id=entity.action_endpoint_id,
+        action_endpoint_name=action_endpoint_name,
     )
