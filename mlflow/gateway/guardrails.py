@@ -3,7 +3,11 @@ from __future__ import annotations
 import abc
 from typing import Any
 
-from mlflow.entities.gateway_guardrail import GuardrailAction, GuardrailStage
+from mlflow.entities.gateway_guardrail import (
+    GatewayGuardrail,
+    GuardrailAction,
+    GuardrailStage,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -11,7 +15,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 class GuardrailViolation(MlflowException):
     """Raised when a guardrail blocks a request or response."""
 
-    def __init__(self, guardrail_name: str, rationale: str):
+    def __init__(self, guardrail_name: str, rationale: str) -> None:
         self.guardrail_name = guardrail_name
         self.rationale = rationale
         super().__init__(
@@ -73,18 +77,17 @@ class JudgeGuardrail(Guardrail):
 
     def __init__(
         self,
-        scorer,
+        scorer: Any,
         stage: GuardrailStage,
         action: GuardrailAction,
         name: str = "judge-guardrail",
-    ):
+    ) -> None:
         self.scorer = scorer
         self.stage = stage
         self.action = action
         self.name = name
 
     def _extract_text(self, payload: dict[str, Any], *, is_response: bool) -> str:
-        """Pull the primary text content from a request or response dict."""
         if is_response:
             choices = payload.get("choices", [])
             if choices:
@@ -96,10 +99,9 @@ class JudgeGuardrail(Guardrail):
         return ""
 
     def _invoke_judge(self, text: str) -> Any:
-        """Call the scorer and return the feedback."""
         return self.scorer(outputs=text)
 
-    def _is_passing(self, result) -> bool:
+    def _is_passing(self, result: Any) -> bool:
         """Determine whether the judge result indicates a pass.
 
         Handles ``Feedback`` objects (has ``.value``) and plain values.
@@ -112,7 +114,7 @@ class JudgeGuardrail(Guardrail):
             return value.strip().lower() in ("yes", "true", "pass")
         return bool(value)
 
-    def _get_rationale(self, result) -> str:
+    def _get_rationale(self, result: Any) -> str:
         rationale = getattr(result, "rationale", None)
         if rationale:
             return str(rationale)
@@ -156,3 +158,26 @@ class JudgeGuardrail(Guardrail):
             self.name,
             f"Sanitization not yet implemented. Judge feedback: {self._get_rationale(result)}",
         )
+
+
+def from_entity(entity: GatewayGuardrail) -> JudgeGuardrail:
+    """Convert a ``GatewayGuardrail`` entity (DB model) into a callable ``JudgeGuardrail``.
+
+    Deserializes the scorer stored in ``entity.scorer`` (a ``ScorerVersion``)
+    back into a live ``Scorer`` instance and wraps it in a ``JudgeGuardrail``.
+
+    Args:
+        entity: A ``GatewayGuardrail`` entity containing a ``ScorerVersion``.
+
+    Returns:
+        A ``JudgeGuardrail`` ready to process requests/responses.
+    """
+    from mlflow.genai.scorers import Scorer
+
+    scorer = Scorer.model_validate(entity.scorer.serialized_scorer)
+    return JudgeGuardrail(
+        scorer=scorer,
+        stage=entity.stage,
+        action=entity.action,
+        name=f"guardrail-{entity.guardrail_id}",
+    )
