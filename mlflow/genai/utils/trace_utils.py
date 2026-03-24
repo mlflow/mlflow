@@ -228,9 +228,15 @@ def extract_tools_called_from_trace(trace: Trace) -> list["FunctionCall"]:
     tool_spans = trace.search_spans(span_type=SpanType.TOOL)
 
     for tool_span in sorted(tool_spans, key=lambda s: s.start_time_ns or 0):
+        arguments = tool_span.inputs or None
+        # FunctionCall.arguments accepts str | dict | None. Autolog providers like
+        # Strands may store inputs as other types (e.g. list). Serialize to JSON string
+        # so it's compatible with the FunctionCall model and downstream consumers.
+        if arguments is not None and not isinstance(arguments, (str, dict)):
+            arguments = json.dumps(arguments)
         tool_info = FunctionCall(
             name=_extract_tool_name_from_span(tool_span),
-            arguments=tool_span.inputs or None,
+            arguments=arguments,
             outputs=tool_span.outputs or None,
             exception=_get_exception_from_span(tool_span),
         )

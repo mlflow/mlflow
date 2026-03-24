@@ -131,6 +131,17 @@ def _parse_json(value):
     return value
 
 
+def _normalize_tool_inputs(content):
+    """Normalize tool inputs to a type compatible with FunctionCall.arguments.
+
+    FunctionCall.arguments only accepts str, dict, or None. Strands may produce
+    other types (e.g. list) from tool event content, so we serialize them to JSON.
+    """
+    if content is not None and not isinstance(content, (str, dict)):
+        return json.dumps(content)
+    return content
+
+
 def _set_inputs_outputs(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
     outputs = []
     span_type = mlflow_span.get_attribute(SpanAttributeKey.SPAN_TYPE)
@@ -139,7 +150,7 @@ def _set_inputs_outputs(mlflow_span: LiveSpan, span: OTelReadableSpan) -> None:
         for event in span.events:
             if event.name == "gen_ai.tool.message":
                 content = _parse_json(event.attributes.get("content"))
-                mlflow_span.set_inputs(content)
+                mlflow_span.set_inputs(_normalize_tool_inputs(content))
             elif event.name == "gen_ai.choice":
                 message = _parse_json(event.attributes.get("message"))
                 outputs.append(message)
