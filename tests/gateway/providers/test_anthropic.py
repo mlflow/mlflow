@@ -16,6 +16,7 @@ from mlflow.gateway.providers.anthropic import (
     AnthropicAdapter,
     AnthropicProvider,
     _enforce_strict_schema,
+    _UnsupportedSchemaError,
 )
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.schemas import chat, completions, embeddings
@@ -1142,8 +1143,6 @@ def test_enforce_strict_schema_sets_additional_properties_false():
 
 
 def test_enforce_strict_schema_raises_on_free_form_dict():
-    from mlflow.gateway.providers.anthropic import _UnsupportedSchemaError
-
     # Object with properties containing a free-form dict (no properties defined)
     schema = {
         "type": "object",
@@ -1159,8 +1158,6 @@ def test_enforce_strict_schema_raises_on_free_form_dict():
 
 
 def test_enforce_strict_schema_raises_on_top_level_free_form_dict():
-    from mlflow.gateway.providers.anthropic import _UnsupportedSchemaError
-
     schema = {
         "type": "object",
         "additionalProperties": {"type": "string"},
