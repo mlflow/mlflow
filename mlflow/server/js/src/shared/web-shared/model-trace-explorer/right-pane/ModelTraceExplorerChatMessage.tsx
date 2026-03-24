@@ -16,6 +16,13 @@ import { GenAIMarkdownRenderer } from '../../genai-markdown-renderer/GenAIMarkdo
 import { attachmentAwareUrlTransform, isAttachmentUri, useAttachmentUrl } from '../attachment-utils';
 
 import { ModelTraceExplorerChatMessageHeader } from './ModelTraceExplorerChatMessageHeader';
+import {
+  CONTENT_TRUNCATION_LIMIT,
+  getDisplayLength,
+  truncatePreservingImages,
+} from './ModelTraceExplorerChatRenderer.utils';
+import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallMessage';
+import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
 
 function AttachmentImage({ src, alt }: { src?: string; alt?: string }) {
   const { url, loading, error } = useAttachmentUrl(src ?? null);
@@ -34,13 +41,6 @@ const attachmentAwareImgRenderer = ({ src, alt }: { src?: string; alt?: string }
   }
   return <img src={src} alt={alt} css={{ maxWidth: '100%' }} />;
 };
-import {
-  CONTENT_TRUNCATION_LIMIT,
-  getDisplayLength,
-  truncatePreservingImages,
-} from './ModelTraceExplorerChatRenderer.utils';
-import { ModelTraceExplorerToolCallMessage } from './ModelTraceExplorerToolCallMessage';
-import { CodeSnippetRenderMode, type ModelTraceChatMessage, type ModelTraceInputAudio } from '../ModelTrace.types';
 import { ModelTraceExplorerCodeSnippetBody } from '../ModelTraceExplorerCodeSnippetBody';
 
 const tryGetJsonContent = (content: string) => {
