@@ -1192,9 +1192,15 @@ const formatChatContent = (content?: ModelTraceContentType | null): string | und
           const url = part?.image_url?.url;
           return url ? `![](${url})` : '[image]';
         case 'image': {
-          // Anthropic format: {"type": "image", "source": {"type": "base64", "data": "..."}}
-          const imageData = (part as any)?.source?.data;
-          return imageData ? `![](${imageData})` : '[image]';
+          // Anthropic format: {"type": "image", "source": {"type": "base64", "media_type": "...", "data": "..."}}
+          const source = (part as any)?.source;
+          const imageData = source?.data;
+          if (!imageData) return '[image]';
+          if (isString(imageData) && imageData.startsWith('mlflow-attachment://')) {
+            return `![](${imageData})`;
+          }
+          const mediaType = source?.media_type;
+          return mediaType ? `![](data:${mediaType};base64,${imageData})` : '[image]';
         }
         case 'input_audio':
           // Audio parts are rendered as <audio> elements by the component,

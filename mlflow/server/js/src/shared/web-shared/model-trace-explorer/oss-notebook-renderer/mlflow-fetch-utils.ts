@@ -41,7 +41,7 @@ export async function getTraceAttachment(requestId: string, attachmentId: string
       `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(requestId)}&path=${encodeURIComponent(attachmentId)}`,
     );
     // eslint-disable-next-line no-restricted-globals -- direct fetch needed for binary response
-    const response = await fetch(url);
+    const response = await fetch(url, { credentials: 'include' });
     if (!response.ok) {
       return undefined;
     }

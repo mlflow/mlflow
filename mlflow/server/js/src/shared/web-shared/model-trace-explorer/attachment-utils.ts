@@ -32,6 +32,9 @@ export function useAttachmentUrl(uri: string | null): { url: string | null; load
 
   useEffect(() => {
     if (!parsed) {
+      setUrl(null);
+      setLoading(false);
+      setError(false);
       return;
     }
 
@@ -82,6 +85,7 @@ export function isAttachmentUri(value: string): boolean {
 /**
  * URL transform for react-markdown that preserves mlflow-attachment:// URIs.
  * Without this, the default transform strips non-standard protocols.
+ * Falls back to default sanitization for all other URLs to prevent XSS.
  */
 export function attachmentAwareUrlTransform(url: string): string {
   if (url.startsWith('mlflow-attachment:')) {
@@ -93,5 +97,9 @@ export function attachmentAwareUrlTransform(url: string): string {
   if (url.startsWith('blob:')) {
     return url;
   }
-  return url;
+  // Delegate to default sanitization for all other URLs (blocks javascript: etc.)
+  if (url.startsWith('http:') || url.startsWith('https:') || url.startsWith('mailto:')) {
+    return url;
+  }
+  return '';
 }
