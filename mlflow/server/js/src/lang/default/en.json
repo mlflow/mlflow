@@ -59,10 +59,6 @@
     "defaultMessage": "No sessions found",
     "description": "Title for the empty sessions list in the select sessions modal"
   },
-  "+SBxBK": {
-    "defaultMessage": "Assessment Type",
-    "description": "Field label for assessment type in a creation form"
-  },
   "+VGmLL": {
     "defaultMessage": "Optional description",
     "description": "Webhook description placeholder"
@@ -346,10 +342,6 @@
   "08WP3h": {
     "defaultMessage": "Staging",
     "description": "Column title for staging phase version in the registered model page"
-  },
-  "0AOcOr": {
-    "defaultMessage": "Feedback",
-    "description": "Feedback select menu option for assessment type"
   },
   "0BIVHk": {
     "defaultMessage": "Response follows instructions, constraints, policies, and formatting",
@@ -7595,6 +7587,10 @@
     "defaultMessage": "Name",
     "description": "Workspaces table name column header"
   },
+  "lJC4eF": {
+    "defaultMessage": "Assessments",
+    "description": "Title for the assessments pane"
+  },
   "lJQEW4": {
     "defaultMessage": "Using controls above, select at least one \"group by\" column.",
     "description": "Experiment page > artifact compare view > empty state for no group by columns selected > title"
@@ -8874,10 +8870,6 @@
   "tD0/e2": {
     "defaultMessage": "Model {modelName} does not exist",
     "description": "Sub-message text for error message on overall model page"
-  },
-  "tEaqGu": {
-    "defaultMessage": "Expectation",
-    "description": "Expectation select menu option for assessment type"
   },
   "tEwQWS": {
     "defaultMessage": "Active",
