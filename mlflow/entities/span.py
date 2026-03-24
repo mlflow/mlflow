@@ -567,14 +567,78 @@ class LiveSpan(Span):
 
     def _extract_attachments(self, value: Any) -> Any:
         if isinstance(value, Attachment):
-            ref = value.ref(self.trace_id)
-            self._attachments[value.id] = value
-            return ref
+            return self._store_attachment(value)
+        if self._should_extract_base64():
+            if isinstance(value, str):
+                converted = self._try_convert_data_uri(value)
+                if converted is not None:
+                    return converted
+            if isinstance(value, dict):
+                converted = self._try_convert_structured_content(value)
+                if converted is not None:
+                    return converted
         if isinstance(value, dict):
             return {k: self._extract_attachments(v) for k, v in value.items()}
         if isinstance(value, (list, tuple)):
             return [self._extract_attachments(item) for item in value]
         return value
+
+    def _store_attachment(self, attachment: Attachment) -> str:
+        ref = attachment.ref(self.trace_id)
+        self._attachments[attachment.id] = attachment
+        return ref
+
+    @staticmethod
+    def _should_extract_base64() -> bool:
+        from mlflow.environment_variables import MLFLOW_TRACE_EXTRACT_ATTACHMENTS
+
+        return MLFLOW_TRACE_EXTRACT_ATTACHMENTS.get()
+
+    def _try_convert_data_uri(self, value: str) -> str | None:
+        if not value.startswith("data:") or ";base64," not in value:
+            return None
+        header, _, b64data = value.partition(";base64,")
+        mime = header[len("data:") :]
+        if not mime:
+            return None
+        try:
+            content_bytes = base64.b64decode(b64data)
+        except Exception:
+            return None
+        return self._store_attachment(Attachment(content_type=mime, content_bytes=content_bytes))
+
+    def _try_convert_structured_content(self, value: dict[str, Any]) -> dict[str, Any] | str | None:
+        # OpenAI input_audio content part
+        if value.get("type") == "input_audio" and isinstance(
+            audio := value.get("input_audio"), dict
+        ):
+            data = audio.get("data")
+            fmt = audio.get("format", "wav")
+            if isinstance(data, str) and data:
+                try:
+                    content_bytes = base64.b64decode(data)
+                except Exception:
+                    return None
+                ref = self._store_attachment(
+                    Attachment(content_type=f"audio/{fmt}", content_bytes=content_bytes)
+                )
+                return {
+                    **value,
+                    "input_audio": {**audio, "data": ref},
+                }
+
+        # DALL-E output: {"b64_json": "<base64>", ...}
+        if isinstance(b64 := value.get("b64_json"), str) and b64:
+            try:
+                content_bytes = base64.b64decode(b64)
+            except Exception:
+                return None
+            ref = self._store_attachment(
+                Attachment(content_type="image/png", content_bytes=content_bytes)
+            )
+            return {**value, "b64_json": ref}
+
+        return None
 
     def set_attributes(self, attributes: dict[str, Any]):
         """
