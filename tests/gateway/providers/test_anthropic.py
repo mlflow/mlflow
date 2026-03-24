@@ -1119,12 +1119,10 @@ async def test_chat_with_structured_output_sanitizes_schema():
         }
         await provider.chat(chat.RequestPayload(**payload))
 
+        # Schema contains a free-form dict (metadata without properties),
+        # so output_config should NOT be set (falls back to plain text)
         call_kwargs = mock_session_client.post.call_args[1]
-        output_schema = call_kwargs["json"]["output_config"]["format"]["schema"]
-
-        # Both the root and nested object must have additionalProperties: false
-        assert output_schema["additionalProperties"] is False
-        assert output_schema["properties"]["metadata"]["additionalProperties"] is False
+        assert "output_config" not in call_kwargs["json"]
 
 
 def test_enforce_strict_schema_sets_additional_properties_false():
@@ -1143,10 +1141,12 @@ def test_enforce_strict_schema_sets_additional_properties_false():
     assert schema["properties"]["nested"]["additionalProperties"] is False
 
 
-def test_enforce_strict_schema_overwrites_dict_like_additional_properties():
+def test_enforce_strict_schema_raises_on_free_form_dict():
+    from mlflow.gateway.providers.anthropic import _UnsupportedSchemaError
+
+    # Object with properties containing a free-form dict (no properties defined)
     schema = {
         "type": "object",
-        "additionalProperties": {"type": "string"},
         "properties": {
             "tags": {
                 "type": "object",
@@ -1154,9 +1154,19 @@ def test_enforce_strict_schema_overwrites_dict_like_additional_properties():
             }
         },
     }
-    _enforce_strict_schema(schema)
-    assert schema["additionalProperties"] is False
-    assert schema["properties"]["tags"]["additionalProperties"] is False
+    with pytest.raises(_UnsupportedSchemaError):  # noqa: PT011
+        _enforce_strict_schema(schema)
+
+
+def test_enforce_strict_schema_raises_on_top_level_free_form_dict():
+    from mlflow.gateway.providers.anthropic import _UnsupportedSchemaError
+
+    schema = {
+        "type": "object",
+        "additionalProperties": {"type": "string"},
+    }
+    with pytest.raises(_UnsupportedSchemaError):  # noqa: PT011
+        _enforce_strict_schema(schema)
 
 
 def test_enforce_strict_schema_handles_arrays_with_object_items():

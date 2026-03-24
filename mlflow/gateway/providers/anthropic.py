@@ -23,8 +23,12 @@ from mlflow.types.chat import Function, ToolCallDelta
 _logger = logging.getLogger(__name__)
 
 
+class _UnsupportedSchemaError(Exception):
+    """Schema contains constructs that Anthropic structured outputs cannot represent."""
+
+
 def _enforce_strict_schema(schema: dict[str, Any]) -> None:
-    """Recursively set ``additionalProperties: false`` on all object types in place.
+    """Recursively set ``additionalProperties: false`` on object types that have ``properties``.
 
     Anthropic's structured outputs require every object node to explicitly set
     ``additionalProperties: false``. Pydantic-generated schemas often violate
@@ -37,10 +41,15 @@ def _enforce_strict_schema(schema: dict[str, Any]) -> None:
 
         // Accepted by Anthropic
         {"type": "object", "additionalProperties": false}
+
+    Objects without ``properties`` (i.e. free-form dicts like ``dict[str, str]``)
+    are left unchanged so the model can still populate them with arbitrary keys.
     """
     if not isinstance(schema, dict):
         return
     if schema.get("type") == "object":
+        if "properties" not in schema:
+            raise _UnsupportedSchemaError
         schema["additionalProperties"] = False
     for value in schema.values():
         match value:
@@ -171,13 +180,23 @@ class AnthropicAdapter(ProviderAdapter):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
                 json_schema = response_format["json_schema"]
                 schema = json_schema.get("schema", {})
-                _enforce_strict_schema(schema)
-                payload["output_config"] = {
-                    "format": {
-                        "type": "json_schema",
-                        "schema": schema,
+                try:
+                    _enforce_strict_schema(schema)
+                except _UnsupportedSchemaError:
+                    # Schema contains free-form dicts (objects without properties)
+                    # which Anthropic cannot represent. Skip structured output and
+                    # let the model respond in plain text.
+                    _logger.debug(
+                        "Schema contains constructs unsupported by Anthropic structured "
+                        "outputs (e.g. free-form dict). Falling back to plain text."
+                    )
+                else:
+                    payload["output_config"] = {
+                        "format": {
+                            "type": "json_schema",
+                            "schema": schema,
+                        }
                     }
-                }
 
         return payload
 
