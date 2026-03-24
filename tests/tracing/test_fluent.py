@@ -1,4 +1,5 @@
 import asyncio
+import copy
 import json
 import os
 import subprocess
@@ -2032,6 +2033,21 @@ def test_add_trace_merge_tags():
         # Tag value from the parent trace should prevail
         "food": "sushi",
     }
+
+
+def test_add_trace_does_not_propagate_system_tags():
+    # Child trace with mlflow.artifactLocation system tag
+    child_trace_dict = copy.deepcopy(_SAMPLE_REMOTE_TRACE)
+    child_trace_dict["info"]["tags"]["mlflow.artifactLocation"] = "s3://child-bucket/path"
+
+    with mlflow.start_span(name="parent"):
+        mlflow.add_trace(Trace.from_dict(child_trace_dict))
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    # The child's mlflow.artifactLocation should NOT appear on the parent
+    assert trace.info.tags.get("mlflow.artifactLocation") != "s3://child-bucket/path"
+    # User-defined tags from the child should still merge
+    assert trace.info.tags["fruit"] == "apple"
 
 
 def test_add_trace_raise_for_invalid_trace():

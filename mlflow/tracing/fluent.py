@@ -1740,7 +1740,8 @@ def _merge_trace(
     with trace_manager.get_trace(target_trace_id) as parent_trace:
         # Order of merging is important to ensure the parent trace's metadata is
         # not overwritten by the child trace's metadata if they have the same key.
-        parent_trace.info.tags = trace.info.tags | parent_trace.info.tags
+        child_user_tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
+        parent_trace.info.tags = child_user_tags | parent_trace.info.tags
         parent_trace.info.trace_metadata = {
             **trace.info.request_metadata,
             **parent_trace.info.trace_metadata,
