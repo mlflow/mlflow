@@ -960,6 +960,9 @@ const isContentPart = (part: any) => {
         return false;
       }
       return isString(input_audio.data) && (isNil(input_audio.format) || ['wav', 'mp3'].includes(input_audio.format));
+    case 'image':
+      // Anthropic format: {"type": "image", "source": {"type": "base64", "data": "..."}}
+      return !isNil(part.source) && isString((part as any).source.data);
     default:
       return false;
   }
