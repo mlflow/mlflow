@@ -13,6 +13,24 @@ import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
 
+/**
+ * Recursively finds all mlflow-attachment:// URIs in a nested data structure.
+ */
+function findAttachmentRefs(data: any): { uri: string; attachmentId: string; traceId: string; contentType: string }[] {
+  const refs: { uri: string; attachmentId: string; traceId: string; contentType: string }[] = [];
+  if (isString(data)) {
+    const parsed = parseAttachmentUri(data);
+    if (parsed) {
+      refs.push({ uri: data, ...parsed });
+    }
+  } else if (Array.isArray(data)) {
+    data.forEach((item) => refs.push(...findAttachmentRefs(item)));
+  } else if (data && typeof data === 'object') {
+    Object.values(data).forEach((value) => refs.push(...findAttachmentRefs(value)));
+  }
+  return refs;
+}
+
 export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 
 export const ModelTraceExplorerFieldRenderer = ({
@@ -120,6 +138,26 @@ export const ModelTraceExplorerFieldRenderer = ({
 
   if (isRetrieverDocuments) {
     return <ModelTraceExplorerRetrieverFieldRenderer title={title} documents={parsedData} assessments={assessments} />;
+  }
+
+  // Check for attachment refs buried in nested JSON (e.g., DALL-E b64_json output).
+  // Render attachment previews above the raw JSON code snippet.
+  const embeddedRefs = findAttachmentRefs(parsedData);
+  if (embeddedRefs.length > 0) {
+    return (
+      <>
+        {embeddedRefs.map((ref) => (
+          <ModelTraceExplorerAttachmentRenderer
+            key={ref.attachmentId}
+            title=""
+            attachmentId={ref.attachmentId}
+            traceId={ref.traceId}
+            contentType={ref.contentType}
+          />
+        ))}
+        <ModelTraceExplorerCodeSnippet title={title} data={data} />
+      </>
+    );
   }
 
   return <ModelTraceExplorerCodeSnippet title={title} data={data} />;
