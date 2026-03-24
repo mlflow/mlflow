@@ -18,7 +18,11 @@ export const useTraceAttachment = ({
   attachmentId: string;
   contentType: string;
 }) => {
-  const { data: objectUrl, isLoading, error } = useQuery({
+  const {
+    data: objectUrl,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: [TRACE_ATTACHMENT_QUERY_KEY, traceId, attachmentId],
     queryFn: async () => {
       const url = getAjaxUrl(
