@@ -677,7 +677,9 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                     )
                 )
 
-            if package_info.install_dev:
+            # Skip dev version testing: install_dev installs from git, which
+            # doesn't respect UV_EXCLUDE_NEWER.
+            if False:  # package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
                 if requirements := get_matched_requirements(cfg.requirements or {}, DEV_VERSION):
                     install = make_pip_install_command(requirements) + "\n" + install_dev
