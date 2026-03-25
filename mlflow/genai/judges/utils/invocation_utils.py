@@ -17,7 +17,6 @@ from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     _run_databricks_agentic_loop,
 )
-from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 from mlflow.genai.judges.adapters.utils import get_adapter
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
@@ -192,7 +191,7 @@ def get_chat_completions_with_structured_output(
         Instance of output_schema with the structured data from the LLM.
 
     Raises:
-        ImportError: If LiteLLM is not installed.
+        MlflowException: If the LLM invocation fails.
         JSONDecodeError: If the LLM response cannot be parsed as JSON.
         ValidationError: If the LLM response does not match the output schema.
 
@@ -227,15 +226,12 @@ def get_chat_completions_with_structured_output(
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
         return _invoke_databricks_structured_output(messages, output_schema, trace)
 
+    from mlflow.genai.judges.adapters.gateway_invocation import invoke_via_gateway_and_handle_tools
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     model_provider, model_name = _parse_model_uri(model_uri)
 
-    # TODO: The cost measurement and telemetry data are discarded here from the
-    # parsing of the tool handling response. We should eventually pass this cost
-    # estimation through so that the total cost of the usage of the scorer incorporates
-    # tool call usage. Deferring for initial implementation due to complexity.
-    output = _invoke_litellm_and_handle_tools(
+    output = invoke_via_gateway_and_handle_tools(
         provider=model_provider,
         model_name=model_name,
         messages=messages,

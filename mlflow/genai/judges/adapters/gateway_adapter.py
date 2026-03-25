@@ -114,12 +114,6 @@ class GatewayAdapter(BaseJudgeAdapter):
         return True
 
     def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
-        if input_params.trace is not None:
-            raise MlflowException(
-                "LiteLLM is required for using traces with judges. "
-                "Please install it with `pip install litellm`.",
-            )
-
         # base_url and extra_headers are not supported for deployment endpoints
         if input_params.model_provider == "endpoints" and (
             input_params.base_url is not None or input_params.extra_headers is not None
@@ -130,6 +124,10 @@ class GatewayAdapter(BaseJudgeAdapter):
                 "deployment target configuration.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+
+        # When a trace is provided, use the tool-calling loop
+        if input_params.trace is not None:
+            return self._invoke_with_tools(input_params)
 
         if isinstance(input_params.prompt, str):
             prompt = input_params.prompt
@@ -163,6 +161,62 @@ class GatewayAdapter(BaseJudgeAdapter):
             source=AssessmentSource(
                 source_type=AssessmentSourceType.LLM_JUDGE, source_id=input_params.model_uri
             ),
+        )
+
+        return AdapterInvocationOutput(feedback=feedback)
+
+    def _invoke_with_tools(
+        self, input_params: AdapterInvocationInput
+    ) -> AdapterInvocationOutput:
+        """Invoke the judge model with trace-based tool calling support."""
+        from mlflow.genai.judges.adapters.gateway_invocation import invoke_via_gateway_and_handle_tools
+        from mlflow.tracing.constant import AssessmentMetadataKey
+        from mlflow.types.llm import ChatMessage
+
+        messages = (
+            [ChatMessage(role="user", content=input_params.prompt)]
+            if isinstance(input_params.prompt, str)
+            else input_params.prompt
+        )
+
+        output = invoke_via_gateway_and_handle_tools(
+            provider=input_params.model_provider,
+            model_name=input_params.model_name,
+            messages=messages,
+            trace=input_params.trace,
+            num_retries=input_params.num_retries,
+            response_format=input_params.response_format,
+            inference_params=input_params.inference_params,
+            base_url=input_params.base_url,
+            extra_headers=input_params.extra_headers,
+        )
+
+        cleaned_response = _strip_markdown_code_blocks(output.response)
+
+        try:
+            response_dict = json.loads(cleaned_response)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Failed to parse response from judge model. Response: {output.response}",
+                error_code=BAD_REQUEST,
+            ) from e
+
+        metadata = {}
+        if output.num_prompt_tokens:
+            metadata[AssessmentMetadataKey.JUDGE_INPUT_TOKENS] = output.num_prompt_tokens
+        if output.num_completion_tokens:
+            metadata[AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS] = output.num_completion_tokens
+        metadata = metadata or None
+
+        feedback = Feedback(
+            name=input_params.assessment_name,
+            value=response_dict["result"],
+            rationale=_sanitize_justification(response_dict.get("rationale", "")),
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id=input_params.model_uri
+            ),
+            trace_id=input_params.trace.info.trace_id if input_params.trace else None,
+            metadata=metadata,
         )
 
         return AdapterInvocationOutput(feedback=feedback)

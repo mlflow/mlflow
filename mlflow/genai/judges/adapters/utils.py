@@ -13,7 +13,6 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     DatabricksManagedJudgeAdapter,
 )
 from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
-from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 
@@ -37,7 +36,6 @@ def get_adapter(
     """
     adapters = [
         DatabricksManagedJudgeAdapter,
-        LiteLLMAdapter,
         GatewayAdapter,
     ]
 
@@ -47,7 +45,6 @@ def get_adapter(
 
     raise MlflowException(
         f"No suitable adapter found for model_uri='{model_uri}'. "
-        "Some providers may require LiteLLM to be invoked. "
-        "Please install it with: `pip install litellm`",
+        f"Supported providers: openai, anthropic, gemini, mistral, endpoints.",
         error_code=BAD_REQUEST,
     )
