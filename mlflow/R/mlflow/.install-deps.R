@@ -1,7 +1,8 @@
 # Increase the timeout length for `utils::download.file` because the default value (60 seconds)
 # could be too short to download large packages such as h2o.
 options(timeout=300)
-install.packages("https://cran.r-project.org/src/contrib/Archive/devtools/devtools_2.4.6.tar.gz", repos = NULL, type = "source", dependencies = TRUE)
+install.packages("https://cran.r-project.org/src/contrib/Archive/remotes/remotes_2.4.2.tar.gz", repos = NULL, type = "source")
+remotes::install_version("devtools", "2.4.6")
 devtools::install_version("usethis", "3.2.1")
 devtools::install_dev_deps(dependencies = TRUE)
 
