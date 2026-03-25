@@ -38,6 +38,7 @@ def _register_default_providers(registry: ProviderRegistry):
     from mlflow.gateway.providers.mlflow import MlflowModelServingProvider
     from mlflow.gateway.providers.mosaicml import MosaicMLProvider
     from mlflow.gateway.providers.openai import OpenAIProvider
+    from mlflow.gateway.providers.openrouter import OpenRouterProvider
     from mlflow.gateway.providers.palm import PaLMProvider
     from mlflow.gateway.providers.togetherai import TogetherAIProvider
     from mlflow.gateway.providers.xai import XAIProvider
@@ -58,6 +59,7 @@ def _register_default_providers(registry: ProviderRegistry):
     registry.register(Provider.MLFLOW_MODEL_SERVING, MlflowModelServingProvider)
     registry.register(Provider.MOSAICML, MosaicMLProvider)
     registry.register(Provider.OPENAI, OpenAIProvider)
+    registry.register(Provider.OPENROUTER, OpenRouterProvider)
     registry.register(Provider.PALM, PaLMProvider)
     registry.register(Provider.TOGETHERAI, TogetherAIProvider)
     registry.register(Provider.XAI, XAIProvider)

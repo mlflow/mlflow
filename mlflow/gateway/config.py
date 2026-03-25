@@ -61,6 +61,7 @@ class Provider(str, Enum):
     GROQ = "groq"
     DEEPSEEK = "deepseek"
     XAI = "xai"
+    OPENROUTER = "openrouter"
 
     @classmethod
     def values(cls):
