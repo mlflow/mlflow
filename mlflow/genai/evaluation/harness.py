@@ -19,14 +19,6 @@ except ImportError:
     # If tqdm is not installed, we don't show a progress bar
     tqdm = None
 
-# Optional dependencies — imported eagerly in the main thread so that worker
-# threads never trigger first-time imports (which can deadlock under Python's
-# per-module import lock when many threads import simultaneously).
-try:
-    import litellm  # noqa: F401
-except ImportError:
-    pass
-
 
 def _warmup_databricks_sdk() -> None:
     """Import databricks.sdk in the main thread to avoid import-lock deadlocks in workers."""

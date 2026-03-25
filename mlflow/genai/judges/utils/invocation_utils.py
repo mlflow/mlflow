@@ -18,7 +18,6 @@ from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     _run_databricks_agentic_loop,
 )
-from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 from mlflow.genai.judges.adapters.utils import get_adapter
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
@@ -54,8 +53,7 @@ def invoke_judge_model(
     Routes to the appropriate adapter based on the model URI and configuration.
     Uses a factory pattern to select the correct adapter:
     - DatabricksManagedJudgeAdapter: For the default Databricks judge
-    - LiteLLMAdapter: For LiteLLM-supported providers (including Databricks served models)
-    - GatewayAdapter: Fallback for native providers
+    - GatewayAdapter: For native providers (OpenAI, Anthropic, Bedrock, Mistral, endpoints)
 
     Args:
         model_uri: The model URI.
@@ -126,7 +124,7 @@ def _invoke_databricks_structured_output(
     """
     import litellm
 
-    # Convert ChatMessage to litellm Messages
+    # Convert ChatMessage to litellm Messages for the agentic loop
     litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
 
     # Add schema instructions to the system message
@@ -230,24 +228,28 @@ def get_chat_completions_with_structured_output(
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
         return _invoke_databricks_structured_output(messages, output_schema, trace)
 
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
+    from mlflow.metrics.genai.model_utils import _parse_model_uri, score_model_on_payload
 
     model_provider, model_name = _parse_model_uri(model_uri)
 
-    # TODO: The cost measurement and telemetry data are discarded here from the
-    # parsing of the tool handling response. We should eventually pass this cost
-    # estimation through so that the total cost of the usage of the scorer incorporates
-    # tool call usage. Deferring for initial implementation due to complexity.
-    output = _invoke_litellm_and_handle_tools(
-        provider=model_provider,
-        model_name=model_name,
-        messages=messages,
-        trace=trace,
-        num_retries=num_retries,
-        response_format=output_schema,
-        inference_params=inference_params,
+    # Build a chat payload with the schema instruction and send via the gateway path
+    schema_instruction = (
+        f"\n\nYou must return your response as JSON matching this schema:\n"
+        f"{json.dumps(output_schema.model_json_schema(), indent=2)}"
+    )
+    prompt_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+    if prompt_messages and prompt_messages[0]["role"] == "system":
+        prompt_messages[0]["content"] += schema_instruction
+    else:
+        prompt_messages.insert(0, {"role": "system", "content": schema_instruction})
+
+    payload = json.dumps({"messages": prompt_messages})
+    response = score_model_on_payload(
+        model_uri=model_uri,
+        payload=payload,
+        eval_parameters=inference_params,
     )
 
-    cleaned_response = _strip_markdown_code_blocks(output.response)
+    cleaned_response = _strip_markdown_code_blocks(response)
     response_dict = json.loads(cleaned_response)
     return output_schema(**response_dict)
