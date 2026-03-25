@@ -405,7 +405,7 @@ def remove_comments(s):
 
 
 def make_pip_install_command(packages):
-    return "pip install " + " ".join(f"'{x}'" for x in packages)
+    return "uv pip install --system " + " ".join(f"'{x}'" for x in packages)
 
 
 def divider(title, length=None):
