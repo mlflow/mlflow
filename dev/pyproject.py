@@ -478,6 +478,7 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "models/notebook_resources/**/*",
             "ai_commands/**/*.md",
             "assistant/skills/**/*",
+            "utils/model_prices_and_context_window.json",
         ]
     }
 
