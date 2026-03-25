@@ -36,7 +36,7 @@ Imports:
     fs (<= 2.0.1),
     git2r (<= 0.36.2),
     glue (<= 1.8.0),
-    httpuv (<= 1.6.17),
+    httpuv (<= 1.6.16),
     httr (<= 1.4.8),
     ini (<= 0.3.1),
     jsonlite (<= 2.0.0),
