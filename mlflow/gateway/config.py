@@ -58,6 +58,7 @@ class Provider(str, Enum):
     TOGETHERAI = "togetherai"
     LITELLM = "litellm"
     AZURE = "azure"
+    GROQ = "groq"
 
     @classmethod
     def values(cls):

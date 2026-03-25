@@ -30,6 +30,7 @@ def _register_default_providers(registry: ProviderRegistry):
     from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
     from mlflow.gateway.providers.cohere import CohereProvider
     from mlflow.gateway.providers.gemini import GeminiProvider
+    from mlflow.gateway.providers.groq import GroqProvider
     from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
     from mlflow.gateway.providers.litellm import LiteLLMProvider
     from mlflow.gateway.providers.mistral import MistralProvider
@@ -39,22 +40,23 @@ def _register_default_providers(registry: ProviderRegistry):
     from mlflow.gateway.providers.palm import PaLMProvider
     from mlflow.gateway.providers.togetherai import TogetherAIProvider
 
-    registry.register(Provider.OPENAI, OpenAIProvider)
-    registry.register(Provider.ANTHROPIC, AnthropicProvider)
-    registry.register(Provider.COHERE, CohereProvider)
     registry.register(Provider.AI21LABS, AI21LabsProvider)
-    registry.register(Provider.MOSAICML, MosaicMLProvider)
-    registry.register(Provider.PALM, PaLMProvider)
-    registry.register(Provider.GEMINI, GeminiProvider)
-    registry.register(Provider.MLFLOW_MODEL_SERVING, MlflowModelServingProvider)
-    registry.register(Provider.BEDROCK, AmazonBedrockProvider)
     registry.register(Provider.AMAZON_BEDROCK, AmazonBedrockProvider)
+    registry.register(Provider.ANTHROPIC, AnthropicProvider)
+    registry.register(Provider.BEDROCK, AmazonBedrockProvider)
+    registry.register(Provider.COHERE, CohereProvider)
+    registry.register(Provider.GEMINI, GeminiProvider)
+    registry.register(Provider.GROQ, GroqProvider)
     registry.register(
         Provider.HUGGINGFACE_TEXT_GENERATION_INFERENCE, HFTextGenerationInferenceServerProvider
     )
-    registry.register(Provider.MISTRAL, MistralProvider)
-    registry.register(Provider.TOGETHERAI, TogetherAIProvider)
     registry.register(Provider.LITELLM, LiteLLMProvider)
+    registry.register(Provider.MISTRAL, MistralProvider)
+    registry.register(Provider.MLFLOW_MODEL_SERVING, MlflowModelServingProvider)
+    registry.register(Provider.MOSAICML, MosaicMLProvider)
+    registry.register(Provider.OPENAI, OpenAIProvider)
+    registry.register(Provider.PALM, PaLMProvider)
+    registry.register(Provider.TOGETHERAI, TogetherAIProvider)
 
 
 def _register_plugin_providers(registry: ProviderRegistry):
