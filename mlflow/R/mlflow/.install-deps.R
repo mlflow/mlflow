@@ -2,7 +2,7 @@
 # could be too short to download large packages such as h2o.
 options(timeout=300)
 install.packages("https://cran.r-project.org/src/contrib/pak_0.9.2.tar.gz", repos = NULL, type = "source")
-pak::local_install_deps()
+pak::local_install_dev_deps()
 pak::pkg_install("devtools@2.4.6")
 pak::pkg_install("usethis@3.2.1")
 
