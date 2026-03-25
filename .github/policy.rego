@@ -211,6 +211,25 @@ deny_interpolation_in_github_script contains msg if {
 	)
 }
 
+deny_interpolation_in_job_if contains msg if {
+	some job_id, job in input.jobs
+	regex.match(`\$\{\{`, job["if"])
+	msg := sprintf(
+		"Unnecessary ${{ }} in 'if' of job '%s'. Use quotes instead if the expression starts with '!' (e.g., if: \"!expr\").",
+		[job_id],
+	)
+}
+
+deny_interpolation_in_step_if contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	regex.match(`\$\{\{`, step["if"])
+	msg := sprintf(
+		"Unnecessary ${{ }} in 'if' of job '%s'. Use quotes instead if the expression starts with '!' (e.g., if: \"!expr\").",
+		[job_id],
+	)
+}
+
 contains_github_token(value) if {
 	regex.match(`\$\{\{\s*github\.token\s*\}\}`, value)
 }
