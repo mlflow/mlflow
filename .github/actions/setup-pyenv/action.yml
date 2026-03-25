@@ -19,7 +19,14 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        git clone https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+        # Pin to pyenv v2.6.25 by tag + SHA verification for reproducible builds
+        git clone --branch v2.6.25 --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+        actual_sha=$(git -C "$HOME/.pyenv" rev-parse HEAD)
+        expected_sha="aa2e8b82605b8ba085dd15f7a31fe1990fabdcfa"
+        if [ "$actual_sha" != "$expected_sha" ]; then
+          echo "::error::pyenv SHA mismatch: expected $expected_sha, got $actual_sha"
+          exit 1
+        fi
     - name: Setup environment variables
       if: runner.os == 'Linux'
       shell: bash
