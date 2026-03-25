@@ -258,6 +258,20 @@ class _AuthConfigKey:
     API_BASE = "api_base"
 
 
+class OpenAICompatibleConfig(ConfigModel):
+    """Config for providers that use the OpenAI-compatible API format.
+
+    Subclasses can override DEFAULT_API_BASE to set the provider's default URL.
+    """
+
+    api_key: str
+    api_base: str | None = None
+
+    @field_validator("api_key", mode="before")
+    def validate_api_key(cls, value):
+        return _resolve_api_key_from_input(value)
+
+
 class LiteLLMConfig(ConfigModel):
     litellm_provider: str | None = None
     litellm_auth_config: dict[str, Any] | None = None
