@@ -63,6 +63,7 @@ class Provider(str, Enum):
     XAI = "xai"
     OPENROUTER = "openrouter"
     OLLAMA = "ollama"
+    VERTEX_AI = "vertex_ai"
 
     @classmethod
     def values(cls):
