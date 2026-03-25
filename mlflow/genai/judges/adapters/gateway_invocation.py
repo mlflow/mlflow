@@ -1,7 +1,7 @@
 """Gateway-based judge invocation with tool-calling loop.
 
-Replaces _invoke_litellm_and_handle_tools with a litellm-free implementation
-that makes sync HTTP calls to LLM providers via the gateway infrastructure.
+Gateway-based judge invocation that makes sync HTTP calls to LLM providers
+via the gateway infrastructure.
 """
 
 from __future__ import annotations
@@ -204,8 +204,7 @@ def _resolve_provider_config(
         config = get_gateway_litellm_config(model_name)
         headers = {**(config.extra_headers or {})}
         headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
-        # The gateway config returns model as "openai/{endpoint_name}" for litellm;
-        # for direct HTTP calls, we just use the endpoint name.
+        # For direct HTTP calls, we use the endpoint name as the model.
         return config.api_base, model_name, headers
 
     # Direct provider — resolve API key from environment
@@ -297,7 +296,7 @@ def invoke_via_gateway_and_handle_tools(
     extra_headers: dict[str, str] | None = None,
 ) -> InvokeOutput:
     """
-    Invoke an LLM with tool-calling loop support, without litellm.
+    Invoke an LLM with tool-calling loop support.
 
     Uses sync HTTP calls to the appropriate provider endpoint. Handles the
     iterative tool-calling loop until the LLM produces a final answer.
