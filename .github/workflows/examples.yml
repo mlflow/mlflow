@@ -87,16 +87,12 @@ jobs:
           echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
 
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
 
       - name: Install dependencies
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         run: |
           source ./dev/install-common-deps.sh --ml
           uv pip install --system fastapi uvicorn
-          sudo apt-get update -y
-          # Required for the transformers example that uses the Whisper model
-          sudo apt-get install -y ffmpeg
 
       - name: Run example tests
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}

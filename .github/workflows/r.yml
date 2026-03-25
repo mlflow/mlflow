@@ -49,7 +49,6 @@ jobs:
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
       - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
       # This step dumps the current set of R dependencies and R version into files to be used

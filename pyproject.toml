@@ -246,7 +246,7 @@ docs = [
 [tool.uv]
 # TODO: Remove once the incident is fully remediated
 # Mitigation for https://github.com/aquasecurity/trivy/discussions/10425
-exclude-newer = "2026-03-18T00:00:00Z"
+exclude-newer = "2026-03-10T00:00:00Z"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.10.12"
 constraint-dependencies = [
