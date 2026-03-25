@@ -33,7 +33,7 @@ Depends:
     R (>= 3.3.0)
 Imports:
     base64enc (<= 0.1-6),
-    fs (<= 2.0.1),
+    fs (<= 1.6.7),
     git2r (<= 0.36.2),
     glue (<= 1.8.0),
     httpuv (<= 1.6.16),
@@ -62,7 +62,7 @@ Suggests:
     testthat (>= 2.0.0),
     testthat (<= 3.3.2),
     reticulate (<= 1.45.0),
-    xgboost (<= 3.2.1.1)
+    xgboost (<= 3.2.0.1)
 Encoding: UTF-8
 RoxygenNote: 7.1.2
 Collate:
