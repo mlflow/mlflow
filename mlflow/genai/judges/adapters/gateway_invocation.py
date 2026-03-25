@@ -247,6 +247,36 @@ def _get_default_api_base(provider: str) -> str:
     )
 
 
+def _get_max_context_tokens(provider: str, model: str) -> int | None:
+    """Look up the max input token limit for a model from the vendored model prices JSON."""
+    from mlflow.utils.providers import _get_model_cost
+
+    model_cost = _get_model_cost()
+    # Try provider/model format first (e.g., "openai/gpt-4.1")
+    for key in (f"{provider}/{model}", model):
+        if key in model_cost:
+            return model_cost[key].get("max_input_tokens")
+    return None
+
+
+def _should_proactively_prune(
+    usage: dict[str, Any],
+    max_context_tokens: int | None,
+    threshold: float = 0.85,
+) -> bool:
+    """Check if prompt token usage is approaching the context window limit.
+
+    Uses the actual prompt_tokens count from the LLM response to decide
+    whether to proactively prune the conversation history before the next call.
+    """
+    if max_context_tokens is None:
+        return False
+    prompt_tokens = usage.get("prompt_tokens")
+    if prompt_tokens is None:
+        return False
+    return prompt_tokens > max_context_tokens * threshold
+
+
 def _parse_response_message(response_data: dict[str, Any]) -> JudgeMessage:
     """Parse the assistant message from an OpenAI-format chat completions response."""
     choices = response_data.get("choices", [])
@@ -348,6 +378,7 @@ def invoke_via_gateway_and_handle_tools(
         f"{provider}/{model}", True
     )
 
+    max_context_tokens = _get_max_context_tokens(provider, model)
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
     iteration_count = 0
 
@@ -414,6 +445,19 @@ def invoke_via_gateway_and_handle_tools(
                 tool_calls=message.tool_calls, trace=trace
             )
             judge_messages.extend(tool_response_messages)
+
+            # Proactively prune if approaching context window limit,
+            # using the actual prompt_tokens from the LLM response.
+            usage = response_data.get("usage", {})
+            if _should_proactively_prune(usage, max_context_tokens):
+                pruned = _remove_oldest_tool_call_pair(judge_messages)
+                if pruned is not None:
+                    _logger.debug(
+                        f"Proactively pruned conversation history "
+                        f"(prompt_tokens={usage.get('prompt_tokens')}, "
+                        f"max={max_context_tokens})"
+                    )
+                    judge_messages = pruned
 
         except MlflowException:
             raise

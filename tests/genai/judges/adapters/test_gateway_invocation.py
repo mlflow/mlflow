@@ -12,10 +12,12 @@ from mlflow.genai.judges.adapters.gateway_invocation import (
     ChatCompletionError,
     InvokeOutput,
     _build_request,
+    _get_max_context_tokens,
     _is_context_window_error,
     _parse_response_message,
     _remove_oldest_tool_call_pair,
     _resolve_provider_config,
+    _should_proactively_prune,
     invoke_via_gateway_and_handle_tools,
 )
 from mlflow.genai.judges.types import JudgeMessage
@@ -461,4 +463,140 @@ class TestInvokeViaGatewayAndHandleTools:
                 base_url="https://custom.proxy.com/v1",
             )
 
+        assert json.loads(output.response) == {"result": "yes"}
+
+
+# --- _get_max_context_tokens tests ---
+
+
+class TestGetMaxContextTokens:
+    def test_lookup_with_provider_prefix(self):
+        mock_cost = {"openai/gpt-4": {"max_input_tokens": 128000}}
+        with mock.patch(
+            "mlflow.utils.providers._get_model_cost",
+            return_value=mock_cost,
+        ):
+            assert _get_max_context_tokens("openai", "gpt-4") == 128000
+
+    def test_lookup_without_provider_prefix(self):
+        mock_cost = {"gpt-4": {"max_input_tokens": 8192}}
+        with mock.patch(
+            "mlflow.utils.providers._get_model_cost",
+            return_value=mock_cost,
+        ):
+            assert _get_max_context_tokens("openai", "gpt-4") == 8192
+
+    def test_lookup_missing_model(self):
+        with mock.patch(
+            "mlflow.utils.providers._get_model_cost",
+            return_value={},
+        ):
+            assert _get_max_context_tokens("openai", "unknown-model") is None
+
+    def test_provider_prefix_takes_priority(self):
+        mock_cost = {
+            "openai/gpt-4": {"max_input_tokens": 128000},
+            "gpt-4": {"max_input_tokens": 8192},
+        }
+        with mock.patch(
+            "mlflow.utils.providers._get_model_cost",
+            return_value=mock_cost,
+        ):
+            assert _get_max_context_tokens("openai", "gpt-4") == 128000
+
+
+# --- _should_proactively_prune tests ---
+
+
+class TestShouldProactivelyPrune:
+    def test_above_threshold(self):
+        assert _should_proactively_prune(
+            usage={"prompt_tokens": 9000},
+            max_context_tokens=10000,
+            threshold=0.85,
+        )
+
+    def test_below_threshold(self):
+        assert not _should_proactively_prune(
+            usage={"prompt_tokens": 5000},
+            max_context_tokens=10000,
+            threshold=0.85,
+        )
+
+    def test_no_max_context(self):
+        assert not _should_proactively_prune(
+            usage={"prompt_tokens": 9000},
+            max_context_tokens=None,
+        )
+
+    def test_no_prompt_tokens_in_usage(self):
+        assert not _should_proactively_prune(
+            usage={},
+            max_context_tokens=10000,
+        )
+
+    def test_exact_threshold(self):
+        assert _should_proactively_prune(
+            usage={"prompt_tokens": 8501},
+            max_context_tokens=10000,
+            threshold=0.85,
+        )
+        assert not _should_proactively_prune(
+            usage={"prompt_tokens": 8500},
+            max_context_tokens=10000,
+            threshold=0.85,
+        )
+
+
+# --- Proactive pruning integration test ---
+
+
+class TestProactivePruningInLoop:
+    def test_proactive_pruning_triggers_during_tool_loop(self, mock_trace):
+        """When prompt_tokens approach the limit, the loop prunes before the next call."""
+        # First response: tool call with high token usage (triggers proactive pruning)
+        tool_call_response = _chat_response(
+            None,
+            tool_calls=[
+                {"id": "c1", "type": "function", "function": {"name": "f", "arguments": "{}"}},
+            ],
+            usage={"prompt_tokens": 9000, "completion_tokens": 100, "total_tokens": 9100},
+        )
+        # Second response: final answer
+        final_response = _chat_response(json.dumps({"result": "yes"}))
+
+        with (
+            mock.patch(
+                "mlflow.genai.judges.adapters.gateway_invocation._resolve_provider_config",
+                return_value=("https://api.openai.com/v1", "gpt-4", {}),
+            ),
+            mock.patch(
+                "mlflow.genai.judges.adapters.gateway_invocation._send_chat_request",
+                side_effect=[tool_call_response, final_response],
+            ),
+            mock.patch(
+                "mlflow.genai.judges.adapters.gateway_invocation._process_tool_calls",
+                return_value=[
+                    JudgeMessage(role="tool", content="{}", tool_call_id="c1", name="f")
+                ],
+            ),
+            mock.patch(
+                "mlflow.genai.judges.adapters.gateway_invocation._get_max_context_tokens",
+                return_value=10000,
+            ),
+            mock.patch(
+                "mlflow.genai.judges.adapters.gateway_invocation._remove_oldest_tool_call_pair",
+                wraps=_remove_oldest_tool_call_pair,
+            ) as mock_prune,
+        ):
+            output = invoke_via_gateway_and_handle_tools(
+                provider="openai",
+                model_name="gpt-4",
+                messages=[ChatMessage(role="user", content="test")],
+                trace=mock_trace,
+                num_retries=3,
+            )
+
+        # Pruning should have been called proactively (not from a 400 error)
+        mock_prune.assert_called_once()
         assert json.loads(output.response) == {"result": "yes"}
