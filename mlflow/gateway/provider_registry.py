@@ -58,6 +58,10 @@ def _register_default_providers(registry: ProviderRegistry):
     registry.register(Provider.PALM, PaLMProvider)
     registry.register(Provider.TOGETHERAI, TogetherAIProvider)
 
+    from mlflow.gateway.providers.deepseek import DeepSeekProvider
+
+    registry.register(Provider.DEEPSEEK, DeepSeekProvider)
+
 
 def _register_plugin_providers(registry: ProviderRegistry):
     providers = get_entry_points("mlflow.gateway.providers")

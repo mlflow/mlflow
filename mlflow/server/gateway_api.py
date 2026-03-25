@@ -246,6 +246,8 @@ def _build_endpoint_config(
         )
     elif model_config.provider == Provider.GROQ:
         provider_config = _build_openai_compatible_config(model_config)
+    elif model_config.provider == Provider.DEEPSEEK:
+        provider_config = _build_openai_compatible_config(model_config)
     else:
         # Use LiteLLM as fallback for unsupported providers
         # Store the original provider name for LiteLLM's provider/model format
