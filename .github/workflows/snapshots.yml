@@ -40,7 +40,7 @@ jobs:
       - name: Build Python packages
         id: build-dist
         run: |
-          pip install build
+          uv pip install build
           python dev/build.py
           find $PWD/dist -type f -name "*.whl" -exec cp {} $ARTIFACT_DIR/ \;
           python dev/build.py --package-type skinny

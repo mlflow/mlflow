@@ -91,7 +91,7 @@ jobs:
       - uses: ./.github/actions/setup-node
 
       - name: Install build tools
-        run: pip install build setuptools
+        run: uv pip install build setuptools
 
       - name: Build wheel
         # Build the wheel before `yarn build` so it excludes UI assets

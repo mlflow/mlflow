@@ -93,7 +93,7 @@ jobs:
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         run: |
           source ./dev/install-common-deps.sh --ml
-          pip install fastapi uvicorn
+          uv pip install fastapi uvicorn
           sudo apt-get update -y
           # Required for the transformers example that uses the Whisper model
           sudo apt-get install -y ffmpeg

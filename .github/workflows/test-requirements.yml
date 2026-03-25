@@ -48,7 +48,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Install dev script dependencies
         run: |
-          pip install -r dev/requirements.txt
+          uv pip install -r dev/requirements.txt
       - uses: ./.github/actions/update-requirements
         if: github.event_name == 'schedule'
       - name: Install dependencies
@@ -84,13 +84,13 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dev script dependencies
         run: |
-          pip install -r dev/requirements.txt
+          uv pip install -r dev/requirements.txt
       - uses: ./.github/actions/update-requirements
         if: github.event_name == 'schedule'
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --ml
-          pip install '.[gateway]'
+          uv pip install '.[gateway]'
       - uses: ./.github/actions/show-versions
       - name: Run tests
         env:
