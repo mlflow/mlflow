@@ -4,16 +4,15 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 if TYPE_CHECKING:
-    import litellm
-
     from mlflow.entities.trace import Trace
     from mlflow.types.llm import ToolCall
 
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.types import JudgeMessage
 from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
 
 
@@ -38,31 +37,35 @@ def _raise_iteration_limit_exceeded(max_iterations: int) -> NoReturn:
 
 
 def _process_tool_calls(
-    tool_calls: list["litellm.ChatCompletionMessageToolCall"],
+    tool_calls: list[dict[str, Any]],
     trace: Trace | None,
-) -> list["litellm.Message"]:
+) -> list[JudgeMessage]:
     """
     Process tool calls and return tool response messages.
 
     Args:
-        tool_calls: List of tool calls from the LLM response.
+        tool_calls: List of tool call dicts in OpenAI format
+            (each has "id", "function": {"name": ..., "arguments": ...}).
         trace: Optional trace object for context.
 
     Returns:
-        List of litellm Message objects containing tool responses.
+        List of JudgeMessage objects containing tool responses.
     """
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
     tool_response_messages = []
     for tool_call in tool_calls:
+        tool_call_id = tool_call["id"]
+        tool_call_function = tool_call["function"]
+        tool_call_name = tool_call_function["name"]
         try:
-            mlflow_tool_call = _create_mlflow_tool_call_from_litellm(litellm_tool_call=tool_call)
+            mlflow_tool_call = _create_tool_call(tool_call)
             result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
         except Exception as e:
             tool_response_messages.append(
-                _create_litellm_tool_response_message(
-                    tool_call_id=tool_call.id,
-                    tool_name=tool_call.function.name,
+                _create_tool_response_message(
+                    tool_call_id=tool_call_id,
+                    tool_name=tool_call_name,
                     content=f"Error: {e!s}",
                 )
             )
@@ -71,23 +74,21 @@ def _process_tool_calls(
                 result = asdict(result)
             result_json = json.dumps(result, default=str) if not isinstance(result, str) else result
             tool_response_messages.append(
-                _create_litellm_tool_response_message(
-                    tool_call_id=tool_call.id,
-                    tool_name=tool_call.function.name,
+                _create_tool_response_message(
+                    tool_call_id=tool_call_id,
+                    tool_name=tool_call_name,
                     content=result_json,
                 )
             )
     return tool_response_messages
 
 
-def _create_mlflow_tool_call_from_litellm(
-    litellm_tool_call: "litellm.ChatCompletionMessageToolCall",
-) -> "ToolCall":
+def _create_tool_call(tool_call_dict: dict[str, Any]) -> "ToolCall":
     """
-    Create an MLflow ToolCall from a LiteLLM tool call.
+    Create an MLflow ToolCall from an OpenAI-format tool call dict.
 
     Args:
-        litellm_tool_call: The LiteLLM ChatCompletionMessageToolCall object.
+        tool_call_dict: A dict with "id" and "function": {"name": ..., "arguments": ...}.
 
     Returns:
         An MLflow ToolCall object.
@@ -95,19 +96,19 @@ def _create_mlflow_tool_call_from_litellm(
     from mlflow.types.llm import ToolCall
 
     return ToolCall(
-        id=litellm_tool_call.id,
+        id=tool_call_dict["id"],
         function={
-            "name": litellm_tool_call.function.name,
-            "arguments": litellm_tool_call.function.arguments,
+            "name": tool_call_dict["function"]["name"],
+            "arguments": tool_call_dict["function"]["arguments"],
         },
     )
 
 
-def _create_litellm_tool_response_message(
+def _create_tool_response_message(
     tool_call_id: str, tool_name: str, content: str
-) -> "litellm.Message":
+) -> JudgeMessage:
     """
-    Create a tool response message for LiteLLM.
+    Create a tool response message.
 
     Args:
         tool_call_id: The ID of the tool call being responded to.
@@ -115,11 +116,9 @@ def _create_litellm_tool_response_message(
         content: The content to include in the response.
 
     Returns:
-        A litellm.Message object representing the tool response message.
+        A JudgeMessage representing the tool response.
     """
-    import litellm
-
-    return litellm.Message(
+    return JudgeMessage(
         tool_call_id=tool_call_id,
         role="tool",
         name=tool_name,

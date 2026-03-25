@@ -1,7 +1,6 @@
 import json
 from unittest import mock
 
-import litellm
 import pytest
 
 from mlflow.entities.trace import Trace
@@ -11,11 +10,12 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     DatabricksManagedJudgeAdapter,
+    _create_message_from_databricks_response,
     _run_databricks_agentic_loop,
     call_chat_completions,
-    create_litellm_message_from_databricks_response,
     serialize_messages_to_databricks_prompts,
 )
+from mlflow.genai.judges.types import JudgeMessage
 from mlflow.types.llm import ChatMessage
 from mlflow.utils import AttrDict
 
@@ -208,7 +208,7 @@ def test_agentic_loop_final_answer_without_tool_calls():
         })
     })
 
-    messages = [litellm.Message(role="user", content="Test prompt")]
+    messages = [JudgeMessage(role="user", content="Test prompt")]
     callback_called_with = []
 
     def callback(content):
@@ -246,7 +246,7 @@ def test_agentic_loop_forwards_use_case():
         return_value=mock_response,
     ) as mock_call:
         _run_databricks_agentic_loop(
-            messages=[litellm.Message(role="user", content="test")],
+            messages=[JudgeMessage(role="user", content="test")],
             trace=None,
             on_final_answer=lambda content: content,
             use_case="builtin_judge",
@@ -297,7 +297,7 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
         }),
     ]
 
-    messages = [litellm.Message(role="user", content="Extract outputs")]
+    messages = [JudgeMessage(role="user", content="Extract outputs")]
 
     def callback(content):
         return {"result": content}
@@ -312,7 +312,7 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
         ) as mock_process,
     ):
         mock_process.return_value = [
-            litellm.Message(
+            JudgeMessage(
                 role="tool",
                 content='{"name": "root_span", "inputs": null}',
                 tool_call_id="call_123",
@@ -361,7 +361,7 @@ def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
         })
     })
 
-    messages = [litellm.Message(role="user", content="Extract outputs")]
+    messages = [JudgeMessage(role="user", content="Extract outputs")]
 
     def callback(content):
         return content
@@ -379,7 +379,7 @@ def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
         ) as mock_process,
     ):
         mock_process.return_value = [
-            litellm.Message(
+            JudgeMessage(
                 role="tool", content="{}", tool_call_id="call_123", name="get_root_span"
             )
         ]
@@ -396,19 +396,19 @@ def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
 
 
 def _create_message(message_type, role, content=None, **kwargs):
-    if message_type == "litellm":
-        return litellm.Message(role=role, content=content, **kwargs)
+    if message_type == "judgemessage":
+        return JudgeMessage(role=role, content=content, **kwargs)
     else:
         return ChatMessage(role=role, content=content, **kwargs)
 
 
 def _create_tool_call(message_type, tool_id, function_name, arguments):
-    if message_type == "litellm":
-        return litellm.ChatCompletionMessageToolCall(
-            id=tool_id,
-            type="function",
-            function=litellm.Function(name=function_name, arguments=arguments),
-        )
+    if message_type == "judgemessage":
+        return {
+            "id": tool_id,
+            "type": "function",
+            "function": {"name": function_name, "arguments": arguments},
+        }
     else:
         from mlflow.types.llm import FunctionToolCallArguments, ToolCall
 
@@ -419,7 +419,7 @@ def _create_tool_call(message_type, tool_id, function_name, arguments):
         )
 
 
-@pytest.mark.parametrize("message_type", ["litellm", "chatmessage"])
+@pytest.mark.parametrize("message_type", ["judgemessage", "chatmessage"])
 @pytest.mark.parametrize(
     ("messages_builder", "expected_user_prompt", "expected_system_prompt"),
     [
@@ -580,18 +580,18 @@ def test_serialize_messages_to_databricks_prompts(
     ],
     ids=["string_content", "list_content", "empty_list_content"],
 )
-def test_create_litellm_message_from_databricks_response(
+def test_create_message_from_databricks_response(
     response_data, expected_role, expected_content
 ):
-    message = create_litellm_message_from_databricks_response(response_data)
+    message = _create_message_from_databricks_response(response_data)
 
-    assert isinstance(message, litellm.Message)
+    assert isinstance(message, JudgeMessage)
     assert message.role == expected_role
     assert message.content == expected_content
     assert message.tool_calls is None
 
 
-def test_create_litellm_message_from_databricks_response_with_single_tool_call():
+def test_create_message_from_databricks_response_with_single_tool_call():
     response_data = {
         "choices": [
             {
@@ -613,20 +613,20 @@ def test_create_litellm_message_from_databricks_response_with_single_tool_call()
         ]
     }
 
-    message = create_litellm_message_from_databricks_response(response_data)
+    message = _create_message_from_databricks_response(response_data)
 
-    assert isinstance(message, litellm.Message)
+    assert isinstance(message, JudgeMessage)
     assert message.role == "assistant"
     assert message.content is None
     assert message.tool_calls is not None
     assert len(message.tool_calls) == 1
-    assert message.tool_calls[0].id == "call_123"
-    assert message.tool_calls[0].type == "function"
-    assert message.tool_calls[0].function.name == "get_root_span"
-    assert message.tool_calls[0].function.arguments == "{}"
+    assert message.tool_calls[0]["id"] == "call_123"
+    assert message.tool_calls[0]["type"] == "function"
+    assert message.tool_calls[0]["function"]["name"] == "get_root_span"
+    assert message.tool_calls[0]["function"]["arguments"] == "{}"
 
 
-def test_create_litellm_message_from_databricks_response_with_multiple_tool_calls():
+def test_create_message_from_databricks_response_with_multiple_tool_calls():
     response_data = {
         "choices": [
             {
@@ -650,17 +650,17 @@ def test_create_litellm_message_from_databricks_response_with_multiple_tool_call
         ]
     }
 
-    message = create_litellm_message_from_databricks_response(response_data)
+    message = _create_message_from_databricks_response(response_data)
 
-    assert isinstance(message, litellm.Message)
+    assert isinstance(message, JudgeMessage)
     assert message.role == "assistant"
     assert message.content is None
     assert message.tool_calls is not None
     assert len(message.tool_calls) == 2
-    assert message.tool_calls[0].id == "call_1"
-    assert message.tool_calls[0].function.name == "get_root_span"
-    assert message.tool_calls[1].id == "call_2"
-    assert message.tool_calls[1].function.name == "list_spans"
+    assert message.tool_calls[0]["id"] == "call_1"
+    assert message.tool_calls[0]["function"]["name"] == "get_root_span"
+    assert message.tool_calls[1]["id"] == "call_2"
+    assert message.tool_calls[1]["function"]["name"] == "list_spans"
 
 
 @pytest.mark.parametrize(
@@ -673,9 +673,9 @@ def test_create_litellm_message_from_databricks_response_with_multiple_tool_call
     ],
     ids=["missing_choices", "empty_choices"],
 )
-def test_create_litellm_message_from_databricks_response_errors(response_data, expected_error):
+def test_create_message_from_databricks_response_errors(response_data, expected_error):
     with pytest.raises(ValueError, match=expected_error):
-        create_litellm_message_from_databricks_response(response_data)
+        _create_message_from_databricks_response(response_data)
 
 
 @pytest.mark.parametrize(
