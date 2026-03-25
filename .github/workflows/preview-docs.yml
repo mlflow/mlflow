@@ -54,12 +54,9 @@ jobs:
           name: docs-build-${{ github.event.workflow_run.id }}
           path: downloaded-artifact
       - uses: ./.github/actions/setup-node
-        with:
-          node-version: 22
       - name: Install Netlify CLI
         working-directory: ${{ github.workspace }}/.github/netlify
-        run: |
-          npm ci --min-release-age=7d
+        run: npm ci
       - name: Deploy to Netlify
         id: netlify_deploy
         working-directory: ${{ github.workspace }}/.github/netlify
