@@ -60,10 +60,12 @@ def validate_judge_model(model_uri: str) -> None:
     Raises:
         MlflowException: If the model URI is invalid or required dependencies are missing.
     """
+    from mlflow.exceptions import MlflowException
     from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
         _check_databricks_agents_installed,
     )
     from mlflow.metrics.genai.model_utils import _parse_model_uri
+    from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
     # Special handling for Databricks default model
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
@@ -72,7 +74,14 @@ def validate_judge_model(model_uri: str) -> None:
         return
 
     # Validate the URI format and extract provider
-    _parse_model_uri(model_uri)
+    provider, _ = _parse_model_uri(model_uri)
+
+    if provider not in _NATIVE_PROVIDERS:
+        raise MlflowException(
+            f"Provider '{provider}' is not supported. "
+            f"Supported providers are: {', '.join(_NATIVE_PROVIDERS)}.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
 
 class CategoricalRating(StrEnum):
