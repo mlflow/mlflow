@@ -2,9 +2,17 @@
 # could be too short to download large packages such as h2o.
 options(timeout=300)
 install.packages("https://cran.r-project.org/src/contrib/remotes_2.5.0.tar.gz", repos = NULL, type = "source")
-# Install DESCRIPTION deps first so that devtools reuses these pinned versions
-# instead of pulling newer ones that violate DESCRIPTION upper bounds.
-remotes::install_deps(dependencies = TRUE)
+# Install DESCRIPTION deps at their pinned upper-bound versions.
+# remotes::install_deps() ignores upper-bound constraints and just installs the
+# latest from CRAN, so we parse DESCRIPTION ourselves and use install_version().
+desc <- read.dcf("DESCRIPTION", fields = c("Imports", "Suggests"))
+deps <- unlist(strsplit(paste(desc, collapse = ", "), ",\\s*"))
+for (dep in deps) {
+  m <- regmatches(dep, regexec("^\\s*(\\S+)\\s*\\(<=\\s*([^)]+)\\)", dep))[[1]]
+  if (length(m) == 3) {
+    remotes::install_version(m[2], m[3], upgrade = "never")
+  }
+}
 remotes::install_version("devtools", "2.4.6")
 devtools::install_version("usethis", "3.2.1")
 
