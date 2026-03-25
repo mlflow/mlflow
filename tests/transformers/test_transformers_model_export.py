@@ -3465,7 +3465,7 @@ HF_COMMIT_HASH_PATTERN = re.compile(r"^[a-z0-9]{40}$")
         ),
         ("fill_mask_pipeline", "The quick brown <mask> jumps over the lazy dog.", {"tokenizer"}),
         # TODO: Re-enable when ffmpeg installation is fixed in CI
-        # ("whisper_pipeline", lambda: read_audio_data("bytes"), {"feature_extractor", "tokenizer"}),
+        # ("whisper_pipeline", lambda: read_audio_data("bytes"), {"feature_extractor", "tokenizer"}),  # noqa: E501
         ("feature_extraction_pipeline", "What is MLflow?", {"tokenizer"}),
     ],
 )
