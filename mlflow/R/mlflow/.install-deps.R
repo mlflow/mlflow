@@ -1,7 +1,7 @@
 # Increase the timeout length for `utils::download.file` because the default value (60 seconds)
 # could be too short to download large packages such as h2o.
 options(timeout=300)
-install.packages("https://cran.r-project.org/src/contrib/Archive/pak/pak_0.9.2.tar.gz", repos = NULL, type = "source")
+install.packages("https://cran.r-project.org/src/contrib/pak_0.9.2.tar.gz", repos = NULL, type = "source")
 pak::local_install_deps()
 install.packages("https://cran.r-project.org/src/contrib/remotes_2.5.0.tar.gz", repos = NULL, type = "source")
 remotes::install_version("devtools", "2.4.6")
