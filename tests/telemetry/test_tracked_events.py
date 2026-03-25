@@ -1165,12 +1165,13 @@ endpoints:
 """
     )
 
-    runner = CliRunner(catch_exceptions=False)
-    with mock.patch("mlflow.gateway.cli.run_app"):
-        runner.invoke(start, ["--config-path", str(config)])
+    def assert_event_recorded_before_run_app(**kwargs):
+        mock_telemetry_client.flush()
+        validate_telemetry_record(mock_telemetry_client, mock_requests, GatewayStartEvent.name)
 
-    mock_telemetry_client.flush()
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GatewayStartEvent.name)
+    runner = CliRunner(catch_exceptions=False)
+    with mock.patch("mlflow.gateway.cli.run_app", side_effect=assert_event_recorded_before_run_app):
+        runner.invoke(start, ["--config-path", str(config)])
 
 
 def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):
