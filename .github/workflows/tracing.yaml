@@ -50,12 +50,12 @@ jobs:
       # Install mlflow-tracing SDK from the current directory
       - name: Install mlflow-tracing SDK
         run: |
-          pip install pip setuptools --upgrade
-          pip install ./libs/tracing
+          uv pip install --system setuptools --upgrade
+          uv pip install --system ./libs/tracing
 
       - name: Install test dependencies
         run: |
-          pip install pytest pytest-asyncio pytest-timeout litellm
+          uv pip install --system pytest pytest-asyncio pytest-timeout litellm
 
       - name: Run core tracing tests
         # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job

@@ -75,8 +75,8 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install -r dev/requirements.txt
-          pip install pytest pytest-cov
+          uv pip install --system -r dev/requirements.txt
+          uv pip install --system pytest pytest-cov
       - name: Check labels
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         id: check-labels
@@ -165,15 +165,15 @@ jobs:
           MATRIX_CATEGORY: ${{ matrix.category }}
         run: |
           # setuptools 82.0.0 removed pkg_resources, this breaking change breaks some packages like transformers
-          pip install -U pip wheel "setuptools<82"
+          uv pip install --system -U wheel "setuptools<82"
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
           if [[ "$MATRIX_CATEGORY" == "tracing-sdk" ]]; then
-            pip install libs/tracing
-            pip install pytest pytest-asyncio pytest-cov
+            uv pip install --system libs/tracing
+            uv pip install --system pytest pytest-asyncio pytest-cov
           # Other two categories of tests (model/autologging)
           else
-            pip install .[extras]
-            pip install -r requirements/test-requirements.txt
+            uv pip install --system .[extras]
+            uv pip install --system -r requirements/test-requirements.txt
           fi
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
         env:

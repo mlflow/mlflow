@@ -18,7 +18,7 @@ pytest tests/test_skinny_client_omits_sql_libs.py
 # After verifying skinny client does not include store specific requirements,
 # we are installing sqlalchemy store requirements as our example store for the test suite.
 # SQL Alchemy serves as a simple, fully featured option to test skinny client store scenarios.
-python -m pip install sqlalchemy alembic cryptography
+uv pip install --system sqlalchemy alembic cryptography
 
 # Given the example store does not delete dependencies, we verify non store related dependencies
 # after the example store setup. This verifies both the example store and skinny client do not add
@@ -26,7 +26,7 @@ python -m pip install sqlalchemy alembic cryptography
 pytest tests/test_skinny_client_omits_data_science_libs.py
 
 # Install numpy that is required by mlflow.types.schema and pre-installed in DBR.
-python -m pip install numpy
+uv pip install --system numpy
 
 pytest \
   tests/test_runs.py \
@@ -42,7 +42,7 @@ pytest \
   tests/utils/test_doctor.py \
   --import-mode=importlib
 
-python -m pip install pandas
+uv pip install --system pandas
 pytest tests/test_skinny_client_autolog_without_scipy.py
 
 test $err = 0

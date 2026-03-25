@@ -3,7 +3,7 @@ sklearn:
     repo: https://github.com/scikit-learn/scikit-learn/tree/HEAD
     pip_release: "scikit-learn"
     install_dev: |
-      pip install git+https://github.com/scikit-learn/scikit-learn.git
+      uv pip install --system git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
     minimum: "1.4.2"
@@ -29,7 +29,7 @@ pytorch:
     pip_release: "torch"
     module_name: "torch"
     install_dev: |
-      pip install --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
+      uv pip install --system --upgrade --pre torch -f https://download.pytorch.org/whl/nightly/cpu/torch_nightly.html
 
   models:
     minimum: "2.2.2"
@@ -57,7 +57,7 @@ pytorch-lightning:
     module_name: "lightning"
     install_dev: |
       export PACKAGE_NAME=pytorch
-      pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
+      uv pip install --system git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
     minimum: "2.2.2"
@@ -88,7 +88,7 @@ keras:
     repo: https://github.com/keras-team/keras/tree/HEAD
     pip_release: "keras"
     install_dev: |
-      pip install --upgrade git+https://github.com/keras-team/keras.git
+      uv pip install --system --upgrade git+https://github.com/keras-team/keras.git
 
   models:
     minimum: "3.1.0"
@@ -115,7 +115,7 @@ tensorflow:
     repo: https://github.com/tensorflow/tensorflow/tree/HEAD
     pip_release: "tensorflow"
     install_dev: |
-      pip install --pre tf-nightly
+      uv pip install --system --pre tf-nightly
 
   models:
     minimum: "2.16.2"
@@ -145,7 +145,7 @@ xgboost:
     repo: https://github.com/dmlc/xgboost/tree/HEAD
     pip_release: "xgboost"
     install_dev: |
-      pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
+      uv pip install --system git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
     minimum: "2.1.0"
@@ -218,7 +218,7 @@ onnx:
         quay.io/pypa/manylinux_2_28_x86_64 .github/workflows/manylinux/entrypoint.sh $python_version manylinux_2_28_x86_64 pull_request
 
       # Install wheel
-      pip install dist/*manylinux*.whl
+      uv pip install --system dist/*manylinux*.whl
 
   models:
     minimum: "1.17.0"
@@ -234,7 +234,7 @@ semantic_kernel:
     repo: https://github.com/microsoft/semantic-kernel/tree/HEAD/python
     pip_release: "semantic-kernel"
     install_dev: |
-      pip install git+https://github.com/microsoft/semantic-kernel.git@main#subdirectory=python
+      uv pip install --system git+https://github.com/microsoft/semantic-kernel.git@main#subdirectory=python
 
   autologging:
     minimum: "1.34.0"
@@ -254,7 +254,7 @@ spacy:
     repo: https://github.com/explosion/spaCy/tree/HEAD
     pip_release: "spacy"
     install_dev: |
-      pip install git+https://github.com/explosion/spaCy.git
+      uv pip install --system git+https://github.com/explosion/spaCy.git
 
   models:
     minimum: "3.7.5"
@@ -269,7 +269,7 @@ statsmodels:
     repo: https://github.com/statsmodels/statsmodels/tree/HEAD
     pip_release: "statsmodels"
     install_dev: |
-      pip install git+https://github.com/statsmodels/statsmodels.git
+      uv pip install --system git+https://github.com/statsmodels/statsmodels.git
 
   models:
     minimum: "0.14.2"
@@ -295,7 +295,7 @@ spark:
       # -Pconnect -Phive is required by spark connect
       ./build/sbt -Pconnect -Phive clean package connect/assembly
       cd python/packaging/classic
-      pip install '.[connect]'
+      uv pip install --system '.[connect]'
       pyspark --version
 
   models:
@@ -442,7 +442,7 @@ transformers:
     repo: https://github.com/huggingface/transformers/tree/HEAD
     pip_release: "transformers"
     install_dev: |
-      pip install git+https://github.com/huggingface/transformers
+      uv pip install --system git+https://github.com/huggingface/transformers
   models:
     minimum: "4.39.0"
     maximum: "5.3.0"
@@ -534,7 +534,7 @@ openai:
     repo: https://github.com/openai/openai-python/tree/HEAD
     pip_release: "openai"
     install_dev: |
-      pip install git+https://github.com/openai/openai-python
+      uv pip install --system git+https://github.com/openai/openai-python
   models:
     minimum: "1.66.5"
     maximum: "2.28.0"
@@ -577,7 +577,7 @@ dspy:
     repo: https://github.com/stanfordnlp/dspy/tree/HEAD
     pip_release: "dspy"
     install_dev: |
-      pip install git+https://github.com/stanfordnlp/dspy.git
+      uv pip install --system git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "2.6.13"
     maximum: "3.1.3"
@@ -600,7 +600,7 @@ langchain:
     repo: https://github.com/langchain-ai/langchain/tree/HEAD/libs/langchain
     pip_release: "langchain"
     install_dev: |
-      pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain_v1
+      uv pip install --system git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain_v1
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.3.21"
@@ -641,12 +641,12 @@ langchain:
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
-      pip install --no-deps --force-reinstall pyspark
+      uv pip install --system --no-deps --force-reinstall pyspark
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
       # This causes installation of mlflow-skinny from stable version, while 'mlflow' points to the dev version,
       # resulting in a weird module conflict issue.
-      pip install './libs/skinny'
+      uv pip install --system './libs/skinny'
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
@@ -670,7 +670,7 @@ langchain:
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
-      pip install --no-deps --force-reinstall pyspark
+      uv pip install --system --no-deps --force-reinstall pyspark
     run: |
       pytest tests/langchain/test_langchain_autolog.py
 
@@ -682,9 +682,9 @@ langgraph:
     repo: https://github.com/langchain-ai/langgraph/tree/HEAD/libs/langgraph
     pip_release: "langgraph"
     install_dev: |
-      pip install git+https://github.com/langchain-ai/langgraph#subdirectory=libs/langgraph
+      uv pip install --system git+https://github.com/langchain-ai/langgraph#subdirectory=libs/langgraph
       # Force-reinstall prebuilt to ensure dev version compatibility and prevent pipeline failures
-      pip install --force-reinstall --no-deps git+https://github.com/langchain-ai/langgraph#subdirectory=libs/prebuilt
+      uv pip install --system --force-reinstall --no-deps git+https://github.com/langchain-ai/langgraph#subdirectory=libs/prebuilt
 
   models:
     minimum: "0.3.12"
@@ -728,7 +728,7 @@ llama_index:
     pip_release: "llama-index"
     module_name: "llama_index.core"
     install_dev: |
-      pip install git+https://github.com/run-llama/llama_index.git
+      uv pip install --system git+https://github.com/run-llama/llama_index.git
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.12.25"
@@ -815,14 +815,14 @@ gemini:
     pip_release: "google-genai"
     module_name: "google.genai"
     install_dev: |
-      pip install git+https://github.com/googleapis/python-genai
+      uv pip install --system git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.7.0"
     maximum: "1.67.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK
-      pip install google-generativeai
+      uv pip install --system google-generativeai
       pytest tests/gemini
     test_tracing_sdk: true
     test_every_n_versions: 10
@@ -833,7 +833,7 @@ anthropic:
     repo: https://github.com/anthropics/anthropic-sdk-python/tree/HEAD
     pip_release: "anthropic"
     install_dev: |
-      pip install git+https://github.com/anthropics/anthropic-sdk-python
+      uv pip install --system git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.50.0"
     maximum: "0.84.0"
@@ -851,7 +851,7 @@ crewai:
     pip_release: "crewai"
     module_name: "crewai"
     install_dev: |
-      pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
+      uv pip install --system git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.108.0"
     maximum: "1.10.3"
@@ -868,7 +868,7 @@ agno:
     pip_release: "agno"
     module_name: "agno"
     install_dev: |
-      pip install git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
+      uv pip install --system git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
   autologging:
     minimum: "1.7.0"
     maximum: "2.5.9"
@@ -888,11 +888,11 @@ pydantic_ai:
 
     install_dev: |
       # Install the stable version first to install dependencies
-      pip install pydantic-ai
+      uv pip install --system pydantic-ai
       # We need to install deno to run test suite for MCPServer as deno is used to start the MCPServer
       curl -fsSL https://deno.land/install.sh | sh -s -- -y --no-modify-path
       # Update key libraries from source w/ no-deps
-      pip install --no-deps \
+      uv pip install --system --no-deps \
       # We need to install pydantic_graph and pydantic_ai_slim as pydantic_ai is dependent on both of them
       # and we need to install them separately. Without pinning them separately would result in dependency
       # conflict errors and the installation of pydantic_ai would get failed.
@@ -916,7 +916,7 @@ smolagents:
     pip_release: "smolagents"
     module_name: "smolagents"
     install_dev: |
-      pip install "git+https://github.com/huggingface/smolagents"
+      uv pip install --system "git+https://github.com/huggingface/smolagents"
   autologging:
     minimum: "1.14.0"
     maximum: "1.24.0"
@@ -935,7 +935,7 @@ strands:
     pip_release: "strands-agents"
     module_name: "strands"
     install_dev: |
-      pip install "git+https://github.com/strands-agents/sdk-python"
+      uv pip install --system "git+https://github.com/strands-agents/sdk-python"
   autologging:
     minimum: "1.4.0"
     maximum: "1.30.0"
@@ -948,7 +948,7 @@ haystack:
     pip_release: "haystack-ai"
     module_name: "haystack"
     install_dev: |
-      pip install git+https://github.com/deepset-ai/haystack
+      uv pip install --system git+https://github.com/deepset-ai/haystack
   autologging:
     minimum: "2.0.1"
     maximum: "2.25.2"
@@ -968,7 +968,7 @@ mistral:
       git clone --depth 1 https://github.com/mistralai/client-python $TMP_DIR
       cd $TMP_DIR
       python scripts/prepare_readme.py
-      pip install .
+      uv pip install --system .
       rm -rf $TMP_DIR
   autologging:
     minimum: "1.5.2"
@@ -983,7 +983,7 @@ sentence_transformers:
     repo: https://github.com/UKPLab/sentence-transformers/tree/HEAD
     pip_release: "sentence-transformers"
     install_dev: |
-      pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
+      uv pip install --system git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.6.0"
     maximum: "5.3.0"
@@ -1024,7 +1024,7 @@ litellm:
     repo: https://github.com/BerriAI/litellm/tree/HEAD
     pip_release: "litellm"
     install_dev: |
-      pip install git+https://github.com/BerriAI/litellm.git
+      uv pip install --system git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.63.14"
     maximum: "1.74.9"
@@ -1046,7 +1046,7 @@ groq:
     repo: https://github.com/groq/groq-python/tree/HEAD
     pip_release: "groq"
     install_dev: |
-      pip install git+https://github.com/groq/groq-python
+      uv pip install --system git+https://github.com/groq/groq-python
   autologging:
     minimum: "0.20.0"
     maximum: "1.1.1"

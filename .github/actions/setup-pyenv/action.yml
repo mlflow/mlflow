@@ -39,7 +39,7 @@ runs:
       if: runner.os == 'Windows'
       shell: bash
       run: |
-        pip install pyenv-win --target $HOME\\.pyenv
+        uv pip install --system pyenv-win --target $HOME\\.pyenv
     - name: Setup environment variables
       if: runner.os == 'Windows'
       shell: bash
