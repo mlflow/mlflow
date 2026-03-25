@@ -60,6 +60,7 @@ class Provider(str, Enum):
     AZURE = "azure"
     GROQ = "groq"
     DEEPSEEK = "deepseek"
+    XAI = "xai"
 
     @classmethod
     def values(cls):
