@@ -1,8 +1,8 @@
 import functools
+import importlib.resources
 import json
 import logging
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any, TypedDict
 
 from typing_extensions import NotRequired
@@ -51,9 +51,12 @@ class ProviderConfigResponse(TypedDict):
 
 @functools.lru_cache(maxsize=1)
 def _get_model_cost() -> dict[str, Any]:
-    path = Path(__file__).with_name("model_prices_and_context_window.json")
-    with path.open() as f:
-        return json.load(f)
+    ref = importlib.resources.files(__package__).joinpath("model_prices_and_context_window.json")
+    try:
+        with importlib.resources.as_file(ref) as path, path.open(encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
 
 
 # Auth modes for providers with multiple authentication options.
