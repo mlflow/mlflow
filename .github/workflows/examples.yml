@@ -47,6 +47,7 @@ env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   PYTHONFAULTHANDLER: "1"
+  APT_SNAPSHOT: "20260310T000000Z"
 
 jobs:
   examples:
@@ -94,9 +95,9 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           uv pip install --system fastapi uvicorn
-          sudo apt-get update -y
+          sudo apt-get update --snapshot $APT_SNAPSHOT -y
           # Required for the transformers example that uses the Whisper model
-          sudo apt-get install -y ffmpeg
+          sudo apt-get install --snapshot $APT_SNAPSHOT -y ffmpeg
 
       - name: Run example tests
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
