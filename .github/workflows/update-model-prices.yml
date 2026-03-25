@@ -52,9 +52,9 @@ jobs:
           branch="update-model-prices-$(date +%Y%m%d)"
           git checkout -b "$branch"
           git add mlflow/utils/model_prices_and_context_window.json
-          git commit -m "Update model prices from LiteLLM"
+          git commit -m "Update model prices and context window metadata"
           git push -u origin "$branch"
           gh pr create \
-            --title "Update model prices from LiteLLM" \
-            --body "Automated weekly update of \`model_prices_and_context_window.json\` from [BerriAI/litellm](https://github.com/BerriAI/litellm)." \
+            --title "Update model prices and context window metadata" \
+            --body "Weekly refresh of model pricing and context window data." \
             --label "automation"
