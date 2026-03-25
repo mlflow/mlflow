@@ -249,6 +249,7 @@ def _build_endpoint_config(
         Provider.DEEPSEEK,
         Provider.XAI,
         Provider.OPENROUTER,
+        Provider.OLLAMA,
     }:
         provider_config = _build_openai_compatible_config(model_config)
     else:
