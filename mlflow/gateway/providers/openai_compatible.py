@@ -12,19 +12,19 @@ from typing import Any, AsyncIterable
 from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request, send_stream_request
-from mlflow.gateway.schemas import chat, completions, embeddings
+from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.utils import stream_sse_data
 
 
 class OpenAICompatibleAdapter(ProviderAdapter):
-    """Adapter for providers that use the OpenAI request/response format."""
+    """Adapter for providers that use the OpenAI request/response format.
+
+    This is also the base class for ``OpenAIAdapter``, which adds Azure-specific
+    payload handling on top.
+    """
 
     @classmethod
     def chat_to_model(cls, payload: dict[str, Any], config: EndpointConfig) -> dict[str, Any]:
-        return {"model": config.model.name, **payload}
-
-    @classmethod
-    def completions_to_model(cls, payload: dict[str, Any], config: EndpointConfig) -> dict[str, Any]:
         return {"model": config.model.name, **payload}
 
     @classmethod
@@ -33,6 +33,30 @@ class OpenAICompatibleAdapter(ProviderAdapter):
 
     @classmethod
     def model_to_chat(cls, resp: dict[str, Any], config: EndpointConfig) -> chat.ResponsePayload:
+        # Response example (https://platform.openai.com/docs/api-reference/chat/create)
+        # ```
+        # {
+        #    "id":"chatcmpl-abc123",
+        #    "object":"chat.completion",
+        #    "created":1677858242,
+        #    "model":"gpt-4o-mini",
+        #    "usage":{
+        #       "prompt_tokens":13,
+        #       "completion_tokens":7,
+        #       "total_tokens":20
+        #    },
+        #    "choices":[
+        #       {
+        #          "message":{
+        #             "role":"assistant",
+        #             "content":"\n\nThis is a test!"
+        #          },
+        #          "finish_reason":"stop",
+        #          "index":0
+        #       }
+        #    ]
+        # }
+        # ```
         return chat.ResponsePayload(
             id=resp["id"],
             object=resp["object"],
@@ -100,61 +124,32 @@ class OpenAICompatibleAdapter(ProviderAdapter):
         )
 
     @classmethod
-    def model_to_completions(
-        cls, resp: dict[str, Any], config: EndpointConfig
-    ) -> completions.ResponsePayload:
-        return completions.ResponsePayload(
-            id=resp["id"],
-            object="text_completion",
-            created=resp["created"],
-            model=resp["model"],
-            choices=[
-                completions.Choice(
-                    index=idx,
-                    text=c.get("message", {}).get("content") or c.get("text") or "",
-                    finish_reason=c["finish_reason"],
-                )
-                for idx, c in enumerate(resp["choices"])
-            ],
-            usage=completions.CompletionsUsage(
-                prompt_tokens=resp["usage"]["prompt_tokens"],
-                completion_tokens=resp["usage"]["completion_tokens"],
-                total_tokens=resp["usage"]["total_tokens"],
-            ),
-        )
-
-    @classmethod
-    def model_to_completions_streaming(
-        cls, resp: dict[str, Any], config: EndpointConfig
-    ) -> completions.StreamResponsePayload:
-        usage = None
-        if usage_data := resp.get("usage"):
-            usage = completions.CompletionsUsage(
-                prompt_tokens=usage_data.get("prompt_tokens"),
-                completion_tokens=usage_data.get("completion_tokens"),
-                total_tokens=usage_data.get("total_tokens"),
-            )
-
-        return completions.StreamResponsePayload(
-            id=resp["id"],
-            object="text_completion_chunk",
-            created=resp["created"],
-            model=resp["model"],
-            choices=[
-                completions.StreamChoice(
-                    index=c["index"],
-                    finish_reason=c["finish_reason"],
-                    text=c["delta"].get("content"),
-                )
-                for c in resp["choices"]
-            ],
-            usage=usage,
-        )
-
-    @classmethod
     def model_to_embeddings(
         cls, resp: dict[str, Any], config: EndpointConfig
     ) -> embeddings.ResponsePayload:
+        # Response example (https://platform.openai.com/docs/api-reference/embeddings/create):
+        # ```
+        # {
+        #   "object": "list",
+        #   "data": [
+        #     {
+        #       "object": "embedding",
+        #       "embedding": [
+        #         0.0023064255,
+        #         -0.009327292,
+        #         .... (1536 floats total for ada-002)
+        #         -0.0028842222,
+        #       ],
+        #       "index": 0
+        #     }
+        #   ],
+        #   "model": "text-embedding-ada-002",
+        #   "usage": {
+        #     "prompt_tokens": 8,
+        #     "total_tokens": 8
+        #   }
+        # }
+        # ```
         return embeddings.ResponsePayload(
             data=[
                 embeddings.EmbeddingObject(
@@ -181,7 +176,7 @@ class OpenAICompatibleProvider(BaseProvider):
         - DEFAULT_API_BASE: Default base URL for the API (e.g., "https://api.groq.com/openai/v1")
 
     The config class must expose an ``api_key`` property and an optional
-    ``api_base`` property. See ``OpenAICompatibleConfig`` in config.py.
+    ``api_base`` property. See ``_OpenAICompatibleConfig`` in config.py.
     """
 
     DEFAULT_API_BASE: str = ""
@@ -193,6 +188,11 @@ class OpenAICompatibleProvider(BaseProvider):
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         super().__init__(config, enable_tracing=enable_tracing)
+        if config.model.config is None or not isinstance(config.model.config, self.CONFIG_TYPE):
+            raise TypeError(
+                f"Expected config type {self.CONFIG_TYPE.__name__}, "
+                f"got {type(config.model.config).__name__}"
+            )
         self._provider_config = config.model.config
 
     @property
@@ -217,9 +217,11 @@ class OpenAICompatibleProvider(BaseProvider):
     ) -> dict[str, str]:
         result_headers = self.headers.copy()
         if headers:
-            client_headers = headers.copy()
-            client_headers.pop("host", None)
-            client_headers.pop("content-length", None)
+            client_headers = {
+                k: v
+                for k, v in headers.items()
+                if k.lower() not in ("host", "content-length", "authorization")
+            }
             result_headers = client_headers | result_headers
         return result_headers
 
@@ -259,45 +261,6 @@ class OpenAICompatibleProvider(BaseProvider):
         )
         async for resp in stream_sse_data(stream):
             yield self.adapter_class.model_to_chat_streaming(resp, self.config)
-
-    # ---- completions ----
-
-    async def _completions(
-        self, payload: completions.RequestPayload
-    ) -> completions.ResponsePayload:
-        from fastapi.encoders import jsonable_encoder
-
-        payload_dict = jsonable_encoder(payload, exclude_none=True)
-        self.check_for_model_field(payload_dict)
-        resp = await send_request(
-            headers=self.headers,
-            base_url=self._api_base,
-            path="chat/completions",
-            payload=self.adapter_class.completions_to_model(payload_dict, self.config),
-        )
-        return self.adapter_class.model_to_completions(resp, self.config)
-
-    async def _completions_stream(
-        self, payload: completions.RequestPayload
-    ) -> AsyncIterable[completions.StreamResponsePayload]:
-        from fastapi.encoders import jsonable_encoder
-
-        payload_dict = jsonable_encoder(payload, exclude_none=True)
-        self.check_for_model_field(payload_dict)
-
-        if payload_dict.get("stream_options") is None:
-            payload_dict["stream_options"] = {"include_usage": True}
-        elif "include_usage" not in payload_dict["stream_options"]:
-            payload_dict["stream_options"]["include_usage"] = True
-
-        stream = send_stream_request(
-            headers=self.headers,
-            base_url=self._api_base,
-            path="chat/completions",
-            payload=self.adapter_class.completions_to_model(payload_dict, self.config),
-        )
-        async for resp in stream_sse_data(stream):
-            yield self.adapter_class.model_to_completions_streaming(resp, self.config)
 
     # ---- embeddings ----
 

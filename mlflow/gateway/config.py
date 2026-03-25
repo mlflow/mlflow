@@ -258,10 +258,13 @@ class _AuthConfigKey:
     API_BASE = "api_base"
 
 
-class OpenAICompatibleConfig(ConfigModel):
+class _OpenAICompatibleConfig(ConfigModel):
     """Config for providers that use the OpenAI-compatible API format.
 
-    Subclasses can override DEFAULT_API_BASE to set the provider's default URL.
+    Args:
+        api_key: API key for authentication (resolved via ``_resolve_api_key_from_input``).
+        api_base: Optional base URL override. When ``None``, the provider's
+            ``DEFAULT_API_BASE`` class attribute is used instead.
     """
 
     api_key: str
