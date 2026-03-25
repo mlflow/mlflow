@@ -49,6 +49,7 @@ jobs:
         with:
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || null }}
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
       # This step dumps the current set of R dependencies and R version into files to be used
@@ -75,7 +76,8 @@ jobs:
           key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
       - name: Install dependencies
         run: |
-          sudo apt-get install -y libcurl4-openssl-dev libharfbuzz-dev libfribidi-dev libtiff-dev
+          sudo apt-get update --snapshot=20260310T000000Z
+          sudo apt-get install --snapshot=20260310T000000Z -y libcurl4-openssl-dev libharfbuzz-dev libfribidi-dev libtiff-dev
           Rscript -e 'source(".install-deps.R", echo=TRUE)'
       - name: Set USE_R_DEVEL
         run: |

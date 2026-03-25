@@ -238,8 +238,7 @@ def test_model_card_acquisition_vision_model(small_vision_model):
         ("google/mobilenet_v2_1.0_224", "LICENSE.txt"),  # no license declared
         ("csarron/mobilebert-uncased-squad-v2", "LICENSE.txt"),  # mit license
         ("codellama/CodeLlama-34b-hf", "LICENSE"),  # custom license
-        # TODO: Re-enable when ffmpeg installation is fixed in CI
-        # ("openai/whisper-tiny", "LICENSE.txt"),  # apache license
+        ("openai/whisper-tiny", "LICENSE.txt"),  # apache license
         ("stabilityai/stable-code-3b", "LICENSE"),  # custom
         ("mistralai/Mixtral-8x7B-Instruct-v0.1", "LICENSE.txt"),  # apache
     ],
@@ -2421,7 +2420,6 @@ def read_audio_data(format: str):
         raise ValueError(f"Invalid format: {format}")
 
 
-@pytest.mark.skipif(reason="TODO: Re-enable when ffmpeg installation is fixed in CI")
 @pytest.mark.parametrize("input_format", ["float", "bytes", "file"])
 @pytest.mark.parametrize("with_input_example", [True, False])
 def test_whisper_model_predict(model_path, whisper_pipeline, input_format, with_input_example):
@@ -2456,7 +2454,6 @@ def test_whisper_model_predict(model_path, whisper_pipeline, input_format, with_
         assert all(ts == expected_text for ts in batch_transcription)
 
 
-@pytest.mark.skipif(reason="TODO: Re-enable when ffmpeg installation is fixed in CI")
 def test_whisper_model_serve_and_score(whisper_pipeline):
     # Request payload to the model serving endpoint contains base64 encoded audio data
     audio = read_audio_data("bytes")
@@ -2518,7 +2515,6 @@ def test_whisper_model_serve_and_score(whisper_pipeline):
 # caused a regression in beam search.
 # https://github.com/huggingface/transformers/commit/a6b51e7341d702127a4a45f37439640840b5abf0
 # fixed the regression but has not been released yet as of May 30, 2025.
-@pytest.mark.skipif(reason="TODO: Re-enable when ffmpeg installation is fixed in CI")
 @pytest.mark.skipif(
     Version("4.52.0") <= Version(transformers.__version__) < Version("4.53.0"),
     reason="Transformers 4.52 has a bug for beam search in whiper implementation",
@@ -2582,7 +2578,6 @@ def test_whisper_model_support_timestamps(whisper_pipeline):
         _assert_prediction(json.loads(predictions[0]))
 
 
-@pytest.mark.skipif(reason="TODO: Re-enable when ffmpeg installation is fixed in CI")
 def test_whisper_model_pyfunc_with_malformed_input(whisper_pipeline, model_path):
     mlflow.transformers.save_model(
         transformers_model=whisper_pipeline,
@@ -3464,8 +3459,7 @@ HF_COMMIT_HASH_PATTERN = re.compile(r"^[a-z0-9]{40}$")
             else {"feature_extractor", "tokenizer"},
         ),
         ("fill_mask_pipeline", "The quick brown <mask> jumps over the lazy dog.", {"tokenizer"}),
-        # TODO: Re-enable when ffmpeg installation is fixed in CI
-        # ("whisper_pipeline", lambda: read_audio_data("bytes"), {"feature_extractor", "tokenizer"}),  # noqa: E501
+        ("whisper_pipeline", lambda: read_audio_data("bytes"), {"feature_extractor", "tokenizer"}),
         ("feature_extraction_pipeline", "What is MLflow?", {"tokenizer"}),
     ],
 )

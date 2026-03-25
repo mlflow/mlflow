@@ -142,6 +142,7 @@ jobs:
       - uses: ./.github/actions/setup-python
         with:
           python-version: ${{ matrix.python }}
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
