@@ -5,6 +5,9 @@ on:
     workflows: [docs]
     types: [completed]
 
+env:
+  DOCS_BUILD_DIR: /tmp/docs-build
+
 defaults:
   run:
     shell: bash
@@ -52,20 +55,20 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
           name: docs-build-${{ github.event.workflow_run.id }}
-          path: downloaded-artifact
+          path: ${{ env.DOCS_BUILD_DIR }}
       - uses: ./.github/actions/setup-node
       - name: Install Netlify CLI
-        working-directory: ${{ github.workspace }}/.github/netlify
+        working-directory: .github/netlify
         run: npm ci
       - name: Deploy to Netlify
         id: netlify_deploy
-        working-directory: ${{ github.workspace }}/.github/netlify
+        working-directory: .github/netlify
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           ALIAS: ${{ steps.alias.outputs.value }}
           RUN_ID: ${{ github.run_id }}
-          DEPLOY_DIR: ${{ github.workspace }}/downloaded-artifact
+          DEPLOY_DIR: ${{ env.DOCS_BUILD_DIR }}
         run: |-
           OUTPUT=$(npm run deploy -- \
             --dir="$DEPLOY_DIR" \
