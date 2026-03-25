@@ -54,17 +54,24 @@ jobs:
           name: docs-build-${{ github.event.workflow_run.id }}
           path: downloaded-artifact
       - uses: ./.github/actions/setup-node
+        with:
+          node-version: 22
+      - name: Install Netlify CLI
+        working-directory: ${{ github.workspace }}/.github/netlify
+        run: |
+          npm ci --min-release-age=7d
       - name: Deploy to Netlify
         id: netlify_deploy
-        working-directory: downloaded-artifact
+        working-directory: ${{ github.workspace }}/.github/netlify
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           ALIAS: ${{ steps.alias.outputs.value }}
           RUN_ID: ${{ github.run_id }}
+          DEPLOY_DIR: ${{ github.workspace }}/downloaded-artifact
         run: |-
-          OUTPUT=$(npx -y netlify-cli deploy \
-            --dir=. \
+          OUTPUT=$(npm run deploy -- \
+            --dir="$DEPLOY_DIR" \
             --no-build \
             --message="Preview ${ALIAS} - GitHub Run ID: $RUN_ID" \
             --alias="${ALIAS}" \
