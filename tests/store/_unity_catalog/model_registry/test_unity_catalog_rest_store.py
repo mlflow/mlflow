@@ -979,6 +979,11 @@ def test_get_logged_model_from_model_id_returns_none_for_none_input(store):
     assert result is None
 
 
+def test_get_logged_model_from_model_id_returns_none_for_empty_string(store):
+    result = store._get_logged_model_from_model_id("")
+    assert result is None
+
+
 def test_get_logged_model_from_model_id_reraises_other_exceptions(store):
     with mock.patch(
         "mlflow.get_logged_model",

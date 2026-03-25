@@ -464,7 +464,7 @@ class AbstractStore:
                 tags=[ModelVersionTag(k, v) for k, v in src_mv.tags.items()],
                 run_link=src_mv.run_link,
                 description=src_mv.description,
-                model_id=src_mv.model_id,
+                model_id=src_mv.model_id or None,
             )
             eprint(
                 f"Copied version '{src_mv.version}' of model '{src_mv.name}'"

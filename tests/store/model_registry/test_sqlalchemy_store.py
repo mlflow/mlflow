@@ -1809,6 +1809,29 @@ def test_copy_model_version(store, copy_to_same_model):
     assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
 
 
+def test_copy_model_version_with_empty_model_id(store):
+    """Test that copy_model_version normalizes empty string model_id to None.
+
+    Regression test for https://github.com/mlflow/mlflow/issues/22012.
+    When copying model versions between UC locations, ModelVersion.model_id
+    can be an empty string '' instead of None, which causes
+    _validate_model_id_specified to reject it.
+    """
+    name = "test_copy_empty_model_id"
+    store.create_registered_model(name)
+    src_mv = _mv_maker(store, name)
+
+    # Simulate a source model version with empty string model_id
+    # (as can happen with UC model versions)
+    from unittest import mock
+
+    original_model_id = src_mv.model_id
+    with mock.patch.object(type(src_mv), "model_id", new_callable=lambda: property(lambda self: "")):
+        dst_mv = store.copy_model_version(src_mv, "test_copy_empty_model_id_dst")
+        assert dst_mv.name == "test_copy_empty_model_id_dst"
+        assert dst_mv.source == f"models:/{src_mv.name}/{src_mv.version}"
+
+
 def test_search_prompts(store):
     store.create_registered_model("model", tags=[RegisteredModelTag(key="fruit", value="apple")])
 
