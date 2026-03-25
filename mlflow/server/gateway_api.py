@@ -19,6 +19,8 @@ from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AnthropicConfig,
+    DatabricksConfig,
+    DatabricksOAuthConfig,
     EndpointConfig,
     EndpointType,
     GatewayRequestType,
@@ -252,6 +254,21 @@ def _build_endpoint_config(
         Provider.OLLAMA,
     }:
         provider_config = _build_openai_compatible_config(model_config)
+    elif model_config.provider in (Provider.DATABRICKS, Provider.DATABRICKS_MODEL_SERVING):
+        auth_config = model_config.auth_config or {}
+        auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "pat_token")
+        if auth_mode == "oauth_m2m":
+            provider_config = DatabricksOAuthConfig(
+                api_base=auth_config.get(_AuthConfigKey.API_BASE, ""),
+                client_id=auth_config.get("client_id", ""),
+                client_secret=model_config.secret_value.get("client_secret", ""),
+            )
+        else:
+            provider_config = DatabricksConfig(
+                api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
+                api_base=auth_config.get(_AuthConfigKey.API_BASE, ""),
+            )
+        model_config.provider = Provider.DATABRICKS
     else:
         # Use LiteLLM as fallback for unsupported providers
         # Store the original provider name for LiteLLM's provider/model format
