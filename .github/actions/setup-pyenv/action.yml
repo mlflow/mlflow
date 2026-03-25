@@ -19,7 +19,7 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        git clone https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+        git clone --branch v2.6.25 --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
     - name: Setup environment variables
       if: runner.os == 'Linux'
       shell: bash
