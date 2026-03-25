@@ -978,3 +978,98 @@ def test_validate_deployment_timeout_config(timeout, retry_timeout_seconds, shou
                 timeout=timeout, retry_timeout_seconds=retry_timeout_seconds
             )
             assert len(w) == 0
+
+
+# ── WorkspaceClient TTL Cache Tests ──────────────────────────────────────
+
+
+class TestWorkspaceClientTTLCache:
+    """Tests for TTL-based caching of WorkspaceClient.
+
+    The WorkspaceClient was previously @lru_cache'd with no TTL, causing stale
+    TCP connections to accumulate under sustained load (e.g., streaming jobs).
+    The TTL cache ensures periodic recreation of the client and its connection pool.
+    """
+
+    def setup_method(self):
+        """Clear the cache before each test."""
+        get_workspace_client.cache_clear()
+
+    def teardown_method(self):
+        get_workspace_client.cache_clear()
+
+    @mock.patch(
+        "mlflow.utils.rest_utils._create_workspace_client",
+        return_value=mock.MagicMock(),
+    )
+    def test_cache_reuse_within_ttl(self, mock_create):
+        client1 = get_workspace_client(True, "host", "token", None)
+        client2 = get_workspace_client(True, "host", "token", None)
+        assert client1 is client2
+        mock_create.assert_called_once()
+
+    @mock.patch(
+        "mlflow.utils.rest_utils._create_workspace_client",
+        side_effect=[mock.MagicMock(), mock.MagicMock()],
+    )
+    @mock.patch("mlflow.utils.rest_utils.MLFLOW_WORKSPACE_CLIENT_CACHE_TTL")
+    def test_cache_expires_after_ttl(self, mock_ttl_var, mock_create):
+        mock_ttl_var.get.return_value = 1  # 1 second TTL
+        client1 = get_workspace_client(True, "host", "token", None)
+        time.sleep(1.1)
+        client2 = get_workspace_client(True, "host", "token", None)
+        assert client1 is not client2
+        assert mock_create.call_count == 2
+
+    @mock.patch(
+        "mlflow.utils.rest_utils._create_workspace_client",
+        side_effect=[mock.MagicMock(), mock.MagicMock()],
+    )
+    def test_cache_clear_forces_new_client(self, mock_create):
+        client1 = get_workspace_client(True, "host", "token", None)
+        get_workspace_client.cache_clear()
+        client2 = get_workspace_client(True, "host", "token", None)
+        assert client1 is not client2
+        assert mock_create.call_count == 2
+
+    @mock.patch(
+        "mlflow.utils.rest_utils._create_workspace_client",
+        return_value=mock.MagicMock(),
+    )
+    def test_different_params_get_different_clients(self, mock_create):
+        mock_create.side_effect = [mock.MagicMock(), mock.MagicMock()]
+        client1 = get_workspace_client(True, "host1", "token1", None)
+        client2 = get_workspace_client(True, "host2", "token2", None)
+        assert client1 is not client2
+        assert mock_create.call_count == 2
+
+    @mock.patch(
+        "mlflow.utils.rest_utils._create_workspace_client",
+        side_effect=[mock.MagicMock() for _ in range(6)],
+    )
+    def test_cache_evicts_oldest_when_full(self, mock_create):
+        # Fill cache with 5 entries (max size)
+        for i in range(5):
+            get_workspace_client(True, f"host{i}", "token", None)
+        assert mock_create.call_count == 5
+
+        # 6th entry should evict the oldest
+        get_workspace_client(True, "host5", "token", None)
+        assert mock_create.call_count == 6
+
+        # host0 was evicted, should create a new client
+        get_workspace_client(True, "host0", "token", None)
+        assert mock_create.call_count == 7
+
+    @mock.patch(
+        "mlflow.utils.rest_utils._create_workspace_client",
+        return_value=mock.MagicMock(),
+    )
+    @mock.patch("mlflow.utils.rest_utils.MLFLOW_WORKSPACE_CLIENT_CACHE_TTL")
+    def test_ttl_zero_disables_caching(self, mock_ttl_var, mock_create):
+        mock_ttl_var.get.return_value = 0
+        mock_create.side_effect = [mock.MagicMock(), mock.MagicMock()]
+        client1 = get_workspace_client(True, "host", "token", None)
+        client2 = get_workspace_client(True, "host", "token", None)
+        assert client1 is not client2
+        assert mock_create.call_count == 2

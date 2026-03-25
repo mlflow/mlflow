@@ -936,6 +936,16 @@ MLFLOW_HTTP_TCP_KEEPALIVE_INTERVAL = _EnvironmentVariable(
 #: (default: ``3``)
 MLFLOW_HTTP_TCP_KEEPALIVE_COUNT = _EnvironmentVariable("MLFLOW_HTTP_TCP_KEEPALIVE_COUNT", int, 3)
 
+#: Specifies the time-to-live (TTL) in seconds for the cached Databricks ``WorkspaceClient``.
+#: Under sustained load (e.g., streaming jobs), HTTP connections in the cached client's pool can
+#: go stale when the cloud load balancer drops idle connection state. Stale connections cause
+#: ``recv()`` to block indefinitely on half-open TCP connections. This TTL ensures the client and
+#: its connection pool are periodically recreated with fresh connections.
+#: Set to ``0`` to disable caching (create a new client for every request).
+#: (default: ``120``)
+MLFLOW_WORKSPACE_CLIENT_CACHE_TTL = _EnvironmentVariable(
+    "MLFLOW_WORKSPACE_CLIENT_CACHE_TTL", int, 120
+)
 #: (Deprecated) Enable Unity Catalog integration for MLflow AI Gateway.
 #: This feature is deprecated and will be removed in a future release.
 #: (default: ``False``)

@@ -1722,3 +1722,62 @@ def test_adaptive_rate_reduces_on_429(monkeypatch):
     # At least one throttle event observed, and the rate was reduced
     assert len(rate_after_throttle) >= 1
     assert rate_after_throttle[0] < AUTO_INITIAL_RPS
+
+
+# ── Tracing-Disabled Tests ───────────────────────────────────────────────
+
+
+class TestEvaluateWithTracingDisabled:
+    """Tests for mlflow.genai.evaluate() when tracing is disabled.
+
+    Previously, calling mlflow.tracing.disable() before evaluate() caused crashes:
+    the harness unconditionally created NO_OP traces and then tried to call
+    get_trace(NO_OP_ID), which returned None, crashing on .info access.
+    After the fix, the harness skips trace operations when tracing is disabled.
+    """
+
+    @mock.patch("mlflow.genai.evaluation.harness.is_tracing_enabled", return_value=False)
+    @mock.patch("mlflow.genai.evaluation.harness.batch_link_traces_to_run")
+    @mock.patch("mlflow.genai.evaluation.harness._refresh_eval_result_traces")
+    @mock.patch("mlflow.genai.evaluation.harness.clean_up_extra_traces")
+    def test_skips_trace_operations_when_disabled(
+        self,
+        mock_cleanup,
+        mock_refresh,
+        mock_batch_link,
+        mock_tracing_enabled,
+    ):
+        @scorer
+        def always_pass(*, outputs) -> Feedback:
+            return Feedback(value="yes", rationale="pass")
+
+        with mock.patch("mlflow.search_traces") as mock_search:
+            result = mlflow.genai.evaluate(
+                data=[{"inputs": {"q": "test"}, "outputs": {"a": "answer"}}],
+                scorers=[always_pass],
+            )
+
+        # Trace operations should NOT have been called
+        mock_batch_link.assert_not_called()
+        mock_refresh.assert_not_called()
+        mock_search.assert_not_called()
+        mock_cleanup.assert_not_called()
+
+        # Metrics should still be logged and result returned
+        assert result.metrics is not None
+
+    @mock.patch("mlflow.genai.evaluation.harness.is_tracing_enabled", return_value=True)
+    def test_trace_operations_run_when_enabled(self, mock_tracing_enabled):
+        @scorer
+        def always_pass(*, outputs) -> Feedback:
+            return Feedback(value="yes", rationale="pass")
+
+        with mock.patch("mlflow.genai.evaluation.harness.batch_link_traces_to_run") as mock_link:
+            result = mlflow.genai.evaluate(
+                data=[{"inputs": {"q": "test"}, "outputs": {"a": "answer"}}],
+                scorers=[always_pass],
+            )
+            # When tracing is enabled, batch_link should be called
+            mock_link.assert_called_once()
+
+        assert result.metrics is not None

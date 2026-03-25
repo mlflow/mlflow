@@ -3,10 +3,10 @@ import contextlib
 import json
 import logging
 import random
+import threading
 import time
 import warnings
 from contextvars import ContextVar
-from functools import lru_cache
 from typing import Any, Callable
 
 import requests
@@ -22,6 +22,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
+    MLFLOW_WORKSPACE_CLIENT_CACHE_TTL,
 )
 from mlflow.exceptions import (
     CUSTOMER_UNAUTHORIZED,
@@ -301,8 +302,12 @@ def http_request(
         raise MlflowException(f"API request to {url} failed with exception {e}")
 
 
-@lru_cache(maxsize=5)
-def get_workspace_client(
+_workspace_client_cache: dict = {}
+_workspace_client_cache_lock = threading.Lock()
+_workspace_client_cache_timestamps: dict = {}
+
+
+def _create_workspace_client(
     use_secret_scope_token,
     host,
     token,
@@ -326,6 +331,80 @@ def get_workspace_client(
     )
     # Note: If we use `config` param, all SDK configurations must be set in `config` object.
     return WorkspaceClient(config=config)
+
+
+def get_workspace_client(
+    use_secret_scope_token,
+    host,
+    token,
+    databricks_auth_profile,
+    retry_timeout_seconds=None,
+    timeout=None,
+):
+    """Get or create a cached WorkspaceClient with TTL-based expiration.
+
+    The client is cached to avoid creating a new SDK client for every HTTP call.
+    However, under sustained load (e.g., streaming jobs), the client's connection
+    pool can accumulate stale TCP connections when the cloud load balancer drops
+    idle connection state (~30s timeout). A stale connection causes ``recv()`` to
+    block indefinitely on a half-open TCP connection.
+
+    The TTL (controlled by ``MLFLOW_WORKSPACE_CLIENT_CACHE_TTL``, default 120s)
+    ensures the client and its connection pool are periodically recreated with
+    fresh connections, preventing stale connection hangs.
+    """
+    ttl = MLFLOW_WORKSPACE_CLIENT_CACHE_TTL.get()
+    cache_key = (
+        use_secret_scope_token,
+        host,
+        token,
+        databricks_auth_profile,
+        retry_timeout_seconds,
+        timeout,
+    )
+
+    with _workspace_client_cache_lock:
+        if cache_key in _workspace_client_cache:
+            created_at = _workspace_client_cache_timestamps[cache_key]
+            if ttl > 0 and (time.time() - created_at) < ttl:
+                return _workspace_client_cache[cache_key]
+            # TTL expired — remove stale entry
+            del _workspace_client_cache[cache_key]
+            del _workspace_client_cache_timestamps[cache_key]
+
+    client = _create_workspace_client(
+        use_secret_scope_token,
+        host,
+        token,
+        databricks_auth_profile,
+        retry_timeout_seconds,
+        timeout,
+    )
+
+    if ttl > 0:
+        with _workspace_client_cache_lock:
+            # Evict oldest entries if cache exceeds max size (5)
+            while len(_workspace_client_cache) >= 5:
+                oldest_key = min(
+                    _workspace_client_cache_timestamps,
+                    key=_workspace_client_cache_timestamps.get,
+                )
+                del _workspace_client_cache[oldest_key]
+                del _workspace_client_cache_timestamps[oldest_key]
+            _workspace_client_cache[cache_key] = client
+            _workspace_client_cache_timestamps[cache_key] = time.time()
+
+    return client
+
+
+# Backward compatibility: allow callers to clear the cache (e.g., tests, workarounds)
+def _clear_workspace_client_cache():
+    with _workspace_client_cache_lock:
+        _workspace_client_cache.clear()
+        _workspace_client_cache_timestamps.clear()
+
+
+get_workspace_client.cache_clear = _clear_workspace_client_cache
 
 
 def _can_parse_as_json_object(string):

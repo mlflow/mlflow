@@ -83,6 +83,7 @@ from mlflow.genai.utils.trace_utils import (
 )
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
+from mlflow.tracing.provider import is_tracing_enabled
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
@@ -680,14 +681,23 @@ def run(
         if trace_id in multi_turn_assessments:
             result.assessments.extend(multi_turn_assessments[trace_id])
 
-    # Link traces to the run if the backend support it
-    batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
+    # Skip trace-related operations when tracing is disabled. The operations below
+    # make HTTP calls to the tracking server (search_traces, get_trace, log_assessment,
+    # etc.) that are unconditional and can hang on stale connections under sustained load.
+    # When tracing is disabled, these calls fail with NO_OP trace IDs — skipping them
+    # avoids both the crash and the potential hang.
+    _tracing_enabled = is_tracing_enabled()
 
-    # Refresh traces on eval_results to include all logged assessments.
-    # This is done once after all assessments (single-turn and multi-turn) are logged to the traces.
-    _refresh_eval_result_traces(eval_results)
+    if _tracing_enabled:
+        # Link traces to the run if the backend support it
+        batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
 
-    # Aggregate metrics and log to MLflow run
+        # Refresh traces on eval_results to include all logged assessments.
+        # This is done once after all assessments (single-turn and multi-turn)
+        # are logged to the traces.
+        _refresh_eval_result_traces(eval_results)
+
+    # Aggregate metrics and log to MLflow run (always, regardless of tracing state)
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
     mlflow.log_metrics(aggregated_metrics)
 
@@ -696,22 +706,25 @@ def run(
     except Exception as e:
         _logger.debug(f"Failed to emit metric usage event: {e}", exc_info=True)
 
-    # Search for all traces in the run. We need to fetch the traces from backend here to include
-    # all traces in the result.
-    # Fetch the experiment ID from the run to ensure we search in the correct experiment.
-    traces = mlflow.search_traces(
-        locations=[experiment_id], run_id=run_id, include_spans=False, return_type="list"
-    )
+    if _tracing_enabled:
+        # Search for all traces in the run. We need to fetch the traces from backend
+        # here to include all traces in the result.
+        # Fetch the experiment ID from the run to ensure we search in the correct experiment.
+        traces = mlflow.search_traces(
+            locations=[experiment_id], run_id=run_id, include_spans=False, return_type="list"
+        )
 
-    # Collect trace IDs from eval results to preserve them during cleanup.
-    input_trace_ids = {
-        result.eval_item.trace.info.trace_id
-        for result in eval_results
-        if result.eval_item.trace is not None
-    }
+        # Collect trace IDs from eval results to preserve them during cleanup.
+        input_trace_ids = {
+            result.eval_item.trace.info.trace_id
+            for result in eval_results
+            if result.eval_item.trace is not None
+        }
 
-    # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(traces, eval_start_time, experiment_id, input_trace_ids)
+        # Clean up noisy traces generated during evaluation
+        clean_up_extra_traces(traces, eval_start_time, experiment_id, input_trace_ids)
+    else:
+        traces = []
 
     return EvaluationResult(
         run_id=run_id,
@@ -790,20 +803,26 @@ def _run_score(
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
     validate_tags(tags)
 
-    for key in tags.keys() - IMMUTABLE_TAGS:
-        try:
-            mlflow.set_trace_tag(trace_id=eval_item.trace.info.trace_id, key=key, value=tags[key])
-        except Exception as e:
-            _logger.warning(f"Failed to log tag {key} to MLflow: {e}")
+    # Skip trace tag and assessment logging when tracing is disabled.
+    # With tracing disabled, traces have NO_OP span IDs that the tracking
+    # server rejects, causing crashes instead of graceful no-ops.
+    if is_tracing_enabled():
+        for key in tags.keys() - IMMUTABLE_TAGS:
+            try:
+                mlflow.set_trace_tag(
+                    trace_id=eval_item.trace.info.trace_id, key=key, value=tags[key]
+                )
+            except Exception as e:
+                _logger.warning(f"Failed to log tag {key} to MLflow: {e}")
 
-    try:
-        _log_assessments(
-            run_id=run_id,
-            trace=eval_item.trace,
-            assessments=eval_result.assessments,
-        )
-    except Exception as e:
-        _logger.warning(f"Failed to log trace and assessments to MLflow: {e}")
+        try:
+            _log_assessments(
+                run_id=run_id,
+                trace=eval_item.trace,
+                assessments=eval_result.assessments,
+            )
+        except Exception as e:
+            _logger.warning(f"Failed to log trace and assessments to MLflow: {e}")
 
     return eval_result
 
