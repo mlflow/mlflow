@@ -1,6 +1,7 @@
 import json
 import time
 from enum import Enum
+from typing import AsyncIterable
 
 from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, EndpointConfig
 from mlflow.gateway.constants import (
@@ -11,7 +12,7 @@ from mlflow.gateway.providers.anthropic import AnthropicAdapter
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.cohere import CohereAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys
-from mlflow.gateway.schemas import completions
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
 
@@ -287,6 +288,288 @@ class AmazonBedrockProvider(BaseProvider):
 
         except botocore.exceptions.ReadTimeoutError as e:
             raise AIGatewayException(status_code=408) from e
+
+    # ---- Converse API helpers ----
+
+    def _messages_to_converse(self, messages: list[dict]) -> tuple[list[dict], list[dict] | None]:
+        """Convert OpenAI-format messages to Bedrock Converse format.
+
+        Returns (converse_messages, system_prompts).
+        """
+        system_prompts = []
+        converse_messages = []
+
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+
+            if role == "system":
+                system_prompts.append({"text": content})
+            elif role == "assistant":
+                converse_messages.append({
+                    "role": "assistant",
+                    "content": [{"text": content}],
+                })
+            elif role == "tool":
+                converse_messages.append({
+                    "role": "user",
+                    "content": [
+                        {
+                            "toolResult": {
+                                "toolUseId": msg.get("tool_call_id", ""),
+                                "content": [{"text": content}],
+                            }
+                        }
+                    ],
+                })
+            else:
+                converse_messages.append({
+                    "role": "user",
+                    "content": [{"text": content}],
+                })
+
+        return converse_messages, system_prompts or None
+
+    def _build_converse_kwargs(
+        self, messages: list[dict], payload: dict
+    ) -> dict:
+        """Build kwargs for the Converse API call."""
+        converse_messages, system = self._messages_to_converse(messages)
+
+        kwargs = {
+            "modelId": self.config.model.name,
+            "messages": converse_messages,
+        }
+
+        if system:
+            kwargs["system"] = system
+
+        # Build inferenceConfig from OpenAI params
+        inference_config = {}
+        if "temperature" in payload:
+            inference_config["temperature"] = payload["temperature"]
+        if "top_p" in payload:
+            inference_config["topP"] = payload["top_p"]
+        if max_tokens := payload.get("max_tokens") or payload.get("max_completion_tokens"):
+            inference_config["maxTokens"] = max_tokens
+        if "stop" in payload:
+            stop = payload["stop"]
+            inference_config["stopSequences"] = stop if isinstance(stop, list) else [stop]
+
+        if inference_config:
+            kwargs["inferenceConfig"] = inference_config
+
+        # Convert tools to Bedrock format
+        if tools := payload.get("tools"):
+            bedrock_tools = []
+            for tool in tools:
+                if tool.get("type") == "function":
+                    func = tool["function"]
+                    bedrock_tools.append({
+                        "toolSpec": {
+                            "name": func["name"],
+                            "description": func.get("description", ""),
+                            "inputSchema": {"json": func.get("parameters", {})},
+                        }
+                    })
+            if bedrock_tools:
+                kwargs["toolConfig"] = {"tools": bedrock_tools}
+
+        return kwargs
+
+    def _converse_to_chat_response(self, response: dict) -> chat.ResponsePayload:
+        """Convert Bedrock Converse response to OpenAI chat format."""
+        output = response.get("output", {})
+        message = output.get("message", {})
+        content_blocks = message.get("content", [])
+
+        text_parts = []
+        tool_calls = []
+
+        for block in content_blocks:
+            if "text" in block:
+                text_parts.append(block["text"])
+            elif "toolUse" in block:
+                tool_use = block["toolUse"]
+                tool_calls.append(
+                    chat.ToolCall(
+                        id=tool_use.get("toolUseId", ""),
+                        type="function",
+                        function=chat.ToolCallFunction(
+                            name=tool_use.get("name", ""),
+                            arguments=json.dumps(tool_use.get("input", {})),
+                        ),
+                    )
+                )
+
+        usage = response.get("usage", {})
+        stop_reason = response.get("stopReason", "end_turn")
+        finish_reason = "tool_calls" if stop_reason == "tool_use" else "stop"
+
+        return chat.ResponsePayload(
+            created=int(time.time()),
+            object="chat.completion",
+            model=self.config.model.name,
+            choices=[
+                chat.Choice(
+                    index=0,
+                    message=chat.ResponseMessage(
+                        role="assistant",
+                        content="\n".join(text_parts) if text_parts else None,
+                        tool_calls=tool_calls or None,
+                    ),
+                    finish_reason=finish_reason,
+                )
+            ],
+            usage=chat.ChatUsage(
+                prompt_tokens=usage.get("inputTokens"),
+                completion_tokens=usage.get("outputTokens"),
+                total_tokens=usage.get("totalTokens"),
+            ),
+        )
+
+    # ---- API methods ----
+
+    async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        import asyncio
+
+        from fastapi.encoders import jsonable_encoder
+
+        payload_dict = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload_dict)
+
+        messages = payload_dict.pop("messages", [])
+        kwargs = self._build_converse_kwargs(messages, payload_dict)
+
+        response = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: self.get_bedrock_client().converse(**kwargs)
+        )
+
+        return self._converse_to_chat_response(response)
+
+    async def _chat_stream(
+        self, payload: chat.RequestPayload
+    ) -> AsyncIterable[chat.StreamResponsePayload]:
+        import asyncio
+
+        from fastapi.encoders import jsonable_encoder
+
+        payload_dict = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload_dict)
+
+        messages = payload_dict.pop("messages", [])
+        kwargs = self._build_converse_kwargs(messages, payload_dict)
+
+        response = await asyncio.get_event_loop().run_in_executor(
+            None, lambda: self.get_bedrock_client().converse_stream(**kwargs)
+        )
+
+        stream = response.get("stream", [])
+        for event in stream:
+            if "contentBlockDelta" in event:
+                delta = event["contentBlockDelta"].get("delta", {})
+                text = delta.get("text")
+                if text:
+                    yield chat.StreamResponsePayload(
+                        created=int(time.time()),
+                        model=self.config.model.name,
+                        choices=[
+                            chat.StreamChoice(
+                                index=0,
+                                finish_reason=None,
+                                delta=chat.StreamDelta(
+                                    role=None,
+                                    content=text,
+                                ),
+                            )
+                        ],
+                    )
+            elif "messageStop" in event:
+                stop_reason = event["messageStop"].get("stopReason", "end_turn")
+                finish_reason = "tool_calls" if stop_reason == "tool_use" else "stop"
+                yield chat.StreamResponsePayload(
+                    created=int(time.time()),
+                    model=self.config.model.name,
+                    choices=[
+                        chat.StreamChoice(
+                            index=0,
+                            finish_reason=finish_reason,
+                            delta=chat.StreamDelta(role=None, content=None),
+                        )
+                    ],
+                )
+            elif "metadata" in event:
+                usage = event["metadata"].get("usage", {})
+                if usage:
+                    yield chat.StreamResponsePayload(
+                        created=int(time.time()),
+                        model=self.config.model.name,
+                        choices=[
+                            chat.StreamChoice(
+                                index=0,
+                                finish_reason=None,
+                                delta=chat.StreamDelta(role=None, content=None),
+                            )
+                        ],
+                        usage=chat.ChatUsage(
+                            prompt_tokens=usage.get("inputTokens"),
+                            completion_tokens=usage.get("outputTokens"),
+                            total_tokens=usage.get("totalTokens"),
+                        ),
+                    )
+
+    async def _embeddings(
+        self, payload: embeddings.RequestPayload
+    ) -> embeddings.ResponsePayload:
+        import asyncio
+
+        from fastapi.encoders import jsonable_encoder
+
+        payload_dict = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload_dict)
+
+        input_text = payload_dict.get("input", "")
+        if isinstance(input_text, list):
+            texts = input_text
+        else:
+            texts = [input_text]
+
+        embedding_data = []
+        total_tokens = 0
+
+        for idx, text in enumerate(texts):
+            body = {"inputText": text}
+            response = await asyncio.get_event_loop().run_in_executor(
+                None,
+                lambda b=body: json.loads(
+                    self.get_bedrock_client()
+                    .invoke_model(
+                        body=json.dumps(b).encode(),
+                        modelId=self.config.model.name,
+                        accept="application/json",
+                        contentType="application/json",
+                    )
+                    .get("body")
+                    .read()
+                ),
+            )
+
+            embedding_data.append(
+                embeddings.EmbeddingObject(
+                    embedding=response.get("embedding", []),
+                    index=idx,
+                )
+            )
+            total_tokens += response.get("inputTextTokenCount", 0)
+
+        return embeddings.ResponsePayload(
+            data=embedding_data,
+            model=self.config.model.name,
+            usage=embeddings.EmbeddingsUsage(
+                prompt_tokens=total_tokens,
+                total_tokens=total_tokens,
+            ),
+        )
 
     async def _completions(
         self, payload: completions.RequestPayload
