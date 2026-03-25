@@ -1,7 +1,9 @@
+import asyncio
 import json
+import queue
 import time
 from enum import Enum
-from typing import AsyncIterable
+from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, EndpointConfig
 from mlflow.gateway.constants import (
@@ -291,7 +293,9 @@ class AmazonBedrockProvider(BaseProvider):
 
     # ---- Converse API helpers ----
 
-    def _messages_to_converse(self, messages: list[dict]) -> tuple[list[dict], list[dict] | None]:
+    def _messages_to_converse(
+        self, messages: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], list[dict[str, str]] | None]:
         """Convert OpenAI-format messages to Bedrock Converse format.
 
         Returns (converse_messages, system_prompts).
@@ -331,8 +335,8 @@ class AmazonBedrockProvider(BaseProvider):
         return converse_messages, system_prompts or None
 
     def _build_converse_kwargs(
-        self, messages: list[dict], payload: dict
-    ) -> dict:
+        self, messages: list[dict[str, Any]], payload: dict[str, Any]
+    ) -> dict[str, Any]:
         """Build kwargs for the Converse API call."""
         converse_messages, system = self._messages_to_converse(messages)
 
@@ -377,7 +381,7 @@ class AmazonBedrockProvider(BaseProvider):
 
         return kwargs
 
-    def _converse_to_chat_response(self, response: dict) -> chat.ResponsePayload:
+    def _converse_to_chat_response(self, response: dict[str, Any]) -> chat.ResponsePayload:
         """Convert Bedrock Converse response to OpenAI chat format."""
         output = response.get("output", {})
         message = output.get("message", {})
@@ -431,8 +435,6 @@ class AmazonBedrockProvider(BaseProvider):
     # ---- API methods ----
 
     async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
-        import asyncio
-
         from fastapi.encoders import jsonable_encoder
 
         payload_dict = jsonable_encoder(payload, exclude_none=True)
@@ -450,8 +452,6 @@ class AmazonBedrockProvider(BaseProvider):
     async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
-        import asyncio
-
         from fastapi.encoders import jsonable_encoder
 
         payload_dict = jsonable_encoder(payload, exclude_none=True)
@@ -460,16 +460,27 @@ class AmazonBedrockProvider(BaseProvider):
         messages = payload_dict.pop("messages", [])
         kwargs = self._build_converse_kwargs(messages, payload_dict)
 
-        response = await asyncio.get_event_loop().run_in_executor(
-            None, lambda: self.get_bedrock_client().converse_stream(**kwargs)
-        )
+        # Consume the synchronous boto3 EventStream in a thread to avoid
+        # blocking the async event loop.
+        event_queue: queue.Queue = queue.Queue()
+        _SENTINEL = object()
 
-        stream = response.get("stream", [])
-        for event in stream:
+        def _consume_stream():
+            response = self.get_bedrock_client().converse_stream(**kwargs)
+            for event in response.get("stream", []):
+                event_queue.put(event)
+            event_queue.put(_SENTINEL)
+
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(None, _consume_stream)
+
+        while True:
+            event = await loop.run_in_executor(None, event_queue.get)
+            if event is _SENTINEL:
+                break
             if "contentBlockDelta" in event:
                 delta = event["contentBlockDelta"].get("delta", {})
-                text = delta.get("text")
-                if text:
+                if text := delta.get("text"):
                     yield chat.StreamResponsePayload(
                         created=int(time.time()),
                         model=self.config.model.name,
@@ -499,8 +510,7 @@ class AmazonBedrockProvider(BaseProvider):
                     ],
                 )
             elif "metadata" in event:
-                usage = event["metadata"].get("usage", {})
-                if usage:
+                if usage := event["metadata"].get("usage", {}):
                     yield chat.StreamResponsePayload(
                         created=int(time.time()),
                         model=self.config.model.name,
@@ -518,21 +528,14 @@ class AmazonBedrockProvider(BaseProvider):
                         ),
                     )
 
-    async def _embeddings(
-        self, payload: embeddings.RequestPayload
-    ) -> embeddings.ResponsePayload:
-        import asyncio
-
+    async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
 
         payload_dict = jsonable_encoder(payload, exclude_none=True)
         self.check_for_model_field(payload_dict)
 
         input_text = payload_dict.get("input", "")
-        if isinstance(input_text, list):
-            texts = input_text
-        else:
-            texts = [input_text]
+        texts = input_text if isinstance(input_text, list) else [input_text]
 
         embedding_data = []
         total_tokens = 0
@@ -542,7 +545,8 @@ class AmazonBedrockProvider(BaseProvider):
             response = await asyncio.get_event_loop().run_in_executor(
                 None,
                 lambda b=body: json.loads(
-                    self.get_bedrock_client()
+                    self
+                    .get_bedrock_client()
                     .invoke_model(
                         body=json.dumps(b).encode(),
                         modelId=self.config.model.name,

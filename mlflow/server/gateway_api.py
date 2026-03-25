@@ -18,6 +18,7 @@ from fastapi.responses import StreamingResponse
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
+    AmazonBedrockConfig,
     AnthropicConfig,
     EndpointConfig,
     EndpointType,
@@ -268,6 +269,31 @@ def _build_endpoint_config(
             config_kwargs["token"] = model_config.secret_value.get(_AuthConfigKey.API_KEY)
         provider_config = DatabricksConfig(**config_kwargs)
         model_config.provider = Provider.DATABRICKS
+    elif model_config.provider in (Provider.BEDROCK, Provider.AMAZON_BEDROCK):
+        auth_config = model_config.auth_config or {}
+        auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "api_key")
+        if auth_mode == "access_keys":
+            aws_config = {
+                "aws_access_key_id": model_config.secret_value.get("aws_access_key_id"),
+                "aws_secret_access_key": model_config.secret_value.get("aws_secret_access_key"),
+                "aws_region": auth_config.get("aws_region_name"),
+            }
+        elif auth_mode == "iam_role":
+            aws_config = {
+                "aws_access_key_id": model_config.secret_value.get("aws_access_key_id"),
+                "aws_secret_access_key": model_config.secret_value.get("aws_secret_access_key"),
+                "aws_role_arn": auth_config.get("aws_role_name"),
+                "aws_region": auth_config.get("aws_region_name"),
+            }
+        elif auth_mode == "default_chain":
+            aws_config = {"aws_region": auth_config.get("aws_region_name")}
+            if role_arn := auth_config.get("aws_role_name"):
+                aws_config["aws_role_arn"] = role_arn
+        else:
+            # api_key mode — use the key as access key for simplicity
+            aws_config = {"aws_region": auth_config.get("aws_region_name")}
+        provider_config = AmazonBedrockConfig(aws_config=aws_config)
+        model_config.provider = Provider.BEDROCK
     elif model_config.provider == Provider.VERTEX_AI:
         auth_config = model_config.auth_config or {}
         provider_config = VertexAIConfig(

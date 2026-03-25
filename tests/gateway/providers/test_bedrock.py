@@ -427,7 +427,6 @@ def test_amazon_bedrock_model_provider(model_name, expected):
 
 def _make_converse_provider():
     """Create a provider with a mock boto3 client for Converse API tests."""
-    from mlflow.gateway.schemas import chat
 
     config = {
         "name": "chat",
@@ -473,9 +472,7 @@ def _converse_stream_response():
 def _embeddings_invoke_response():
     import io
 
-    body = io.BytesIO(
-        b'{"embedding": [0.1, 0.2, 0.3], "inputTextTokenCount": 5}'
-    )
+    body = io.BytesIO(b'{"embedding": [0.1, 0.2, 0.3], "inputTextTokenCount": 5}')
     return {"body": body}
 
 
