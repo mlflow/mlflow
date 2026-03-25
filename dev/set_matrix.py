@@ -192,6 +192,9 @@ def read_yaml(location, if_error=None):
         raise
 
 
+RELEASED_BEFORE = datetime(2026, 3, 10, tzinfo=timezone.utc)
+
+
 def get_released_versions(package_name: str) -> list[Version]:
     data = pypi_json(package_name)
     versions: list[Version] = []
@@ -207,6 +210,11 @@ def get_released_versions(package_name: str) -> list[Version]:
         ]
 
         release_date = min(upload_times) if upload_times else None
+
+        # Exclude versions released after the cutoff date
+        if not release_date or release_date >= RELEASED_BEFORE:
+            continue
+
         try:
             version = Version(version_str, release_date)
         except InvalidVersion:
