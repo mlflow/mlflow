@@ -1,18 +1,28 @@
 import logging
 import time
+from typing import Any
 
 import requests
 from pydantic import field_validator, model_validator
 
 from mlflow.gateway.base_models import ConfigModel
-from mlflow.gateway.config import OpenAICompatibleConfig, _resolve_api_key_from_input
-from mlflow.gateway.providers.openai_compatible import OpenAICompatibleProvider
+from mlflow.gateway.config import (
+    EndpointConfig,
+    _OpenAICompatibleConfig,
+    _resolve_api_key_from_input,
+)
+from mlflow.gateway.providers.base import PassthroughAction
+from mlflow.gateway.providers.openai_compatible import (
+    OpenAICompatibleAdapter,
+    OpenAICompatibleProvider,
+)
+from mlflow.gateway.schemas import chat
 from mlflow.gateway.utils import normalize_databricks_base_url
 
 _logger = logging.getLogger(__name__)
 
 
-class DatabricksConfig(OpenAICompatibleConfig):
+class DatabricksConfig(_OpenAICompatibleConfig):
     """Config for Databricks PAT token authentication."""
 
     api_base: str
@@ -44,6 +54,30 @@ class DatabricksOAuthConfig(ConfigModel):
         return self
 
 
+_SUPPORTED_CONTENT_PART_TYPES = {"text", "image_url", "input_audio"}
+
+
+class DatabricksAdapter(OpenAICompatibleAdapter):
+    """Adapter that handles Databricks-specific response quirks."""
+
+    @classmethod
+    def _normalize_content(cls, content: Any) -> str | None:
+        if not isinstance(content, list):
+            return content
+        supported = [p for p in content if p.get("type") in _SUPPORTED_CONTENT_PART_TYPES]
+        if all(p.get("type") == "text" for p in supported):
+            return "\n".join(p.get("text", "") for p in supported) or None
+        return supported or None
+
+    @classmethod
+    def model_to_chat(cls, resp: dict[str, Any], config: EndpointConfig) -> chat.ResponsePayload:
+        # Normalize content before delegating to the base adapter
+        for choice in resp.get("choices", []):
+            if msg := choice.get("message"):
+                msg["content"] = cls._normalize_content(msg.get("content"))
+        return super().model_to_chat(resp, config)
+
+
 class DatabricksProvider(OpenAICompatibleProvider):
     """Databricks provider supporting PAT token and OAuth M2M authentication.
 
@@ -58,9 +92,21 @@ class DatabricksProvider(OpenAICompatibleProvider):
     CONFIG_TYPE = DatabricksConfig
     DEFAULT_API_BASE = ""
 
+    PASSTHROUGH_PROVIDER_PATHS = {
+        PassthroughAction.OPENAI_CHAT: "chat/completions",
+        PassthroughAction.OPENAI_EMBEDDINGS: "embeddings",
+        PassthroughAction.OPENAI_RESPONSES: "responses",
+    }
+
+    @property
+    def adapter_class(self):
+        return DatabricksAdapter
+
     def __init__(self, config, enable_tracing=False):
-        # Accept both DatabricksConfig and DatabricksOAuthConfig — skip the
-        # strict CONFIG_TYPE check in OpenAICompatibleProvider.__init__
+        # Initialize via BaseProvider directly because this provider accepts
+        # two config types (DatabricksConfig for PAT, DatabricksOAuthConfig
+        # for OAuth M2M), while OpenAICompatibleProvider.__init__ only allows
+        # CONFIG_TYPE.
         from mlflow.gateway.providers.base import BaseProvider
 
         BaseProvider.__init__(self, config, enable_tracing=enable_tracing)
