@@ -2,9 +2,11 @@
 # could be too short to download large packages such as h2o.
 options(timeout=300)
 install.packages("https://cran.r-project.org/src/contrib/remotes_2.5.0.tar.gz", repos = NULL, type = "source")
+# Install DESCRIPTION deps first so that devtools reuses these pinned versions
+# instead of pulling newer ones that violate DESCRIPTION upper bounds.
+remotes::install_deps(dependencies = TRUE)
 remotes::install_version("devtools", "2.4.6")
 devtools::install_version("usethis", "3.2.1")
-devtools::install_dev_deps(dependencies = TRUE)
 
 # Install dependencies for documentation build
 # Install Rd2md from source as a temporary fix for the rendering of code examples, until
