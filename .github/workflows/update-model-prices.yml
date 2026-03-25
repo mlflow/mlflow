@@ -12,6 +12,7 @@ defaults:
 
 jobs:
   update-model-prices:
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
