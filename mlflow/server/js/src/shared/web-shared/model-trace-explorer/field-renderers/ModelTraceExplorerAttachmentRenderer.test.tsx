@@ -40,7 +40,7 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
         contentType="image/png"
       />,
     );
-    expect(screen.getByRole('img', { hidden: true })).toBeInTheDocument(); // Spinner renders as img
+    expect(screen.getByRole('heading', { hidden: true })).toBeInTheDocument(); // LegacySkeleton renders as heading
   });
 
   it('renders an image for image content types', () => {
