@@ -4637,8 +4637,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # Bulk upsert spans and metrics instead of per-row session.merge()
             _bulk_upsert(session, SqlSpan, span_rows)
-            if metric_rows:
-                _bulk_upsert(session, SqlSpanMetrics, metric_rows)
+            _bulk_upsert(session, SqlSpanMetrics, metric_rows)
 
             if aggregated_token_usage:
                 trace_token_usage_record = (
@@ -7003,9 +7002,6 @@ def _try_parse_json_string(value: str) -> str:
     return value
 
 
-_BULK_UPSERT_BATCH_SIZE = 100
-
-
 def _bulk_upsert(session: Session, model_class: type, rows: list[dict[str, Any]]) -> None:
     """Bulk upsert rows using dialect-specific INSERT ON CONFLICT.
 
@@ -7021,12 +7017,11 @@ def _bulk_upsert(session: Session, model_class: type, rows: list[dict[str, Any]]
     table = model_class.__table__
     pk_columns = [col.name for col in table.primary_key.columns]
     # All non-PK columns that should be updated on conflict
-    update_columns = [
-        col.name for col in table.columns if col.name not in pk_columns and not col.computed
-    ]
+    update_columns = [c.name for c in table.columns if c.name not in pk_columns and not c.computed]
 
-    for i in range(0, len(rows), _BULK_UPSERT_BATCH_SIZE):
-        batch = rows[i : i + _BULK_UPSERT_BATCH_SIZE]
+    batch_size = 100
+    for i in range(0, len(rows), batch_size):
+        batch = rows[i : i + batch_size]
         _upsert_batch(session, model_class, table, batch, pk_columns, update_columns, dialect)
 
 
