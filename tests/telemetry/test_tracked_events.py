@@ -16,6 +16,8 @@ from mlflow.entities import (
     Expectation,
     Feedback,
     GatewayEndpointModelConfig,
+    IssueSeverity,
+    IssueStatus,
     Metric,
     Param,
     RunTag,
@@ -105,6 +107,7 @@ from mlflow.telemetry.events import (
     SimulateConversationEvent,
     StartTraceEvent,
     TracingContextPropagation,
+    UpdateIssueEvent,
 )
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
@@ -2269,4 +2272,39 @@ def test_tracing_context_propagation_get_and_set_success(
         mock_telemetry_client,
         mock_requests,
         TracingContextPropagation.name,
+    )
+
+
+def test_update_issue_telemetry(mock_requests, mock_telemetry_client: TelemetryClient, tmp_path):
+    db_path = tmp_path / "mlflow.db"
+    store = SqlAlchemyStore(f"sqlite:///{db_path}", tmp_path.as_posix())
+
+    exp_id = store.create_experiment("test-exp")
+    issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Original name",
+        description="Original description",
+        status=IssueStatus.PENDING,
+    )
+    mock_telemetry_client.flush()
+    mock_requests.clear()
+
+    store.update_issue(
+        issue_id=issue.issue_id,
+        status=IssueStatus.RESOLVED,
+        name="Updated name",
+        description="Updated description",
+        severity=IssueSeverity.HIGH,
+    )
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        UpdateIssueEvent.name,
+        {
+            "status": "resolved",
+            "name": "Updated name",
+            "description": "Updated description",
+            "severity": "high",
+        },
     )
