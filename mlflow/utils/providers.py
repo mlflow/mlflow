@@ -49,32 +49,30 @@ class ProviderConfigResponse(TypedDict):
     default_mode: str
 
 
-_MODEL_INFO_FIELDS = frozenset({
+class ModelInfo(TypedDict, total=False):
     # Used by _build_model_dict
-    "supports_function_calling",
-    "supports_vision",
-    "supports_reasoning",
-    "supports_prompt_caching",
-    "supports_response_schema",
-    "max_input_tokens",
-    "max_output_tokens",
-    "input_cost_per_token",
-    "output_cost_per_token",
-    "deprecation_date",
+    supports_function_calling: bool
+    supports_vision: bool
+    supports_reasoning: bool
+    supports_prompt_caching: bool
+    supports_response_schema: bool
+    max_input_tokens: int
+    max_output_tokens: int
+    input_cost_per_token: float
+    output_cost_per_token: float
+    deprecation_date: str
     # Used by cost_per_token
-    "cache_read_input_token_cost",
-    "cache_creation_input_token_cost",
+    cache_read_input_token_cost: float
+    cache_creation_input_token_cost: float
     # Used by get_all_providers / get_models / _extract_models
-    "mode",
-})
+    mode: str
 
 
 @functools.lru_cache(maxsize=1)
-def _get_model_cost() -> dict[tuple[str | None, str], dict[str, Any]]:
+def _get_model_cost() -> dict[tuple[str | None, str], ModelInfo]:
     """Load model cost data keyed by ``(provider, model_name)``.
 
     Each JSON key is split on the first ``/`` to derive provider and model name.
-    Only fields used by ``_build_model_dict`` and ``cost_per_token`` are retained.
     """
     ref = importlib.resources.files(__package__).joinpath("model_prices_and_context_window.json")
     try:
@@ -82,33 +80,24 @@ def _get_model_cost() -> dict[tuple[str | None, str], dict[str, Any]]:
             raw = json.load(f)
     except FileNotFoundError:
         return {}
-    result: dict[tuple[str | None, str], dict[str, Any]] = {}
+    result: dict[tuple[str | None, str], ModelInfo] = {}
     for key, info in raw.items():
-        filtered = {k: v for k, v in info.items() if k in _MODEL_INFO_FIELDS}
         provider = info.get("litellm_provider")
-        model_name = key.split("/", 1)[1] if "/" in key else key
-        # (provider, model) for provider-specific lookup
+        model_name = key.split("/", 1)[-1]
         if provider:
-            result.setdefault((provider, model_name), filtered)
-        # (None, model) for provider-agnostic lookup
-        result.setdefault((None, model_name), filtered)
+            result.setdefault((provider, model_name), info)
+        result.setdefault((None, model_name), info)
     return result
 
 
-def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> dict[str, Any] | None:
+def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
     """Look up model cost info by ``(provider, model)``."""
     index = _get_model_cost()
-    bare_model = model.split("/", 1)[-1] if "/" in model else model
-
-    # 1. Provider-specific lookup
-    if custom_llm_provider:
-        if info := index.get((custom_llm_provider, bare_model)):
-            return info
-
-    # 2. Provider-agnostic lookup
-    if info := index.get((None, bare_model)):
+    bare_model = model.split("/", 1)[-1]
+    if info := index.get((custom_llm_provider, bare_model)):
         return info
-
+    if custom_llm_provider:
+        return index.get((None, bare_model))
     return None
 
 
