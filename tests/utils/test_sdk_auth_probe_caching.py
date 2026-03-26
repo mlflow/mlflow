@@ -29,6 +29,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytest.importorskip("databricks.sdk", reason="databricks-sdk not installed")
+
 _HOST = "https://test.cloud.databricks.com"
 
 

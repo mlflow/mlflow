@@ -2033,8 +2033,8 @@ def test_databricks_tracking_store_registration():
     # Verify that the store was created with the right get_host_creds function
     # The RestStore should have a get_host_creds attribute that is a partial function
     assert hasattr(store, "get_host_creds")
-    assert store.get_host_creds.func.__name__ == "get_databricks_host_creds"
-    assert store.get_host_creds.args == ("databricks",)
+    assert store.get_host_creds.func.__name__ == "_get_databricks_host_creds_impl"
+    assert store.get_host_creds.args[0] == "databricks"
 
 
 def test_databricks_model_registry_store_registration():
@@ -2046,8 +2046,8 @@ def test_databricks_model_registry_store_registration():
 
     # Verify that the store was created with the right get_host_creds function
     assert hasattr(store, "get_host_creds")
-    assert store.get_host_creds.func.__name__ == "get_databricks_host_creds"
-    assert store.get_host_creds.args == ("databricks",)
+    assert store.get_host_creds.func.__name__ == "_get_databricks_host_creds_impl"
+    assert store.get_host_creds.args[0] == "databricks"
 
     # Test that the correct store type is returned for databricks-uc
     uc_store = registry.get_store("databricks-uc")
