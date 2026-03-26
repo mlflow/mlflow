@@ -41,6 +41,26 @@ module.exports = async ({ github, context }) => {
     return newRun.run_attempt > existingRun.run_attempt;
   }
 
+  async function hasFailedJob(runId) {
+    for await (const { data: jobs } of github.paginate.iterator(
+      github.rest.actions.listJobsForWorkflowRun,
+      { owner, repo, run_id: runId },
+    )) {
+      if (
+        jobs.some(
+          (job) =>
+            job.conclusion === "cancelled" ||
+            (job.status === "completed" &&
+              job.conclusion !== "success" &&
+              job.conclusion !== "skipped"),
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   async function fetchChecks(ref) {
     // Check runs (e.g., DCO check, but excluding GitHub Actions)
     const checkRuns = (
@@ -68,10 +88,10 @@ module.exports = async ({ github, context }) => {
         conclusion === "cancelled"
           ? STATE.failure
           : status !== "completed"
-          ? STATE.pending
-          : conclusion === "success" || conclusion === "skipped"
-          ? STATE.success
-          : STATE.failure,
+            ? STATE.pending
+            : conclusion === "success" || conclusion === "skipped"
+              ? STATE.success
+              : STATE.failure,
     }));
 
     // Workflow runs (e.g., GitHub Actions)
@@ -86,7 +106,7 @@ module.exports = async ({ github, context }) => {
         // Exclude this workflow to avoid self-checking
         path !== ".github/workflows/protect.yml" &&
         // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
-        event !== "dynamic"
+        event !== "dynamic",
     );
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
@@ -99,34 +119,30 @@ module.exports = async ({ github, context }) => {
       }
     }
 
-    // Fetch jobs for each workflow run
-    const runs = [];
     for (const run of Object.values(latestRuns)) {
-      // Fetch jobs for this workflow run
-      const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
-        owner,
-        repo,
-        run_id: run.id,
-      });
-
-      // Process each job as a separate check
-      for (const job of jobs) {
-        const runName = run.path.replace(".github/workflows/", "");
-        runs.push({
-          name: `${job.name} (${runName}, attempt ${run.run_attempt})`,
+      const runName = run.path.replace(".github/workflows/", "");
+      if (run.status === "completed") {
+        // Use run-level status directly (0 extra API calls).
+        checks.push({
+          name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
           status:
-            job.conclusion === "cancelled"
+            run.conclusion === "cancelled"
               ? STATE.failure
-              : job.status !== "completed"
-              ? STATE.pending
-              : job.conclusion === "success" || job.conclusion === "skipped"
-              ? STATE.success
-              : STATE.failure,
+              : run.conclusion === "success" || run.conclusion === "skipped"
+                ? STATE.success
+                : STATE.failure,
         });
+      } else if (await hasFailedJob(run.id)) {
+        // Fetch jobs only for in-progress runs to detect early failures.
+        checks.push({
+          name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
+          status: STATE.failure,
+        });
+        break;
       }
     }
 
-    return [...checks, ...runs].sort((a, b) => a.name.localeCompare(b.name));
+    return checks;
   }
 
   const start = new Date();
@@ -143,7 +159,7 @@ module.exports = async ({ github, context }) => {
 
     if (checks.some(({ status }) => status === STATE.failure)) {
       throw new Error(
-        "This job ensures that all checks except for this one have passed to prevent accidental auto-merges."
+        "This job ensures that all checks except for this one have passed to prevent accidental auto-merges.",
       );
     }
 
