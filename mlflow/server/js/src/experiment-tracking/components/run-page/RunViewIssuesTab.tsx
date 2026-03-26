@@ -16,6 +16,7 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
   const { theme } = useDesignSystemTheme();
   const [statusFilter, setStatusFilter] = useState<IssueStatusFilterValue>('pending');
   const issueCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const autoSwitchedForIssueRef = useRef<string | null>(null);
   const { issues, isLoading } = useSearchIssuesQuery({
     experimentId,
     sourceRunId: runUuid,
@@ -30,25 +31,42 @@ export const RunViewIssuesTab = ({ runUuid, experimentId }: RunViewIssuesTabProp
 
   // Scroll to the selected issue card
   const scrollToSelectedIssue = useCallback((issueId: string) => {
-    const cardElement = issueCardRefs.current[issueId];
-    if (cardElement) {
-      cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
+    // Use requestAnimationFrame to ensure scroll happens after DOM updates
+    // This is especially important when the list reorders after an update
+    requestAnimationFrame(() => {
+      const cardElement = issueCardRefs.current[issueId];
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
   }, []);
 
   const [selectedIssueId, setSelectedIssueId] = useSelectedIssueId({
     onSelect: scrollToSelectedIssue,
   });
 
-  // Auto-select issue from URL parameter when issues load
+  // Auto-select issue from URL parameter when issues load.
+  // Also switch to the correct status filter so the issue is visible.
   useEffect(() => {
+    // Reset tracking when selectedIssueId changes, so navigating back to the same issue
+    // (e.g., via browser back button) will re-trigger the auto-switch if needed.
+    if (autoSwitchedForIssueRef.current && autoSwitchedForIssueRef.current !== selectedIssueId) {
+      autoSwitchedForIssueRef.current = null;
+    }
+
     if (selectedIssueId && issues.length > 0) {
       const issue = issues.find((i) => i.issue_id === selectedIssueId);
       if (issue) {
+        if (autoSwitchedForIssueRef.current !== selectedIssueId) {
+          autoSwitchedForIssueRef.current = selectedIssueId;
+          if (issue.status !== statusFilter) {
+            setStatusFilter(issue.status);
+          }
+        }
         scrollToSelectedIssue(selectedIssueId);
       }
     }
-  }, [selectedIssueId, issues, scrollToSelectedIssue]);
+  }, [selectedIssueId, issues, scrollToSelectedIssue, statusFilter]);
 
   const handleSelect = (issue: Issue) => {
     const isDeselecting = selectedIssueId === issue.issue_id;

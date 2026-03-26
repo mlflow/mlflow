@@ -69,7 +69,13 @@ const WebhooksSettings = ({
         setWebhooks(all);
       }
     } catch (e: any) {
-      setError(e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to load webhooks' }));
+      setError(
+        e?.message ??
+          intl.formatMessage({
+            defaultMessage: 'Failed to load webhooks',
+            description: 'Error message informing the user that webhooks did not load successfully',
+          }),
+      );
     } finally {
       setLoading(false);
     }
@@ -112,7 +118,13 @@ const WebhooksSettings = ({
       await WebhooksApi.deleteWebhook(webhookToDelete.webhook_id);
       await fetchWebhooks();
     } catch (e: any) {
-      setError(e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to delete webhook' }));
+      setError(
+        e?.message ??
+          intl.formatMessage({
+            defaultMessage: 'Failed to delete webhook',
+            description: 'Generic error message informing the user that webhook deletion failed',
+          }),
+      );
     } finally {
       setDeletingId(null);
       setWebhookToDelete(null);
@@ -131,16 +143,28 @@ const WebhooksSettings = ({
           success: result?.success ?? false,
           message: result?.success
             ? intl.formatMessage(
-                { defaultMessage: 'Test succeeded (HTTP {status})' },
+                {
+                  defaultMessage: 'Test succeeded (HTTP {status})',
+                  description: 'Message informing the user that the webhook test succeeded',
+                },
                 { status: result?.response_status ?? '' },
               )
-            : (result?.error_message ?? intl.formatMessage({ defaultMessage: 'Test failed with no error message' })),
+            : (result?.error_message ??
+              intl.formatMessage({
+                defaultMessage: 'Test failed with no error message',
+                description: 'Message informing the user that the webhook test failed with no error message',
+              })),
         });
       } catch (e: any) {
         setTestResult({
           webhookId: webhook.webhook_id,
           success: false,
-          message: e?.message ?? intl.formatMessage({ defaultMessage: 'Failed to invoke webhook' }),
+          message:
+            e?.message ??
+            intl.formatMessage({
+              defaultMessage: 'Failed to invoke webhook',
+              description: 'Message informing the user that the webhook test failed to invoke',
+            }),
         });
       } finally {
         setTestingId(null);

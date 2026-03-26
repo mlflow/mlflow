@@ -6080,6 +6080,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         filter_string: str | None = None,
         max_results: int | None = None,
         page_token: str | None = None,
+        include_trace_count: bool = False,
     ) -> PagedList[Issue]:
         """
         Search for issues matching the given filters.
@@ -6095,6 +6096,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     - "status = 'pending' AND source_run_id != 'run456'"
             max_results: Maximum number of results to return.
             page_token: Token for pagination.
+            include_trace_count: Whether to include the count of traces impacted by each issue.
 
         Returns:
             A PagedList of Issue entities.
@@ -6107,6 +6109,23 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
 
             query = self._get_query(session, SqlIssue)
+
+            if include_trace_count:
+                trace_count_label = func.count(func.distinct(SqlAssessments.trace_id)).label(
+                    "trace_count"
+                )
+                query = (
+                    query
+                    .add_columns(trace_count_label)
+                    .outerjoin(
+                        SqlAssessments,
+                        and_(
+                            SqlAssessments.name == SqlIssue.issue_id,
+                            SqlAssessments.assessment_type == "issue",
+                        ),
+                    )
+                    .group_by(SqlIssue.issue_id)
+                )
 
             if experiment_id:
                 query = query.filter(SqlIssue.experiment_id == int(experiment_id))
@@ -6125,22 +6144,31 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 value=SqlIssue.severity,
                 else_=-1,
             )
-            query = query.order_by(
-                severity_order.desc(),
+
+            order_clauses = [severity_order.desc()]
+            if include_trace_count:
+                order_clauses.append(trace_count_label.desc())
+            order_clauses.extend([
                 SqlIssue.created_timestamp.desc(),
                 SqlIssue.issue_id.desc(),
-            )
+            ])
+            query = query.order_by(*order_clauses)
 
             query = query.offset(offset).limit(max_results + 1)
 
-            sql_issues = query.all()
-
-            has_next_page = len(sql_issues) > max_results
+            results = query.all()
+            has_next_page = len(results) > max_results
             next_token = (
                 SearchTraceUtils.create_page_token(offset + max_results) if has_next_page else None
             )
 
-            issues = [sql_issue.to_mlflow_entity() for sql_issue in sql_issues[:max_results]]
+            if include_trace_count:
+                issues = [
+                    sql_issue.to_mlflow_entity(trace_count=trace_count)
+                    for sql_issue, trace_count in results[:max_results]
+                ]
+            else:
+                issues = [sql_issue.to_mlflow_entity() for sql_issue in results[:max_results]]
 
             return PagedList(issues, token=next_token)
 

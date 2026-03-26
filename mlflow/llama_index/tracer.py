@@ -136,6 +136,29 @@ def _is_workflow_handler(result):
         return False
 
 
+def _extract_workflow_inputs(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Extract user-facing inputs from workflow span arguments.
+
+    In llama-index-workflows >= 2.0 (llama-index-core >= 0.14.16), the workflow runtime
+    instruments Workflow.run differently: bound_args contains internal runtime state
+    (init_state, start_event, tags) instead of the original kwargs. Extract the user kwargs
+    from the StartEvent object to produce clean span inputs.
+    """
+    start_event = arguments.get("start_event")
+    if start_event is None:
+        return arguments
+
+    try:
+        from llama_index.core.workflow import StartEvent
+
+        if isinstance(start_event, StartEvent):
+            return start_event.to_dict()
+    except ImportError:
+        pass
+
+    return arguments
+
+
 class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
     def __init__(self):
         super().__init__()
@@ -167,7 +190,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         parent_span = parent._mlflow_span if parent else mlflow.get_current_active_span()
 
         try:
-            input_args = bound_args.arguments
+            input_args = _extract_workflow_inputs(bound_args.arguments)
             attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
             span = start_span_no_context(

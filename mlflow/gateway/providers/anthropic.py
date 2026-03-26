@@ -23,6 +23,47 @@ from mlflow.types.chat import Function, ToolCallDelta
 _logger = logging.getLogger(__name__)
 
 
+class _UnsupportedSchemaError(Exception):
+    """Schema contains constructs that Anthropic structured outputs cannot represent."""
+
+
+def _enforce_strict_schema(schema: dict[str, Any]) -> None:
+    """Recursively set ``additionalProperties: false`` on object types that have ``properties``.
+
+    Anthropic's structured outputs require every object node to explicitly set
+    ``additionalProperties: false``. Pydantic-generated schemas often violate
+    this — for example, ``dict[str, str]`` produces:
+
+        // Rejected by Anthropic (400)
+        {"type": "object", "additionalProperties": {"type": "string"}}
+
+    This function rewrites it to:
+
+        // Accepted by Anthropic
+        {"type": "object", "additionalProperties": false}
+
+    Objects without ``properties`` (i.e. free-form dicts like ``dict[str, str]``)
+    are left unchanged so the model can still populate them with arbitrary keys.
+    """
+    if not isinstance(schema, dict):
+        return
+    if schema.get("type") == "object":
+        if "properties" not in schema:
+            raise _UnsupportedSchemaError(
+                "Object type without 'properties' (free-form dict) cannot be represented "
+                "with Anthropic structured outputs, which require additionalProperties: false."
+            )
+        schema["additionalProperties"] = False
+    for value in schema.values():
+        match value:
+            case dict():
+                _enforce_strict_schema(value)
+            case list():
+                for item in value:
+                    if isinstance(item, dict):
+                        _enforce_strict_schema(item)
+
+
 class AnthropicAdapter(ProviderAdapter):
     @classmethod
     def chat_to_model(cls, payload, config):
@@ -141,12 +182,24 @@ class AnthropicAdapter(ProviderAdapter):
         if response_format := payload.pop("response_format", None):
             if response_format.get("type") == "json_schema" and "json_schema" in response_format:
                 json_schema = response_format["json_schema"]
-                payload["output_config"] = {
-                    "format": {
-                        "type": "json_schema",
-                        "schema": json_schema.get("schema", {}),
+                schema = json_schema.get("schema", {})
+                try:
+                    _enforce_strict_schema(schema)
+                except _UnsupportedSchemaError:
+                    # Schema contains free-form dicts (objects without properties)
+                    # which Anthropic cannot represent. Skip structured output and
+                    # let the model respond in plain text.
+                    _logger.debug(
+                        "Schema contains constructs unsupported by Anthropic structured "
+                        "outputs (e.g. free-form dict). Falling back to plain text."
+                    )
+                else:
+                    payload["output_config"] = {
+                        "format": {
+                            "type": "json_schema",
+                            "schema": schema,
+                        }
                     }
-                }
 
         return payload
 

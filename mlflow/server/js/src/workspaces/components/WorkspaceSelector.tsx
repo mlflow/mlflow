@@ -12,11 +12,7 @@ import {
 import { uniqBy } from 'lodash';
 
 import { shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
-import {
-  extractWorkspaceFromSearchParams,
-  setLastUsedWorkspace,
-  WORKSPACE_QUERY_PARAM,
-} from '../../workspaces/utils/WorkspaceUtils';
+import { extractWorkspaceFromSearchParams, setLastUsedWorkspace, WORKSPACE_QUERY_PARAM } from '../utils/WorkspaceUtils';
 import { useLocation, useNavigate, useSearchParams } from '../../common/utils/RoutingUtils';
 import Routes from '../../experiment-tracking/routes';
 import { useWorkspaces } from '../hooks/useWorkspaces';

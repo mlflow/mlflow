@@ -135,11 +135,13 @@ mlflow = [
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",
+  "server/uvicorn_log_config.yaml",
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
   "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
+  "utils/model_prices_and_context_window.json",
 ]
 
 [tool.setuptools.packages.find]

@@ -27,7 +27,7 @@ from mlflow.environment_variables import (
     MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
+from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR, MLFLOW_SERVER_UP_TIME
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.process import _exec_cmd
@@ -44,8 +44,15 @@ _logger = logging.getLogger(__name__)
 # Reserved Huey instance key for periodic tasks
 HUEY_PERIODIC_TASKS_INSTANCE_KEY = "periodic_tasks"
 
-# Environment variable name for the job name set in job subprocesses
+# Environment variable names for job execution
 MLFLOW_SERVER_JOB_NAME_ENV_VAR = "_MLFLOW_SERVER_JOB_NAME"
+MLFLOW_SERVER_JOB_ID_ENV_VAR = "_MLFLOW_SERVER_JOB_ID"
+MLFLOW_SERVER_JOB_PARAMS_ENV_VAR = "_MLFLOW_SERVER_JOB_PARAMS"
+MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR = "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME"
+MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR = "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH"
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR = (
+    "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH"
+)
 
 # Number of worker threads for the periodic tasks consumer
 PERIODIC_TASKS_WORKER_COUNT = 5
@@ -230,10 +237,11 @@ def _exec_job_in_subproc(
     job_env = {
         **os.environ,
         MLFLOW_SERVER_JOB_NAME_ENV_VAR: job_name,
-        "_MLFLOW_SERVER_JOB_PARAMS": json.dumps(params),
-        "_MLFLOW_SERVER_JOB_FUNCTION_FULLNAME": function_fullname,
-        "_MLFLOW_SERVER_JOB_RESULT_DUMP_PATH": result_file,
-        "_MLFLOW_SERVER_JOB_TRANSIENT_ERROR_ClASSES_PATH": transient_error_classes_file,
+        MLFLOW_SERVER_JOB_ID_ENV_VAR: job_id,
+        MLFLOW_SERVER_JOB_PARAMS_ENV_VAR: json.dumps(params),
+        MLFLOW_SERVER_JOB_FUNCTION_FULLNAME_ENV_VAR: function_fullname,
+        MLFLOW_SERVER_JOB_RESULT_DUMP_PATH_ENV_VAR: result_file,
+        MLFLOW_SERVER_JOB_TRANSIENT_ERROR_CLASSES_PATH_ENV_VAR: transient_error_classes_file,
         **(extra_envs or {}),
     }
 
@@ -535,13 +543,19 @@ def _start_periodic_tasks_consumer_proc():
 
 
 def _launch_job_runner(env_map, server_proc_pid):
+    server_up_time = str(int(time.time() * 1000))
     return subprocess.Popen(
         [
             sys.executable,
             "-m",
             "mlflow.server.jobs._job_runner",
         ],
-        env={**os.environ, **env_map, "MLFLOW_SERVER_PID": str(server_proc_pid)},
+        env={
+            **os.environ,
+            **env_map,
+            "MLFLOW_SERVER_PID": str(server_proc_pid),
+            MLFLOW_SERVER_UP_TIME: server_up_time,
+        },
     )
 
 
@@ -617,7 +631,11 @@ def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
 
                 params = json.loads(job.params)
                 timeout = job.timeout
-                job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
+                # Only propagate workspace to subprocess when workspaces are enabled
+                if MLFLOW_ENABLE_WORKSPACES.get():
+                    job_workspace = job.workspace or workspace or DEFAULT_WORKSPACE_NAME
+                else:
+                    job_workspace = None
                 # Look up exclusive flag from function metadata
                 fn_fullname = get_job_fn_fullname(job.job_name)
                 fn_metadata = _load_function(fn_fullname)._job_fn_metadata

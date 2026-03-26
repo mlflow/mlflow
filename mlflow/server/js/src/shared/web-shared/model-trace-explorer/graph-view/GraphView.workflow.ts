@@ -10,7 +10,10 @@ function flattenSpans(root: ModelTraceSpanNode): ModelTraceSpanNode[] {
   const stack: ModelTraceSpanNode[] = [root];
 
   while (stack.length > 0) {
-    const node = stack.pop()!;
+    const node = stack.pop();
+    if (!node) {
+      continue;
+    }
     result.push(node);
     if (node.children) {
       for (let i = node.children.length - 1; i >= 0; i--) {
@@ -198,7 +201,7 @@ function applyLayeredLayout(
     if (!layerGroups.has(layer)) {
       layerGroups.set(layer, []);
     }
-    layerGroups.get(layer)!.push(node);
+    layerGroups.get(layer)?.push(node);
   }
 
   // Position nodes using parent-centered layout (Reingold-Tilford style)
@@ -211,7 +214,7 @@ function applyLayeredLayout(
       if (!childrenMap.has(edge.sourceId)) {
         childrenMap.set(edge.sourceId, []);
       }
-      childrenMap.get(edge.sourceId)!.push(edge.targetId);
+      childrenMap.get(edge.sourceId)?.push(edge.targetId);
     }
   }
 
@@ -227,7 +230,7 @@ function applyLayeredLayout(
   // Assign Y positions for all layers
   for (const layerIndex of sortedLayers) {
     const y = config.padding + layerIndex * (config.nodeHeight + config.verticalSpacing);
-    for (const node of layerGroups.get(layerIndex)!) {
+    for (const node of layerGroups.get(layerIndex) ?? []) {
       node.y = y;
     }
   }
@@ -236,7 +239,7 @@ function applyLayeredLayout(
   const reversedLayers = [...sortedLayers].reverse();
 
   for (const layerIndex of reversedLayers) {
-    const layerNodes = layerGroups.get(layerIndex)!;
+    const layerNodes = layerGroups.get(layerIndex) ?? [];
 
     // Step 1: Position leaf nodes (no children) sequentially
     let nextLeafX = config.padding;
@@ -256,7 +259,7 @@ function applyLayeredLayout(
       }
       const childIds = (childrenMap.get(node.id) ?? []).filter((id) => positioned.has(id));
       if (childIds.length > 0) {
-        const children = childIds.map((id) => nodeById.get(id)!);
+        const children = childIds.map((id) => nodeById.get(id) as WorkflowNode);
         const childLeft = Math.min(...children.map((c) => c.x));
         const childRight = Math.max(...children.map((c) => c.x + c.width));
         node.x = (childLeft + childRight) / 2 - node.width / 2;
@@ -353,7 +356,7 @@ function buildWorkflowGraph(
     if (!nodeGroups.has(key)) {
       nodeGroups.set(key, []);
     }
-    nodeGroups.get(key)!.push(span);
+    nodeGroups.get(key)?.push(span);
   }
 
   // Create WorkflowNodes using span name and type
@@ -393,7 +396,10 @@ function buildWorkflowGraph(
           isNestedCall: false,
         });
       }
-      edgeMap.get(edgeId)!.count++;
+      const edge = edgeMap.get(edgeId);
+      if (edge) {
+        edge.count++;
+      }
     }
 
     if (node.children) {
@@ -415,9 +421,11 @@ function buildWorkflowGraph(
     }
     const reverseEdgeId = `${edge.targetId}->${edge.sourceId}`;
     if (edgeMap.has(reverseEdgeId)) {
-      const reverseEdge = edgeMap.get(reverseEdgeId)!;
+      const reverseEdge = edgeMap.get(reverseEdgeId);
       // Keep the first edge as the primary direction, mark the reverse as nested
-      reverseEdge.isNestedCall = true;
+      if (reverseEdge) {
+        reverseEdge.isNestedCall = true;
+      }
       processedPairs.add(pairKey);
     }
   }
