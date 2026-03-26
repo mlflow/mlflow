@@ -80,13 +80,15 @@ def _get_model_cost() -> dict[tuple[str | None, str], ModelInfo]:
             raw = json.load(f)
     except FileNotFoundError:
         return {}
+    model_info_keys = ModelInfo.__annotations__
     result: dict[tuple[str | None, str], ModelInfo] = {}
     for key, info in raw.items():
         provider = info.get("litellm_provider")
         model_name = key.split("/", 1)[-1]
+        filtered = {k: v for k, v in info.items() if k in model_info_keys}
         if provider:
-            result.setdefault((provider, model_name), info)
-        result.setdefault((None, model_name), info)
+            result.setdefault((provider, model_name), filtered)
+        result.setdefault((None, model_name), filtered)
     return result
 
 
