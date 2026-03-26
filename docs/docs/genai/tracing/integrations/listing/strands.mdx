@@ -66,7 +66,7 @@ MLflow automatically tracks token usage and cost for Strands Agent SDK. The toke
 
 ## Session Tracking
 
-Since MLflow 3.6, MLflow will automatically record the session ID for traces when you use the `mlflow.set_session()` context manager. This allows you to view and group related traces as a logical conversation or session in the UI.
+When a Strands `Agent` is configured with a `SessionManager`, MLflow automatically captures the `session_id` from it and tags every trace with that session — no extra code required. This allows you to view and group related traces as a logical multi-turn conversation in the MLflow Trace UI.
 
 ```python
 import mlflow
@@ -84,51 +84,75 @@ model = OpenAIModel(
     params={"max_tokens": 2000, "temperature": 0.7},
 )
 
-# Create a session manager (for Strands conversation persistence)
 session_manager = FileSessionManager(session_id="user-123")
 
-# Create an agent with the session manager
 agent = Agent(
     model=model,
     session_manager=session_manager,
     name="assistant",
 )
 
-# Use MLflow's set_session() to track the session in MLflow traces
-with mlflow.set_session(session_manager.session_id):
-    agent("What's the weather like today?")
-    agent("And what about tomorrow?")
-    agent("Thanks for the information!")
+# session_id="user-123" is captured automatically on every call
+agent("What's the weather like today?")
+agent("And what about tomorrow?")
+agent("Thanks for the information!")
 ```
 
 **All three invocations will be tagged with `session_id="user-123"`** in MLflow, allowing you to view them grouped together in the MLflow Trace UI.
 
-### Auto-Generated Session IDs
+### Session Tracking Without a Session Manager
 
-If you don't have a session ID from Strands, MLflow can auto-generate one for you:
+If your agent has no `SessionManager`, you can supply a session ID explicitly using the <APILink fn="mlflow.set_session" /> context manager:
 
 ```python
-# MLflow will auto-generate a unique session ID
+agent = Agent(model=model, name="assistant")  # No session_manager
+
+with mlflow.set_session("conversation-456"):
+    agent("Hello!")
+    agent("How are you?")
+```
+
+### Auto-Generated Session IDs
+
+Let MLflow generate a unique session ID automatically:
+
+```python
 with mlflow.set_session() as session_id:
     print(f"Session ID: {session_id}")
     agent("First message")
     agent("Second message")
 ```
 
-### Session Tracking Without Strands Session Manager
+The session ID will be recorded in the trace metadata and displayed in the MLflow Trace UI. By navigating to the Session tab in the sidebar, you can view all the traces in a specific session, making it easier to debug multi-turn conversations and track user interactions over time.
 
-You can use MLflow session tracking even without Strands' `FileSessionManager`:
+## Combine with the MLflow Tracing SDK
+
+Since this integration is built on OpenTelemetry, you can combine the automatically generated traces with the [MLflow Tracing SDK](/genai/tracing) to add custom spans, set tags, and log assessments within the same trace. This is useful when you want to enrich the auto-generated traces with additional application-specific context.
+
+To enable this, set the `MLFLOW_USE_DEFAULT_TRACER_PROVIDER` environment variable to `false` and call <APILink fn="mlflow.tracing.set_destination" /> to merge spans from both SDKs into a single trace.
 
 ```python
-agent = Agent(model=model, name="assistant")  # No session_manager
+import os
 
-# Still works! MLflow tracks the session
-with mlflow.set_session("conversation-456"):
-    agent("Hello!")
-    agent("How are you?")
+os.environ["MLFLOW_USE_DEFAULT_TRACER_PROVIDER"] = "false"
+
+import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
+
+mlflow.set_tracking_uri("http://localhost:5000")
+exp_id = mlflow.set_experiment("Strands Agents").experiment_id
+mlflow.tracing.set_destination(MlflowExperimentLocation(exp_id))
+
+mlflow.strands.autolog()
+
+# Add custom MLflow spans alongside the auto-generated Strands traces
+with mlflow.start_span("custom_step") as span:
+    span.set_inputs({"query": "test"})
+    # your application logic here
+    span.set_outputs({"result": "success"})
 ```
 
-The session ID will be recorded in the trace metadata and displayed in the MLflow Trace UI. By navigating to the Session tab in the sidebar, you can view all the traces in a specific session, making it easier to debug multi-turn conversations and track user interactions over time.
+For detailed instructions and examples, see [Combining the OpenTelemetry SDK and the MLflow Tracing SDK](/genai/tracing/app-instrumentation/opentelemetry#combining-the-opentelemetry-sdk-and-the-mlflow-tracing-sdk).
 
 ### Disable auto-tracing
 
