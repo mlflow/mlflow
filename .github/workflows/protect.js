@@ -132,6 +132,7 @@ module.exports = async ({ github, context }) => {
   const start = new Date();
   let iterationCount = 0;
   const TIMEOUT = 120 * 60 * 1000; // 2 hours
+  await logRateLimit();
   while (new Date() - start < TIMEOUT) {
     ++iterationCount;
     const checks = await fetchChecks(sha);
