@@ -10,7 +10,6 @@ import pydantic
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
-    from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
 from mlflow.exceptions import MlflowException
@@ -24,6 +23,7 @@ from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
+from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
 
@@ -124,8 +124,6 @@ def _invoke_databricks_structured_output(
     Raises:
         MlflowException: If databricks-agents is not installed or invocation fails.
     """
-    from mlflow.types.llm import ChatMessage
-
     judge_messages = [ChatMessage(role=msg.role, content=msg.content) for msg in messages]
 
     # Add schema instructions to the system message
