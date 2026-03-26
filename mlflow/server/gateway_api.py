@@ -244,9 +244,12 @@ def _build_endpoint_config(
         provider_config = GeminiConfig(
             gemini_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
         )
-    elif model_config.provider in {Provider.GROQ, Provider.DEEPSEEK, Provider.XAI}:
-        provider_config = _build_openai_compatible_config(model_config)
-    elif model_config.provider == Provider.OPENROUTER:
+    elif model_config.provider in {
+        Provider.GROQ,
+        Provider.DEEPSEEK,
+        Provider.XAI,
+        Provider.OPENROUTER,
+    }:
         provider_config = _build_openai_compatible_config(model_config)
     else:
         # Use LiteLLM as fallback for unsupported providers

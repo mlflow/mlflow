@@ -74,5 +74,3 @@ async def test_chat():
     result = jsonable_encoder(response)
     assert result["id"] == "chatcmpl-or-123"
     assert result["choices"][0]["message"]["content"] == "Hello from OpenRouter!"
-
-
