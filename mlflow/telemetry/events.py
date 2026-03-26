@@ -5,6 +5,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import Feedback
+from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
     MODULES_TO_CHECK_IMPORT,
@@ -87,7 +88,10 @@ class StartTraceEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         # Capture the set of currently imported packages at trace start time to
         # understand the flavor of the trace.
-        return {"imports": [pkg for pkg in GENAI_MODULES if pkg in sys.modules]}
+        return {
+            "imports": [pkg for pkg in GENAI_MODULES if pkg in sys.modules],
+            "format": "genai_semconv" if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get() else "native",
+        }
 
 
 class LogAssessmentEvent(Event):

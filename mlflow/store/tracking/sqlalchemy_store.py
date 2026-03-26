@@ -4577,6 +4577,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             aggregated_token_usage = {}
             aggregated_cost = {}
             session_id = None
+            span_rows = []
+            metric_rows = []
             for span in spans:
                 span_dict = translate_span_when_storing(span)
                 span_cost = None
@@ -4604,38 +4606,38 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     if value := span_attributes.get(key):
                         dimension_attributes[key] = _try_parse_json_string(value)
 
-                sql_span = SqlSpan(
-                    trace_id=span.trace_id,
-                    experiment_id=sql_trace_info.experiment_id,
-                    span_id=span.span_id,
-                    parent_span_id=span.parent_id,
-                    name=span.name,
-                    type=span.span_type,
-                    status=span.status.status_code,
-                    start_time_unix_nano=span.start_time_ns,
-                    end_time_unix_nano=span.end_time_ns,
-                    content=content_json,
-                    dimension_attributes=dimension_attributes or None,
-                )
-
-                session.merge(sql_span)
+                span_rows.append({
+                    "trace_id": span.trace_id,
+                    "experiment_id": sql_trace_info.experiment_id,
+                    "span_id": span.span_id,
+                    "parent_span_id": span.parent_id,
+                    "name": span.name,
+                    "type": span.span_type,
+                    "status": span.status.status_code,
+                    "start_time_unix_nano": span.start_time_ns,
+                    "end_time_unix_nano": span.end_time_ns,
+                    "content": content_json,
+                    "dimension_attributes": dimension_attributes or None,
+                })
 
                 if span_cost:
                     span_cost = json.loads(span_cost)
                     for cost_key, cost_value in span_cost.items():
-                        session.merge(
-                            SqlSpanMetrics(
-                                trace_id=span.trace_id,
-                                span_id=span.span_id,
-                                key=cost_key,
-                                value=float(cost_value),
-                            )
-                        )
+                        metric_rows.append({
+                            "trace_id": span.trace_id,
+                            "span_id": span.span_id,
+                            "key": cost_key,
+                            "value": float(cost_value),
+                        })
 
                 if span.parent_id is None:
                     update_dict.update(
                         self._update_trace_info_attributes(sql_trace_info, span_dict)
                     )
+
+            # Bulk upsert spans and metrics instead of per-row session.merge()
+            _bulk_upsert(session, SqlSpan, span_rows)
+            _bulk_upsert(session, SqlSpanMetrics, metric_rows)
 
             if aggregated_token_usage:
                 trace_token_usage_record = (
@@ -6998,3 +7000,69 @@ def _try_parse_json_string(value: str) -> str:
     except json.JSONDecodeError:
         pass
     return value
+
+
+def _bulk_upsert(session: Session, model_class: type, rows: list[dict[str, Any]]) -> None:
+    """Bulk upsert rows using dialect-specific INSERT ON CONFLICT.
+
+    Rows are inserted in batches to stay within database limits (e.g., SQLite's
+    SQLITE_MAX_VARIABLE_NUMBER on older versions, MySQL's max_allowed_packet).
+
+    Falls back to per-row session.merge() for unsupported dialects (e.g., MSSQL).
+    """
+    if not rows:
+        return
+
+    dialect = session.bind.dialect.name
+    table = model_class.__table__
+    pk_columns = [col.name for col in table.primary_key.columns]
+    # All non-PK columns that should be updated on conflict
+    update_columns = [c.name for c in table.columns if c.name not in pk_columns and not c.computed]
+
+    batch_size = 100
+    for i in range(0, len(rows), batch_size):
+        batch = rows[i : i + batch_size]
+        _upsert_batch(session, model_class, table, batch, pk_columns, update_columns, dialect)
+
+
+def _upsert_batch(
+    session: Session,
+    model_class: type,
+    table: sqlalchemy.Table,
+    rows: list[dict[str, Any]],
+    pk_columns: list[str],
+    update_columns: list[str],
+    dialect: str,
+) -> None:
+    match dialect:
+        case "sqlite" | "postgresql":
+            if dialect == "sqlite":
+                from sqlalchemy.dialects.sqlite import insert
+            else:
+                from sqlalchemy.dialects.postgresql import insert
+
+            stmt = insert(table).values(rows)
+            if update_columns:
+                stmt = stmt.on_conflict_do_update(
+                    index_elements=pk_columns,
+                    set_={col: stmt.excluded[col] for col in update_columns},
+                )
+            else:
+                stmt = stmt.on_conflict_do_nothing()
+            session.execute(stmt)
+        case "mysql":
+            from sqlalchemy.dialects.mysql import insert
+
+            stmt = insert(table).values(rows)
+            if update_columns:
+                stmt = stmt.on_duplicate_key_update({
+                    col: stmt.inserted[col] for col in update_columns
+                })
+            else:
+                # No-op update on PK to silently skip duplicates
+                stmt = stmt.on_duplicate_key_update({pk_columns[0]: stmt.inserted[pk_columns[0]]})
+            session.execute(stmt)
+        case _:
+            # Fallback for MSSQL and other dialects
+            for row in rows:
+                session.merge(model_class(**row))

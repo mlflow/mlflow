@@ -127,6 +127,44 @@ def _is_supported_llm_provider(schema: str) -> bool:
     return schema in provider_registry.keys()
 
 
+_MODELS_WITHOUT_OUTPUT_CONFIG: set[tuple[str, str]] = set()
+
+
+def _is_unsupported_output_format_error(exc: MlflowException) -> bool:
+    """Check if the error indicates the model doesn't support structured output.
+
+    Older Anthropic models (e.g. claude-sonnet-4-20250514) don't support ``output_config``
+    and return a 400 with::
+
+        {
+            "type": "error",
+            "error": {
+                "type": "invalid_request_error",
+                "message": "'claude-sonnet-4-20250514' does not support output format.",
+            },
+        }
+
+    Newer models (e.g. claude-sonnet-4-5-20250929) support it.
+    """
+    match exc.__cause__:
+        case requests.exceptions.HTTPError(
+            response=requests.Response(status_code=400) as response,
+        ):
+            try:
+                body = response.json()
+            except Exception:
+                return False
+            match body:
+                case {
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": str(msg),
+                    }
+                }:
+                    return "does not support output format" in msg.lower()
+    return False
+
+
 def _call_llm_provider_api(
     provider_name: str,
     model: str,
@@ -208,11 +246,28 @@ def _call_llm_provider_api(
             )
         response = provider._request(chat_payload)
     else:
-        response = _send_request(
-            endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
-            headers=provider.headers | extra_headers,
-            payload=chat_payload,
-        )
+        if (provider_name, model) in _MODELS_WITHOUT_OUTPUT_CONFIG:
+            chat_payload.pop("output_config", None)
+            chat_payload.pop("response_format", None)
+
+        try:
+            response = _send_request(
+                endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+                headers=provider.headers | extra_headers,
+                payload=chat_payload,
+            )
+        except MlflowException as e:
+            if provider_name != "anthropic" or not _is_unsupported_output_format_error(e):
+                raise
+            # Model doesn't support structured output; remember and retry.
+            _MODELS_WITHOUT_OUTPUT_CONFIG.add((provider_name, model))
+            chat_payload.pop("output_config", None)
+            chat_payload.pop("response_format", None)
+            response = _send_request(
+                endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+                headers=provider.headers | extra_headers,
+                payload=chat_payload,
+            )
     chat_response = provider.adapter_class.model_to_chat(response, provider.config)
     if len(chat_response.choices) == 0:
         raise MlflowException(
@@ -327,9 +382,11 @@ def _send_request(
         )
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
+        body = getattr(e.response, "text", "")
         raise MlflowException(
-            f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n- Input payload: {payload}."
-        )
+            f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n"
+            f"- Response body: {body}\n- Input payload: {payload}."
+        ) from e
 
     return response.json()
 

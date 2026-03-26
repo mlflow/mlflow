@@ -379,7 +379,8 @@ describe('ModelTraceExplorer', () => {
     const factsItem = screen.getByTestId(`assessment-name-typeahead-item-expected_facts`);
     await userEvent.click(factsItem);
     expect(typeahead).toHaveValue('expected_facts');
-    expect(screen.getByTestId('assessment-value-json-input')).toBeInTheDocument();
+    // JSON data type is clamped to string for feedback assessments
+    expect(screen.getByTestId('assessment-value-string-input')).toBeInTheDocument();
   });
 
   it('should render in-progress traces with multiple top-level spans', async () => {

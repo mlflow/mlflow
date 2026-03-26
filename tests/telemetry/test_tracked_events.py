@@ -368,7 +368,26 @@ def test_start_trace(mock_requests, mlflow_client, mock_telemetry_client: Teleme
     data = validate_telemetry_record(
         mock_telemetry_client, mock_requests, event_name, check_params=False
     )
-    assert "openai" in json.loads(data["params"])["imports"]
+    params = json.loads(data["params"])
+    assert "openai" in params["imports"]
+    assert params["format"] == "native"
+
+
+def test_start_trace_genai_semconv(
+    mock_requests, monkeypatch, mock_telemetry_client: TelemetryClient
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_OTEL_GENAI_SEMCONV", "true")
+    event_name = StartTraceEvent.name
+
+    @mlflow.trace
+    def test_func():
+        pass
+
+    test_func()
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, check_params=False
+    )
+    assert json.loads(data["params"])["format"] == "genai_semconv"
 
 
 def test_create_prompt(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):
