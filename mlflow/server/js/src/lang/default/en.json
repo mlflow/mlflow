@@ -1310,6 +1310,10 @@
     "defaultMessage": "Value",
     "description": "Tag assignment modal > Value label"
   },
+  "6yxGSV": {
+    "defaultMessage": "Failed to load attachment",
+    "description": "Error message when trace attachment fails to load"
+  },
   "7+XQ3q": {
     "defaultMessage": "Correctness",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -2449,6 +2453,10 @@
   "DmMds0": {
     "defaultMessage": "Model version tag deleted",
     "description": "Webhook event label"
+  },
+  "DmQLLV": {
+    "defaultMessage": "Download attachment ({contentType})",
+    "description": "Download link for trace attachment with unknown content type"
   },
   "Dw+Z8L": {
     "defaultMessage": "Budget exceeded",
