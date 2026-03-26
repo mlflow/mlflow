@@ -1,6 +1,6 @@
 # Example
 # Usage:
-#   helm upgrade --install mlflow ./charts --namespace mlflow --create-namespace -f example-mlflow-chart.yaml
+#   helm upgrade --install mlflow ./charts --namespace mlflow --create-namespace -f example-mlflow-charts.yaml
 
 image:
   repository: ghcr.io/mlflow/mlflow

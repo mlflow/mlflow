@@ -16,9 +16,6 @@ server:
     host: "0.0.0.0"
     port: 5000
 
-    # Expose Prometheus metrics at this path (e.g. "/metrics").
-    expose_prometheus: ""
-
     # Number of gunicorn worker processes.
     workers: 4
 
