@@ -104,9 +104,7 @@ def _create_tool_call(tool_call_dict: dict[str, Any]) -> "ToolCall":
     )
 
 
-def _create_tool_response_message(
-    tool_call_id: str, tool_name: str, content: str
-) -> JudgeMessage:
+def _create_tool_response_message(tool_call_id: str, tool_name: str, content: str) -> JudgeMessage:
     """
     Create a tool response message.
 

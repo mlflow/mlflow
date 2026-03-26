@@ -396,9 +396,7 @@ def _invoke_litellm_and_handle_tools(
                 }
                 for tc in message.tool_calls
             ]
-            tool_response_messages = _process_tool_calls(
-                tool_calls=tool_call_dicts, trace=trace
-            )
+            tool_response_messages = _process_tool_calls(tool_calls=tool_call_dicts, trace=trace)
             # Convert JudgeMessage responses back to litellm Messages for the conversation
             litellm_tool_messages = [
                 litellm.Message(
