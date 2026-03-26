@@ -383,21 +383,23 @@ def _invoke_litellm_and_handle_tools(
                 )
 
             messages.append(message)
-            # TODO: This conversion bridge between litellm types and JudgeMessage will be
-            # removed when litellm_adapter.py is replaced with gateway-based invocation.
-            tool_call_dicts = [
-                {
-                    "id": tc.id,
-                    "type": getattr(tc, "type", "function"),
-                    "function": {
+            # Convert litellm tool calls to MLflow ToolCall objects for _process_tool_calls.
+            # This bridge will be removed when litellm_adapter.py is replaced with
+            # gateway-based invocation.
+            from mlflow.types.llm import ToolCall as MlflowToolCall
+
+            mlflow_tool_calls = [
+                MlflowToolCall(
+                    id=tc.id,
+                    function={
                         "name": tc.function.name,
                         "arguments": tc.function.arguments,
                     },
-                }
+                )
                 for tc in message.tool_calls
             ]
-            tool_response_messages = _process_tool_calls(tool_calls=tool_call_dicts, trace=trace)
-            # Convert JudgeMessage responses back to litellm Messages for the conversation
+            tool_response_messages = _process_tool_calls(tool_calls=mlflow_tool_calls, trace=trace)
+            # Convert ChatMessage responses back to litellm Messages for the conversation
             litellm_tool_messages = [
                 litellm.Message(
                     role=msg.role,

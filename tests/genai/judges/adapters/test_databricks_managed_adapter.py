@@ -15,8 +15,7 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
     serialize_messages_to_databricks_prompts,
 )
-from mlflow.genai.judges.types import JudgeMessage
-from mlflow.types.llm import ChatMessage
+from mlflow.types.llm import ChatMessage, FunctionToolCallArguments, ToolCall
 from mlflow.utils import AttrDict
 
 
@@ -208,7 +207,7 @@ def test_agentic_loop_final_answer_without_tool_calls():
         })
     })
 
-    messages = [JudgeMessage(role="user", content="Test prompt")]
+    messages = [ChatMessage(role="user", content="Test prompt")]
     callback_called_with = []
 
     def callback(content):
@@ -246,7 +245,7 @@ def test_agentic_loop_forwards_use_case():
         return_value=mock_response,
     ) as mock_call:
         _run_databricks_agentic_loop(
-            messages=[JudgeMessage(role="user", content="test")],
+            messages=[ChatMessage(role="user", content="test")],
             trace=None,
             on_final_answer=lambda content: content,
             use_case="builtin_judge",
@@ -297,7 +296,7 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
         }),
     ]
 
-    messages = [JudgeMessage(role="user", content="Extract outputs")]
+    messages = [ChatMessage(role="user", content="Extract outputs")]
 
     def callback(content):
         return {"result": content}
@@ -312,7 +311,7 @@ def test_agentic_loop_tool_calling_loop(mock_trace):
         ) as mock_process,
     ):
         mock_process.return_value = [
-            JudgeMessage(
+            ChatMessage(
                 role="tool",
                 content='{"name": "root_span", "inputs": null}',
                 tool_call_id="call_123",
@@ -361,7 +360,7 @@ def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
         })
     })
 
-    messages = [JudgeMessage(role="user", content="Extract outputs")]
+    messages = [ChatMessage(role="user", content="Extract outputs")]
 
     def callback(content):
         return content
@@ -379,9 +378,7 @@ def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
         ) as mock_process,
     ):
         mock_process.return_value = [
-            JudgeMessage(
-                role="tool", content="{}", tool_call_id="call_123", name="get_root_span"
-            )
+            ChatMessage(role="tool", content="{}", tool_call_id="call_123", name="get_root_span")
         ]
 
         with pytest.raises(MlflowException, match="iteration limit of 1 exceeded"):
@@ -395,77 +392,58 @@ def test_agentic_loop_max_iteration_limit(mock_trace, monkeypatch):
         assert mock_call.call_count == 1
 
 
-def _create_message(message_type, role, content=None, **kwargs):
-    if message_type == "judgemessage":
-        return JudgeMessage(role=role, content=content, **kwargs)
-    else:
-        return ChatMessage(role=role, content=content, **kwargs)
+def _make_tool_call(tool_id, function_name, arguments):
+    return ToolCall(
+        id=tool_id,
+        type="function",
+        function=FunctionToolCallArguments(name=function_name, arguments=arguments),
+    )
 
 
-def _create_tool_call(message_type, tool_id, function_name, arguments):
-    if message_type == "judgemessage":
-        return {
-            "id": tool_id,
-            "type": "function",
-            "function": {"name": function_name, "arguments": arguments},
-        }
-    else:
-        from mlflow.types.llm import FunctionToolCallArguments, ToolCall
-
-        return ToolCall(
-            id=tool_id,
-            type="function",
-            function=FunctionToolCallArguments(name=function_name, arguments=arguments),
-        )
-
-
-@pytest.mark.parametrize("message_type", ["judgemessage", "chatmessage"])
 @pytest.mark.parametrize(
     ("messages_builder", "expected_user_prompt", "expected_system_prompt"),
     [
         # System message is extracted separately, user message becomes user_prompt
         (
-            lambda mt: [
-                _create_message(mt, "system", "You are a helpful assistant"),
-                _create_message(mt, "user", "What is 2+2?"),
+            lambda: [
+                ChatMessage(role="system", content="You are a helpful assistant"),
+                ChatMessage(role="user", content="What is 2+2?"),
             ],
             "What is 2+2?",
             "You are a helpful assistant",
         ),
         # No system message results in None for system_prompt
         (
-            lambda mt: [_create_message(mt, "user", "What is 2+2?")],
+            lambda: [ChatMessage(role="user", content="What is 2+2?")],
             "What is 2+2?",
             None,
         ),
         # Multiple user messages are concatenated with \n\n separator
         (
-            lambda mt: [
-                _create_message(mt, "user", "First question"),
-                _create_message(mt, "user", "Second question"),
+            lambda: [
+                ChatMessage(role="user", content="First question"),
+                ChatMessage(role="user", content="Second question"),
             ],
             "First question\n\nSecond question",
             None,
         ),
         # Assistant messages are prefixed with "Assistant: " in the user_prompt
         (
-            lambda mt: [
-                _create_message(mt, "user", "What is 2+2?"),
-                _create_message(mt, "assistant", "4"),
-                _create_message(mt, "user", "What is 3+3?"),
+            lambda: [
+                ChatMessage(role="user", content="What is 2+2?"),
+                ChatMessage(role="assistant", content="4"),
+                ChatMessage(role="user", content="What is 3+3?"),
             ],
             "What is 2+2?\n\nAssistant: 4\n\nWhat is 3+3?",
             None,
         ),
         # Assistant with tool calls shows "[Called tools]" placeholder
         (
-            lambda mt: [
-                _create_message(mt, "user", "Get the root span"),
-                _create_message(
-                    mt,
-                    "assistant",
-                    None,
-                    tool_calls=[_create_tool_call(mt, "call_123", "get_root_span", "{}")],
+            lambda: [
+                ChatMessage(role="user", content="Get the root span"),
+                ChatMessage(
+                    role="assistant",
+                    tool_calls=[_make_tool_call("call_123", "get_root_span", "{}")],
                 ),
             ],
             "Get the root span\n\nAssistant: [Called tools]",
@@ -473,18 +451,15 @@ def _create_tool_call(message_type, tool_id, function_name, arguments):
         ),
         # Tool messages are formatted as "Tool {name}: {content}"
         (
-            lambda mt: [
-                _create_message(mt, "user", "Get the root span"),
-                _create_message(
-                    mt,
-                    "assistant",
-                    None,
-                    tool_calls=[_create_tool_call(mt, "call_123", "get_root_span", "{}")],
+            lambda: [
+                ChatMessage(role="user", content="Get the root span"),
+                ChatMessage(
+                    role="assistant",
+                    tool_calls=[_make_tool_call("call_123", "get_root_span", "{}")],
                 ),
-                _create_message(
-                    mt,
-                    "tool",
-                    '{"name": "root_span"}',
+                ChatMessage(
+                    role="tool",
+                    content='{"name": "root_span"}',
                     tool_call_id="call_123",
                     name="get_root_span",
                 ),
@@ -495,11 +470,11 @@ def _create_tool_call(message_type, tool_id, function_name, arguments):
         ),
         # Full multi-turn conversation with system prompt
         (
-            lambda mt: [
-                _create_message(mt, "system", "You are helpful"),
-                _create_message(mt, "user", "Question 1"),
-                _create_message(mt, "assistant", "Answer 1"),
-                _create_message(mt, "user", "Question 2"),
+            lambda: [
+                ChatMessage(role="system", content="You are helpful"),
+                ChatMessage(role="user", content="Question 1"),
+                ChatMessage(role="assistant", content="Answer 1"),
+                ChatMessage(role="user", content="Question 2"),
             ],
             "Question 1\n\nAssistant: Answer 1\n\nQuestion 2",
             "You are helpful",
@@ -516,9 +491,9 @@ def _create_tool_call(message_type, tool_id, function_name, arguments):
     ],
 )
 def test_serialize_messages_to_databricks_prompts(
-    message_type, messages_builder, expected_user_prompt, expected_system_prompt
+    messages_builder, expected_user_prompt, expected_system_prompt
 ):
-    messages = messages_builder(message_type)
+    messages = messages_builder()
     user_prompt, system_prompt = serialize_messages_to_databricks_prompts(messages)
 
     assert user_prompt == expected_user_prompt
@@ -562,7 +537,7 @@ def test_serialize_messages_to_databricks_prompts(
             "assistant",
             "First part\nSecond part",
         ),
-        # List content with no text blocks results in None
+        # List content with no text blocks results in empty string
         (
             {
                 "choices": [
@@ -575,17 +550,15 @@ def test_serialize_messages_to_databricks_prompts(
                 ]
             },
             "assistant",
-            None,
+            "",
         ),
     ],
     ids=["string_content", "list_content", "empty_list_content"],
 )
-def test_create_message_from_databricks_response(
-    response_data, expected_role, expected_content
-):
+def test_create_message_from_databricks_response(response_data, expected_role, expected_content):
     message = _create_message_from_databricks_response(response_data)
 
-    assert isinstance(message, JudgeMessage)
+    assert isinstance(message, ChatMessage)
     assert message.role == expected_role
     assert message.content == expected_content
     assert message.tool_calls is None
@@ -615,15 +588,16 @@ def test_create_message_from_databricks_response_with_single_tool_call():
 
     message = _create_message_from_databricks_response(response_data)
 
-    assert isinstance(message, JudgeMessage)
+    assert isinstance(message, ChatMessage)
     assert message.role == "assistant"
     assert message.content is None
     assert message.tool_calls is not None
     assert len(message.tool_calls) == 1
-    assert message.tool_calls[0]["id"] == "call_123"
-    assert message.tool_calls[0]["type"] == "function"
-    assert message.tool_calls[0]["function"]["name"] == "get_root_span"
-    assert message.tool_calls[0]["function"]["arguments"] == "{}"
+    # ChatMessage auto-converts dicts to ToolCall objects
+    assert message.tool_calls[0].id == "call_123"
+    assert message.tool_calls[0].type == "function"
+    assert message.tool_calls[0].function.name == "get_root_span"
+    assert message.tool_calls[0].function.arguments == "{}"
 
 
 def test_create_message_from_databricks_response_with_multiple_tool_calls():
@@ -652,15 +626,15 @@ def test_create_message_from_databricks_response_with_multiple_tool_calls():
 
     message = _create_message_from_databricks_response(response_data)
 
-    assert isinstance(message, JudgeMessage)
+    assert isinstance(message, ChatMessage)
     assert message.role == "assistant"
     assert message.content is None
     assert message.tool_calls is not None
     assert len(message.tool_calls) == 2
-    assert message.tool_calls[0]["id"] == "call_1"
-    assert message.tool_calls[0]["function"]["name"] == "get_root_span"
-    assert message.tool_calls[1]["id"] == "call_2"
-    assert message.tool_calls[1]["function"]["name"] == "list_spans"
+    assert message.tool_calls[0].id == "call_1"
+    assert message.tool_calls[0].function.name == "get_root_span"
+    assert message.tool_calls[1].id == "call_2"
+    assert message.tool_calls[1].function.name == "list_spans"
 
 
 @pytest.mark.parametrize(

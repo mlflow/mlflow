@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
-    from mlflow.types.llm import ToolCall
+    from mlflow.types.llm import ChatMessage, ToolCall
 
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.types import JudgeMessage
 from mlflow.protos.databricks_pb2 import REQUEST_LIMIT_EXCEEDED
 
 
@@ -37,35 +36,30 @@ def _raise_iteration_limit_exceeded(max_iterations: int) -> NoReturn:
 
 
 def _process_tool_calls(
-    tool_calls: list[dict[str, Any]],
+    tool_calls: list[ToolCall],
     trace: Trace | None,
-) -> list[JudgeMessage]:
+) -> list[ChatMessage]:
     """
     Process tool calls and return tool response messages.
 
     Args:
-        tool_calls: List of tool call dicts in OpenAI format
-            (each has "id", "function": {"name": ..., "arguments": ...}).
+        tool_calls: List of ToolCall objects from the model response.
         trace: Optional trace object for context.
 
     Returns:
-        List of JudgeMessage objects containing tool responses.
+        List of ChatMessage objects containing tool responses.
     """
     from mlflow.genai.judges.tools.registry import _judge_tool_registry
 
     tool_response_messages = []
     for tool_call in tool_calls:
-        tool_call_id = tool_call["id"]
-        tool_call_function = tool_call["function"]
-        tool_call_name = tool_call_function["name"]
         try:
-            mlflow_tool_call = _create_tool_call(tool_call)
-            result = _judge_tool_registry.invoke(tool_call=mlflow_tool_call, trace=trace)
+            result = _judge_tool_registry.invoke(tool_call=tool_call, trace=trace)
         except Exception as e:
             tool_response_messages.append(
                 _create_tool_response_message(
-                    tool_call_id=tool_call_id,
-                    tool_name=tool_call_name,
+                    tool_call_id=tool_call.id,
+                    tool_name=tool_call.function.name,
                     content=f"Error: {e!s}",
                 )
             )
@@ -75,36 +69,15 @@ def _process_tool_calls(
             result_json = json.dumps(result, default=str) if not isinstance(result, str) else result
             tool_response_messages.append(
                 _create_tool_response_message(
-                    tool_call_id=tool_call_id,
-                    tool_name=tool_call_name,
+                    tool_call_id=tool_call.id,
+                    tool_name=tool_call.function.name,
                     content=result_json,
                 )
             )
     return tool_response_messages
 
 
-def _create_tool_call(tool_call_dict: dict[str, Any]) -> "ToolCall":
-    """
-    Create an MLflow ToolCall from an OpenAI-format tool call dict.
-
-    Args:
-        tool_call_dict: A dict with "id" and "function": {"name": ..., "arguments": ...}.
-
-    Returns:
-        An MLflow ToolCall object.
-    """
-    from mlflow.types.llm import ToolCall
-
-    return ToolCall(
-        id=tool_call_dict["id"],
-        function={
-            "name": tool_call_dict["function"]["name"],
-            "arguments": tool_call_dict["function"]["arguments"],
-        },
-    )
-
-
-def _create_tool_response_message(tool_call_id: str, tool_name: str, content: str) -> JudgeMessage:
+def _create_tool_response_message(tool_call_id: str, tool_name: str, content: str) -> "ChatMessage":
     """
     Create a tool response message.
 
@@ -114,9 +87,11 @@ def _create_tool_response_message(tool_call_id: str, tool_name: str, content: st
         content: The content to include in the response.
 
     Returns:
-        A JudgeMessage representing the tool response.
+        A ChatMessage representing the tool response.
     """
-    return JudgeMessage(
+    from mlflow.types.llm import ChatMessage
+
+    return ChatMessage(
         tool_call_id=tool_call_id,
         role="tool",
         name=tool_name,

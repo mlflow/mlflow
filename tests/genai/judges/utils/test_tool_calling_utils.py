@@ -8,8 +8,8 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.genai.judges.types import JudgeMessage
 from mlflow.genai.judges.utils.tool_calling_utils import _process_tool_calls
+from mlflow.types.llm import ChatMessage, ToolCall
 
 
 @pytest.fixture
@@ -24,11 +24,10 @@ def mock_trace():
 
 
 def _make_tool_call(call_id, name, arguments="{}"):
-    return {
-        "id": call_id,
-        "type": "function",
-        "function": {"name": name, "arguments": arguments},
-    }
+    return ToolCall(
+        id=call_id,
+        function={"name": name, "arguments": arguments},
+    )
 
 
 def test_process_tool_calls_success(mock_trace):
@@ -42,7 +41,7 @@ def test_process_tool_calls_success(mock_trace):
         result = _process_tool_calls(tool_calls=[tool_call], trace=mock_trace)
 
     assert len(result) == 1
-    assert isinstance(result[0], JudgeMessage)
+    assert isinstance(result[0], ChatMessage)
     assert result[0].role == "tool"
     assert result[0].tool_call_id == "call_123"
     assert result[0].name == "test_tool"
@@ -74,9 +73,7 @@ def test_process_tool_calls_multiple(mock_trace):
     ) as mock_invoke:
         mock_invoke.side_effect = [{"result": "first"}, {"result": "second"}]
 
-        result = _process_tool_calls(
-            tool_calls=[tool_call_1, tool_call_2], trace=mock_trace
-        )
+        result = _process_tool_calls(tool_calls=[tool_call_1, tool_call_2], trace=mock_trace)
 
     assert len(result) == 2
     assert result[0].tool_call_id == "call_1"
@@ -130,9 +127,7 @@ def test_process_tool_calls_mixed_success_and_error(mock_trace):
     ) as mock_invoke:
         mock_invoke.side_effect = [{"result": "success"}, RuntimeError("Failed")]
 
-        result = _process_tool_calls(
-            tool_calls=[tool_call_1, tool_call_2], trace=mock_trace
-        )
+        result = _process_tool_calls(tool_calls=[tool_call_1, tool_call_2], trace=mock_trace)
 
     assert len(result) == 2
     assert result[0].tool_call_id == "call_success"

@@ -124,9 +124,9 @@ def _invoke_databricks_structured_output(
     Raises:
         MlflowException: If databricks-agents is not installed or invocation fails.
     """
-    from mlflow.genai.judges.types import JudgeMessage
+    from mlflow.types.llm import ChatMessage
 
-    judge_messages = [JudgeMessage(role=msg.role, content=msg.content) for msg in messages]
+    judge_messages = [ChatMessage(role=msg.role, content=msg.content) for msg in messages]
 
     # Add schema instructions to the system message
     schema_instruction = (
@@ -134,14 +134,14 @@ def _invoke_databricks_structured_output(
         f"{json.dumps(output_schema.model_json_schema(), indent=2)}"
     )
     if judge_messages and judge_messages[0].role == "system":
-        judge_messages[0] = JudgeMessage(
+        judge_messages[0] = ChatMessage(
             role="system",
             content=judge_messages[0].content + schema_instruction,
         )
     else:
         judge_messages.insert(
             0,
-            JudgeMessage(role="system", content=schema_instruction),
+            ChatMessage(role="system", content=schema_instruction),
         )
 
     def parse_structured_output(content: str | None) -> pydantic.BaseModel:

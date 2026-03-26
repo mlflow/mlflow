@@ -24,7 +24,6 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
-from mlflow.genai.judges.types import JudgeMessage
 from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
@@ -187,9 +186,9 @@ def _parse_databricks_judge_response(
 
 def _create_message_from_databricks_response(
     response_data: dict[str, Any],
-) -> JudgeMessage:
+) -> "ChatMessage":
     """
-    Convert Databricks OpenAI-style response to a JudgeMessage.
+    Convert Databricks OpenAI-style response to a ChatMessage.
 
     Handles both string content and reasoning model outputs.
 
@@ -197,18 +196,20 @@ def _create_message_from_databricks_response(
         response_data: Parsed JSON response from Databricks.
 
     Returns:
-        JudgeMessage object.
+        ChatMessage object.
 
     Raises:
         ValueError: If response format is invalid.
     """
+    from mlflow.types.llm import ChatMessage
+
     choices = response_data.get("choices", [])
     if not choices:
         raise ValueError("Invalid response format: missing 'choices' field")
 
     message_data = choices[0].get("message", {})
 
-    # Keep tool calls as plain dicts in OpenAI format
+    # tool_calls come as plain dicts; ChatMessage.__post_init__ auto-converts to ToolCall
     tool_calls = message_data.get("tool_calls")
 
     content = message_data.get("content")
@@ -218,7 +219,11 @@ def _create_message_from_databricks_response(
         ]
         content = "\n".join(content_parts) if content_parts else None
 
-    return JudgeMessage(
+    # ChatMessage requires content when tool_calls is absent; use empty string as fallback
+    if content is None and not tool_calls:
+        content = ""
+
+    return ChatMessage(
         role=message_data.get("role", "assistant"),
         content=content,
         tool_calls=tool_calls,
@@ -226,7 +231,7 @@ def _create_message_from_databricks_response(
 
 
 def _run_databricks_agentic_loop(
-    messages: list[JudgeMessage],
+    messages: list["ChatMessage"],
     trace: "Trace | None",
     on_final_answer: Callable[[str | None], T],
     use_case: str | None = None,
@@ -239,7 +244,7 @@ def _run_databricks_agentic_loop(
     tool-calling loop until the LLM produces a final answer.
 
     Args:
-        messages: Initial JudgeMessage objects for the conversation.
+        messages: Initial ChatMessage objects for the conversation.
         trace: Optional trace for tool calling. If provided, enables tool use.
         on_final_answer: Callback to process the final LLM response content.
             Receives the content string (or None if empty) and should return
@@ -332,11 +337,13 @@ def _invoke_databricks_default_judge(
     Raises:
         MlflowException: If databricks-agents is not installed or max iterations exceeded.
     """
+    from mlflow.types.llm import ChatMessage
+
     try:
         if isinstance(prompt, str):
-            messages = [JudgeMessage(role="user", content=prompt)]
+            messages = [ChatMessage(role="user", content=prompt)]
         else:
-            messages = [JudgeMessage(role=msg.role, content=msg.content) for msg in prompt]
+            messages = [ChatMessage(role=msg.role, content=msg.content) for msg in prompt]
 
         # Define callback to parse final answer into Feedback
         def parse_judge_response(content: str | None) -> Feedback:
