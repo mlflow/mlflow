@@ -95,7 +95,7 @@ def test_create_ragas_model_gateway_uses_partial_with_api_base_and_key():
             "mlflow.genai.scorers.ragas.models.get_gateway_litellm_config",
             return_value=mock_config,
         ),
-        patch("mlflow.genai.scorers.ragas.models.litellm") as mock_litellm,
+        patch("litellm.acompletion") as mock_acompletion,
         patch("mlflow.genai.scorers.ragas.models.instructor") as mock_instructor,
     ):
         mock_instructor.from_litellm.return_value = Mock()
@@ -106,4 +106,4 @@ def test_create_ragas_model_gateway_uses_partial_with_api_base_and_key():
     assert isinstance(partial_arg, functools.partial)
     assert partial_arg.keywords["api_base"] == "http://localhost:5000/gateway/mlflow/v1/"
     assert partial_arg.keywords["api_key"] == "mlflow-gateway-auth"
-    assert partial_arg.func is mock_litellm.acompletion
+    assert partial_arg.func is mock_acompletion
