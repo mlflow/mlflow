@@ -6,16 +6,20 @@ components to describe interface independent of other frameworks or languages.
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 if not IS_TRACING_SDK_ONLY:
-    import mlflow.types.llm  # noqa: F401
+    try:
+        import mlflow.types.llm  # noqa: F401
 
-    # Our typing system depends on numpy, which is not included in mlflow-tracing package
-    from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
+        # Our typing system depends on numpy, which is not included in mlflow-tracing package
+        # or environments where numpy is not installed (e.g. mlflow-skinny without numpy).
+        from mlflow.types.schema import ColSpec, DataType, ParamSchema, ParamSpec, Schema, TensorSpec
 
-    __all__ = [
-        "Schema",
-        "ColSpec",
-        "DataType",
-        "TensorSpec",
-        "ParamSchema",
-        "ParamSpec",
-    ]
+        __all__ = [
+            "Schema",
+            "ColSpec",
+            "DataType",
+            "TensorSpec",
+            "ParamSchema",
+            "ParamSpec",
+        ]
+    except ImportError:
+        pass
