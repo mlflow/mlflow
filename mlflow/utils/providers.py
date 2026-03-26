@@ -71,17 +71,18 @@ def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> di
     """
     model_cost = _get_model_cost()
 
-    # 1. Exact match (handles most models like "gpt-4o", "claude-sonnet-4-20250514")
-    if model in model_cost:
-        return model_cost[model]
-
-    # 2. Try with provider prefix (e.g. "azure/gpt-4o", "vertex_ai/gemini-2.5-flash")
+    # 1. If provider is given, prefer provider-specific pricing (e.g. "azure/gpt-4o")
     if custom_llm_provider:
         provider_prefix = f"{custom_llm_provider}/"
         if not model.startswith(provider_prefix):
             prefixed = f"{provider_prefix}{model}"
             if prefixed in model_cost:
                 return model_cost[prefixed]
+
+    # 2. Exact match (handles most models like "gpt-4o", "claude-sonnet-4-20250514",
+    #    and also "provider/model" keys that exist directly in the JSON)
+    if model in model_cost:
+        return model_cost[model]
 
     # 3. Strip provider prefix from "provider/model" style inputs (e.g. "openai/gpt-4o-mini")
     if "/" in model:
