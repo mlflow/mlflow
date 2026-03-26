@@ -26,10 +26,10 @@ from mlflow.gateway.config import (
     LiteLLMConfig,
     MistralConfig,
     OpenAIAPIType,
-    OpenAICompatibleConfig,
     OpenAIConfig,
     Provider,
     _AuthConfigKey,
+    _OpenAICompatibleConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.providers import get_provider
@@ -167,9 +167,9 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
 
 
 def _build_openai_compatible_config(model_config: "GatewayModelConfig"):
-    """Build an OpenAICompatibleConfig for providers that use the OpenAI API format."""
+    """Build an _OpenAICompatibleConfig for providers that use the OpenAI API format."""
     auth_config = model_config.auth_config or {}
-    return OpenAICompatibleConfig(
+    return _OpenAICompatibleConfig(
         api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
         api_base=auth_config.get(_AuthConfigKey.API_BASE),
     )
