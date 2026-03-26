@@ -5,3 +5,6 @@ xgboost<3.1.0
 # TODO: remove once requests officially supports chardet >= 6
 # https://github.com/psf/requests/pull/7239
 chardet<6.0
+# litellm 1.82.7 and 1.82.8 contain a malicious .pth file that steals credentials
+# https://github.com/BerriAI/litellm/issues/24512
+litellm<=1.82.6

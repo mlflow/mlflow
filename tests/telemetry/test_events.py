@@ -142,6 +142,17 @@ def test_event_name():
     assert DiscoverIssuesEvent.name == "discover_issues"
 
 
+def test_start_trace_parse_format_native():
+    result = StartTraceEvent.parse({})
+    assert result["format"] == "native"
+
+
+def test_start_trace_parse_format_genai_semconv(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_OTEL_GENAI_SEMCONV", "true")
+    result = StartTraceEvent.parse({})
+    assert result["format"] == "genai_semconv"
+
+
 @pytest.mark.parametrize(
     ("arguments", "expected_params"),
     [

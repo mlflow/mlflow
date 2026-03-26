@@ -314,7 +314,6 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.providers import (
-    _PROVIDER_BACKEND_AVAILABLE,
     get_all_providers,
     get_models,
     get_provider_config_response,
@@ -5608,11 +5607,6 @@ def _get_provider_config():
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _get_secrets_config():
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        return jsonify({
-            "secrets_available": False,
-            "using_default_passphrase": False,
-        })
     kek_manager = KEKManager()
     return jsonify({
         "secrets_available": True,

@@ -1,6 +1,10 @@
 ---
+title: Tracing Anthropic
+description: Trace Anthropic Claude model interactions with MLflow for full observability into LLM calls, token usage, and response quality.
 sidebar_position: 8
 sidebar_label: Anthropic
+keywords: [anthropic, claude, tracing, mlflow, llm]
+image: /images/llms/anthropic/anthropic-tracing.png
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -40,7 +44,7 @@ MLflow trace automatically captures the following information about Anthropic ca
 <Tabs>
   <TabItem value="python" label="Python" default>
 ```bash
-pip install 'mlflow[genai]' anthropic
+pip install mlflow anthropic
 ```
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
