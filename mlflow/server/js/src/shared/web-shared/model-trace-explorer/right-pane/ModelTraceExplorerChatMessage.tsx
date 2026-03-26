@@ -244,8 +244,7 @@ export function ModelTraceExplorerChatMessage({
   const effectiveLimit = CONTENT_TRUNCATION_LIMIT + attachmentRefCount * 150;
   const isExpandable = !shouldDisplayCodeSnippet && getDisplayLength(content) > effectiveLimit;
 
-  const displayedContent =
-    isExpandable && !expanded ? truncatePreservingImages(content, effectiveLimit) : content;
+  const displayedContent = isExpandable && !expanded ? truncatePreservingImages(content, effectiveLimit) : content;
 
   return (
     <div

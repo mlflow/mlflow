@@ -1,7 +1,5 @@
 import base64
 
-import pytest
-
 from mlflow.entities.span import LiveSpan
 from mlflow.tracing.attachments import Attachment
 
@@ -22,168 +20,304 @@ PNG_DATA_URI = f"data:image/png;base64,{base64.b64encode(PNG_BYTES).decode()}"
 WAV_B64 = base64.b64encode(b"RIFF\x00\x00\x00\x00WAVEfmt ").decode()
 
 
-class TestDataURIExtraction:
-    def test_extracts_image_data_uri(self):
-        span = _make_live_span()
-        span.set_inputs({"image": PNG_DATA_URI})
+# --- Data URI extraction ---
 
-        inputs = span.inputs
-        assert inputs["image"].startswith("mlflow-attachment://")
-        assert len(span._attachments) == 1
-        att = next(iter(span._attachments.values()))
-        assert att.content_type == "image/png"
-        assert att.content_bytes == PNG_BYTES
 
-    def test_extracts_nested_data_uri(self):
-        span = _make_live_span()
-        span.set_inputs({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "What is this?"},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": PNG_DATA_URI},
+def test_extracts_image_data_uri():
+    span = _make_live_span()
+    span.set_inputs({"image": PNG_DATA_URI})
+
+    inputs = span.inputs
+    assert inputs["image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
+
+
+def test_extracts_nested_data_uri():
+    span = _make_live_span()
+    span.set_inputs({
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What is this?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": PNG_DATA_URI},
+                    },
+                ],
+            }
+        ]
+    })
+
+    inputs = span.inputs
+    url = inputs["messages"][0]["content"][1]["image_url"]["url"]
+    assert url.startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
+
+
+def test_leaves_http_urls_alone():
+    span = _make_live_span()
+    url = "https://example.com/photo.png"
+    span.set_inputs({"image_url": {"url": url}})
+    assert span.inputs["image_url"]["url"] == url
+    assert len(span._attachments) == 0
+
+
+def test_leaves_plain_strings_alone():
+    span = _make_live_span()
+    span.set_inputs({"text": "hello world"})
+    assert span.inputs["text"] == "hello world"
+    assert len(span._attachments) == 0
+
+
+def test_handles_invalid_base64_gracefully():
+    span = _make_live_span()
+    bad_uri = "data:image/png;base64,!!!not-valid-base64!!!"
+    span.set_inputs({"image": bad_uri})
+    assert span.inputs["image"] == bad_uri
+    assert len(span._attachments) == 0
+
+
+def test_handles_empty_mime_type():
+    span = _make_live_span()
+    bad_uri = "data:;base64,dGVzdA=="
+    span.set_inputs({"val": bad_uri})
+    assert span.inputs["val"] == bad_uri
+    assert len(span._attachments) == 0
+
+
+def test_multiple_data_uris():
+    span = _make_live_span()
+    span.set_inputs({"img1": PNG_DATA_URI, "img2": PNG_DATA_URI})
+    assert span.inputs["img1"].startswith("mlflow-attachment://")
+    assert span.inputs["img2"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 2
+
+
+# --- Structured content extraction ---
+
+
+def test_extracts_input_audio():
+    span = _make_live_span()
+    span.set_inputs({
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What does this say?"},
+                    {
+                        "type": "input_audio",
+                        "input_audio": {"data": WAV_B64, "format": "wav"},
+                    },
+                ],
+            }
+        ]
+    })
+
+    audio_part = span.inputs["messages"][0]["content"][1]
+    assert audio_part["type"] == "input_audio"
+    assert audio_part["input_audio"]["data"].startswith("mlflow-attachment://")
+    assert audio_part["input_audio"]["format"] == "wav"
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "audio/wav"
+
+
+def test_extracts_b64_json():
+    span = _make_live_span()
+    img_b64 = base64.b64encode(PNG_BYTES).decode()
+    span.set_outputs({"data": [{"b64_json": img_b64, "revised_prompt": "a sunset"}]})
+
+    output = span.outputs
+    item = output["data"][0]
+    assert item["b64_json"].startswith("mlflow-attachment://")
+    assert item["revised_prompt"] == "a sunset"
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
+
+
+def test_input_audio_with_invalid_base64():
+    span = _make_live_span()
+    span.set_inputs({
+        "content": [
+            {
+                "type": "input_audio",
+                "input_audio": {"data": "!!!bad!!!", "format": "wav"},
+            }
+        ]
+    })
+    audio_part = span.inputs["content"][0]
+    assert audio_part["input_audio"]["data"] == "!!!bad!!!"
+    assert len(span._attachments) == 0
+
+
+def test_mixed_content_parts():
+    span = _make_live_span()
+    span.set_inputs({
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Describe both"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": PNG_DATA_URI},
+                    },
+                    {
+                        "type": "input_audio",
+                        "input_audio": {"data": WAV_B64, "format": "mp3"},
+                    },
+                ],
+            }
+        ]
+    })
+    content = span.inputs["messages"][0]["content"]
+    assert content[0] == {"type": "text", "text": "Describe both"}
+    assert content[1]["image_url"]["url"].startswith("mlflow-attachment://")
+    assert content[2]["input_audio"]["data"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 2
+
+
+# --- Anthropic image pattern ---
+
+
+def test_extracts_anthropic_image():
+    span = _make_live_span()
+    span.set_inputs({
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What is this?"},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": base64.b64encode(PNG_BYTES).decode(),
                         },
-                    ],
-                }
-            ]
-        })
+                    },
+                ],
+            }
+        ]
+    })
 
-        inputs = span.inputs
-        url = inputs["messages"][0]["content"][1]["image_url"]["url"]
-        assert url.startswith("mlflow-attachment://")
-        assert len(span._attachments) == 1
-
-    def test_leaves_http_urls_alone(self):
-        span = _make_live_span()
-        url = "https://example.com/photo.png"
-        span.set_inputs({"image_url": {"url": url}})
-        assert span.inputs["image_url"]["url"] == url
-        assert len(span._attachments) == 0
-
-    def test_leaves_plain_strings_alone(self):
-        span = _make_live_span()
-        span.set_inputs({"text": "hello world"})
-        assert span.inputs["text"] == "hello world"
-        assert len(span._attachments) == 0
-
-    def test_handles_invalid_base64_gracefully(self):
-        span = _make_live_span()
-        bad_uri = "data:image/png;base64,!!!not-valid-base64!!!"
-        span.set_inputs({"image": bad_uri})
-        assert span.inputs["image"] == bad_uri
-        assert len(span._attachments) == 0
-
-    def test_handles_empty_mime_type(self):
-        span = _make_live_span()
-        bad_uri = "data:;base64,dGVzdA=="
-        span.set_inputs({"val": bad_uri})
-        assert span.inputs["val"] == bad_uri
-        assert len(span._attachments) == 0
-
-    def test_multiple_data_uris(self):
-        span = _make_live_span()
-        span.set_inputs({"img1": PNG_DATA_URI, "img2": PNG_DATA_URI})
-        assert span.inputs["img1"].startswith("mlflow-attachment://")
-        assert span.inputs["img2"].startswith("mlflow-attachment://")
-        assert len(span._attachments) == 2
+    content = span.inputs["messages"][0]["content"]
+    assert content[1]["type"] == "image"
+    assert content[1]["source"]["data"].startswith("mlflow-attachment://")
+    assert content[1]["source"]["type"] == "base64"
+    assert content[1]["source"]["media_type"] == "image/png"
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "image/png"
+    assert att.content_bytes == PNG_BYTES
 
 
-class TestStructuredContentExtraction:
-    def test_extracts_input_audio(self):
-        span = _make_live_span()
-        span.set_inputs({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "What does this say?"},
-                        {
-                            "type": "input_audio",
-                            "input_audio": {"data": WAV_B64, "format": "wav"},
+def test_extracts_multiple_anthropic_images():
+    span = _make_live_span()
+    img2_bytes = b"fake jpeg bytes"
+    span.set_inputs({
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/png",
+                            "data": base64.b64encode(PNG_BYTES).decode(),
                         },
-                    ],
-                }
-            ]
-        })
-
-        audio_part = span.inputs["messages"][0]["content"][1]
-        assert audio_part["type"] == "input_audio"
-        assert audio_part["input_audio"]["data"].startswith("mlflow-attachment://")
-        assert audio_part["input_audio"]["format"] == "wav"
-        assert len(span._attachments) == 1
-        att = next(iter(span._attachments.values()))
-        assert att.content_type == "audio/wav"
-
-    def test_extracts_b64_json(self):
-        span = _make_live_span()
-        img_b64 = base64.b64encode(PNG_BYTES).decode()
-        span.set_outputs({"data": [{"b64_json": img_b64, "revised_prompt": "a sunset"}]})
-
-        output = span.outputs
-        item = output["data"][0]
-        assert item["b64_json"].startswith("mlflow-attachment://")
-        assert item["revised_prompt"] == "a sunset"
-        assert len(span._attachments) == 1
-        att = next(iter(span._attachments.values()))
-        assert att.content_type == "image/png"
-        assert att.content_bytes == PNG_BYTES
-
-    def test_input_audio_with_invalid_base64(self):
-        span = _make_live_span()
-        span.set_inputs({
-            "content": [
-                {
-                    "type": "input_audio",
-                    "input_audio": {"data": "!!!bad!!!", "format": "wav"},
-                }
-            ]
-        })
-        audio_part = span.inputs["content"][0]
-        assert audio_part["input_audio"]["data"] == "!!!bad!!!"
-        assert len(span._attachments) == 0
-
-    def test_mixed_content_parts(self):
-        span = _make_live_span()
-        span.set_inputs({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": "Describe both"},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": PNG_DATA_URI},
+                    },
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": base64.b64encode(img2_bytes).decode(),
                         },
-                        {
-                            "type": "input_audio",
-                            "input_audio": {"data": WAV_B64, "format": "mp3"},
-                        },
-                    ],
+                    },
+                ],
+            }
+        ]
+    })
+
+    content = span.inputs["messages"][0]["content"]
+    assert content[0]["source"]["data"].startswith("mlflow-attachment://")
+    assert content[1]["source"]["data"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 2
+
+
+# --- Audio output pattern ---
+
+
+def test_extracts_audio_output():
+    span = _make_live_span()
+    audio_b64 = base64.b64encode(b"RIFF\x00\x00\x00\x00WAVEfmt ").decode()
+    span.set_outputs({
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "audio": {
+                        "id": "audio_123",
+                        "data": audio_b64,
+                        "transcript": "Hello world",
+                    },
                 }
-            ]
-        })
-        content = span.inputs["messages"][0]["content"]
-        assert content[0] == {"type": "text", "text": "Describe both"}
-        assert content[1]["image_url"]["url"].startswith("mlflow-attachment://")
-        assert content[2]["input_audio"]["data"].startswith("mlflow-attachment://")
-        assert len(span._attachments) == 2
+            }
+        ]
+    })
+
+    outputs = span.outputs
+    audio = outputs["choices"][0]["message"]["audio"]
+    assert audio["data"].startswith("mlflow-attachment://")
+    assert audio["transcript"] == "Hello world"
+    assert audio["id"] == "audio_123"
+    assert len(span._attachments) == 1
+    att = next(iter(span._attachments.values()))
+    assert att.content_type == "audio/wav"
 
 
-class TestOptOut:
-    def test_opt_out_via_env_var(self, monkeypatch):
-        monkeypatch.setenv("MLFLOW_TRACE_EXTRACT_ATTACHMENTS", "false")
-        span = _make_live_span()
-        span.set_inputs({"image": PNG_DATA_URI})
-        assert span.inputs["image"] == PNG_DATA_URI
-        assert len(span._attachments) == 0
+def test_extracts_b64_json_multiple():
+    span = _make_live_span()
+    img_b64 = base64.b64encode(PNG_BYTES).decode()
+    span.set_outputs({
+        "data": [
+            {"b64_json": img_b64, "revised_prompt": "a circle"},
+            {"b64_json": img_b64, "revised_prompt": "a triangle"},
+        ]
+    })
 
-    def test_explicit_attachment_still_works_when_opted_out(self, monkeypatch):
-        monkeypatch.setenv("MLFLOW_TRACE_EXTRACT_ATTACHMENTS", "false")
-        span = _make_live_span()
-        att = Attachment(content_type="image/png", content_bytes=PNG_BYTES)
-        span.set_inputs({"image": att})
-        assert span.inputs["image"].startswith("mlflow-attachment://")
-        assert len(span._attachments) == 1
+    output = span.outputs
+    assert output["data"][0]["b64_json"].startswith("mlflow-attachment://")
+    assert output["data"][1]["b64_json"].startswith("mlflow-attachment://")
+    assert output["data"][0]["revised_prompt"] == "a circle"
+    assert output["data"][1]["revised_prompt"] == "a triangle"
+    assert len(span._attachments) == 2
+
+
+# --- Opt-out ---
+
+
+def test_opt_out_via_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_EXTRACT_ATTACHMENTS", "false")
+    span = _make_live_span()
+    span.set_inputs({"image": PNG_DATA_URI})
+    assert span.inputs["image"] == PNG_DATA_URI
+    assert len(span._attachments) == 0
+
+
+def test_explicit_attachment_still_works_when_opted_out(monkeypatch):
+    monkeypatch.setenv("MLFLOW_TRACE_EXTRACT_ATTACHMENTS", "false")
+    span = _make_live_span()
+    att = Attachment(content_type="image/png", content_bytes=PNG_BYTES)
+    span.set_inputs({"image": att})
+    assert span.inputs["image"].startswith("mlflow-attachment://")
+    assert len(span._attachments) == 1
