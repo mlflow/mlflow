@@ -8,7 +8,7 @@ import threading
 from contextlib import ContextDecorator
 from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any, Iterator, Literal, get_args, get_origin
 
 import pydantic
 
@@ -453,6 +453,56 @@ def _remove_oldest_tool_call_pair(
     ]
 
 
+def _coerce_result_value(value: Any, response_format: type[pydantic.BaseModel] | None) -> Any:
+    """Coerce the raw result value from the LLM response to the expected type.
+
+    When a model doesn't support structured outputs (or returns non-conforming JSON),
+    boolean values may come back as strings like "True" or "False". This function
+    casts the value to the type declared in the response_format model's "result" field,
+    preventing spurious extra categories in judge evaluations.
+    """
+    if response_format is None:
+        return value
+
+    result_field = response_format.model_fields.get("result")
+    if result_field is None:
+        return value
+
+    expected_type = result_field.annotation
+    if expected_type is None:
+        return value
+
+    # Handle Literal types — check membership, with case-insensitive string fallback.
+    if get_origin(expected_type) is Literal:
+        allowed = get_args(expected_type)
+        if value in allowed:
+            return value
+        if isinstance(value, str):
+            for allowed_val in allowed:
+                if str(allowed_val).lower() == value.lower():
+                    return allowed_val
+        return value
+
+    # For plain types, skip coercion if already correct.
+    try:
+        if isinstance(value, expected_type):
+            return value
+    except TypeError:
+        return value
+
+    try:
+        if expected_type is bool:
+            if isinstance(value, str):
+                return value.strip().lower() in ("true", "1", "yes")
+            return bool(value)
+        return expected_type(value)
+    except (TypeError, ValueError):
+        _logger.debug(
+            f"Could not coerce judge result {value!r} to {expected_type}; using raw value."
+        )
+        return value
+
+
 def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
     """
     Get the default Pydantic schema for judge evaluations.
@@ -625,7 +675,7 @@ class LiteLLMAdapter(BaseJudgeAdapter):
 
             feedback = Feedback(
                 name=input_params.assessment_name,
-                value=response_dict["result"],
+                value=_coerce_result_value(response_dict["result"], input_params.response_format),
                 rationale=_sanitize_justification(response_dict.get("rationale", "")),
                 source=AssessmentSource(
                     source_type=AssessmentSourceType.LLM_JUDGE, source_id=input_params.model_uri
