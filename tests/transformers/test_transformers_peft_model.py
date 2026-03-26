@@ -1,5 +1,6 @@
 import importlib
 import os
+import re
 
 import pytest
 import transformers
@@ -113,7 +114,7 @@ def peft_model_with_local_base(tmp_path_factory):
 
     from mlflow.utils.logging_utils import suppress_logs
 
-    _PEFT_PIPELINE_ERROR_MSG = "is not supported for"
+    _PEFT_PIPELINE_ERROR_MSG = re.compile(r"is not supported for")
 
     base_model_id = "Elron/bleurt-tiny-512"
     base_dir = tmp_path_factory.mktemp("base_model")
@@ -223,4 +224,20 @@ def test_base_model_path_rejects_invalid_path(peft_model_with_local_base, tmp_pa
             transformers_model=pipeline,
             path=tmp_path,
             base_model_path="/nonexistent/path/to/model",
+        )
+
+
+def test_base_model_path_rejects_non_checkpoint_dir(peft_model_with_local_base, tmp_path):
+    """Test that base_model_path raises an error when directory has no config.json."""
+    pipeline, _ = peft_model_with_local_base
+
+    empty_dir = tmp_path / "empty_base"
+    empty_dir.mkdir()
+
+    save_dir = tmp_path / "model_output"
+    with pytest.raises(MlflowException, match="config.json"):
+        mlflow.transformers.save_model(
+            transformers_model=pipeline,
+            path=save_dir,
+            base_model_path=str(empty_dir),
         )

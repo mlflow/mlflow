@@ -505,6 +505,7 @@ def save_model(
 
                 base_path = "/shared/models/llama-7b"
                 base_model = AutoModelForCausalLM.from_pretrained(base_path)
+                tokenizer = AutoTokenizer.from_pretrained(base_path)
                 peft_model = get_peft_model(base_model, LoraConfig(...))
 
                 with mlflow.start_run():
@@ -661,6 +662,14 @@ def save_model(
                 "not a directory. Please provide a valid path to the base model.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        config_json_path = os.path.join(base_model_path, "config.json")
+        if not os.path.isfile(config_json_path):
+            raise MlflowException(
+                "The specified base_model_path "
+                f"'{base_model_path}' is not a valid Transformers checkpoint directory. "
+                "Expected to find a 'config.json' file in the directory.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     if is_peft_model(built_pipeline.model):
         _logger.info(
@@ -734,14 +743,15 @@ def save_model(
 
     model_name = built_pipeline.model.name_or_path
 
-    # Get the model card from either the argument or the HuggingFace marketplace
-    card_data = model_card or _fetch_model_card(model_name)
-
-    # If the card data can be acquired, save the text and the data separately
+    # Skip HuggingFace Hub model card/license retrieval when using a local base model
+    # path, as these operations require network access which may not be available in
+    # air-gapped environments. User-provided model_card is still written if given.
+    if base_model_path:
+        card_data = model_card
+    else:
+        card_data = model_card or _fetch_model_card(model_name)
+        _write_license_information(model_name, card_data, path)
     _write_card_data(card_data, path)
-
-    # Write the license information (or guidance) along with the model
-    _write_license_information(model_name, card_data, path)
 
     # Only allow a subset of task types to have a pyfunc definition.
     # Currently supported types are NLP-based language tasks which have a pipeline definition
