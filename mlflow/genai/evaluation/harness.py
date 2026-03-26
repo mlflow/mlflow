@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import queue
 import threading
@@ -874,11 +875,20 @@ def _compute_eval_scores(
     # Use a thread pool to run scorers in parallel
     # Limit concurrent scorers to prevent rate limiting errors with external LLM APIs
     max_scorer_workers = min(len(scorers), MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS.get())
+
+    # Capture the current context so that ContextVar values (e.g. the rate-limit
+    # retry disable flags set by eval_retry_context) propagate into the inner
+    # worker threads.  Without this, Python < 3.12 ThreadPoolExecutor threads
+    # start with an empty context, causing built-in scorers to run with litellm's
+    # own retry logic enabled *in addition to* the harness retry — leading to
+    # extremely long (effectively infinite) hangs on rate-limit errors.
+    ctx = contextvars.copy_context()
+
     with ThreadPoolExecutor(
         max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
-        futures = [executor.submit(run_scorer, scorer) for scorer in scorers]
+        futures = [executor.submit(ctx.run, run_scorer, scorer) for scorer in scorers]
 
         try:
             results = [future.result() for future in as_completed(futures)]
