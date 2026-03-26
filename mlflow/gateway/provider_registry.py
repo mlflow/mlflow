@@ -29,6 +29,7 @@ def _register_default_providers(registry: ProviderRegistry):
     from mlflow.gateway.providers.anthropic import AnthropicProvider
     from mlflow.gateway.providers.bedrock import AmazonBedrockProvider
     from mlflow.gateway.providers.cohere import CohereProvider
+    from mlflow.gateway.providers.deepseek import DeepSeekProvider
     from mlflow.gateway.providers.gemini import GeminiProvider
     from mlflow.gateway.providers.groq import GroqProvider
     from mlflow.gateway.providers.huggingface import HFTextGenerationInferenceServerProvider
@@ -45,6 +46,7 @@ def _register_default_providers(registry: ProviderRegistry):
     registry.register(Provider.ANTHROPIC, AnthropicProvider)
     registry.register(Provider.BEDROCK, AmazonBedrockProvider)
     registry.register(Provider.COHERE, CohereProvider)
+    registry.register(Provider.DEEPSEEK, DeepSeekProvider)
     registry.register(Provider.GEMINI, GeminiProvider)
     registry.register(Provider.GROQ, GroqProvider)
     registry.register(
