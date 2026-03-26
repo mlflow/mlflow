@@ -882,13 +882,16 @@ def _compute_eval_scores(
     # start with an empty context, causing built-in scorers to run with litellm's
     # own retry logic enabled *in addition to* the harness retry — leading to
     # extremely long (effectively infinite) hangs on rate-limit errors.
-    ctx = contextvars.copy_context()
-
+    # Each scorer gets its own context copy because Context.run() cannot be
+    # entered concurrently from multiple threads.
     with ThreadPoolExecutor(
         max_workers=max_scorer_workers,
         thread_name_prefix="MlflowGenAIEvalScorer",
     ) as executor:
-        futures = [executor.submit(ctx.run, run_scorer, scorer) for scorer in scorers]
+        futures = [
+            executor.submit(contextvars.copy_context().run, run_scorer, scorer)
+            for scorer in scorers
+        ]
 
         try:
             results = [future.result() for future in as_completed(futures)]

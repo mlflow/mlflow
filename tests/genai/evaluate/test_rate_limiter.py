@@ -1,7 +1,11 @@
+import threading
+import uuid
+
 import pytest
 
 from mlflow.genai.evaluation.harness import (
     AUTO_INITIAL_RPS,
+    _compute_eval_scores,
     _make_rate_limiter,
     _parse_rate_limit,
 )
@@ -406,3 +410,60 @@ def test_litellm_retry_policy_disables_rate_limit_retries_when_flag_set():
         policy = _get_litellm_retry_policy(3)
     assert policy.RateLimitErrorRetries == 0
     assert policy.TimeoutErrorRetries == 3
+
+
+def test_eval_retry_context_propagates_to_scorer_threads():
+    """Regression test: ContextVar flags must be visible inside _compute_eval_scores worker
+    threads. Without propagation (Python < 3.12 default), built-in scorers run with litellm's
+    own retry loop enabled on top of the harness retry, causing an indefinite hang.
+    """
+    from mlflow.genai.evaluation.entities import EvalItem
+    from mlflow.genai.scorers.base import scorer
+
+    # Track which threads saw the retry flags and their values
+    observations = {}
+    lock = threading.Lock()
+
+    @scorer
+    def flag_checker_a(inputs):
+        with lock:
+            observations["a"] = {
+                "thread": threading.current_thread().name,
+                "429_disabled": is_429_retry_disabled(),
+                "litellm_disabled": is_litellm_rate_limit_retries_disabled(),
+            }
+        return True
+
+    @scorer
+    def flag_checker_b(inputs):
+        with lock:
+            observations["b"] = {
+                "thread": threading.current_thread().name,
+                "429_disabled": is_429_retry_disabled(),
+                "litellm_disabled": is_litellm_rate_limit_retries_disabled(),
+            }
+        return True
+
+    eval_item = EvalItem(
+        request_id=uuid.uuid4().hex,
+        inputs={"question": "test"},
+        outputs="test",
+        expectations={},
+    )
+
+    with eval_retry_context():
+        _compute_eval_scores(
+            eval_item=eval_item,
+            scorers=[flag_checker_a, flag_checker_b],
+        )
+
+    # Both scorers must see the retry-disable flags even though they run in
+    # inner ThreadPoolExecutor threads that would otherwise get an empty context.
+    for name in ("a", "b"):
+        assert observations[name]["429_disabled"], (
+            f"Scorer {name} did not see _DISABLE_429_RETRY in thread {observations[name]['thread']}"
+        )
+        assert observations[name]["litellm_disabled"], (
+            f"Scorer {name} did not see _DISABLE_RATE_LIMIT_RETRIES in thread "
+            f"{observations[name]['thread']}"
+        )
