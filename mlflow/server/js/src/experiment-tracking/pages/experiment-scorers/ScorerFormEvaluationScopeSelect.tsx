@@ -1,9 +1,9 @@
 import { FormUI, Radio } from '@databricks/design-system';
-import type { RadioChangeEvent } from 'antd';
 import { Controller, useFormContext } from 'react-hook-form';
-import { ScorerFormData } from './utils/scorerTransformUtils';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
 import { FormattedMessage } from 'react-intl';
-import { SCORER_FORM_MODE, ScorerEvaluationScope, ScorerFormMode } from './constants';
+import type { ScorerFormMode } from './constants';
+import { SCORER_FORM_MODE, ScorerEvaluationScope } from './constants';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 
 interface ScorerFormEvaluationScopeSelectProps {
@@ -38,7 +38,7 @@ export const ScorerFormEvaluationScopeSelect = ({ mode, onUserSelect }: ScorerFo
             name="evaluationScope"
             componentId="mlflow.experiment-scorers.form.scope-select"
             value={field.value}
-            onChange={(e: RadioChangeEvent) => {
+            onChange={(e) => {
               const newValue = e.target.value;
               field.onChange(newValue);
               onUserSelect?.('evaluationScope', newValue);

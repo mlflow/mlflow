@@ -20,6 +20,7 @@ import {
   STATE_COLUMN_ID,
   TRACE_NAME_COLUMN_ID,
   USER_COLUMN_ID,
+  SESSION_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   LINKED_PROMPTS_COLUMN_ID,
@@ -47,6 +48,7 @@ const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
       STATE_COLUMN_ID,
       TRACE_NAME_COLUMN_ID,
       USER_COLUMN_ID,
+      SESSION_COLUMN_ID,
       RUN_NAME_COLUMN_ID,
       LOGGED_MODEL_COLUMN_ID,
       SOURCE_COLUMN_ID,
@@ -60,6 +62,7 @@ const getFilterableInfoColumns = (usesV4APIs?: boolean) => {
     STATE_COLUMN_ID,
     TRACE_NAME_COLUMN_ID,
     USER_COLUMN_ID,
+    SESSION_COLUMN_ID,
     RUN_NAME_COLUMN_ID,
     LOGGED_MODEL_COLUMN_ID,
     SOURCE_COLUMN_ID,
@@ -99,6 +102,14 @@ const getAvailableOperators = (column: string, key?: string): FilterOperator[] =
     return [FilterOperator.EQUALS, FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL];
   }
 
+  if (column === TracesTableColumnGroup.TAG) {
+    return [FilterOperator.EQUALS, FilterOperator.IS_NULL, FilterOperator.IS_NOT_NULL];
+  }
+
+  if (column === SESSION_COLUMN_ID) {
+    return [FilterOperator.EQUALS, FilterOperator.CONTAINS];
+  }
+
   return [FilterOperator.EQUALS];
 };
 
@@ -118,7 +129,7 @@ export const TableFilterItem = ({
   onChange: (filter: TableFilter, index: number) => void;
   onDelete: () => void;
   assessmentInfos: AssessmentInfo[];
-  experimentId: string;
+  experimentId?: string;
   tableFilterOptions: TableFilterOptions;
   allColumns: TracesTableColumn[];
   usesV4APIs?: boolean;

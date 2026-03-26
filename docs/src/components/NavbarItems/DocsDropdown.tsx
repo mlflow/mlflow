@@ -41,10 +41,10 @@ export default function DocsDropdown({
 
     if (currentSection === 'genai') {
       color = 'var(--genai-color-primary)';
-      text = 'GenAI Docs';
+      text = 'LLMs & Agents';
     } else if (currentSection === 'ml') {
       color = 'var(--ml-color-primary)';
-      text = 'ML Docs';
+      text = 'Machine Learning';
     }
 
     return (

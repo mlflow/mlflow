@@ -27,6 +27,11 @@ jest.mock('../../../../common/contexts/WorkflowTypeContext', () => ({
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
 
+jest.mock('../../../../common/utils/FeatureUtils', () => ({
+  shouldEnableExperimentOverviewTab: jest.fn().mockReturnValue(true),
+  shouldEnableWorkflowBasedNavigation: jest.fn().mockReturnValue(true),
+}));
+
 describe('useNavigateToExperimentPageTab', () => {
   const server = setupServer(
     // Mock the tracking store info endpoint - default to non-FileStore
@@ -102,7 +107,7 @@ describe('useNavigateToExperimentPageTab', () => {
     );
   };
   test('should not redirect if the hook is disabled', async () => {
-    (useWorkflowType as jest.Mock).mockReturnValue({ workflowType: WorkflowType.GENAI });
+    jest.mocked(useWorkflowType).mockReturnValue({ workflowType: WorkflowType.GENAI, setWorkflowType: jest.fn() });
     renderTestHook(createMLflowRoutePath('/experiments/123'), false);
 
     await waitFor(() => {
@@ -111,7 +116,7 @@ describe('useNavigateToExperimentPageTab', () => {
   });
 
   test('should redirect to the overview tab on GenAI experiment kind', async () => {
-    (useWorkflowType as jest.Mock).mockReturnValue({ workflowType: WorkflowType.GENAI });
+    jest.mocked(useWorkflowType).mockReturnValue({ workflowType: WorkflowType.GENAI, setWorkflowType: jest.fn() });
     mockResponseWithExperimentKind(ExperimentKind.GENAI_DEVELOPMENT);
 
     renderTestHook(createMLflowRoutePath('/experiments/123'));
@@ -120,7 +125,9 @@ describe('useNavigateToExperimentPageTab', () => {
   });
 
   test('should redirect to the traces tab on custom development experiment kind', async () => {
-    (useWorkflowType as jest.Mock).mockReturnValue({ workflowType: WorkflowType.MACHINE_LEARNING });
+    jest
+      .mocked(useWorkflowType)
+      .mockReturnValue({ workflowType: WorkflowType.MACHINE_LEARNING, setWorkflowType: jest.fn() });
     mockResponseWithExperimentKind(ExperimentKind.CUSTOM_MODEL_DEVELOPMENT);
 
     renderTestHook(createMLflowRoutePath('/experiments/123'));
@@ -129,7 +136,7 @@ describe('useNavigateToExperimentPageTab', () => {
   });
 
   test('should redirect to the traces tab on GenAI experiment kind when using FileStore', async () => {
-    (useWorkflowType as jest.Mock).mockReturnValue({ workflowType: WorkflowType.GENAI });
+    jest.mocked(useWorkflowType).mockReturnValue({ workflowType: WorkflowType.GENAI, setWorkflowType: jest.fn() });
     // Override the default mock to return FileStore
     server.use(
       rest.get('/ajax-api/3.0/mlflow/server-info', (_req, res, ctx) => {

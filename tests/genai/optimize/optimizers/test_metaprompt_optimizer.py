@@ -70,9 +70,9 @@ def mock_litellm_response():
     mock_response = Mock()
     mock_response.choices = [Mock()]
     mock_response.choices[0].message = Mock()
-    mock_response.choices[0].message.content = json.dumps(
-        {"instruction": "Improved: Answer this question carefully: {{question}}"}
-    )
+    mock_response.choices[0].message.content = json.dumps({
+        "instruction": "Improved: Answer this question carefully: {{question}}"
+    })
     return mock_response
 
 
@@ -334,9 +334,9 @@ def test_optimize_few_shot_with_baseline_eval(sample_train_data, sample_target_p
     mock_response = Mock()
     mock_response.choices = [Mock()]
     mock_response.choices[0].message = Mock()
-    mock_response.choices[0].message.content = json.dumps(
-        {"instruction": "Better: Answer {{question}}"}
-    )
+    mock_response.choices[0].message.content = json.dumps({
+        "instruction": "Better: Answer {{question}}"
+    })
 
     # Mock eval_fn that returns scores
     def mock_eval_fn(candidate_prompts, dataset):
@@ -398,12 +398,10 @@ def test_optimize_with_multiple_prompts(sample_train_data, sample_target_prompts
     mock_response = Mock()
     mock_response.choices = [Mock()]
     mock_response.choices[0].message = Mock()
-    mock_response.choices[0].message.content = json.dumps(
-        {
-            "system_prompt": "Improved: You are an expert assistant.",
-            "instruction": "Improved: Answer {{question}}",
-        }
-    )
+    mock_response.choices[0].message.content = json.dumps({
+        "system_prompt": "Improved: You are an expert assistant.",
+        "instruction": "Improved: Answer {{question}}",
+    })
 
     with patch("litellm.completion", return_value=mock_response):
         optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")

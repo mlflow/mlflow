@@ -140,5 +140,6 @@ gunicorn.conf.py
 !.claude/skills/
 !.claude/hooks/
 !.claude/rules/
+!.claude/scripts/
 !.claude/settings.json
 !.claude/statusline.sh

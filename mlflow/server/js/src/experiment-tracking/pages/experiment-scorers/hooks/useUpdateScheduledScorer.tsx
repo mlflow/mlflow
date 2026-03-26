@@ -22,6 +22,7 @@ export type UpdateScheduledScorersResponse = {
   };
 };
 
+/* eslint-disable react-hooks/rules-of-hooks */
 export const useUpdateScheduledScorerMutation = () => {
   const queryClient = useQueryClient();
 
@@ -67,3 +68,4 @@ export const useUpdateScheduledScorerMutation = () => {
     },
   });
 };
+/* eslint-enable react-hooks/rules-of-hooks */

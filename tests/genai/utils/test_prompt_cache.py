@@ -74,6 +74,26 @@ def test_delete_prompt_by_alias():
     assert cache.get(key2) == "value2"  # staging still cached
 
 
+def test_delete_all_prompt_entries():
+    cache = PromptCache.get_instance()
+    key1 = PromptCacheKey.from_parts("my-prompt", version=1)
+    key2 = PromptCacheKey.from_parts("my-prompt", version=2)
+    key3 = PromptCacheKey.from_parts("my-prompt", alias="latest")
+    key4 = PromptCacheKey.from_parts("other-prompt", version=1)
+
+    cache.set(key1, "value1")
+    cache.set(key2, "value2")
+    cache.set(key3, "value3")
+    cache.set(key4, "value4")
+
+    cache.delete_all("my-prompt")
+
+    assert cache.get(key1) is None
+    assert cache.get(key2) is None
+    assert cache.get(key3) is None
+    assert cache.get(key4) == "value4"
+
+
 def test_clear():
     cache = PromptCache.get_instance()
     key1 = PromptCacheKey.from_parts("prompt1", version=1)

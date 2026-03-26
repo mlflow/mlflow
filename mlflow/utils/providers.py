@@ -1,9 +1,13 @@
-import importlib.util
+import functools
+import importlib.resources
+import json
+import logging
+from collections.abc import Iterator
 from typing import Any, TypedDict
 
 from typing_extensions import NotRequired
 
-_PROVIDER_BACKEND_AVAILABLE = importlib.util.find_spec("litellm") is not None
+_logger = logging.getLogger(__name__)
 
 _SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
 
@@ -45,10 +49,14 @@ class ProviderConfigResponse(TypedDict):
     default_mode: str
 
 
-def _get_model_cost():
-    from litellm import model_cost
-
-    return model_cost
+@functools.lru_cache(maxsize=1)
+def _get_model_cost() -> dict[str, Any]:
+    ref = importlib.resources.files(__package__).joinpath("model_prices_and_context_window.json")
+    try:
+        with importlib.resources.as_file(ref) as path, path.open(encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
 
 
 # Auth modes for providers with multiple authentication options.
@@ -65,8 +73,8 @@ def _get_model_cost():
 #   - Vertex AI: https://docs.litellm.ai/docs/providers/vertex
 #   - Databricks: https://docs.litellm.ai/docs/providers/databricks
 #
-# Only user-provided modes are included (no server-provided modes like
-# managed identity, IRSA, or ADC that require specific hosting environments).
+# Includes both user-provided credential modes and a default credential chain mode
+# that uses ambient server credentials (instance profile, IRSA, ECS task role, etc.).
 _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
     "bedrock": {
         "api_key": {
@@ -127,6 +135,31 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "description": "IAM Role ARN to assume",
                     "secret": False,
                     "required": True,
+                },
+                {
+                    "name": "aws_session_name",
+                    "description": "Session name for assumed role",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
+                    "required": False,
+                },
+            ],
+        },
+        "default_chain": {
+            "display_name": "Default Credential Chain",
+            "description": "Use the server's default AWS credentials "
+            "(instance profile, IRSA, ECS task role, ~/.aws/credentials, etc.)",
+            "fields": [
+                {
+                    "name": "aws_role_name",
+                    "description": "IAM Role ARN to assume (optional, for cross-account access)",
+                    "secret": False,
+                    "required": False,
                 },
                 {
                     "name": "aws_session_name",
@@ -344,6 +377,31 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
             ],
         },
+        "default_chain": {
+            "display_name": "Default Credential Chain",
+            "description": "Use the server's default AWS credentials "
+            "(instance profile, IRSA, ECS task role, ~/.aws/credentials, etc.)",
+            "fields": [
+                {
+                    "name": "aws_role_name",
+                    "description": "IAM Role ARN to assume (optional, for cross-account access)",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_session_name",
+                    "description": "Session name for assumed role",
+                    "secret": False,
+                    "required": False,
+                },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region (e.g., us-east-1)",
+                    "secret": False,
+                    "required": False,
+                },
+            ],
+        },
     },
 }
 
@@ -473,20 +531,14 @@ def _normalize_provider(provider: str) -> str:
 
 def get_all_providers() -> list[str]:
     """
-    Get a list of all LiteLLM providers that have chat, completion, or embedding capabilities.
+    Get a list of all providers that have chat, completion, or embedding capabilities.
 
     Only returns providers that have at least one chat, completion, or embedding model,
     excluding providers that only offer image generation, audio, or other non-text services.
 
     Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
     variants are returned as just vertex_ai).
-
-    Returns:
-        List of provider names that support chat/completion/embedding
     """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
-
     model_cost = _get_model_cost()
     providers = set()
     for _, info in model_cost.items():
@@ -495,7 +547,6 @@ def get_all_providers() -> list[str]:
             if provider := info.get("litellm_provider"):
                 if provider not in _EXCLUDED_PROVIDERS:
                     providers.add(_normalize_provider(provider))
-
     return list(providers)
 
 
@@ -527,18 +578,28 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - output_cost_per_token: Cost per output token (USD)
             - deprecation_date: Date when model will be deprecated (if known)
     """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
+    entries = (
+        (
+            name,
+            info.get("litellm_provider"),
+            info,
+        )
+        for name, info in _get_model_cost().items()
+    )
+    return _extract_models(entries, provider_filter=provider)
 
-    model_cost = _get_model_cost()
+
+def _extract_models(
+    entries: Iterator[tuple[str, str | None, dict[str, Any]]],
+    provider_filter: str | None = None,
+) -> list[dict[str, Any]]:
     # Use dict to dedupe models by (provider, model_name) key
-    models_dict: dict[tuple[str, str], dict[str, Any]] = {}
-    for model_name, info in model_cost.items():
-        litellm_provider = info.get("litellm_provider")
-        normalized_provider = _normalize_provider(litellm_provider) if litellm_provider else None
+    models_dict: dict[tuple[str | None, str], dict[str, Any]] = {}
+    for model_name, entry_provider, info in entries:
+        normalized_provider = _normalize_provider(entry_provider) if entry_provider else None
 
         # Filter by provider (matching against the normalized provider name)
-        if provider and normalized_provider != provider:
+        if provider_filter and normalized_provider != provider_filter:
             continue
 
         mode = info.get("mode")
@@ -550,7 +611,7 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         if normalized_provider and model_name.startswith(f"{normalized_provider}/"):
             model_name = model_name.removeprefix(f"{normalized_provider}/")
 
-        # LiteLLM contains fine-tuned models with the prefix "ft:"
+        # Skip fine-tuned model variants (e.g. "ft:gpt-4o-2024-08-06:org::id")
         if model_name.startswith("ft:"):
             continue
 
@@ -559,20 +620,41 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         if key in models_dict:
             continue
 
-        models_dict[key] = {
-            "model": model_name,
-            "provider": normalized_provider,
-            "mode": mode,
-            "supports_function_calling": info.get("supports_function_calling", False),
-            "supports_vision": info.get("supports_vision", False),
-            "supports_reasoning": info.get("supports_reasoning", False),
-            "supports_prompt_caching": info.get("supports_prompt_caching", False),
-            "supports_response_schema": info.get("supports_response_schema", False),
-            "max_input_tokens": info.get("max_input_tokens"),
-            "max_output_tokens": info.get("max_output_tokens"),
-            "input_cost_per_token": info.get("input_cost_per_token"),
-            "output_cost_per_token": info.get("output_cost_per_token"),
-            "deprecation_date": info.get("deprecation_date"),
-        }
+        models_dict[key] = _build_model_dict(model_name, normalized_provider, mode, info)
 
     return list(models_dict.values())
+
+
+def _build_model_dict(
+    model_name: str, provider: str | None, mode: str | None, info: dict[str, Any]
+) -> dict[str, Any]:
+    return {
+        "model": model_name,
+        "provider": provider,
+        "mode": mode,
+        "supports_function_calling": info.get("supports_function_calling", False),
+        "supports_vision": info.get("supports_vision", False),
+        "supports_reasoning": info.get("supports_reasoning", False),
+        "supports_prompt_caching": info.get("supports_prompt_caching", False),
+        "supports_response_schema": info.get("supports_response_schema", False),
+        "max_input_tokens": info.get("max_input_tokens"),
+        "max_output_tokens": info.get("max_output_tokens"),
+        "input_cost_per_token": info.get("input_cost_per_token"),
+        "output_cost_per_token": info.get("output_cost_per_token"),
+        "deprecation_date": info.get("deprecation_date"),
+    }
+
+
+# Mapping of core providers to their environment variable names for API keys
+_CORE_PROVIDER_ENV_VARS = {
+    "openai": "OPENAI_API_KEY",
+    "azure": "AZURE_OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "bedrock": {
+        "aws_access_key_id": "AWS_ACCESS_KEY_ID",
+        "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",
+        "aws_session_token": "AWS_SESSION_TOKEN",  # Optional
+    },
+}

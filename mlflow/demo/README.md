@@ -57,12 +57,12 @@ class MyFeatureDemoGenerator(BaseDemoGenerator):
 
 ## Naming Conventions
 
-| Entity Type | Convention                       | Example                   |
-| ----------- | -------------------------------- | ------------------------- |
-| Experiment  | `DEMO_EXPERIMENT_NAME` constant  | `"MLflow Demo"`           |
-| Prompts     | `{DEMO_PROMPT_PREFIX}.<name>`    | `"mlflow-demo.prompts.*"` |
-| Scorers     | `{DEMO_PROMPT_PREFIX}.scorers.*` | `"mlflow-demo.scorers.*"` |
-| Metadata    | `mlflow.demo.*`                  | `mlflow.demo.version`     |
+| Entity Type | Convention                      | Example                  |
+| ----------- | ------------------------------- | ------------------------ |
+| Experiment  | `DEMO_EXPERIMENT_NAME` constant | `"MLflow Demo"`          |
+| Prompts     | `{DEMO_PROMPT_PREFIX}.<name>`   | `"mlflow-demo.<name>"`   |
+| Judges      | `{DEMO_PROMPT_PREFIX}.judges.*` | `"mlflow-demo.judges.*"` |
+| Metadata    | `mlflow.demo.*`                 | `mlflow.demo.version`    |
 
 ## Versioning
 

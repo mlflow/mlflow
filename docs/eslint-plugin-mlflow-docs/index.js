@@ -11,5 +11,7 @@ module.exports = {
     'use-base-url-for-images': require('./rules/use-base-url-for-images'),
     /** Rule to enforce <APILink> usage when referencing the API doc **/
     'prefer-apilink-component': require('./rules/prefer-apilink-component'),
+    /** Rule to enforce that import statements are at the top of MDX files **/
+    'imports-first': require('./rules/imports-first'),
   },
 };

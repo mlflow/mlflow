@@ -8,7 +8,7 @@ import tailwindPlugin from './src/plugins/tailwind-config.cjs';
 const baseUrl = (process.env.DOCS_BASE_URL ?? '/docs/latest/').replace(/\/?$/, '/');
 
 const config: Config = {
-  title: 'MLflow',
+  title: 'MLflow AI Platform',
   tagline: 'MLflow Documentation',
   favicon: 'images/favicon.ico',
 
@@ -85,6 +85,71 @@ const config: Config = {
 
   clientModules: [require.resolve('./src/docusaurus.theme.js')],
 
+  headTags: [
+    // Open Graph
+    {
+      tagName: 'meta',
+      attributes: { property: 'og:type', content: 'website' },
+    },
+    {
+      tagName: 'meta',
+      attributes: { property: 'og:site_name', content: 'MLflow' },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:title',
+        content: 'MLflow — Open Source AI Platform for Agents, LLMs & Models',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:description',
+        content:
+          'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:image',
+        content: 'https://mlflow.org/img/mlflow-card.png',
+      },
+    },
+    // Twitter Card
+    {
+      tagName: 'meta',
+      attributes: { name: 'twitter:card', content: 'summary_large_image' },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:title',
+        content: 'MLflow — Open Source AI Platform for Agents, LLMs & Models',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:description',
+        content:
+          'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:image',
+        content: 'https://mlflow.org/img/mlflow-card.png',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: { name: 'twitter:site', content: '@mlflow' },
+    },
+  ],
+
   themeConfig: {
     docs: {
       sidebar: {
@@ -109,21 +174,21 @@ const config: Config = {
           type: 'custom-docsDropdown',
           label: 'Documentation',
           items: [
-            // Classic ML docs
-            {
-              type: 'docSidebar',
-              sidebarId: 'classicMLSidebar',
-              label: 'ML Docs',
-              docsPluginId: 'classic-ml',
-              className: 'ml-docs-link',
-            },
             // GenAI docs
             {
               type: 'docSidebar',
               sidebarId: 'genAISidebar',
-              label: 'GenAI Docs',
+              label: 'LLMs & Agents',
               docsPluginId: 'genai',
               className: 'genai-docs-link',
+            },
+            // Classic ML docs
+            {
+              type: 'docSidebar',
+              sidebarId: 'classicMLSidebar',
+              label: 'Machine Learning',
+              docsPluginId: 'classic-ml',
+              className: 'ml-docs-link',
             },
           ],
         },
@@ -298,6 +363,11 @@ const config: Config = {
             to: '/',
             from: ['/new-features'],
           },
+          // Redirect webhooks from classic-ml to self-hosting
+          {
+            to: '/self-hosting/webhooks',
+            from: ['/ml/webhooks'],
+          },
           // Redirect to the new self-hosting guide
           {
             to: '/self-hosting/architecture/tracking-server',
@@ -338,6 +408,10 @@ const config: Config = {
               '/getting-started/community-edition',
               '/ml/getting-started/databricks-trial',
             ],
+          },
+          {
+            to: '/genai/tracing/quickstart',
+            from: ['/genai/getting-started'],
           },
           // Redirect deleted data-model pages to GenAI main page
           {

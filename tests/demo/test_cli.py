@@ -8,12 +8,13 @@ import socket
 import sys
 from unittest import mock
 
+import click
 import pytest
 from click.testing import CliRunner
 
 import mlflow
 from mlflow.cli import cli
-from mlflow.cli.demo import demo
+from mlflow.cli.demo import _check_server_connection, demo
 from mlflow.demo.base import DEMO_EXPERIMENT_NAME, DEMO_PROMPT_PREFIX
 from mlflow.demo.generators.traces import DEMO_VERSION_TAG
 from mlflow.demo.registry import demo_registry
@@ -171,3 +172,19 @@ def test_cli_port_in_use_error():
 
     assert result.exit_code != 0
     assert "already in use" in result.output
+
+
+def test_cli_unreachable_server_error():
+    runner = CliRunner()
+
+    # Use a URL that won't have a server running
+    result = runner.invoke(demo, ["--tracking-uri", "http://localhost:59999"])
+
+    assert result.exit_code != 0
+    assert "Cannot connect to MLflow server" in result.output
+    assert "Please verify" in result.output
+
+
+def test_check_server_connection_fails_for_bad_url():
+    with pytest.raises(click.ClickException, match="Cannot connect to MLflow server"):
+        _check_server_connection("http://localhost:59999", max_retries=1, timeout=1)

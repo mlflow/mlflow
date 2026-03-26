@@ -29,11 +29,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   const isLocalServer = useMemo(() => checkIsLocalServer(), []);
 
   // Panel state - persisted to localStorage
-  // Only open by default on first visit if server is local
   const [isPanelOpen, setIsPanelOpen] = useLocalStorage({
     key: 'mlflow.assistant.panelOpen',
     version: 1,
-    initialValue: isLocalServer,
+    initialValue: false,
   });
 
   // Chat state
@@ -323,7 +322,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
     // Send cancel request to backend
     cancelSessionApi(sessionId).catch((err) => {
-      console.error('Failed to cancel session:', err);
+      // fail silently
     });
 
     // Mark the current streaming message as interrupted

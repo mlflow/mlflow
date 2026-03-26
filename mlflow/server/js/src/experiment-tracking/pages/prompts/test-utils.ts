@@ -120,7 +120,7 @@ export const getMockedRegisteredPromptVersionsResponse = (name = 'prompt1', n = 
         model_versions: [
           {
             name,
-            version: 1,
+            version: '1',
             creation_timestamp: 1620000000000,
             last_updated_timestamp: 1620000000000,
             description: 'some commit message for version 1',
@@ -132,7 +132,7 @@ export const getMockedRegisteredPromptVersionsResponse = (name = 'prompt1', n = 
           },
           {
             name,
-            version: 2,
+            version: '2',
             creation_timestamp: 1620000000000,
             last_updated_timestamp: 1620000000000,
             description: 'some commit message for version 2',
@@ -144,7 +144,7 @@ export const getMockedRegisteredPromptVersionsResponse = (name = 'prompt1', n = 
           },
           {
             name,
-            version: 3,
+            version: '3',
             creation_timestamp: 1620000000000,
             last_updated_timestamp: 1620000000000,
             description: 'some commit message for version 3',

@@ -327,16 +327,14 @@ def _validate_server_args(
 
     security_params_specified = False
     if ctx:
-        security_params_specified = any(
-            [
-                ctx.get_parameter_source("allowed_hosts") == ParameterSource.COMMANDLINE,
-                ctx.get_parameter_source("cors_allowed_origins") == ParameterSource.COMMANDLINE,
-                (
-                    ctx.get_parameter_source("disable_security_middleware")
-                    == ParameterSource.COMMANDLINE
-                ),
-            ]
-        )
+        security_params_specified = any([
+            ctx.get_parameter_source("allowed_hosts") == ParameterSource.COMMANDLINE,
+            ctx.get_parameter_source("cors_allowed_origins") == ParameterSource.COMMANDLINE,
+            (
+                ctx.get_parameter_source("disable_security_middleware")
+                == ParameterSource.COMMANDLINE
+            ),
+        ])
 
     if using_flask_only and security_params_specified:
         raise click.UsageError(

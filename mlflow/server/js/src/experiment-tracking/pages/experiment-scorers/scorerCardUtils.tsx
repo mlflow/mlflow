@@ -8,7 +8,8 @@ import type { ScheduledScorer, LLMScorer, CustomCodeScorer } from './types';
 import type { LLMScorerFormData } from './LLMScorerFormRenderer';
 import type { CustomCodeScorerFormData } from './CustomCodeScorerFormRenderer';
 import { TEMPLATE_INSTRUCTIONS_MAP } from './prompts';
-import { ScorerFormData, outputTypeSpecToFormData } from './utils/scorerTransformUtils';
+import type { ScorerFormData } from './utils/scorerTransformUtils';
+import { outputTypeSpecToFormData } from './utils/scorerTransformUtils';
 import { ScorerEvaluationScope } from './constants';
 
 export const getTypeDisplayName = (scorer: ScheduledScorer, intl: IntlShape): string => {

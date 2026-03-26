@@ -5,6 +5,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import Feedback
+from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
     MODULES_TO_CHECK_IMPORT,
@@ -87,7 +88,10 @@ class StartTraceEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         # Capture the set of currently imported packages at trace start time to
         # understand the flavor of the trace.
-        return {"imports": [pkg for pkg in GENAI_MODULES if pkg in sys.modules]}
+        return {
+            "imports": [pkg for pkg in GENAI_MODULES if pkg in sys.modules],
+            "format": "genai_semconv" if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get() else "native",
+        }
 
 
 class LogAssessmentEvent(Event):
@@ -160,9 +164,14 @@ class CreateLoggedModelEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        data: dict[str, Any] = {}
         if flavor := arguments.get("flavor"):
-            return {"flavor": flavor.removeprefix("mlflow.")}
-        return None
+            data["flavor"] = flavor.removeprefix("mlflow.")
+        if serialization_format := arguments.get("serialization_format"):
+            data["serialization_format"] = serialization_format
+        if arguments.get("uses_uv"):
+            data["uses_uv"] = True
+        return data or None
 
 
 class GetLoggedModelEvent(Event):
@@ -413,6 +422,7 @@ class GatewayCreateEndpointEvent(Event):
             if arguments.get("routing_strategy")
             else None,
             "num_model_configs": len(arguments.get("model_configs") or []),
+            "usage_tracking": arguments.get("usage_tracking"),
         }
 
 
@@ -429,6 +439,7 @@ class GatewayUpdateEndpointEvent(Event):
             "num_model_configs": len(arguments.get("model_configs"))
             if arguments.get("model_configs") is not None
             else None,
+            "usage_tracking": arguments.get("usage_tracking"),
         }
 
 
@@ -448,6 +459,38 @@ class GatewayListEndpointsEvent(Event):
         return {
             "filter_by_provider": arguments.get("provider") is not None,
         }
+
+
+# Gateway Budget Policy CRUD Events
+class GatewayCreateBudgetPolicyEvent(Event):
+    name: str = "gateway_create_budget_policy"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        def _enum_str(val: Any) -> str | None:
+            if val is None:
+                return None
+            return val.value if hasattr(val, "value") else str(val)
+
+        duration = arguments.get("duration")
+        return {
+            "budget_unit": _enum_str(arguments.get("budget_unit")),
+            "duration_unit": _enum_str(duration.unit if duration is not None else None),
+            "target_scope": _enum_str(arguments.get("target_scope")),
+            "budget_action": _enum_str(arguments.get("budget_action")),
+        }
+
+
+class GatewayUpdateBudgetPolicyEvent(Event):
+    name: str = "gateway_update_budget_policy"
+
+
+class GatewayDeleteBudgetPolicyEvent(Event):
+    name: str = "gateway_delete_budget_policy"
+
+
+class GatewayListBudgetPoliciesEvent(Event):
+    name: str = "gateway_list_budget_policies"
 
 
 # Gateway Secret CRUD Events
@@ -670,3 +713,23 @@ class ScorerCallEvent(Event):
             return {"has_feedback_error": any(f.error is not None for f in result)}
 
         return {"has_feedback_error": False}
+
+
+class DiscoverIssuesEvent(Event):
+    name: str = "discover_issues"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "model": arguments.get("model"),
+            "trace_count": len(arguments.get("traces") or []),
+            "categories": arguments.get("categories"),
+        }
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        return {
+            "issue_count": len(result.issues),
+            "total_traces_analyzed": result.total_traces_analyzed,
+            "total_cost_usd": result.total_cost_usd,
+        }

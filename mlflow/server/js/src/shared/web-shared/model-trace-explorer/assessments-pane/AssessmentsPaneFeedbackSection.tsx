@@ -10,7 +10,7 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FeedbackAssessment } from '../ModelTrace.types';
+import type { FeedbackAssessment } from '../ModelTrace.types';
 import { FeedbackGroup } from './FeedbackGroup';
 import { useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
@@ -18,10 +18,11 @@ import { isEmpty, isNil, uniqBy } from 'lodash';
 import { AssessmentCreateForm } from './AssessmentCreateForm';
 import { useModelTraceExplorerRunJudgesContext } from '../contexts/RunJudgesContext';
 import { useModelTraceExplorerUpdateTraceContext } from '../contexts/UpdateTraceContext';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@databricks/web-shared/query-client';
 import { invalidateMlflowSearchTracesCache } from '../hooks/invalidateMlflowSearchTracesCache';
 import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import { isEvaluatingTracesInDetailsViewEnabled } from '../FeatureUtils';
+import { INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE } from '../constants';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -136,7 +137,11 @@ export const AssessmentsPaneFeedbackSection = ({
   traceId: string;
   sessionId?: string;
 }) => {
-  const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
+  const visibleFeedbacks = useMemo(
+    () => feedbacks.filter((f) => f.assessment_name !== INTERNAL_ASSESSMENT_ISSUE_DISCOVERY_JUDGE),
+    [feedbacks],
+  );
+  const groupedFeedbacks = useMemo(() => groupFeedbacks(visibleFeedbacks), [visibleFeedbacks]);
 
   const [createFormVisible, setCreateFormVisible] = useState(false);
 
@@ -196,8 +201,8 @@ export const AssessmentsPaneFeedbackSection = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          marginTop: theme.spacing.sm,
           marginBottom: theme.spacing.sm,
-          height: theme.spacing.lg,
           flexShrink: 0,
         }}
       >
@@ -206,17 +211,12 @@ export const AssessmentsPaneFeedbackSection = ({
             defaultMessage="Feedback"
             description="Label for the feedback section in the assessments pane"
           />{' '}
-          {!isEmpty(groupedFeedbacks) && <>({feedbacks?.length})</>}
+          {!isEmpty(groupedFeedbacks) && <>({visibleFeedbacks.length})</>}
         </Typography.Text>
-      </div>
-
-      {!isSectionEmpty && (
-        <div
-          css={{ display: 'flex', justifyContent: 'flex-end', marginBottom: theme.spacing.sm, gap: theme.spacing.xs }}
-        >
+        {!isSectionEmpty && (
           <AddFeedbackButton traceId={traceId} sessionId={sessionId} onClick={() => setCreateFormVisible(true)} />
-        </div>
-      )}
+        )}
+      </div>
 
       {currentTraceEvaluationErrors.map((evaluation) => (
         <div key={evaluation.requestKey} css={{ marginBottom: theme.spacing.sm }}>
@@ -292,10 +292,17 @@ export const AssessmentsPaneFeedbackSection = ({
           }}
         >
           <Typography.Hint>
-            <FormattedMessage
-              defaultMessage="Add custom feedback to this trace."
-              description="Hint message prompting user to add new feedback"
-            />{' '}
+            {sessionId ? (
+              <FormattedMessage
+                defaultMessage="Add custom feedback to this session."
+                description="Hint message prompting user to add new feedback to a session"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Add custom feedback to this trace."
+                description="Hint message prompting user to add new feedback to a trace"
+              />
+            )}{' '}
             <Typography.Link
               componentId="shared.model-trace-explorer.feedback-learn-more-link"
               openInNewTab
@@ -314,7 +321,7 @@ export const AssessmentsPaneFeedbackSection = ({
         <AssessmentCreateForm
           spanId={activeSpanId}
           traceId={traceId}
-          initialAssessmentType="feedback"
+          assessmentType="feedback"
           setExpanded={() => setCreateFormVisible(false)}
         />
       )}

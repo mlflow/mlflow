@@ -1,5 +1,7 @@
-import React, { ReactNode, useEffect } from 'react';
-import { useQuery, useQueryClient, QueryClient } from '../../common/utils/reactQueryHooks';
+import type { ReactNode } from 'react';
+import React, { useEffect } from 'react';
+import type { QueryClient } from '../../common/utils/reactQueryHooks';
+import { useQuery, useQueryClient } from '../../common/utils/reactQueryHooks';
 import { getAjaxUrl, getDefaultHeaders } from '../../common/utils/FetchUtils';
 
 export const SERVER_INFO_QUERY_KEY = 'serverInfo';

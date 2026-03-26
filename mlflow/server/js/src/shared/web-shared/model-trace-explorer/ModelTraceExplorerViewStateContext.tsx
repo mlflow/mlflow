@@ -8,11 +8,13 @@ import {
   searchTreeBySpanId,
 } from './ModelTraceExplorer.utils';
 import { getTimelineTreeNodesMap } from './timeline-tree/TimelineTree.utils';
+import { useModelTraceExplorerPreferences } from './ModelTraceExplorerPreferencesContext';
 
 type PaneSizeRatios = {
   summarySidebar: number;
   detailsSidebar: number;
   detailsPane: number;
+  graphPane: number;
 };
 
 // Default ratios of pane sizes in the model trace explorer.
@@ -23,6 +25,8 @@ const getDefaultPaneSizeRatios = (): PaneSizeRatios => ({
   detailsSidebar: 0.7,
   // Details pane (based on the window width)
   detailsPane: window.innerWidth <= 768 ? 0.33 : 0.25,
+  // Graph view pane — balanced with details pane
+  graphPane: 0.5,
 });
 
 export type ModelTraceExplorerViewState = {
@@ -34,19 +38,22 @@ export type ModelTraceExplorerViewState = {
   setSelectedNode: (node: ModelTraceSpanNode | undefined) => void;
   activeTab: ModelTraceExplorerTab;
   setActiveTab: (tab: ModelTraceExplorerTab) => void;
+  showGraph: boolean;
+  setShowGraph: (show: boolean) => void;
   showTimelineTreeGantt: boolean;
   setShowTimelineTreeGantt: (show: boolean) => void;
   assessmentsPaneExpanded: boolean;
   setAssessmentsPaneExpanded: (expanded: boolean) => void;
   isTraceInitialLoading?: boolean;
   assessmentsPaneEnabled: boolean;
-  isInComparisonView: boolean;
   updatePaneSizeRatios: (sizes: Partial<PaneSizeRatios>) => void;
   getPaneSizeRatios: () => PaneSizeRatios;
   readOnly?: boolean;
   // NB: There can be multiple top-level spans in the trace when it is in-progress. They are not
   // root spans, but used as a tentative roots until the trace is complete.
   topLevelNodes: ModelTraceSpanNode[];
+  subscribeToHighlightEvent: (assessmentId: string, callback: () => void) => () => void;
+  highlightAssessment: (assessmentId: string) => void;
 };
 
 export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplorerViewState>({
@@ -58,17 +65,20 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   setSelectedNode: () => {},
   activeTab: 'content',
   setActiveTab: () => {},
+  showGraph: true,
+  setShowGraph: () => {},
   showTimelineTreeGantt: false,
   setShowTimelineTreeGantt: () => {},
   assessmentsPaneExpanded: false,
   setAssessmentsPaneExpanded: () => {},
   isTraceInitialLoading: false,
   assessmentsPaneEnabled: true,
-  isInComparisonView: false,
   updatePaneSizeRatios: () => {},
   getPaneSizeRatios: () => getDefaultPaneSizeRatios(),
   readOnly: false,
   topLevelNodes: [],
+  subscribeToHighlightEvent: () => () => {},
+  highlightAssessment: () => {},
 });
 
 export const useModelTraceExplorerViewState = () => {
@@ -85,7 +95,6 @@ export const ModelTraceExplorerViewStateProvider = ({
   assessmentsPaneEnabled,
   initialAssessmentsPaneCollapsed,
   isTraceInitialLoading = false,
-  isInComparisonView = false,
   children,
   readOnly = false,
 }: {
@@ -96,7 +105,6 @@ export const ModelTraceExplorerViewStateProvider = ({
   assessmentsPaneEnabled: boolean;
   initialAssessmentsPaneCollapsed?: boolean | 'force-open';
   isTraceInitialLoading?: boolean;
-  isInComparisonView?: boolean;
   readOnly?: boolean;
 }) => {
   const topLevelNodes = useMemo(() => parseModelTraceToTreeWithMultipleRoots(modelTrace), [modelTrace]);
@@ -107,6 +115,8 @@ export const ModelTraceExplorerViewStateProvider = ({
   const defaultSelectedNode = selectedSpanOnRender ?? rootNode ?? undefined;
   const hasAssessments = (defaultSelectedNode?.assessments?.length ?? 0) > 0;
   const hasInputsOrOutputs = !isNil(rootNode?.inputs) || !isNil(rootNode?.outputs);
+
+  const preferences = useModelTraceExplorerPreferences();
 
   // Stores the pane size rations. Uses mutable ref instead of useState to avoid unnecessary rerenders,
   // as the pane size ratios are used only during the initial render.
@@ -122,7 +132,10 @@ export const ModelTraceExplorerViewStateProvider = ({
     };
   }, []);
 
-  const [activeView, setActiveView] = useState<'summary' | 'detail'>(() => {
+  const [activeView, setActiveViewInternal] = useState<'summary' | 'detail'>(() => {
+    if (preferences.activeView !== undefined) {
+      return preferences.activeView;
+    }
     // Default to detail view when rootNode is null
     if (!rootNode) {
       return 'detail';
@@ -130,13 +143,64 @@ export const ModelTraceExplorerViewStateProvider = ({
     return initialActiveView ?? (hasInputsOrOutputs ? 'summary' : 'detail');
   });
 
+  const setActiveView = useCallback(
+    (view: 'summary' | 'detail') => {
+      setActiveViewInternal(view);
+      preferences.setActiveView(view);
+    },
+    [preferences],
+  );
+
   const [selectedNode, setSelectedNode] = useState<ModelTraceSpanNode | undefined>(defaultSelectedNode);
   const defaultActiveTab = getDefaultActiveTab(selectedNode);
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
+  const [showGraph, setShowGraph] = useState(!!rootNode);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
-  const [assessmentsPaneExpanded, setAssessmentsPaneExpanded] = useState(
-    (!initialAssessmentsPaneCollapsed && hasAssessments) || initialAssessmentsPaneCollapsed === 'force-open',
+  const [assessmentsPaneExpanded, setAssessmentsPaneExpandedInternal] = useState(() => {
+    if (preferences.assessmentsPaneExpanded !== undefined) {
+      return preferences.assessmentsPaneExpanded;
+    }
+    return (!initialAssessmentsPaneCollapsed && hasAssessments) || initialAssessmentsPaneCollapsed === 'force-open';
+  });
+
+  const setAssessmentsPaneExpanded = useCallback(
+    (expanded: boolean) => {
+      setAssessmentsPaneExpandedInternal(expanded);
+      preferences.setAssessmentsPaneExpanded(expanded);
+    },
+    [preferences],
   );
+
+  const pendingHighlightRef = useRef<string | null>(null);
+  const highlightListenersRef = useRef<Map<string, Set<() => void>>>(new Map());
+
+  const subscribeToHighlightEvent = useCallback((assessmentId: string, callback: () => void) => {
+    let listeners = highlightListenersRef.current.get(assessmentId);
+    if (!listeners) {
+      listeners = new Set();
+      highlightListenersRef.current.set(assessmentId, listeners);
+    }
+    listeners.add(callback);
+
+    if (pendingHighlightRef.current === assessmentId) {
+      // eslint-disable-next-line
+      callback(); // eslint-disable-line callback-return
+      pendingHighlightRef.current = null;
+    }
+
+    return () => {
+      listeners.delete(callback);
+    };
+  }, []);
+
+  const highlightAssessment = useCallback((assessmentId: string) => {
+    const listeners = highlightListenersRef.current.get(assessmentId);
+    if (listeners && listeners.size > 0) {
+      listeners.forEach((cb) => cb());
+    } else {
+      pendingHighlightRef.current = assessmentId;
+    }
+  }, []);
 
   useEffect(() => {
     const defaultActiveTab = getDefaultActiveTab(selectedNode);
@@ -148,7 +212,7 @@ export const ModelTraceExplorerViewStateProvider = ({
     if (!rootNode && activeView === 'summary') {
       setActiveView('detail');
     }
-  }, [rootNode, activeView]);
+  }, [rootNode, activeView, setActiveView]);
 
   const value = useMemo(
     () => ({
@@ -160,35 +224,41 @@ export const ModelTraceExplorerViewStateProvider = ({
       setActiveTab,
       selectedNode,
       setSelectedNode,
+      showGraph,
+      setShowGraph,
       showTimelineTreeGantt,
       setShowTimelineTreeGantt,
       assessmentsPaneExpanded: !readOnly && assessmentsPaneExpanded,
       setAssessmentsPaneExpanded,
       assessmentsPaneEnabled,
       isTraceInitialLoading,
-      isInComparisonView,
       updatePaneSizeRatios,
       getPaneSizeRatios,
       readOnly,
       topLevelNodes,
+      subscribeToHighlightEvent,
+      highlightAssessment,
     }),
     [
       activeView,
+      setActiveView,
       nodeMap,
       activeTab,
       rootNode,
       selectedNode,
+      showGraph,
       showTimelineTreeGantt,
       setShowTimelineTreeGantt,
       assessmentsPaneExpanded,
       setAssessmentsPaneExpanded,
       assessmentsPaneEnabled,
       isTraceInitialLoading,
-      isInComparisonView,
       updatePaneSizeRatios,
       getPaneSizeRatios,
       readOnly,
       topLevelNodes,
+      subscribeToHighlightEvent,
+      highlightAssessment,
     ],
   );
 

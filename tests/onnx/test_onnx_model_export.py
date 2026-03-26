@@ -206,9 +206,10 @@ def onnx_model_multiple_inputs_float32():
 
 @pytest.fixture(scope="module")
 def data_multiple_inputs():
-    return pd.DataFrame(
-        {"first_input:0": np.random.random(10), "second_input:0": np.random.random(10)}
-    )
+    return pd.DataFrame({
+        "first_input:0": np.random.random(10),
+        "second_input:0": np.random.random(10),
+    })
 
 
 @pytest.fixture(scope="module")

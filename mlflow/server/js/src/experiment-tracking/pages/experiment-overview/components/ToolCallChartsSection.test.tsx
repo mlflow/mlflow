@@ -17,6 +17,7 @@ import { setupServer } from '../../../../common/utils/setup-msw';
 import { rest } from 'msw';
 import { OverviewChartProvider } from '../OverviewChartContext';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
+import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 
 // Helper to create a data point with tool name and status
 const createDataPoint = (toolName: string, status: string, count: number) => ({
@@ -72,7 +73,7 @@ describe('ToolCallChartsSection', () => {
   // Helper to setup MSW handler for the trace metrics endpoint
   const setupTraceMetricsHandler = (dataPoints: any[]) => {
     server.use(
-      rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+      rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
         return res(ctx.json({ data_points: dataPoints }));
       }),
     );
@@ -87,7 +88,7 @@ describe('ToolCallChartsSection', () => {
   describe('loading state', () => {
     it('should render loading skeleton while data is being fetched', () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.delay('infinite'));
         }),
       );
@@ -102,7 +103,7 @@ describe('ToolCallChartsSection', () => {
   describe('error state', () => {
     it('should render error state when API call fails', async () => {
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', (_req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), (_req, res, ctx) => {
           return res(ctx.status(500), ctx.json({ error: 'API Error' }));
         }),
       );
@@ -203,7 +204,7 @@ describe('ToolCallChartsSection', () => {
       let capturedBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBody = await req.json();
           return res(ctx.json({ data_points: [] }));
         }),
@@ -227,7 +228,7 @@ describe('ToolCallChartsSection', () => {
       let capturedBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBody = await req.json();
           return res(ctx.json({ data_points: [] }));
         }),
@@ -246,7 +247,7 @@ describe('ToolCallChartsSection', () => {
       let capturedBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBody = await req.json();
           return res(ctx.json({ data_points: [] }));
         }),
@@ -266,7 +267,7 @@ describe('ToolCallChartsSection', () => {
       let capturedBody: any = null;
 
       server.use(
-        rest.post('ajax-api/3.0/mlflow/traces/metrics', async (req, res, ctx) => {
+        rest.post(getAjaxUrl('ajax-api/3.0/mlflow/traces/metrics'), async (req, res, ctx) => {
           capturedBody = await req.json();
           return res(ctx.json({ data_points: [] }));
         }),

@@ -422,6 +422,10 @@ def test_evaluate_session_level_scorers_handles_scorer_error():
     assert isinstance(feedback.error.error_message, str)
     assert feedback.error.error_message == "Scorer failed!"
 
+    # Verify session_id metadata is present even on error feedbacks
+    assert feedback.metadata is not None
+    assert feedback.metadata[TraceMetadataKey.TRACE_SESSION] == "session1"
+
 
 def test_evaluate_session_level_scorers_multiple_feedbacks_per_scorer():
     mock_scorer = Mock(spec=mlflow.genai.Scorer)
@@ -541,3 +545,20 @@ def test_evaluate_session_level_scorers_multiple_scorers():
         assert "scorer2" in feedback_by_name
         assert feedback_by_name["scorer1"].value == 0.6
         assert feedback_by_name["scorer2"].value == 0.8
+
+
+def test_evaluate_session_level_scorers_error_multiple_traces():
+    mock_scorer = Mock(spec=mlflow.genai.Scorer)
+    mock_scorer.name = "failing_scorer"
+    mock_scorer.run.side_effect = RuntimeError("boom")
+
+    session_items = [
+        _create_eval_item("trace1", request_time=100),
+        _create_eval_item("trace2", request_time=200),
+    ]
+
+    result = evaluate_session_level_scorers("session-abc", session_items, [mock_scorer])
+
+    feedback = result["trace1"][0]
+    assert feedback.error is not None
+    assert feedback.metadata[TraceMetadataKey.TRACE_SESSION] == "session-abc"

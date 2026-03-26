@@ -11,9 +11,7 @@ export const useExperimentTrackingDetailsPageLayoutStyles = () => {
 
   const detailsPageTableStyles = useMemo<Interpolation<Theme>>(
     () => ({
-      minHeight: 200,
-      maxHeight: 500,
-      height: 'min-content',
+      height: 200,
       overflow: 'hidden',
       '& > div': {
         ...getBottomOnlyShadowScrollStyles(theme),

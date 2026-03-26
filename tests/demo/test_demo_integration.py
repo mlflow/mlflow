@@ -18,8 +18,11 @@ from mlflow.demo.generators.evaluation import (
     DEMO_DATASET_TRACE_LEVEL_NAME,
     EvaluationDemoGenerator,
 )
+from mlflow.demo.generators.judges import DEMO_JUDGE_PREFIX, JudgesDemoGenerator
 from mlflow.demo.generators.prompts import PromptsDemoGenerator
 from mlflow.demo.generators.traces import (
+    DEMO_END_TIME_TAG,
+    DEMO_START_TIME_TAG,
     DEMO_TRACE_TYPE_TAG,
     DEMO_VERSION_TAG,
     TracesDemoGenerator,
@@ -27,6 +30,7 @@ from mlflow.demo.generators.traces import (
 from mlflow.demo.registry import demo_registry
 from mlflow.genai.datasets import search_datasets
 from mlflow.genai.prompts import load_prompt, search_prompts
+from mlflow.genai.scorers.registry import list_scorers
 
 
 @pytest.fixture
@@ -60,6 +64,14 @@ def prompts_generator():
     original_version = generator.version
     yield generator
     PromptsDemoGenerator.version = original_version
+
+
+@pytest.fixture
+def judges_generator():
+    generator = JudgesDemoGenerator()
+    original_version = generator.version
+    yield generator
+    JudgesDemoGenerator.version = original_version
 
 
 def test_generate_all_demos_generates_all_registered(client):
@@ -180,6 +192,17 @@ def test_traces_type_metadata(client, traces_generator):
     assert len(agent_traces) == 4
     assert len(prompt_traces) == 12
     assert len(session_traces) == 14
+
+
+def test_traces_creates_time_range_tags(client, traces_generator):
+    traces_generator.generate()
+    traces_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    tags = experiment.tags
+
+    assert DEMO_START_TIME_TAG in tags
+    assert DEMO_END_TIME_TAG in tags
 
 
 def test_traces_delete_removes_all(client, traces_generator):
@@ -341,3 +364,50 @@ def test_prompts_delete_removes_all(client, prompts_generator):
         max_results=100,
     )
     assert len(prompts_after) == 0
+
+
+def test_judges_creates_on_server(client, judges_generator):
+    result = judges_generator.generate()
+    judges_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    scorers = list_scorers(experiment_id=experiment.experiment_id)
+    demo_judges = [s for s in scorers if s.name.startswith(DEMO_JUDGE_PREFIX)]
+
+    assert len(demo_judges) == 4
+    assert "judges:4" in result.entity_ids
+
+
+def test_judges_have_expected_names(client, judges_generator):
+    judges_generator.generate()
+    judges_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+    scorers = list_scorers(experiment_id=experiment.experiment_id)
+    demo_judges = [s for s in scorers if s.name.startswith(DEMO_JUDGE_PREFIX)]
+
+    judge_names = {s.name for s in demo_judges}
+    expected_names = {
+        f"{DEMO_JUDGE_PREFIX}.relevance",
+        f"{DEMO_JUDGE_PREFIX}.correctness",
+        f"{DEMO_JUDGE_PREFIX}.groundedness",
+        f"{DEMO_JUDGE_PREFIX}.safety",
+    }
+    assert judge_names == expected_names
+
+
+def test_judges_delete_removes_all(client, judges_generator):
+    judges_generator.generate()
+    judges_generator.store_version()
+
+    experiment = client.get_experiment_by_name(DEMO_EXPERIMENT_NAME)
+
+    scorers_before = list_scorers(experiment_id=experiment.experiment_id)
+    demo_judges_before = [s for s in scorers_before if s.name.startswith(DEMO_JUDGE_PREFIX)]
+    assert len(demo_judges_before) == 4
+
+    judges_generator.delete_demo()
+
+    scorers_after = list_scorers(experiment_id=experiment.experiment_id)
+    demo_judges_after = [s for s in scorers_after if s.name.startswith(DEMO_JUDGE_PREFIX)]
+    assert len(demo_judges_after) == 0

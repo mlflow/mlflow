@@ -56,7 +56,7 @@ _logger = logging.getLogger(__name__)
 
 USER_DEFINED_ASSESSMENT_NAME_KEY = "_user_defined_assessment_name"
 PGBAR_FORMAT = (
-    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
+    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}]{postfix}"
 )
 
 
@@ -156,7 +156,8 @@ def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     df = _convert_eval_set_to_df(data)
 
     return (
-        df.pipe(_deserialize_trace_column_if_needed)
+        df
+        .pipe(_deserialize_trace_column_if_needed)
         .pipe(_extract_request_response_from_trace)
         .pipe(_extract_expectations_from_trace)
     )

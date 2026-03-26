@@ -27,6 +27,7 @@ export const EndpointRow = ({ endpoint, bindings, visibleColumns, onViewBindings
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
           <ChainIcon css={{ color: theme.colors.textSecondary, flexShrink: 0 }} />
           <Link
+            componentId="mlflow.gateway.endpoints.endpoint_name_link"
             to={GatewayRoutes.getEndpointDetailsRoute(endpoint.endpoint_id)}
             css={{
               color: theme.colors.actionPrimaryBackgroundDefault,

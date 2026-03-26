@@ -12,5 +12,5 @@ runs:
           # Windows
           source .venv/Scripts/activate
         fi
-        pip install pipdeptree
+        uv pip install --system pipdeptree
         pipdeptree --all

@@ -1,7 +1,7 @@
 import React from 'react';
 
 import { Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { CopyActionButton } from '@databricks/web-shared/copy';
+import { CopyActionButton } from '../../../copy/CopyActionButton';
 const { Paragraph } = Typography;
 
 export interface KeyValueTagFullViewModalProps {

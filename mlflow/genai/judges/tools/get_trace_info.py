@@ -14,10 +14,8 @@ from mlflow.types.llm import (
     ToolDefinition,
     ToolParamsSchema,
 )
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 class GetTraceInfoTool(JudgeTool):
     """
     Tool for retrieving high-level metadata about a trace.

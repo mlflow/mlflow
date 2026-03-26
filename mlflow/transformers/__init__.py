@@ -97,6 +97,7 @@ from mlflow.transformers.signature import (
 from mlflow.transformers.torch_utils import _TORCH_DTYPE_KEY, _deserialize_torch_dtype
 from mlflow.types.utils import _validate_input_dictionary_contains_only_strings_and_lists_of_strings
 from mlflow.utils import _truncate_and_ellipsize
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     disable_discrete_autologging,
@@ -205,11 +206,12 @@ def get_default_pip_requirements(model) -> list[str]:
         engine = _get_engine_type(model)
         packages.append(engine)
     except Exception as e:
-        packages += ["torch", "tensorflow"]
+        packages.append("torch")
+        if importlib.util.find_spec("tensorflow"):
+            packages.append("tensorflow")
         _logger.warning(
-            "Could not infer model execution engine type due to huggingface_hub not "
-            "being installed or unable to connect in online mode. Adding both Pytorch"
-            f"and Tensorflow to requirements.\nFailure cause: {e}"
+            "Could not infer model execution engine type. Adding available deep learning "
+            f"framework(s) to requirements.\nFailure cause: {e}"
         )
 
     if "torch" in packages:
@@ -322,11 +324,11 @@ def save_model(
 
                 from transformers import pipeline
 
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+                fill_pipe = pipeline("fill-mask", "distilroberta-base")
 
                 with mlflow.start_run():
                     mlflow.transformers.save_model(
-                        transformers_model=qa_pipe,
+                        transformers_model=fill_pipe,
                         path="path/to/save/model",
                     )
 
@@ -334,11 +336,11 @@ def save_model(
 
             .. code-block:: python
 
-                from transformers import MobileBertForQuestionAnswering, AutoTokenizer
+                from transformers import AutoModelForMaskedLM, AutoTokenizer
 
-                architecture = "csarron/mobilebert-uncased-squad-v2"
+                architecture = "distilroberta-base"
                 tokenizer = AutoTokenizer.from_pretrained(architecture)
-                model = MobileBertForQuestionAnswering.from_pretrained(architecture)
+                model = AutoModelForMaskedLM.from_pretrained(architecture)
 
                 with mlflow.start_run():
                     components = {
@@ -400,20 +402,15 @@ def save_model(
             .. code-block:: python
                 :caption: Example
 
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
                 from transformers import pipeline
 
                 en_to_de = pipeline("translation_en_to_de")
 
                 data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
 
                 mlflow.transformers.save_model(
                     transformers_model=en_to_de,
                     path="/path/to/save/model",
-                    signature=signature,
                     input_example=data,
                 )
 
@@ -834,11 +831,11 @@ def log_model(
 
                 from transformers import pipeline
 
-                qa_pipe = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+                fill_pipe = pipeline("fill-mask", "distilroberta-base")
 
                 with mlflow.start_run():
                     mlflow.transformers.log_model(
-                        transformers_model=qa_pipe,
+                        transformers_model=fill_pipe,
                         name="model",
                     )
 
@@ -846,11 +843,11 @@ def log_model(
 
             .. code-block:: python
 
-                from transformers import MobileBertForQuestionAnswering, AutoTokenizer
+                from transformers import AutoModelForMaskedLM, AutoTokenizer
 
-                architecture = "csarron/mobilebert-uncased-squad-v2"
+                architecture = "distilroberta-base"
                 tokenizer = AutoTokenizer.from_pretrained(architecture)
-                model = MobileBertForQuestionAnswering.from_pretrained(architecture)
+                model = AutoModelForMaskedLM.from_pretrained(architecture)
 
                 with mlflow.start_run():
                     components = {
@@ -911,21 +908,16 @@ def log_model(
             .. code-block:: python
                 :caption: Example
 
-                from mlflow.models import infer_signature
-                from mlflow.transformers import generate_signature_output
                 from transformers import pipeline
 
                 en_to_de = pipeline("translation_en_to_de")
 
                 data = "MLflow is great!"
-                output = generate_signature_output(en_to_de, data)
-                signature = infer_signature(data, output)
 
                 with mlflow.start_run() as run:
                     mlflow.transformers.log_model(
                         transformers_model=en_to_de,
                         name="english_to_german_translator",
-                        signature=signature,
                         input_example=data,
                     )
 
@@ -1151,14 +1143,14 @@ def persist_pretrained_model(model_uri: str) -> None:
 
         # Saving a model with save_pretrained=False
         with mlflow.start_run() as run:
-            model = pipeline("question-answering", "csarron/mobilebert-uncased-squad-v2")
+            model = pipeline("fill-mask", "distilroberta-base")
             mlflow.transformers.log_model(
                 transformers_model=model, name="pipeline", save_pretrained=False
             )
 
         # The model cannot be registered to the Model Registry as it is
         try:
-            mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "qa_pipeline")
+            mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "fill_mask_pipeline")
         except MlflowException as e:
             print(e.message)
 
@@ -1166,7 +1158,7 @@ def persist_pretrained_model(model_uri: str) -> None:
         mlflow.transformers.persist_pretrained_model(f"runs:/{run.info.run_id}/pipeline")
 
         # Now the model can be registered to the Model Registry
-        mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "qa_pipeline")
+        mlflow.register_model(f"runs:/{run.info.run_id}/pipeline", "fill_mask_pipeline")
     """
     # Check if the model weight already exists in the model artifact before downloading
     root_uri, artifact_path = _get_root_uri_and_artifact_path(model_uri)
@@ -1262,8 +1254,11 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
     conf = {
         "task": flavor_config[FlavorKey.TASK],
     }
-    if framework := flavor_config.get(FlavorKey.FRAMEWORK):
-        conf["framework"] = framework
+    # pipeline.framework was removed in transformers 5.x; passing it would cause
+    # "model_kwargs are not used by the model" errors during inference.
+    if Version(transformers.__version__).major < 5:
+        if framework := flavor_config.get(FlavorKey.FRAMEWORK):
+            conf["framework"] = framework
 
     # Note that we don't set the device in the conf yet because device is
     # incompatible with device_map.
@@ -1568,18 +1563,28 @@ def _get_engine_type(model):
     Determines the underlying execution engine for the model based on the 3 currently supported
     deep learning framework backends: ``tensorflow``, ``torch``, or ``flax``.
     """
-    from transformers import FlaxPreTrainedModel, PreTrainedModel, TFPreTrainedModel
+    from transformers import PreTrainedModel
     from transformers.utils import is_torch_available
+
+    try:
+        from transformers import TFPreTrainedModel
+    except ImportError:
+        TFPreTrainedModel = None
+
+    try:
+        from transformers import FlaxPreTrainedModel
+    except Exception:
+        FlaxPreTrainedModel = None
 
     if is_peft_model(model):
         model = get_peft_base_model(model)
 
     for cls in model.__class__.__mro__:
-        if issubclass(cls, TFPreTrainedModel):
+        if TFPreTrainedModel is not None and issubclass(cls, TFPreTrainedModel):
             return "tensorflow"
         elif issubclass(cls, PreTrainedModel):
             return "torch"
-        elif issubclass(cls, FlaxPreTrainedModel):
+        elif FlaxPreTrainedModel is not None and issubclass(cls, FlaxPreTrainedModel):
             return "flax"
 
     # As a fallback, we check current environment to determine the engine type
@@ -1686,11 +1691,59 @@ def _try_import_conversational_pipeline():
         return
 
 
+def _is_translation_pipeline(pipeline):
+    try:
+        from transformers import TranslationPipeline
+
+        return isinstance(pipeline, TranslationPipeline)
+    except ImportError:
+        return False
+
+
+def _is_summarization_pipeline(pipeline):
+    try:
+        from transformers import SummarizationPipeline
+
+        return isinstance(pipeline, SummarizationPipeline)
+    except ImportError:
+        return False
+
+
+def _is_text2text_generation_pipeline(pipeline):
+    try:
+        from transformers import Text2TextGenerationPipeline
+
+        return isinstance(pipeline, Text2TextGenerationPipeline)
+    except ImportError:
+        return False
+
+
+def _is_question_answering_pipeline(pipeline):
+    try:
+        from transformers import QuestionAnsweringPipeline
+
+        return isinstance(pipeline, QuestionAnsweringPipeline)
+    except ImportError:
+        # Fallback for transformers 5.x where QuestionAnsweringPipeline was removed
+        return getattr(pipeline, "task", None) == "question-answering"
+
+
+@deprecated(
+    since="3.11.0",
+    impact="Signatures are now automatically inferred when `input_example` is provided "
+    "to `mlflow.transformers.log_model()` or `mlflow.transformers.save_model()`. "
+    "This method will be removed in a future release.",
+)
 def generate_signature_output(pipeline, data, model_config=None, params=None, flavor_config=None):
     """
     Utility for generating the response output for the purposes of extracting an output signature
     for model saving and logging. This function simulates loading of a saved model or pipeline
     as a ``pyfunc`` model without having to incur a write to disk.
+
+    .. deprecated:: 3.11.0
+        Use the ``input_example`` parameter in
+        :func:`mlflow.transformers.log_model()` or :func:`mlflow.transformers.save_model()`
+        instead. Signatures are now automatically inferred when ``input_example`` is provided.
 
     Args:
         pipeline: A ``transformers`` pipeline object. Note that component-level or model-level
@@ -1715,7 +1768,9 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    return signature.generate_signature_output(pipeline, data, model_config, params)
+    return signature.generate_signature_output(
+        pipeline, data, model_config=model_config, params=params, flavor_config=flavor_config
+    )
 
 
 class _TransformersWrapper:
@@ -1803,6 +1858,18 @@ class _TransformersWrapper:
         try:
             if isinstance(data, dict):
                 return self.pipeline(**data, **model_config)
+            # In transformers 5.x, QuestionAnsweringPipeline changed to keyword-only
+            # arguments. Transpose list-of-dicts to dict-of-lists so that the data
+            # can be passed as keyword arguments.
+            if (
+                _is_question_answering_pipeline(self.pipeline)
+                and isinstance(data, list)
+                and data
+                and isinstance(data[0], dict)
+            ):
+                keys = data[0].keys()
+                transposed = {k: [d[k] for d in data] for k in keys}
+                return self.pipeline(**transposed, **model_config)
             return self.pipeline(data, **model_config)
         except ValueError as e:
             if "The following `model_kwargs` are not used by the model" in str(e):
@@ -1891,14 +1958,15 @@ class _TransformersWrapper:
         # NB: the ordering of these conditional statements matters. TranslationPipeline and
         # SummarizationPipeline both inherit from TextGenerationPipeline (they are subclasses)
         # in which the return data structure from their __call__ implementation is modified.
-        if isinstance(self.pipeline, transformers.TranslationPipeline):
+        # These classes were removed in transformers 5.0, so we use try-import guards.
+        if _is_translation_pipeline(self.pipeline):
             self._validate_str_or_list_str(data)
             output_key = "translation_text"
-        elif isinstance(self.pipeline, transformers.SummarizationPipeline):
+        elif _is_summarization_pipeline(self.pipeline):
             self._validate_str_or_list_str(data)
             data = self._format_prompt_template(data)
             output_key = "summary_text"
-        elif isinstance(self.pipeline, transformers.Text2TextGenerationPipeline):
+        elif _is_text2text_generation_pipeline(self.pipeline):
             data = self._parse_text2text_input(data)
             data = self._format_prompt_template(data)
             output_key = "generated_text"
@@ -1906,7 +1974,7 @@ class _TransformersWrapper:
             self._validate_str_or_list_str(data)
             data = self._format_prompt_template(data)
             output_key = "generated_text"
-        elif isinstance(self.pipeline, transformers.QuestionAnsweringPipeline):
+        elif _is_question_answering_pipeline(self.pipeline):
             data = self._parse_question_answer_input(data)
             output_key = "answer"
         elif isinstance(self.pipeline, transformers.FillMaskPipeline):
@@ -2053,15 +2121,17 @@ class _TransformersWrapper:
         elif _is_conversational_pipeline(self.pipeline):
             return self._parse_conversation_input(data)
         elif (  # noqa: SIM114
-            isinstance(
-                self.pipeline,
-                (
-                    transformers.FillMaskPipeline,
-                    transformers.TextGenerationPipeline,
-                    transformers.TranslationPipeline,
-                    transformers.SummarizationPipeline,
-                    transformers.TokenClassificationPipeline,
-                ),
+            (
+                isinstance(
+                    self.pipeline,
+                    (
+                        transformers.FillMaskPipeline,
+                        transformers.TextGenerationPipeline,
+                        transformers.TokenClassificationPipeline,
+                    ),
+                )
+                or _is_translation_pipeline(self.pipeline)
+                or _is_summarization_pipeline(self.pipeline)
             )
             and isinstance(data, list)
             and all(isinstance(entry, dict) for entry in data)
@@ -2090,7 +2160,7 @@ class _TransformersWrapper:
         # In long-term, we should definitely change the upstream handling to avoid this
         # complexity, but here we just try to make it work by checking if the key is auto-generated.
         elif (
-            isinstance(self.pipeline, transformers.Text2TextGenerationPipeline)
+            _is_text2text_generation_pipeline(self.pipeline)
             and isinstance(data, list)
             and all(isinstance(entry, dict) for entry in data)
             # Pandas Dataframe derived dictionary will have integer key (row index)
@@ -2305,9 +2375,11 @@ class _TransformersWrapper:
         flattened_data = []
         for entry in data:
             for label, score in zip(entry["labels"], entry["scores"]):
-                flattened_data.append(
-                    {"sequence": entry["sequence"], "labels": label, "scores": score}
-                )
+                flattened_data.append({
+                    "sequence": entry["sequence"],
+                    "labels": label,
+                    "scores": score,
+                })
         return pd.DataFrame(flattened_data)
 
     def _strip_input_from_response_in_instruction_pipelines(
@@ -2928,6 +3000,20 @@ def autolog(
         with disable_discrete_autologging(DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING):
             return original(*args, **kwargs)
 
+    def train_with_mlflow_callback(original, self, *args, **kwargs):
+        # In transformers 5.x, TrainingArguments.report_to defaults to "none" instead of
+        # auto-detecting all installed integrations. Ensure MLflowCallback is registered
+        # when autolog is active so that metrics and parameters are logged to MLflow.
+        # Only needed for 5.x+; on 4.x, auto-detection handles callback registration.
+        if Version(transformers.__version__).major >= 5:
+            from transformers.integrations import MLflowCallback
+
+            if not any(isinstance(cb, MLflowCallback) for cb in self.callback_handler.callbacks):
+                self.add_callback(MLflowCallback)
+
+        with disable_discrete_autologging(DISABLED_ANCILLARY_FLAVOR_AUTOLOGGING):
+            return original(self, *args, **kwargs)
+
     with contextlib.suppress(ImportError):
         import setfit
 
@@ -2946,7 +3032,13 @@ def autolog(
         methods = ["train"]
         for clazz in classes:
             for method in methods:
-                safe_patch(FLAVOR_NAME, clazz, method, functools.partial(train), manage_run=False)
+                safe_patch(
+                    FLAVOR_NAME,
+                    clazz,
+                    method,
+                    functools.partial(train_with_mlflow_callback),
+                    manage_run=False,
+                )
 
 
 def _get_prompt_template(model_path):

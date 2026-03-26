@@ -23,6 +23,7 @@ deny_unsafe_checkout contains msg if {
 	# "on.push" becomes "true.push" which is why below statements use "true"
 	# instead of "on".
 	input["true"].pull_request_target
+	not safe_pull_request_target_workflow
 	some job in input.jobs
 	some step in job.steps
 	startswith(step.uses, "actions/checkout@")
@@ -31,6 +32,12 @@ deny_unsafe_checkout contains msg if {
 		"Explicit checkout in a pull_request_target workflow is unsafe. ",
 		"See https://securitylab.github.com/resources/github-actions-preventing-pwn-requests for more information.",
 	])
+}
+
+# Workflows that are safe to use pull_request_target with explicit checkout
+# because they restrict execution to trusted authors via author_association.
+safe_pull_request_target_workflow if {
+	input.name == "UI Preview"
 }
 
 deny_unnecessary_github_token contains msg if {
@@ -145,6 +152,20 @@ deny_wrong_shell_defaults contains msg if {
 	)
 }
 
+deny_github_script_without_retries contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/github-script@")
+	not step["with"].retries
+	msg := sprintf(
+		concat("", [
+			"actions/github-script in job '%s' must have 'retries' set ",
+			"(e.g., retries: 3) for resilience against transient GitHub API failures.",
+		]),
+		[job_id],
+	)
+}
+
 deny_scheduled_workflow_without_repo_check contains msg if {
 	input["true"].schedule
 	not any_job_has_repo_check(input.jobs)
@@ -163,7 +184,57 @@ deny_push_without_branches contains msg if {
 	msg := "Push trigger must have a branches filter to avoid running on every branch."
 }
 
-###########################   RULE HELPERS   ##################################
+deny_interpolation_in_run contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	regex.match(`\$\{\{`, step.run)
+	msg := sprintf(
+		concat("", [
+			"Direct ${{ }} interpolation in run block of job '%s'. ",
+			"Use env: to pass the value and reference it as $VAR in the script.",
+		]),
+		[job_id],
+	)
+}
+
+deny_interpolation_in_github_script contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/github-script@")
+	regex.match(`\$\{\{`, step["with"].script)
+	msg := sprintf(
+		concat("", [
+			"Direct ${{ }} interpolation in github-script of job '%s'. ",
+			"Use env: to pass the value and reference it as process.env.VAR in the script.",
+		]),
+		[job_id],
+	)
+}
+
+deny_interpolation_in_job_if contains msg if {
+	some job_id, job in input.jobs
+	is_string(job["if"])
+	regex.match(`\$\{\{`, job["if"])
+	msg := sprintf(
+		"Unnecessary ${{ }} in 'if' of job '%s'. Use quotes instead if the expression starts with '!' (e.g., if: \"!expr\").",
+		[job_id],
+	)
+}
+
+deny_interpolation_in_step_if contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	is_string(step["if"])
+	regex.match(`\$\{\{`, step["if"])
+	msg := sprintf(
+		concat("", [
+			"Unnecessary ${{ }} in 'if' of step '%s' in job '%s'. ",
+			"Use quotes instead if the expression starts with '!' (e.g., if: \"!expr\").",
+		]),
+		[step.name, job_id],
+	)
+}
+
 contains_github_token(value) if {
 	regex.match(`\$\{\{\s*github\.token\s*\}\}`, value)
 }
@@ -216,4 +287,25 @@ any_job_has_repo_check(jobs) if {
 
 job_has_repo_check(job) if {
 	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
+}
+
+deny_mutable_install contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	regex.match(`\bnpm install\b`, step.run)
+	msg := sprintf(
+		"'npm install' in job '%s' modifies the lockfile. Use 'npm ci' for reproducible builds.",
+		[job_id],
+	)
+}
+
+deny_mutable_install contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	regex.match(`(?m)^\s*yarn(\s+install)?\s*(?:#.*)?$`, step.run)
+	not regex.match(`\byarn install\s+--immutable\b`, step.run)
+	msg := sprintf(
+		"yarn or yarn install in job '%s' may modify the lockfile. Use 'yarn install --immutable'.",
+		[job_id],
+	)
 }

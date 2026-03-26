@@ -1,6 +1,8 @@
 ---
-sidebar_label: MLflow
+sidebar_label: Overview
 sidebar_position: 1
+title: MLflow AI Engineering Platform
+description: Learn about MLflow, the largest open source AI engineering platform for debugging, evaluating, monitoring, and optimizing agents, LLMs, and ML models.
 ---
 
 import Tabs from "@theme/Tabs";
@@ -10,31 +12,40 @@ import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Play, Settings, BookOpen } from "lucide-react";
 
-# MLflow: A Tool for Managing the Machine Learning Lifecycle
+# MLflow: AI Engineering Platform for LLMs, Agents, & Models
 
-MLflow is an open-source platform, purpose-built to assist machine learning practitioners and teams in
-handling the complexities of the machine learning process. MLflow focuses on the full lifecycle for
-machine learning projects, ensuring that each phase is manageable, traceable, and reproducible.
+MLflow is the largest open source **AI engineering platform for agents, LLMs, and ML models**. MLflow enables teams of all sizes to debug,
+evaluate, monitor, and optimize production-quality AI applications while
+controlling costs and managing access to models and data. With over 30 million monthly downloads,
+thousands of organizations rely on MLflow each day to ship AI to production with confidence.
 
-## MLflow Getting Started Resources
+MLflow's comprehensive feature set for agents
+and LLM applications includes production-grade [observability](/genai/tracing), [evaluation](/genai/eval-monitor),
+[prompt management](/genai/prompt-registry), an [AI Gateway](/genai/governance/ai-gateway) for managing costs and model access, and more.
+Learn more at [MLflow for LLMs and Agents](/genai).
 
-If this is your first time exploring MLflow, the tutorials and guides here are a great place to start. The emphasis in each of these is
-getting you up to speed as quickly as possible with the basic functionality, terms, APIs, and general best practices of using MLflow in order to
-enhance your learning in area-specific guides and tutorials.
+For machine learning (ML) model development, MLflow provides [experiment tracking](/ml/tracking/quickstart), [model evaluation capabilities](/ml/evaluation), a [production model registry](/ml/model-registry), and [model deployment tools](/ml/deployment).
+
+## Getting Started with MLflow for ML Models
+
+This page covers MLflow's tools for **traditional machine learning and deep learning**: ML experiment
+tracking, model versioning, model deployment, and model evaluation. If you're building agents and LLM applications, see [MLflow for LLMs and Agents](/genai).
+
+If this is your first time exploring MLflow for MLOps, the tutorials and guides here are a great place to start.
 
 <TilesGrid>
   <TileCard
     icon={Play}
     title="Quickstart"
-    description="A quick guide to learn the basics of MLflow by training a simple scikit-learn model"
+    description="A quick guide to learn the basics of MLflow for MLOps by training a simple scikit-learn model"
     href="/ml/getting-started/quickstart"
     linkText="Start learning →"
   />
 
   <TileCard
     icon={Settings}
-    title="MLflow for GenAI / LLM"
-    description="A walkthrough of MLflow's GenAI / LLM capabilities, including tracing, evaluation, and prompt management"
+    title="MLflow for Agents & LLMs"
+    description="A walkthrough of MLflow's Agent and LLM capabilities, including tracing, evaluation, and prompt management"
     href="/genai/getting-started/connect-environment"
     linkText="Start building →"
   />
@@ -42,18 +53,18 @@ enhance your learning in area-specific guides and tutorials.
   <TileCard
     icon={BookOpen}
     title="Deep Learning Guide"
-    description="A hands-on tutorial on how to use MLflow to track deep learning model training using PyTorch as an example"
+    description="A hands-on tutorial on how to use MLflow for ML to track deep learning model training with PyTorch"
     href="/ml/getting-started/deep-learning"
     linkText="Start training →"
   />
 
 </TilesGrid>
 
-## Traditional ML and Deep Learning with MLflow
+## MLflow for ML Models: Core Capabilities
 
-MLflow provides comprehensive support for traditional machine learning and deep learning workflows. From experiment tracking and model versioning to deployment and monitoring, MLflow streamlines every aspect of the ML lifecycle. Whether you're working with scikit-learn models, training deep neural networks, or managing complex ML pipelines, MLflow provides the tools you need to build reliable, scalable machine learning systems.
+MLflow for ML Models provides comprehensive support for traditional machine learning and deep learning workflows. From experiment tracking and model versioning to deployment and monitoring, MLflow streamlines every aspect of the ML lifecycle. Whether you're working with scikit-learn models, training deep neural networks, or managing complex ML pipelines, MLflow provides the tools you need to build reliable, scalable machine learning systems.
 
-Explore the core MLflow capabilities and integrations below to enhance your ML development workflow!
+Explore the MLflow's machine learning capabilities and integrations below to enhance your ML development workflow!
 
 <Tabs>
   <TabItem value="tracking-experiments" label="Tracking & Experiments">
@@ -147,6 +158,8 @@ Explore the core MLflow capabilities and integrations below to enhance your ML d
           [Cloud Deployment Options](/ml/deployment/deploy-model-to-sagemaker)
 
           [Kubernetes Deployment](/ml/deployment/deploy-model-to-kubernetes)
+
+          [Modal Deployment](/ml/deployment/deploy-model-to-modal)
         </div>
 
         <div class="flex-item padding-md">
@@ -237,6 +250,6 @@ Explore the core MLflow capabilities and integrations below to enhance your ML d
   </TabItem>
 </Tabs>
 
-## Running MLflow Anywhere
+## Running MLflow for ML Models Anywhere
 
 <Platform />

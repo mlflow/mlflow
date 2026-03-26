@@ -1,7 +1,6 @@
 import React from 'react';
 
 import {
-  HoverCard,
   SpeechBubbleIcon,
   TableCell,
   Tag,
@@ -11,9 +10,9 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
+import type { FeedbackAssessment } from '@databricks/web-shared/model-trace-explorer';
 import {
   ASSESSMENT_SESSION_METADATA_KEY,
-  FeedbackAssessment,
   TOKEN_USAGE_METADATA_KEY,
   MLFLOW_TRACE_USER_KEY,
   SESSION_ID_METADATA_KEY,
@@ -21,13 +20,10 @@ import {
   isFeedbackAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
 
-const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
-  return trace.trace_metadata?.[SESSION_ID_METADATA_KEY] ?? null;
-};
-
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { StackedComponents } from './StackedComponents';
+import { IssuesCell, type Issue } from './IssuesCell';
 import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { RunColorCircle } from '../components/RunColorCircle';
@@ -35,6 +31,7 @@ import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
+  ISSUES_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RESPONSE_COLUMN_ID,
   SESSION_COLUMN_ID,
@@ -50,6 +47,7 @@ import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
 import { escapeCssSpecialCharacters, highlightSearchInText } from '../utils/DisplayUtils';
 import {
   convertFeedbackAssessmentToRunEvalAssessment,
+  getExperimentIdFromTraceLocation,
   getTraceInfoInputs,
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
@@ -63,6 +61,10 @@ import { SessionHeaderStringAggregatedCell } from './SessionHeaderStringAggregat
 import { StatusCellRenderer } from './StatusRenderer';
 import { calculateSessionDuration } from '../sessions-table/utils';
 
+const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
+  return trace.trace_metadata?.[SESSION_ID_METADATA_KEY] ?? null;
+};
+
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
   sessionId: string;
@@ -72,7 +74,7 @@ interface SessionHeaderCellProps {
   goal?: string;
   persona?: string;
   onChangeEvaluationId?: (evaluationId: string | undefined, traceInfo?: ModelTraceInfoV3) => void;
-  experimentId: string;
+  experimentId?: string;
   isComparing?: boolean;
   getRunColor?: (runUuid: string) => string;
   runUuid?: string;
@@ -94,7 +96,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   otherTraces,
   goal,
   persona,
-  experimentId,
+  experimentId: experimentIdProp,
   isComparing,
   getRunColor,
   runUuid,
@@ -105,6 +107,7 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const firstTrace = traces[0];
+  const experimentId = getExperimentIdFromTraceLocation(firstTrace?.trace_location) ?? experimentIdProp;
   const firstOtherTrace = otherTraces?.[0];
 
   // Get run colors - use the passed runUuid/compareToRunUuid props directly for consistency with the comparison header.
@@ -682,6 +685,31 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     } else {
       cellContent = currentUniqueValueCounts.length > 0 ? renderAssessmentTags(currentUniqueValueCounts) : <NullCell />;
     }
+  } else if (column.id === ISSUES_COLUMN_ID) {
+    // Issues column - collect all unique issues from all traces in the session
+    const collectUniqueIssues = (tracesList: ModelTraceInfoV3[]): Issue[] => {
+      const issueMap = new Map<string, Issue>();
+      tracesList.forEach((trace) => {
+        trace.assessments?.forEach((assessment) => {
+          if ('issue' in assessment && assessment.issue) {
+            const issueName = assessment.issue.issue_name;
+            const issueId = assessment.assessment_name;
+            // Use issue name as key to deduplicate (same issue name = same issue type)
+            if (!issueMap.has(issueName)) {
+              issueMap.set(issueName, { id: issueId, name: issueName });
+            }
+          }
+        });
+      });
+      return Array.from(issueMap.values());
+    };
+
+    const currentIssues = traces.length > 0 ? collectUniqueIssues(traces) : [];
+    const otherIssuesCollected = otherTraces && otherTraces.length > 0 ? collectUniqueIssues(otherTraces) : [];
+
+    cellContent = (
+      <IssuesCell issues={currentIssues} otherIssues={otherIssuesCollected} isComparing={isComparing ?? false} />
+    );
   } else if (
     column.type === TracesTableColumnType.ASSESSMENT &&
     column.assessmentInfo &&

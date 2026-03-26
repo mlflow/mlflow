@@ -24,9 +24,10 @@ const getWorkspacesEnabledSyncMock = jest.mocked(getWorkspacesEnabledSync);
 
 describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   const { history } = setupTestRouter();
+  let capturedRequests: { url: string; workspaceHeader: string | null }[] = [];
   const server = setupServer(
     rest.get(/\/?ajax-api\/2\.0\/mlflow\/logged-models\/[^/]+\/artifacts\/directories/, (req, res, ctx) => {
-      expect(req.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
       return res(
         ctx.json({
           root_uri: 'dbfs:/databricks/mlflow-tracking/123/logged_models/test-model-id/artifacts',
@@ -46,11 +47,11 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
       );
     }),
     rest.get(/\/?ajax-api\/2\.0\/mlflow\/logged-models\/[^/]+\/artifacts\/files/, (req, res, ctx) => {
-      expect(req.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
       return res(ctx.text('this is text file content of ' + req.url.searchParams.get('artifact_file_path')));
     }),
     rest.get(/\/?get-artifact/, (req, res, ctx) => {
-      expect(req.headers.get('X-MLFLOW-WORKSPACE')).toBe('team-a');
+      capturedRequests.push({ url: req.url.toString(), workspaceHeader: req.headers.get('X-MLFLOW-WORKSPACE') });
       return res(ctx.text('this is text file content of ' + req.url.searchParams.get('path')));
     }),
   );
@@ -102,6 +103,7 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
   });
 
   afterEach(() => {
+    capturedRequests = [];
     server.resetHandlers();
   });
 
@@ -118,5 +120,11 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
     await waitFor(() => {
       expect(getByText('this is text file content of requirements.txt')).toBeInTheDocument();
     });
+
+    // Verify all requests included the workspace header
+    expect(capturedRequests.length).toBeGreaterThan(0);
+    for (const req of capturedRequests) {
+      expect(req.workspaceHeader).toBe('team-a');
+    }
   });
 });

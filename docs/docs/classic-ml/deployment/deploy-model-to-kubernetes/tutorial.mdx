@@ -41,7 +41,7 @@ It offers advanced features that aid in operating large-scale machine learning s
 
 While KServe enables highly scalable and production-ready model serving, deploying your model there might require some effort.
 MLflow simplifies the process of deploying models to a Kubernetes cluster with KServe and MLServer. Additionally, it offers seamless **end-to-end model management**
-as a single place to manage the entire ML lifecycle. This includes [experiment tracking](/ml/tracking), [model packaging](/ml/model),
+as a single place to manage the entire ML model development workflow. This includes [experiment tracking](/ml/tracking), [model packaging](/ml/model),
 [versioning](/ml/model-registry), [evaluation](/ml/evaluation), and [deployment](/ml/deployment), which we will cover in this tutorial.
 
 ## Step 1: Installing MLflow and Additional Dependencies
@@ -49,7 +49,7 @@ as a single place to manage the entire ML lifecycle. This includes [experiment t
 First, please install mlflow to your local machine using the following command:
 
 ```bash
-pip install mlflow[mlserver]
+pip install 'mlflow[mlserver]'
 ```
 
 `[extras]` will install additional dependencies required for this tutorial including [mlserver](https://mlserver.readthedocs.io/en/latest) and
@@ -173,13 +173,11 @@ with mlflow.start_run(run_name="hyperparameter-tuning"):
     # Evaluate the best model on test dataset
     y_pred = clf.best_estimator_.predict(X_test)
     rmse, mae, r2 = eval_metrics(y_pred, y_test)
-    mlflow.log_metrics(
-        {
-            "mean_squared_error_X_test": rmse,
-            "mean_absolute_error_X_test": mae,
-            "r2_score_X_test": r2,
-        }
-    )
+    mlflow.log_metrics({
+        "mean_squared_error_X_test": rmse,
+        "mean_absolute_error_X_test": mae,
+        "r2_score_X_test": r2,
+    })
 ```
 
 When you reopen the MLflow UI, you should notice that the run "hyperparameter-tuning" contains 5 child runs. MLflow utilizes parent-child relationship, which is particularly

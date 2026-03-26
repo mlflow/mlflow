@@ -155,9 +155,6 @@ export const shouldEnableExperimentPageSideTabs = () => {
   return true;
 };
 
-/**
- * Determines if the Overview tab is enabled on the experiment page
- */
 export const shouldEnableExperimentOverviewTab = () => {
   return true;
 };
@@ -176,4 +173,23 @@ export const shouldEnableWorkflowBasedNavigation = () => {
  */
 export const shouldEnableImprovedEvalRunsComparison = () => {
   return false;
+};
+
+export const isScorerModelSelectionEnabled = () => {
+  return true;
+};
+
+/**
+ * Determines if issue detection feature is enabled in the traces table toolbar.
+ */
+export const shouldEnableIssueDetection = () => {
+  return true;
+};
+
+/**
+ * Controls visibility of the right panel (issues) on the evaluation runs page.
+ * When enabled (true), the right panel is hidden by default and only the evaluation runs table is shown.
+ */
+export const shouldShowEvalRunsIssuesPanel = () => {
+  return true;
 };

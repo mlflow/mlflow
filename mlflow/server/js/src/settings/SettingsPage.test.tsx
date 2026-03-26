@@ -6,13 +6,23 @@ import SettingsPage from './SettingsPage';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { DarkThemeProvider } from '../common/contexts/DarkThemeContext';
 
+import { fetchEndpointRaw } from '../common/utils/FetchUtils';
+
 jest.mock('../common/utils/FetchUtils', () => ({
   fetchEndpointRaw: jest.fn(() => Promise.resolve()),
   HTTPMethods: { POST: 'POST', GET: 'GET' },
 }));
 
-import { fetchEndpointRaw } from '../common/utils/FetchUtils';
-const mockFetchEndpointRaw = fetchEndpointRaw as jest.MockedFunction<typeof fetchEndpointRaw>;
+jest.mock('./webhooksApi', () => ({
+  WebhooksApi: {
+    listWebhooks: jest.fn(() => Promise.resolve({ webhooks: [] })),
+    createWebhook: jest.fn(() => Promise.resolve({})),
+    updateWebhook: jest.fn(() => Promise.resolve({})),
+    deleteWebhook: jest.fn(() => Promise.resolve()),
+    testWebhook: jest.fn(() => Promise.resolve({ result: { success: true } })),
+  },
+}));
+const mockFetchEndpointRaw = jest.mocked(fetchEndpointRaw);
 
 describe('SettingsPage', () => {
   const renderComponent = () =>

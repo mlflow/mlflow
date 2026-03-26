@@ -7,7 +7,6 @@ from mlflow.strands.autolog import (
 )
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.safety import safe_patch
 
@@ -15,7 +14,6 @@ FLAVOR_NAME = "strands"
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.4.0")
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """
     Enables (or disables) and configures autologging from Strands Agents SDK to MLflow.

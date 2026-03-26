@@ -4,6 +4,7 @@ import os
 import posixpath
 import tempfile
 import traceback
+import uuid
 from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
@@ -394,6 +395,13 @@ class ArtifactRepository:
                 raise MlflowTraceDataNotFound(artifact_path=TRACE_DATA_FILE_NAME) from e
             return try_read_trace_data(temp_file)
 
+    def download_trace_attachment(self, path: str) -> bytes:
+        _validate_attachment_path(path)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, path)
+            self._download_file(posixpath.join("attachments", path), temp_file)
+            return temp_file.read_bytes()
+
     def upload_trace_data(self, trace_data: str) -> None:
         """
         Upload the trace data.
@@ -403,6 +411,13 @@ class ArtifactRepository:
         """
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             self.log_artifact(temp_file)
+
+    def upload_attachment(self, attachment_id: str, content_bytes: bytes) -> None:
+        _validate_attachment_path(attachment_id)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_file = Path(temp_dir, attachment_id)
+            temp_file.write_bytes(content_bytes)
+            self.log_artifact(temp_file, artifact_path="attachments")
 
 
 @contextmanager
@@ -506,4 +521,18 @@ def verify_artifact_path(artifact_path):
     if artifact_path and path_not_unique(artifact_path):
         raise MlflowException(
             f"Invalid artifact path: '{artifact_path}'. {bad_path_message(artifact_path)}"
+        )
+
+
+# Attachment IDs are auto-generated as UUID4 by Attachment.__init__.
+# Strict UUID validation doubles as path traversal prevention.
+def _validate_attachment_path(path: str) -> None:
+    try:
+        parsed = uuid.UUID(path)
+        if str(parsed) != path:
+            raise ValueError("Non-canonical UUID format")
+    except (ValueError, AttributeError, TypeError):
+        raise MlflowException(
+            f"Invalid attachment path: '{path}'. Attachment path must be a valid UUID.",
+            error_code=INVALID_PARAMETER_VALUE,
         )

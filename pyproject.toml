@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.10.1.dev0"
+version = "3.11.1.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -49,7 +49,7 @@ dependencies = [
   "opentelemetry-sdk<3,>=1.9.0",
   "packaging<27",
   "pandas<3",
-  "protobuf<7,>=3.12.0",
+  "protobuf<8,>=3.12.0",
   "pyarrow<24,>=4.0.0",
   "pydantic<3,>=2.0.0",
   "python-dotenv<2,>=0.19.0",
@@ -116,10 +116,12 @@ genai = [
   "watchfiles<2",
 ]
 mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
+azure = ["azure-storage-blob>=12", "azure-identity>=1.6.1"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.3.19,<=1.2.9"]
+kubernetes = ["kubernetes"]
+langchain = ["langchain>=0.3.21,<=1.2.12"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -150,11 +152,13 @@ mlflow = [
   "pyspark/ml/log_model_allowlist.txt",
   "server/auth/basic_auth.ini",
   "server/auth/db/migrations/alembic.ini",
+  "server/uvicorn_log_config.yaml",
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
   "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
+  "utils/model_prices_and_context_window.json",
 ]
 
 [tool.setuptools.packages.find]
@@ -176,9 +180,7 @@ dev = [
   "skills",
 ]
 lint = [
-  "ruff==0.15.0",
-  "black==23.7.0",
-  "blacken-docs==1.18.0",
+  "ruff==0.15.5",
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "types-toml",
@@ -242,17 +244,25 @@ docs = [
 ]
 
 [tool.uv]
-required-version = ">=0.9.8"
+# TODO: Remove once the incident is fully remediated
+# Mitigation for https://github.com/aquasecurity/trivy/discussions/10425
+exclude-newer = "2026-03-10T00:00:00Z"
+exclude-newer-package = { torch = false, torchvision = false }
+required-version = ">=0.10.12"
 constraint-dependencies = [
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
   "xgboost<3.1.0",
+  # TODO: remove once requests officially supports chardet >= 6
+  # https://github.com/psf/requests/pull/7239
+  "chardet<6.0",
   # pyspark 4.1.0 causes issues with documentation build
   "pyspark<4.1.0",
-  # TODO: Remove this once transformers 5.x is supported
-  "transformers<5",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
+  # litellm 1.82.7 and 1.82.8 contain a malicious .pth file that steals credentials
+  # https://github.com/BerriAI/litellm/issues/24512
+  "litellm<=1.82.6",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer
@@ -279,9 +289,10 @@ explicit = true
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.15.0"
+required-version = "0.15.5"
 force-exclude = true
 extend-include = ["*.ipynb"]
+extension = { mdx = "markdown" }
 extend-exclude = [
   "examples/llama_index/workflow",
   "mlflow/assistant/skills",
@@ -293,8 +304,8 @@ extend-exclude = [
 ]
 
 [tool.ruff.format]
+preview = true
 docstring-code-format = true
-docstring-code-line-length = 88
 
 [tool.ruff.lint]
 preview = true
@@ -443,7 +454,7 @@ typing-extensions-allowlist = [
 ]
 # Rules that are only enabled for code examples.
 example-rules = [
-  "lazy-builtin-import",
+  "lazy-import",
   "log-model-artifact-path",
   "unknown-mlflow-function",
   "unknown-mlflow-arguments",
@@ -472,6 +483,7 @@ example-rules = [
 
 # typos
 [tool.typos.default.extend-words]
+aimd = "aimd"                      # additive increase multiplicative decrease
 als = "als"                        # alternating least squares
 mape = "mape"                      # mean absolute percentage error
 fpr = "fpr"                        # false positive rate

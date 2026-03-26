@@ -1,7 +1,7 @@
-import { isSessionLevelAssessment, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { isSessionLevelAssessment } from '../../model-trace-explorer/ModelTraceExplorer.utils';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer/ModelTrace.types';
 
 import { isAssessmentPassing } from '../components/EvaluationsReviewAssessmentTag';
-import { ASSESSMENT_SESSION_METADATA_KEY } from '../../model-trace-explorer/constants';
 import type { AssessmentInfo } from '../types';
 
 /**

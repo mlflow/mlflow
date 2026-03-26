@@ -1,6 +1,10 @@
 ---
+title: Tracing Ollama
+description: Trace Ollama local model interactions with MLflow via OpenAI-compatible auto-tracing for full observability into locally hosted LLM inference.
 sidebar_position: 10
 sidebar_label: Ollama
+keywords: [ollama, tracing, mlflow, local models, openai-compatible, llm]
+image: /images/llms/tracing/openai-function-calling.png
 ---
 
 import TilesGrid from "@site/src/components/TilesGrid";
@@ -39,14 +43,14 @@ MLflow trace automatically captures the following information about Ollama calls
   <TabItem value="python" label="Python" default>
 
 ```bash
-pip install 'mlflow[genai]' openai
+pip install mlflow openai
 ```
 
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
 
 ```bash
-npm install mlflow-openai openai
+npm install @mlflow/openai openai
 ```
 
   </TabItem>
@@ -104,7 +108,7 @@ ollama run llama3.2:1b
 
     ```typescript
     import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+    import { tracedOpenAI } from "@mlflow/openai";
 
     // Wrap the OpenAI client and point to Ollama endpoint
     const client = tracedOpenAI(
