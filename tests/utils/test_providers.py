@@ -1,7 +1,10 @@
 from unittest import mock
 
+import pytest
+
 from mlflow.utils.providers import (
     _normalize_provider,
+    cost_per_token,
     get_all_providers,
     get_models,
     get_provider_config_response,
@@ -171,3 +174,86 @@ def test_get_provider_config_sagemaker_has_default_chain():
     config = get_provider_config_response("sagemaker")
     modes = {m["mode"] for m in config["auth_modes"]}
     assert "default_chain" in modes
+
+
+def test_cost_per_token_basic():
+    input_cost, output_cost = cost_per_token(
+        model="gpt-4o", prompt_tokens=1000, completion_tokens=500
+    )
+    # gpt-4o: input_cost_per_token=2.5e-6, output_cost_per_token=1e-5
+    assert input_cost == pytest.approx(0.0025)
+    assert output_cost == pytest.approx(0.005)
+
+
+def test_cost_per_token_with_provider_prefix():
+    input_cost, output_cost = cost_per_token(
+        model="gpt-4o", prompt_tokens=1000, completion_tokens=500, custom_llm_provider="openai"
+    )
+    assert input_cost == pytest.approx(0.0025)
+    assert output_cost == pytest.approx(0.005)
+
+
+def test_cost_per_token_cache_read_tokens():
+    input_cost, output_cost = cost_per_token(
+        model="gpt-4o",
+        prompt_tokens=1000,
+        completion_tokens=500,
+        cache_read_input_tokens=200,
+    )
+    # gpt-4o: cache_read_input_token_cost=1.25e-6
+    # regular: (1000-200) * 2.5e-6 = 0.002
+    # cache_read: 200 * 1.25e-6 = 0.00025
+    assert input_cost == pytest.approx(0.00225)
+    assert output_cost == pytest.approx(0.005)
+
+
+def test_cost_per_token_cache_creation_tokens():
+    input_cost, output_cost = cost_per_token(
+        model="claude-sonnet-4-20250514",
+        prompt_tokens=1000,
+        completion_tokens=500,
+        cache_creation_input_tokens=300,
+    )
+    assert input_cost > 0
+    assert output_cost > 0
+
+
+def test_cost_per_token_zero_tokens():
+    input_cost, output_cost = cost_per_token(model="gpt-4o", prompt_tokens=0, completion_tokens=0)
+    assert input_cost == 0.0
+    assert output_cost == 0.0
+
+
+def test_cost_per_token_unknown_model_raises():
+    with pytest.raises(ValueError, match="not found"):
+        cost_per_token(model="totally-unknown-model", prompt_tokens=100)
+
+
+def test_cost_per_token_unknown_model_with_provider_raises():
+    with pytest.raises(ValueError, match="not found"):
+        cost_per_token(
+            model="totally-unknown-model",
+            prompt_tokens=100,
+            custom_llm_provider="unknown-provider",
+        )
+
+
+def test_cost_per_token_no_cache_cost_falls_back_to_input_rate():
+    with mock.patch("mlflow.utils.providers._get_model_cost") as mock_cost:
+        mock_cost.return_value = {
+            "test-model": {
+                "input_cost_per_token": 1e-6,
+                "output_cost_per_token": 2e-6,
+            }
+        }
+        input_cost, output_cost = cost_per_token(
+            model="test-model",
+            prompt_tokens=1000,
+            completion_tokens=500,
+            cache_read_input_tokens=200,
+        )
+        # No cache_read_input_token_cost, falls back to input_cost_per_token
+        # regular: 800 * 1e-6 = 0.0008
+        # cache_read: 200 * 1e-6 = 0.0002 (same rate as regular)
+        assert input_cost == pytest.approx(0.001)
+        assert output_cost == pytest.approx(0.001)

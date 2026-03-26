@@ -59,6 +59,70 @@ def _get_model_cost() -> dict[str, Any]:
         return {}
 
 
+def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> dict[str, Any] | None:
+    """Look up model cost info from the bundled JSON, trying multiple key formats."""
+    model_cost = _get_model_cost()
+
+    # Exact match (handles most models like "gpt-4o", "claude-sonnet-4-20250514")
+    if model in model_cost:
+        return model_cost[model]
+
+    # Try with provider prefix (e.g. "azure/gpt-4o", "vertex_ai/gemini-2.5-flash")
+    if custom_llm_provider:
+        prefixed = f"{custom_llm_provider}/{model}"
+        if prefixed in model_cost:
+            return model_cost[prefixed]
+
+    return None
+
+
+def cost_per_token(
+    model: str,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    custom_llm_provider: str | None = None,
+    cache_read_input_tokens: int | None = None,
+    cache_creation_input_tokens: int | None = None,
+) -> tuple[float, float]:
+    """Calculate cost per token using the bundled model price data.
+
+    Returns:
+        A tuple of (input_cost, output_cost) in USD.
+
+    Raises:
+        ValueError: If the model is not found in the cost data or has no pricing info.
+    """
+    info = _lookup_model_info(model, custom_llm_provider)
+    if info is None:
+        raise ValueError(f"Model {model!r} not found in model cost data")
+
+    input_cost_per_token = info.get("input_cost_per_token")
+    output_cost_per_token = info.get("output_cost_per_token")
+    if input_cost_per_token is None and output_cost_per_token is None:
+        raise ValueError(f"No token pricing info for model {model!r}")
+
+    input_cost_per_token = input_cost_per_token or 0.0
+    output_cost_per_token = output_cost_per_token or 0.0
+
+    # prompt_tokens includes cache tokens (both Anthropic and OpenAI report it this way),
+    # so we subtract them to get the regular (non-cached) portion, then price each
+    # category at its own rate.
+    cache_read = cache_read_input_tokens or 0
+    cache_creation = cache_creation_input_tokens or 0
+    regular_input_tokens = max(prompt_tokens - cache_read - cache_creation, 0)
+
+    input_cost = regular_input_tokens * input_cost_per_token
+    if cache_read > 0:
+        input_cost += cache_read * info.get("cache_read_input_token_cost", input_cost_per_token)
+    if cache_creation > 0:
+        input_cost += cache_creation * info.get(
+            "cache_creation_input_token_cost", input_cost_per_token
+        )
+    output_cost = completion_tokens * output_cost_per_token
+
+    return input_cost, output_cost
+
+
 # Auth modes for providers with multiple authentication options.
 # Each mode defines:
 #   - display_name: Human-readable name for UI
