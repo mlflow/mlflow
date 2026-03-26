@@ -316,7 +316,9 @@ def _invoke_via_gateway(
         )
 
     _, model_name = _parse_model_uri(model_uri)
-    rf_dict = pydantic_to_response_format(response_format) if response_format else None
+    rf_dict = (
+        pydantic_to_response_format(response_format, provider=provider) if response_format else None
+    )
     return _call_llm_provider_api(
         provider,
         model_name,

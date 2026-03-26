@@ -70,11 +70,41 @@ def serialize_chat_messages_to_prompts(
     return serialize_messages_to_prompts(messages)
 
 
-def pydantic_to_response_format(cls: type[BaseModel]) -> dict[str, Any]:
+# Providers that support OpenAI-style strict JSON schema enforcement via
+# response_format={"type": "json_schema", "json_schema": {..., "strict": true}}
+# with object schemas requiring additionalProperties: false.
+#
+# - openai: https://platform.openai.com/docs/guides/structured-outputs
+# - azure: https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/structured-outputs
+# - databricks: https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference
+#   (JsonSchemaObject.strict — "Whether to enable strict schema adherence when
+#   generating the output")
+# - "endpoints" is this codebase's internal URI scheme for Databricks serving endpoints
+#   (endpoints:/my-endpoint → provider="endpoints"); same OpenAI-compatible API as "databricks".
+#
+# Other providers (anthropic, gemini, bedrock, etc.) may expose structured output
+# through provider-native formats or adapter-specific translations, so enforcement
+# semantics should be handled provider-specifically.
+_STRICT_JSON_SCHEMA_PROVIDERS: frozenset[str] = frozenset({
+    "openai",
+    "azure",
+    "databricks",
+    "endpoints",
+})
+
+
+def pydantic_to_response_format(
+    cls: type[BaseModel], provider: str | None = None
+) -> dict[str, Any]:
+    strict = provider is not None and provider in _STRICT_JSON_SCHEMA_PROVIDERS
     return {
         "type": "json_schema",
         "json_schema": {
             "name": cls.__name__,
-            "schema": cls.model_json_schema(),
+            "schema": {
+                **cls.model_json_schema(),
+                **({"additionalProperties": False} if strict else {}),
+            },
+            **({"strict": True} if strict else {}),
         },
     }

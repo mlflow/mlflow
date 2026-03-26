@@ -7,6 +7,45 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.llm_backend import ScorerLLMClient
 
 
+@pytest.mark.parametrize(
+    ("provider", "expect_strict"),
+    [
+        (None, False),
+        ("openai", True),
+        ("azure", True),
+        ("databricks", True),
+        ("endpoints", True),
+        ("anthropic", False),
+        ("gemini", False),
+    ],
+)
+def test_convert_response_format_strict_providers(provider, expect_strict):
+    class MySchema(pydantic.BaseModel):
+        result: bool
+
+    result = ScorerLLMClient._convert_response_format(MySchema, provider=provider)
+
+    assert result is not None
+    assert result["type"] == "json_schema"
+    if expect_strict:
+        assert result["json_schema"]["strict"] is True
+        assert result["json_schema"]["schema"]["additionalProperties"] is False
+    else:
+        assert "strict" not in result["json_schema"]
+        assert "additionalProperties" not in result["json_schema"]["schema"]
+
+
+def test_convert_response_format_passthrough_dict():
+    pre_converted = {"type": "json_schema", "json_schema": {"name": "test"}}
+    assert (
+        ScorerLLMClient._convert_response_format(pre_converted, provider="openai") is pre_converted
+    )
+
+
+def test_convert_response_format_none():
+    assert ScorerLLMClient._convert_response_format(None, provider="openai") is None
+
+
 def test_databricks_route():
     backend = ScorerLLMClient("databricks")
     assert backend.route == "databricks"
@@ -135,9 +174,10 @@ def test_complete_with_pydantic_response_format(monkeypatch):
         )
 
     mock_call.assert_called_once()
-    call_kwargs = mock_call.call_args
-    assert call_kwargs.kwargs["response_format"] is not None
-    assert isinstance(call_kwargs.kwargs["response_format"], dict)
+    rf = mock_call.call_args.kwargs["response_format"]
+    assert isinstance(rf, dict)
+    assert rf["json_schema"]["strict"] is True
+    assert rf["json_schema"]["schema"]["additionalProperties"] is False
 
 
 def test_complete_with_dict_response_format(monkeypatch):

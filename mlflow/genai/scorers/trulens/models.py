@@ -80,7 +80,9 @@ def _create_gateway_provider(backend: ScorerLLMClient, **kwargs: Any):
                 ):
                     from mlflow.genai.utils.message_utils import pydantic_to_response_format
 
-                    response_format_dict = pydantic_to_response_format(response_format)
+                    response_format_dict = pydantic_to_response_format(
+                        response_format, provider=backend.provider
+                    )
 
             return backend.complete(
                 list(messages),

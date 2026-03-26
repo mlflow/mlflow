@@ -209,7 +209,9 @@ class ScorerLLMClient:
         response_format: type[pydantic.BaseModel] | dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> str:
-        response_format_dict = self._convert_response_format(response_format)
+        response_format_dict = self._convert_response_format(
+            response_format, provider=self._provider
+        )
         payload: dict[str, Any] = {"messages": messages}
         if kwargs:
             payload.update(kwargs)
@@ -232,7 +234,9 @@ class ScorerLLMClient:
         response_format: type[pydantic.BaseModel] | dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> str:
-        response_format_dict = self._convert_response_format(response_format)
+        response_format_dict = self._convert_response_format(
+            response_format, provider=self._provider
+        )
         return _call_llm_provider_api(
             self._provider,
             self._model_name,
@@ -276,12 +280,17 @@ class ScorerLLMClient:
     @staticmethod
     def _convert_response_format(
         response_format: type[pydantic.BaseModel] | dict[str, Any] | None,
+        provider: str | None = None,
     ) -> dict[str, Any] | None:
         """Convert response_format to dict form for provider APIs.
 
         Accepts either a Pydantic model class (converted via pydantic_to_response_format)
         or a pre-converted dict (passed through as-is). This allows callers like TruLens
         to pre-convert and pass the dict directly without double-conversion.
+
+        ``provider`` is forwarded to ``pydantic_to_response_format`` to enable strict
+        JSON schema enforcement (``strict: true``, ``additionalProperties: false``) for
+        OpenAI-compatible providers (openai, azure, databricks, endpoints).
         """
         if response_format is None:
             return None
@@ -289,4 +298,4 @@ class ScorerLLMClient:
             return response_format
         from mlflow.genai.utils.message_utils import pydantic_to_response_format
 
-        return pydantic_to_response_format(response_format)
+        return pydantic_to_response_format(response_format, provider=provider)
