@@ -165,11 +165,11 @@ class GatewayAdapter(BaseJudgeAdapter):
 
         return AdapterInvocationOutput(feedback=feedback)
 
-    def _invoke_with_tools(
-        self, input_params: AdapterInvocationInput
-    ) -> AdapterInvocationOutput:
+    def _invoke_with_tools(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         """Invoke the judge model with trace-based tool calling support."""
-        from mlflow.genai.judges.adapters.gateway_invocation import invoke_via_gateway_and_handle_tools
+        from mlflow.genai.judges.adapters.gateway_invocation import (
+            invoke_via_gateway_and_handle_tools,
+        )
         from mlflow.tracing.constant import AssessmentMetadataKey
         from mlflow.types.llm import ChatMessage
 

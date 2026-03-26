@@ -6,8 +6,8 @@ via the gateway infrastructure.
 
 from __future__ import annotations
 
-import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -208,8 +208,6 @@ def _resolve_provider_config(
         return config.api_base, model_name, headers
 
     # Direct provider — resolve API key from environment
-    import os
-
     from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
 
     headers = {}
@@ -241,8 +239,7 @@ def _get_default_api_base(provider: str) -> str:
     if provider in defaults:
         return defaults[provider]
     raise MlflowException(
-        f"No default API base URL for provider '{provider}'. "
-        f"Please provide a base_url parameter.",
+        f"No default API base URL for provider '{provider}'. Please provide a base_url parameter.",
         error_code=INTERNAL_ERROR,
     )
 
@@ -308,9 +305,7 @@ def _remove_oldest_tool_call_pair(
 
     tool_call_ids = {tc["id"] for tc in assistant_msg.tool_calls}
     return [
-        msg
-        for msg in modified
-        if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
+        msg for msg in modified if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
     ]
 
 
@@ -366,7 +361,10 @@ def invoke_via_gateway_and_handle_tools(
     judge_messages = [JudgeMessage(role=msg.role, content=msg.content) for msg in messages]
 
     api_base, model, headers = _resolve_provider_config(
-        provider, model_name, base_url, extra_headers,
+        provider,
+        model_name,
+        base_url,
+        extra_headers,
     )
 
     tools = []
@@ -374,9 +372,7 @@ def invoke_via_gateway_and_handle_tools(
         judge_tools = list_judge_tools()
         tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
-    include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(
-        f"{provider}/{model}", True
-    )
+    include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(f"{provider}/{model}", True)
 
     max_context_tokens = _get_max_context_tokens(provider, model)
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
@@ -441,9 +437,7 @@ def invoke_via_gateway_and_handle_tools(
                 )
 
             judge_messages.append(message)
-            tool_response_messages = _process_tool_calls(
-                tool_calls=message.tool_calls, trace=trace
-            )
+            tool_response_messages = _process_tool_calls(tool_calls=message.tool_calls, trace=trace)
             judge_messages.extend(tool_response_messages)
 
             # Proactively prune if approaching context window limit,
