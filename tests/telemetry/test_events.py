@@ -685,10 +685,10 @@ def test_discover_issues_parse_result(result, expected_params):
 @pytest.mark.parametrize(
     ("arguments", "expected_params"),
     [
-        # String values pass through unchanged
+        # String values pass through; name/description tracked as booleans
         (
             {"status": "pending", "name": "Test Issue", "description": "Desc", "severity": "high"},
-            {"status": "pending", "name": "Test Issue", "description": "Desc", "severity": "high"},
+            {"status": "pending", "has_name": True, "has_description": True, "severity": "high"},
         ),
         # Enum values are converted to their string value
         (
@@ -698,12 +698,12 @@ def test_discover_issues_parse_result(result, expected_params):
                 "description": "Desc",
                 "severity": IssueSeverity.MEDIUM,
             },
-            {"status": "resolved", "name": "Issue", "description": "Desc", "severity": "medium"},
+            {"status": "resolved", "has_name": True, "has_description": True, "severity": "medium"},
         ),
-        # Missing fields default to None
+        # Missing fields: status/severity None, has_name/has_description False
         (
             {},
-            {"status": None, "name": None, "description": None, "severity": None},
+            {"status": None, "has_name": False, "has_description": False, "severity": None},
         ),
     ],
 )

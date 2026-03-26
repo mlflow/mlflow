@@ -749,7 +749,7 @@ class UpdateIssueEvent(Event):
             severity = severity.value
         return {
             "status": status,
-            "name": arguments.get("name"),
-            "description": arguments.get("description"),
+            "has_name": arguments.get("name") is not None,
+            "has_description": arguments.get("description") is not None,
             "severity": severity,
         }

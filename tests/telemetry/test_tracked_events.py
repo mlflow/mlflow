@@ -2303,8 +2303,8 @@ def test_update_issue_telemetry(mock_requests, mock_telemetry_client: TelemetryC
         UpdateIssueEvent.name,
         {
             "status": "resolved",
-            "name": "Updated name",
-            "description": "Updated description",
+            "has_name": True,
+            "has_description": True,
             "severity": "high",
         },
     )
