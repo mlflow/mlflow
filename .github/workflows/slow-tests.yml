@@ -59,6 +59,7 @@ jobs:
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |

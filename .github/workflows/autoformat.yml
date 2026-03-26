@@ -51,7 +51,7 @@ jobs:
             return { ...pullInfo, shouldAutoformat };
 
       - name: Check maintainer access
-        if: ${{ fromJSON(steps.judge.outputs.result).shouldAutoformat }}
+        if: fromJSON(steps.judge.outputs.result).shouldAutoformat
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           retries: 3
