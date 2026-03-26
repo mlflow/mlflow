@@ -44,7 +44,7 @@ module.exports = async ({ github, context }) => {
   async function hasFailedJob(runId) {
     for await (const { data: jobs } of github.paginate.iterator(
       github.rest.actions.listJobsForWorkflowRun,
-      { owner, repo, run_id: runId },
+      { owner, repo, run_id: runId }
     )) {
       if (
         jobs.some(
@@ -52,7 +52,7 @@ module.exports = async ({ github, context }) => {
             job.conclusion === "cancelled" ||
             (job.status === "completed" &&
               job.conclusion !== "success" &&
-              job.conclusion !== "skipped"),
+              job.conclusion !== "skipped")
         )
       ) {
         return true;
@@ -88,10 +88,10 @@ module.exports = async ({ github, context }) => {
         conclusion === "cancelled"
           ? STATE.failure
           : status !== "completed"
-            ? STATE.pending
-            : conclusion === "success" || conclusion === "skipped"
-              ? STATE.success
-              : STATE.failure,
+          ? STATE.pending
+          : conclusion === "success" || conclusion === "skipped"
+          ? STATE.success
+          : STATE.failure,
     }));
 
     // Workflow runs (e.g., GitHub Actions)
@@ -106,7 +106,7 @@ module.exports = async ({ github, context }) => {
         // Exclude this workflow to avoid self-checking
         path !== ".github/workflows/protect.yml" &&
         // Exclude dynamic workflows (GitHub-managed, e.g., Copilot code review)
-        event !== "dynamic",
+        event !== "dynamic"
     );
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
@@ -129,8 +129,8 @@ module.exports = async ({ github, context }) => {
             run.conclusion === "cancelled"
               ? STATE.failure
               : run.conclusion === "success" || run.conclusion === "skipped"
-                ? STATE.success
-                : STATE.failure,
+              ? STATE.success
+              : STATE.failure,
         });
       } else if (await hasFailedJob(run.id)) {
         // Fetch jobs only for in-progress runs to detect early failures.
@@ -160,7 +160,7 @@ module.exports = async ({ github, context }) => {
 
     if (checks.some(({ status }) => status === STATE.failure)) {
       throw new Error(
-        "This job ensures that all checks except for this one have passed to prevent accidental auto-merges.",
+        "This job ensures that all checks except for this one have passed to prevent accidental auto-merges."
       );
     }
 
