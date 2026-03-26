@@ -139,6 +139,11 @@ module.exports = async ({ github, context }) => {
           status: STATE.failure,
         });
         break;
+      } else {
+        checks.push({
+          name: `${run.name} (${runName}, attempt ${run.run_attempt})`,
+          status: STATE.pending,
+        });
       }
     }
 
