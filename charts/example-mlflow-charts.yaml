@@ -12,12 +12,20 @@ replicaCount: 1
 server:
   value_options:
     # --- Backend store (metadata) ---
-    backend_store_uri: "postgresql://<username>:<password>@<endpoint>:5432/<database-name>"
+    # Option A: inline URI (password visible in values).
+    # backend_store_uri: "postgresql://<username>:<encoded_password>@<endpoint>:5432/<database-name>"
+    #
+    # Option B: load the full URI from a Kubernetes Secret (recommended).
+    # Create the secret first:
+    #   kubectl create secret generic mlflow-db-secret \
+    #     --from-literal="uri=postgresql://<username>:<password>@<endpoint>:5432/<database-name>"
+    # Then omit backend_store_uri here and inject it via env below as
+    # MLFLOW_BACKEND_STORE_URI — MLflow reads this env var automatically.
 
     # --- Artifact store ---
     # Leave empty to co-locate artifacts with the backend store.
     default_artifact_root: "s3://my-bucket/mlflow"
-    # S3 / MinIO example:
+    # S3 example:
     # default_artifact_root: "s3://my-bucket/mlflow"
     # artifacts_destination: "s3://my-bucket/mlflow"
 
@@ -54,19 +62,30 @@ service:
 #           pathType: Prefix
 
 # Inject credentials as environment variables:
-# env:
-#   - name: AWS_ACCESS_KEY_ID
-#     valueFrom:
-#       secretKeyRef:
-#         name: s3-credentials
-#         key: access-key-id
-#   - name: AWS_SECRET_ACCESS_KEY
-#     valueFrom:
-#       secretKeyRef:
-#         name: s3-credentials
-#         key: secret-access-key
-#   - name: MLFLOW_S3_ENDPOINT_URL
-#     value: "http://minio:9000"
+env:
+  # Load the full backend store URI (with password) from a Kubernetes Secret.
+  # MLflow reads MLFLOW_BACKEND_STORE_URI automatically, so no CLI flag is needed.
+  - name: MLFLOW_BACKEND_STORE_URI
+    valueFrom:
+      secretKeyRef:
+        name: mlflow-db-secret
+        key: uri
+  # S3 credentials:
+  # Create the secret first:
+  # kubectl create secret generic s3-credentials \
+  #  --from-literal="ccess-key-id=<your key id>" \
+  #  --from-literal="secret-access-key=<your key value>"
+  #
+  # - name: AWS_ACCESS_KEY_ID
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: s3-credentials
+  #       key: access-key-id
+  # - name: AWS_SECRET_ACCESS_KEY
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: s3-credentials
+  #       key: secret-access-key
 
 resources:
   requests:
