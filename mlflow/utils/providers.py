@@ -1,15 +1,13 @@
 import functools
-import importlib.util
+import importlib.resources
+import json
 import logging
 from collections.abc import Iterator
 from typing import Any, TypedDict
 
-import requests
 from typing_extensions import NotRequired
 
 _logger = logging.getLogger(__name__)
-
-_PROVIDER_BACKEND_AVAILABLE = importlib.util.find_spec("litellm") is not None
 
 _SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
 
@@ -51,10 +49,14 @@ class ProviderConfigResponse(TypedDict):
     default_mode: str
 
 
-def _get_model_cost():
-    from litellm import model_cost
-
-    return model_cost
+@functools.lru_cache(maxsize=1)
+def _get_model_cost() -> dict[str, Any]:
+    ref = importlib.resources.files(__package__).joinpath("model_prices_and_context_window.json")
+    try:
+        with importlib.resources.as_file(ref) as path, path.open(encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
 
 
 # Auth modes for providers with multiple authentication options.
@@ -527,70 +529,25 @@ def _normalize_provider(provider: str) -> str:
     return provider
 
 
-def _iter_model_catalog_api(*, model: str | None = None) -> Iterator[dict[str, Any]]:
-    """Yield entries from the LiteLLM model catalog API with pagination.
-
-    Performance (page_size=500, measured 2026-03-18):
-        No filter          -> 6 pages, ~2600 records, ~8s
-        model=gpt-4o       -> 1 page,  ~80 records,   <1s
-    Always pass ``model`` when possible to avoid exhausting all pages.
-    """
-    page = 1
-    while True:
-        params = {"page": page, "page_size": 500}
-        if model:
-            params["model"] = model
-        try:
-            resp = requests.get(
-                "https://api.litellm.ai/model_catalog",
-                params=params,
-                timeout=10,
-            )
-            resp.raise_for_status()
-            body = resp.json()
-        except Exception:
-            _logger.debug("Failed to fetch model catalog from API", exc_info=True)
-            return
-
-        yield from body.get("data", [])
-
-        if not body.get("has_more", False):
-            return
-        page += 1
-
-
-@functools.lru_cache(maxsize=64)
-def _fetch_model_catalog_from_api(model: str | None = None) -> tuple[dict[str, Any], ...]:
-    return tuple(_iter_model_catalog_api(model=model))
-
-
 def get_all_providers() -> list[str]:
     """
-    Get a list of all LiteLLM providers that have chat, completion, or embedding capabilities.
+    Get a list of all providers that have chat, completion, or embedding capabilities.
 
     Only returns providers that have at least one chat, completion, or embedding model,
     excluding providers that only offer image generation, audio, or other non-text services.
 
     Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
     variants are returned as just vertex_ai).
-
-    Returns:
-        List of provider names that support chat/completion/embedding
     """
-    if _PROVIDER_BACKEND_AVAILABLE:
-        model_cost = _get_model_cost()
-        providers = set()
-        for _, info in model_cost.items():
-            mode = info.get("mode")
-            if mode in _SUPPORTED_MODEL_MODES:
-                if provider := info.get("litellm_provider"):
-                    if provider not in _EXCLUDED_PROVIDERS:
-                        providers.add(_normalize_provider(provider))
-        return list(providers)
-
-    # When LiteLLM is not installed, only return providers that have native
-    # gateway adapters so users can actually invoke endpoints they create.
-    return [p for p in _CORE_PROVIDER_ENV_VARS if p != "bedrock"]
+    model_cost = _get_model_cost()
+    providers = set()
+    for _, info in model_cost.items():
+        mode = info.get("mode")
+        if mode in _SUPPORTED_MODEL_MODES:
+            if provider := info.get("litellm_provider"):
+                if provider not in _EXCLUDED_PROVIDERS:
+                    providers.add(_normalize_provider(provider))
+    return list(providers)
 
 
 def get_models(provider: str | None = None) -> list[dict[str, Any]]:
@@ -621,24 +578,14 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - output_cost_per_token: Cost per output token (USD)
             - deprecation_date: Date when model will be deprecated (if known)
     """
-    if _PROVIDER_BACKEND_AVAILABLE:
-        entries = (
-            (
-                name,
-                info.get("litellm_provider"),
-                info,
-            )
-            for name, info in _get_model_cost().items()
+    entries = (
+        (
+            name,
+            info.get("litellm_provider"),
+            info,
         )
-    else:
-        entries = (
-            (
-                entry.get("id", ""),
-                entry.get("provider"),
-                entry,
-            )
-            for entry in _fetch_model_catalog_from_api()
-        )
+        for name, info in _get_model_cost().items()
+    )
     return _extract_models(entries, provider_filter=provider)
 
 

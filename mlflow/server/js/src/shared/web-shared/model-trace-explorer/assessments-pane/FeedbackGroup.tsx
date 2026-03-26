@@ -105,6 +105,7 @@ export const FeedbackGroup = ({
       {showCreateForm && (
         <AssessmentCreateForm
           assessmentName={name}
+          assessmentType="feedback"
           spanId={activeSpanId}
           traceId={traceId}
           setExpanded={setShowCreateForm}

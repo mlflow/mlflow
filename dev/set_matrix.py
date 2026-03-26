@@ -192,6 +192,9 @@ def read_yaml(location, if_error=None):
         raise
 
 
+RELEASE_CUTOFF = datetime(2026, 3, 10, tzinfo=timezone.utc)
+
+
 def get_released_versions(package_name: str) -> list[Version]:
     data = pypi_json(package_name)
     versions: list[Version] = []
@@ -207,6 +210,11 @@ def get_released_versions(package_name: str) -> list[Version]:
         ]
 
         release_date = min(upload_times) if upload_times else None
+
+        # Exclude versions with unknown release dates or released on/after the cutoff date
+        if not release_date or release_date >= RELEASE_CUTOFF:
+            continue
+
         try:
             version = Version(version_str, release_date)
         except InvalidVersion:
@@ -405,7 +413,7 @@ def remove_comments(s):
 
 
 def make_pip_install_command(packages):
-    return "pip install " + " ".join(f"'{x}'" for x in packages)
+    return "uv pip install --system " + " ".join(f"'{x}'" for x in packages)
 
 
 def divider(title, length=None):
@@ -677,7 +685,9 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                     )
                 )
 
-            if package_info.install_dev:
+            # Skip dev version testing: install_dev installs from git, which
+            # doesn't respect UV_EXCLUDE_NEWER.
+            if False:  # package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
                 if requirements := get_matched_requirements(cfg.requirements or {}, DEV_VERSION):
                     install = make_pip_install_command(requirements) + "\n" + install_dev

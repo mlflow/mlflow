@@ -1,4 +1,4 @@
-import { cloneDeep, partition, uniqBy } from 'lodash';
+import { uniqBy } from 'lodash';
 import { useMemo } from 'react';
 
 import { Button, CloseIcon, Spacer, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
@@ -98,8 +98,8 @@ export const AssessmentsPane = ({
       css={{
         display: 'flex',
         flexDirection: 'column',
-        padding: theme.spacing.sm,
-        paddingTop: theme.spacing.xs,
+        padding: theme.spacing.md,
+        paddingTop: theme.spacing.sm,
         height: '100%',
         borderLeft: `1px solid ${theme.colors.border}`,
         overflowY: 'auto',
@@ -113,9 +113,11 @@ export const AssessmentsPane = ({
         {assessmentsTitleOverride ? (
           assessmentsTitleOverride()
         ) : (
-          <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
+          <Typography.Title level={4}>
+            <FormattedMessage defaultMessage="Assessments" description="Title for the assessments pane" />
+          </Typography.Title>
         )}
-        {setAssessmentsPaneExpanded && !disableCloseButton && (
+        {!disableCloseButton && (
           <Tooltip
             componentId="shared.model-trace-explorer.close-assessments-pane-tooltip"
             content={
@@ -135,6 +137,7 @@ export const AssessmentsPane = ({
           </Tooltip>
         )}
       </div>
+      <hr css={{ border: 'none', borderTop: `1px solid ${theme.colors.border}`, margin: `${theme.spacing.xs}px 0` }} />
       <AssessmentsPaneFeedbackSection
         enableRunScorer={
           enableRunScorer &&

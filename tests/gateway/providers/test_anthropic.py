@@ -12,7 +12,12 @@ from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
 from mlflow.gateway.exceptions import AIGatewayException
-from mlflow.gateway.providers.anthropic import AnthropicAdapter, AnthropicProvider
+from mlflow.gateway.providers.anthropic import (
+    AnthropicAdapter,
+    AnthropicProvider,
+    _enforce_strict_schema,
+    _UnsupportedSchemaError,
+)
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.schemas import chat, completions, embeddings
 
@@ -1063,6 +1068,141 @@ async def test_chat_with_structured_output():
         assert captured_session_headers["x-api-key"] == "key"
         assert captured_session_headers["anthropic-version"] == "2023-06-01"
         assert "anthropic-beta" not in captured_session_headers
+
+
+@pytest.mark.asyncio
+async def test_chat_with_structured_output_sanitizes_schema():
+    config = {
+        "name": "chat",
+        "endpoint_type": "llm/v1/chat",
+        "model": {
+            "provider": "anthropic",
+            "name": "claude-sonnet-4-5",
+            "config": {
+                "anthropic_api_key": "key",
+            },
+        },
+    }
+
+    # Schema with dict-like additionalProperties (as Pydantic generates for dict[str, str])
+    json_schema = {
+        "name": "result",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"},
+                }
+            },
+            "required": ["metadata"],
+            "additionalProperties": {"type": "string"},
+        },
+    }
+
+    resp = {
+        "id": "msg_test",
+        "type": "message",
+        "role": "assistant",
+        "content": [{"type": "text", "text": '{"metadata": {}}'}],
+        "model": "claude-sonnet-4-5",
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+    mock_session_client = mock_http_client(MockAsyncResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_session_client):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = {
+            "messages": [{"role": "user", "content": "Extract metadata"}],
+            "response_format": {"type": "json_schema", "json_schema": json_schema},
+        }
+        await provider.chat(chat.RequestPayload(**payload))
+
+        # Schema contains a free-form dict (metadata without properties),
+        # so output_config should NOT be set (falls back to plain text)
+        call_kwargs = mock_session_client.post.call_args[1]
+        assert "output_config" not in call_kwargs["json"]
+
+
+def test_enforce_strict_schema_sets_additional_properties_false():
+    schema = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "nested": {
+                "type": "object",
+                "properties": {"key": {"type": "string"}},
+            },
+        },
+    }
+    _enforce_strict_schema(schema)
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["nested"]["additionalProperties"] is False
+
+
+def test_enforce_strict_schema_raises_on_free_form_dict():
+    # Object with properties containing a free-form dict (no properties defined)
+    schema = {
+        "type": "object",
+        "properties": {
+            "tags": {
+                "type": "object",
+                "additionalProperties": {"type": "integer"},
+            }
+        },
+    }
+    with pytest.raises(_UnsupportedSchemaError, match="free-form dict"):
+        _enforce_strict_schema(schema)
+
+
+def test_enforce_strict_schema_raises_on_top_level_free_form_dict():
+    schema = {
+        "type": "object",
+        "additionalProperties": {"type": "string"},
+    }
+    with pytest.raises(_UnsupportedSchemaError, match="free-form dict"):
+        _enforce_strict_schema(schema)
+
+
+def test_enforce_strict_schema_handles_arrays_with_object_items():
+    schema = {
+        "type": "object",
+        "properties": {
+            "items": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {"id": {"type": "integer"}},
+                },
+            }
+        },
+    }
+    _enforce_strict_schema(schema)
+    assert schema["additionalProperties"] is False
+    assert schema["properties"]["items"]["items"]["additionalProperties"] is False
+
+
+def test_enforce_strict_schema_handles_anyof():
+    schema = {
+        "type": "object",
+        "properties": {
+            "value": {
+                "anyOf": [
+                    {"type": "string"},
+                    {
+                        "type": "object",
+                        "properties": {"x": {"type": "number"}},
+                    },
+                ]
+            }
+        },
+    }
+    _enforce_strict_schema(schema)
+    assert schema["additionalProperties"] is False
+    # The object inside anyOf should also get sanitized
+    assert schema["properties"]["value"]["anyOf"][1]["additionalProperties"] is False
 
 
 def test_anthropic_extract_passthrough_token_usage():
