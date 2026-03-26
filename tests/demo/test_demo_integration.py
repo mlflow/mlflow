@@ -91,6 +91,16 @@ def issues_generator():
     IssuesDemoGenerator.version = original_version
 
 
+@pytest.fixture
+def issues_prerequisites(traces_generator, judges_generator, evaluation_generator):
+    traces_generator.generate()
+    traces_generator.store_version()
+    judges_generator.generate()
+    judges_generator.store_version()
+    evaluation_generator.generate()
+    evaluation_generator.store_version()
+
+
 def test_generate_all_demos_generates_all_registered(client):
     results = generate_all_demos()
 
@@ -419,16 +429,7 @@ def test_judges_delete_removes_all(client, judges_generator):
     assert len(demo_judges_after) == 0
 
 
-def test_issues_creates_on_server(
-    client, traces_generator, judges_generator, evaluation_generator, issues_generator
-):
-    traces_generator.generate()
-    traces_generator.store_version()
-    judges_generator.generate()
-    judges_generator.store_version()
-    evaluation_generator.generate()
-    evaluation_generator.store_version()
-
+def test_issues_creates_on_server(client, issues_prerequisites, issues_generator):
     result = issues_generator.generate()
     issues_generator.store_version()
 
@@ -444,15 +445,7 @@ def test_issues_creates_on_server(
     assert len(demo_issues) == len(result.entity_ids)
 
 
-def test_issues_creates_detection_run(
-    client, traces_generator, judges_generator, evaluation_generator, issues_generator
-):
-    traces_generator.generate()
-    traces_generator.store_version()
-    judges_generator.generate()
-    judges_generator.store_version()
-    evaluation_generator.generate()
-    evaluation_generator.store_version()
+def test_issues_creates_detection_run(client, issues_prerequisites, issues_generator):
     issues_generator.generate()
     issues_generator.store_version()
 
@@ -467,15 +460,7 @@ def test_issues_creates_detection_run(
     assert runs[0].info.run_name == DEMO_ISSUE_DETECTION_RUN_NAME
 
 
-def test_issues_has_result_tags(
-    client, traces_generator, judges_generator, evaluation_generator, issues_generator
-):
-    traces_generator.generate()
-    traces_generator.store_version()
-    judges_generator.generate()
-    judges_generator.store_version()
-    evaluation_generator.generate()
-    evaluation_generator.store_version()
+def test_issues_has_result_tags(client, issues_prerequisites, issues_generator):
     issues_generator.generate()
     issues_generator.store_version()
 
@@ -493,15 +478,7 @@ def test_issues_has_result_tags(
     assert int(run.data.tags["mlflow.issueDetection.result.issues"]) > 0
 
 
-def test_issues_linked_to_traces(
-    client, traces_generator, judges_generator, evaluation_generator, issues_generator
-):
-    traces_generator.generate()
-    traces_generator.store_version()
-    judges_generator.generate()
-    judges_generator.store_version()
-    evaluation_generator.generate()
-    evaluation_generator.store_version()
+def test_issues_linked_to_traces(client, issues_prerequisites, issues_generator):
     issues_generator.generate()
     issues_generator.store_version()
 
@@ -523,15 +500,7 @@ def test_issues_linked_to_traces(
     assert len(traces) > 0
 
 
-def test_issues_result_metadata(
-    client, traces_generator, judges_generator, evaluation_generator, issues_generator
-):
-    traces_generator.generate()
-    traces_generator.store_version()
-    judges_generator.generate()
-    judges_generator.store_version()
-    evaluation_generator.generate()
-    evaluation_generator.store_version()
+def test_issues_result_metadata(client, issues_prerequisites, issues_generator):
     issues_generator.generate()
     issues_generator.store_version()
 
@@ -561,15 +530,7 @@ def test_issues_result_metadata(
     assert "Analyzed" in summary
 
 
-def test_issues_delete_removes_all(
-    client, traces_generator, judges_generator, evaluation_generator, issues_generator
-):
-    traces_generator.generate()
-    traces_generator.store_version()
-    judges_generator.generate()
-    judges_generator.store_version()
-    evaluation_generator.generate()
-    evaluation_generator.store_version()
+def test_issues_delete_removes_all(client, issues_prerequisites, issues_generator):
     issues_generator.generate()
     issues_generator.store_version()
 

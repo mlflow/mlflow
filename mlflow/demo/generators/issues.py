@@ -18,8 +18,8 @@ from mlflow.store.tracking import MAX_TRACE_LINKS_PER_REQUEST
 from mlflow.tracking._tracking_service.utils import _get_store
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_TYPE, MLFLOW_RUN_TYPE_ISSUE_DETECTION
 
-DEMO_ISSUE_TAG = "mlflow.demo.issue"
 DEMO_ISSUE_DETECTION_RUN_NAME = "Demo Issue Detection"
+_MAX_TRACES_PER_ISSUE = 5
 
 
 class IssuesDemoGenerator(BaseDemoGenerator):
@@ -109,8 +109,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
                     "categories": issue_config["categories"],
                 })
 
-                # Limit to 5 traces per issue for performance
-                for trace_info in failing_traces[:5]:
+                for trace_info in failing_traces[:_MAX_TRACES_PER_ISSUE]:
                     mlflow.log_issue(
                         trace_id=trace_info["trace_id"],
                         issue_id=issue.issue_id,
@@ -190,9 +189,8 @@ class IssuesDemoGenerator(BaseDemoGenerator):
 
             issues = store.search_issues(
                 experiment_id=experiment.experiment_id,
-                max_results=1000,
             )
-            return any(i.created_by == "demo" for i in issues)
+            return issues is not None and len(issues) > 0
         except Exception:
             return False
 
