@@ -82,6 +82,7 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -185,6 +186,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
         with:
           java-version: 11
@@ -206,6 +208,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -239,6 +242,7 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -271,6 +275,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -300,6 +305,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -336,6 +342,7 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
@@ -374,6 +381,7 @@ jobs:
           submodules: true
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install python dependencies
         run: |
