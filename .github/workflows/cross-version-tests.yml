@@ -152,12 +152,13 @@ jobs:
         run: |
           # Remove any constraints for the current package to prevent installation conflicts
           sed -i '/^'"$PACKAGE"'/d' requirements/constraints.txt
+          sed -i '/^constraint-dependencies = \[/,/^\]/{ /'"$PACKAGE"'/d }' pyproject.toml
 
-          if ! git diff --exit-code requirements/constraints.txt; then
+          if ! git diff --exit-code requirements/constraints.txt pyproject.toml; then
             git diff
             git config user.name 'mlflow-app[bot]'
             git config user.email 'mlflow-app[bot]@users.noreply.github.com'
-            git add requirements/constraints.txt
+            git add requirements/constraints.txt pyproject.toml
             git commit -m "Remove constraints for testing"
           fi
       - name: Install mlflow & test dependencies
