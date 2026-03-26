@@ -60,18 +60,34 @@ def _get_model_cost() -> dict[str, Any]:
 
 
 def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> dict[str, Any] | None:
-    """Look up model cost info from the bundled JSON, trying multiple key formats."""
+    """Look up model cost info from the bundled JSON, trying multiple key formats.
+
+    This resolves:
+    - Unprefixed model names (e.g. "gpt-4o-mini").
+    - Provider-prefixed names passed either via:
+      * ``model="gpt-4o-mini", custom_llm_provider="openai"`` -> "openai/gpt-4o-mini".
+      * ``model="openai/gpt-4o-mini"`` (as some libraries like DSPy record spans).
+    When only the bare model name exists in the JSON, provider prefixes are stripped.
+    """
     model_cost = _get_model_cost()
 
-    # Exact match (handles most models like "gpt-4o", "claude-sonnet-4-20250514")
+    # 1. Exact match (handles most models like "gpt-4o", "claude-sonnet-4-20250514")
     if model in model_cost:
         return model_cost[model]
 
-    # Try with provider prefix (e.g. "azure/gpt-4o", "vertex_ai/gemini-2.5-flash")
+    # 2. Try with provider prefix (e.g. "azure/gpt-4o", "vertex_ai/gemini-2.5-flash")
     if custom_llm_provider:
-        prefixed = f"{custom_llm_provider}/{model}"
-        if prefixed in model_cost:
-            return model_cost[prefixed]
+        provider_prefix = f"{custom_llm_provider}/"
+        if not model.startswith(provider_prefix):
+            prefixed = f"{provider_prefix}{model}"
+            if prefixed in model_cost:
+                return model_cost[prefixed]
+
+    # 3. Strip provider prefix from "provider/model" style inputs (e.g. "openai/gpt-4o-mini")
+    if "/" in model:
+        _, bare_model = model.split("/", 1)
+        if bare_model in model_cost:
+            return model_cost[bare_model]
 
     return None
 
@@ -104,8 +120,8 @@ def cost_per_token(
     input_cost_per_token = input_cost_per_token or 0.0
     output_cost_per_token = output_cost_per_token or 0.0
 
-    # prompt_tokens includes cache tokens (both Anthropic and OpenAI report it this way),
-    # so we subtract them to get the regular (non-cached) portion, then price each
+    # In this function, prompt_tokens is expected to include cache tokens, so we subtract
+    # cache_read and cache_creation to get the regular (non-cached) portion, then price each
     # category at its own rate.
     cache_read = cache_read_input_tokens or 0
     cache_creation = cache_creation_input_tokens or 0

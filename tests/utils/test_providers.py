@@ -176,60 +176,96 @@ def test_get_provider_config_sagemaker_has_default_chain():
     assert "default_chain" in modes
 
 
-def test_cost_per_token_basic():
+_MOCK_MODEL_COST = {
+    "test-model": {
+        "input_cost_per_token": 1e-6,
+        "output_cost_per_token": 2e-6,
+        "cache_read_input_token_cost": 5e-7,
+        "cache_creation_input_token_cost": 3e-6,
+    },
+    "openai/test-provider-model": {
+        "input_cost_per_token": 1e-6,
+        "output_cost_per_token": 2e-6,
+    },
+}
+
+
+@pytest.fixture
+def mock_model_cost():
+    with mock.patch("mlflow.utils.providers._get_model_cost", return_value=_MOCK_MODEL_COST) as m:
+        yield m
+
+
+def test_cost_per_token_basic(mock_model_cost):
     input_cost, output_cost = cost_per_token(
-        model="gpt-4o", prompt_tokens=1000, completion_tokens=500
+        model="test-model", prompt_tokens=1000, completion_tokens=500
     )
-    # gpt-4o: input_cost_per_token=2.5e-6, output_cost_per_token=1e-5
-    assert input_cost == pytest.approx(0.0025)
-    assert output_cost == pytest.approx(0.005)
+    # input: 1000 * 1e-6 = 0.001, output: 500 * 2e-6 = 0.001
+    assert input_cost == pytest.approx(0.001)
+    assert output_cost == pytest.approx(0.001)
 
 
-def test_cost_per_token_with_provider_prefix():
+def test_cost_per_token_with_provider_prefix(mock_model_cost):
+    # "test-provider-model" only exists under "openai/" prefix, so provider lookup is exercised
     input_cost, output_cost = cost_per_token(
-        model="gpt-4o", prompt_tokens=1000, completion_tokens=500, custom_llm_provider="openai"
+        model="test-provider-model",
+        prompt_tokens=1000,
+        completion_tokens=500,
+        custom_llm_provider="openai",
     )
-    assert input_cost == pytest.approx(0.0025)
-    assert output_cost == pytest.approx(0.005)
+    assert input_cost == pytest.approx(0.001)
+    assert output_cost == pytest.approx(0.001)
 
 
-def test_cost_per_token_cache_read_tokens():
+def test_cost_per_token_strips_provider_prefix(mock_model_cost):
+    # "openai/test-model" should resolve to "test-model" by stripping the prefix
     input_cost, output_cost = cost_per_token(
-        model="gpt-4o",
+        model="openai/test-model", prompt_tokens=1000, completion_tokens=500
+    )
+    assert input_cost == pytest.approx(0.001)
+    assert output_cost == pytest.approx(0.001)
+
+
+def test_cost_per_token_cache_read_tokens(mock_model_cost):
+    input_cost, output_cost = cost_per_token(
+        model="test-model",
         prompt_tokens=1000,
         completion_tokens=500,
         cache_read_input_tokens=200,
     )
-    # gpt-4o: cache_read_input_token_cost=1.25e-6
-    # regular: (1000-200) * 2.5e-6 = 0.002
-    # cache_read: 200 * 1.25e-6 = 0.00025
-    assert input_cost == pytest.approx(0.00225)
-    assert output_cost == pytest.approx(0.005)
+    # regular: (1000-200) * 1e-6 = 0.0008
+    # cache_read: 200 * 5e-7 = 0.0001
+    assert input_cost == pytest.approx(0.0009)
+    assert output_cost == pytest.approx(0.001)
 
 
-def test_cost_per_token_cache_creation_tokens():
+def test_cost_per_token_cache_creation_tokens(mock_model_cost):
     input_cost, output_cost = cost_per_token(
-        model="claude-sonnet-4-20250514",
+        model="test-model",
         prompt_tokens=1000,
         completion_tokens=500,
         cache_creation_input_tokens=300,
     )
-    assert input_cost > 0
-    assert output_cost > 0
+    # regular: (1000-300) * 1e-6 = 0.0007
+    # cache_creation: 300 * 3e-6 = 0.0009
+    assert input_cost == pytest.approx(0.0016)
+    assert output_cost == pytest.approx(0.001)
 
 
-def test_cost_per_token_zero_tokens():
-    input_cost, output_cost = cost_per_token(model="gpt-4o", prompt_tokens=0, completion_tokens=0)
+def test_cost_per_token_zero_tokens(mock_model_cost):
+    input_cost, output_cost = cost_per_token(
+        model="test-model", prompt_tokens=0, completion_tokens=0
+    )
     assert input_cost == 0.0
     assert output_cost == 0.0
 
 
-def test_cost_per_token_unknown_model_raises():
+def test_cost_per_token_unknown_model_raises(mock_model_cost):
     with pytest.raises(ValueError, match="not found"):
         cost_per_token(model="totally-unknown-model", prompt_tokens=100)
 
 
-def test_cost_per_token_unknown_model_with_provider_raises():
+def test_cost_per_token_unknown_model_with_provider_raises(mock_model_cost):
     with pytest.raises(ValueError, match="not found"):
         cost_per_token(
             model="totally-unknown-model",
