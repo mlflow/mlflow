@@ -77,6 +77,49 @@ def save_local_checkpoint(path, checkpoint_dir, flavor_conf, processor=None):
         )
 
 
+def save_pipeline_components(path, pipeline, flavor_conf, processor=None):
+    """
+    Save only the pipeline components (tokenizer, feature extractor, etc.) without the
+    model weights. Used when saving a PEFT model with a local base model path reference.
+    """
+    component_dir = path.joinpath(_COMPONENTS_BINARY_DIR_NAME)
+    for name in flavor_conf.get(FlavorKey.COMPONENTS, []):
+        getattr(pipeline, name).save_pretrained(component_dir.joinpath(name))
+
+    if processor:
+        processor.save_pretrained(component_dir.joinpath(_PROCESSOR_BINARY_DIR_NAME))
+
+
+def load_model_and_components_from_local_base_path(path, flavor_conf, accelerate_conf, device=None):
+    """
+    Load the base model from an external local path and pipeline components from the
+    MLflow artifact directory. Used when a PEFT model was saved with a local base model
+    path reference via the ``base_model_path`` parameter.
+
+    Args:
+        path: The local path containing MLflow model artifacts
+        flavor_conf: The flavor configuration
+        accelerate_conf: The configuration for the accelerate library
+        device: The device to load the model onto
+    """
+    loaded = {}
+
+    base_model_path = flavor_conf[FlavorKey.MODEL_NAME]
+    loaded[FlavorKey.MODEL] = _load_model(base_model_path, flavor_conf, accelerate_conf, device)
+
+    components = flavor_conf.get(FlavorKey.COMPONENTS, [])
+    if FlavorKey.PROCESSOR_TYPE in flavor_conf:
+        components.append("processor")
+
+    for component_key in components:
+        component_path = path.joinpath(_COMPONENTS_BINARY_DIR_NAME, component_key)
+        loaded[component_key] = _load_component(
+            flavor_conf, component_key, local_path=component_path
+        )
+
+    return loaded
+
+
 def load_model_and_components_from_local(path, flavor_conf, accelerate_conf, device=None):
     """
     Load the model and components of a Transformer pipeline from the specified local path.

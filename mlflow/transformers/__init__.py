@@ -81,7 +81,9 @@ from mlflow.transformers.model_io import (
     _MODEL_BINARY_FILE_NAME,
     load_model_and_components_from_huggingface_hub,
     load_model_and_components_from_local,
+    load_model_and_components_from_local_base_path,
     save_local_checkpoint,
+    save_pipeline_components,
     save_pipeline_pretrained_weights,
 )
 from mlflow.transformers.peft import (
@@ -295,6 +297,7 @@ def save_model(
     model_config: dict[str, Any] | None = None,
     prompt_template: str | None = None,
     save_pretrained: bool = True,
+    base_model_path: str | None = None,
     **kwargs,  # pylint: disable=unused-argument
 ) -> None:
     """
@@ -482,6 +485,35 @@ def save_model(
                 )
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
+        base_model_path: Optional path to a local directory containing the base model
+            weights for PEFT models. When provided, only the PEFT adapter weights are
+            saved and the base model weights are referenced by this path instead of
+            being saved to the MLflow artifact. This is useful for:
+
+            - Air-gapped environments where the base model cannot be downloaded from
+              HuggingFace Hub.
+            - Avoiding duplication of large base model weights.
+
+            At load time, the base model will be loaded from this path and the PEFT
+            adapter will be applied on top. The path must point to a valid directory
+            containing the base model at both save and load time.
+
+            .. code-block:: python
+
+                from peft import get_peft_model, LoraConfig
+                from transformers import AutoModelForCausalLM, AutoTokenizer
+
+                base_path = "/shared/models/llama-7b"
+                base_model = AutoModelForCausalLM.from_pretrained(base_path)
+                peft_model = get_peft_model(base_model, LoraConfig(...))
+
+                with mlflow.start_run():
+                    mlflow.transformers.save_model(
+                        transformers_model={"model": peft_model, "tokenizer": tokenizer},
+                        path="path/to/save",
+                        base_model_path=base_path,
+                    )
+
         kwargs: Optional additional configurations for transformers serialization.
 
     """
@@ -614,23 +646,44 @@ def save_model(
         else:
             mlflow_model.metadata = {FlavorKey.PROMPT_TEMPLATE: prompt_template}
 
+    if base_model_path is not None and not is_peft_model(built_pipeline.model):
+        raise MlflowException(
+            "The `base_model_path` parameter is only supported for PEFT models. "
+            "The provided model is not a PEFT model.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if base_model_path is not None:
+        base_model_path = os.path.abspath(base_model_path)
+        if not os.path.isdir(base_model_path):
+            raise MlflowException(
+                f"The specified base_model_path '{base_model_path}' does not exist or is "
+                "not a directory. Please provide a valid path to the base model.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
     if is_peft_model(built_pipeline.model):
         _logger.info(
             "Overriding save_pretrained to False for PEFT models, following the Transformers "
             "behavior. The PEFT adaptor and config will be saved, but the base model weights "
             "will not and reference to the HuggingFace Hub repository will be logged instead."
         )
-        # This will only save PEFT adaptor weights and config, not the base model weights
         built_pipeline.model.save_pretrained(path.joinpath(_PEFT_ADAPTOR_DIR_NAME))
         save_pretrained = False
 
-    if not save_pretrained and not is_valid_hf_repo_id(built_pipeline.model.name_or_path):
-        _logger.warning(
-            "The save_pretrained parameter is set to False, but the specified model does not "
-            "have a valid HuggingFace Hub repository identifier. Therefore, the weights will "
-            "be saved to disk anyway."
-        )
-        save_pretrained = True
+    if not save_pretrained:
+        if base_model_path is not None:
+            _logger.info(
+                f"Using local base model path '{base_model_path}' as reference for the PEFT "
+                "model. The base model weights will not be saved to the MLflow artifact."
+            )
+        elif not is_valid_hf_repo_id(built_pipeline.model.name_or_path):
+            _logger.warning(
+                "The save_pretrained parameter is set to False, but the specified model does not "
+                "have a valid HuggingFace Hub repository identifier. Therefore, the weights will "
+                "be saved to disk anyway."
+            )
+            save_pretrained = True
 
     # Create the flavor configuration
     if isinstance(transformers_model, str):
@@ -638,7 +691,9 @@ def save_model(
             transformers_model, built_pipeline.task, processor, torch_dtype
         )
     else:
-        flavor_conf = build_flavor_config(built_pipeline, processor, torch_dtype, save_pretrained)
+        flavor_conf = build_flavor_config(
+            built_pipeline, processor, torch_dtype, save_pretrained, base_model_path
+        )
 
     if llm_inference_task:
         flavor_conf.update({_LLM_INFERENCE_TASK_KEY: llm_inference_task})
@@ -663,6 +718,12 @@ def save_model(
             save_local_checkpoint(path, transformers_model, flavor_conf, processor)
         else:
             save_pipeline_pretrained_weights(path, built_pipeline, flavor_conf, processor)
+    elif base_model_path:
+        _logger.info(
+            "Saving only pipeline components (tokenizer, etc.) to the artifact. "
+            f"The base model will be referenced from '{base_model_path}' at load time."
+        )
+        save_pipeline_components(path, built_pipeline, flavor_conf, processor)
     else:
         repo = built_pipeline.model.name_or_path
         _logger.info(
@@ -795,6 +856,7 @@ def log_model(
     model_config: dict[str, Any] | None = None,
     prompt_template: str | None = None,
     save_pretrained: bool = True,
+    base_model_path: str | None = None,
     prompts: list[str | Prompt] | None = None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
@@ -995,6 +1057,10 @@ def log_model(
                     )
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
+        base_model_path: Optional path to a local directory containing the base model
+            weights for PEFT models. When provided, only the PEFT adapter weights are
+            saved and the base model weights are referenced by this path instead of
+            being saved to the MLflow artifact. See :py:func:`save_model` for details.
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -1031,6 +1097,7 @@ def log_model(
         model_config=model_config,
         prompt_template=prompt_template,
         save_pretrained=save_pretrained,
+        base_model_path=base_model_path,
         prompts=prompts,
         params=params,
         tags=tags,
@@ -1304,10 +1371,18 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
 
     accelerate_model_conf["low_cpu_mem_usage"] = MLFLOW_HUGGINGFACE_USE_LOW_CPU_MEM_USAGE.get()
 
-    # Load model and components either from local or from HuggingFace Hub. We check for the
-    # presence of the model revision (a commit hash of the hub repository) that is only present
-    # in the model logged with `save_pretrained=False
-    if FlavorKey.MODEL_REVISION not in flavor_config:
+    # Load model and components based on how the model was saved:
+    # 1. MODEL_LOCAL_BASE: PEFT model with local base model path reference
+    # 2. MODEL_REVISION: Model saved with save_pretrained=False (HuggingFace Hub reference)
+    # 3. Otherwise: Model saved locally in the MLflow artifact
+    if flavor_config.get(FlavorKey.MODEL_LOCAL_BASE):
+        model_and_components = load_model_and_components_from_local_base_path(
+            path=pathlib.Path(path),
+            flavor_conf=flavor_config,
+            accelerate_conf=accelerate_model_conf,
+            device=device,
+        )
+    elif FlavorKey.MODEL_REVISION not in flavor_config:
         model_and_components = load_model_and_components_from_local(
             path=pathlib.Path(path),
             flavor_conf=flavor_config,
