@@ -75,11 +75,17 @@ const PASS_FAIL_VALUES: string[] = [
 ];
 /**
  * Computes global metadata for each of the assessments.
+ *
+ * @param scorerDescriptionsByName Optional map from scorer name to description string.
+ *   When provided, custom scorers (source_type === 'CODE') that have an entry in this
+ *   map will show "{scorer_name} — {description}" in their tooltip instead of the
+ *   generic "This assessment is produced by a custom metric." fallback.
  */
 export function getAssessmentInfos(
   intl: IntlShape,
   currentEvaluationResults: RunEvaluationTracesDataEntry[],
   otherEvaluationResults: RunEvaluationTracesDataEntry[] | undefined,
+  scorerDescriptionsByName?: Record<string, string>,
 ): AssessmentInfo[] {
   const assessmentInfos: Record<string, AssessmentInfo> = {};
   // Compute dtypes in the first pass.
@@ -223,6 +229,9 @@ export function getAssessmentInfos(
           assessmentName in KnownEvaluationResultAssessmentValueMissingTooltip
             ? intl.formatMessage(KnownEvaluationResultAssessmentValueMissingTooltip[assessmentName])
             : '';
+        const customScorerName = assessment?.source?.sourceId;
+        const customScorerDescription =
+          customScorerName && scorerDescriptionsByName ? scorerDescriptionsByName[customScorerName] : undefined;
         const description =
           assessmentName in KnownEvaluationResultAssessmentValueDescription
             ? intl.formatMessage(KnownEvaluationResultAssessmentValueDescription[assessmentName])
@@ -231,10 +240,12 @@ export function getAssessmentInfos(
                   defaultMessage: 'This assessment is produced by a human judge.',
                   description: 'Human judge assessment description',
                 })
-              : intl.formatMessage({
-                  defaultMessage: 'This assessment is produced by a custom metric.',
-                  description: 'Custom judge assessment description',
-                });
+              : customScorerDescription
+                ? `${customScorerName} \u2014 ${customScorerDescription}`
+                : intl.formatMessage({
+                    defaultMessage: 'This assessment is produced by a custom metric.',
+                    description: 'Custom judge assessment description',
+                  });
 
         const uniqueValues = new Set<AssessmentValueType>();
         // If no assessments exist for this name, add undefined to track missing assessments
