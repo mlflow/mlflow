@@ -60,35 +60,31 @@ def _get_model_cost() -> dict[str, Any]:
 
 
 def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> dict[str, Any] | None:
-    """Look up model cost info from the bundled JSON, trying multiple key formats.
+    """Look up model cost info from the bundled JSON.
 
-    This resolves:
-    - Unprefixed model names (e.g. "gpt-4o-mini").
-    - Provider-prefixed names passed either via:
-      * ``model="gpt-4o-mini", custom_llm_provider="openai"`` -> "openai/gpt-4o-mini".
-      * ``model="openai/gpt-4o-mini"`` (as some libraries like DSPy record spans).
-    When only the bare model name exists in the JSON, provider prefixes are stripped.
+    Tries, in order:
+    1. ``provider/model`` key if a provider is given.
+    2. Exact ``model`` key.
+    3. Bare model name after stripping a ``provider/`` prefix.
     """
     model_cost = _get_model_cost()
 
-    # 1. If provider is given, prefer provider-specific pricing (e.g. "azure/gpt-4o")
-    if custom_llm_provider:
-        provider_prefix = f"{custom_llm_provider}/"
-        if not model.startswith(provider_prefix):
-            prefixed = f"{provider_prefix}{model}"
-            if prefixed in model_cost:
-                return model_cost[prefixed]
+    # Strip provider prefix from "provider/model" inputs (e.g. "openai/gpt-4o-mini")
+    bare_model = model.split("/", 1)[-1] if "/" in model else model
 
-    # 2. Exact match (handles most models like "gpt-4o", "claude-sonnet-4-20250514",
-    #    and also "provider/model" keys that exist directly in the JSON)
+    # 1. Provider-specific lookup (e.g. "azure/gpt-4o")
+    if custom_llm_provider and not model.startswith(f"{custom_llm_provider}/"):
+        prefixed = f"{custom_llm_provider}/{bare_model}"
+        if prefixed in model_cost:
+            return model_cost[prefixed]
+
+    # 2. Exact match (handles "gpt-4o", "claude-sonnet-4-20250514", "azure/gpt-4o")
     if model in model_cost:
         return model_cost[model]
 
-    # 3. Strip provider prefix from "provider/model" style inputs (e.g. "openai/gpt-4o-mini")
-    if "/" in model:
-        _, bare_model = model.split("/", 1)
-        if bare_model in model_cost:
-            return model_cost[bare_model]
+    # 3. Bare model name after stripping prefix (e.g. "openai/gpt-4o-mini" -> "gpt-4o-mini")
+    if bare_model != model and bare_model in model_cost:
+        return model_cost[bare_model]
 
     return None
 
@@ -100,26 +96,18 @@ def cost_per_token(
     custom_llm_provider: str | None = None,
     cache_read_input_tokens: int | None = None,
     cache_creation_input_tokens: int | None = None,
-) -> tuple[float, float]:
+) -> tuple[float, float] | None:
     """Calculate cost per token using the bundled model price data.
 
     Returns:
-        A tuple of (input_cost, output_cost) in USD.
-
-    Raises:
-        ValueError: If the model is not found in the cost data or has no pricing info.
+        A tuple of (input_cost, output_cost) in USD, or None if the model is not found.
     """
     info = _lookup_model_info(model, custom_llm_provider)
     if info is None:
-        raise ValueError(f"Model {model!r} not found in model cost data")
+        return None
 
-    input_cost_per_token = info.get("input_cost_per_token")
-    output_cost_per_token = info.get("output_cost_per_token")
-    if input_cost_per_token is None and output_cost_per_token is None:
-        raise ValueError(f"No token pricing info for model {model!r}")
-
-    input_cost_per_token = input_cost_per_token or 0.0
-    output_cost_per_token = output_cost_per_token or 0.0
+    input_cost_per_token = info.get("input_cost_per_token", 0.0)
+    output_cost_per_token = info.get("output_cost_per_token", 0.0)
 
     # In this function, prompt_tokens is expected to include cache tokens, so we subtract
     # cache_read and cache_creation to get the regular (non-cached) portion, then price each

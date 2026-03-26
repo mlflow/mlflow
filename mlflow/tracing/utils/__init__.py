@@ -325,40 +325,48 @@ def calculate_cost_by_model_and_token_usage(
             # MLflow's logger is set to DEBUG level.
             litellm.suppress_debug_info = not _logger.isEnabledFor(logging.DEBUG)
 
-        input_cost_usd, output_cost_usd = cost_per_token(
+        result = cost_per_token(
             model=model_name,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             **cache_kwargs,
         )
     except Exception:
+        result = None
         if model_provider:
             # pass model_provider only in exception case to avoid invalid model_provider
             # being used when model_name itself is enough to calculate cost, since model_provider
             # field can be with any value and litellm may not support it.
             try:
-                input_cost_usd, output_cost_usd = cost_per_token(
+                result = cost_per_token(
                     model=model_name,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     custom_llm_provider=model_provider,
                     **cache_kwargs,
                 )
-            except Exception as e:
-                _logger.debug(
-                    f"Failed to calculate cost for model {model_name}: {e}", exc_info=True
-                )
-                return None
-        else:
-            _logger.debug(
-                f"Failed to calculate cost for model {model_name} without provider",
-                exc_info=True,
-            )
-            return None
+            except Exception:
+                pass
     finally:
         if litellm is not None:
             litellm.suppress_debug_info = original_suppress
 
+    if result is None:
+        # Try with provider as a last resort (builtin path only, litellm already tried above)
+        if litellm is None and model_provider:
+            result = cost_per_token(
+                model=model_name,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                custom_llm_provider=model_provider,
+                **cache_kwargs,
+            )
+
+    if result is None:
+        _logger.debug(f"Failed to calculate cost for model {model_name}")
+        return None
+
+    input_cost_usd, output_cost_usd = result
     return {
         CostKey.INPUT_COST: input_cost_usd,
         CostKey.OUTPUT_COST: output_cost_usd,

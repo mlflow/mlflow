@@ -184,6 +184,7 @@ _MOCK_MODEL_COST = {
         "cache_creation_input_token_cost": 3e-6,
     },
     "openai/test-provider-model": {
+        "litellm_provider": "openai",
         "input_cost_per_token": 1e-6,
         "output_cost_per_token": 2e-6,
     },
@@ -260,18 +261,19 @@ def test_cost_per_token_zero_tokens(mock_model_cost):
     assert output_cost == 0.0
 
 
-def test_cost_per_token_unknown_model_raises(mock_model_cost):
-    with pytest.raises(ValueError, match="not found"):
-        cost_per_token(model="totally-unknown-model", prompt_tokens=100)
+def test_cost_per_token_unknown_model_returns_none(mock_model_cost):
+    assert cost_per_token(model="totally-unknown-model", prompt_tokens=100) is None
 
 
-def test_cost_per_token_unknown_model_with_provider_raises(mock_model_cost):
-    with pytest.raises(ValueError, match="not found"):
+def test_cost_per_token_unknown_model_with_provider_returns_none(mock_model_cost):
+    assert (
         cost_per_token(
             model="totally-unknown-model",
             prompt_tokens=100,
             custom_llm_provider="unknown-provider",
         )
+        is None
+    )
 
 
 def test_cost_per_token_no_cache_cost_falls_back_to_input_rate():
