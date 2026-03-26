@@ -14,8 +14,7 @@ defaults:
 
 jobs:
   main:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && github.repository == 'mlflow/mlflow'
+    if: github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write # To post comments on PRs
