@@ -2280,10 +2280,14 @@ export default createRuleWithoutOptions<MessageIds>({
     fixable: undefined,
   },
   create(context) {
+    // Track import aliases: aliasName -> originalName
     const importAliases = new Map<string, string>();
+
+    // Track variables that are assigned from hook calls: variableName -> hookName
     const hookReturnedFunctions = new Map<string, string>();
 
     return {
+      // Track import declarations to handle aliases
       ImportDeclaration(node: TSESTree.ImportDeclaration) {
         for (const specifier of node.specifiers) {
           if (specifier.type === AST_NODE_TYPES.ImportSpecifier) {
@@ -2293,12 +2297,14 @@ export default createRuleWithoutOptions<MessageIds>({
                 : specifier.imported.value;
             const localName = specifier.local.name;
             if (importedName !== localName) {
+              // Store the alias mapping: local name -> imported name
               importAliases.set(localName, String(importedName));
             }
           }
         }
       },
 
+      // Track variable declarations from hook calls
       VariableDeclarator(node: TSESTree.VariableDeclarator) {
         if (
           node.id.type === AST_NODE_TYPES.Identifier &&
@@ -2306,9 +2312,13 @@ export default createRuleWithoutOptions<MessageIds>({
           node.init.callee.type === AST_NODE_TYPES.Identifier
         ) {
           const calleeName = node.init.callee.name;
+          // Resolve alias if it exists
           const originalName = importAliases.get(calleeName) || calleeName;
 
+          // Check if this is a hook call (starts with 'use')
           if (originalName.startsWith('use')) {
+            // Map the variable name to the hook's corresponding function name
+            // e.g., useRecordObservabilityEvent -> recordObservabilityEvent
             const functionName = originalName.replace(/^use/, '').replace(/^./, (c) => c.toLowerCase());
             hookReturnedFunctions.set(node.id.name, functionName);
           }
