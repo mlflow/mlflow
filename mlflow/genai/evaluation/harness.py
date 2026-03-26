@@ -249,6 +249,7 @@ class _PredictSubmitter:
             pool_workers: Number of threads in the predict pool.
             score_workers: Number of score-pool threads, used to size the
                 backpressure buffer that bounds predicted-but-not-yet-scored items.
+            experiment_id: MLflow experiment ID for trace/assessment logging.
         """
         self._eval_items = eval_items
         self._predict_fn = predict_fn
