@@ -5,7 +5,6 @@ import json
 import typing as t
 
 import instructor
-import litellm
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 from ragas.embeddings import OpenAIEmbeddings
@@ -68,6 +67,8 @@ def create_ragas_model(model_uri: str):
     provider, model_name = _parse_model_uri(model_uri)
 
     if provider == "gateway":
+        import litellm
+
         config = get_gateway_litellm_config(model_name)
         bound_completion = functools.partial(
             litellm.acompletion,
@@ -82,6 +83,8 @@ def create_ragas_model(model_uri: str):
             provider="openai",
             drop_params=True,
         )
+
+    import litellm
 
     client = instructor.from_litellm(litellm.acompletion)
     return LiteLLMStructuredLLM(

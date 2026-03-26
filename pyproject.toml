@@ -236,7 +236,6 @@ docs = [
   "haystack-ai",
   "deepeval",
   "ragas",
-  "litellm",
   "instructor",
   "langchain-community>=0.3.0",
 ]
