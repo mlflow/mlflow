@@ -11,7 +11,7 @@ type RuleConfigWithoutOptions<MessageIds extends string> = Omit<
   meta: Omit<BaseRuleConfigMeta<MessageIds>, 'schema'>;
 };
 
-export const createRule = ESLintUtils.RuleCreator((name) => `@mlflow/${name}`);
+export const createRule = ESLintUtils.RuleCreator((name) => `@databricks/${name}`);
 
 export function createRuleWithoutOptions<MessageIds extends string>(config: RuleConfigWithoutOptions<MessageIds>) {
   return createRule({
