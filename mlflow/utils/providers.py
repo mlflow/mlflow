@@ -49,42 +49,65 @@ class ProviderConfigResponse(TypedDict):
     default_mode: str
 
 
+_MODEL_INFO_FIELDS = frozenset({
+    # Used by _build_model_dict
+    "supports_function_calling",
+    "supports_vision",
+    "supports_reasoning",
+    "supports_prompt_caching",
+    "supports_response_schema",
+    "max_input_tokens",
+    "max_output_tokens",
+    "input_cost_per_token",
+    "output_cost_per_token",
+    "deprecation_date",
+    # Used by cost_per_token
+    "cache_read_input_token_cost",
+    "cache_creation_input_token_cost",
+    # Used by get_all_providers / get_models / _extract_models
+    "mode",
+})
+
+
 @functools.lru_cache(maxsize=1)
-def _get_model_cost() -> dict[str, Any]:
+def _get_model_cost() -> dict[tuple[str | None, str], dict[str, Any]]:
+    """Load model cost data keyed by ``(provider, model_name)``.
+
+    Each JSON key is split on the first ``/`` to derive provider and model name.
+    Only fields used by ``_build_model_dict`` and ``cost_per_token`` are retained.
+    """
     ref = importlib.resources.files(__package__).joinpath("model_prices_and_context_window.json")
     try:
         with importlib.resources.as_file(ref) as path, path.open(encoding="utf-8") as f:
-            return json.load(f)
+            raw = json.load(f)
     except FileNotFoundError:
         return {}
+    result: dict[tuple[str | None, str], dict[str, Any]] = {}
+    for key, info in raw.items():
+        filtered = {k: v for k, v in info.items() if k in _MODEL_INFO_FIELDS}
+        provider = info.get("litellm_provider")
+        model_name = key.split("/", 1)[1] if "/" in key else key
+        # (provider, model) for provider-specific lookup
+        if provider:
+            result.setdefault((provider, model_name), filtered)
+        # (None, model) for provider-agnostic lookup
+        result.setdefault((None, model_name), filtered)
+    return result
 
 
 def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> dict[str, Any] | None:
-    """Look up model cost info from the bundled JSON.
-
-    Tries, in order:
-    1. ``provider/model`` key if a provider is given.
-    2. Exact ``model`` key.
-    3. Bare model name after stripping a ``provider/`` prefix.
-    """
-    model_cost = _get_model_cost()
-
-    # Strip provider prefix from "provider/model" inputs (e.g. "openai/gpt-4o-mini")
+    """Look up model cost info by ``(provider, model)``."""
+    index = _get_model_cost()
     bare_model = model.split("/", 1)[-1] if "/" in model else model
 
-    # 1. Provider-specific lookup (e.g. "azure/gpt-4o")
-    if custom_llm_provider and not model.startswith(f"{custom_llm_provider}/"):
-        prefixed = f"{custom_llm_provider}/{bare_model}"
-        if prefixed in model_cost:
-            return model_cost[prefixed]
+    # 1. Provider-specific lookup
+    if custom_llm_provider:
+        if info := index.get((custom_llm_provider, bare_model)):
+            return info
 
-    # 2. Exact match (handles "gpt-4o", "claude-sonnet-4-20250514", "azure/gpt-4o")
-    if model in model_cost:
-        return model_cost[model]
-
-    # 3. Bare model name after stripping prefix (e.g. "openai/gpt-4o-mini" -> "gpt-4o-mini")
-    if bare_model != model and bare_model in model_cost:
-        return model_cost[bare_model]
+    # 2. Provider-agnostic lookup
+    if info := index.get((None, bare_model)):
+        return info
 
     return None
 
@@ -608,14 +631,13 @@ def get_all_providers() -> list[str]:
     Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
     variants are returned as just vertex_ai).
     """
-    model_cost = _get_model_cost()
     providers = set()
-    for _, info in model_cost.items():
+    for (provider, _), info in _get_model_cost().items():
+        if provider is None:
+            continue
         mode = info.get("mode")
-        if mode in _SUPPORTED_MODEL_MODES:
-            if provider := info.get("litellm_provider"):
-                if provider not in _EXCLUDED_PROVIDERS:
-                    providers.add(_normalize_provider(provider))
+        if mode in _SUPPORTED_MODEL_MODES and provider not in _EXCLUDED_PROVIDERS:
+            providers.add(_normalize_provider(provider))
     return list(providers)
 
 
@@ -648,12 +670,9 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - deprecation_date: Date when model will be deprecated (if known)
     """
     entries = (
-        (
-            name,
-            info.get("litellm_provider"),
-            info,
-        )
-        for name, info in _get_model_cost().items()
+        (model_name, provider, info)
+        for (provider, model_name), info in _get_model_cost().items()
+        if provider is not None
     )
     return _extract_models(entries, provider_filter=provider)
 
