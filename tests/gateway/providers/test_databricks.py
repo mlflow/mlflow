@@ -2,59 +2,34 @@ from unittest import mock
 
 import pytest
 from fastapi.encoders import jsonable_encoder
-from pydantic import ValidationError
 
 from mlflow.gateway.config import EndpointConfig
-from mlflow.gateway.providers.databricks import (
-    DatabricksConfig,
-    DatabricksOAuthConfig,
-    DatabricksProvider,
-)
+from mlflow.gateway.providers.databricks import DatabricksConfig, DatabricksProvider
 from mlflow.gateway.schemas import chat, embeddings
 
 from tests.gateway.tools import MockAsyncResponse, mock_http_client
 
 
-def _make_provider(
-    *,
-    api_base: str = "https://my-workspace.databricks.com",
-) -> DatabricksProvider:
+def _mock_workspace_client(host="https://my-workspace.databricks.com"):
+    client = mock.Mock()
+    client.config.host = host
+    client.config.authenticate.return_value = {"Authorization": "Bearer mock-token"}
+    return client
+
+
+def _make_provider(*, host: str = "https://my-workspace.databricks.com") -> DatabricksProvider:
     endpoint_config = EndpointConfig(
         name="databricks-endpoint",
         endpoint_type="llm/v1/chat",
         model={
             "provider": "databricks",
             "name": "databricks-dbrx-instruct",
-            "config": {
-                "api_key": "dapi-test-key",
-                "api_base": api_base,
-            },
+            "config": {"host": host, "token": "dapi-test-key"},
         },
     )
-    return DatabricksProvider(endpoint_config)
-
-
-def _make_oauth_provider() -> DatabricksProvider:
-    oauth_config = DatabricksOAuthConfig(
-        api_base="https://my-workspace.databricks.com",
-        client_id="test-client-id",
-        client_secret="test-client-secret",
-    )
-    endpoint_config = EndpointConfig(
-        name="databricks-oauth-endpoint",
-        endpoint_type="llm/v1/chat",
-        model={
-            "provider": "databricks",
-            "name": "databricks-dbrx-instruct",
-            "config": {
-                "api_key": "dapi-test-key",
-                "api_base": "https://my-workspace.databricks.com",
-            },
-        },
-    )
-    # Replace config with OAuth config
-    endpoint_config.model.config = oauth_config
-    return DatabricksProvider(endpoint_config)
+    provider = DatabricksProvider(endpoint_config)
+    provider._workspace_client = _mock_workspace_client(host)
+    return provider
 
 
 def _chat_response():
@@ -89,27 +64,85 @@ def _embeddings_response():
     }
 
 
-# --- PAT token tests ---
-
-
 def test_api_base_normalization():
-    provider = _make_provider(api_base="https://my-workspace.databricks.com")
+    provider = _make_provider(host="https://my-workspace.databricks.com")
     assert provider._api_base == "https://my-workspace.databricks.com/serving-endpoints"
 
 
-def test_api_base_already_normalized():
-    provider = _make_provider(api_base="https://my-workspace.databricks.com/serving-endpoints")
-    assert provider._api_base == "https://my-workspace.databricks.com/serving-endpoints"
-
-
-def test_headers():
+def test_headers_from_sdk():
     provider = _make_provider()
-    assert provider.headers == {"Authorization": "Bearer dapi-test-key"}
+    assert provider.headers == {"Authorization": "Bearer mock-token"}
+    provider._workspace_client.config.authenticate.assert_called_once()
 
 
 def test_name():
     provider = _make_provider()
     assert provider.NAME == "Databricks"
+
+
+def test_sdk_receives_explicit_credentials():
+    endpoint_config = EndpointConfig(
+        name="databricks-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "databricks",
+            "name": "databricks-dbrx-instruct",
+            "config": {
+                "host": "https://my-workspace.databricks.com",
+                "token": "dapi-explicit-key",
+            },
+        },
+    )
+    provider = DatabricksProvider(endpoint_config)
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_ws:
+        mock_ws.return_value = _mock_workspace_client()
+        provider._get_workspace_client()
+        mock_ws.assert_called_once_with(
+            host="https://my-workspace.databricks.com",
+            token="dapi-explicit-key",
+        )
+
+
+def test_sdk_oauth_m2m_credentials():
+    endpoint_config = EndpointConfig(
+        name="databricks-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "databricks",
+            "name": "databricks-dbrx-instruct",
+            "config": {
+                "host": "https://my-workspace.databricks.com",
+                "client_id": "my-client-id",
+                "client_secret": "my-client-secret",
+            },
+        },
+    )
+    provider = DatabricksProvider(endpoint_config)
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_ws:
+        mock_ws.return_value = _mock_workspace_client()
+        provider._get_workspace_client()
+        mock_ws.assert_called_once_with(
+            host="https://my-workspace.databricks.com",
+            client_id="my-client-id",
+            client_secret="my-client-secret",
+        )
+
+
+def test_sdk_default_credentials():
+    endpoint_config = EndpointConfig(
+        name="databricks-endpoint",
+        endpoint_type="llm/v1/chat",
+        model={
+            "provider": "databricks",
+            "name": "databricks-dbrx-instruct",
+            "config": {},
+        },
+    )
+    provider = DatabricksProvider(endpoint_config)
+    with mock.patch("databricks.sdk.WorkspaceClient") as mock_ws:
+        mock_ws.return_value = _mock_workspace_client()
+        provider._get_workspace_client()
+        mock_ws.assert_called_once_with()
 
 
 @pytest.mark.asyncio
@@ -141,105 +174,9 @@ async def test_embeddings():
     assert result["data"][0]["embedding"] == [0.1, 0.2, 0.3]
 
 
-# --- OAuth M2M tests ---
-
-
-def test_oauth_token_exchange():
-    provider = _make_oauth_provider()
-    mock_response = mock.Mock()
-    mock_response.json.return_value = {
-        "access_token": "oauth-access-token-123",
-        "token_type": "Bearer",
-        "expires_in": 3600,
-    }
-    mock_response.raise_for_status = mock.Mock()
-
-    with mock.patch("requests.post", return_value=mock_response) as mock_post:
-        headers = provider.headers
-
-    assert headers == {"Authorization": "Bearer oauth-access-token-123"}
-    mock_post.assert_called_once_with(
-        "https://my-workspace.databricks.com/oidc/v1/token",
-        data={"grant_type": "client_credentials", "scope": "all-apis"},
-        auth=("test-client-id", "test-client-secret"),
-        timeout=30,
-    )
-
-
-def test_oauth_token_caching():
-    provider = _make_oauth_provider()
-    mock_response = mock.Mock()
-    mock_response.json.return_value = {
-        "access_token": "cached-token",
-        "token_type": "Bearer",
-        "expires_in": 3600,
-    }
-    mock_response.raise_for_status = mock.Mock()
-
-    with mock.patch("requests.post", return_value=mock_response) as mock_post:
-        # First call fetches token
-        headers1 = provider.headers
-        # Second call uses cached token
-        headers2 = provider.headers
-
-    assert headers1 == headers2 == {"Authorization": "Bearer cached-token"}
-    mock_post.assert_called_once()  # Only one HTTP call
-
-
-@pytest.mark.asyncio
-async def test_oauth_chat():
-    provider = _make_oauth_provider()
-    mock_token_response = mock.Mock()
-    mock_token_response.json.return_value = {
-        "access_token": "oauth-token",
-        "token_type": "Bearer",
-        "expires_in": 3600,
-    }
-    mock_token_response.raise_for_status = mock.Mock()
-
-    mock_client = mock_http_client(MockAsyncResponse(_chat_response()))
-
-    with (
-        mock.patch("requests.post", return_value=mock_token_response),
-        mock.patch("aiohttp.ClientSession", return_value=mock_client),
-    ):
-        payload = chat.RequestPayload(
-            messages=[{"role": "user", "content": "Hello"}],
-        )
-        response = await provider.chat(payload)
-
-    result = jsonable_encoder(response)
-    assert result["choices"][0]["message"]["content"] == "Hello from Databricks!"
-
-
-def test_oauth_api_base_normalization():
-    config = DatabricksOAuthConfig(
-        api_base="https://my-workspace.databricks.com",
-        client_id="cid",
-        client_secret="csecret",
-    )
-    assert config.api_base == "https://my-workspace.databricks.com/serving-endpoints"
-
-
-# --- config tests ---
-
-
-def test_url_normalization():
-    config = DatabricksConfig(
-        api_key="dapi-test",
-        api_base="https://my-workspace.databricks.com",
-    )
-    assert config.api_base == "https://my-workspace.databricks.com/serving-endpoints"
-
-
-def test_url_already_has_serving_endpoints():
-    config = DatabricksConfig(
-        api_key="dapi-test",
-        api_base="https://my-workspace.databricks.com/serving-endpoints",
-    )
-    assert config.api_base == "https://my-workspace.databricks.com/serving-endpoints"
-
-
-def test_api_base_required():
-    with pytest.raises(ValidationError, match="api_base"):
-        DatabricksConfig(api_key="dapi-test")
+def test_config_all_optional():
+    config = DatabricksConfig()
+    assert config.host is None
+    assert config.token is None
+    assert config.client_id is None
+    assert config.client_secret is None

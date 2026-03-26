@@ -19,8 +19,6 @@ from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import (
     AnthropicConfig,
-    DatabricksConfig,
-    DatabricksOAuthConfig,
     EndpointConfig,
     EndpointType,
     GatewayRequestType,
@@ -255,19 +253,19 @@ def _build_endpoint_config(
     }:
         provider_config = _build_openai_compatible_config(model_config)
     elif model_config.provider in (Provider.DATABRICKS, Provider.DATABRICKS_MODEL_SERVING):
+        from mlflow.gateway.providers.databricks import DatabricksConfig
+
         auth_config = model_config.auth_config or {}
         auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "pat_token")
+        config_kwargs = {}
+        if api_base := auth_config.get(_AuthConfigKey.API_BASE):
+            config_kwargs["host"] = api_base
         if auth_mode == "oauth_m2m":
-            provider_config = DatabricksOAuthConfig(
-                api_base=auth_config.get(_AuthConfigKey.API_BASE, ""),
-                client_id=auth_config.get("client_id", ""),
-                client_secret=model_config.secret_value.get("client_secret", ""),
-            )
+            config_kwargs["client_id"] = auth_config.get("client_id")
+            config_kwargs["client_secret"] = model_config.secret_value.get("client_secret")
         else:
-            provider_config = DatabricksConfig(
-                api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
-                api_base=auth_config.get(_AuthConfigKey.API_BASE, ""),
-            )
+            config_kwargs["token"] = model_config.secret_value.get(_AuthConfigKey.API_KEY)
+        provider_config = DatabricksConfig(**config_kwargs)
         model_config.provider = Provider.DATABRICKS
     else:
         # Use LiteLLM as fallback for unsupported providers
