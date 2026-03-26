@@ -1,4 +1,4 @@
-import { Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Skeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { useTraceAttachment } from '../hooks/useTraceAttachment';
@@ -29,7 +29,7 @@ export const ModelTraceExplorerAttachmentRenderer = ({
   }
 
   if (isLoading || !objectUrl) {
-    return <Spinner size="small" />;
+    return <Skeleton />;
   }
 
   if (contentType.startsWith('image/')) {

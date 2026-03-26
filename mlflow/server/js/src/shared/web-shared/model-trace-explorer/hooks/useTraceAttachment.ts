@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { fetchOrFail } from '@mlflow/mlflow/src/common/utils/FetchUtils';
 import { useQuery } from '../../query-client/queryClient';
 import { getAjaxUrl } from '../ModelTraceExplorer.request.utils';
 
@@ -28,11 +29,7 @@ export const useTraceAttachment = ({
       const url = getAjaxUrl(
         `ajax-api/2.0/mlflow/get-trace-artifact?request_id=${encodeURIComponent(traceId)}&path=${encodeURIComponent(attachmentId)}`,
       );
-      // eslint-disable-next-line no-restricted-globals -- direct fetch needed for binary response
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch attachment: ${response.status}`);
-      }
+      const response = await fetchOrFail(url);
       const blob = await response.blob();
       return URL.createObjectURL(new Blob([blob], { type: contentType }));
     },
