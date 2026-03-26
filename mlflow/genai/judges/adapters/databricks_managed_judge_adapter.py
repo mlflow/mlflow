@@ -7,7 +7,9 @@ from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
-    from mlflow.types.llm import ChatMessage, ToolDefinition
+    from mlflow.types.llm import ToolDefinition
+
+from mlflow.types.llm import ChatMessage
 
 T = TypeVar("T")  # Generic type for agentic loop return value
 
@@ -201,8 +203,6 @@ def _create_message_from_databricks_response(
     Raises:
         ValueError: If response format is invalid.
     """
-    from mlflow.types.llm import ChatMessage
-
     choices = response_data.get("choices", [])
     if not choices:
         raise ValueError("Invalid response format: missing 'choices' field")
@@ -337,8 +337,6 @@ def _invoke_databricks_default_judge(
     Raises:
         MlflowException: If databricks-agents is not installed or max iterations exceeded.
     """
-    from mlflow.types.llm import ChatMessage
-
     try:
         if isinstance(prompt, str):
             messages = [ChatMessage(role="user", content=prompt)]
