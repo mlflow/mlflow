@@ -69,6 +69,11 @@ jobs:
         run: |
           uv run --no-sync pre-commit install --install-hooks
           uv run --no-sync pre-commit run install-bin -a -v
+      - name: Print rate limit info
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api rate_limit
       - name: Run pre-commit
         id: pre-commit
         env:
