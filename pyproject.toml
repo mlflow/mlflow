@@ -158,6 +158,7 @@ mlflow = [
   "assistant/skills/**/*",
   "models/container/**/*",
   "server/js/build/**/*",
+  "utils/model_prices_and_context_window.json",
 ]
 
 [tool.setuptools.packages.find]
@@ -245,7 +246,7 @@ docs = [
 [tool.uv]
 # TODO: Remove once the incident is fully remediated
 # Mitigation for https://github.com/aquasecurity/trivy/discussions/10425
-exclude-newer = "2026-03-18T00:00:00Z"
+exclude-newer = "2026-03-10T00:00:00Z"
 exclude-newer-package = { torch = false, torchvision = false }
 required-version = ">=0.10.12"
 constraint-dependencies = [
@@ -259,6 +260,9 @@ constraint-dependencies = [
   "pyspark<4.1.0",
   # setuptools 82.0.0 removed pkg_resources, breaking packages that depend on it (e.g., sphinx)
   "setuptools<82",
+  # litellm 1.82.7 and 1.82.8 contain a malicious .pth file that steals credentials
+  # https://github.com/BerriAI/litellm/issues/24512
+  "litellm<=1.82.6",
 ]
 # Prevent third-party libraries from installing uv to avoid conflicts with uv installed
 # by the standalone installer

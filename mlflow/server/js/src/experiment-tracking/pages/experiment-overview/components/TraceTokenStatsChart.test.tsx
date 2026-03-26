@@ -29,11 +29,11 @@ const createTokenStatsDataPoint = (timeBucket: string, p50: number, p90: number,
   },
 });
 
-// Helper to create an AVG token stats data point
+// Helper to create a scalar token stats data point with both SUM and AVG (combined query).
 const createAvgTokenStatsDataPoint = (avg: number) => ({
   metric_name: TraceMetricKey.TOTAL_TOKENS,
   dimensions: {},
-  values: { [AggregationType.AVG]: avg },
+  values: { [AggregationType.SUM]: avg, [AggregationType.AVG]: avg },
 });
 
 describe('TraceTokenStatsChart', () => {
@@ -328,7 +328,7 @@ describe('TraceTokenStatsChart', () => {
           experiment_ids: [testExperimentId],
           view_type: MetricViewType.TRACES,
           metric_name: TraceMetricKey.TOTAL_TOKENS,
-          aggregations: [{ aggregation_type: AggregationType.AVG }],
+          aggregations: [{ aggregation_type: AggregationType.SUM }, { aggregation_type: AggregationType.AVG }],
         });
       });
     });

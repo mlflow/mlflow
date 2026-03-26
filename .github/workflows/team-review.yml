@@ -16,7 +16,7 @@ defaults:
 jobs:
   review:
     runs-on: ubuntu-slim
-    if: ${{ github.event.label.name == 'team-review' }}
+    if: github.event.label.name == 'team-review'
     timeout-minutes: 5
     permissions:
       pull-requests: write
