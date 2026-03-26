@@ -1,35 +1,37 @@
 import { jest, describe, it, expect, beforeEach } from '@jest/globals';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 import { ModelTraceExplorerAttachmentRenderer } from './ModelTraceExplorerAttachmentRenderer';
 
-// Mock the fetch utility
-const mockGetTraceAttachment = jest.fn<(requestId: string, attachmentId: string) => Promise<ArrayBuffer | undefined>>();
-jest.mock('../oss-notebook-renderer/mlflow-fetch-utils', () => ({
-  getTraceAttachment: (...args: unknown[]) => mockGetTraceAttachment(...(args as [string, string])),
+// Mock the useTraceAttachment hook
+const mockUseTraceAttachment = jest.fn<() => { objectUrl: string | null; isLoading: boolean; error: unknown }>();
+jest.mock('../hooks/useTraceAttachment', () => ({
+  useTraceAttachment: () => mockUseTraceAttachment(),
 }));
 
-const renderWithProviders = (ui: React.ReactElement) =>
-  render(
-    <DesignSystemProvider>
-      <IntlProvider locale="en">{ui}</IntlProvider>
-    </DesignSystemProvider>,
+const renderWithProviders = (ui: React.ReactElement) => {
+  const queryClient = new QueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <DesignSystemProvider>
+        <IntlProvider locale="en">{ui}</IntlProvider>
+      </DesignSystemProvider>
+    </QueryClientProvider>,
   );
+};
 
 describe('ModelTraceExplorerAttachmentRenderer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Mock URL.createObjectURL / revokeObjectURL
-    global.URL.createObjectURL = jest.fn(() => 'blob:mock-url');
-    global.URL.revokeObjectURL = jest.fn();
   });
 
   it('shows spinner while loading', () => {
-    mockGetTraceAttachment.mockReturnValue(new Promise(() => {})); // never resolves
+    mockUseTraceAttachment.mockReturnValue({ objectUrl: null, isLoading: true, error: null });
     renderWithProviders(
       <ModelTraceExplorerAttachmentRenderer
         title="Test"
@@ -41,9 +43,8 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
     expect(screen.getByRole('img', { hidden: true })).toBeInTheDocument(); // Spinner renders as img
   });
 
-  it('renders an image for image content types', async () => {
-    const mockData = new ArrayBuffer(8);
-    mockGetTraceAttachment.mockResolvedValue(mockData);
+  it('renders an image for image content types', () => {
+    mockUseTraceAttachment.mockReturnValue({ objectUrl: 'blob:mock-url', isLoading: false, error: null });
     renderWithProviders(
       <ModelTraceExplorerAttachmentRenderer
         title="Test Image"
@@ -52,15 +53,12 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
         contentType="image/png"
       />,
     );
-    await waitFor(() => {
-      expect(screen.getByAltText('Attachment abc-123')).toBeInTheDocument();
-    });
+    expect(screen.getByAltText('Attachment abc-123')).toBeInTheDocument();
     expect(screen.getByText('Test Image')).toBeInTheDocument();
   });
 
-  it('renders audio element for audio content types', async () => {
-    const mockData = new ArrayBuffer(8);
-    mockGetTraceAttachment.mockResolvedValue(mockData);
+  it('renders audio element for audio content types', () => {
+    mockUseTraceAttachment.mockReturnValue({ objectUrl: 'blob:mock-url', isLoading: false, error: null });
     renderWithProviders(
       <ModelTraceExplorerAttachmentRenderer
         title="Test Audio"
@@ -69,14 +67,11 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
         contentType="audio/wav"
       />,
     );
-    await waitFor(() => {
-      expect(screen.getByText('Test Audio')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Test Audio')).toBeInTheDocument();
   });
 
-  it('renders download link for unknown content types', async () => {
-    const mockData = new ArrayBuffer(8);
-    mockGetTraceAttachment.mockResolvedValue(mockData);
+  it('renders download link for unknown content types', () => {
+    mockUseTraceAttachment.mockReturnValue({ objectUrl: 'blob:mock-url', isLoading: false, error: null });
     renderWithProviders(
       <ModelTraceExplorerAttachmentRenderer
         title="Test File"
@@ -85,13 +80,11 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
         contentType="application/octet-stream"
       />,
     );
-    await waitFor(() => {
-      expect(screen.getByRole('link')).toBeInTheDocument();
-    });
+    expect(screen.getByRole('link')).toBeInTheDocument();
   });
 
-  it('shows error message when fetch returns undefined', async () => {
-    mockGetTraceAttachment.mockResolvedValue(undefined);
+  it('shows error message when fetch fails', () => {
+    mockUseTraceAttachment.mockReturnValue({ objectUrl: null, isLoading: false, error: new Error('fail') });
     renderWithProviders(
       <ModelTraceExplorerAttachmentRenderer
         title="Test"
@@ -100,11 +93,6 @@ describe('ModelTraceExplorerAttachmentRenderer', () => {
         contentType="image/png"
       />,
     );
-    await waitFor(() => {
-      expect(screen.getByText('Failed to load attachment')).toBeInTheDocument();
-    });
+    expect(screen.getByText('Failed to load attachment')).toBeInTheDocument();
   });
-
-  // Note: getTraceAttachment catches errors internally and returns undefined,
-  // so rejection is handled by the "fetch returns undefined" test above.
 });
