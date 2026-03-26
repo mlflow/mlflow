@@ -20,21 +20,17 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 
 {{/*
 Build mlflow server args from .Values.server.
-Option names mirror MLflow CLI flags (underscores -> hyphens).
+  value_options: map of key/value pairs rendered as --key=value (empty values skipped).
+  flag_options:  list of flag names rendered as --flag (underscores converted to hyphens).
 */}}
 {{- define "mlflow.serverArgs" -}}
 - mlflow
 - server
-{{- range $key, $val := .Values.server }}
+{{- range $key, $val := .Values.server.value_options }}
 {{- $flag := $key | replace "_" "-" }}
-{{- if kindIs "bool" $val }}
-{{- if $val }}
-- --{{ $flag }}
-{{- else }}
-- --no-{{ $flag }}
-{{- end }}
-{{- else if $val }}
 - --{{ $flag }}={{ $val }}
 {{- end }}
+{{- range .Values.server.flag_options }}
+- --{{ . | replace "_" "-" }}
 {{- end }}
 {{- end }}

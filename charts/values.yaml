@@ -7,38 +7,44 @@ image:
 replicaCount: 1
 
 # MLflow server CLI options.
-# Key names match MLflow CLI flags (hyphens replaced with underscores).
 # Run `mlflow server --help` for the full list.
 server:
-  # SQL database URI for experiment/run metadata.
-  # Examples:
-  #   postgresql://user:pass@host:5432/db  (PostgreSQL)
-  #   mysql+pymysql://user:pass@host/db    (MySQL)
-  backend_store_uri: ""
+  # value_options: key/value pairs rendered as --key=value.
+  # Key names match MLflow CLI flags (hyphens replaced with underscores).
+  # Empty-string values are omitted.
+  value_options:
+    # SQL database URI for experiment/run metadata.
+    # Examples:
+    #   postgresql://user:pass@host:5432/db  (PostgreSQL)
+    #   mysql+pymysql://user:pass@host/db    (MySQL)
+    backend_store_uri: ""
 
-  # Root location for artifacts (leave empty to use <backend_store_uri>/artifacts).
-  default_artifact_root: ""
+    # Root location for artifacts (leave empty to use <backend_store_uri>/artifacts).
+    default_artifact_root: ""
 
-  # Artifact proxy destination (used when serve_artifacts is true).
-  artifacts_destination: ""
+    # Artifact proxy destination (used when serve_artifacts is true).
+    artifacts_destination: ""
 
-  host: "0.0.0.0"
-  port: 5000
+    host: "0.0.0.0"
+    port: 5000
 
-  # Proxy artifact downloads through the tracking server.
-  serve_artifacts: true
+    # Enable an MLflow server plugin (e.g. "basic-auth").
+    app_name: ""
 
-  # Enable an MLflow server plugin (e.g. "basic-auth").
-  app_name: ""
+    # Expose Prometheus metrics at this path (e.g. "/metrics").
+    expose_prometheus: ""
 
-  # Expose Prometheus metrics at this path (e.g. "/metrics").
-  expose_prometheus: ""
+    # Number of gunicorn worker processes.
+    workers: 4
 
-  # Number of gunicorn worker processes.
-  workers: 4
+    # Extra options forwarded to gunicorn (e.g. "--timeout 120").
+    gunicorn_opts: ""
 
-  # Extra options forwarded to gunicorn (e.g. "--timeout 120").
-  gunicorn_opts: ""
+  # flag_options: bare flags rendered as --flag (no value).
+  # Each item is a CLI flag name (hyphens or underscores both accepted).
+  # Example: [serve_artifacts, no_serve_artifacts]
+  flag_options:
+    - no_serve_artifacts
 
 
 # Run `mlflow db upgrade` in an init container before the server starts.

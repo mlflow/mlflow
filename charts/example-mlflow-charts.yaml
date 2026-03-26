@@ -10,26 +10,30 @@ replicaCount: 1
 
 # MLflow server options — names match `mlflow server --help` flags exactly.
 server:
-  # --- Backend store (metadata) ---
-  backend_store_uri: "postgresql://<username>:<password>@<endpoint>:5432/<database-name>"
+  value_options:
+    # --- Backend store (metadata) ---
+    backend_store_uri: "postgresql://<username>:<password>@<endpoint>:5432/<database-name>"
 
-  # --- Artifact store ---
-  # Leave empty to co-locate artifacts with the backend store.
-  default_artifact_root: "s3://my-bucket/mlflow"
-  # S3 / MinIO example:
-  # default_artifact_root: "s3://my-bucket/mlflow"
-  # artifacts_destination: "s3://my-bucket/mlflow"
-  # serve_artifacts: true   # proxy downloads through tracking server
+    # --- Artifact store ---
+    # Leave empty to co-locate artifacts with the backend store.
+    default_artifact_root: "s3://my-bucket/mlflow"
+    # S3 / MinIO example:
+    # default_artifact_root: "s3://my-bucket/mlflow"
+    # artifacts_destination: "s3://my-bucket/mlflow"
 
-  host: "0.0.0.0"
-  port: 5000
-  workers: 4
+    host: "0.0.0.0"
+    port: 5000
+    workers: 4
 
-  # Uncomment to enable basic-auth plugin:
-  # app_name: "basic-auth"
+    # Uncomment to enable basic-auth plugin:
+    # app_name: "basic-auth"
 
-  # Expose Prometheus metrics:
-  # expose_prometheus: "/metrics"
+    # Expose Prometheus metrics:
+    # expose_prometheus: "/metrics"
+
+  # Bare flags (no value). Rendered as --flag.
+  flag_options:
+    - no_serve_artifacts
 
 # Run `mlflow db upgrade` before the server starts (recommended for SQL backends).
 migrate:

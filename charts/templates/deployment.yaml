@@ -21,12 +21,12 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-{{- if and .Values.migrate.enabled .Values.server.backend_store_uri }}
+{{- if and .Values.migrate.enabled .Values.server.value_options.backend_store_uri }}
       initContainers:
         - name: db-migrate
           image: {{ include "mlflow.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["mlflow", "db", "upgrade", {{ .Values.server.backend_store_uri | quote }}]
+          command: ["mlflow", "db", "upgrade", {{ .Values.server.value_options.backend_store_uri | quote }}]
           {{- with .Values.env }}
           env:
             {{- toYaml . | nindent 12 }}
@@ -44,7 +44,7 @@ spec:
             {{- include "mlflow.serverArgs" . | nindent 12 }}
           ports:
             - name: http
-              containerPort: {{ .Values.server.port }}
+              containerPort: {{ .Values.server.value_options.port }}
               protocol: TCP
           livenessProbe:
             httpGet:
