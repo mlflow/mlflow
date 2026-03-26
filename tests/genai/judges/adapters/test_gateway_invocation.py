@@ -21,7 +21,6 @@ from mlflow.genai.judges.adapters.gateway_invocation import (
     _should_proactively_prune,
     invoke_via_gateway_and_handle_tools,
 )
-from mlflow.genai.judges.types import JudgeMessage
 from mlflow.types.llm import ChatMessage
 
 
@@ -55,7 +54,7 @@ def _chat_response(content, tool_calls=None, usage=None):
 
 
 def test_build_request_basic():
-    messages = [JudgeMessage(role="user", content="hello")]
+    messages = [ChatMessage(role="user", content="hello")]
     payload = _build_request(
         model="gpt-4",
         messages=messages,
@@ -71,7 +70,7 @@ def test_build_request_basic():
 
 
 def test_build_request_with_tools():
-    messages = [JudgeMessage(role="user", content="test")]
+    messages = [ChatMessage(role="user", content="test")]
     tools = [{"type": "function", "function": {"name": "get_info", "parameters": {}}}]
     payload = _build_request(
         model="gpt-4",
@@ -86,7 +85,7 @@ def test_build_request_with_tools():
 
 
 def test_build_request_with_inference_params():
-    messages = [JudgeMessage(role="user", content="test")]
+    messages = [ChatMessage(role="user", content="test")]
     payload = _build_request(
         model="gpt-4",
         messages=messages,
@@ -105,7 +104,7 @@ def test_build_request_with_inference_params():
 def test_parse_response_basic():
     resp = _chat_response("Hello!")
     msg = _parse_response_message(resp)
-    assert isinstance(msg, JudgeMessage)
+    assert isinstance(msg, ChatMessage)
     assert msg.role == "assistant"
     assert msg.content == "Hello!"
     assert msg.tool_calls is None
@@ -119,7 +118,7 @@ def test_parse_response_with_tool_calls():
     msg = _parse_response_message(resp)
     assert msg.content is None
     assert len(msg.tool_calls) == 1
-    assert msg.tool_calls[0]["id"] == "call_1"
+    assert msg.tool_calls[0].id == "call_1"
 
 
 def test_parse_response_empty_choices_raises():
@@ -132,13 +131,13 @@ def test_parse_response_empty_choices_raises():
 
 def test_remove_tool_call_pair():
     messages = [
-        JudgeMessage(role="user", content="test"),
-        JudgeMessage(
+        ChatMessage(role="user", content="test"),
+        ChatMessage(
             role="assistant",
             tool_calls=[{"id": "call_1", "function": {"name": "f", "arguments": "{}"}}],
         ),
-        JudgeMessage(role="tool", content="result", tool_call_id="call_1", name="f"),
-        JudgeMessage(role="assistant", content="final answer"),
+        ChatMessage(role="tool", content="result", tool_call_id="call_1", name="f"),
+        ChatMessage(role="assistant", content="final answer"),
     ]
     result = _remove_oldest_tool_call_pair(messages)
     assert len(result) == 2
@@ -149,8 +148,8 @@ def test_remove_tool_call_pair():
 
 def test_remove_no_tool_calls_returns_none():
     messages = [
-        JudgeMessage(role="user", content="test"),
-        JudgeMessage(role="assistant", content="answer"),
+        ChatMessage(role="user", content="test"),
+        ChatMessage(role="assistant", content="answer"),
     ]
     assert _remove_oldest_tool_call_pair(messages) is None
 
@@ -272,7 +271,7 @@ def test_tool_calling_loop(mock_trace):
         ) as mock_process,
     ):
         mock_process.return_value = [
-            JudgeMessage(
+            ChatMessage(
                 role="tool",
                 content='{"trace_id": "test-trace"}',
                 tool_call_id="call_1",
@@ -331,7 +330,7 @@ def test_context_window_error_triggers_pruning(mock_trace):
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_invocation._process_tool_calls",
-            return_value=[JudgeMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
+            return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
         ),
     ):
         output = invoke_via_gateway_and_handle_tools(
@@ -367,7 +366,7 @@ def test_max_iterations_exceeded(mock_trace, monkeypatch):
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_invocation._process_tool_calls",
-            return_value=[JudgeMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
+            return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
         ),
     ):
         with pytest.raises(MlflowException, match="iteration limit of 1 exceeded"):
@@ -545,7 +544,7 @@ def test_proactive_pruning_triggers_during_tool_loop(mock_trace):
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_invocation._process_tool_calls",
-            return_value=[JudgeMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
+            return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_invocation._get_max_context_tokens",

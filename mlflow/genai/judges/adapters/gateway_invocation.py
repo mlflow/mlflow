@@ -17,17 +17,16 @@ import requests
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
-    from mlflow.types.llm import ChatMessage
 
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
-from mlflow.genai.judges.types import JudgeMessage
 from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
 )
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.types.llm import ChatMessage
 
 _logger = logging.getLogger(__name__)
 
@@ -58,9 +57,30 @@ def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
     return pydantic.create_model("JudgeEvaluation", **field_definitions)
 
 
+def _message_to_dict(msg: ChatMessage) -> dict[str, Any]:
+    """Serialize a ChatMessage to OpenAI message format, omitting None fields."""
+    d: dict[str, Any] = {"role": msg.role}
+    if msg.content is not None:
+        d["content"] = msg.content
+    if msg.tool_calls is not None:
+        d["tool_calls"] = [
+            {
+                "id": tc.id,
+                "type": tc.type,
+                "function": {"name": tc.function.name, "arguments": tc.function.arguments},
+            }
+            for tc in msg.tool_calls
+        ]
+    if msg.tool_call_id is not None:
+        d["tool_call_id"] = msg.tool_call_id
+    if msg.name is not None:
+        d["name"] = msg.name
+    return d
+
+
 def _build_request(
     model: str,
-    messages: list[JudgeMessage],
+    messages: list[ChatMessage],
     tools: list[dict[str, Any]] | None,
     response_format: type[pydantic.BaseModel] | None,
     include_response_format: bool,
@@ -69,7 +89,7 @@ def _build_request(
     """Build the OpenAI-format chat completions request payload."""
     payload: dict[str, Any] = {
         "model": model,
-        "messages": [msg.to_dict() for msg in messages],
+        "messages": [_message_to_dict(msg) for msg in messages],
     }
 
     if tools:
@@ -274,23 +294,32 @@ def _should_proactively_prune(
     return prompt_tokens > max_context_tokens * threshold
 
 
-def _parse_response_message(response_data: dict[str, Any]) -> JudgeMessage:
+def _parse_response_message(response_data: dict[str, Any]) -> ChatMessage:
     """Parse the assistant message from an OpenAI-format chat completions response."""
     choices = response_data.get("choices", [])
     if not choices:
         raise MlflowException("Empty choices in chat completions response")
 
     message_data = choices[0].get("message", {})
-    return JudgeMessage(
+
+    # tool_calls come as plain dicts; ChatMessage.__post_init__ auto-converts to ToolCall
+    tool_calls = message_data.get("tool_calls")
+    content = message_data.get("content")
+
+    # ChatMessage requires content when tool_calls is absent
+    if content is None and not tool_calls:
+        content = ""
+
+    return ChatMessage(
         role=message_data.get("role", "assistant"),
-        content=message_data.get("content"),
-        tool_calls=message_data.get("tool_calls"),
+        content=content,
+        tool_calls=tool_calls,
     )
 
 
 def _remove_oldest_tool_call_pair(
-    messages: list[JudgeMessage],
-) -> list[JudgeMessage] | None:
+    messages: list[ChatMessage],
+) -> list[ChatMessage] | None:
     """Remove the oldest assistant message with tool calls and its corresponding tool responses."""
     result = next(
         ((i, msg) for i, msg in enumerate(messages) if msg.role == "assistant" and msg.tool_calls),
@@ -303,7 +332,7 @@ def _remove_oldest_tool_call_pair(
     modified = messages[:]
     modified.pop(assistant_idx)
 
-    tool_call_ids = {tc["id"] for tc in assistant_msg.tool_calls}
+    tool_call_ids = {tc.id for tc in assistant_msg.tool_calls}
     return [
         msg for msg in modified if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
     ]
@@ -358,7 +387,7 @@ def invoke_via_gateway_and_handle_tools(
             error_code=BAD_REQUEST,
         )
 
-    judge_messages = [JudgeMessage(role=msg.role, content=msg.content) for msg in messages]
+    judge_messages = [ChatMessage(role=msg.role, content=msg.content) for msg in messages]
 
     api_base, model, headers = _resolve_provider_config(
         provider,
