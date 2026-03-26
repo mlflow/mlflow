@@ -348,13 +348,11 @@ class _ModelCost:
 
 @functools.lru_cache(maxsize=64)
 def _fetch_model_cost(model_name: str) -> _ModelCost | None:
-    # The API does a substring match (e.g. "gpt-5" also returns
-    # "ft:gpt-5-2025-09-15"), so we need to find the exact match.
-    from mlflow.utils.providers import _fetch_model_catalog_from_api
+    from mlflow.utils.providers import _get_model_cost
 
-    for entry in _fetch_model_catalog_from_api(model=model_name):
-        if entry.get("id") == model_name:
-            return _ModelCost.from_dict(entry)
+    model_cost = _get_model_cost()
+    if entry := model_cost.get(model_name):
+        return _ModelCost.from_dict(entry)
     return None
 
 

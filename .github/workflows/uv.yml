@@ -23,14 +23,15 @@ defaults:
 jobs:
   uv:
     # Skip scheduled runs on forks
-    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
+    if: false && (github.event_name != 'schedule' || github.repository == 'mlflow/mlflow')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
         id: app-token
         with:
           app-id: ${{ secrets.APP_ID }}

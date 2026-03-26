@@ -322,8 +322,9 @@ def test_is_in_databricks_runtime(monkeypatch):
     assert not databricks_utils.is_in_databricks_runtime()
 
 
-def test_is_in_databricks_model_serving_environment(monkeypatch):
-    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
+@pytest.mark.parametrize("val", ["true", "1"])
+def test_is_in_databricks_model_serving_environment(monkeypatch, val):
+    monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", val)
     assert databricks_utils.is_in_databricks_model_serving_environment()
 
     monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV")
