@@ -87,23 +87,16 @@ def main() -> None:
         if package == RELEASE:
             pyproject.write_text(Path("pyproject.release.toml").read_text())
 
+        DIST_DIR = Path("dist").resolve()
+        DIST_DIR.mkdir(exist_ok=True)
         subprocess.check_call([
             sys.executable,
             "-m",
             "build",
             package.build_path,
+            "--outdir",
+            DIST_DIR,
         ])
-
-        DIST_DIR = Path("dist")
-        DIST_DIR.mkdir(exist_ok=True)
-        if package in (SKINNY, TRACING):
-            # Move `libs/xyz/dist/*` to `dist/`
-            for src in (Path(package.build_path) / "dist").glob("*"):
-                print(src)
-                dst = DIST_DIR / src.name
-                if dst.exists():
-                    dst.unlink()
-                src.rename(dst)
 
     if args.sha:
         # If build succeeds, there should be one wheel in the dist directory
