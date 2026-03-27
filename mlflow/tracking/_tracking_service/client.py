@@ -1128,3 +1128,39 @@ class TrackingServiceClient:
             raise MlflowException.invalid_parameter_value("run_id cannot be empty")
 
         return self.store.unlink_traces_from_run(trace_ids, run_id)
+
+    def create_trace_view(self, view):
+        return self.store.create_trace_view(view)
+
+    def get_trace_view(self, trace_id, view_id):
+        return self.store.get_trace_view(trace_id, view_id)
+
+    def list_trace_views(self, trace_id=None, experiment_id=None):
+        return self.store.list_trace_views(trace_id=trace_id, experiment_id=experiment_id)
+
+    def update_trace_view(
+        self,
+        trace_id=None,
+        experiment_id=None,
+        view_id="",
+        name=None,
+        span_filter=None,
+        input_path=None,
+        output_path=None,
+        description=None,
+    ):
+        return self.store.update_trace_view(
+            trace_id=trace_id,
+            experiment_id=experiment_id,
+            view_id=view_id,
+            name=name,
+            span_filter=span_filter,
+            input_path=input_path,
+            output_path=output_path,
+            description=description,
+        )
+
+    def delete_trace_view(self, trace_id=None, experiment_id=None, view_id=""):
+        return self.store.delete_trace_view(
+            trace_id=trace_id, experiment_id=experiment_id, view_id=view_id
+        )
