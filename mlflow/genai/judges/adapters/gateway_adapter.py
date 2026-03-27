@@ -25,7 +25,8 @@ from mlflow.genai.judges.utils.parsing_utils import (
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
 # "endpoints" is a special case for MLflow deployment endpoints (e.g. Databricks model serving).
-_NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints"]
+# "gateway" routes requests through the MLflow tracking server's gateway proxy.
+_NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints", "gateway"]
 
 
 def _invoke_via_gateway(
@@ -61,6 +62,7 @@ def _invoke_via_gateway(
     from mlflow.metrics.genai.model_utils import (
         _call_llm_provider_api,
         _parse_model_uri,
+        call_deployments_api,
         get_endpoint_type,
         score_model_on_payload,
     )
@@ -83,6 +85,13 @@ def _invoke_via_gateway(
         )
 
     _, model_name = _parse_model_uri(model_uri)
+
+    # gateway:/ routes through the MLflow tracking server's deployments client
+    if provider == "gateway":
+        return call_deployments_api(
+            model_name, {"messages": prompt}, inference_params, "llm/v1/chat"
+        )
+
     rf_dict = _pydantic_to_response_format(response_format) if response_format else None
     return _call_llm_provider_api(
         provider,
