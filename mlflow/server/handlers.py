@@ -4179,6 +4179,147 @@ def _search_issues():
     return _wrap_response(response_message)
 
 
+# TraceView API handlers (JSON-based, no protobuf)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_trace_view(trace_id=None, experiment_id=None):
+    from mlflow.entities.trace_view import SpanFilter, TraceView
+
+    body = request.get_json(force=True)
+    span_filter_data = body.get("span_filter")
+    view = TraceView(
+        name=body["name"],
+        trace_id=trace_id,
+        experiment_id=experiment_id,
+        span_filter=SpanFilter.from_dict(span_filter_data) if span_filter_data else None,
+        input_path=body.get("input_path"),
+        output_path=body.get("output_path"),
+        created_by=body.get("created_by"),
+        description=body.get("description"),
+    )
+    created_view = _get_tracking_store().create_trace_view(view)
+    return jsonify({"trace_view": created_view.to_dict()})
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_trace_view(trace_id, view_id):
+    view = _get_tracking_store().get_trace_view(trace_id, view_id)
+    return jsonify({"trace_view": view.to_dict()})
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_trace_views(trace_id=None, experiment_id=None):
+    views = _get_tracking_store().list_trace_views(
+        trace_id=trace_id, experiment_id=experiment_id
+    )
+    return jsonify({"trace_views": [v.to_dict() for v in views]})
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_trace_view(trace_id=None, experiment_id=None, view_id=None):
+    from mlflow.entities.trace_view import SpanFilter
+
+    body = request.get_json(force=True)
+    kwargs = {}
+    if "name" in body:
+        kwargs["name"] = body["name"]
+    if "span_filter" in body:
+        sf = body["span_filter"]
+        kwargs["span_filter"] = SpanFilter.from_dict(sf) if sf else None
+    if "input_path" in body:
+        kwargs["input_path"] = body["input_path"]
+    if "output_path" in body:
+        kwargs["output_path"] = body["output_path"]
+    if "description" in body:
+        kwargs["description"] = body["description"]
+
+    updated_view = _get_tracking_store().update_trace_view(
+        trace_id=trace_id,
+        experiment_id=experiment_id,
+        view_id=view_id,
+        **kwargs,
+    )
+    return jsonify({"trace_view": updated_view.to_dict()})
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_trace_view(trace_id=None, experiment_id=None, view_id=None):
+    _get_tracking_store().delete_trace_view(
+        trace_id=trace_id, experiment_id=experiment_id, view_id=view_id
+    )
+    return jsonify({})
+
+
+def get_trace_view_endpoints():
+    # Each (path, handler, methods) tuple needs a unique handler.__name__ for Flask
+    # endpoint registration. We return 4-tuples with explicit endpoint names to
+    # avoid collisions when the same handler serves multiple URL patterns.
+    return [
+        # Trace-scoped endpoints
+        (
+            _get_ajax_path("/mlflow/traces/<trace_id>/views"),
+            _create_trace_view,
+            ["POST"],
+            "create_trace_view_by_trace",
+        ),
+        (
+            _get_ajax_path("/mlflow/traces/<trace_id>/views"),
+            _list_trace_views,
+            ["GET"],
+            "list_trace_views_by_trace",
+        ),
+        (
+            _get_ajax_path("/mlflow/traces/<trace_id>/views/<view_id>"),
+            _get_trace_view,
+            ["GET"],
+            "get_trace_view_by_trace",
+        ),
+        (
+            _get_ajax_path("/mlflow/traces/<trace_id>/views/<view_id>"),
+            _update_trace_view,
+            ["PATCH"],
+            "update_trace_view_by_trace",
+        ),
+        (
+            _get_ajax_path("/mlflow/traces/<trace_id>/views/<view_id>"),
+            _delete_trace_view,
+            ["DELETE"],
+            "delete_trace_view_by_trace",
+        ),
+        # Experiment-scoped endpoints
+        (
+            _get_ajax_path("/mlflow/experiments/<experiment_id>/views"),
+            _create_trace_view,
+            ["POST"],
+            "create_trace_view_by_experiment",
+        ),
+        (
+            _get_ajax_path("/mlflow/experiments/<experiment_id>/views"),
+            _list_trace_views,
+            ["GET"],
+            "list_trace_views_by_experiment",
+        ),
+        (
+            _get_ajax_path("/mlflow/experiments/<experiment_id>/views/<view_id>"),
+            _update_trace_view,
+            ["PATCH"],
+            "update_trace_view_by_experiment",
+        ),
+        (
+            _get_ajax_path("/mlflow/experiments/<experiment_id>/views/<view_id>"),
+            _delete_trace_view,
+            ["DELETE"],
+            "delete_trace_view_by_experiment",
+        ),
+    ]
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _invoke_issue_detection_handler():
@@ -5760,6 +5901,7 @@ def get_endpoints(get_handler=get_handler):
         + get_demo_endpoints()
         + get_issues_detection_endpoints()
         + get_job_endpoints()
+        + get_trace_view_endpoints()
     )
 
 
