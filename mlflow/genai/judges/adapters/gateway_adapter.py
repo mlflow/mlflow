@@ -46,7 +46,7 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PA
 _logger = logging.getLogger(__name__)
 
 # "endpoints" is a special case for MLflow deployment endpoints (e.g. Databricks model serving).
-_NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints"]
+_NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints", "gateway"]
 
 # Global cache to track model capabilities across function calls
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
@@ -243,7 +243,12 @@ def _send_chat_request(
                     continue
                 raise last_exception
 
-            resp.raise_for_status()
+            if resp.status_code >= 400:
+                raise ChatCompletionError(
+                    status_code=resp.status_code,
+                    message=_safe_parse_error(resp),
+                )
+
             return resp.json()
 
         except requests.exceptions.Timeout as e:
@@ -279,6 +284,16 @@ def _safe_parse_error(resp: requests.Response) -> str:
     except Exception:
         pass
     return resp.text
+
+
+def _is_response_format_error(error_message: str) -> bool:
+    lower = error_message.lower()
+    return (
+        "response_format" in lower
+        or "json_schema" in lower
+        or "structured output" in lower
+        or "output_config" in lower
+    )
 
 
 def _is_context_window_error(error_message: str) -> bool:
@@ -471,8 +486,15 @@ class GatewayAdapter(BaseJudgeAdapter):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        # When a trace is provided, use the tool-calling loop
+        # When a trace is provided, use the tool-calling loop.
+        # "endpoints" (deployment endpoints) don't support provider-based tool calling.
         if input_params.trace is not None:
+            if input_params.model_provider == "endpoints":
+                raise MlflowException(
+                    "Trace-based tool calling is not supported for deployment endpoints "
+                    "(endpoints:/...). Use a direct provider URI (e.g. openai:/gpt-4) instead.",
+                    error_code=BAD_REQUEST,
+                )
             return self._invoke_with_tools(input_params)
 
         if isinstance(input_params.prompt, str):
@@ -672,7 +694,11 @@ class GatewayAdapter(BaseJudgeAdapter):
                         judge_messages = pruned
                         continue
 
-                    if e.status_code == 400 and include_response_format:
+                    if (
+                        e.status_code == 400
+                        and include_response_format
+                        and _is_response_format_error(e.message)
+                    ):
                         _logger.debug(
                             f"Model {provider}/{model_name} may not support structured "
                             f"outputs. Error: {e.message}. Falling back to unstructured "
