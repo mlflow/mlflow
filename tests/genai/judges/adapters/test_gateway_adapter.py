@@ -1,6 +1,7 @@
 import json
 from unittest import mock
 
+import pydantic
 import pytest
 
 from mlflow.entities.trace import Trace
@@ -130,6 +131,55 @@ def test_invoke_without_trace_uses_gateway():
 
     mock_invoke.assert_called_once()
     assert result.feedback.value == "yes"
+
+
+# --- invoke_with_structured_output tests ---
+
+
+def test_invoke_with_structured_output_success():
+    class TestSchema(pydantic.BaseModel):
+        result: str
+        confidence: float
+
+    adapter = GatewayAdapter()
+    mock_output = InvokeOutput(
+        response=json.dumps({"result": "yes", "confidence": 0.95}),
+        request_id="req-1",
+        num_prompt_tokens=10,
+        num_completion_tokens=5,
+    )
+
+    with mock.patch.object(adapter, "_run_tool_calling_loop", return_value=mock_output):
+        result = adapter.invoke_with_structured_output(
+            model_uri="openai:/gpt-4",
+            messages=[ChatMessage(role="user", content="test")],
+            output_schema=TestSchema,
+        )
+
+    assert isinstance(result, TestSchema)
+    assert result.result == "yes"
+    assert result.confidence == 0.95
+
+
+def test_invoke_with_structured_output_invalid_json():
+    class TestSchema(pydantic.BaseModel):
+        result: str
+
+    adapter = GatewayAdapter()
+    mock_output = InvokeOutput(
+        response="not valid json",
+        request_id=None,
+        num_prompt_tokens=None,
+        num_completion_tokens=None,
+    )
+
+    with mock.patch.object(adapter, "_run_tool_calling_loop", return_value=mock_output):
+        with pytest.raises(MlflowException, match="Failed to parse response"):
+            adapter.invoke_with_structured_output(
+                model_uri="openai:/gpt-4",
+                messages=[ChatMessage(role="user", content="test")],
+                output_schema=TestSchema,
+            )
 
 
 # --- endpoint restriction tests ---

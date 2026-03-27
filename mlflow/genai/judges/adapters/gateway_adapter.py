@@ -303,20 +303,12 @@ def _invoke_via_gateway(
     Supports both string prompts (via ``score_model_on_payload``) and
     ChatMessage-style message lists (via the provider infrastructure).
     """
-    from mlflow.gateway.provider_registry import is_supported_provider
     from mlflow.metrics.genai.model_utils import (
         _call_llm_provider_api,
         _parse_model_uri,
         get_endpoint_type,
         score_model_on_payload,
     )
-
-    if not is_supported_provider(provider) and provider != "endpoints":
-        raise MlflowException(
-            f"Provider '{provider}' is not supported. Install litellm for additional "
-            "provider support: `pip install litellm`.",
-            error_code=BAD_REQUEST,
-        )
 
     if isinstance(prompt, str):
         return score_model_on_payload(
@@ -449,7 +441,13 @@ class GatewayAdapter(BaseJudgeAdapter):
         )
 
         cleaned_response = _strip_markdown_code_blocks(output.response)
-        response_dict = json.loads(cleaned_response)
+        try:
+            response_dict = json.loads(cleaned_response)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Failed to parse response from judge model. Response: {output.response}",
+                error_code=BAD_REQUEST,
+            ) from e
         return output_schema(**response_dict)
 
     def _invoke_with_tools(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
@@ -486,9 +484,9 @@ class GatewayAdapter(BaseJudgeAdapter):
             ) from e
 
         metadata = {}
-        if output.num_prompt_tokens:
+        if output.num_prompt_tokens is not None:
             metadata[AssessmentMetadataKey.JUDGE_INPUT_TOKENS] = output.num_prompt_tokens
-        if output.num_completion_tokens:
+        if output.num_completion_tokens is not None:
             metadata[AssessmentMetadataKey.JUDGE_OUTPUT_TOKENS] = output.num_completion_tokens
         metadata = metadata or None
 
