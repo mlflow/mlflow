@@ -108,8 +108,6 @@ genai = [
   "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
-  "gepa<1,>=0.0.26",
-  "litellm<2,>=1.0.0",
   "slowapi<1,>=0.1.9",
   "tiktoken<1",
   "uvicorn[standard]<1",
@@ -239,7 +237,6 @@ docs = [
   "deepeval",
   "ragas",
   "instructor",
-  "litellm",
   "langchain-community>=0.3.0",
 ]
 

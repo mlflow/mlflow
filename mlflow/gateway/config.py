@@ -59,6 +59,10 @@ class Provider(str, Enum):
     LITELLM = "litellm"
     AZURE = "azure"
     GROQ = "groq"
+    DEEPSEEK = "deepseek"
+    XAI = "xai"
+    OPENROUTER = "openrouter"
+    OLLAMA = "ollama"
 
     @classmethod
     def values(cls):

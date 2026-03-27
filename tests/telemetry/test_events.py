@@ -10,7 +10,7 @@ from mlflow.entities.gateway_budget_policy import (
     BudgetTargetScope,
     BudgetUnit,
 )
-from mlflow.entities.issue import Issue, IssueStatus
+from mlflow.entities.issue import Issue, IssueSeverity, IssueStatus
 from mlflow.genai.discovery.entities import DiscoverIssuesResult
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 from mlflow.telemetry.events import (
@@ -40,6 +40,7 @@ from mlflow.telemetry.events import (
     PromptOptimizationEvent,
     SimulateConversationEvent,
     StartTraceEvent,
+    UpdateIssueEvent,
 )
 
 
@@ -140,6 +141,7 @@ def test_event_name():
     assert PromptOptimizationEvent.name == "prompt_optimization"
     assert SimulateConversationEvent.name == "simulate_conversation"
     assert DiscoverIssuesEvent.name == "discover_issues"
+    assert UpdateIssueEvent.name == "update_issue"
 
 
 def test_start_trace_parse_format_native():
@@ -678,3 +680,33 @@ def test_discover_issues_parse_params(arguments, expected_params):
 )
 def test_discover_issues_parse_result(result, expected_params):
     assert DiscoverIssuesEvent.parse_result(result) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        # String values pass through; name/description tracked as booleans
+        (
+            {"status": "pending", "name": "Test Issue", "description": "Desc", "severity": "high"},
+            {"status": "pending", "has_name": True, "has_description": True, "severity": "high"},
+        ),
+        # Enum values are converted to their string value
+        (
+            {
+                "status": IssueStatus.RESOLVED,
+                "name": "Issue",
+                "description": "Desc",
+                "severity": IssueSeverity.MEDIUM,
+            },
+            {"status": "resolved", "has_name": True, "has_description": True, "severity": "medium"},
+        ),
+        # Missing fields: status/severity None, has_name/has_description False
+        (
+            {},
+            {"status": None, "has_name": False, "has_description": False, "severity": None},
+        ),
+    ],
+)
+def test_update_issue_parse_params(arguments, expected_params):
+    assert UpdateIssueEvent.name == "update_issue"
+    assert UpdateIssueEvent.parse(arguments) == expected_params

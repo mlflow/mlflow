@@ -11,8 +11,7 @@ python dev/set_matrix.py
 python dev/set_matrix.py --no-dev
 
 # Test items affected by config file updates
-python dev/set_matrix.py --ref-versions-yaml \
-    "https://raw.githubusercontent.com/mlflow/mlflow/master/ml-package-versions.yml"
+python dev/set_matrix.py --ref-versions-yaml /path/to/ref-versions.yml
 
 # Test items affected by flavor module updates
 python dev/set_matrix.py --changed-files "mlflow/sklearn/__init__.py"
@@ -177,13 +176,8 @@ class MatrixItem(BaseModel):
 
 def read_yaml(location, if_error=None):
     try:
-        if re.match(r"^https?://", location):
-            resp = requests.get(location)
-            resp.raise_for_status()
-            yaml_dict = yaml.safe_load(resp.text)
-        else:
-            with open(location) as f:
-                yaml_dict = yaml.safe_load(f)
+        with open(location) as f:
+            yaml_dict = yaml.safe_load(f)
         return {name: FlavorConfig(**cfg) for name, cfg in yaml_dict.items()}
     except Exception as e:
         if if_error is not None:

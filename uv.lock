@@ -2257,15 +2257,6 @@ wheels = [
 ]
 
 [[package]]
-name = "gepa"
-version = "0.1.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/f5/30/511e52916956508f56eca721260fcd524cfffd580e57782dd471be925f7e/gepa-0.1.0.tar.gz", hash = "sha256:f8b3d7918d4cdcf8593f39ef1cc757c4ba1a4e6793e3ffb622e6c0bc60a1efd9", size = 226064, upload-time = "2026-02-19T19:43:08.272Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/1f/32/fe8afb3d2a6605a6bcbc8f119f0a2adae96e9e5d57ebed055490219956a8/gepa-0.1.0-py3-none-any.whl", hash = "sha256:4e3f8fe8ca20169e60518b2e9d416e8c4a579459848adffdcad12223fbf9643e", size = 191392, upload-time = "2026-02-19T19:43:07.065Z" },
-]
-
-[[package]]
 name = "gevent"
 version = "25.9.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4342,8 +4333,6 @@ genai = [
     { name = "aiohttp" },
     { name = "boto3" },
     { name = "fastapi" },
-    { name = "gepa" },
-    { name = "litellm" },
     { name = "slowapi" },
     { name = "tiktoken" },
     { name = "uvicorn", extra = ["standard"] },
@@ -4419,7 +4408,6 @@ docs = [
     { name = "langchain-community", version = "0.3.31", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "langchain-community", version = "0.4.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "lightning" },
-    { name = "litellm" },
     { name = "nbconvert" },
     { name = "nbformat" },
     { name = "openai" },
@@ -4511,7 +4499,6 @@ requires-dist = [
     { name = "flask", specifier = "<4" },
     { name = "flask-cors", specifier = "<7" },
     { name = "flask-wtf", marker = "extra == 'auth'", specifier = "<2" },
-    { name = "gepa", marker = "extra == 'genai'", specifier = ">=0.0.26,<1" },
     { name = "gitpython", specifier = ">=3.1.9,<4" },
     { name = "google-cloud-storage", marker = "extra == 'databricks'", specifier = ">=1.30.0" },
     { name = "google-cloud-storage", marker = "extra == 'extras'", specifier = ">=1.30.0" },
@@ -4522,7 +4509,6 @@ requires-dist = [
     { name = "kubernetes", marker = "extra == 'extras'" },
     { name = "kubernetes", marker = "extra == 'kubernetes'" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.21,<=1.2.12" },
-    { name = "litellm", marker = "extra == 'genai'", specifier = ">=1.0.0,<2" },
     { name = "matplotlib", specifier = "<4" },
     { name = "mlflow-dbstore", marker = "extra == 'sqlserver'" },
     { name = "mlflow-jfrog-plugin", marker = "extra == 'jfrog'" },
@@ -4614,7 +4600,6 @@ docs = [
     { name = "keras" },
     { name = "langchain-community", specifier = ">=0.3.0" },
     { name = "lightning", specifier = ">=1.8.1" },
-    { name = "litellm" },
     { name = "nbconvert" },
     { name = "nbformat" },
     { name = "openai" },
