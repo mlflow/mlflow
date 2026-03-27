@@ -51,7 +51,7 @@ runs:
         python-version: ${{ steps.get-python-version.outputs.version }}
     - uses: astral-sh/setup-uv@5a095e7a2014a4212f075830d4f7277575a9d098 # v7.3.1
       with:
-        resolution-strategy: "lowest"
+        version: "0.10.12"
     - run: |
         # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
         # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy

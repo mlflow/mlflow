@@ -1343,10 +1343,12 @@ def test_anthropic_extract_passthrough_token_usage_with_cached_tokens():
     token_usage = provider._extract_passthrough_token_usage(
         PassthroughAction.ANTHROPIC_MESSAGES, result
     )
+    # Anthropic's input_tokens (100) excludes cache tokens, so after normalization
+    # input_tokens = 100 + 25 + 15 = 140
     assert token_usage == {
-        "input_tokens": 100,
+        "input_tokens": 140,
         "output_tokens": 50,
-        "total_tokens": 150,
+        "total_tokens": 190,
         "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }
@@ -1361,8 +1363,10 @@ def test_anthropic_extract_streaming_token_usage_message_start_with_cached_token
         b'"cache_creation_input_tokens":15}}}\n'
     )
     result = provider._extract_streaming_token_usage(chunk)
+    # Anthropic's input_tokens (100) excludes cache tokens, so after normalization
+    # input_tokens = 100 + 25 + 15 = 140
     assert result == {
-        "input_tokens": 100,
+        "input_tokens": 140,
         "cache_read_input_tokens": 25,
         "cache_creation_input_tokens": 15,
     }
@@ -1373,13 +1377,14 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     accumulated_usage = {}
 
     # message_start with input_tokens and cached tokens
+    # Anthropic's input_tokens (100) excludes cache, normalized to 100 + 25 = 125
     chunk1 = (
         b"event: message_start\n"
         b'data: {"type":"message_start","message":{"id":"msg_123",'
         b'"usage":{"input_tokens":100,"cache_read_input_tokens":25}}}\n'
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk1))
-    assert accumulated_usage == {"input_tokens": 100, "cache_read_input_tokens": 25}
+    assert accumulated_usage == {"input_tokens": 125, "cache_read_input_tokens": 25}
 
     # message_delta with output_tokens
     chunk2 = (
@@ -1389,7 +1394,7 @@ def test_anthropic_extract_streaming_full_stream_with_cached_tokens():
     )
     accumulated_usage.update(provider._extract_streaming_token_usage(chunk2))
     assert accumulated_usage == {
-        "input_tokens": 100,
+        "input_tokens": 125,
         "output_tokens": 50,
         "cache_read_input_tokens": 25,
     }
@@ -1403,9 +1408,10 @@ def test_anthropic_adapter_build_chat_usage_with_cached_tokens():
         "cache_creation_input_tokens": 10,
     }
     usage = AnthropicAdapter._build_chat_usage(usage_data)
-    assert usage.prompt_tokens == 50
+    # Anthropic's input_tokens (50) excludes cache tokens, so prompt_tokens = 50 + 30 + 10 = 90
+    assert usage.prompt_tokens == 90
     assert usage.completion_tokens == 20
-    assert usage.total_tokens == 70
+    assert usage.total_tokens == 110
     assert usage.prompt_tokens_details is not None
     assert usage.prompt_tokens_details.cached_tokens == 30
     assert getattr(usage, "cache_creation_input_tokens") == 10
