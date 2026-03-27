@@ -675,23 +675,90 @@ with mlflow.start_run():
     # Your training code here
     ...
 
-    # Log the PEFT model
-    model_info = mlflow.transformers.log_model(
+    # Option 1: Log with local base model path (recommended for air-gapped environments)
+    model_info_local = mlflow.transformers.log_model(
         transformers_model={
             "model": peft_model,
             "tokenizer": tokenizer,
         },
-        name="peft_model",
+        base_model_path="/path/to/local/base/model",  # NEW: Reference to local base model
+        name="peft_model_local",
+    )
+
+    # Option 2: Log with HuggingFace Hub reference (default)
+    model_info_hub = mlflow.transformers.log_model(
+        transformers_model={
+            "model": peft_model,
+            "tokenizer": tokenizer,
+        },
+        name="peft_model_hub",
     )
 
 # Load the PEFT model
-loaded_model = mlflow.transformers.load_model(model_info.model_uri)
+loaded_model = mlflow.transformers.load_model(model_info_local.model_uri)
 ```
+
+### Local Base Model References with `base_model_path`
+
+For air-gapped environments or when you want to avoid HuggingFace Hub dependencies, use the `base_model_path` parameter to reference a locally stored base model:
+
+```python
+import os
+import mlflow
+from peft import LoraConfig, get_peft_model
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+# Step 1: Prepare local base model (typically done once in your infrastructure)
+base_model_id = "microsoft/DialoGPT-medium"
+local_base_path = "/shared/models/dialogpt-medium"
+
+# Save base model locally (if not already available)
+base_model = AutoModelForCausalLM.from_pretrained(base_model_id)
+tokenizer = AutoTokenizer.from_pretrained(base_model_id)
+base_model.save_pretrained(local_base_path)
+tokenizer.save_pretrained(local_base_path)
+
+# Step 2: Train PEFT model using local base model
+local_model = AutoModelForCausalLM.from_pretrained(local_base_path)
+local_tokenizer = AutoTokenizer.from_pretrained(local_base_path)
+
+peft_config = LoraConfig(
+    task_type="CAUSAL_LM",
+    r=16,
+    lora_alpha=32,
+    lora_dropout=0.1,
+)
+peft_model = get_peft_model(local_model, peft_config)
+
+# Step 3: Log PEFT model with local base model reference
+with mlflow.start_run():
+    model_info = mlflow.transformers.log_model(
+        transformers_model={"model": peft_model, "tokenizer": local_tokenizer},
+        base_model_path=local_base_path,  # Only adapter weights saved, base model referenced
+        name="peft_model_local"
+    )
+
+# Step 4: Load and use the model (base model loaded from local path + adapter applied)
+loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+response = loaded_model.predict("Hello, how are you?")
+```
+
+**Benefits of `base_model_path`:**
+- **Storage Efficiency**: Only PEFT adapter weights (~50-500MB) are saved vs full model (several GB)
+- **Air-Gapped Support**: No internet dependency at inference time
+- **Enterprise Ready**: Compatible with internal model repositories and compliance requirements  
+- **Version Control**: Full control over base model versions and updates
+- **Faster Deployment**: Reduced artifact size leads to faster model loading and deployment
+
+**Important Notes:**
+- The `base_model_path` must exist and contain a valid Transformers model checkpoint at both save and load time
+- This parameter is only supported for PEFT models; regular models will raise an error
+- The path should be accessible from all environments where the model will be loaded
 
 ### PEFT Models in MLflow Tutorial
 
 Check out the tutorial [Fine-Tuning Open-Source LLM using QLoRA with MLflow and PEFT](/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-peft/)
-for a more in-depth guide on how to use PEFT with MLflow,
+for a more in-depth guide on how to use PEFT with MLflow, including examples of both `base_model_path` and traditional approaches.
 
 ### Format of Saved PEFT Model
 
