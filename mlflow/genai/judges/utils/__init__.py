@@ -52,16 +52,16 @@ def get_default_optimizer() -> AlignmentOptimizer:
 
 def validate_judge_model(model_uri: str) -> None:
     """
-    Validate that a judge model URI is valid and has required dependencies.
+    Validate that a judge model URI is well-formed.
 
-    This function performs early validation at judge construction time to provide
-    fast feedback about configuration issues.
+    For the Databricks default model, also checks that databricks-agents is installed.
+    Provider support is validated at invocation time via the adapter selection logic.
 
     Args:
         model_uri: The model URI to validate (e.g., "databricks", "openai:/gpt-4")
 
     Raises:
-        MlflowException: If the model URI is invalid or required dependencies are missing.
+        MlflowException: If the model URI is malformed or Databricks dependencies are missing.
     """
     from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
         _check_databricks_agents_installed,

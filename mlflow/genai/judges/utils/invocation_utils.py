@@ -193,8 +193,7 @@ def get_chat_completions_with_structured_output(
         Instance of output_schema with the structured data from the LLM.
 
     Raises:
-        MlflowException: If the LLM invocation fails.
-        JSONDecodeError: If the LLM response cannot be parsed as JSON.
+        MlflowException: If the LLM invocation fails or the response is not valid JSON.
         ValidationError: If the LLM response does not match the output schema.
 
     Example:

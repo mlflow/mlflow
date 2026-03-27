@@ -327,6 +327,8 @@ def _invoke_via_gateway(
         model_name,
         messages=prompt,
         eval_parameters=inference_params,
+        extra_headers=extra_headers,
+        proxy_url=base_url,
         response_format=rf_dict,
     )
 
