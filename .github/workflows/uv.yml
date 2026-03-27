@@ -23,8 +23,7 @@ defaults:
 jobs:
   uv:
     # Skip scheduled runs on forks
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && (github.event_name != 'schedule' || github.repository == 'mlflow/mlflow')
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

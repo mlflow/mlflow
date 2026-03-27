@@ -161,6 +161,8 @@ from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
     query_metrics,
     validate_query_trace_metrics_params,
 )
+from mlflow.telemetry.events import UpdateIssueEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
     AssessmentMetadataKey,
@@ -6027,6 +6029,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             return sql_issue.to_mlflow_entity()
 
+    @record_usage_event(UpdateIssueEvent)
     def update_issue(
         self,
         issue_id: str,
