@@ -33,7 +33,7 @@ def test_native_providers_applicable(provider):
 
 
 def test_unsupported_provider_not_applicable():
-    assert not GatewayAdapter.is_applicable(model_uri="cohere:/test-model", prompt="test")
+    assert not GatewayAdapter.is_applicable(model_uri="unknown_provider:/test-model", prompt="test")
 
 
 def test_endpoints_with_string_prompt_applicable():

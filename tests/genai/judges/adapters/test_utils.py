@@ -51,13 +51,11 @@ def test_get_adapter(model_uri, prompt_type, expected_adapter, string_prompt, li
 @pytest.mark.parametrize(
     ("model_uri", "prompt_type"),
     [
-        # endpoints with list prompt is not supported
+        # endpoints with list prompt is not supported by any adapter
         ("endpoints:/my-endpoint", "list"),
-        # Unsupported providers
-        ("vertex_ai:/gemini-pro", "list"),
-        ("bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0", "list"),
-        ("bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0", "string"),
-        ("cohere:/command-r", "string"),
+        # Completely unknown providers
+        ("unknown_provider:/some-model", "string"),
+        ("unknown_provider:/some-model", "list"),
     ],
 )
 def test_get_adapter_unsupported(model_uri, prompt_type, string_prompt, list_prompt):

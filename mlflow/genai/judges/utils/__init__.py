@@ -11,7 +11,6 @@ import mlflow
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
-from mlflow.genai.judges.adapters.gateway_adapter import _NATIVE_PROVIDERS
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _is_litellm_available,
     _suppress_litellm_nonfatal_errors,
@@ -116,8 +115,6 @@ __all__ = [
     "CategoricalRating",
     # Databricks adapter
     "call_chat_completions",
-    # Gateway adapter
-    "_NATIVE_PROVIDERS",
     # LiteLLM adapter (re-exported for backwards compatibility with external consumers)
     "_is_litellm_available",
     "_suppress_litellm_nonfatal_errors",

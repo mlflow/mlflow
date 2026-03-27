@@ -49,8 +49,6 @@ from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PA
 
 _logger = logging.getLogger(__name__)
 
-# "endpoints" is a special case for MLflow deployment endpoints (e.g. Databricks model serving).
-_NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints", "gateway"]
 
 # Global cache to track model capabilities across function calls
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
@@ -413,6 +411,7 @@ def _invoke_via_gateway(
     Supports both string prompts (via ``score_model_on_payload``) and
     ChatMessage-style message lists (via the provider infrastructure).
     """
+    from mlflow.gateway.provider_registry import is_supported_provider
     from mlflow.metrics.genai.model_utils import (
         _call_llm_provider_api,
         _parse_model_uri,
@@ -420,10 +419,10 @@ def _invoke_via_gateway(
         score_model_on_payload,
     )
 
-    if provider not in _NATIVE_PROVIDERS:
+    if not is_supported_provider(provider) and provider != "endpoints":
         raise MlflowException(
-            f"LiteLLM is required for using '{provider}' LLM. Please install it with "
-            "`pip install litellm`.",
+            f"Provider '{provider}' is not supported. Install litellm for additional "
+            "provider support: `pip install litellm`.",
             error_code=BAD_REQUEST,
         )
 
@@ -462,10 +461,11 @@ class GatewayAdapter(BaseJudgeAdapter):
         model_uri: str,
         prompt: str | list["ChatMessage"],
     ) -> bool:
+        from mlflow.gateway.provider_registry import is_supported_provider
         from mlflow.metrics.genai.model_utils import _parse_model_uri
 
         model_provider, _ = _parse_model_uri(model_uri)
-        if model_provider not in _NATIVE_PROVIDERS:
+        if not is_supported_provider(model_provider) and model_provider != "endpoints":
             return False
         # "endpoints" (Databricks model serving) only supports string prompts
         # via score_model_on_payload; _get_provider_instance doesn't handle it.

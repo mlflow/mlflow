@@ -31,7 +31,7 @@ from mlflow.genai import make_judge
 from mlflow.genai.judges.constants import _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
-from mlflow.genai.judges.utils import _NATIVE_PROVIDERS, validate_judge_model
+from mlflow.genai.judges.utils import validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.constant import TraceMetadataKey
@@ -296,27 +296,11 @@ def test_databricks_model_requires_databricks_agents(monkeypatch):
         )
 
 
-@pytest.mark.parametrize("provider", {"vertexai", "cohere", "replicate", "groq", "together"})
-def test_litellm_provider_requires_litellm(monkeypatch, provider):
-    monkeypatch.setitem(sys.modules, "litellm", None)
-
-    with pytest.raises(
-        MlflowException,
-        match=f"LiteLLM is required for using '{provider}' as a provider",
-    ):
-        make_judge(
-            name="test_judge",
-            instructions="Check if {{ outputs }} is valid",
-            feedback_value_type=str,
-            model=f"{provider}:/test-model",
-        )
-
-
 @pytest.mark.parametrize(
     "provider",
-    _NATIVE_PROVIDERS,
+    ["openai", "anthropic", "gemini", "mistral", "endpoints", "gateway", "cohere", "groq"],
 )
-def test_native_providers_work_without_litellm(monkeypatch, provider):
+def test_providers_work_without_litellm(monkeypatch, provider):
     monkeypatch.setitem(sys.modules, "litellm", None)
 
     judge = make_judge(
@@ -2421,6 +2405,11 @@ def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
     ],
 )
 def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypatch, mock_trace):
+    # Force litellm adapter by making gateway adapter inapplicable
+    monkeypatch.setattr(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter.is_applicable",
+        staticmethod(lambda *a, **kw: False),
+    )
     exception_raised = False
     captured_error_messages = None
     captured_retry_messages = None
@@ -2470,6 +2459,12 @@ def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypa
 
 
 def test_non_context_error_does_not_trigger_pruning(monkeypatch):
+    # Force litellm adapter by making gateway adapter inapplicable
+    monkeypatch.setattr(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter.is_applicable",
+        staticmethod(lambda *a, **kw: False),
+    )
+
     def mock_completion(**kwargs):
         raise Exception("some other error")
 
@@ -2864,6 +2859,10 @@ def test_instructions_judge_repr():
 
 
 def test_make_judge_with_feedback_value_type(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter.is_applicable",
+        staticmethod(lambda *a, **kw: False),
+    )
     captured_response_format = None
 
     def mock_litellm_completion(**kwargs):
@@ -3095,6 +3094,10 @@ def test_make_judge_validates_feedback_value_type():
 
 
 def test_make_judge_with_default_feedback_value_type(monkeypatch):
+    monkeypatch.setattr(
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter.is_applicable",
+        staticmethod(lambda *a, **kw: False),
+    )
     # Test that feedback_value_type defaults to str when omitted
     captured_response_format = None
 
