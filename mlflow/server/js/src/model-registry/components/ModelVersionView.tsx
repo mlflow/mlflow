@@ -199,9 +199,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
       })
       .catch((ex: ErrorWrapper | Error) => {
         this.setState({ isTagsRequestPending: false });
-        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-        console.error(ex);
-
         const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
         Utils.displayGlobalErrorNotification(
@@ -222,9 +219,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
     return this.props.setModelVersionTagApi(modelName, version, name, value).catch((ex: ErrorWrapper | Error) => {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(ex);
-
       const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
       Utils.displayGlobalErrorNotification(
@@ -245,9 +239,6 @@ export class ModelVersionViewImpl extends React.Component<ModelVersionViewImplPr
     const { modelName } = this.props;
     const { version } = this.props.modelVersion;
     return this.props.deleteModelVersionTagApi(modelName, version, name).catch((ex: ErrorWrapper | Error) => {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(ex);
-
       const userVisibleError = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
 
       Utils.displayGlobalErrorNotification(

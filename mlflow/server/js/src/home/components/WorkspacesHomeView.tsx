@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -320,7 +320,7 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
   }, [workspaces, currentPage]);
 
   // Reset to page 1 when workspaces change
-  useMemo(() => {
+  useEffect(() => {
     if (currentPage > 1 && paginatedWorkspaces.length === 0 && workspaces.length > 0) {
       setCurrentPage(1);
     }

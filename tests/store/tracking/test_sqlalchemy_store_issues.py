@@ -582,7 +582,6 @@ def test_search_issues_invalid_max_results(store):
 def test_search_traces_by_issue_id(store):
     exp_id = store.create_experiment("test")
 
-    # Create traces
     timestamp_ms = get_current_time_millis()
     trace1 = store.start_trace(
         TraceInfo(
@@ -629,7 +628,6 @@ def test_search_traces_by_issue_id(store):
         ),
     )
 
-    # Create issues
     issue1 = store.create_issue(
         experiment_id=exp_id,
         name="High latency",
@@ -644,7 +642,6 @@ def test_search_traces_by_issue_id(store):
         status=IssueStatus.PENDING,
     )
 
-    # Link traces to issues via IssueReference assessments
     store.create_assessment(
         IssueReference(
             issue_id=issue1.issue_id,
@@ -667,30 +664,389 @@ def test_search_traces_by_issue_id(store):
         )
     )
 
-    # Search traces by issue1 ID
     traces, _ = store.search_traces(
         experiment_ids=[exp_id],
         filter_string=f"issue.id = '{issue1.issue_id}'",
     )
 
-    # Should return trace1 and trace2
     assert len(traces) == 2
     trace_ids = {t.request_id for t in traces}
     assert trace_ids == {trace1.request_id, trace2.request_id}
 
-    # Search traces by issue2 ID
     traces, _ = store.search_traces(
         experiment_ids=[exp_id],
         filter_string=f"issue.id = '{issue2.issue_id}'",
     )
 
-    # Should return only trace3
     assert len(traces) == 1
     assert traces[0].request_id == trace3.request_id
 
-    # Search for non-existent issue should return no traces
     traces, _ = store.search_traces(
         experiment_ids=[exp_id],
         filter_string="issue.id = 'non-existent-issue'",
     )
     assert len(traces) == 0
+
+
+def test_search_issues_without_trace_count(store):
+    exp_id = store.create_experiment("test")
+
+    issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Test Issue",
+        description="Test",
+        status=IssueStatus.PENDING,
+    )
+
+    timestamp_ms = get_current_time_millis()
+    trace = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue.issue_id,
+            issue_name=issue.name,
+            trace_id=trace.request_id,
+        )
+    )
+
+    result = store.search_issues(experiment_id=exp_id)
+
+    assert len(result) == 1
+    assert result[0].issue_id == issue.issue_id
+    assert result[0].trace_count is None
+
+
+def test_search_issues_with_trace_count(store):
+    exp_id = store.create_experiment("test")
+
+    issue1 = store.create_issue(
+        experiment_id=exp_id,
+        name="Issue with 2 traces",
+        description="Has 2 traces",
+        status=IssueStatus.PENDING,
+    )
+
+    issue2 = store.create_issue(
+        experiment_id=exp_id,
+        name="Issue with 1 trace",
+        description="Has 1 trace",
+        status=IssueStatus.PENDING,
+    )
+
+    issue3 = store.create_issue(
+        experiment_id=exp_id,
+        name="Issue with 0 traces",
+        description="Has no traces",
+        status=IssueStatus.PENDING,
+    )
+
+    timestamp_ms = get_current_time_millis()
+    trace1 = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    trace2 = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms + 100,
+            execution_duration=200,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    trace3 = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms + 200,
+            execution_duration=300,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue1.issue_id,
+            issue_name=issue1.name,
+            trace_id=trace1.request_id,
+        )
+    )
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue1.issue_id,
+            issue_name=issue1.name,
+            trace_id=trace2.request_id,
+        )
+    )
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue2.issue_id,
+            issue_name=issue2.name,
+            trace_id=trace3.request_id,
+        )
+    )
+
+    result = store.search_issues(experiment_id=exp_id, include_trace_count=True)
+
+    assert len(result) == 3
+
+    issues_by_id = {issue.issue_id: issue for issue in result}
+
+    assert issues_by_id[issue1.issue_id].trace_count == 2
+    assert issues_by_id[issue2.issue_id].trace_count == 1
+    assert issues_by_id[issue3.issue_id].trace_count == 0
+
+
+def test_search_issues_with_trace_count_pagination(store):
+    exp_id = store.create_experiment("test")
+
+    for i in range(3):
+        issue = store.create_issue(
+            experiment_id=exp_id,
+            name=f"Issue {i}",
+            description=f"Description {i}",
+            status=IssueStatus.PENDING,
+        )
+
+        timestamp_ms = get_current_time_millis()
+        for j in range(i + 1):
+            trace = store.start_trace(
+                TraceInfo(
+                    trace_id=f"tr-{uuid.uuid4()}",
+                    trace_location=TraceLocation.from_experiment_id(exp_id),
+                    request_time=timestamp_ms + j,
+                    execution_duration=100,
+                    state=TraceState.OK,
+                    tags={},
+                    trace_metadata={},
+                    client_request_id=f"tr-{uuid.uuid4()}",
+                    request_preview=None,
+                    response_preview=None,
+                ),
+            )
+
+            store.create_assessment(
+                IssueReference(
+                    issue_id=issue.issue_id,
+                    issue_name=issue.name,
+                    trace_id=trace.request_id,
+                )
+            )
+
+    page1 = store.search_issues(experiment_id=exp_id, max_results=2, include_trace_count=True)
+
+    assert len(page1) == 2
+    assert page1[0].trace_count is not None
+    assert page1[1].trace_count is not None
+    assert page1.token is not None
+
+    page2 = store.search_issues(
+        experiment_id=exp_id, max_results=2, page_token=page1.token, include_trace_count=True
+    )
+
+    assert len(page2) == 1
+    assert page2[0].trace_count is not None
+    assert page2.token is None
+
+
+def test_search_issues_trace_count_with_filters(store):
+    exp_id = DEFAULT_EXPERIMENT_ID
+
+    issue_pending = store.create_issue(
+        experiment_id=exp_id,
+        name="Pending Issue",
+        description="Pending",
+        status=IssueStatus.PENDING,
+    )
+
+    store.create_issue(
+        experiment_id=exp_id,
+        name="Resolved Issue",
+        description="Resolved",
+        status=IssueStatus.RESOLVED,
+    )
+
+    timestamp_ms = get_current_time_millis()
+    trace = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue_pending.issue_id,
+            issue_name=issue_pending.name,
+            trace_id=trace.request_id,
+        )
+    )
+
+    result = store.search_issues(
+        experiment_id=exp_id, filter_string="status = 'pending'", include_trace_count=True
+    )
+
+    assert len(result) == 1
+    assert result[0].issue_id == issue_pending.issue_id
+    assert result[0].trace_count == 1
+
+
+def test_search_issues_sorted_by_trace_count_within_severity(store):
+    exp_id = store.create_experiment("test")
+
+    issue_high_3_traces = store.create_issue(
+        experiment_id=exp_id,
+        name="High severity with 3 traces",
+        description="High severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.HIGH,
+    )
+
+    issue_high_1_trace = store.create_issue(
+        experiment_id=exp_id,
+        name="High severity with 1 trace",
+        description="High severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.HIGH,
+    )
+
+    issue_medium_2_traces = store.create_issue(
+        experiment_id=exp_id,
+        name="Medium severity with 2 traces",
+        description="Medium severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.MEDIUM,
+    )
+
+    issue_medium_0_traces = store.create_issue(
+        experiment_id=exp_id,
+        name="Medium severity with 0 traces",
+        description="Medium severity",
+        status=IssueStatus.PENDING,
+        severity=IssueSeverity.MEDIUM,
+    )
+
+    timestamp_ms = get_current_time_millis()
+
+    for i in range(3):
+        trace = store.start_trace(
+            TraceInfo(
+                trace_id=f"tr-{uuid.uuid4()}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp_ms + i * 100,
+                execution_duration=100,
+                state=TraceState.OK,
+                tags={},
+                trace_metadata={},
+                client_request_id=f"tr-{uuid.uuid4()}",
+                request_preview=None,
+                response_preview=None,
+            ),
+        )
+        store.create_assessment(
+            IssueReference(
+                issue_id=issue_high_3_traces.issue_id,
+                issue_name=issue_high_3_traces.name,
+                trace_id=trace.request_id,
+            )
+        )
+
+    trace = store.start_trace(
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms + 300,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+    )
+    store.create_assessment(
+        IssueReference(
+            issue_id=issue_high_1_trace.issue_id,
+            issue_name=issue_high_1_trace.name,
+            trace_id=trace.request_id,
+        )
+    )
+
+    for i in range(2):
+        trace = store.start_trace(
+            TraceInfo(
+                trace_id=f"tr-{uuid.uuid4()}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp_ms + 400 + i * 100,
+                execution_duration=100,
+                state=TraceState.OK,
+                tags={},
+                trace_metadata={},
+                client_request_id=f"tr-{uuid.uuid4()}",
+                request_preview=None,
+                response_preview=None,
+            ),
+        )
+        store.create_assessment(
+            IssueReference(
+                issue_id=issue_medium_2_traces.issue_id,
+                issue_name=issue_medium_2_traces.name,
+                trace_id=trace.request_id,
+            )
+        )
+
+    result = store.search_issues(experiment_id=exp_id, include_trace_count=True)
+
+    assert len(result) == 4
+    assert result[0].issue_id == issue_high_3_traces.issue_id
+    assert result[0].trace_count == 3
+    assert result[1].issue_id == issue_high_1_trace.issue_id
+    assert result[1].trace_count == 1
+    assert result[2].issue_id == issue_medium_2_traces.issue_id
+    assert result[2].trace_count == 2
+    assert result[3].issue_id == issue_medium_0_traces.issue_id
+    assert result[3].trace_count == 0

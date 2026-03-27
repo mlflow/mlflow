@@ -16,7 +16,8 @@ defaults:
 jobs:
   # Test job: runs on PR changes against a fixed set of issues
   test:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
+    if: false && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions: {}
@@ -35,9 +36,8 @@ jobs:
   # Main job: runs on new bug issues
   # Comments are only posted for area/uiux bugs; other bugs are triaged silently for observation.
   triage:
-    if: >-
-      github.event_name == 'issues'
-      && contains(github.event.issue.labels.*.name, 'bug')
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
+    if: false && github.event_name == 'issues' && contains(github.event.issue.labels.*.name, 'bug')
     runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:

@@ -29,6 +29,7 @@ from mlflow.gateway.config import (
     OpenAIConfig,
     Provider,
     _AuthConfigKey,
+    _OpenAICompatibleConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.providers import get_provider
@@ -165,6 +166,15 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
     return decorator
 
 
+def _build_openai_compatible_config(model_config: "GatewayModelConfig"):
+    """Build an _OpenAICompatibleConfig for providers that use the OpenAI API format."""
+    auth_config = model_config.auth_config or {}
+    return _OpenAICompatibleConfig(
+        api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
+        api_base=auth_config.get(_AuthConfigKey.API_BASE),
+    )
+
+
 def _build_endpoint_config(
     endpoint_name: str,
     model_config: GatewayModelConfig,
@@ -234,6 +244,8 @@ def _build_endpoint_config(
         provider_config = GeminiConfig(
             gemini_api_key=model_config.secret_value.get(_AuthConfigKey.API_KEY),
         )
+    elif model_config.provider == Provider.GROQ:
+        provider_config = _build_openai_compatible_config(model_config)
     else:
         # Use LiteLLM as fallback for unsupported providers
         # Store the original provider name for LiteLLM's provider/model format

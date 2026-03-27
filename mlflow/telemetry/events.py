@@ -5,6 +5,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import Feedback
+from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
     MODULES_TO_CHECK_IMPORT,
@@ -87,7 +88,10 @@ class StartTraceEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         # Capture the set of currently imported packages at trace start time to
         # understand the flavor of the trace.
-        return {"imports": [pkg for pkg in GENAI_MODULES if pkg in sys.modules]}
+        return {
+            "imports": [pkg for pkg in GENAI_MODULES if pkg in sys.modules],
+            "format": "genai_semconv" if MLFLOW_ENABLE_OTEL_GENAI_SEMCONV.get() else "native",
+        }
 
 
 class LogAssessmentEvent(Event):
@@ -709,3 +713,23 @@ class ScorerCallEvent(Event):
             return {"has_feedback_error": any(f.error is not None for f in result)}
 
         return {"has_feedback_error": False}
+
+
+class DiscoverIssuesEvent(Event):
+    name: str = "discover_issues"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "model": arguments.get("model"),
+            "trace_count": len(arguments.get("traces") or []),
+            "categories": arguments.get("categories"),
+        }
+
+    @classmethod
+    def parse_result(cls, result: Any) -> dict[str, Any] | None:
+        return {
+            "issue_count": len(result.issues),
+            "total_traces_analyzed": result.total_traces_analyzed,
+            "total_cost_usd": result.total_cost_usd,
+        }

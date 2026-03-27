@@ -35,6 +35,8 @@ from mlflow.gateway.cli import start
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.gateway.schemas import chat
 from mlflow.genai.datasets import create_dataset
+from mlflow.genai.discovery.entities import _TriageResult
+from mlflow.genai.discovery.pipeline import discover_issues
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer
 from mlflow.genai.scorers import scorer
@@ -68,6 +70,7 @@ from mlflow.telemetry.events import (
     CreateRegisteredModelEvent,
     CreateRunEvent,
     CreateWebhookEvent,
+    DiscoverIssuesEvent,
     EvaluateEvent,
     GatewayCreateBudgetPolicyEvent,
     GatewayCreateEndpointEvent,
@@ -365,7 +368,26 @@ def test_start_trace(mock_requests, mlflow_client, mock_telemetry_client: Teleme
     data = validate_telemetry_record(
         mock_telemetry_client, mock_requests, event_name, check_params=False
     )
-    assert "openai" in json.loads(data["params"])["imports"]
+    params = json.loads(data["params"])
+    assert "openai" in params["imports"]
+    assert params["format"] == "native"
+
+
+def test_start_trace_genai_semconv(
+    mock_requests, monkeypatch, mock_telemetry_client: TelemetryClient
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_OTEL_GENAI_SEMCONV", "true")
+    event_name = StartTraceEvent.name
+
+    @mlflow.trace
+    def test_func():
+        pass
+
+    test_func()
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, check_params=False
+    )
+    assert json.loads(data["params"])["format"] == "genai_semconv"
 
 
 def test_create_prompt(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):
@@ -1312,6 +1334,43 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     expected_params = {"trace_count": 2, "optimizer_type": "MockOptimizer"}
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, AlignJudgeEvent.name, expected_params
+    )
+
+
+def test_discover_issues(mock_requests, mock_telemetry_client: TelemetryClient):
+    traces = [
+        mock.MagicMock(spec=Trace),
+        mock.MagicMock(spec=Trace),
+        mock.MagicMock(spec=Trace),
+    ]
+
+    with (
+        patch("mlflow.genai.discovery.pipeline.get_session_id", return_value=None),
+        patch("mlflow.genai.discovery.pipeline.verify_scorer"),
+        patch("mlflow.genai.discovery.pipeline.mlflow.genai.evaluate"),
+        patch(
+            "mlflow.genai.discovery.pipeline.extract_failing_traces",
+            return_value=_TriageResult([], {}, {}),
+        ),
+        patch("mlflow.genai.discovery.pipeline.mlflow.MlflowClient"),
+        patch("mlflow.genai.discovery.pipeline.mlflow.set_experiment"),
+    ):
+        discover_issues(
+            traces=traces,
+            model="openai:/gpt-4",
+            categories=["hallucination", "accuracy"],
+        )
+
+    expected_params = {
+        "model": "openai:/gpt-4",
+        "trace_count": 3,
+        "categories": ["hallucination", "accuracy"],
+        "issue_count": 0,
+        "total_traces_analyzed": 3,
+        "total_cost_usd": None,
+    }
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, DiscoverIssuesEvent.name, expected_params
     )
 
 

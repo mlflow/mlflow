@@ -32,11 +32,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        is-merge-queue:
-          - ${{ github.event_name == 'merge_group' }}
+        is-pull-request:
+          - ${{ github.event_name == 'pull_request' }}
         exclude:
           - os: macos-latest
-            is-merge-queue: true
+            is-pull-request: false
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     permissions:
@@ -52,6 +52,8 @@ jobs:
           fetch-depth: 300
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
       - uses: ./.github/actions/setup-node
       - name: Add problem matchers
         if: matrix.os == 'ubuntu-latest'
@@ -88,10 +90,12 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           uv run --no-project dev/check_whitespace_only.py \
-            --repo ${{ github.repository }} \
-            --pr ${{ github.event.pull_request.number }}
+            --repo $REPO \
+            --pr $PR_NUMBER
 
       - name: Check uv.lock changes
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
@@ -103,10 +107,8 @@ jobs:
           files=$(gh pr view "${PR_NUMBER}" --repo "${REPO}" --json files --jq '.files[].path')
           if echo "$files" | grep -q '^uv.lock$' && echo "$files" | grep -q '^pyproject.toml$'; then
             echo '::warning file=pyproject.toml,line=1,col=1::[Non-blocking]' \
-                 'Ignore if you did not intend to upgrade package versions.' \
-                 '`uv lock` does not automatically upgrade package versions' \
-                 'when relaxing version constraints (e.g., bumping max version).' \
-                 'Use `uv lock --upgrade-package <package>` to upgrade.'
+                 'Run `uv lock --upgrade-package <package>` if this PR should update package versions.' \
+                 '`uv lock` alone won'"'"'t bump them.'
           fi
 
       - name: Check unused media

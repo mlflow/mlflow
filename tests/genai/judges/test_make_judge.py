@@ -4022,3 +4022,31 @@ def test_inference_params_preserved_after_round_trip_serialization():
 
     assert restored.inference_params == inference_params
     assert restored_from_json.inference_params == inference_params
+
+
+@pytest.mark.parametrize("include_timing", [True, False])
+def test_conversation_with_timing_parameter(mock_invoke_judge_model, include_timing):
+    session_id = "test_session"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "Test question"}]})
+        span.set_outputs("Test response")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    judge = make_judge(
+        name="test_timing_judge",
+        instructions="Evaluate this {{ conversation }}",
+        model="openai:/gpt-4",
+        include_timing_in_conversation=include_timing,
+    )
+
+    judge(session=traces)
+
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+    user_msg = prompt[1]
+    conversation_content = user_msg.content
+
+    assert ("Response duration:" in conversation_content) is include_timing
+    assert ("slowest spans:" in conversation_content) is include_timing

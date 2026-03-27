@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from '@databricks/i18n';
 import { FormProvider, useForm } from 'react-hook-form';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { DesignSystemProvider } from '@databricks/design-system';
 import ScorerFormRenderer from './ScorerFormRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
