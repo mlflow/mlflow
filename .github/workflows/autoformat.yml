@@ -13,8 +13,7 @@ jobs:
   check-comment:
     runs-on: ubuntu-slim
     timeout-minutes: 10
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && github.event.issue.pull_request && startsWith(github.event.comment.body, '/autoformat')
+    if: github.event.issue.pull_request && startsWith(github.event.comment.body, '/autoformat')
     permissions:
       statuses: write # autoformat.createStatus
       pull-requests: write # autoformat.createReaction on PRs
@@ -63,8 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: check-comment
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && needs.check-comment.outputs.should_autoformat == 'true'
+    if: needs.check-comment.outputs.should_autoformat == 'true'
     permissions:
       pull-requests: read # view files modified in PR
     outputs:
@@ -205,8 +203,7 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     needs: [check-comment, format]
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && needs.format.outputs.reformatted == 'true'
+    if: needs.format.outputs.reformatted == 'true'
     permissions:
       contents: read
     outputs:
@@ -288,8 +285,7 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 10
     needs: [check-comment, format, push]
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && always() && needs.check-comment.outputs.should_autoformat == 'true'
+    if: always() && needs.check-comment.outputs.should_autoformat == 'true'
     permissions:
       statuses: write # To update check statuses
       actions: write # To approve workflow runs
