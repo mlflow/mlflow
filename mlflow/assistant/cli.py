@@ -1,6 +1,5 @@
 """MLflow CLI commands for Assistant integration."""
 
-import shutil
 import sys
 import threading
 import time
@@ -161,23 +160,18 @@ def _prompt_provider() -> AssistantProvider | None:
 
 
 def _check_provider(provider: AssistantProvider) -> bool:
-    """Check if the selected provider is available."""
     click.secho("Step 2/4: Checking Provider", fg="cyan", bold=True)
     click.secho("-" * 30, fg="cyan")
     click.echo()
 
-    # First check if CLI is installed
-    claude_path = shutil.which("claude")
-    if not claude_path:
+    if not provider.is_available():
         click.secho(
-            "Claude Code CLI is not installed. "
-            "Install it with: npm install -g @anthropic-ai/claude-code",
+            f"{provider.display_name} is not available. "
+            "Please ensure it is installed and accessible in your PATH.",
             fg="red",
         )
         click.echo()
         return False
-
-    click.echo(f"Claude CLI found: {claude_path}")
 
     try:
         spinner_msg = "Checking connection... " + click.style(

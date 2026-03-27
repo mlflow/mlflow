@@ -221,6 +221,7 @@ export const sendMessageStream = async (
 
     // Listen for 'done' event (completion)
     eventSource.addEventListener('done', () => {
+      onToolUse?.([]);
       onDone();
       eventSource.close();
     });
@@ -229,21 +230,6 @@ export const sendMessageStream = async (
     eventSource.addEventListener('interrupted', () => {
       onInterrupted?.();
       eventSource.close();
-    });
-
-    eventSource.addEventListener('done', (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        // Backend sends: {"result": null, "session_id": "..."}
-        onToolUse?.([]);
-        onDone();
-        eventSource.close();
-      } catch (err) {
-        // fail silently
-        onToolUse?.([]);
-        onDone();
-        eventSource.close();
-      }
     });
 
     // Listen for 'error' event
@@ -270,6 +256,18 @@ export const sendMessageStream = async (
     onError(error instanceof Error ? error.message : 'Unknown error');
     return { eventSource: null };
   }
+};
+
+export const listOllamaModels = async (baseUrl: string): Promise<string[]> => {
+  const url = `${API_BASE}/providers/ollama/models?base_url=${encodeURIComponent(baseUrl)}`;
+  const response = await fetch(url, {
+    headers: { ...getDefaultHeaders(document.cookie) },
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to list Ollama models: ${response.statusText}`);
+  }
+  const data = await response.json();
+  return data.models as string[];
 };
 
 /**

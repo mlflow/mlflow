@@ -23,6 +23,7 @@ type SkillsLocation = 'global' | 'project' | 'custom';
 
 interface SetupStepProjectProps {
   experimentId?: string;
+  provider?: string;
   onBack: () => void;
   onComplete: () => void;
   /** Custom label for the save/finish button */
@@ -52,6 +53,7 @@ const deriveSkillsLocation = (
 
 export const SetupStepProject = ({
   experimentId,
+  provider = 'claude_code',
   onBack,
   onComplete,
   nextLabel = 'Finish',
@@ -76,11 +78,11 @@ export const SetupStepProject = ({
   useEffect(() => {
     if (!config) return;
 
-    const provider = config.providers?.['claude_code'];
-    if (provider?.permissions) {
-      setEditFiles(provider.permissions.allow_edit_files ?? true);
-      setReadDocs(provider.permissions.allow_read_docs ?? true);
-      setFullPermission(provider.permissions.full_access ?? false);
+    const providerConfig = config.providers?.[provider];
+    if (providerConfig?.permissions) {
+      setEditFiles(providerConfig.permissions.allow_edit_files ?? true);
+      setReadDocs(providerConfig.permissions.allow_read_docs ?? true);
+      setFullPermission(providerConfig.permissions.full_access ?? false);
     }
 
     let currentProjectPath = '';
@@ -93,7 +95,7 @@ export const SetupStepProject = ({
     const { location, customPath } = deriveSkillsLocation(config.skills_location, currentProjectPath);
     setSkillsLocation(location);
     setCustomSkillsPath(customPath);
-  }, [config, experimentId]);
+  }, [config, experimentId, provider]);
 
   const handleSave = useCallback(async () => {
     setIsSaving(true);
@@ -101,10 +103,11 @@ export const SetupStepProject = ({
 
     try {
       // Build config update - always mark provider as selected (setup complete)
+      const existingModel = config?.providers?.[provider]?.model ?? 'default';
       const configUpdate: Parameters<typeof updateConfig>[0] = {
         providers: {
-          claude_code: {
-            model: 'default',
+          [provider]: {
+            model: existingModel,
             selected: true,
             permissions: {
               allow_edit_files: editFiles,
@@ -150,6 +153,8 @@ export const SetupStepProject = ({
     }
   }, [
     experimentId,
+    provider,
+    config,
     projectPath,
     skillsLocation,
     customSkillsPath,

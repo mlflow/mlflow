@@ -577,8 +577,12 @@ class ClaudeCodeProvider(AssistantProvider):
                 except KeyError as e:
                     return Event.from_error(f"Failed to parse stream_event message: {e}")
 
+            case "rate_limit_event":
+                return None
+
             case _:
-                return Event.from_error(f"Unknown message type: {message_type}")
+                logging.getLogger(__name__).warning("Unknown message type: %s", message_type)
+                return None
 
     def _should_filter_out_message(self, data: dict[str, Any]) -> bool:
         """
