@@ -38,7 +38,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'doc',
-      id: 'eval-monitor/ai-insights/discover-issues',
+      id: 'eval-monitor/ai-insights/detect-issues',
       label: 'Automatic Issue Detection',
       className: 'sidebar-top-level-category',
     },
@@ -851,13 +851,13 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'eval-monitor/ai-insights/ai-issue-discovery',
-              label: 'AI Issue Discovery (MCP)',
+              id: 'eval-monitor/ai-insights/detect-issues',
+              label: 'Automatic Issue Detection',
             },
             {
               type: 'doc',
-              id: 'eval-monitor/ai-insights/discover-issues',
-              label: 'Automatic Issue Detection',
+              id: 'eval-monitor/ai-insights/ai-issue-discovery',
+              label: 'AI Issue Discovery (MCP)',
             },
           ],
         },

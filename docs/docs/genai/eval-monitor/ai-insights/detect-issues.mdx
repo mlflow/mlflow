@@ -68,7 +68,7 @@ From this data, the AI identifies problems across six quality dimensions.
 
 ## Issue Categories (CLEARS)
 
-MLflow organizes issue detection across six quality dimensions, forming the **CLEARS** framework. Choose which categories to focus on based on your application's requirements:
+MLflow organizes issue detection across six quality dimensions, forming the **CLEARS** framework (**C**orrectness, **L**atency, **E**xecution, **A**dherence, **R**elevance, **S**afety). Choose which categories to focus on based on your application's requirements:
 
 <ConceptOverview concepts={[
   {
@@ -131,7 +131,7 @@ Issue detection is available from anywhere you view traces: overview dashboard, 
   <ImageBox src="/images/genai/issue-detection/model-selection.png" alt="Issue detection models selection" width="100%"/>
 </div>
 
-You can analyze all traces in your experiment or select a specific subset. For multi-turn conversations, you can group traces by session to get conversation-aware analysis.
+You can analyze all traces in your experiment or select a specific subset. For multi-turn conversations, you can group traces by [session](/genai/tracing/track-users-sessions) to get conversation-aware analysis.
 
 ### Real-Time Analysis
 
@@ -139,7 +139,7 @@ Once configured, analysis begins immediately and runs asynchronously. You can wa
 
 - Current status and progress
 - Number of traces scanned
-- Issues discovered so far (updates live)
+- Issues detected so far (updates live)
 
 Once the job finishes, you'll also see the estimated LLM cost for the analysis.
 
@@ -151,11 +151,11 @@ When analysis completes, you receive an AI-generated summary highlighting key fi
 
 <ImageBox src="/images/genai/issue-detection/summary.png" alt="Detection complete with summary" width="90%"/>
 
-## Working with Discovered Issues
+## Working with Detected Issues
 
 ### Issue Overview
 
-Each discovered issue represents a cluster of related problems found across your traces. Issues provide:
+Each detected issue represents a cluster of related problems found across your traces. Issues provide:
 
 <FeatureHighlights features={[
   {
@@ -182,7 +182,7 @@ Each discovered issue represents a cluster of related problems found across your
 
 Issues maintain full lineage to the traces they were detected from, so you can always navigate from an issue back to the specific traces that surfaced it.
 
-<ImageBox src="/images/genai/issue-detection/issue-cards.png" alt="Discovered issues overview" width="90%"/>
+<ImageBox src="/images/genai/issue-detection/issue-cards.png" alt="Detected issues overview" width="90%"/>
 
 ### Investigating Issues
 
@@ -228,6 +228,14 @@ Mark issues as resolved when you've:
 2. Deployed the fix to your application
 3. Verified the problem no longer occurs in new traces
 
+Mark an issue as rejected when:
+
+- **It's a false positive**: The flagged traces don't actually exhibit the described problem
+- **It's by design**: The behavior is intentional, such as intentionally brief responses or domain-specific language
+- **It's out of scope**: The issue is real but not something your team plans to address (e.g., an edge case with negligible user impact)
+
+Rejecting false positives keeps your issue list focused and prevents noise from accumulating over time.
+
 ## Best Practices
 
 ### Effective Analysis
@@ -257,6 +265,6 @@ Issue detection complements other MLflow evaluation and monitoring capabilities:
 
 | Use Issue Detection When...                                        | Use Other Tools When...                                                                                                                              |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| You want to discover unknown problems                              | You know the specific quality dimensions or hypotheses to test: use [MLflow Evaluation Judges](/genai/eval-monitor/scorers)                          |
+| You want to detect unknown problems                                | You know the specific quality dimensions or hypotheses to test: use [MLflow Evaluation Judges](/genai/eval-monitor/scorers)                          |
 | You need to analyze many traces at once                            | You're debugging a single trace: use [MLflow Trace UI](/genai/tracing/observe-with-traces/ui)                                                        |
 | You want to track, triage, and resolve identified issues over time | You need continuous production monitoring: use [Automatic Evaluations](/genai/eval-monitor/automatic-evaluations) to score every trace as it arrives |
