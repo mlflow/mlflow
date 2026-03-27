@@ -43,7 +43,6 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
 from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.tracing.constant import AssessmentMetadataKey
-from mlflow.types.llm import ToolCall as MlflowToolCall
 
 _logger = logging.getLogger(__name__)
 
@@ -387,6 +386,8 @@ def _invoke_litellm_and_handle_tools(
             # Convert litellm tool calls to MLflow ToolCall objects for _process_tool_calls.
             # This bridge will be removed when litellm_adapter.py is replaced with
             # gateway-based invocation.
+            from mlflow.types.llm import ToolCall as MlflowToolCall
+
             mlflow_tool_calls = [
                 MlflowToolCall(
                     id=tc.id,
