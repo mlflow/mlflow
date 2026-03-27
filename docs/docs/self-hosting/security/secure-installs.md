@@ -1,6 +1,6 @@
 # Secure Installs
 
-It is important to protect against supply chain attacks by verifying the integrity of installed packages. This page describes best practices for securely installing MLflow and its dependencies.
+Supply chain attacks are a [known risk in the Python ecosystem](https://pip.pypa.io/en/stable/topics/secure-installs/) that can affect any package, not just MLflow. This page describes general best practices for securely installing Python packages, applied to MLflow and its dependencies.
 
 ## Hash-Checking Mode
 
@@ -41,7 +41,7 @@ All packages (including transitive dependencies) must be pinned with `==` and ha
 
 ### Disabling Source Distributions
 
-To further reduce risk, use `--only-binary :all:` to prevent pip from running arbitrary `setup.py` code during installation:
+To further reduce risk, use `--only-binary :all:` to prevent pip from running arbitrary build code (e.g., via `setup.py` or PEP 517 build backends) during installation:
 
 ```bash
 pip install --require-hashes --only-binary :all: -r requirements.txt
