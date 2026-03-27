@@ -118,6 +118,14 @@ def setup_mlflow() -> None:
     except Exception as e:
         get_logger().warning("Failed to set experiment: %s", e)
 
+    try:
+        from mlflow.telemetry.events import AutologgingEvent
+        from mlflow.telemetry.track import _record_event
+
+        _record_event(AutologgingEvent, {"flavor": "claude_code"})
+    except Exception:
+        pass
+
 
 def is_tracing_enabled() -> bool:
     """Check if MLflow Claude tracing is enabled via environment variable."""
