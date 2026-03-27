@@ -1140,6 +1140,7 @@ def autolog(
         log_model_signatures: Whether to log model signature when `log_model` is True.
 
     .. code-block:: python
+        :test:
         :caption: Example
 
         import os
