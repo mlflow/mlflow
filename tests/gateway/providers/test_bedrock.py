@@ -1,3 +1,4 @@
+import io
 from unittest import mock
 
 import pytest
@@ -470,8 +471,6 @@ def _converse_stream_response():
 
 
 def _embeddings_invoke_response():
-    import io
-
     body = io.BytesIO(b'{"embedding": [0.1, 0.2, 0.3], "inputTextTokenCount": 5}')
     return {"body": body}
 
