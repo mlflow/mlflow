@@ -11,14 +11,11 @@ from typing import Any, Iterator, TypeAlias
 from typing_extensions import Self
 
 from clint import rules
-from clint.builtin import ALWAYS_AVAILABLE_MODULES, BUILTIN_MODULES
 from clint.comments import Noqa, iter_comments
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.resolver import Resolver
 from clint.utils import get_ignored_rules_for_file
-
-_LAZY_IMPORT_MODULES = BUILTIN_MODULES | ALWAYS_AVAILABLE_MODULES
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
@@ -691,7 +688,7 @@ class Linter(ast.NodeVisitor):
         self.resolver.add_import(node)
         for alias in node.names:
             root_module = alias.name.split(".", 1)[0]
-            if self._is_in_function() and root_module in _LAZY_IMPORT_MODULES:
+            if self._is_in_function() and rules.LazyImport.check(alias.name):
                 self._check(Range.from_node(node), rules.LazyImport())
 
             if (
@@ -715,7 +712,7 @@ class Linter(ast.NodeVisitor):
         self.resolver.add_import_from(node)
 
         root_module = node.module and node.module.split(".", 1)[0]
-        if self._is_in_function() and root_module in _LAZY_IMPORT_MODULES:
+        if self._is_in_function() and rules.LazyImport.check(node.module):
             self._check(Range.from_node(node), rules.LazyImport())
 
         if self.in_TYPE_CHECKING and self.is_mlflow_init_py:

@@ -6440,6 +6440,80 @@ def test_search_traces_with_feedback_filters_excludes_invalid_assessments(
     assert trace_ids == {trace1_id, trace2_id}
 
 
+def test_search_traces_session_scoped_assessment_expands_to_all_session_traces(
+    store: SqlAlchemyStore,
+):
+    exp_id = store.create_experiment("test_session_assessment_expansion")
+
+    # Session A: 3 traces
+    _create_trace(
+        store, "sa-t1", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"}
+    )
+    _create_trace(
+        store, "sa-t2", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"}
+    )
+    _create_trace(
+        store, "sa-t3", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-a"}
+    )
+
+    # Session B: 3 traces
+    _create_trace(
+        store, "sb-t1", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"}
+    )
+    _create_trace(
+        store, "sb-t2", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"}
+    )
+    _create_trace(
+        store, "sb-t3", exp_id, trace_metadata={TraceMetadataKey.TRACE_SESSION: "session-b"}
+    )
+
+    # Add a session-scoped assessment on the first trace of session A
+    session_feedback = Feedback(
+        trace_id="sa-t1",
+        name="session_quality",
+        value="good",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+        metadata={TraceMetadataKey.TRACE_SESSION: "session-a"},
+    )
+    store.create_assessment(session_feedback)
+
+    # Add a non-session assessment on a trace in session B (no session metadata)
+    non_session_feedback = Feedback(
+        trace_id="sb-t1",
+        name="trace_quality",
+        value="bad",
+        source=AssessmentSource(source_type="HUMAN", source_id="user@example.com"),
+    )
+    store.create_assessment(non_session_feedback)
+
+    # Searching with the session-scoped assessment filter should return all 3 traces
+    # from session A (not just the one with the assessment)
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.session_quality = "good"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sa-t1", "sa-t2", "sa-t3"}
+
+    # IS NOT NULL with session-scoped assessment should also expand
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.session_quality IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sa-t1", "sa-t2", "sa-t3"}
+
+    # Searching with non-session assessment should return only the single matching trace
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.trace_quality = "bad"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sb-t1"}
+
+    # IS NOT NULL with non-session assessment should return only the single trace
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.trace_quality IS NOT NULL")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {"sb-t1"}
+
+    # IS NULL with session-scoped assessment should exclude all session siblings too
+    traces, _ = store.search_traces([exp_id], filter_string="feedback.session_quality IS NULL")
+    trace_ids = {t.request_id for t in traces}
+    # All session-A traces are excluded (session-scoped assessment covers the whole session)
+    assert trace_ids == {"sb-t1", "sb-t2", "sb-t3"}
+
+
 def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_expectation_like")
 

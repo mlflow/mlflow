@@ -29,8 +29,10 @@ env:
 
 jobs:
   notify:
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      github.event_name != 'push'
+      false
+      && github.event_name != 'push'
       && github.event.action != 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
       && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -53,6 +55,7 @@ jobs:
           | | |
           |---|---|
           | **Commit** | ${HEAD_SHA} |
+          | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
 
           > Building and deploying... This comment will be updated with the preview URL."
 
@@ -67,7 +70,9 @@ jobs:
           fi
 
   build:
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
+      false &&
       github.event_name == 'push'
       || (
         github.event.action != 'closed'
@@ -90,7 +95,7 @@ jobs:
       - uses: ./.github/actions/setup-node
 
       - name: Install build tools
-        run: pip install build setuptools
+        run: uv pip install --system build setuptools
 
       - name: Build wheel
         # Build the wheel before `yarn build` so it excludes UI assets
@@ -147,6 +152,8 @@ jobs:
           retention-days: 1
 
   deploy:
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
+    if: false
     needs: build
     runs-on: ubuntu-ui-preview
     permissions:
@@ -158,14 +165,15 @@ jobs:
       DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
     steps:
       - name: Download app files
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
         with:
           name: app-deploy
           path: /tmp/app-deploy
 
       - name: Install Databricks CLI
         run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          # https://github.com/databricks/setup-cli/releases/tag/v0.295.0
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/2260866f83a41a2df55e1cfe7ffe038b78325bf6/install.sh | sh
           databricks --version
 
       - name: Create or update app
@@ -230,6 +238,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_URL: ${{ steps.app.outputs.url }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           BODY="${COMMENT_MARKER}
 
@@ -238,7 +249,8 @@ jobs:
           | | |
           |---|---|
           | **URL** | ${APP_URL} |
-          | **Commit** | ${{ github.event.pull_request.head.sha }} |
+          | **Commit** | $COMMIT_SHA |
+          | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
 
           > [!NOTE]
           > This preview is only accessible to core maintainers with workspace access.
@@ -246,23 +258,25 @@ jobs:
 
           # Find existing comment
           COMMENT_ID=$(gh api --paginate \
-            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            "repos/$REPO/issues/$PR_NUMBER/comments" \
             --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
             | head -1)
 
           if [ -n "$COMMENT_ID" ]; then
             gh api \
-              "repos/${{ github.repository }}/issues/comments/$COMMENT_ID" \
+              "repos/$REPO/issues/comments/$COMMENT_ID" \
               -X PATCH -f body="$BODY"
           else
-            gh pr comment ${{ github.event.pull_request.number }} \
-              --repo ${{ github.repository }} \
+            gh pr comment $PR_NUMBER \
+              --repo $REPO \
               --body "$BODY"
           fi
 
   cleanup:
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >-
-      github.event_name != 'push'
+      false
+      && github.event_name != 'push'
       && github.event.action == 'closed'
       && contains(github.event.pull_request.labels.*.name, 'ui-preview')
     runs-on: ubuntu-ui-preview
@@ -276,7 +290,8 @@ jobs:
     steps:
       - name: Install Databricks CLI
         run: |
-          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sh
+          # https://github.com/databricks/setup-cli/releases/tag/v0.295.0
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/2260866f83a41a2df55e1cfe7ffe038b78325bf6/install.sh | sh
           databricks --version
 
       - name: Delete app
@@ -297,18 +312,20 @@ jobs:
       - name: Update PR comment
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           BODY="${COMMENT_MARKER}
 
           **UI Preview** for this PR has been removed."
 
           COMMENT_ID=$(gh api --paginate \
-            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            "repos/$REPO/issues/$PR_NUMBER/comments" \
             --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
             | head -1)
 
           if [ -n "$COMMENT_ID" ]; then
             gh api \
-              "repos/${{ github.repository }}/issues/comments/$COMMENT_ID" \
+              "repos/$REPO/issues/comments/$COMMENT_ID" \
               -X PATCH -f body="$BODY"
           fi

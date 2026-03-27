@@ -127,13 +127,54 @@ def _is_supported_llm_provider(schema: str) -> bool:
     return schema in provider_registry.keys()
 
 
+_MODELS_WITHOUT_OUTPUT_CONFIG: set[tuple[str, str]] = set()
+
+
+def _is_unsupported_output_format_error(exc: MlflowException) -> bool:
+    """Check if the error indicates the model doesn't support structured output.
+
+    Older Anthropic models (e.g. claude-sonnet-4-20250514) don't support ``output_config``
+    and return a 400 with::
+
+        {
+            "type": "error",
+            "error": {
+                "type": "invalid_request_error",
+                "message": "'claude-sonnet-4-20250514' does not support output format.",
+            },
+        }
+
+    Newer models (e.g. claude-sonnet-4-5-20250929) support it.
+    """
+    match exc.__cause__:
+        case requests.exceptions.HTTPError(
+            response=requests.Response(status_code=400) as response,
+        ):
+            try:
+                body = response.json()
+            except Exception:
+                return False
+            match body:
+                case {
+                    "error": {
+                        "type": "invalid_request_error",
+                        "message": str(msg),
+                    }
+                }:
+                    return "does not support output format" in msg.lower()
+    return False
+
+
 def _call_llm_provider_api(
     provider_name: str,
     model: str,
-    input_data: str,
-    eval_parameters: dict[str, Any],
-    extra_headers: dict[str, str],
+    input_data: str | None = None,
+    eval_parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
     proxy_url: str | None = None,
+    *,
+    messages: list[dict[str, str]] | None = None,
+    response_format: dict[str, Any] | None = None,
 ) -> str:
     """
     Invoke chat endpoint of various LLM providers.
@@ -145,37 +186,57 @@ def _call_llm_provider_api(
         provider_name: The provider name, e.g., "anthropic".
         model: The model name, e.g., "claude-3-5-sonnet"
         input_data: The input string prompt to send to the model as a chat message.
+            Mutually exclusive with ``messages``.
         eval_parameters: The additional parameters to send to the model, e.g. temperature.
         extra_headers: The additional headers to send to the provider.
         proxy_url: Proxy URL to be used for the judge model. If not specified, the default
             URL for the LLM provider will be used.
+        messages: Pre-built list of message dicts (``[{"role": ..., "content": ...}]``).
+            Mutually exclusive with ``input_data``.
+        response_format: Response format dict (e.g. from ``_pydantic_to_response_format``).
     """
     from mlflow.gateway.config import Provider
     from mlflow.gateway.schemas import chat
 
+    if (input_data is None) == (messages is None):
+        raise MlflowException.invalid_parameter_value(
+            "Exactly one of input_data or messages must be provided."
+        )
+
+    eval_parameters = eval_parameters or {}
+    extra_headers = extra_headers or {}
     provider = _get_provider_instance(provider_name, model)
 
-    chat_request = chat.RequestPayload(
-        model=model,
-        messages=[
-            chat.RequestMessage(role="user", content=input_data),
-        ],
-        **eval_parameters,
-    )
+    if messages is not None:
+        payload = {"messages": messages} | eval_parameters
+        if response_format is not None:
+            payload["response_format"] = response_format
+    else:
+        chat_request = chat.RequestPayload(
+            model=model,
+            messages=[
+                chat.RequestMessage(role="user", content=input_data),
+            ],
+            **eval_parameters,
+        )
 
-    # Filter out keys in the payload to the specified ones + "messages".
-    # Does not include "model" key here because some providers do not accept it as a
-    # part of the payload. Whether or not to include "model" key must be determined
-    # by each provider implementation.
-    filtered_keys = {"messages", *eval_parameters.keys()}
+        # Filter out keys in the payload to the specified ones + "messages".
+        # Does not include "model" key here because some providers do not accept it as a
+        # part of the payload. Whether or not to include "model" key must be determined
+        # by each provider implementation.
+        filtered_keys = {"messages", *eval_parameters.keys()}
 
-    payload = {
-        k: v
-        for k, v in chat_request.model_dump(exclude_none=True).items()
-        if (v is not None) and (k in filtered_keys)
-    }
+        payload = {
+            k: v
+            for k, v in chat_request.model_dump(exclude_none=True).items()
+            if (v is not None) and (k in filtered_keys)
+        }
+
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
-    chat_payload.update(eval_parameters)
+    if messages is None:
+        # eval_parameters were filtered out by the RequestPayload serialization;
+        # re-apply them. When messages is not None, they're already in the payload.
+        chat_payload.update(eval_parameters)
 
     if provider_name in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
         if proxy_url or extra_headers:
@@ -185,11 +246,28 @@ def _call_llm_provider_api(
             )
         response = provider._request(chat_payload)
     else:
-        response = _send_request(
-            endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
-            headers=provider.headers | extra_headers,
-            payload=chat_payload,
-        )
+        if (provider_name, model) in _MODELS_WITHOUT_OUTPUT_CONFIG:
+            chat_payload.pop("output_config", None)
+            chat_payload.pop("response_format", None)
+
+        try:
+            response = _send_request(
+                endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+                headers=provider.headers | extra_headers,
+                payload=chat_payload,
+            )
+        except MlflowException as e:
+            if provider_name != "anthropic" or not _is_unsupported_output_format_error(e):
+                raise
+            # Model doesn't support structured output; remember and retry.
+            _MODELS_WITHOUT_OUTPUT_CONFIG.add((provider_name, model))
+            chat_payload.pop("output_config", None)
+            chat_payload.pop("response_format", None)
+            response = _send_request(
+                endpoint=proxy_url or provider.get_endpoint_url("llm/v1/chat"),
+                headers=provider.headers | extra_headers,
+                payload=chat_payload,
+            )
     chat_response = provider.adapter_class.model_to_chat(response, provider.config)
     if len(chat_response.choices) == 0:
         raise MlflowException(
@@ -270,6 +348,13 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     #     config = CohereConfig(cohere_api_key=os.environ.get("COHERE_API_KEY"))
     #     return CohereProvider(_get_route_config(config))
 
+    elif provider == Provider.GEMINI:
+        from mlflow.gateway.providers.gemini import GeminiConfig, GeminiProvider
+        from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
+
+        config = GeminiConfig(gemini_api_key=os.environ.get(_CORE_PROVIDER_ENV_VARS["gemini"]))
+        return GeminiProvider(_get_route_config(config))
+
     elif provider == Provider.MISTRAL:
         from mlflow.gateway.providers.mistral import MistralConfig, MistralProvider
 
@@ -297,9 +382,11 @@ def _send_request(
         )
         response.raise_for_status()
     except requests.exceptions.HTTPError as e:
+        body = getattr(e.response, "text", "")
         raise MlflowException(
-            f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n- Input payload: {payload}."
-        )
+            f"Failed to call LLM endpoint at {endpoint}.\n- Error: {e}\n"
+            f"- Response body: {body}\n- Input payload: {payload}."
+        ) from e
 
     return response.json()
 

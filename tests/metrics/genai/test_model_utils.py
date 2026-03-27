@@ -1,14 +1,19 @@
+import copy
 import json
 import sys
 from unittest import mock
 
 import pytest
+import requests
 
 from mlflow.deployments.server.config import Endpoint
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointModelInfo
+from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.model_utils import (
+    _MODELS_WITHOUT_OUTPUT_CONFIG,
     _parse_model_uri,
+    _send_request,
     call_deployments_api,
     get_endpoint_type,
     score_model_on_payload,
@@ -545,3 +550,180 @@ def test_call_deployments_api_no_endpoint_type(set_deployment_envs):
 def test_call_deployments_api_str_input_requires_endpoint_type(set_deployment_envs):
     with pytest.raises(MlflowException, match="If string input is provided,"):
         call_deployments_api("my-endpoint", "my prompt", endpoint_type=None)
+
+
+def test_send_request_includes_response_body_in_error():
+    resp = requests.Response()
+    resp.status_code = 400
+    resp._content = b'{"error": "bad request details"}'
+
+    with mock.patch("requests.post", return_value=resp):
+        with pytest.raises(MlflowException, match="bad request details") as exc_info:
+            _send_request("http://example.com", {}, {})
+
+        # Verify exception chaining preserves the original HTTPError
+        assert isinstance(exc_info.value.__cause__, requests.exceptions.HTTPError)
+
+
+def test_score_model_retries_without_output_config_on_unsupported(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    anthropic_resp = {
+        "content": [{"text": "result text", "type": "text"}],
+        "id": "msg_test",
+        "model": "claude-sonnet-4-20250514",
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+    # First call raises 400 with "does not support output format", second call succeeds
+    error_body = {
+        "type": "error",
+        "error": {
+            "type": "invalid_request_error",
+            "message": "claude-sonnet-4-20250514 does not support output format",
+        },
+    }
+    mock_400_response = requests.Response()
+    mock_400_response.status_code = 400
+    mock_400_response._content = json.dumps(error_body).encode()
+
+    mock_ok_response = mock.MagicMock()
+    mock_ok_response.status_code = 200
+    mock_ok_response.raise_for_status.return_value = None
+    mock_ok_response.json.return_value = anthropic_resp
+
+    # Capture payloads before they are mutated in-place by the retry logic
+    captured_payloads = []
+    original_send = None
+
+    def capture_send(endpoint, headers, payload):
+        captured_payloads.append(copy.deepcopy(payload))
+        return original_send(endpoint=endpoint, headers=headers, payload=payload)
+
+    original_send = model_utils._send_request
+
+    with (
+        mock.patch("requests.post", side_effect=[mock_400_response, mock_ok_response]),
+        mock.patch("mlflow.metrics.genai.model_utils._send_request", side_effect=capture_send),
+    ):
+        response = score_model_on_payload(
+            model_uri="anthropic:/claude-sonnet-4-20250514",
+            payload="test prompt",
+            eval_parameters={
+                "max_tokens": 100,
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "result",
+                        "schema": {"type": "object", "properties": {"x": {"type": "string"}}},
+                    },
+                },
+            },
+        )
+
+    assert response == "result text"
+    # Verify two calls were made: first with output_config, second without
+    assert len(captured_payloads) == 2
+    assert "output_config" in captured_payloads[0]
+    assert "output_config" not in captured_payloads[1]
+    assert "response_format" not in captured_payloads[1]
+
+
+def test_score_model_caches_unsupported_output_config(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    model_name = "claude-sonnet-4-20250514-cache-test"
+    _MODELS_WITHOUT_OUTPUT_CONFIG.discard(("anthropic", model_name))
+
+    anthropic_resp = {
+        "content": [{"text": "result", "type": "text"}],
+        "id": "msg_test",
+        "model": model_name,
+        "role": "assistant",
+        "stop_reason": "end_turn",
+        "stop_sequence": None,
+        "type": "message",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+
+    error_body = {
+        "type": "error",
+        "error": {
+            "type": "invalid_request_error",
+            "message": f"{model_name} does not support output format",
+        },
+    }
+    mock_400_response = requests.Response()
+    mock_400_response.status_code = 400
+    mock_400_response._content = json.dumps(error_body).encode()
+
+    mock_ok_response = mock.MagicMock()
+    mock_ok_response.status_code = 200
+    mock_ok_response.raise_for_status.return_value = None
+    mock_ok_response.json.return_value = anthropic_resp
+
+    eval_params = {
+        "max_tokens": 100,
+        "response_format": {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "result",
+                "schema": {"type": "object", "properties": {"x": {"type": "string"}}},
+            },
+        },
+    }
+
+    # First call: triggers retry (2 requests.post calls)
+    with mock.patch("requests.post", side_effect=[mock_400_response, mock_ok_response]) as m:
+        score_model_on_payload(
+            model_uri=f"anthropic:/{model_name}",
+            payload="test prompt",
+            eval_parameters=eval_params,
+        )
+        assert m.call_count == 2
+
+    assert ("anthropic", model_name) in _MODELS_WITHOUT_OUTPUT_CONFIG
+
+    # Second call: skips output_config upfront (only 1 requests.post call)
+    with mock.patch("requests.post", return_value=mock_ok_response) as m:
+        score_model_on_payload(
+            model_uri=f"anthropic:/{model_name}",
+            payload="test prompt",
+            eval_parameters=eval_params,
+        )
+        assert m.call_count == 1
+
+    _MODELS_WITHOUT_OUTPUT_CONFIG.discard(("anthropic", model_name))
+
+
+def test_score_model_does_not_retry_on_other_400_errors(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+
+    error_body = {
+        "type": "error",
+        "error": {"type": "authentication_error", "message": "invalid api key"},
+    }
+    mock_400_response = requests.Response()
+    mock_400_response.status_code = 400
+    mock_400_response._content = json.dumps(error_body).encode()
+
+    with mock.patch("requests.post", return_value=mock_400_response):
+        with pytest.raises(MlflowException, match="invalid api key"):
+            score_model_on_payload(
+                model_uri="anthropic:/claude-sonnet-4-20250514",
+                payload="test prompt",
+                eval_parameters={
+                    "max_tokens": 100,
+                    "response_format": {
+                        "type": "json_schema",
+                        "json_schema": {
+                            "name": "result",
+                            "schema": {"type": "object", "properties": {"x": {"type": "string"}}},
+                        },
+                    },
+                },
+            )

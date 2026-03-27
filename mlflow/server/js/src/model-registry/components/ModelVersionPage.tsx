@@ -111,8 +111,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
           this.props.deleteModelVersionApi(modelName, version, undefined, true);
           navigate(ModelRegistryRoutes.getModelPageRoute(modelName));
         } else {
-          // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-          console.error(e);
+          // fail silently for non-RESOURCE_DOES_NOT_EXIST errors
         }
       });
     }
@@ -179,18 +178,18 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
   handleEditDescription = (description: any) => {
     const { modelName, version } = this.props;
-    return (
-      this.props
-        .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
-        .then(this.loadData)
-        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-        .catch(console.error)
-    );
+    return this.props
+      .updateModelVersionApi(modelName, version, description, this.updateModelVersionRequestId)
+      .then(this.loadData)
+      .catch(() => {
+        // fail silently
+      });
   };
 
   componentDidMount() {
-    // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-    this.loadData(true).catch(console.error);
+    this.loadData(true).catch(() => {
+      // fail silently
+    });
     this.loadModelDataWithAliases();
     this.pollIntervalId = setInterval(this.pollData, POLL_INTERVAL);
     this.getModelVersionMlModelFile();
@@ -203,8 +202,9 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
   // Make a new initial load if model version or name has changed
   componentDidUpdate(prevProps: ModelVersionPageImplProps) {
     if (this.props.version !== prevProps.version || this.props.modelName !== prevProps.modelName) {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      this.loadData(true).catch(console.error);
+      this.loadData(true).catch(() => {
+        // fail silently
+      });
       this.getModelVersionMlModelFile();
     }
   }

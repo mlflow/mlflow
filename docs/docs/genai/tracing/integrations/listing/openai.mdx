@@ -1,6 +1,9 @@
 ---
+title: Tracing OpenAI
+description: Trace OpenAI API calls including chat completions, embeddings, and tool use with MLflow for full observability into LLM interactions.
 sidebar_position: 1
 sidebar_label: OpenAI
+keywords: [openai, tracing, mlflow, gpt, chat completions, llm]
 ---
 
 import useBaseUrl from '@docusaurus/useBaseUrl';
@@ -43,7 +46,7 @@ MLflow trace automatically captures the following information about OpenAI calls
 <Tabs>
   <TabItem value="python" label="Python" default>
 ```bash
-pip install 'mlflow[genai]' openai
+pip install mlflow openai
 ```
 </TabItem>
 <TabItem value="typescript" label="JS / TS">
