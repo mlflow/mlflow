@@ -69,6 +69,12 @@ This only applies to packages from remote indexes (not local files or VCS requir
 uv pip install --exclude-newer "2026-03-01T00:00:00Z" mlflow
 ```
 
+For one-off tool invocations with `uvx`:
+
+```bash
+uvx --exclude-newer "2026-03-01T00:00:00Z" mlflow server
+```
+
 Or in `pyproject.toml`:
 
 ```toml
