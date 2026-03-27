@@ -230,6 +230,17 @@ class MlflowV3SpanExporter(SpanExporter):
             if trace:
                 add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace(trace.info)
+
+                # When incremental export is disabled, batch-write all spans
+                # to the DB at trace completion time to avoid per-span DB
+                # round-trips while still populating the spans table.
+                if (
+                    not self._should_export_spans_incrementally
+                    and self._store_supports_log_spans
+                    and trace.data.spans
+                ):
+                    self._log_spans(trace.info.experiment_id, trace.data.spans)
+
                 if self._should_log_spans_to_artifacts(returned_trace_info):
                     self._client._upload_trace_data(returned_trace_info, trace.data)
             else:
