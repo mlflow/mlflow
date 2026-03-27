@@ -58,21 +58,33 @@ export const ModelSelectorModal = ({ isOpen, onClose, onSelect, provider, initia
   const { data: models, isLoading } = useModelsQuery({ provider: provider || undefined });
   const isCustomMode = customModelName.trim().length > 0;
 
-  // Pre-populate modal state when opening with an existing value
+  // Pre-populate modal state when opening with an existing value.
+  // Initialize from initialValue immediately (as custom) even before models load,
+  // then upgrade to a known-model selection once models arrive.
   useEffect(() => {
-    if (isOpen && initialValue && models && !hasInitialized) {
+    if (!isOpen) {
+      setHasInitialized(false);
+      return;
+    }
+
+    if (!initialValue) {
+      return;
+    }
+
+    // Always initialize from initialValue when opening, even if models are not yet loaded
+    if (!hasInitialized) {
+      setSelectedModelId(null);
+      setCustomModelName(initialValue);
+      setHasInitialized(true);
+    }
+
+    // Once models are available, switch to a known-model selection if a match is found
+    if (models) {
       const knownModel = models.find((m) => m.model === initialValue);
       if (knownModel) {
         setSelectedModelId(knownModel.model);
         setCustomModelName('');
-      } else {
-        setSelectedModelId(null);
-        setCustomModelName(initialValue);
       }
-      setHasInitialized(true);
-    }
-    if (!isOpen) {
-      setHasInitialized(false);
     }
   }, [isOpen, initialValue, models, hasInitialized]);
 
