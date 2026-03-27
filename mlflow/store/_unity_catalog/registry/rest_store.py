@@ -896,7 +896,7 @@ class UcModelRegistryStore(BaseRestStore):
                     shutil.rmtree(local_model_dir)
 
     def _get_logged_model_from_model_id(self, model_id) -> LoggedModel | None:
-        if model_id is None:
+        if not model_id:
             return None
         try:
             return mlflow.get_logged_model(model_id)
