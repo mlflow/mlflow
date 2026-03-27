@@ -1051,6 +1051,54 @@ describe('getBarChartData', () => {
       }),
     ]);
   });
+
+  it('normalizes PASS into yes and FAIL into no for pass-fail dtype', () => {
+    const mockAssessmentInfo = createMockAssessmentInfo('pass-fail', ['yes', 'no', 'PASS', 'FAIL']);
+
+    const displayInfoCounts: AssessmentAggregates = {
+      assessmentInfo: mockAssessmentInfo,
+      currentCounts: new Map([
+        ['yes', 2],
+        ['PASS', 1],
+        ['no', 1],
+        ['FAIL', 2],
+      ]),
+      currentNumRootCause: 0,
+      otherNumRootCause: 0,
+      assessmentFilters: [],
+    };
+
+    const result = getBarChartData(
+      intl,
+      mockTheme,
+      mockAssessmentInfo,
+      [],
+      jest.fn(),
+      displayInfoCounts,
+      'Current Run',
+    );
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        name: 'Pass',
+        current: expect.objectContaining({
+          value: 3,
+          fraction: 3 / 6,
+          tooltip: '3/6 for run "Current Run"',
+        }),
+        scoreChange: undefined,
+      }),
+      expect.objectContaining({
+        name: 'Fail',
+        current: expect.objectContaining({
+          value: 3,
+          fraction: 3 / 6,
+          tooltip: '3/6 for run "Current Run"',
+        }),
+        scoreChange: undefined,
+      }),
+    ]);
+  });
 });
 
 describe('getUniqueValueCountsBySourceId', () => {

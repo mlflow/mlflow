@@ -12,9 +12,12 @@ import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';
 import { isAssessmentPassing } from '../components/EvaluationsReviewAssessmentTag';
 import {
   ASSESSMENTS_DOC_LINKS,
+  normalizePassFailValue,
   DEFAULT_ASSESSMENTS_SORT_ORDER,
   getEvaluationResultAssessmentValue,
   getJudgeMetricsLink,
+  isFailingValue,
+  isPassingValue,
   KnownEvaluationResultAssessmentName,
   KnownEvaluationResultAssessmentStringValue,
   KnownEvaluationResultAssessmentValueDescription,
@@ -72,6 +75,8 @@ function getCustomMetricNameAndAssessment(assessmentPath: string): { metricName:
 const PASS_FAIL_VALUES: string[] = [
   KnownEvaluationResultAssessmentStringValue.YES,
   KnownEvaluationResultAssessmentStringValue.NO,
+  KnownEvaluationResultAssessmentStringValue.PASS,
+  KnownEvaluationResultAssessmentStringValue.FAIL,
 ];
 /**
  * Computes global metadata for each of the assessments.
@@ -590,16 +595,32 @@ export function getBarChartData(
 ): StackedBarchartItem[] {
   const showCompareData = displayInfoCounts.otherCounts !== undefined;
 
+  let currentCounts = displayInfoCounts.currentCounts;
+  let otherCounts = displayInfoCounts.otherCounts;
+  let keys = getBarChartKeys(assessmentInfo);
+
+  if (assessmentInfo.dtype === 'pass-fail') {
+    const mergeCounts = (counts?: AssessmentRunCounts): AssessmentRunCounts => {
+      return [...(counts?.entries() ?? [])].reduce<AssessmentRunCounts>((acc, [key, value]) => {
+        const mappedKey = normalizePassFailValue(key) as AssessmentValueType;
+        return acc.set(mappedKey, (acc.get(mappedKey) || 0) + value);
+      }, new Map());
+    };
+    currentCounts = mergeCounts(currentCounts);
+    otherCounts = mergeCounts(otherCounts);
+    keys = Array.from(new Set(keys.map((key) => normalizePassFailValue(key) as AssessmentValueType)));
+  }
+
   const barItems: StackedBarchartItem[] = [];
 
-  for (const value of getBarChartKeys(assessmentInfo)) {
-    const currentBarItem = displayInfoCounts.currentCounts
+  for (const value of keys) {
+    const currentBarItem = currentCounts
       ? getAssessmentBarChartValueBarItem(
           intl,
           assessmentInfo,
           assessmentFilters,
           value,
-          displayInfoCounts.currentCounts,
+          currentCounts,
           // For monitoring, there is no run name so we allow this to pass through.
           currentRunDisplayName || DEFAULT_RUN_PLACEHOLDER_NAME,
           toggleAssessmentFilter,
@@ -613,7 +634,7 @@ export function getBarChartData(
             assessmentInfo,
             assessmentFilters,
             value,
-            displayInfoCounts.otherCounts || new Map(),
+            otherCounts || new Map(),
             compareToRunDisplayName,
             toggleAssessmentFilter,
           )
@@ -680,12 +701,12 @@ function getAssessmentBarChartValueText(
   value: string | boolean | number | undefined,
 ): string {
   if (assessmentInfo.dtype === 'pass-fail') {
-    if (value === KnownEvaluationResultAssessmentStringValue.YES) {
+    if (isPassingValue(value)) {
       return intl.formatMessage({
         defaultMessage: 'Pass',
         description: 'The label for a passing asseessment above a bar-chart in the summary stats.',
       });
-    } else if (value === KnownEvaluationResultAssessmentStringValue.NO) {
+    } else if (isFailingValue(value)) {
       return intl.formatMessage({
         defaultMessage: 'Fail',
         description: 'The label for a failing asseessment above a bar-chart in the summary stats.',
