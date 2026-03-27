@@ -9,8 +9,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
-from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
-from mlflow.genai.judges.adapters.gateway_invocation import InvokeOutput
+from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter, InvokeOutput
 from mlflow.types.llm import ChatMessage
 
 
@@ -68,7 +67,7 @@ def test_invoke_with_trace_calls_gateway_invocation(mock_trace):
     )
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_invocation.invoke_via_gateway_and_handle_tools",
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._run_tool_calling_loop",
         return_value=mock_output,
     ) as mock_invoke:
         result = adapter.invoke(input_params)
@@ -102,7 +101,7 @@ def test_invoke_with_trace_string_prompt(mock_trace):
     )
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_invocation.invoke_via_gateway_and_handle_tools",
+        "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._run_tool_calling_loop",
         return_value=mock_output,
     ) as mock_invoke:
         result = adapter.invoke(input_params)

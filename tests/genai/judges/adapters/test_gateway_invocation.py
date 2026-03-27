@@ -9,8 +9,9 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.gateway_invocation import (
+from mlflow.genai.judges.adapters.gateway_adapter import (
     ChatCompletionError,
+    GatewayAdapter,
     InvokeOutput,
     _build_request,
     _get_max_context_tokens,
@@ -19,7 +20,6 @@ from mlflow.genai.judges.adapters.gateway_invocation import (
     _remove_oldest_tool_call_pair,
     _resolve_provider_config,
     _should_proactively_prune,
-    invoke_via_gateway_and_handle_tools,
 )
 from mlflow.types.llm import ChatMessage
 
@@ -221,15 +221,15 @@ def test_single_shot_no_tools():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._resolve_provider_config",
+            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
             return_value=("https://api.openai.com/v1", "gpt-4", {"Authorization": "Bearer k"}),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
             return_value=response_json,
         ) as mock_send,
     ):
-        output = invoke_via_gateway_and_handle_tools(
+        output = GatewayAdapter()._run_tool_calling_loop(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="test")],
@@ -259,15 +259,15 @@ def test_tool_calling_loop(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._resolve_provider_config",
+            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
             return_value=("https://api.openai.com/v1", "gpt-4", {}),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
             side_effect=[tool_call_response, final_response],
         ) as mock_send,
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._process_tool_calls",
+            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
         ) as mock_process,
     ):
         mock_process.return_value = [
@@ -279,7 +279,7 @@ def test_tool_calling_loop(mock_trace):
             )
         ]
 
-        output = invoke_via_gateway_and_handle_tools(
+        output = GatewayAdapter()._run_tool_calling_loop(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="evaluate this")],
@@ -321,19 +321,19 @@ def test_context_window_error_triggers_pruning(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._resolve_provider_config",
+            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
             return_value=("https://api.openai.com/v1", "gpt-4", {}),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
             side_effect=mock_send_side_effect,
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._process_tool_calls",
+            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
             return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
         ),
     ):
-        output = invoke_via_gateway_and_handle_tools(
+        output = GatewayAdapter()._run_tool_calling_loop(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="test")],
@@ -357,20 +357,20 @@ def test_max_iterations_exceeded(mock_trace, monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._resolve_provider_config",
+            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
             return_value=("https://api.openai.com/v1", "gpt-4", {}),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
             return_value=tool_call_response,
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._process_tool_calls",
+            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
             return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
         ),
     ):
         with pytest.raises(MlflowException, match="iteration limit of 1 exceeded"):
-            invoke_via_gateway_and_handle_tools(
+            GatewayAdapter()._run_tool_calling_loop(
                 provider="openai",
                 model_name="gpt-4",
                 messages=[ChatMessage(role="user", content="test")],
@@ -399,15 +399,15 @@ def test_response_format_fallback():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._resolve_provider_config",
+            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
             return_value=("https://api.openai.com/v1", "gpt-4", {}),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
             side_effect=mock_send_side_effect,
         ),
     ):
-        output = invoke_via_gateway_and_handle_tools(
+        output = GatewayAdapter()._run_tool_calling_loop(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="test")],
@@ -423,7 +423,7 @@ def test_response_format_fallback():
 @pytest.mark.parametrize("provider", ["anthropic", "gemini"])
 def test_non_openai_provider_without_base_url_raises(provider):
     with pytest.raises(MlflowException, match="does not support the OpenAI-compatible"):
-        invoke_via_gateway_and_handle_tools(
+        GatewayAdapter()._run_tool_calling_loop(
             provider=provider,
             model_name="test-model",
             messages=[ChatMessage(role="user", content="test")],
@@ -437,15 +437,15 @@ def test_non_openai_provider_with_base_url_allowed():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._resolve_provider_config",
+            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
             return_value=("https://custom.proxy.com/v1", "model", {}),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
             return_value=response_json,
         ),
     ):
-        output = invoke_via_gateway_and_handle_tools(
+        output = GatewayAdapter()._run_tool_calling_loop(
             provider="anthropic",
             model_name="claude-3",
             messages=[ChatMessage(role="user", content="test")],
@@ -535,27 +535,27 @@ def test_proactive_pruning_triggers_during_tool_loop(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._resolve_provider_config",
+            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
             return_value=("https://api.openai.com/v1", "gpt-4", {}),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
             side_effect=[tool_call_response, final_response],
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._process_tool_calls",
+            "mlflow.genai.judges.adapters.gateway_adapter._process_tool_calls",
             return_value=[ChatMessage(role="tool", content="{}", tool_call_id="c1", name="f")],
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._get_max_context_tokens",
+            "mlflow.genai.judges.adapters.gateway_adapter._get_max_context_tokens",
             return_value=10000,
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_invocation._remove_oldest_tool_call_pair",
+            "mlflow.genai.judges.adapters.gateway_adapter._remove_oldest_tool_call_pair",
             wraps=_remove_oldest_tool_call_pair,
         ) as mock_prune,
     ):
-        output = invoke_via_gateway_and_handle_tools(
+        output = GatewayAdapter()._run_tool_calling_loop(
             provider="openai",
             model_name="gpt-4",
             messages=[ChatMessage(role="user", content="test")],
