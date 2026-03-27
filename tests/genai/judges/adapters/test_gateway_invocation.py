@@ -10,17 +10,16 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.gateway_adapter import (
-    ChatCompletionError,
     GatewayAdapter,
     InvokeOutput,
     _build_request,
     _get_gateway_provider,
     _get_max_context_tokens,
     _get_provider,
-    _is_context_window_error,
     _parse_response_message,
     _should_proactively_prune,
 )
+from mlflow.genai.judges.adapters.utils import ChatCompletionError, is_context_window_error
 from mlflow.genai.judges.utils.tool_calling_utils import _remove_oldest_tool_call_pair
 from mlflow.types.llm import ChatMessage
 
@@ -173,7 +172,7 @@ def test_remove_no_tool_calls_returns_none():
     assert _remove_oldest_tool_call_pair(messages) is None
 
 
-# --- _is_context_window_error tests ---
+# --- is_context_window_error tests ---
 
 
 @pytest.mark.parametrize(
@@ -185,11 +184,11 @@ def test_remove_no_tool_calls_returns_none():
     ],
 )
 def test_context_window_errors(message):
-    assert _is_context_window_error(message)
+    assert is_context_window_error(message)
 
 
 def test_non_context_error():
-    assert not _is_context_window_error("invalid api key")
+    assert not is_context_window_error("invalid api key")
 
 
 # --- _get_provider tests ---
@@ -331,7 +330,7 @@ def test_single_shot_no_tools():
             return_value=_mock_provider(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             return_value=response_json,
         ) as mock_send,
     ):
@@ -369,7 +368,7 @@ def test_tool_calling_loop(mock_trace):
             return_value=_mock_provider(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             side_effect=[tool_call_response, final_response],
         ) as mock_send,
         mock.patch(
@@ -430,7 +429,7 @@ def test_context_window_error_triggers_pruning(mock_trace):
             return_value=_mock_provider(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             side_effect=mock_send_side_effect,
         ),
         mock.patch(
@@ -466,7 +465,7 @@ def test_max_iterations_exceeded(mock_trace, monkeypatch):
             return_value=_mock_provider(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             return_value=tool_call_response,
         ),
         mock.patch(
@@ -508,7 +507,7 @@ def test_response_format_fallback():
             return_value=_mock_provider(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             side_effect=mock_send_side_effect,
         ),
     ):
@@ -534,7 +533,7 @@ def test_custom_base_url_overrides_provider():
             return_value=_mock_provider(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             return_value=response_json,
         ) as mock_send,
     ):
@@ -634,7 +633,7 @@ def test_proactive_pruning_triggers_during_tool_loop(mock_trace):
             return_value=_mock_provider(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             side_effect=[tool_call_response, final_response],
         ),
         mock.patch(
