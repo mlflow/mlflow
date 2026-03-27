@@ -112,7 +112,7 @@ def test_build_request_with_inference_params():
 
 def test_parse_response_basic():
     resp = _chat_response("Hello!")
-    msg = _parse_response_message(resp, provider=_mock_provider())
+    msg, usage = _parse_response_message(resp, provider=_mock_provider())
     assert isinstance(msg, ChatMessage)
     assert msg.role == "assistant"
     assert msg.content == "Hello!"
@@ -124,7 +124,7 @@ def test_parse_response_with_tool_calls():
         {"id": "call_1", "type": "function", "function": {"name": "test", "arguments": "{}"}}
     ]
     resp = _chat_response(None, tool_calls=tool_calls)
-    msg = _parse_response_message(resp, provider=_mock_provider())
+    msg, usage = _parse_response_message(resp, provider=_mock_provider())
     assert msg.content is None
     assert len(msg.tool_calls) == 1
     assert msg.tool_calls[0].id == "call_1"
@@ -269,7 +269,7 @@ def test_parse_anthropic_response_with_tool_calls(monkeypatch):
         "usage": {"input_tokens": 50, "output_tokens": 30},
     }
 
-    msg = _parse_response_message(anthropic_response, provider)
+    msg, usage = _parse_response_message(anthropic_response, provider)
     assert msg.role == "assistant"
     assert msg.content == "Let me check that."
     assert len(msg.tool_calls) == 1
@@ -291,7 +291,7 @@ def test_parse_anthropic_response_text_only(monkeypatch):
         "usage": {"input_tokens": 10, "output_tokens": 20},
     }
 
-    msg = _parse_response_message(anthropic_response, provider)
+    msg, usage = _parse_response_message(anthropic_response, provider)
     assert msg.role == "assistant"
     assert msg.tool_calls is None
     parsed = json.loads(msg.content)

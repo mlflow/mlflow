@@ -249,7 +249,12 @@ def get_chat_completions_with_structured_output(
             inference_params=inference_params,
         )
         cleaned_response = _strip_markdown_code_blocks(output.response)
-        response_dict = json.loads(cleaned_response)
+        try:
+            response_dict = json.loads(cleaned_response)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Failed to parse response from judge model. Response: {output.response}",
+            ) from e
         return output_schema(**response_dict)
 
     from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter

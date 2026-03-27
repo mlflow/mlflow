@@ -238,11 +238,15 @@ def _should_proactively_prune(
 def _parse_response_message(
     response_data: dict[str, Any],
     provider: "BaseProvider",
-) -> "ChatMessage":
-    """Parse the assistant message from a chat completions response.
+) -> tuple["ChatMessage", dict[str, Any]]:
+    """Parse the assistant message and usage from a chat completions response.
 
     Uses the provider's adapter to transform the raw response into a
-    normalized format, then extracts the assistant message.
+    normalized format, then extracts the assistant message and usage metadata.
+
+    Returns:
+        Tuple of (ChatMessage, usage_dict) where usage_dict has
+        "prompt_tokens" and "completion_tokens" keys.
     """
     from mlflow.types.llm import ChatMessage
 
@@ -276,10 +280,20 @@ def _parse_response_message(
     if content is None and not tool_calls_raw:
         content = ""
 
-    return ChatMessage(
-        role=resp_msg.role,
-        content=content,
-        tool_calls=tool_calls_raw,
+    usage = {}
+    if chat_response.usage:
+        usage = {
+            "prompt_tokens": getattr(chat_response.usage, "prompt_tokens", None),
+            "completion_tokens": getattr(chat_response.usage, "completion_tokens", None),
+        }
+
+    return (
+        ChatMessage(
+            role=resp_msg.role,
+            content=content,
+            tool_calls=tool_calls_raw,
+        ),
+        usage,
     )
 
 
@@ -604,10 +618,9 @@ class GatewayAdapter(BaseJudgeAdapter):
                     ) from e
 
                 # Use the provider adapter to normalize the response
-                message = _parse_response_message(response_data, provider_instance)
+                message, usage = _parse_response_message(response_data, provider_instance)
 
                 if not message.tool_calls:
-                    usage = response_data.get("usage", {})
                     return InvokeOutput(
                         response=message.content,
                         request_id=response_data.get("id"),
@@ -623,7 +636,6 @@ class GatewayAdapter(BaseJudgeAdapter):
 
                 # Proactively prune if approaching context window limit,
                 # using the actual prompt_tokens from the LLM response.
-                usage = response_data.get("usage", {})
                 if _should_proactively_prune(usage, max_context_tokens):
                     pruned = _remove_oldest_tool_call_pair(judge_messages)
                     if pruned is not None:
