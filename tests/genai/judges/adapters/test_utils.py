@@ -7,6 +7,7 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     DatabricksManagedJudgeAdapter,
 )
 from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
+from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
 from mlflow.genai.judges.adapters.utils import get_adapter
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.types.llm import ChatMessage
@@ -31,21 +32,63 @@ def list_prompt():
         # Databricks adapters
         (_DATABRICKS_DEFAULT_JUDGE_MODEL, "string", DatabricksManagedJudgeAdapter),
         (_DATABRICKS_DEFAULT_JUDGE_MODEL, "list", DatabricksManagedJudgeAdapter),
-        # Gateway adapter for native providers
+        # Gateway adapter (used when litellm is unavailable)
         ("openai:/gpt-4", "string", GatewayAdapter),
-        ("openai:/gpt-4", "list", GatewayAdapter),
         ("anthropic:/claude-3-5-sonnet-20241022", "string", GatewayAdapter),
-        ("anthropic:/claude-3-5-sonnet-20241022", "list", GatewayAdapter),
         ("gemini:/gemini-2.5-flash", "string", GatewayAdapter),
         ("mistral:/mistral-large", "string", GatewayAdapter),
         # endpoints with string prompt
         ("endpoints:/my-endpoint", "string", GatewayAdapter),
     ],
 )
-def test_get_adapter(model_uri, prompt_type, expected_adapter, string_prompt, list_prompt):
+def test_get_adapter_without_litellm(
+    model_uri, prompt_type, expected_adapter, string_prompt, list_prompt
+):
     prompt = string_prompt if prompt_type == "string" else list_prompt
-    adapter = get_adapter(model_uri, prompt)
-    assert isinstance(adapter, expected_adapter)
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
+        return_value=False,
+    ):
+        adapter = get_adapter(model_uri, prompt)
+        assert isinstance(adapter, expected_adapter)
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "prompt_type", "expected_adapter"),
+    [
+        # Databricks adapters (take priority over litellm)
+        (_DATABRICKS_DEFAULT_JUDGE_MODEL, "string", DatabricksManagedJudgeAdapter),
+        (_DATABRICKS_DEFAULT_JUDGE_MODEL, "list", DatabricksManagedJudgeAdapter),
+        ("databricks:/my-endpoint", "string", LiteLLMAdapter),
+        ("databricks:/my-endpoint", "list", LiteLLMAdapter),
+        ("endpoints:/my-endpoint", "string", LiteLLMAdapter),
+        ("endpoints:/my-endpoint", "list", LiteLLMAdapter),
+        # LiteLLM adapter (takes priority when available)
+        ("openai:/gpt-4", "string", LiteLLMAdapter),
+        ("openai:/gpt-4", "list", LiteLLMAdapter),
+        ("anthropic:/claude-3-5-sonnet-20241022", "string", LiteLLMAdapter),
+        ("anthropic:/claude-3-5-sonnet-20241022", "list", LiteLLMAdapter),
+    ],
+)
+def test_get_adapter_with_litellm(
+    model_uri, prompt_type, expected_adapter, string_prompt, list_prompt
+):
+    prompt = string_prompt if prompt_type == "string" else list_prompt
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
+        return_value=True,
+    ):
+        adapter = get_adapter(model_uri, prompt)
+        assert isinstance(adapter, expected_adapter)
+
+
+def test_get_adapter_gateway_with_list(list_prompt):
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
+        return_value=False,
+    ):
+        adapter = get_adapter("openai:/gpt-4", list_prompt)
+        assert isinstance(adapter, GatewayAdapter)
 
 
 @pytest.mark.parametrize(
@@ -58,7 +101,9 @@ def test_get_adapter(model_uri, prompt_type, expected_adapter, string_prompt, li
         ("unknown_provider:/some-model", "list"),
     ],
 )
-def test_get_adapter_unsupported(model_uri, prompt_type, string_prompt, list_prompt):
+def test_get_adapter_unsupported_without_litellm(
+    model_uri, prompt_type, string_prompt, list_prompt
+):
     prompt = string_prompt if prompt_type == "string" else list_prompt
     with mock.patch(
         "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
