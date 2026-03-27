@@ -88,9 +88,19 @@ def _invoke_via_gateway(
 
     # gateway:/ routes through the MLflow tracking server's deployments client
     if provider == "gateway":
-        return call_deployments_api(
-            model_name, {"messages": prompt}, inference_params, "llm/v1/chat"
-        )
+        payload = {"messages": prompt}
+        if response_format is not None:
+            rf_dict = _pydantic_to_response_format(response_format)
+            if rf_dict is not None:
+                payload["response_format"] = rf_dict
+        response = call_deployments_api(model_name, payload, inference_params, "llm/v1/chat")
+        if not isinstance(response, str):
+            raise MlflowException(
+                "Expected a string response from the gateway deployment for 'llm/v1/chat', "
+                f"but got {type(response).__name__}.",
+                error_code=BAD_REQUEST,
+            )
+        return response
 
     rf_dict = _pydantic_to_response_format(response_format) if response_format else None
     return _call_llm_provider_api(
@@ -137,6 +147,17 @@ class GatewayAdapter(BaseJudgeAdapter):
                 "base_url and extra_headers are not supported for deployment "
                 "endpoints (endpoints:/...). The endpoint URL is determined by the "
                 "deployment target configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        # gateway:/ routes through the MLflow tracking server; base_url and extra_headers
+        # should be configured on the server, not per-request.
+        if input_params.model_provider == "gateway" and (
+            input_params.base_url is not None or input_params.extra_headers is not None
+        ):
+            raise MlflowException(
+                "base_url and extra_headers are not supported for the gateway provider "
+                "(gateway:/...). Configure the MLflow AI Gateway on the tracking server instead.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

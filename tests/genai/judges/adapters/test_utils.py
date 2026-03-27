@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 
 from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     DatabricksManagedJudgeAdapter,
 )
@@ -88,6 +89,47 @@ def test_get_adapter_gateway_with_list(list_prompt):
     ):
         adapter = get_adapter("openai:/gpt-4", list_prompt)
         assert isinstance(adapter, GatewayAdapter)
+
+
+def test_gateway_adapter_invoke_with_list_prompt(list_prompt):
+    """Test that GatewayAdapter routes gateway:/ list prompts through call_deployments_api."""
+    adapter = GatewayAdapter()
+    input_params = AdapterInvocationInput(
+        model_uri="gateway:/my-endpoint",
+        prompt=list_prompt,
+        assessment_name="test",
+    )
+    mock_response = '{"result": "yes", "rationale": "looks good"}'
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils.call_deployments_api",
+        return_value=mock_response,
+    ) as mock_api:
+        output = adapter.invoke(input_params)
+        mock_api.assert_called_once_with(
+            "my-endpoint",
+            {
+                "messages": [
+                    {"role": "system", "content": "You are a helpful assistant"},
+                    {"role": "user", "content": "Please evaluate this"},
+                ],
+            },
+            None,
+            "llm/v1/chat",
+        )
+        assert output.feedback.value == "yes"
+        assert output.feedback.rationale == "looks good"
+
+
+def test_gateway_adapter_rejects_base_url_for_gateway():
+    adapter = GatewayAdapter()
+    input_params = AdapterInvocationInput(
+        model_uri="gateway:/my-endpoint",
+        prompt="test",
+        assessment_name="test",
+        base_url="http://custom-url",
+    )
+    with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
+        adapter.invoke(input_params)
 
 
 @pytest.mark.parametrize(
