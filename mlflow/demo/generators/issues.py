@@ -138,9 +138,11 @@ class IssuesDemoGenerator(BaseDemoGenerator):
             )
 
             # Store result as tags so UI can display without requiring a job
-            mlflow.set_tag("mlflow.issueDetection.result.issues", str(len(created_issue_ids)))
-            mlflow.set_tag("mlflow.issueDetection.result.totalTracesAnalyzed", str(len(v1_traces)))
-            mlflow.set_tag("mlflow.issueDetection.result.summary", summary)
+            mlflow.set_tags({
+                "mlflow.issueDetection.result.issues": str(len(created_issue_ids)),
+                "mlflow.issueDetection.result.totalTracesAnalyzed": str(len(v1_traces)),
+                "mlflow.issueDetection.result.summary": summary,
+            })
 
         return DemoResult(
             feature=self.name,
@@ -190,7 +192,7 @@ class IssuesDemoGenerator(BaseDemoGenerator):
             issues = store.search_issues(
                 experiment_id=experiment.experiment_id,
             )
-            return issues is not None and len(issues) > 0
+            return bool(issues)
         except Exception:
             return False
 
