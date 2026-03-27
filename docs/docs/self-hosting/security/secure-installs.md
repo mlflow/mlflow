@@ -74,4 +74,3 @@ For one-off tool invocations with `uvx`:
 ```bash
 uvx --exclude-newer "2026-03-01T00:00:00Z" mlflow server
 ```
-
