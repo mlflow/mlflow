@@ -1,4 +1,5 @@
 import json
+import time
 import uuid
 from typing import Any
 
@@ -1119,6 +1120,114 @@ class SqlAssessments(Base):
 
     def __repr__(self):
         return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"
+
+
+class SqlTraceView(Base):
+    __tablename__ = "trace_views"
+
+    view_id = Column(String(50), nullable=False)
+    """
+    View ID: `String` (limit 50 characters). *Primary Key* for ``trace_views`` table.
+    Format: "tv-<uuid>".
+    """
+    name = Column(String(256), nullable=False)
+    """
+    View name: `String` (limit 256 characters).
+    """
+    trace_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=True
+    )
+    """
+    Trace ID: `String` (limit 50 characters). *Foreign Key* into ``trace_info`` table. Nullable.
+    """
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id"), nullable=True
+    )
+    """
+    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table. Nullable.
+    """
+    span_filter = Column(Text, nullable=True)
+    """
+    Span filter stored as JSON: `Text`. Nullable.
+    """
+    input_path = Column(Text, nullable=True)
+    """
+    JSONPath expression for input extraction: `Text`. Nullable.
+    """
+    output_path = Column(Text, nullable=True)
+    """
+    JSONPath expression for output extraction: `Text`. Nullable.
+    """
+    created_by = Column(String(256), nullable=True)
+    """
+    Creator identity: `String` (limit 256 characters). Nullable.
+    """
+    description = Column(Text, nullable=True)
+    """
+    View description: `Text`. Nullable.
+    """
+    created_timestamp = Column(BigInteger, nullable=False)
+    """
+    Creation timestamp: `BigInteger` in milliseconds.
+    """
+    last_updated_timestamp = Column(BigInteger, nullable=False)
+    """
+    Last update timestamp: `BigInteger` in milliseconds.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("view_id", name="trace_views_pk"),
+        CheckConstraint(
+            "(trace_id IS NOT NULL AND experiment_id IS NULL) OR "
+            "(trace_id IS NULL AND experiment_id IS NOT NULL)",
+            name="ck_trace_views_scope",
+        ),
+    )
+
+    def to_mlflow_entity(self):
+        from mlflow.entities.trace_view import SpanFilter, TraceView
+
+        span_filter = None
+        if self.span_filter is not None:
+            span_filter = SpanFilter.from_json(self.span_filter)
+
+        return TraceView(
+            view_id=self.view_id,
+            name=self.name,
+            trace_id=self.trace_id,
+            experiment_id=str(self.experiment_id) if self.experiment_id is not None else None,
+            span_filter=span_filter,
+            input_path=self.input_path,
+            output_path=self.output_path,
+            created_by=self.created_by,
+            description=self.description,
+            create_time_ms=self.created_timestamp,
+            last_update_time_ms=self.last_updated_timestamp,
+        )
+
+    @classmethod
+    def from_mlflow_entity(cls, view):
+        current_timestamp = int(time.time() * 1000)
+        view_id = view.view_id or f"tv-{uuid.uuid4().hex[:12]}"
+        span_filter_json = view.span_filter.to_json() if view.span_filter else None
+        experiment_id = int(view.experiment_id) if view.experiment_id is not None else None
+
+        return cls(
+            view_id=view_id,
+            name=view.name,
+            trace_id=view.trace_id,
+            experiment_id=experiment_id,
+            span_filter=span_filter_json,
+            input_path=view.input_path,
+            output_path=view.output_path,
+            created_by=view.created_by,
+            description=view.description,
+            created_timestamp=view.create_time_ms or current_timestamp,
+            last_updated_timestamp=view.last_update_time_ms or current_timestamp,
+        )
+
+    def __repr__(self):
+        return f"<SqlTraceView({self.view_id}, {self.name})>"
 
 
 class SqlIssue(Base):
