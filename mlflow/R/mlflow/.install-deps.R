@@ -4,6 +4,7 @@ options(timeout=300)
 install.packages("https://cran.r-project.org/src/contrib/remotes_2.5.0.tar.gz", repos = NULL, type = "source")
 remotes::install_version("pak", "0.9.2")
 pak::local_install_dev_deps()
+remotes::install_version("devtools", "2.4.6")
 remotes::install_version("usethis", "3.2.1")
 
 # Install dependencies for documentation build
