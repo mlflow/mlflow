@@ -762,7 +762,14 @@ def _run_predict(
         if _should_clone_trace(eval_item.trace, run_id, experiment_id):
             try:
                 trace_id = copy_trace_to_experiment(eval_item.trace.to_dict())
-                eval_item.trace = mlflow.get_trace(trace_id)
+                cloned_trace = mlflow.get_trace(trace_id)
+                if cloned_trace is not None:
+                    eval_item.trace = cloned_trace
+                else:
+                    _logger.warning(
+                        f"Failed to fetch the cloned trace '{trace_id}' from the tracking "
+                        "store. Using the original trace for evaluation."
+                    )
             except Exception as e:
                 eval_item.error_message = f"Failed to clone trace to the current experiment: {e}"
         else:
@@ -899,6 +906,9 @@ def _compute_eval_scores(
 
 
 def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
+    if eval_item.trace is None:
+        return eval_item.get_expectation_assessments()
+
     existing_expectations = {
         a.name for a in eval_item.trace.info.assessments if a.expectation is not None
     }
