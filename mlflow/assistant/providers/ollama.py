@@ -331,8 +331,7 @@ class OllamaProvider(AssistantProvider):
             if echo:
                 echo("ollama package not found")
             raise CLINotInstalledError(
-                "The 'ollama' Python package is not installed. "
-                "Install it with: pip install ollama"
+                "The 'ollama' Python package is not installed. Install it with: pip install ollama"
             )
 
         host = self._get_host()
@@ -368,8 +367,7 @@ class OllamaProvider(AssistantProvider):
             import ollama
         except ImportError:
             yield Event.from_error(
-                "The 'ollama' Python package is not installed. "
-                "Install it with: pip install ollama"
+                "The 'ollama' Python package is not installed. Install it with: pip install ollama"
             )
             return
 
@@ -426,7 +424,7 @@ class OllamaProvider(AssistantProvider):
                                 if end == -1:
                                     think_buf = ""
                                     break
-                                think_buf = think_buf[end + len("</think>"):]
+                                think_buf = think_buf[end + len("</think>") :]
                                 in_think_block = False
                             else:
                                 start = think_buf.find("<think>")
@@ -435,12 +433,13 @@ class OllamaProvider(AssistantProvider):
                                     think_buf = ""
                                     break
                                 emit += think_buf[:start]
-                                think_buf = think_buf[start + len("<think>"):]
+                                think_buf = think_buf[start + len("<think>") :]
                                 in_think_block = True
                         if emit:
-                            yield Event.from_stream_event(
-                                {"type": "content_delta", "delta": {"text": emit}}
-                            )
+                            yield Event.from_stream_event({
+                                "type": "content_delta",
+                                "delta": {"text": emit},
+                            })
 
                     if msg.tool_calls:
                         tool_calls_raw.extend(msg.tool_calls)
@@ -466,9 +465,7 @@ class OllamaProvider(AssistantProvider):
                     yield Event.from_message(
                         Message(
                             role="assistant",
-                            content=[
-                                ToolUseBlock(id=tool_id, name=tool_name, input=tool_input)
-                            ],
+                            content=[ToolUseBlock(id=tool_id, name=tool_name, input=tool_input)],
                         )
                     )
 

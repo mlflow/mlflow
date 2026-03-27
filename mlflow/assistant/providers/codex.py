@@ -331,8 +331,7 @@ class CodexProvider(AssistantProvider):
             if echo:
                 echo("codex CLI not found")
             raise CLINotInstalledError(
-                "OpenAI Codex CLI is not installed. "
-                "Install it with: npm install -g @openai/codex"
+                "OpenAI Codex CLI is not installed. Install it with: npm install -g @openai/codex"
             )
 
         if echo:
@@ -416,9 +415,7 @@ class CodexProvider(AssistantProvider):
         else:
             user_text = prompt
 
-        user_message = (
-            f"<system_instructions>\n{sys_prompt}\n</system_instructions>\n\n{user_text}"
-        )
+        user_message = f"<system_instructions>\n{sys_prompt}\n</system_instructions>\n\n{user_text}"
 
         cmd = [
             codex_path,

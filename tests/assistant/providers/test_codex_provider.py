@@ -118,9 +118,11 @@ async def test_astream_yields_agent_message_text():
 
 @pytest.mark.asyncio
 async def test_astream_ignores_non_agent_message_items():
+    mcp_item = {"id": "i1", "type": "mcp_tool_call", "text": "ignored"}
+    agent_item = {"id": "i2", "type": "agent_message", "text": "kept"}
     stdout_lines = _make_stdout_lines(
-        {"type": "item.completed", "item": {"id": "i1", "type": "mcp_tool_call", "text": "ignored"}},
-        {"type": "item.completed", "item": {"id": "i2", "type": "agent_message", "text": "kept"}},
+        {"type": "item.completed", "item": mcp_item},
+        {"type": "item.completed", "item": agent_item},
     )
 
     mock_proc = _mock_process(stdout_lines=stdout_lines)
@@ -271,9 +273,13 @@ async def test_astream_sends_prompt_via_stdin():
 
 @pytest.mark.asyncio
 async def test_astream_ignores_invalid_json_lines():
+    valid_item = {
+        "type": "item.completed",
+        "item": {"type": "agent_message", "text": "valid"},
+    }
     stdout_lines = [
         b"not json\n",
-        json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": "valid"}}).encode() + b"\n",
+        json.dumps(valid_item).encode() + b"\n",
     ]
 
     mock_proc = _mock_process(stdout_lines=stdout_lines)
