@@ -322,7 +322,7 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
 
     // Send cancel request to backend
     cancelSessionApi(sessionId).catch((err) => {
-      console.error('Failed to cancel session:', err);
+      // fail silently
     });
 
     // Mark the current streaming message as interrupted

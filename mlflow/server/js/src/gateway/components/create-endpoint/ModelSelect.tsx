@@ -88,7 +88,13 @@ export const ModelSelect = ({
       />
       {error && <FormUI.Message type="error" message={error} />}
       {selectedModel && !hideCapabilities && <ModelCapabilities model={selectedModel} />}
-      <ModelSelectorModal isOpen={isModalOpen} onClose={handleClose} onSelect={handleSelect} provider={provider} />
+      <ModelSelectorModal
+        isOpen={isModalOpen}
+        onClose={handleClose}
+        onSelect={handleSelect}
+        provider={provider}
+        initialValue={value}
+      />
     </div>
   );
 };

@@ -16,6 +16,7 @@ import os
 import time
 
 from mlflow.server import HUEY_STORAGE_PATH_ENV_VAR
+from mlflow.server.constants import MLFLOW_SERVER_UP_TIME
 from mlflow.server.jobs.utils import (
     _enqueue_unfinished_jobs,
     _job_name_to_fn_fullname_map,
@@ -26,7 +27,7 @@ from mlflow.server.jobs.utils import (
 
 if __name__ == "__main__":
     logger = logging.getLogger("mlflow.server.jobs._job_runner")
-    server_up_time = int(time.time() * 1000)
+    server_up_time = int(os.environ[MLFLOW_SERVER_UP_TIME])
     _start_watcher_to_kill_job_runner_if_mlflow_server_dies()
 
     huey_store_path = os.environ[HUEY_STORAGE_PATH_ENV_VAR]

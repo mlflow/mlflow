@@ -122,6 +122,7 @@ const TracesV3LogsImpl = React.memo(
     disableActions = false,
     customDefaultSelectedColumns,
     toolbarAddons,
+    drawerWidth,
   }: {
     /**
      * Array of experiment IDs to search traces for.
@@ -148,6 +149,7 @@ const TracesV3LogsImpl = React.memo(
     disableActions?: boolean;
     customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
     toolbarAddons?: React.ReactNode;
+    drawerWidth?: string | number;
   }) => {
     // When viewing a single experiment, pass its ID to enable experiment-specific
     // features (run name links, logged model links, session links, filter dropdowns).
@@ -481,6 +483,7 @@ const TracesV3LogsImpl = React.memo(
       <ModelTraceExplorerContextProvider
         renderExportTracesToDatasetsModal={renderCustomExportTracesToDatasetsModal}
         DrawerComponent={AssistantAwareDrawer}
+        drawerWidth={drawerWidth}
       >
         <GenAITracesTableProvider
           experimentId={singleExperimentId}

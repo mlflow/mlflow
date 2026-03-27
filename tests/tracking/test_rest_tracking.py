@@ -103,7 +103,6 @@ from mlflow.utils.mlflow_tags import (
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
-from mlflow.utils.providers import _PROVIDER_BACKEND_AVAILABLE
 from mlflow.utils.time import get_current_time_millis
 
 from tests.helper_functions import get_safe_port
@@ -4923,9 +4922,6 @@ def test_secrets_and_endpoints_integration(mlflow_client_with_secrets):
     store.delete_gateway_secret(secret.secret_id)
 
 
-@pytest.mark.skipif(
-    not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM endpoint tests"
-)
 def test_list_providers(mlflow_client_with_secrets):
     import requests
 
@@ -4939,9 +4935,6 @@ def test_list_providers(mlflow_client_with_secrets):
     assert "openai" in data["providers"]
 
 
-@pytest.mark.skipif(
-    not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM endpoint tests"
-)
 def test_list_models(mlflow_client_with_secrets):
     import requests
 
@@ -4967,9 +4960,6 @@ def test_list_models(mlflow_client_with_secrets):
     assert all(m["provider"] == "openai" for m in filtered_data["models"])
 
 
-@pytest.mark.skipif(
-    not _PROVIDER_BACKEND_AVAILABLE, reason="litellm is required for LiteLLM endpoint tests"
-)
 def test_get_provider_config(mlflow_client_with_secrets):
     import requests
 

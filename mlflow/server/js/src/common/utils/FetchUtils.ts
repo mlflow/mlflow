@@ -93,8 +93,7 @@ export const yamlResponseParser = ({ resolve, response }: any) =>
   parseResponse({ resolve, response, parser: yaml.safeLoad });
 
 export const defaultError = ({ reject, response, err }: any) => {
-  // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-  console.error('Fetch failed: ', response || err);
+  // error is propagated via reject below
   if (response) {
     response.text().then((text: any) => reject(new ErrorWrapper(text, response.status)));
   } else if (err) {

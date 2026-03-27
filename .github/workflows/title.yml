@@ -21,7 +21,9 @@ jobs:
     # Trigger conditions:
     # - pull_request: skip fork PRs (no access to secrets)
     # - issue_comment: only maintainers can trigger via `/title` on PRs or issues
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >
+      false &&
       (
         github.event_name == 'pull_request'
         && github.event.pull_request.head.repo.full_name == github.repository

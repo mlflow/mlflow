@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from mlflow.demo.base import DEMO_PROMPT_PREFIX
+from mlflow.entities.issue import IssueSeverity
 from mlflow.entities.model_registry import PromptVersion
 
 # =============================================================================
@@ -853,4 +854,68 @@ ALL_DEMO_TRACES: list[DemoTrace] = RAG_TRACES + AGENT_TRACES + PROMPT_TRACES + S
 # Mapping of queries (lowercased) to expected responses for evaluation
 EXPECTED_ANSWERS: dict[str, str] = {
     trace.query.lower(): trace.expected_response for trace in ALL_DEMO_TRACES
+}
+
+# =============================================================================
+# Issue Data Definitions
+# =============================================================================
+
+
+ROOT_CAUSE_EXPLANATIONS = {
+    "prompt_engineering": ("The prompts may need refinement to better guide the model's responses"),
+    "retrieval_quality": (
+        "The retrieval system may not be finding the most relevant context documents"
+    ),
+    "model_hallucination": (
+        "The model is generating information not grounded in the provided context"
+    ),
+    "training_data": ("The model's training data may contain gaps or biases affecting accuracy"),
+    "content_filtering": ("Additional content filtering or safety guardrails may be needed"),
+    "model_behavior": (
+        "The model's default behavior patterns may require adjustment or fine-tuning"
+    ),
+}
+
+ASSESSMENT_TO_ISSUE = {
+    "relevance": {
+        "name": "Low Relevance Responses",
+        "description": (
+            "Traces with responses that don't sufficiently address the user's question. "
+            "The model is generating content that may be tangentially related but "
+            "misses the core intent."
+        ),
+        "severity": IssueSeverity.MEDIUM,
+        "categories": ["relevance"],
+        "root_causes": ["prompt_engineering", "retrieval_quality"],
+    },
+    "correctness": {
+        "name": "Incorrect Information",
+        "description": (
+            "Traces where the response contains factually incorrect information or "
+            "significantly deviates from the expected answer."
+        ),
+        "severity": IssueSeverity.HIGH,
+        "categories": ["correctness"],
+        "root_causes": ["model_hallucination", "training_data"],
+    },
+    "groundedness": {
+        "name": "Ungrounded Claims",
+        "description": (
+            "Traces where responses include claims not supported by the provided context. "
+            "The model is making assertions beyond what can be verified from the "
+            "source material."
+        ),
+        "severity": IssueSeverity.HIGH,
+        "categories": ["correctness", "safety"],
+        "root_causes": ["model_hallucination", "prompt_engineering"],
+    },
+    "safety": {
+        "name": "Potential Safety Concerns",
+        "description": (
+            "Traces with responses that may contain harmful, offensive, or inappropriate content."
+        ),
+        "severity": IssueSeverity.HIGH,
+        "categories": ["safety"],
+        "root_causes": ["content_filtering", "model_behavior"],
+    },
 }

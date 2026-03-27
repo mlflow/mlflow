@@ -1,9 +1,13 @@
-import importlib.util
+import functools
+import importlib.resources
+import json
+import logging
+from collections.abc import Iterator
 from typing import Any, TypedDict
 
 from typing_extensions import NotRequired
 
-_PROVIDER_BACKEND_AVAILABLE = importlib.util.find_spec("litellm") is not None
+_logger = logging.getLogger(__name__)
 
 _SUPPORTED_MODEL_MODES = ("chat", "completion", "embedding", None)
 
@@ -45,10 +49,97 @@ class ProviderConfigResponse(TypedDict):
     default_mode: str
 
 
-def _get_model_cost():
-    from litellm import model_cost
+class ModelInfo(TypedDict, total=False):
+    # Used by _build_model_dict
+    supports_function_calling: bool
+    supports_vision: bool
+    supports_reasoning: bool
+    supports_prompt_caching: bool
+    supports_response_schema: bool
+    max_input_tokens: int
+    max_output_tokens: int
+    input_cost_per_token: float
+    output_cost_per_token: float
+    deprecation_date: str
+    # Used by cost_per_token
+    cache_read_input_token_cost: float
+    cache_creation_input_token_cost: float
+    # Used by get_all_providers / get_models / _extract_models
+    mode: str
 
-    return model_cost
+
+@functools.lru_cache(maxsize=1)
+def _get_model_cost() -> dict[tuple[str | None, str], ModelInfo]:
+    """Load model cost data keyed by ``(provider, model_name)``.
+
+    Each JSON key is split on the first ``/`` to derive provider and model name.
+    """
+    ref = importlib.resources.files(__package__).joinpath("model_prices_and_context_window.json")
+    try:
+        with importlib.resources.as_file(ref) as path, path.open(encoding="utf-8") as f:
+            raw = json.load(f)
+    except FileNotFoundError:
+        return {}
+    model_info_keys = ModelInfo.__annotations__
+    result: dict[tuple[str | None, str], ModelInfo] = {}
+    for key, info in raw.items():
+        provider = info.get("litellm_provider")
+        model_name = key.split("/", 1)[-1]
+        filtered = {k: v for k, v in info.items() if k in model_info_keys}
+        if provider:
+            result.setdefault((provider, model_name), filtered)
+        result.setdefault((None, model_name), filtered)
+    return result
+
+
+def _lookup_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
+    """Look up model cost info by ``(provider, model)``."""
+    index = _get_model_cost()
+    bare_model = model.split("/", 1)[-1]
+    if info := index.get((custom_llm_provider, bare_model)):
+        return info
+    if custom_llm_provider:
+        return index.get((None, bare_model))
+    return None
+
+
+def cost_per_token(
+    model: str,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    custom_llm_provider: str | None = None,
+    cache_read_input_tokens: int | None = None,
+    cache_creation_input_tokens: int | None = None,
+) -> tuple[float, float] | None:
+    """Calculate cost per token using the bundled model price data.
+
+    Returns:
+        A tuple of (input_cost, output_cost) in USD, or None if the model is not found.
+    """
+    info = _lookup_model_info(model, custom_llm_provider)
+    if info is None:
+        return None
+
+    input_cost_per_token = info.get("input_cost_per_token", 0.0)
+    output_cost_per_token = info.get("output_cost_per_token", 0.0)
+
+    # In this function, prompt_tokens is expected to include cache tokens, so we subtract
+    # cache_read and cache_creation to get the regular (non-cached) portion, then price each
+    # category at its own rate.
+    cache_read = cache_read_input_tokens or 0
+    cache_creation = cache_creation_input_tokens or 0
+    regular_input_tokens = max(prompt_tokens - cache_read - cache_creation, 0)
+
+    input_cost = regular_input_tokens * input_cost_per_token
+    if cache_read > 0:
+        input_cost += cache_read * info.get("cache_read_input_token_cost", input_cost_per_token)
+    if cache_creation > 0:
+        input_cost += cache_creation * info.get(
+            "cache_creation_input_token_cost", input_cost_per_token
+        )
+    output_cost = completion_tokens * output_cost_per_token
+
+    return input_cost, output_cost
 
 
 # Auth modes for providers with multiple authentication options.
@@ -523,29 +614,21 @@ def _normalize_provider(provider: str) -> str:
 
 def get_all_providers() -> list[str]:
     """
-    Get a list of all LiteLLM providers that have chat, completion, or embedding capabilities.
+    Get a list of all providers that have chat, completion, or embedding capabilities.
 
     Only returns providers that have at least one chat, completion, or embedding model,
     excluding providers that only offer image generation, audio, or other non-text services.
 
     Provider variants are consolidated into a single provider (e.g., all vertex_ai-*
     variants are returned as just vertex_ai).
-
-    Returns:
-        List of provider names that support chat/completion/embedding
     """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
-
-    model_cost = _get_model_cost()
     providers = set()
-    for _, info in model_cost.items():
+    for (provider, _), info in _get_model_cost().items():
+        if provider is None:
+            continue
         mode = info.get("mode")
-        if mode in _SUPPORTED_MODEL_MODES:
-            if provider := info.get("litellm_provider"):
-                if provider not in _EXCLUDED_PROVIDERS:
-                    providers.add(_normalize_provider(provider))
-
+        if mode in _SUPPORTED_MODEL_MODES and provider not in _EXCLUDED_PROVIDERS:
+            providers.add(_normalize_provider(provider))
     return list(providers)
 
 
@@ -577,18 +660,25 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
             - output_cost_per_token: Cost per output token (USD)
             - deprecation_date: Date when model will be deprecated (if known)
     """
-    if not _PROVIDER_BACKEND_AVAILABLE:
-        raise ImportError("LiteLLM is not installed. Install it with: pip install 'mlflow[genai]'")
+    entries = (
+        (model_name, provider, info)
+        for (provider, model_name), info in _get_model_cost().items()
+        if provider is not None
+    )
+    return _extract_models(entries, provider_filter=provider)
 
-    model_cost = _get_model_cost()
+
+def _extract_models(
+    entries: Iterator[tuple[str, str | None, dict[str, Any]]],
+    provider_filter: str | None = None,
+) -> list[dict[str, Any]]:
     # Use dict to dedupe models by (provider, model_name) key
-    models_dict: dict[tuple[str, str], dict[str, Any]] = {}
-    for model_name, info in model_cost.items():
-        litellm_provider = info.get("litellm_provider")
-        normalized_provider = _normalize_provider(litellm_provider) if litellm_provider else None
+    models_dict: dict[tuple[str | None, str], dict[str, Any]] = {}
+    for model_name, entry_provider, info in entries:
+        normalized_provider = _normalize_provider(entry_provider) if entry_provider else None
 
         # Filter by provider (matching against the normalized provider name)
-        if provider and normalized_provider != provider:
+        if provider_filter and normalized_provider != provider_filter:
             continue
 
         mode = info.get("mode")
@@ -600,7 +690,7 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         if normalized_provider and model_name.startswith(f"{normalized_provider}/"):
             model_name = model_name.removeprefix(f"{normalized_provider}/")
 
-        # LiteLLM contains fine-tuned models with the prefix "ft:"
+        # Skip fine-tuned model variants (e.g. "ft:gpt-4o-2024-08-06:org::id")
         if model_name.startswith("ft:"):
             continue
 
@@ -609,23 +699,29 @@ def get_models(provider: str | None = None) -> list[dict[str, Any]]:
         if key in models_dict:
             continue
 
-        models_dict[key] = {
-            "model": model_name,
-            "provider": normalized_provider,
-            "mode": mode,
-            "supports_function_calling": info.get("supports_function_calling", False),
-            "supports_vision": info.get("supports_vision", False),
-            "supports_reasoning": info.get("supports_reasoning", False),
-            "supports_prompt_caching": info.get("supports_prompt_caching", False),
-            "supports_response_schema": info.get("supports_response_schema", False),
-            "max_input_tokens": info.get("max_input_tokens"),
-            "max_output_tokens": info.get("max_output_tokens"),
-            "input_cost_per_token": info.get("input_cost_per_token"),
-            "output_cost_per_token": info.get("output_cost_per_token"),
-            "deprecation_date": info.get("deprecation_date"),
-        }
+        models_dict[key] = _build_model_dict(model_name, normalized_provider, mode, info)
 
     return list(models_dict.values())
+
+
+def _build_model_dict(
+    model_name: str, provider: str | None, mode: str | None, info: dict[str, Any]
+) -> dict[str, Any]:
+    return {
+        "model": model_name,
+        "provider": provider,
+        "mode": mode,
+        "supports_function_calling": info.get("supports_function_calling", False),
+        "supports_vision": info.get("supports_vision", False),
+        "supports_reasoning": info.get("supports_reasoning", False),
+        "supports_prompt_caching": info.get("supports_prompt_caching", False),
+        "supports_response_schema": info.get("supports_response_schema", False),
+        "max_input_tokens": info.get("max_input_tokens"),
+        "max_output_tokens": info.get("max_output_tokens"),
+        "input_cost_per_token": info.get("input_cost_per_token"),
+        "output_cost_per_token": info.get("output_cost_per_token"),
+        "deprecation_date": info.get("deprecation_date"),
+    }
 
 
 # Mapping of core providers to their environment variable names for API keys
@@ -634,6 +730,7 @@ _CORE_PROVIDER_ENV_VARS = {
     "azure": "AZURE_OPENAI_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",
         "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",

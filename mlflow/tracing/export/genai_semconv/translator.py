@@ -73,6 +73,13 @@ def translate_span_to_genai(span: ReadableSpan) -> ReadableSpan:
             except Exception:
                 _logger.debug("Failed to convert messages for format %r, skipping", message_format)
 
+    # Fallback: carry mlflow.chat.tools → gen_ai.tool.definitions if converter didn't set it
+    if GenAiSemconvKey.TOOL_DEFINITIONS not in genai_attrs:
+        if chat_tools := get_otel_attribute(span, SpanAttributeKey.CHAT_TOOLS):
+            genai_attrs[GenAiSemconvKey.TOOL_DEFINITIONS] = (
+                chat_tools if isinstance(chat_tools, str) else json.dumps(chat_tools)
+            )
+
     # Merge: Keep non-mlflow.* attrs, add GenAI attrs
     merged_attrs = {k: v for k, v in original_attrs.items() if not k.startswith("mlflow.")}
     merged_attrs.update(genai_attrs)
@@ -130,6 +137,18 @@ def _get_converter(
             from mlflow.openai.genai_semconv_converter import OpenAIChatCompletionConverter
 
             return OpenAIChatCompletionConverter()
+        case "anthropic":
+            from mlflow.anthropic.genai_semconv_converter import AnthropicConverter
+
+            return AnthropicConverter()
+        case "gemini":
+            from mlflow.gemini.genai_semconv_converter import GeminiConverter
+
+            return GeminiConverter()
+        case "bedrock":
+            from mlflow.bedrock.genai_semconv_converter import BedrockConverseConverter
+
+            return BedrockConverseConverter()
         case _:
             from mlflow.openai.genai_semconv_converter import OpenAIChatCompletionConverter
 

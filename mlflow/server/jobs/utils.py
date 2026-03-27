@@ -27,7 +27,7 @@ from mlflow.environment_variables import (
     MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR
+from mlflow.server.constants import HUEY_STORAGE_PATH_ENV_VAR, MLFLOW_SERVER_UP_TIME
 from mlflow.utils.environment import _PythonEnv
 from mlflow.utils.import_hooks import register_post_import_hook
 from mlflow.utils.process import _exec_cmd
@@ -543,13 +543,19 @@ def _start_periodic_tasks_consumer_proc():
 
 
 def _launch_job_runner(env_map, server_proc_pid):
+    server_up_time = str(int(time.time() * 1000))
     return subprocess.Popen(
         [
             sys.executable,
             "-m",
             "mlflow.server.jobs._job_runner",
         ],
-        env={**os.environ, **env_map, "MLFLOW_SERVER_PID": str(server_proc_pid)},
+        env={
+            **os.environ,
+            **env_map,
+            "MLFLOW_SERVER_PID": str(server_proc_pid),
+            MLFLOW_SERVER_UP_TIME: server_up_time,
+        },
     )
 
 
