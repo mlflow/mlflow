@@ -14,13 +14,14 @@ from mlflow.genai.judges.adapters.gateway_adapter import (
     GatewayAdapter,
     InvokeOutput,
     _build_request,
+    _get_gateway_provider,
     _get_max_context_tokens,
+    _get_provider,
     _is_context_window_error,
     _parse_response_message,
-    _remove_oldest_tool_call_pair,
-    _resolve_provider_config,
     _should_proactively_prune,
 )
+from mlflow.genai.judges.utils.tool_calling_utils import _remove_oldest_tool_call_pair
 from mlflow.types.llm import ChatMessage
 
 
@@ -50,20 +51,31 @@ def _chat_response(content, tool_calls=None, usage=None):
     }
 
 
+def _mock_provider(endpoint_url="https://api.openai.com/v1/chat/completions", headers=None):
+    """Create a mock provider matching the interface used by _run_tool_calling_loop."""
+    from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
+
+    provider = mock.MagicMock()
+    provider.get_endpoint_url.return_value = endpoint_url
+    provider.headers = headers or {}
+    provider.adapter_class = OpenAICompatibleAdapter
+    # config.model.name is used by chat_to_model to add "model" to the payload
+    provider.config.model.name = "gpt-4"
+    return provider
+
+
 # --- _build_request tests ---
 
 
 def test_build_request_basic():
     messages = [ChatMessage(role="user", content="hello")]
     payload = _build_request(
-        model="gpt-4",
         messages=messages,
         tools=None,
         response_format=None,
         include_response_format=False,
         inference_params=None,
     )
-    assert payload["model"] == "gpt-4"
     assert payload["messages"] == [{"role": "user", "content": "hello"}]
     assert "tools" not in payload
     assert "response_format" not in payload
@@ -73,7 +85,6 @@ def test_build_request_with_tools():
     messages = [ChatMessage(role="user", content="test")]
     tools = [{"type": "function", "function": {"name": "get_info", "parameters": {}}}]
     payload = _build_request(
-        model="gpt-4",
         messages=messages,
         tools=tools,
         response_format=None,
@@ -87,7 +98,6 @@ def test_build_request_with_tools():
 def test_build_request_with_inference_params():
     messages = [ChatMessage(role="user", content="test")]
     payload = _build_request(
-        model="gpt-4",
         messages=messages,
         tools=None,
         response_format=None,
@@ -103,7 +113,7 @@ def test_build_request_with_inference_params():
 
 def test_parse_response_basic():
     resp = _chat_response("Hello!")
-    msg = _parse_response_message(resp)
+    msg = _parse_response_message(resp, provider=_mock_provider())
     assert isinstance(msg, ChatMessage)
     assert msg.role == "assistant"
     assert msg.content == "Hello!"
@@ -115,15 +125,24 @@ def test_parse_response_with_tool_calls():
         {"id": "call_1", "type": "function", "function": {"name": "test", "arguments": "{}"}}
     ]
     resp = _chat_response(None, tool_calls=tool_calls)
-    msg = _parse_response_message(resp)
+    msg = _parse_response_message(resp, provider=_mock_provider())
     assert msg.content is None
     assert len(msg.tool_calls) == 1
     assert msg.tool_calls[0].id == "call_1"
 
 
 def test_parse_response_empty_choices_raises():
+    # Provide all required fields for the adapter, but with empty choices
+    resp = {
+        "id": "chatcmpl-test",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "test",
+        "choices": [],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
     with pytest.raises(MlflowException, match="Empty choices"):
-        _parse_response_message({"choices": []})
+        _parse_response_message(resp, provider=_mock_provider())
 
 
 # --- _remove_oldest_tool_call_pair tests ---
@@ -173,33 +192,30 @@ def test_non_context_error():
     assert not _is_context_window_error("invalid api key")
 
 
-# --- _resolve_provider_config tests ---
+# --- _get_provider tests ---
 
 
-def test_resolve_openai_provider(monkeypatch):
+def test_get_provider_delegates_to_get_provider_instance(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    api_base, model, headers = _resolve_provider_config("openai", "gpt-4", None, None)
-    assert api_base == "https://api.openai.com/v1"
-    assert model == "gpt-4"
-    assert headers["Authorization"] == "Bearer sk-test"
+    provider = _get_provider("openai", "gpt-4")
+    # Verify it returns a real provider with the expected interface
+    assert provider.adapter_class is not None
+    assert provider.config is not None
+    assert provider.config.model.name == "gpt-4"
+    assert "openai.com" in provider.get_endpoint_url("llm/v1/chat")
+    # Header keys may be lowercase depending on provider implementation
+    header_keys_lower = {k.lower() for k in provider.headers}
+    assert "authorization" in header_keys_lower or "api-key" in header_keys_lower
 
 
-def test_resolve_custom_base_url(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    api_base, model, headers = _resolve_provider_config(
-        "openai", "gpt-4", "https://custom.proxy.com/v1", None
-    )
-    assert api_base == "https://custom.proxy.com/v1"
+def test_get_provider_anthropic(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    provider = _get_provider("anthropic", "claude-3-5-sonnet")
+    assert provider.config.model.name == "claude-3-5-sonnet"
+    assert "anthropic.com" in provider.get_endpoint_url("llm/v1/chat")
 
 
-def test_resolve_extra_headers_preserved(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    _, _, headers = _resolve_provider_config("openai", "gpt-4", None, {"X-Custom": "value"})
-    assert headers["X-Custom"] == "value"
-    assert headers["Authorization"] == "Bearer sk-test"
-
-
-def test_resolve_gateway_provider():
+def test_get_gateway_provider():
     mock_config = mock.MagicMock()
     mock_config.api_base = "http://localhost:5000/gateway/mlflow/v1/"
     mock_config.extra_headers = None
@@ -208,12 +224,99 @@ def test_resolve_gateway_provider():
         "mlflow.genai.utils.gateway_utils.get_gateway_litellm_config",
         return_value=mock_config,
     ):
-        api_base, model, headers = _resolve_provider_config("gateway", "my-endpoint", None, None)
-    assert api_base == "http://localhost:5000/gateway/mlflow/v1/"
-    assert model == "my-endpoint"
+        provider = _get_gateway_provider("my-endpoint")
+
+    assert provider.get_endpoint_url("llm/v1/chat") == "http://localhost:5000/gateway/mlflow/v1"
+    assert provider.config is not None
+    assert provider.config.model.name == "my-endpoint"
+    # Verify chat_to_model works (adds model name to payload)
+    payload = provider.adapter_class.chat_to_model(
+        {"messages": [{"role": "user", "content": "hi"}]}, provider.config
+    )
+    assert payload["model"] == "my-endpoint"
 
 
-# --- invoke_via_gateway_and_handle_tools tests ---
+def test_get_provider_unsupported_raises():
+    with pytest.raises(MlflowException, match="not supported"):
+        _get_provider("cohere", "command-r")
+
+
+# --- _parse_response_message with Anthropic adapter ---
+
+
+def test_parse_anthropic_response_with_tool_calls(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    provider = _get_provider("anthropic", "claude-3-5-sonnet")
+
+    # Anthropic-format response with tool_use content block
+    anthropic_response = {
+        "id": "msg_123",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-3-5-sonnet",
+        "content": [
+            {"type": "text", "text": "Let me check that."},
+            {
+                "type": "tool_use",
+                "id": "toolu_abc",
+                "name": "get_root_span",
+                "input": {"trace_id": "tr-123"},
+            },
+        ],
+        "stop_reason": "tool_use",
+        "usage": {"input_tokens": 50, "output_tokens": 30},
+    }
+
+    msg = _parse_response_message(anthropic_response, provider)
+    assert msg.role == "assistant"
+    assert msg.content == "Let me check that."
+    assert len(msg.tool_calls) == 1
+    assert msg.tool_calls[0].id == "toolu_abc"
+    assert msg.tool_calls[0].function.name == "get_root_span"
+
+
+def test_parse_anthropic_response_text_only(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    provider = _get_provider("anthropic", "claude-3-5-sonnet")
+
+    anthropic_response = {
+        "id": "msg_456",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-3-5-sonnet",
+        "content": [{"type": "text", "text": '{"result": "yes", "rationale": "Looks good"}'}],
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 20},
+    }
+
+    msg = _parse_response_message(anthropic_response, provider)
+    assert msg.role == "assistant"
+    assert msg.tool_calls is None
+    parsed = json.loads(msg.content)
+    assert parsed["result"] == "yes"
+
+
+# --- _remove_oldest_tool_call_pair with dict-style tool_calls ---
+
+
+def test_remove_oldest_tool_call_pair_with_dict_tool_calls():
+    # Simulates litellm.Message-like objects where tool_calls are dicts
+    msg_user = mock.MagicMock(role="user", tool_calls=None, tool_call_id=None)
+    msg_assistant = mock.MagicMock(
+        role="assistant",
+        tool_calls=[{"id": "call_1", "function": {"name": "f"}}],
+        tool_call_id=None,
+    )
+    msg_tool = mock.MagicMock(role="tool", tool_calls=None, tool_call_id="call_1")
+    msg_final = mock.MagicMock(role="assistant", tool_calls=None, tool_call_id=None, content="done")
+
+    result = _remove_oldest_tool_call_pair([msg_user, msg_assistant, msg_tool, msg_final])
+    assert len(result) == 2
+    assert result[0].role == "user"
+    assert result[1].role == "assistant"
+
+
+# --- _run_tool_calling_loop tests ---
 
 
 def test_single_shot_no_tools():
@@ -221,8 +324,8 @@ def test_single_shot_no_tools():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
-            return_value=("https://api.openai.com/v1", "gpt-4", {"Authorization": "Bearer k"}),
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            return_value=_mock_provider(),
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
@@ -259,8 +362,8 @@ def test_tool_calling_loop(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
-            return_value=("https://api.openai.com/v1", "gpt-4", {}),
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            return_value=_mock_provider(),
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
@@ -295,7 +398,6 @@ def test_tool_calling_loop(mock_trace):
 def test_context_window_error_triggers_pruning(mock_trace):
     final_response = _chat_response(json.dumps({"result": "yes", "rationale": "ok"}))
 
-    # First call: tool call. Second call: context window error. Third call: success.
     tool_call_response = _chat_response(
         None,
         tool_calls=[
@@ -321,8 +423,8 @@ def test_context_window_error_triggers_pruning(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
-            return_value=("https://api.openai.com/v1", "gpt-4", {}),
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            return_value=_mock_provider(),
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
@@ -357,8 +459,8 @@ def test_max_iterations_exceeded(mock_trace, monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
-            return_value=("https://api.openai.com/v1", "gpt-4", {}),
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            return_value=_mock_provider(),
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
@@ -399,8 +501,8 @@ def test_response_format_fallback():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
-            return_value=("https://api.openai.com/v1", "gpt-4", {}),
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            return_value=_mock_provider(),
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
@@ -420,32 +522,20 @@ def test_response_format_fallback():
     assert json.loads(output.response) == {"result": "yes"}
 
 
-@pytest.mark.parametrize("provider", ["anthropic", "gemini"])
-def test_non_openai_provider_without_base_url_raises(provider):
-    with pytest.raises(MlflowException, match="does not support the OpenAI-compatible"):
-        GatewayAdapter()._run_tool_calling_loop(
-            provider=provider,
-            model_name="test-model",
-            messages=[ChatMessage(role="user", content="test")],
-            trace=None,
-            num_retries=3,
-        )
-
-
-def test_non_openai_provider_with_base_url_allowed():
+def test_custom_base_url_overrides_provider():
     response_json = _chat_response(json.dumps({"result": "yes"}))
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
-            return_value=("https://custom.proxy.com/v1", "model", {}),
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            return_value=_mock_provider(),
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
             return_value=response_json,
-        ),
+        ) as mock_send,
     ):
-        output = GatewayAdapter()._run_tool_calling_loop(
+        GatewayAdapter()._run_tool_calling_loop(
             provider="anthropic",
             model_name="claude-3",
             messages=[ChatMessage(role="user", content="test")],
@@ -454,7 +544,9 @@ def test_non_openai_provider_with_base_url_allowed():
             base_url="https://custom.proxy.com/v1",
         )
 
-    assert json.loads(output.response) == {"result": "yes"}
+    # Verify the custom base_url was used
+    call_kwargs = mock_send.call_args[1]
+    assert "custom.proxy.com" in call_kwargs["endpoint"]
 
 
 # --- _get_max_context_tokens tests ---
@@ -535,8 +627,8 @@ def test_proactive_pruning_triggers_during_tool_loop(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._resolve_provider_config",
-            return_value=("https://api.openai.com/v1", "gpt-4", {}),
+            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            return_value=_mock_provider(),
         ),
         mock.patch(
             "mlflow.genai.judges.adapters.gateway_adapter._send_chat_request",
@@ -563,6 +655,5 @@ def test_proactive_pruning_triggers_during_tool_loop(mock_trace):
             num_retries=3,
         )
 
-    # Pruning should have been called proactively (not from a 400 error)
     mock_prune.assert_called_once()
     assert json.loads(output.response) == {"result": "yes"}

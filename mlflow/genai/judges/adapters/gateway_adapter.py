@@ -1,14 +1,14 @@
 """Gateway-based judge adapter with tool-calling loop support.
 
-Makes sync HTTP calls to LLM providers via the gateway infrastructure,
-with retry logic, context window management, and proactive pruning.
+Uses the MLflow Gateway provider infrastructure for request/response
+transformation and provider configuration, with retry logic, context
+window management, and proactive pruning.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-import os
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -18,6 +18,7 @@ import requests
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
+    from mlflow.gateway.providers.base import BaseProvider
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
@@ -25,7 +26,6 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointType
-from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.genai.discovery.utils import _pydantic_to_response_format
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
@@ -39,6 +39,7 @@ from mlflow.genai.judges.utils.parsing_utils import (
 from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
+    _remove_oldest_tool_call_pair,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 
@@ -46,11 +47,6 @@ _logger = logging.getLogger(__name__)
 
 # "endpoints" is a special case for MLflow deployment endpoints (e.g. Databricks model serving).
 _NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints"]
-
-# Providers that use OpenAI-compatible chat/completions API format.
-# Anthropic and Gemini use different API formats and must go through
-# their respective provider adapter classes for single-shot calls.
-_OPENAI_COMPATIBLE_PROVIDERS = {"openai", "mistral", "gateway"}
 
 # Global cache to track model capabilities across function calls
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
@@ -83,6 +79,63 @@ class ChatCompletionError(Exception):
 
 
 # ---------------------------------------------------------------------------
+# Provider resolution
+# ---------------------------------------------------------------------------
+
+
+def _get_provider(
+    provider_name: str,
+    model_name: str,
+) -> "BaseProvider":
+    """Get a configured provider instance for the given provider and model.
+
+    For the "gateway" provider (MLflow AI Gateway endpoints), returns a
+    provider-like object with the gateway's URL and headers.
+    For all other providers, delegates to ``_get_provider_instance``.
+    """
+    if provider_name == "gateway":
+        return _get_gateway_provider(model_name)
+
+    from mlflow.metrics.genai.model_utils import _get_provider_instance
+
+    return _get_provider_instance(provider_name, model_name)
+
+
+def _get_gateway_provider(model_name: str) -> "BaseProvider":
+    """Create a minimal provider-like object for MLflow AI Gateway endpoints."""
+    from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+    from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
+    from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+
+    gw_config = get_gateway_litellm_config(model_name)
+    headers = {**(gw_config.extra_headers or {})}
+    headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
+
+    # Lightweight config object — the adapter only needs config.model.name
+    # to add the model field to the request payload.
+    class _ModelRef:
+        def __init__(self, name):
+            self.name = name
+
+    class _Config:
+        def __init__(self, model_name):
+            self.model = _ModelRef(model_name)
+
+    class _GatewayProvider:
+        adapter_class = OpenAICompatibleAdapter
+
+        def __init__(self, api_base, headers, config):
+            self._api_base = api_base
+            self.headers = headers
+            self.config = config
+
+        def get_endpoint_url(self, _endpoint_type):
+            return self._api_base.rstrip("/")
+
+    return _GatewayProvider(gw_config.api_base, headers, _Config(model_name))
+
+
+# ---------------------------------------------------------------------------
 # HTTP / request helpers
 # ---------------------------------------------------------------------------
 
@@ -109,6 +162,9 @@ def _message_to_dict(msg: "ChatMessage") -> dict[str, Any]:
 
 
 def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
+    # Duplicated in litellm_adapter.py — cannot be shared via tool_calling_utils.py
+    # because judges.base imports judges.utils.__init__ which imports both adapters,
+    # creating a circular import chain.
     from mlflow.genai.judges.base import Judge
 
     output_fields = Judge.get_output_fields()
@@ -119,16 +175,14 @@ def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
 
 
 def _build_request(
-    model: str,
     messages: list["ChatMessage"],
     tools: list[dict[str, Any]] | None,
     response_format: type[pydantic.BaseModel] | None,
     include_response_format: bool,
     inference_params: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    """Build the OpenAI-format chat completions request payload."""
+    """Build an OpenAI-format chat completions request payload."""
     payload: dict[str, Any] = {
-        "model": model,
         "messages": [_message_to_dict(msg) for msg in messages],
     }
 
@@ -154,19 +208,17 @@ def _build_request(
 
 
 def _send_chat_request(
-    api_base: str,
+    endpoint: str,
     headers: dict[str, str],
     payload: dict[str, Any],
     num_retries: int,
 ) -> dict[str, Any]:
     """Send a chat completions request with retry logic."""
-    url = f"{api_base.rstrip('/')}/chat/completions"
-
     last_exception = None
     for attempt in range(1 + num_retries):
         try:
             resp = requests.post(
-                url=url,
+                url=endpoint,
                 headers={"Content-Type": "application/json", **headers},
                 json=payload,
                 timeout=_REQUEST_TIMEOUT,
@@ -200,7 +252,7 @@ def _send_chat_request(
                 _sleep_with_backoff(attempt)
                 continue
             raise MlflowException(
-                f"Request to {url} timed out after {_REQUEST_TIMEOUT}s",
+                f"Request to {endpoint} timed out after {_REQUEST_TIMEOUT}s",
                 error_code=INTERNAL_ERROR,
             ) from e
         except requests.exceptions.ConnectionError as e:
@@ -209,7 +261,7 @@ def _send_chat_request(
                 _sleep_with_backoff(attempt)
                 continue
             raise MlflowException(
-                f"Failed to connect to {url}: {e}",
+                f"Failed to connect to {endpoint}: {e}",
                 error_code=INTERNAL_ERROR,
             ) from e
 
@@ -237,62 +289,6 @@ def _is_context_window_error(error_message: str) -> bool:
 def _sleep_with_backoff(attempt: int) -> None:
     delay = min(2**attempt, 30)
     time.sleep(delay)
-
-
-# ---------------------------------------------------------------------------
-# Provider config resolution
-# ---------------------------------------------------------------------------
-
-
-def _resolve_provider_config(
-    provider: str,
-    model_name: str,
-    base_url: str | None,
-    extra_headers: dict[str, str] | None,
-) -> tuple[str, str, dict[str, str]]:
-    """Resolve API base URL, model identifier, and headers for a provider.
-
-    Returns:
-        (api_base, model, headers)
-    """
-    if provider == "gateway":
-        from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-
-        config = get_gateway_litellm_config(model_name)
-        headers = {**(config.extra_headers or {})}
-        headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
-        # For direct HTTP calls, we use the endpoint name as the model.
-        return config.api_base, model_name, headers
-
-    # Direct provider — resolve API key from environment
-    from mlflow.utils.providers import _CORE_PROVIDER_ENV_VARS
-
-    headers = {}
-    if extra_headers:
-        headers.update(extra_headers)
-
-    env_var_config = _CORE_PROVIDER_ENV_VARS.get(provider)
-    if isinstance(env_var_config, str):
-        api_key = os.environ.get(env_var_config)
-        if api_key and "Authorization" not in headers:
-            headers["Authorization"] = f"Bearer {api_key}"
-
-    api_base = base_url or _get_default_api_base(provider)
-
-    return api_base, model_name, headers
-
-
-def _get_default_api_base(provider: str) -> str:
-    defaults = {
-        "openai": "https://api.openai.com/v1",
-        "mistral": "https://api.mistral.ai/v1",
-    }
-    if provider in defaults:
-        return defaults[provider]
-    raise MlflowException(
-        f"No default API base URL for provider '{provider}'. Please provide a base_url parameter.",
-        error_code=INTERNAL_ERROR,
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -335,50 +331,52 @@ def _should_proactively_prune(
 # ---------------------------------------------------------------------------
 
 
-def _parse_response_message(response_data: dict[str, Any]) -> "ChatMessage":
-    """Parse the assistant message from an OpenAI-format chat completions response."""
+def _parse_response_message(
+    response_data: dict[str, Any],
+    provider: "BaseProvider",
+) -> "ChatMessage":
+    """Parse the assistant message from a chat completions response.
+
+    Uses the provider's adapter to transform the raw response into a
+    normalized format, then extracts the assistant message.
+    """
     from mlflow.types.llm import ChatMessage
 
-    choices = response_data.get("choices", [])
-    if not choices:
+    chat_response = provider.adapter_class.model_to_chat(response_data, provider.config)
+    if not chat_response.choices:
         raise MlflowException("Empty choices in chat completions response")
 
-    message_data = choices[0].get("message", {})
+    resp_msg = chat_response.choices[0].message
+    content = resp_msg.content
+    # Flatten list content (e.g. Anthropic text blocks) to string
+    if isinstance(content, list):
+        content = "\n".join(part.text for part in content if hasattr(part, "text") and part.text)
+        content = content or None
 
-    # tool_calls come as plain dicts; ChatMessage.__post_init__ auto-converts to ToolCall
-    tool_calls = message_data.get("tool_calls")
-    content = message_data.get("content")
+    tool_calls_raw = None
+    if resp_msg.tool_calls:
+        # Convert gateway ToolCall objects back to dicts for ChatMessage auto-conversion
+        tool_calls_raw = [
+            {
+                "id": tc.id,
+                "type": getattr(tc, "type", "function"),
+                "function": {
+                    "name": tc.function.name,
+                    "arguments": tc.function.arguments,
+                },
+            }
+            for tc in resp_msg.tool_calls
+        ]
 
     # ChatMessage requires content when tool_calls is absent
-    if content is None and not tool_calls:
+    if content is None and not tool_calls_raw:
         content = ""
 
     return ChatMessage(
-        role=message_data.get("role", "assistant"),
+        role=resp_msg.role,
         content=content,
-        tool_calls=tool_calls,
+        tool_calls=tool_calls_raw,
     )
-
-
-def _remove_oldest_tool_call_pair(
-    messages: list["ChatMessage"],
-) -> list["ChatMessage"] | None:
-    """Remove the oldest assistant message with tool calls and its corresponding tool responses."""
-    result = next(
-        ((i, msg) for i, msg in enumerate(messages) if msg.role == "assistant" and msg.tool_calls),
-        None,
-    )
-    if result is None:
-        return None
-
-    assistant_idx, assistant_msg = result
-    modified = messages[:]
-    modified.pop(assistant_idx)
-
-    tool_call_ids = {tc.id for tc in assistant_msg.tool_calls}
-    return [
-        msg for msg in modified if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
-    ]
 
 
 # ---------------------------------------------------------------------------
@@ -606,29 +604,21 @@ class GatewayAdapter(BaseJudgeAdapter):
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
     ) -> InvokeOutput:
-        """Run the tool-calling loop with sync HTTP calls to the provider."""
+        """Run the tool-calling loop using the provider infrastructure for HTTP calls."""
         from mlflow.genai.judges.tools import list_judge_tools
         from mlflow.types.llm import ChatMessage
 
-        # When a custom base_url is provided, we assume it's an OpenAI-compatible endpoint.
-        # Otherwise, only providers known to use OpenAI format are supported.
-        if provider not in _OPENAI_COMPATIBLE_PROVIDERS and base_url is None:
-            raise MlflowException(
-                f"Provider '{provider}' does not support the OpenAI-compatible chat completions "
-                f"format required for trace-based tool calling. Supported providers for "
-                f"trace-based judging: {', '.join(sorted(_OPENAI_COMPATIBLE_PROVIDERS))}. "
-                f"You can also pass a base_url pointing to an OpenAI-compatible endpoint.",
-                error_code=BAD_REQUEST,
-            )
+        # Resolve provider for config, URL, headers, and request/response transformation
+        provider_instance = _get_provider(provider, model_name)
+        endpoint = base_url or provider_instance.get_endpoint_url("llm/v1/chat")
+        # Append /chat/completions for providers that return a base URL
+        if not endpoint.endswith("/chat/completions"):
+            endpoint = f"{endpoint.rstrip('/')}/chat/completions"
+        headers = dict(provider_instance.headers or {})
+        if extra_headers:
+            headers.update(extra_headers)
 
         judge_messages = [ChatMessage(role=msg.role, content=msg.content) for msg in messages]
-
-        api_base, model, headers = _resolve_provider_config(
-            provider,
-            model_name,
-            base_url,
-            extra_headers,
-        )
 
         tools = []
         if trace is not None:
@@ -636,10 +626,10 @@ class GatewayAdapter(BaseJudgeAdapter):
             tools = [tool.get_definition().to_dict() for tool in judge_tools]
 
         include_response_format = _MODEL_RESPONSE_FORMAT_CAPABILITIES.get(
-            f"{provider}/{model}", True
+            f"{provider}/{model_name}", True
         )
 
-        max_context_tokens = _get_max_context_tokens(provider, model)
+        max_context_tokens = _get_max_context_tokens(provider, model_name)
         max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
         iteration_count = 0
 
@@ -650,7 +640,6 @@ class GatewayAdapter(BaseJudgeAdapter):
 
             try:
                 payload = _build_request(
-                    model=model,
                     messages=judge_messages,
                     tools=tools or None,
                     response_format=response_format,
@@ -658,11 +647,17 @@ class GatewayAdapter(BaseJudgeAdapter):
                     inference_params=inference_params,
                 )
 
+                # Use the provider adapter to transform the request
+                # (e.g. adds model name, converts tool format for Anthropic)
+                chat_payload = provider_instance.adapter_class.chat_to_model(
+                    payload, provider_instance.config
+                )
+
                 try:
                     response_data = _send_chat_request(
-                        api_base=api_base,
+                        endpoint=endpoint,
                         headers=headers,
-                        payload=payload,
+                        payload=chat_payload,
                         num_retries=num_retries,
                     )
                 except ChatCompletionError as e:
@@ -679,10 +674,11 @@ class GatewayAdapter(BaseJudgeAdapter):
 
                     if e.status_code == 400 and include_response_format:
                         _logger.debug(
-                            f"Model {provider}/{model} may not support structured outputs. "
-                            f"Error: {e.message}. Falling back to unstructured response.",
+                            f"Model {provider}/{model_name} may not support structured "
+                            f"outputs. Error: {e.message}. Falling back to unstructured "
+                            f"response.",
                         )
-                        _MODEL_RESPONSE_FORMAT_CAPABILITIES[f"{provider}/{model}"] = False
+                        _MODEL_RESPONSE_FORMAT_CAPABILITIES[f"{provider}/{model_name}"] = False
                         include_response_format = False
                         continue
 
@@ -691,7 +687,8 @@ class GatewayAdapter(BaseJudgeAdapter):
                         error_code=INTERNAL_ERROR,
                     ) from e
 
-                message = _parse_response_message(response_data)
+                # Use the provider adapter to normalize the response
+                message = _parse_response_message(response_data, provider_instance)
 
                 if not message.tool_calls:
                     usage = response_data.get("usage", {})
