@@ -2276,7 +2276,7 @@ def test_tracing_context_propagation_get_and_set_success(
 
 
 def test_update_issue_telemetry(mock_requests, mock_telemetry_client: TelemetryClient, db_uri):
-    store = SqlAlchemyStore(db_uri)
+    store = SqlAlchemyStore(db_uri, "/tmp")
 
     exp_id = store.create_experiment("test-exp")
     issue = store.create_issue(
