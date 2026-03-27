@@ -70,7 +70,7 @@ def validate_ui_assets_pre_build(package: Package) -> None:
 
 
 def validate_ui_assets_post_build(wheel_path: Path, package: Package) -> None:
-    ui_asset_prefix = f"{JS_BUILD_DIR}/"
+    ui_asset_prefix = f"{JS_BUILD_DIR.as_posix()}/"
     with zipfile.ZipFile(wheel_path) as zf:
         has_ui_assets = any(name.startswith(ui_asset_prefix) for name in zf.namelist())
     if package == RELEASE:
