@@ -1,7 +1,10 @@
 import pydantic
 import pytest
 
-from mlflow.genai.utils.message_utils import pydantic_to_response_format, serialize_messages_to_prompts
+from mlflow.genai.utils.message_utils import (
+    pydantic_to_response_format,
+    serialize_messages_to_prompts,
+)
 from mlflow.types.llm import ChatMessage, FunctionToolCallArguments, ToolCall
 
 

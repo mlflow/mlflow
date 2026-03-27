@@ -324,7 +324,6 @@ def _call_llm_via_gateway(
     return response
 
 
-
 @dataclass(frozen=True)
 class _ModelCost:
     input_cost_per_token: float

@@ -70,7 +70,6 @@ def serialize_chat_messages_to_prompts(
     return serialize_messages_to_prompts(messages)
 
 
-
 def pydantic_to_response_format(cls: type[BaseModel]) -> dict[str, Any]:
     return {
         "type": "json_schema",
