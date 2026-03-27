@@ -420,7 +420,8 @@ class CodexProvider(AssistantProvider):
             codex_path,
             "exec",
             "--json",
-            "--full-auto",
+            "-s",
+            "danger-full-access",
             "--ephemeral",
             "--skip-git-repo-check",
         ]

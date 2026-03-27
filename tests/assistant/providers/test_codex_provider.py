@@ -182,7 +182,7 @@ async def test_astream_builds_correct_command():
     assert "/usr/bin/codex" in args
     assert "exec" in args
     assert "--json" in args
-    assert "--full-auto" in args
+    assert "danger-full-access" in args
     assert "--ephemeral" in args
     assert "--skip-git-repo-check" in args
     assert args[-1] == "-"
