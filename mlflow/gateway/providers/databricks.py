@@ -96,16 +96,9 @@ class DatabricksProvider(OpenAICompatibleProvider):
         if self._workspace_client is None:
             from databricks.sdk import WorkspaceClient
 
-            cfg = self._provider_config
-            kwargs = {}
-            if cfg.host:
-                kwargs["host"] = cfg.host
-            if cfg.token:
-                kwargs["token"] = cfg.token
-            if cfg.client_id:
-                kwargs["client_id"] = cfg.client_id
-            if cfg.client_secret:
-                kwargs["client_secret"] = cfg.client_secret
+            # Pass only non-None fields to WorkspaceClient; omitted fields
+            # are resolved by the SDK's default credential chain.
+            kwargs = {k: v for k, v in self._provider_config.model_dump().items() if v is not None}
             self._workspace_client = WorkspaceClient(**kwargs)
         return self._workspace_client
 
