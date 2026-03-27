@@ -40,8 +40,7 @@ jobs:
     timeout-minutes: 120
     permissions:
       contents: read
-    # TODO(#22014): Remove `false &&`
-    if: false && (github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')))
+    if: (github.event_name == 'push' || (github.event_name == 'schedule' && github.repository == 'mlflow/dev') || (github.event_name == 'pull_request' && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')))
     defaults:
       run:
         working-directory: mlflow/R/mlflow
@@ -77,8 +76,6 @@ jobs:
           key: ${{ steps.os-name.outputs.os-name }}-${{ hashFiles('mlflow/R/mlflow/R-version') }}-0-${{ hashFiles('mlflow/R/mlflow/depends.Rds') }}
       - name: Install dependencies
         run: |
-          sudo apt-get update --snapshot=20260310T000000Z
-          sudo apt-get install --snapshot=20260310T000000Z -y libcurl4-openssl-dev libharfbuzz-dev libfribidi-dev libtiff-dev
           Rscript -e 'source(".install-deps.R", echo=TRUE)'
       - name: Set USE_R_DEVEL
         run: |

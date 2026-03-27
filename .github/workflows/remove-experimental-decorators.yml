@@ -15,8 +15,7 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     # Only run on the main repository
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && github.repository == 'mlflow/mlflow'
+    if: github.repository == 'mlflow/mlflow'
     permissions:
       contents: write
       pull-requests: write

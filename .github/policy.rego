@@ -289,6 +289,29 @@ job_has_repo_check(job) if {
 	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
 }
 
+deny_secrets_in_top_level_env contains msg if {
+	some key, value in input.env
+	contains_secret(value)
+	msg := sprintf(
+		"Secret in top-level env.%s. Move secrets to step-level env for least-privilege scope.",
+		[key],
+	)
+}
+
+deny_secrets_in_job_level_env contains msg if {
+	some job_id, job in input.jobs
+	some key, value in job.env
+	contains_secret(value)
+	msg := sprintf(
+		"Secret in job-level env.%s of job '%s'. Move secrets to step-level env for least-privilege scope.",
+		[key, job_id],
+	)
+}
+
+contains_secret(value) if {
+	regex.match(`\$\{\{\s*secrets\.`, value)
+}
+
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps
