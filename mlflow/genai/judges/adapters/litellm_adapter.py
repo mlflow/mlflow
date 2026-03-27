@@ -384,9 +384,6 @@ def _invoke_litellm_and_handle_tools(
                 )
 
             messages.append(message)
-            # Convert litellm tool calls to MLflow ToolCall objects for _process_tool_calls.
-            # This bridge will be removed when litellm_adapter.py is replaced with
-            # gateway-based invocation.
             mlflow_tool_calls = [
                 MlflowToolCall(
                     id=tc.id,

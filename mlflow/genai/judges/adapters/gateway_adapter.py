@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 import pydantic
 
 if TYPE_CHECKING:
+    from mlflow.entities.trace import Trace
     from mlflow.types.llm import ChatMessage
 
 from mlflow.entities.assessment import Feedback
@@ -164,6 +165,38 @@ class GatewayAdapter(BaseJudgeAdapter):
         )
 
         return AdapterInvocationOutput(feedback=feedback)
+
+    def invoke_with_structured_output(
+        self,
+        model_uri: str,
+        messages: list["ChatMessage"],
+        output_schema: type[pydantic.BaseModel],
+        trace: "Trace | None" = None,
+        num_retries: int = 10,
+        inference_params: dict[str, Any] | None = None,
+    ) -> pydantic.BaseModel:
+        """Invoke the model and parse the response into a Pydantic schema."""
+        from mlflow.genai.judges.adapters.gateway_invocation import (
+            invoke_via_gateway_and_handle_tools,
+        )
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+        _, model_name = _parse_model_uri(model_uri)
+        provider, _ = _parse_model_uri(model_uri)
+
+        output = invoke_via_gateway_and_handle_tools(
+            provider=provider,
+            model_name=model_name,
+            messages=messages,
+            trace=trace,
+            num_retries=num_retries,
+            response_format=output_schema,
+            inference_params=inference_params,
+        )
+
+        cleaned_response = _strip_markdown_code_blocks(output.response)
+        response_dict = json.loads(cleaned_response)
+        return output_schema(**response_dict)
 
     def _invoke_with_tools(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         """Invoke the judge model with trace-based tool calling support."""

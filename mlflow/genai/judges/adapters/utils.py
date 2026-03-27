@@ -12,7 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     DatabricksManagedJudgeAdapter,
 )
-from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
+from mlflow.genai.judges.adapters.gateway_adapter import _NATIVE_PROVIDERS, GatewayAdapter
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 
@@ -45,6 +45,6 @@ def get_adapter(
 
     raise MlflowException(
         f"No suitable adapter found for model_uri='{model_uri}'. "
-        f"Supported providers: openai, anthropic, gemini, mistral, endpoints.",
+        f"Supported providers: {', '.join(sorted(_NATIVE_PROVIDERS))}.",
         error_code=BAD_REQUEST,
     )
