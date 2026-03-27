@@ -227,35 +227,38 @@ def get_chat_completions_with_structured_output(
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
         return _invoke_databricks_structured_output(messages, output_schema, trace)
 
-    from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
-
-    # Use GatewayAdapter for natively supported providers, fall back to litellm
-    if GatewayAdapter.is_applicable(model_uri=model_uri, prompt=messages):
-        return GatewayAdapter().invoke_with_structured_output(
-            model_uri=model_uri,
-            messages=messages,
-            output_schema=output_schema,
-            trace=trace,
-            num_retries=num_retries,
-            inference_params=inference_params,
-        )
-
+    # TODO: When adapter order is changed to Gateway-first, update this to match.
+    # Currently uses litellm-first to match get_adapter() priority, falling back
+    # to GatewayAdapter when litellm is unavailable.
     from mlflow.genai.judges.adapters.litellm_adapter import (
         _invoke_litellm_and_handle_tools,
+        _is_litellm_available,
     )
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     model_provider, model_name = _parse_model_uri(model_uri)
-    output = _invoke_litellm_and_handle_tools(
-        provider=model_provider,
-        model_name=model_name,
+
+    if _is_litellm_available():
+        output = _invoke_litellm_and_handle_tools(
+            provider=model_provider,
+            model_name=model_name,
+            messages=messages,
+            trace=trace,
+            num_retries=num_retries,
+            response_format=output_schema,
+            inference_params=inference_params,
+        )
+        cleaned_response = _strip_markdown_code_blocks(output.response)
+        response_dict = json.loads(cleaned_response)
+        return output_schema(**response_dict)
+
+    from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
+
+    return GatewayAdapter().invoke_with_structured_output(
+        model_uri=model_uri,
         messages=messages,
+        output_schema=output_schema,
         trace=trace,
         num_retries=num_retries,
-        response_format=output_schema,
         inference_params=inference_params,
     )
-
-    cleaned_response = _strip_markdown_code_blocks(output.response)
-    response_dict = json.loads(cleaned_response)
-    return output_schema(**response_dict)
