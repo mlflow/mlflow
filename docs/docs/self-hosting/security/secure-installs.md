@@ -1,6 +1,6 @@
 # Secure Installs
 
-Supply chain attacks are a [known risk in the Python ecosystem](https://pip.pypa.io/en/stable/topics/secure-installs/) that can affect any package, not just MLflow. This page describes general best practices for securely installing Python packages, applied to MLflow and its dependencies.
+Supply chain attacks are a [known risk in the Python ecosystem](https://pip.pypa.io/en/stable/topics/secure-installs/) that can affect any package. This page describes general best practices for securely installing Python packages, applied to MLflow and its dependencies.
 
 ## Hash-Checking Mode
 
