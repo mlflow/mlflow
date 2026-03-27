@@ -281,6 +281,12 @@ class _OpenAICompatibleConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
+class VertexAIConfig(ConfigModel):
+    vertex_project: str
+    vertex_location: str | None = None
+    vertex_credentials: str | None = None
+
+
 class LiteLLMConfig(ConfigModel):
     litellm_provider: str | None = None
     litellm_auth_config: dict[str, Any] | None = None

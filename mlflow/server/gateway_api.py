@@ -28,6 +28,7 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
     Provider,
+    VertexAIConfig,
     _AuthConfigKey,
     _OpenAICompatibleConfig,
 )
@@ -268,8 +269,6 @@ def _build_endpoint_config(
         provider_config = DatabricksConfig(**config_kwargs)
         model_config.provider = Provider.DATABRICKS
     elif model_config.provider == Provider.VERTEX_AI:
-        from mlflow.gateway.providers.vertex_ai import VertexAIConfig
-
         auth_config = model_config.auth_config or {}
         provider_config = VertexAIConfig(
             vertex_project=auth_config.get("vertex_project"),

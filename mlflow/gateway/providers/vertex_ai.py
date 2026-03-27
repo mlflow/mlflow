@@ -11,17 +11,10 @@ and auth mechanism.
 import json
 from pathlib import Path
 
-from mlflow.gateway.base_models import ConfigModel
-from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.config import EndpointConfig, VertexAIConfig
 from mlflow.gateway.providers.gemini import GeminiProvider
 
 _DEFAULT_SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
-
-
-class VertexAIConfig(ConfigModel):
-    vertex_project: str
-    vertex_location: str | None = None
-    vertex_credentials: str | None = None
 
 
 class VertexAIProvider(GeminiProvider):

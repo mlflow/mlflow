@@ -6,7 +6,8 @@ from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
 from mlflow.gateway.config import EndpointConfig
-from mlflow.gateway.providers.vertex_ai import VertexAIConfig, VertexAIProvider
+from mlflow.gateway.config import VertexAIConfig
+from mlflow.gateway.providers.vertex_ai import VertexAIProvider
 from mlflow.gateway.schemas import chat
 
 from tests.gateway.tools import MockAsyncResponse, mock_http_client
