@@ -65,7 +65,7 @@ jobs:
       - name: Install dependencies
         working-directory: .
         run: |
-          uv sync --group docs --extra gateway
+          uv sync --group docs --group torch --extra gateway
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
@@ -133,7 +133,7 @@ jobs:
       - name: Install dependencies
         working-directory: .
         run: |
-          uv sync --group docs --extra gateway
+          uv sync --group docs --group torch --extra gateway
       - name: Extract examples
         run: |
           uv run source/testcode_block.py
