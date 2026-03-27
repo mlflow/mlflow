@@ -5,7 +5,13 @@ import time
 from enum import Enum
 from typing import Any, AsyncIterable
 
-from mlflow.gateway.config import AmazonBedrockConfig, AWSIdAndKey, AWSRole, EndpointConfig
+from mlflow.gateway.config import (
+    AWSBearerToken,
+    AWSIdAndKey,
+    AWSRole,
+    AmazonBedrockConfig,
+    EndpointConfig,
+)
 from mlflow.gateway.constants import (
     MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
 )
@@ -13,7 +19,7 @@ from mlflow.gateway.exceptions import AIGatewayConfigException, AIGatewayExcepti
 from mlflow.gateway.providers.anthropic import AnthropicAdapter
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.cohere import CohereAdapter
-from mlflow.gateway.providers.utils import rename_payload_keys
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
@@ -184,6 +190,10 @@ class AmazonBedrockProvider(BaseProvider):
         self.bedrock_config: AmazonBedrockConfig = config.model.config
         self._client = None
         self._client_created = 0
+
+    @property
+    def _is_token_auth(self) -> bool:
+        return isinstance(self.bedrock_config.aws_config, AWSBearerToken)
 
     def _client_expired(self):
         if not isinstance(self.bedrock_config.aws_config, AWSRole):
@@ -408,7 +418,15 @@ class AmazonBedrockProvider(BaseProvider):
 
         usage = response.get("usage", {})
         stop_reason = response.get("stopReason", "end_turn")
-        finish_reason = "tool_calls" if stop_reason == "tool_use" else "stop"
+        match stop_reason:
+            case "tool_use":
+                finish_reason = "tool_calls"
+            case "max_tokens":
+                finish_reason = "length"
+            case "content_filtered":
+                finish_reason = "content_filter"
+            case _:
+                finish_reason = "stop"
 
         return chat.ResponsePayload(
             created=int(time.time()),
@@ -434,7 +452,36 @@ class AmazonBedrockProvider(BaseProvider):
 
     # ---- API methods ----
 
+    def _get_token_auth_base_url(self) -> str:
+        region = self.bedrock_config.aws_config.aws_region or "us-east-1"
+        return f"https://bedrock-runtime.{region}.amazonaws.com"
+
+    def _get_token_auth_headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self.bedrock_config.aws_config.aws_bearer_token}"}
+
+    async def _chat_with_token(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        """Chat using bearer token auth via direct HTTP to Bedrock Converse API."""
+        from fastapi.encoders import jsonable_encoder
+
+        payload_dict = jsonable_encoder(payload, exclude_none=True)
+        self.check_for_model_field(payload_dict)
+
+        messages = payload_dict.pop("messages", [])
+        kwargs = self._build_converse_kwargs(messages, payload_dict)
+        model_id = kwargs.pop("modelId")
+
+        resp = await send_request(
+            headers=self._get_token_auth_headers(),
+            base_url=self._get_token_auth_base_url(),
+            path=f"model/{model_id}/converse",
+            payload=kwargs,
+        )
+        return self._converse_to_chat_response(resp)
+
     async def _chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
+        if self._is_token_auth:
+            return await self._chat_with_token(payload)
+
         from fastapi.encoders import jsonable_encoder
 
         payload_dict = jsonable_encoder(payload, exclude_none=True)
@@ -466,10 +513,12 @@ class AmazonBedrockProvider(BaseProvider):
         _SENTINEL = object()
 
         def _consume_stream():
-            response = self.get_bedrock_client().converse_stream(**kwargs)
-            for event in response.get("stream", []):
-                event_queue.put(event)
-            event_queue.put(_SENTINEL)
+            try:
+                response = self.get_bedrock_client().converse_stream(**kwargs)
+                for event in response.get("stream", []):
+                    event_queue.put(event)
+            finally:
+                event_queue.put(_SENTINEL)
 
         loop = asyncio.get_event_loop()
         loop.run_in_executor(None, _consume_stream)
@@ -478,7 +527,38 @@ class AmazonBedrockProvider(BaseProvider):
             event = await loop.run_in_executor(None, event_queue.get)
             if event is _SENTINEL:
                 break
-            if "contentBlockDelta" in event:
+            if "contentBlockStart" in event:
+                start = event["contentBlockStart"].get("start", {})
+                if "toolUse" in start:
+                    tool_use = start["toolUse"]
+                    yield chat.StreamResponsePayload(
+                        created=int(time.time()),
+                        model=self.config.model.name,
+                        choices=[
+                            chat.StreamChoice(
+                                index=0,
+                                finish_reason=None,
+                                delta=chat.StreamDelta(
+                                    role=None,
+                                    content=None,
+                                    tool_calls=[
+                                        chat.ToolCallDelta(
+                                            index=event["contentBlockStart"].get(
+                                                "contentBlockIndex", 0
+                                            ),
+                                            id=tool_use.get("toolUseId"),
+                                            type="function",
+                                            function=chat.Function(
+                                                name=tool_use.get("name"),
+                                                arguments="",
+                                            ),
+                                        )
+                                    ],
+                                ),
+                            )
+                        ],
+                    )
+            elif "contentBlockDelta" in event:
                 delta = event["contentBlockDelta"].get("delta", {})
                 if text := delta.get("text"):
                     yield chat.StreamResponsePayload(
@@ -495,9 +575,42 @@ class AmazonBedrockProvider(BaseProvider):
                             )
                         ],
                     )
+                elif "toolUse" in delta:
+                    yield chat.StreamResponsePayload(
+                        created=int(time.time()),
+                        model=self.config.model.name,
+                        choices=[
+                            chat.StreamChoice(
+                                index=0,
+                                finish_reason=None,
+                                delta=chat.StreamDelta(
+                                    role=None,
+                                    content=None,
+                                    tool_calls=[
+                                        chat.ToolCallDelta(
+                                            index=event["contentBlockDelta"].get(
+                                                "contentBlockIndex", 0
+                                            ),
+                                            function=chat.Function(
+                                                arguments=delta["toolUse"].get("input", ""),
+                                            ),
+                                        )
+                                    ],
+                                ),
+                            )
+                        ],
+                    )
             elif "messageStop" in event:
                 stop_reason = event["messageStop"].get("stopReason", "end_turn")
-                finish_reason = "tool_calls" if stop_reason == "tool_use" else "stop"
+                match stop_reason:
+                    case "tool_use":
+                        finish_reason = "tool_calls"
+                    case "max_tokens":
+                        finish_reason = "length"
+                    case "content_filtered":
+                        finish_reason = "content_filter"
+                    case _:
+                        finish_reason = "stop"
                 yield chat.StreamResponsePayload(
                     created=int(time.time()),
                     model=self.config.model.name,

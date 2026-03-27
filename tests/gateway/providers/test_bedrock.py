@@ -12,7 +12,7 @@ from mlflow.gateway.config import (
     EndpointConfig,
 )
 from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
-from mlflow.gateway.schemas import completions
+from mlflow.gateway.schemas import chat, completions, embeddings
 
 from tests.gateway.providers.test_anthropic import (
     completions_response as anthropic_completions_response,
@@ -438,8 +438,7 @@ def _make_converse_provider():
             "config": {"aws_config": {"aws_region": "us-east-1"}},
         },
     }
-    provider = AmazonBedrockProvider(EndpointConfig(**config))
-    return provider
+    return AmazonBedrockProvider(EndpointConfig(**config))
 
 
 def _converse_response():
@@ -477,7 +476,6 @@ def _embeddings_invoke_response():
 
 @pytest.mark.asyncio
 async def test_bedrock_converse_chat():
-    from mlflow.gateway.schemas import chat
 
     provider = _make_converse_provider()
     mock_client = mock.Mock()
@@ -499,7 +497,6 @@ async def test_bedrock_converse_chat():
 
 @pytest.mark.asyncio
 async def test_bedrock_converse_chat_stream():
-    from mlflow.gateway.schemas import chat
 
     provider = _make_converse_provider()
     mock_client = mock.Mock()
@@ -509,9 +506,7 @@ async def test_bedrock_converse_chat_stream():
         payload = chat.RequestPayload(
             messages=[{"role": "user", "content": "Hello"}],
         )
-        chunks = []
-        async for chunk in provider.chat_stream(payload):
-            chunks.append(jsonable_encoder(chunk))
+        chunks = [jsonable_encoder(chunk) async for chunk in provider.chat_stream(payload)]
 
     # Should have: 2 text deltas + 1 stop + 1 usage
     assert len(chunks) == 4
@@ -524,7 +519,6 @@ async def test_bedrock_converse_chat_stream():
 
 @pytest.mark.asyncio
 async def test_bedrock_embeddings():
-    from mlflow.gateway.schemas import embeddings
 
     config = {
         "name": "embeddings",
@@ -551,7 +545,6 @@ async def test_bedrock_embeddings():
 
 @pytest.mark.asyncio
 async def test_bedrock_converse_with_system_message():
-    from mlflow.gateway.schemas import chat
 
     provider = _make_converse_provider()
     mock_client = mock.Mock()
