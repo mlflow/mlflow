@@ -25,6 +25,7 @@ from mlflow.genai.judges.adapters.litellm_adapter import (
     _is_litellm_available,
 )
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
 
@@ -295,7 +296,7 @@ def _call_llm_via_gateway(
 
     payload = {"messages": messages, "max_completion_tokens": LLM_MAX_TOKENS}
     if response_format is not None:
-        payload["response_format"] = _pydantic_to_response_format(response_format)
+        payload["response_format"] = pydantic_to_response_format(response_format)
     elif json_mode:
         payload["response_format"] = {"type": "json_object"}
 
@@ -322,15 +323,6 @@ def _call_llm_via_gateway(
         token_counter.track(response)
     return response
 
-
-def _pydantic_to_response_format(cls: type[pydantic.BaseModel]) -> dict[str, Any]:
-    return {
-        "type": "json_schema",
-        "json_schema": {
-            "name": cls.__name__,
-            "schema": cls.model_json_schema(),
-        },
-    }
 
 
 @dataclass(frozen=True)

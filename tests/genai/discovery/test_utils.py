@@ -16,7 +16,6 @@ from mlflow.genai.discovery.utils import (
     _call_llm,
     _lookup_model_cost,
     _ModelCost,
-    _pydantic_to_response_format,
     _TokenCounter,
     build_summary,
     collect_affected_trace_ids,
@@ -28,6 +27,7 @@ from mlflow.genai.discovery.utils import (
     log_discovery_artifacts,
 )
 from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig
+from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.genai.utils.trace_utils import _extract_trace_timing_info
 from mlflow.types.chat import ChatChoice, ChatCompletionResponse, ChatMessage, ChatUsage
 
@@ -353,20 +353,6 @@ def test_call_llm_uses_litellm_when_available():
 
     mock_avail.assert_called_once()
     mock_ll.assert_called_once()
-
-
-def test_pydantic_to_response_format():
-    class MySchema(pydantic.BaseModel):
-        name: str
-        score: int
-
-    result = _pydantic_to_response_format(MySchema)
-
-    assert result["type"] == "json_schema"
-    assert result["json_schema"]["name"] == "MySchema"
-    schema = result["json_schema"]["schema"]
-    assert "name" in schema["properties"]
-    assert "score" in schema["properties"]
 
 
 def test_lookup_model_cost_returns_calculated_cost():

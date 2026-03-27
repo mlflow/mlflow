@@ -12,7 +12,7 @@ from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointType
-from mlflow.genai.discovery.utils import _pydantic_to_response_format
+from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
     AdapterInvocationOutput,
@@ -83,7 +83,7 @@ def _invoke_via_gateway(
         )
 
     _, model_name = _parse_model_uri(model_uri)
-    rf_dict = _pydantic_to_response_format(response_format) if response_format else None
+    rf_dict = pydantic_to_response_format(response_format) if response_format else None
     return _call_llm_provider_api(
         provider,
         model_name,
