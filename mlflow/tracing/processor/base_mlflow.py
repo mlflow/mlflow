@@ -83,11 +83,9 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         # Always call the full MRO __init__ chain (OtelMetricsMixin ->
         # SimpleSpanProcessor) so _trace_manager and other state is set up.
         super().__init__(span_exporter)
-        self._use_batch_processor = use_batch_processor
-        if self._use_batch_processor:
-            self._batch_delegate = _create_batch_span_processor(span_exporter)
-        else:
-            self._batch_delegate = None
+        self._batch_delegate = (
+            _create_batch_span_processor(span_exporter) if use_batch_processor else None
+        )
         self.span_exporter = span_exporter
         self._export_metrics = export_metrics
         self._env_metadata = resolve_env_metadata()
@@ -155,19 +153,19 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
 
         # During evaluation, bypass batch mode to ensure traces are available
         # synchronously for the evaluation harness.
-        if self._use_batch_processor and not maybe_get_request_id(is_evaluate=True):
+        if self._batch_delegate is not None and not maybe_get_request_id(is_evaluate=True):
             self._batch_delegate.on_end(span)
         else:
             super().on_end(span)
 
     def shutdown(self) -> None:
-        if self._use_batch_processor:
+        if self._batch_delegate is not None:
             self._batch_delegate.shutdown()
         else:
             super().shutdown()
 
     def force_flush(self, timeout_millis: float = 30000) -> bool:
-        if self._use_batch_processor:
+        if self._batch_delegate is not None:
             return self._batch_delegate.force_flush(timeout_millis)
         return super().force_flush(timeout_millis)
 

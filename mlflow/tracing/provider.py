@@ -460,27 +460,35 @@ def _get_tracer(module_name: str) -> trace.Tracer:
 def _get_span_processor():
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
+
+    When multiple span processors are registered (e.g., OTLP + MLflow in dual-export mode),
+    this prefers the MLflow span processor instead of assuming it is always at index 0.
     """
     from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
 
-    if (tracer_provider := provider.get()) and (
-        processors := tracer_provider._active_span_processor._span_processors
-    ):
-        return next(
-            (p for p in processors if isinstance(p, BaseMlflowSpanProcessor)),
-            processors[0],
-        )
-    return None
+    tracer_provider = provider.get()
+    if not isinstance(tracer_provider, TracerProvider):
+        return None
+
+    if active_span_processor := getattr(tracer_provider, "_active_span_processor", None):
+        processors = getattr(active_span_processor, "_span_processors", None)
+    else:
+        processors = None
+    if not processors:
+        return None
+
+    return next(
+        (p for p in processors if isinstance(p, BaseMlflowSpanProcessor)),
+        processors[0],
+    )
 
 
 def _get_trace_exporter():
     """
-    Get the exporter instance from the first span processor in the current tracer provider.
+    Get the exporter instance from the MLflow span processor in the current tracer provider.
     """
-    if (tracer_provider := provider.get()) and (
-        processors := tracer_provider._active_span_processor._span_processors
-    ):
-        return processors[0].span_exporter
+    if processor := _get_span_processor():
+        return processor.span_exporter
     return None
 
 
