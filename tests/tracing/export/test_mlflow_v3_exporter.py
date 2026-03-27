@@ -540,14 +540,18 @@ def test_should_export_spans_incrementally_flag(monkeypatch, incremental_export_
         exporter.export([otel_span])
 
         mock_start_trace.assert_called_once()
-        # This test's trace_info does not set SPANS_LOCATION=TRACKING_STORE,
-        # so spans are expected to be uploaded to artifacts via _upload_trace_data
-        mock_upload_trace_data.assert_called_once()
-
         # log_spans is called in both cases:
         # - incremental ON: called during export() for each span as it completes
         # - incremental OFF: called during _log_trace() as a batch write at trace completion
         mock_log_spans.assert_called_once()
+
+        if incremental_export_enabled:
+            # Incremental path: start_trace returns trace_info with SPANS_LOCATION
+            # tag preserved from log_spans, so artifact upload is skipped
+            mock_upload_trace_data.assert_called_once()
+        else:
+            # Batch path: spans written to DB, artifact upload explicitly skipped
+            mock_upload_trace_data.assert_not_called()
 
 
 def test_remote_trace_exported_when_incremental_export_disabled(monkeypatch):
@@ -622,8 +626,8 @@ def test_batch_write_spans_at_trace_completion(monkeypatch):
         mock_log_spans.assert_called_once()
         logged_spans = mock_log_spans.call_args.args[1]
         assert len(logged_spans) == 2
-        # Artifact upload still happens (mock doesn't set SPANS_LOCATION tag)
-        mock_upload_trace_data.assert_called_once()
+        # Artifact upload is skipped when spans are batch-written to DB
+        mock_upload_trace_data.assert_not_called()
 
 
 def test_batch_write_skipped_when_store_unsupported(monkeypatch):

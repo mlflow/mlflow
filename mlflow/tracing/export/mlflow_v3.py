@@ -234,14 +234,17 @@ class MlflowV3SpanExporter(SpanExporter):
                 # When incremental export is disabled, batch-write all spans
                 # to the DB at trace completion time to avoid per-span DB
                 # round-trips while still populating the spans table.
-                if (
+                spans_written_to_db = (
                     not self._should_export_spans_incrementally
                     and self._store_supports_log_spans
                     and trace.data.spans
-                ):
+                )
+                if spans_written_to_db:
                     self._log_spans(trace.info.experiment_id, trace.data.spans)
 
-                if self._should_log_spans_to_artifacts(returned_trace_info):
+                if not spans_written_to_db and self._should_log_spans_to_artifacts(
+                    returned_trace_info
+                ):
                     self._client._upload_trace_data(returned_trace_info, trace.data)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
