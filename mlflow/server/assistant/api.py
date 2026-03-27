@@ -186,7 +186,9 @@ async def stream_response(request: Request, session_id: str) -> StreamingRespons
         if provider is None:
             from mlflow.assistant.types import Event
 
-            yield Event.from_error("No assistant provider is configured or available.").to_sse_event()
+            yield Event.from_error(
+                "No assistant provider is configured or available."
+            ).to_sse_event()
             return
         async for event in provider.astream(
             prompt=pending_message.content,
@@ -364,7 +366,10 @@ async def install_skills_endpoint(request: SkillsInstallRequest) -> SkillsInstal
 
     provider = _get_selected_provider()
     if provider is None:
-        raise HTTPException(status_code=412, detail="No assistant provider is configured or available.")
+        raise HTTPException(
+            status_code=412,
+            detail="No assistant provider is configured or available.",
+        )
 
     match request.type:
         case "global":
@@ -393,7 +398,9 @@ async def list_ollama_models(base_url: str | None = None) -> dict[str, Any]:
     except ImportError:
         raise HTTPException(
             status_code=412,
-            detail="The 'ollama' Python package is not installed. Install it with: pip install ollama",
+            detail=(
+                "The 'ollama' Python package is not installed. Install it with: pip install ollama"
+            ),
         )
 
     host = base_url or "http://localhost:11434"
