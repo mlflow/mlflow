@@ -16,8 +16,6 @@ from mlflow.genai.judges.constants import (
     _DATABRICKS_AGENTIC_JUDGE_MODEL,
     _DATABRICKS_DEFAULT_JUDGE_MODEL,
 )
-from mlflow.genai.utils.message_utils import pydantic_to_response_format
-from mlflow.metrics.genai.model_utils import call_deployments_api, _call_llm_provider_api
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.uri import is_databricks_uri
 
@@ -108,9 +106,11 @@ def _invoke_llm(
     inference_params: dict[str, Any] | None,
     response_format: type | None,
 ) -> str:
+    from mlflow.genai.utils.message_utils import pydantic_to_response_format
+    from mlflow.metrics.genai.model_utils import _call_llm_provider_api, call_deployments_api
+
     response_format_dict = pydantic_to_response_format(response_format) if response_format else None
     if provider in ("gateway", "endpoints"):
-
         payload = {"messages": messages}
         if inference_params:
             payload.update(inference_params)
@@ -126,7 +126,6 @@ def _invoke_llm(
             raise MlflowException("Empty response from deployment endpoint")
         return result
 
-    # Import here to avoid loading gateway module at the top level
     from mlflow.gateway.provider_registry import is_supported_provider
 
     if is_supported_provider(provider):
