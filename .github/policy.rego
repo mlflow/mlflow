@@ -312,6 +312,25 @@ contains_secret(value) if {
 	regex.match(`\$\{\{\s*secrets\.`, value)
 }
 
+deny_checkout_missing_persist_credentials contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/checkout@")
+	not has_explicit_persist_credentials(step)
+	msg := sprintf(
+		"actions/checkout in job '%s' must set 'persist-credentials' explicitly (false for read-only, true if pushing).",
+		[job_id],
+	)
+}
+
+has_explicit_persist_credentials(step) if {
+	step["with"]["persist-credentials"] == false
+}
+
+has_explicit_persist_credentials(step) if {
+	step["with"]["persist-credentials"] == true
+}
+
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps
