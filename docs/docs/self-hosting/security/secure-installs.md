@@ -18,13 +18,13 @@ pip-compile --generate-hashes --output-file=requirements.txt requirements.in
 Where `requirements.in` pins your direct dependencies:
 
 ```text
-mlflow==2.21.0
+mlflow==3.10.1
 ```
 
 The generated `requirements.txt` will include hashes for every package:
 
 ```text
-mlflow==2.21.0 \
+mlflow==3.10.1 \
     --hash=sha256:abc123... \
     --hash=sha256:def456...
 numpy==2.2.4 \
