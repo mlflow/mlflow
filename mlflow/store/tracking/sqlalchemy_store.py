@@ -155,6 +155,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceMetrics,
     SqlTraceTag,
+    SqlTraceView,
 )
 from mlflow.store.tracking.gateway.sqlalchemy_mixin import SqlAlchemyGatewayStoreMixin
 from mlflow.store.tracking.utils.sql_trace_metrics_utils import (
@@ -4205,6 +4206,123 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
         return sql_assessment
+
+    def create_trace_view(self, view):
+        from mlflow.entities.trace_view import TraceView
+
+        with self.ManagedSessionMaker() as session:
+            view.validate_scope()
+            if view.trace_id is not None:
+                self._validate_trace_accessible(session, view.trace_id)
+            sql_view = SqlTraceView.from_mlflow_entity(view)
+            session.add(sql_view)
+            session.flush()
+            return sql_view.to_mlflow_entity()
+
+    def get_trace_view(self, trace_id, view_id):
+        with self.ManagedSessionMaker() as session:
+            sql_view = (
+                session.query(SqlTraceView)
+                .filter(SqlTraceView.view_id == view_id)
+                .one_or_none()
+            )
+            if sql_view is None:
+                raise MlflowException(
+                    f"Trace view with ID '{view_id}' not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            return sql_view.to_mlflow_entity()
+
+    def list_trace_views(self, trace_id=None, experiment_id=None):
+        with self.ManagedSessionMaker() as session:
+            if trace_id is not None:
+                trace_info = (
+                    session.query(SqlTraceInfo)
+                    .filter(SqlTraceInfo.request_id == trace_id)
+                    .first()
+                )
+                if trace_info is not None:
+                    exp_id = trace_info.experiment_id
+                    views = (
+                        session.query(SqlTraceView)
+                        .filter(
+                            or_(
+                                SqlTraceView.trace_id == trace_id,
+                                SqlTraceView.experiment_id == exp_id,
+                            )
+                        )
+                        .order_by(SqlTraceView.created_timestamp.desc())
+                        .all()
+                    )
+                else:
+                    views = (
+                        session.query(SqlTraceView)
+                        .filter(SqlTraceView.trace_id == trace_id)
+                        .order_by(SqlTraceView.created_timestamp.desc())
+                        .all()
+                    )
+            elif experiment_id is not None:
+                views = (
+                    session.query(SqlTraceView)
+                    .filter(SqlTraceView.experiment_id == int(experiment_id))
+                    .order_by(SqlTraceView.created_timestamp.desc())
+                    .all()
+                )
+            else:
+                views = []
+            return [v.to_mlflow_entity() for v in views]
+
+    def update_trace_view(
+        self,
+        trace_id=None,
+        experiment_id=None,
+        view_id="",
+        name=None,
+        span_filter=None,
+        input_path=None,
+        output_path=None,
+        description=None,
+    ):
+        with self.ManagedSessionMaker() as session:
+            sql_view = (
+                session.query(SqlTraceView)
+                .filter(SqlTraceView.view_id == view_id)
+                .one_or_none()
+            )
+            if sql_view is None:
+                raise MlflowException(
+                    f"Trace view with ID '{view_id}' not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            if name is not None:
+                sql_view.name = name
+            if span_filter is not None:
+                sql_view.span_filter = span_filter.to_json()
+            if input_path is not None:
+                sql_view.input_path = input_path
+            if output_path is not None:
+                sql_view.output_path = output_path
+            if description is not None:
+                sql_view.description = description
+            sql_view.last_updated_timestamp = get_current_time_millis()
+
+            session.flush()
+            return sql_view.to_mlflow_entity()
+
+    def delete_trace_view(self, trace_id=None, experiment_id=None, view_id=""):
+        with self.ManagedSessionMaker() as session:
+            sql_view = (
+                session.query(SqlTraceView)
+                .filter(SqlTraceView.view_id == view_id)
+                .one_or_none()
+            )
+            if sql_view is None:
+                raise MlflowException(
+                    f"Trace view with ID '{view_id}' not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            session.delete(sql_view)
 
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """
