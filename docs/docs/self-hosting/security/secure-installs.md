@@ -56,7 +56,7 @@ Both pip and uv support filtering packages by their upload date, ensuring that d
 pip's [`--uploaded-prior-to`](https://pip.pypa.io/en/latest/user_guide/#filtering-by-upload-time) option accepts an ISO 8601 datetime:
 
 ```bash
-pip install --uploaded-prior-to="2025-03-01T00:00:00Z" mlflow
+pip install --uploaded-prior-to="2026-03-01T00:00:00Z" mlflow
 ```
 
 This only applies to packages from remote indexes (not local files or VCS requirements), and the index must provide upload-time metadata (PyPI does).
@@ -66,12 +66,12 @@ This only applies to packages from remote indexes (not local files or VCS requir
 [uv](https://docs.astral.sh/uv/) provides the equivalent [`exclude-newer`](https://docs.astral.sh/uv/reference/settings/#exclude-newer) setting:
 
 ```bash
-uv pip install --exclude-newer "2025-03-01T00:00:00Z" mlflow
+uv pip install --exclude-newer "2026-03-01T00:00:00Z" mlflow
 ```
 
 Or in `pyproject.toml`:
 
 ```toml
 [tool.uv]
-exclude-newer = "2025-03-01T00:00:00Z"
+exclude-newer = "2026-03-01T00:00:00Z"
 ```
