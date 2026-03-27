@@ -12,3 +12,8 @@ dependencies = [
 
 [project.scripts]
 skills = "skills.cli:main"
+
+[[tool.uv.index]]
+name = "databricks-proxy"
+url = "https://pypi-proxy.dev.databricks.com/simple/"
+default = true

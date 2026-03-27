@@ -229,8 +229,8 @@ docs = [
   "pyspark",
   "datasets",
   "plotly",
-  "torch>=1.11.0",
-  "torchvision>=0.12.0,!=0.24.0",
+  # "torch>=1.11.0",  # temporarily removed: pytorch index unreachable
+  # "torchvision>=0.12.0,!=0.24.0",  # temporarily removed: pytorch index unreachable
   "lightning>=1.8.1",
   "Flask-WTF<2",
   "polars>=1",
@@ -280,6 +280,11 @@ mlflow-test-plugin = { workspace = true }
 skills = { workspace = true }
 torch = { index = "pytorch-cpu" }
 torchvision = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "databricks-proxy"
+url = "https://pypi-proxy.dev.databricks.com/simple/"
+default = true
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
