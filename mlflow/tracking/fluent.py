@@ -2284,6 +2284,7 @@ def create_experiment(
     name: str,
     artifact_location: str | None = None,
     tags: dict[str, Any] | None = None,
+    trace_location: UnityCatalog | None = None,
 ) -> str:
     """
     Create an experiment.
@@ -2293,6 +2294,10 @@ def create_experiment(
         artifact_location: The location to store run artifacts. If not provided, the server picks
             an appropriate default.
         tags: An optional dictionary of string keys and values to set as tags on the experiment.
+        trace_location: Optional UC trace location to link to the experiment. Must be an instance
+            of ``mlflow.entities.trace_location.UnityCatalog(...)``. If ``table_prefix`` is not
+            set, it defaults to the experiment ID. Note: call ``mlflow.set_experiment`` afterward
+            to activate the experiment and sync the trace provider.
 
     Returns:
         String ID of the created experiment.
@@ -2328,7 +2333,32 @@ def create_experiment(
         Lifecycle_stage: active
         Creation timestamp: 1662004217511
     """
-    return MlflowClient().create_experiment(name, artifact_location, tags)
+    client = MlflowClient()
+    experiment_id = client.create_experiment(name, artifact_location, tags)
+
+    if trace_location is not None:
+        experiment = client.get_experiment(experiment_id)
+
+        if trace_location.table_prefix is None:
+            trace_location = UnityCatalog(
+                catalog_name=trace_location.catalog_name,
+                schema_name=trace_location.schema_name,
+                table_prefix=experiment_id,
+            )
+
+        try:
+            _resolve_experiment_to_trace_location(
+                experiment=experiment,
+                trace_location=trace_location,
+            )
+        except MlflowException as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Experiment '{name}' (ID: {experiment_id}) was created "
+                f"but linking to trace location '{trace_location.full_table_prefix}' failed: "
+                f"{e.message} Please delete the experiment and retry."
+            ) from e
+
+    return experiment_id
 
 
 def delete_experiment(experiment_id: str) -> None:
