@@ -127,6 +127,22 @@ class AssistantConfig(BaseModel):
         for name, provider in self.providers.items():
             provider.selected = name == provider_name
 
+    def update_provider(
+        self,
+        provider_name: str,
+        model: str | None = None,
+        permissions: PermissionsConfig | None = None,
+        base_url: str | None = None,
+    ) -> None:
+        if provider_name not in self.providers:
+            return
+        if model is not None:
+            self.providers[provider_name].model = model
+        if permissions is not None:
+            self.providers[provider_name].permissions = permissions
+        if base_url is not None:
+            self.providers[provider_name].base_url = base_url
+
 
 __all__ = [
     "AssistantConfig",

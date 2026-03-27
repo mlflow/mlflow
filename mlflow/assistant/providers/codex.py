@@ -377,7 +377,7 @@ class CodexProvider(AssistantProvider):
                 echo(f"Authentication failed: {error_msg}")
             raise NotAuthenticatedError(error_msg)
 
-        except TimeoutError:
+        except subprocess.TimeoutExpired:
             if echo:
                 echo("Connection check timed out")
             raise NotAuthenticatedError("Connection check timed out")

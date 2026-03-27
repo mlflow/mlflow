@@ -134,6 +134,20 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     refreshConfig();
   }, [refreshConfig]);
 
+  // Cancel pending RAF and close EventSource on unmount
+  useEffect(() => {
+    return () => {
+      if (rafPendingRef.current !== null) {
+        cancelAnimationFrame(rafPendingRef.current);
+        rafPendingRef.current = null;
+      }
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, []);
+
   const handleStreamError = useCallback((errorMsg: string) => {
     setError(errorMsg);
     setIsStreaming(false);

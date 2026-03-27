@@ -4,7 +4,19 @@ import os
 from pathlib import Path
 from typing import Any
 
+from mlflow.assistant.config import PermissionsConfig
+
 _logger = logging.getLogger(__name__)
+
+_FILE_TOOLS = {"Read", "Write", "Edit"}
+
+
+def _is_path_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
 
 
 async def execute_tool(
@@ -12,7 +24,23 @@ async def execute_tool(
     tool_input: dict[str, Any],
     cwd: Path | None = None,
     tracking_uri: str | None = None,
+    permissions: PermissionsConfig | None = None,
 ) -> tuple[str, bool]:
+    perms = permissions or PermissionsConfig()
+
+    if not perms.full_access:
+        if tool_name in _FILE_TOOLS and not perms.allow_edit_files:
+            return f"Permission denied: {tool_name} is not allowed", True
+
+        if tool_name in _FILE_TOOLS and cwd:
+            raw_path = tool_input.get("file_path") or tool_input.get("path", "")
+            if raw_path:
+                target = Path(raw_path).expanduser().resolve()
+                if not _is_path_within(target, cwd):
+                    return (
+                        f"Permission denied: path {raw_path} is outside the workspace {cwd}"
+                    ), True
+
     try:
         match tool_name:
             case "Bash":
@@ -57,9 +85,7 @@ async def _execute_bash(
 
         if proc.returncode != 0:
             result = (
-                output + err_output
-                if output or err_output
-                else f"Exit code: {proc.returncode}"
+                output + err_output if output or err_output else f"Exit code: {proc.returncode}"
             )
             return result.strip(), True
 

@@ -31,11 +31,8 @@ def _get_selected_provider():
     config = AssistantConfig.load()
     for provider_name, provider_config in config.providers.items():
         if provider_config.selected:
-            p = _get_provider(provider_name)
-            if p is not None:
-                return p
-    providers = list_providers()
-    return providers[0] if providers else None
+            return _get_provider(provider_name)
+    return None
 
 
 _BLOCK_REMOTE_ACCESS_ERROR_MSG = (
@@ -302,7 +299,13 @@ async def update_config(request: ConfigUpdateRequest) -> ConfigResponse:
                     allow_read_docs=perm_data.get("allow_read_docs", True),
                     full_access=perm_data.get("full_access", False),
                 )
-            config.set_provider(name, model, permissions, base_url=base_url)
+            selected = provider_data.get("selected", False)
+            if selected:
+                config.set_provider(name, model, permissions, base_url=base_url)
+            else:
+                config.update_provider(
+                    name, model=model, permissions=permissions, base_url=base_url
+                )
 
     # Update projects
     if request.projects:

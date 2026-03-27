@@ -470,7 +470,11 @@ class OllamaProvider(AssistantProvider):
                     )
 
                     result_str, is_error = await execute_tool(
-                        tool_name, tool_input, cwd=cwd, tracking_uri=tracking_uri
+                        tool_name,
+                        tool_input,
+                        cwd=cwd,
+                        tracking_uri=tracking_uri,
+                        permissions=config.permissions,
                     )
 
                     yield Event.from_message(
