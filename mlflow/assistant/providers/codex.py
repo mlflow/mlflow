@@ -299,9 +299,13 @@ let the server handle storage. Specifically:
 
 ### Command Rules
 
+- Always use `python3` (never `python`) as the Python interpreter. Many environments do not
+  have `python` on PATH.
 - Never combine two bash commands with `&&` or `||` in a single tool call.
 - If the CLI cannot accomplish the task, fall back to Python one-liners using the MLflow SDK.
 - When working with large output, write it to files in /tmp and use bash commands to analyze them.
+- Do NOT narrate your internal reasoning or troubleshooting steps to the user. Only show the
+  final analysis results. If a command fails, fix it silently and move on.
 """
 
 
@@ -438,15 +442,16 @@ class CodexProvider(AssistantProvider):
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 cwd=cwd,
+                limit=100 * 1024 * 1024,
                 env={**os.environ.copy(), "MLFLOW_TRACKING_URI": tracking_uri},
             )
 
-            stdout, stderr_bytes = await asyncio.wait_for(
-                process.communicate(input=user_message.encode("utf-8")),
-                timeout=300,
-            )
+            process.stdin.write(user_message.encode("utf-8"))
+            await process.stdin.drain()
+            process.stdin.close()
+            await process.stdin.wait_closed()
 
-            for line in stdout.splitlines():
+            async for line in process.stdout:
                 line_str = line.decode("utf-8").strip()
                 if not line_str:
                     continue
@@ -460,7 +465,14 @@ class CodexProvider(AssistantProvider):
                 if event is not None:
                     yield event
 
+            await process.wait()
+
+            if process.returncode == -9:
+                yield Event.from_interrupted()
+                return
+
             if process.returncode != 0:
+                stderr_bytes = await process.stderr.read()
                 error_msg = (
                     stderr_bytes.decode("utf-8", errors="replace").strip()
                     or f"Process exited with code {process.returncode}"
@@ -469,8 +481,6 @@ class CodexProvider(AssistantProvider):
             else:
                 yield Event.from_result(result=None, session_id=None)
 
-        except TimeoutError:
-            yield Event.from_error("Codex CLI timed out")
         except Exception as e:
             _logger.exception("Error running Codex CLI")
             yield Event.from_error(str(e))

@@ -1,3 +1,4 @@
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -7,10 +8,38 @@ from mlflow.assistant.providers.codex import CodexProvider
 from mlflow.assistant.types import EventType
 
 
-def _jsonl(*dicts) -> bytes:
-    import json
+def _make_stdout_lines(*dicts) -> list[bytes]:
+    return [json.dumps(d).encode() + b"\n" for d in dicts]
 
-    return b"\n".join(json.dumps(d).encode() for d in dicts)
+
+def _mock_process(stdout_lines=None, returncode=0, stderr=b""):
+    """Create a mock process with async stdout iteration and stdin support."""
+    process = MagicMock()
+    process.returncode = returncode
+
+    # Mock stdin (write, drain, close, wait_closed)
+    process.stdin = MagicMock()
+    process.stdin.write = MagicMock()
+    process.stdin.drain = AsyncMock()
+    process.stdin.close = MagicMock()
+    process.stdin.wait_closed = AsyncMock()
+
+    # Mock stdout as an async iterator
+    async def _aiter():
+        for line in stdout_lines or []:
+            yield line
+
+    process.stdout = _aiter()
+
+    # Mock stderr.read()
+    process.stderr = MagicMock()
+    process.stderr.read = AsyncMock(return_value=stderr)
+
+    # Mock wait
+    process.wait = AsyncMock()
+    process.kill = MagicMock()
+
+    return process
 
 
 @pytest.fixture(autouse=True)
@@ -57,7 +86,7 @@ async def test_astream_yields_error_when_codex_not_found():
 
 @pytest.mark.asyncio
 async def test_astream_yields_agent_message_text():
-    stdout = _jsonl(
+    stdout_lines = _make_stdout_lines(
         {"type": "thread.started", "thread_id": "t1"},
         {"type": "turn.started"},
         {
@@ -67,15 +96,13 @@ async def test_astream_yields_agent_message_text():
         {"type": "turn.completed", "usage": {"input_tokens": 10, "output_tokens": 5}},
     )
 
-    mock_process = MagicMock()
-    mock_process.returncode = 0
-    mock_process.communicate = AsyncMock(return_value=(stdout, b""))
+    mock_proc = _mock_process(stdout_lines=stdout_lines)
 
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            return_value=mock_process,
+            return_value=mock_proc,
         ),
     ):
         provider = CodexProvider()
@@ -91,22 +118,18 @@ async def test_astream_yields_agent_message_text():
 
 @pytest.mark.asyncio
 async def test_astream_ignores_non_agent_message_items():
-    mcp_item = {"id": "i1", "type": "mcp_tool_call", "text": "ignored"}
-    agent_item = {"id": "i2", "type": "agent_message", "text": "kept"}
-    stdout = _jsonl(
-        {"type": "item.completed", "item": mcp_item},
-        {"type": "item.completed", "item": agent_item},
+    stdout_lines = _make_stdout_lines(
+        {"type": "item.completed", "item": {"id": "i1", "type": "mcp_tool_call", "text": "ignored"}},
+        {"type": "item.completed", "item": {"id": "i2", "type": "agent_message", "text": "kept"}},
     )
 
-    mock_process = MagicMock()
-    mock_process.returncode = 0
-    mock_process.communicate = AsyncMock(return_value=(stdout, b""))
+    mock_proc = _mock_process(stdout_lines=stdout_lines)
 
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            return_value=mock_process,
+            return_value=mock_proc,
         ),
     ):
         provider = CodexProvider()
@@ -119,15 +142,13 @@ async def test_astream_ignores_non_agent_message_items():
 
 @pytest.mark.asyncio
 async def test_astream_yields_error_on_nonzero_exit():
-    mock_process = MagicMock()
-    mock_process.returncode = 1
-    mock_process.communicate = AsyncMock(return_value=(b"", b"OPENAI_API_KEY not set"))
+    mock_proc = _mock_process(returncode=1, stderr=b"OPENAI_API_KEY not set")
 
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            return_value=mock_process,
+            return_value=mock_proc,
         ),
     ):
         provider = CodexProvider()
@@ -139,40 +160,32 @@ async def test_astream_yields_error_on_nonzero_exit():
 
 
 @pytest.mark.asyncio
-async def test_astream_yields_error_on_timeout():
-    mock_process = MagicMock()
-    mock_process.returncode = None
-    mock_process.communicate = AsyncMock(side_effect=TimeoutError)
-    mock_process.kill = MagicMock()
-    mock_process.wait = AsyncMock()
+async def test_astream_yields_interrupted_on_sigkill():
+    mock_proc = _mock_process(returncode=-9)
 
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            return_value=mock_process,
+            return_value=mock_proc,
         ),
     ):
         provider = CodexProvider()
         events = [e async for e in provider.astream("hi", "http://localhost:5000")]
 
     assert len(events) == 1
-    assert events[0].type == EventType.ERROR
-    assert "timed out" in events[0].data["error"].lower()
-    mock_process.kill.assert_called()
+    assert events[0].type == EventType.INTERRUPTED
 
 
 @pytest.mark.asyncio
 async def test_astream_builds_correct_command():
-    mock_process = MagicMock()
-    mock_process.returncode = 0
-    mock_process.communicate = AsyncMock(return_value=(b"", b""))
+    mock_proc = _mock_process()
 
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            return_value=mock_process,
+            return_value=mock_proc,
         ) as mock_exec,
     ):
         provider = CodexProvider()
@@ -193,9 +206,7 @@ async def test_astream_includes_model_flag_when_configured(tmp_path):
     config_file = tmp_path / "config.json"
     config_file.write_text('{"providers": {"codex": {"model": "o4-mini"}}}')
 
-    mock_process = MagicMock()
-    mock_process.returncode = 0
-    mock_process.communicate = AsyncMock(return_value=(b"", b""))
+    mock_proc = _mock_process()
 
     clear_config_cache()
     with (
@@ -203,7 +214,7 @@ async def test_astream_includes_model_flag_when_configured(tmp_path):
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            return_value=mock_process,
+            return_value=mock_proc,
         ) as mock_exec,
     ):
         provider = CodexProvider()
@@ -219,9 +230,7 @@ async def test_astream_skips_model_flag_when_default(tmp_path):
     config_file = tmp_path / "config.json"
     config_file.write_text('{"providers": {"codex": {"model": "default"}}}')
 
-    mock_process = MagicMock()
-    mock_process.returncode = 0
-    mock_process.communicate = AsyncMock(return_value=(b"", b""))
+    mock_proc = _mock_process()
 
     clear_config_cache()
     with (
@@ -229,7 +238,7 @@ async def test_astream_skips_model_flag_when_default(tmp_path):
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            return_value=mock_process,
+            return_value=mock_proc,
         ) as mock_exec,
     ):
         provider = CodexProvider()
@@ -241,41 +250,39 @@ async def test_astream_skips_model_flag_when_default(tmp_path):
 
 @pytest.mark.asyncio
 async def test_astream_sends_prompt_via_stdin():
-    mock_process = MagicMock()
-    mock_process.returncode = 0
-    mock_process.communicate = AsyncMock(return_value=(b"", b""))
+    mock_proc = _mock_process()
 
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            return_value=mock_process,
+            return_value=mock_proc,
         ),
     ):
         provider = CodexProvider()
         _ = [e async for e in provider.astream("my question", "http://localhost:5000")]
 
-    communicate_call = mock_process.communicate.call_args
-    stdin_bytes = communicate_call[1]["input"]
+    stdin_bytes = mock_proc.stdin.write.call_args[0][0]
     assert b"<system_instructions>" in stdin_bytes
     assert b"my question" in stdin_bytes
+    mock_proc.stdin.drain.assert_awaited_once()
+    mock_proc.stdin.close.assert_called_once()
 
 
 @pytest.mark.asyncio
 async def test_astream_ignores_invalid_json_lines():
-    stdout = b"not json\n" + _jsonl(
-        {"type": "item.completed", "item": {"type": "agent_message", "text": "valid"}}
-    )
+    stdout_lines = [
+        b"not json\n",
+        json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": "valid"}}).encode() + b"\n",
+    ]
 
-    mock_process = MagicMock()
-    mock_process.returncode = 0
-    mock_process.communicate = AsyncMock(return_value=(stdout, b""))
+    mock_proc = _mock_process(stdout_lines=stdout_lines)
 
     with (
         patch("mlflow.assistant.providers.codex.shutil.which", return_value="/usr/bin/codex"),
         patch(
             "mlflow.assistant.providers.codex.asyncio.create_subprocess_exec",
-            return_value=mock_process,
+            return_value=mock_proc,
         ),
     ):
         provider = CodexProvider()
