@@ -251,13 +251,13 @@ def _run_session_scorer(
     first_trace_id = first_trace.info.trace_id
 
     try:
-        result, _ = evaluate_session_level_scorers(
+        eval_result = evaluate_session_level_scorers(
             session_id=session_id,
             session_items=session_items,
             multi_turn_scorers=[scorer],
         )
 
-        feedbacks = result[first_trace_id]
+        feedbacks = eval_result.assessments
 
         failures = _extract_failures_from_feedbacks(feedbacks)
 
