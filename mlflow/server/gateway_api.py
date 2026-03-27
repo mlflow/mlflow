@@ -272,8 +272,8 @@ def _build_endpoint_config(
 
         auth_config = model_config.auth_config or {}
         provider_config = VertexAIConfig(
-            vertex_project=auth_config.get("vertex_project", ""),
-            vertex_location=auth_config.get("vertex_location", "us-central1"),
+            vertex_project=auth_config.get("vertex_project"),
+            vertex_location=auth_config.get("vertex_location"),
             vertex_credentials=model_config.secret_value.get("vertex_credentials"),
         )
     else:

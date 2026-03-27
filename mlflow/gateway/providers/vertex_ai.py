@@ -46,15 +46,20 @@ class VertexAIProvider(GeminiProvider):
 
     def _get_credentials(self):
         """Get Google Cloud credentials, caching them for reuse."""
-        import google.auth
-        import google.auth.transport.requests
-        from google.oauth2 import service_account
+        try:
+            import google.auth
+            import google.auth.transport.requests
+            from google.oauth2 import service_account
+        except ImportError:
+            raise ImportError(
+                "Vertex AI provider requires the google-auth package. "
+                "Install it with: pip install google-auth"
+            )
 
         if self._cached_credentials is not None and self._cached_credentials.valid:
             return self._cached_credentials
 
-        if self.vertex_config.vertex_credentials:
-            creds_data = self.vertex_config.vertex_credentials
+        if creds_data := self.vertex_config.vertex_credentials:
             # Try parsing as JSON string
             try:
                 info = json.loads(creds_data)
@@ -62,10 +67,10 @@ class VertexAIProvider(GeminiProvider):
                 # Try as file path
                 try:
                     info = json.loads(Path(creds_data).read_text())
-                except Exception:
+                except Exception as e:
                     raise ValueError(
                         "vertex_credentials must be a JSON string or path to a JSON file"
-                    )
+                    ) from e
             credentials = service_account.Credentials.from_service_account_info(
                 info, scopes=_DEFAULT_SCOPES
             )

@@ -118,8 +118,7 @@ def test_global_endpoint_when_no_location():
     provider = VertexAIProvider(endpoint_config)
     provider._cached_credentials = _mock_credentials()
     assert provider.base_url == (
-        "https://aiplatform.googleapis.com"
-        "/v1/projects/my-project/publishers/google/models"
+        "https://aiplatform.googleapis.com/v1/projects/my-project/publishers/google/models"
     )
 
 
@@ -148,9 +147,7 @@ def test_credentials_with_adc():
     provider = VertexAIProvider(endpoint_config)
 
     mock_creds = _mock_credentials()
-    with mock.patch(
-        "google.auth.default", return_value=(mock_creds, "my-project")
-    ) as mock_default:
+    with mock.patch("google.auth.default", return_value=(mock_creds, "my-project")) as mock_default:
         headers = provider.headers
         mock_default.assert_called_once()
         assert headers == {"Authorization": "Bearer mock-access-token"}
