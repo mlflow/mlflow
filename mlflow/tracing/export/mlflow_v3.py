@@ -66,7 +66,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 a span processor. All spans (root and non-root) are exported.
         """
 
-        if self._should_export_spans_incrementally:
+        if self._should_export_spans_incrementally and self._store_supports_log_spans:
             self._export_spans_incrementally(spans)
         elif self._store_supports_log_spans:
             # Even when incremental export is disabled, remote/distributed trace spans
@@ -203,7 +203,6 @@ class MlflowV3SpanExporter(SpanExporter):
         except NotImplementedError:
             # Silently skip if the store doesn't support log_spans. This is expected for stores that
             # don't implement span-level logging, and we don't want to spam warnings for every span.
-            self._should_export_spans_incrementally = False
             self._store_supports_log_spans = False
         except RestException as e:
             # When the FileStore is behind the tracking server, it returns 501 exception.
@@ -211,7 +210,6 @@ class MlflowV3SpanExporter(SpanExporter):
             # not include error_code in the body and handled as a general server side error. Hence,
             # we need to check the message to handle this case.
             if "REST OTLP span logging is not supported" in e.message:
-                self._should_export_spans_incrementally = False
                 self._store_supports_log_spans = False
             else:
                 _logger.debug(f"Failed to log span to MLflow backend: {e}")
@@ -234,14 +232,21 @@ class MlflowV3SpanExporter(SpanExporter):
                 # When incremental export is disabled, batch-write all spans
                 # to the DB at trace completion time to avoid per-span DB
                 # round-trips while still populating the spans table.
-                spans_written_to_db = (
+                spans_written_to_db = False
+                if (
                     not self._should_export_spans_incrementally
                     and self._store_supports_log_spans
                     and trace.data.spans
-                )
-                if spans_written_to_db:
+                ):
                     self._log_spans(trace.info.experiment_id, trace.data.spans)
+                    # Re-check after _log_spans() since it may discover the
+                    # store doesn't support span logging and set the flag False.
+                    spans_written_to_db = self._store_supports_log_spans
 
+                # Upload spans as artifacts if they weren't written to DB.
+                # We can't rely on _should_log_spans_to_artifacts() alone here
+                # because returned_trace_info from start_trace() won't have the
+                # SPANS_LOCATION tag yet when batch-writing (it's set by log_spans).
                 if not spans_written_to_db and self._should_log_spans_to_artifacts(
                     returned_trace_info
                 ):

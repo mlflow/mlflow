@@ -1141,8 +1141,9 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: exporting the full trace. When enabled, spans are written to the tracking store
 #: individually via ``log_spans`` as each span finishes. This provides real-time span
 #: visibility for long-running traces but adds extra DB round-trips that may increase
-#: latency under high concurrency. When disabled, local trace spans are only persisted
-#: as part of the full trace artifact when the trace completes. Remote/distributed trace
+#: latency under high concurrency. When disabled, spans are batch-written to the database
+#: at trace completion instead of individually during the request. This removes real-time
+#: visibility for in-progress traces but reduces DB contention. Remote/distributed trace
 #: spans (from ``traceparent`` headers) are still exported incrementally when the backend
 #: supports ``log_spans``, as they cannot be persisted through the full trace export path.
 #: The MLflow tracking server disables this by default to reduce DB contention.

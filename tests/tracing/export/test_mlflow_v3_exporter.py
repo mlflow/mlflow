@@ -546,11 +546,11 @@ def test_should_export_spans_incrementally_flag(monkeypatch, incremental_export_
         mock_log_spans.assert_called_once()
 
         if incremental_export_enabled:
-            # Incremental path: start_trace returns trace_info with SPANS_LOCATION
-            # tag preserved from log_spans, so artifact upload is skipped
+            # Incremental path: start_trace mock doesn't set SPANS_LOCATION tag,
+            # so artifact upload proceeds as a fallback
             mock_upload_trace_data.assert_called_once()
         else:
-            # Batch path: spans written to DB, artifact upload explicitly skipped
+            # Batch path: spans batch-written to DB, artifact upload skipped
             mock_upload_trace_data.assert_not_called()
 
 
