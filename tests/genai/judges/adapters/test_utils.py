@@ -1,3 +1,5 @@
+from unittest import mock
+
 import pytest
 
 from mlflow.exceptions import MlflowException
@@ -60,7 +62,11 @@ def test_get_adapter(model_uri, prompt_type, expected_adapter, string_prompt, li
 )
 def test_get_adapter_unsupported(model_uri, prompt_type, string_prompt, list_prompt):
     prompt = string_prompt if prompt_type == "string" else list_prompt
-    with pytest.raises(
-        MlflowException, match=f"No suitable adapter found for model_uri='{model_uri}'"
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
+        return_value=False,
     ):
-        get_adapter(model_uri, prompt)
+        with pytest.raises(
+            MlflowException, match=f"No suitable adapter found for model_uri='{model_uri}'"
+        ):
+            get_adapter(model_uri, prompt)

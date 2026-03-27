@@ -26,6 +26,10 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointType
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES,
+    MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
+)
 from mlflow.genai.discovery.utils import _pydantic_to_response_format
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
@@ -50,11 +54,6 @@ _NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints", "g
 
 # Global cache to track model capabilities across function calls
 _MODEL_RESPONSE_FORMAT_CAPABILITIES: dict[str, bool] = {}
-
-_RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
-
-# Default timeout for HTTP requests to LLM providers (seconds)
-_REQUEST_TIMEOUT = 60
 
 
 # ---------------------------------------------------------------------------
@@ -130,7 +129,7 @@ def _get_gateway_provider(model_name: str) -> "BaseProvider":
             self.config = config
 
         def get_endpoint_url(self, _endpoint_type):
-            return self._api_base.rstrip("/")
+            return f"{self._api_base.rstrip('/')}/chat/completions"
 
     return _GatewayProvider(gw_config.api_base, headers, _Config(model_name))
 
@@ -221,7 +220,7 @@ def _send_chat_request(
                 url=endpoint,
                 headers={"Content-Type": "application/json", **headers},
                 json=payload,
-                timeout=_REQUEST_TIMEOUT,
+                timeout=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
             )
 
             if resp.status_code == 400:
@@ -233,7 +232,7 @@ def _send_chat_request(
                     is_context_window_error=_is_context_window_error(error_body),
                 )
 
-            if resp.status_code in _RETRYABLE_STATUS_CODES:
+            if resp.status_code in MLFLOW_GATEWAY_CLIENT_QUERY_RETRY_CODES:
                 last_exception = ChatCompletionError(
                     status_code=resp.status_code,
                     message=_safe_parse_error(resp),
@@ -257,7 +256,7 @@ def _send_chat_request(
                 _sleep_with_backoff(attempt)
                 continue
             raise MlflowException(
-                f"Request to {endpoint} timed out after {_REQUEST_TIMEOUT}s",
+                f"Request to {endpoint} timed out after {MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS}s",
                 error_code=INTERNAL_ERROR,
             ) from e
         except requests.exceptions.ConnectionError as e:
@@ -630,12 +629,11 @@ class GatewayAdapter(BaseJudgeAdapter):
         from mlflow.genai.judges.tools import list_judge_tools
         from mlflow.types.llm import ChatMessage
 
-        # Resolve provider for config, URL, headers, and request/response transformation
+        # Resolve provider for config, URL, headers, and request/response transformation.
+        # Each provider's get_endpoint_url() returns the full endpoint path
+        # (e.g. OpenAI: .../chat/completions, Anthropic: .../messages).
         provider_instance = _get_provider(provider, model_name)
         endpoint = base_url or provider_instance.get_endpoint_url("llm/v1/chat")
-        # Append /chat/completions for providers that return a base URL
-        if not endpoint.endswith("/chat/completions"):
-            endpoint = f"{endpoint.rstrip('/')}/chat/completions"
         headers = dict(provider_instance.headers or {})
         if extra_headers:
             headers.update(extra_headers)

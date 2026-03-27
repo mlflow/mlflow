@@ -226,7 +226,10 @@ def test_get_gateway_provider():
     ):
         provider = _get_gateway_provider("my-endpoint")
 
-    assert provider.get_endpoint_url("llm/v1/chat") == "http://localhost:5000/gateway/mlflow/v1"
+    assert (
+        provider.get_endpoint_url("llm/v1/chat")
+        == "http://localhost:5000/gateway/mlflow/v1/chat/completions"
+    )
     assert provider.config is not None
     assert provider.config.model.name == "my-endpoint"
     # Verify chat_to_model works (adds model name to payload)

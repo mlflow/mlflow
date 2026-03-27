@@ -12,7 +12,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     DatabricksManagedJudgeAdapter,
 )
-from mlflow.genai.judges.adapters.gateway_adapter import _NATIVE_PROVIDERS, GatewayAdapter
+from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
+from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
 from mlflow.protos.databricks_pb2 import BAD_REQUEST
 
 
@@ -34,9 +35,12 @@ def get_adapter(
     Raises:
         MlflowException: If no suitable adapter is found.
     """
+    # TODO: Consider moving shared adapter logic (retry, payload construction)
+    # into this module to reduce duplication across adapters.
     adapters = [
         DatabricksManagedJudgeAdapter,
         GatewayAdapter,
+        LiteLLMAdapter,
     ]
 
     for adapter_class in adapters:
@@ -44,7 +48,6 @@ def get_adapter(
             return adapter_class()
 
     raise MlflowException(
-        f"No suitable adapter found for model_uri='{model_uri}'. "
-        f"Supported providers: {', '.join(sorted(_NATIVE_PROVIDERS))}.",
+        f"No suitable adapter found for model_uri='{model_uri}'.",
         error_code=BAD_REQUEST,
     )
