@@ -295,6 +295,76 @@ class Trace(_MlflowObject):
             and (type is None or validate_type(assessment))
         ]
 
+    def create_view(self, name, span_filter=None, input_path=None, output_path=None, created_by=None, description=None):
+        from mlflow.tracking import MlflowClient
+
+        return MlflowClient().create_trace_view(
+            trace_id=self.info.trace_id,
+            name=name,
+            span_filter=span_filter,
+            input_path=input_path,
+            output_path=output_path,
+            created_by=created_by,
+            description=description,
+        )
+
+    @property
+    def views(self):
+        from mlflow.tracking import MlflowClient
+
+        return MlflowClient().list_trace_views(trace_id=self.info.trace_id)
+
+    def delete_view(self, view_id):
+        from mlflow.tracking import MlflowClient
+
+        MlflowClient().delete_trace_view(trace_id=self.info.trace_id, view_id=view_id)
+
+    def summarize(self, model="openai:/gpt-4o-mini", view=None):
+        from mlflow.genai.judges.utils.invocation_utils import invoke_judge_model
+
+        prompt = "Summarize this trace concisely. Focus on what the agent did, key decisions, and the outcome."
+        if view:
+            from mlflow.tracing.utils.view_utils import apply_view
+
+            spans_data = [s.to_dict() for s in self.data.spans]
+            filtered_in, filtered_out = apply_view(
+                spans_data,
+                view,
+                fallback_input=self.data.request,
+                fallback_output=self.data.response,
+            )
+            prompt += f"\n\nFiltered input:\n{filtered_in}\n\nFiltered output:\n{filtered_out}"
+        feedback = invoke_judge_model(
+            model_uri=model,
+            prompt=prompt,
+            assessment_name="trace_summary",
+            trace=self,
+        )
+        return feedback.value
+
+    def analyze(self, question, model="openai:/gpt-4o-mini", view=None):
+        from mlflow.genai.judges.utils.invocation_utils import invoke_judge_model
+
+        prompt = question
+        if view:
+            from mlflow.tracing.utils.view_utils import apply_view
+
+            spans_data = [s.to_dict() for s in self.data.spans]
+            filtered_in, filtered_out = apply_view(
+                spans_data,
+                view,
+                fallback_input=self.data.request,
+                fallback_output=self.data.response,
+            )
+            prompt += f"\n\nFiltered input:\n{filtered_in}\n\nFiltered output:\n{filtered_out}"
+        feedback = invoke_judge_model(
+            model_uri=model,
+            prompt=prompt,
+            assessment_name="trace_analysis",
+            trace=self,
+        )
+        return feedback.value
+
     @staticmethod
     def pandas_dataframe_columns() -> list[str]:
         return [
