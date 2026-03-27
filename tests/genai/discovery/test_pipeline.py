@@ -19,6 +19,7 @@ from mlflow.genai.discovery.entities import (
 )
 from mlflow.genai.discovery.pipeline import (
     _annotate_issue_traces,
+    _dedup_issues,
     _is_non_issue,
     build_issue_discovery_scorer,
     discover_issues,
@@ -49,6 +50,19 @@ def _mock_start_run(**kwargs):
 
 def _triage_eval(run_id="run-1"):
     return EvaluationResult(run_id=run_id, metrics={}, result_df=None)
+
+
+def create_identified_issue(**kwargs) -> _IdentifiedIssue:
+    defaults = {
+        "name": "Issue: Test issue",
+        "description": "A test issue",
+        "root_cause": "A test root cause",
+        "example_indices": [0],
+        "severity": "high",
+        "categories": [],
+    }
+    defaults.update(kwargs)
+    return _IdentifiedIssue(**defaults)
 
 
 def test_discover_issues_no_experiment():
@@ -1112,5 +1126,78 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
     mock_verify.assert_called_once()
     call_kwargs = mock_verify.call_args.kwargs
     assert call_kwargs["session"] is not None
-
     assert all(get_session_id(t) is not None for t in call_kwargs["session"])
+
+
+def _make_dedup_response(groups: list[list[int]]):
+    import json
+
+    return _make_litellm_response(json.dumps({"groups": groups}))
+
+
+def test_dedup_issues_empty():
+    assert _dedup_issues([]) == []
+
+
+def test_dedup_issues_single():
+    issue = create_identified_issue()
+    result = _dedup_issues([issue])
+    assert result == [issue]
+
+
+def test_dedup_issues_similar_issues_merged():
+    issue1 = create_identified_issue(
+        example_indices=[0], severity="low", categories=["correctness"]
+    )
+    issue2 = create_identified_issue(example_indices=[1], severity="high", categories=["latency"])
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([[0, 1]]),
+    ):
+        result = _dedup_issues([issue1, issue2])
+    assert len(result) == 1
+    assert set(result[0].example_indices) == {0, 1}
+    assert result[0].severity == "high"
+    assert result[0].categories == ["correctness", "latency"]
+
+
+def test_dedup_issues_dissimilar_issues_not_merged():
+    issue1 = create_identified_issue(example_indices=[0])
+    issue2 = create_identified_issue(example_indices=[1])
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([]),
+    ):
+        result = _dedup_issues([issue1, issue2])
+    assert len(result) == 2
+
+
+def test_dedup_issues_merges_example_indices_deduped():
+    issue1 = create_identified_issue(example_indices=[0, 1])
+    issue2 = create_identified_issue(example_indices=[1, 2])
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([[0, 1]]),
+    ):
+        result = _dedup_issues([issue1, issue2])
+    assert len(result) == 1
+    assert set(result[0].example_indices) == {0, 1, 2}
+
+
+def test_dedup_issues_categories_preserve_order_and_uniqueness():
+    issue1 = create_identified_issue(categories=["correctness", "latency"])
+    issue2 = create_identified_issue(categories=["latency", "hallucination"])
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([[0, 1]]),
+    ):
+        result = _dedup_issues([issue1, issue2])
+    assert len(result) == 1
+    assert result[0].categories == ["correctness", "latency", "hallucination"]
+
+
+def test_dedup_issues_llm_failure_returns_original():
+    issues = [create_identified_issue(example_indices=[i]) for i in range(3)]
+    with patch("mlflow.genai.discovery.pipeline._call_llm", side_effect=Exception("API error")):
+        result = _dedup_issues(issues)
+    assert result == issues
