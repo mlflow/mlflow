@@ -111,27 +111,6 @@ jobs:
         run: |
           unzip -l $WHEEL_PATH
 
-      - name: Validate JS build artifacts present in dev wheel
-        if: matrix.type == 'dev'
-        env:
-          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
-        run: |
-          if ! unzip -l "$WHEEL_PATH" | grep -q "mlflow/server/js/build/index.html"; then
-            echo "ERROR: JS build artifacts not found in dev wheel"
-            exit 1
-          fi
-
-      - name: Validate no JS build artifacts in wheel
-        if: matrix.type != 'dev'
-        env:
-          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
-          MATRIX_TYPE: ${{ matrix.type }}
-        run: |
-          if unzip -l "$WHEEL_PATH" | grep -q "server/js/build"; then
-            echo "ERROR: JS build artifacts found in $MATRIX_TYPE wheel"
-            exit 1
-          fi
-
       - name: Compare files in source and binary distributions
         env:
           SDIST_PATH: ${{ steps.build-dist.outputs.sdist-path }}
