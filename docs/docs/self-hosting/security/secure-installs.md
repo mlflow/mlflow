@@ -75,9 +75,3 @@ For one-off tool invocations with `uvx`:
 uvx --exclude-newer "2026-03-01T00:00:00Z" mlflow server
 ```
 
-Or in `pyproject.toml`:
-
-```toml
-[tool.uv]
-exclude-newer = "2026-03-01T00:00:00Z"
-```
