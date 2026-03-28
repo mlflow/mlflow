@@ -149,12 +149,13 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
     # (since _get_span_processor prefers BaseMlflowSpanProcessor), so we find
     # the OTLP exporter by looking for the OtelSpanProcessor directly.
     if dual_export:
-        import opentelemetry.trace as otel_trace
-        from opentelemetry.sdk.trace import TracerProvider
+        # In dual-export mode, _get_trace_exporter() returns the MLflow exporter
+        # (since _get_span_processor prefers BaseMlflowSpanProcessor). Find the
+        # OTLP exporter by looking up the OtelSpanProcessor from the tracer provider.
+        from mlflow.tracing.provider import provider as mlflow_provider
 
-        tracer_provider = otel_trace.get_tracer_provider()
-        assert isinstance(tracer_provider, TracerProvider)
-        processors = tracer_provider._active_span_processor._span_processors
+        tp = mlflow_provider.get()
+        processors = tp._active_span_processor._span_processors
         otel_processor = next(p for p in processors if isinstance(p, OtelSpanProcessor))
         exporter = otel_processor.span_exporter
     else:
