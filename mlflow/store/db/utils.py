@@ -57,6 +57,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInputTag,
     SqlJob,
     SqlLatestMetric,
+    SqlLoggedModel,
+    SqlLoggedModelMetric,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
     SqlMetric,
     SqlParam,
     SqlRun,
@@ -108,6 +112,10 @@ def _all_tables_exist(engine):
         SqlScorerVersion.__tablename__,
         SqlJob.__tablename__,
         SqlWorkspace.__tablename__,
+        SqlLoggedModel.__tablename__,
+        SqlLoggedModelMetric.__tablename__,
+        SqlLoggedModelParam.__tablename__,
+        SqlLoggedModelTag.__tablename__,
     }
     actual_tables = {
         t for t in sqlalchemy.inspect(engine).get_table_names() if not t.startswith("alembic_")
