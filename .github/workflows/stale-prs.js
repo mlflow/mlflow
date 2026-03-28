@@ -84,7 +84,7 @@ const isStale = (lastActivityDate) => {
 const COPILOT_BOT = "copilot-swe-agent";
 
 const shouldProcessPR = (pr) => {
-  // Skip community PRs (allow members and Copilot bot)
+  // Skip PRs not authored by members or Copilot
   const memberAssociations = ["MEMBER", "OWNER", "COLLABORATOR"];
   const isMember = memberAssociations.includes(pr.authorAssociation);
   const isCopilot = pr.author?.__typename === "Bot" && pr.author?.login === COPILOT_BOT;
