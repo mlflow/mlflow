@@ -73,7 +73,7 @@ if [[ "$transitioned_to_ready" == "true" ]]; then
             --jq 'length' 2>/dev/null || echo "0"
         )
       fi
-      echo "Copilot review: $review_state ($comment_count comments, elapsed $((SECONDS - review_start))s)"
+      echo "Copilot review: $review_state ($comment_count comment(s), elapsed $((SECONDS - review_start))s)"
       break
     fi
     echo "Waiting for Copilot review... (elapsed $((SECONDS - review_start))s)"
