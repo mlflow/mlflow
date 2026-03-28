@@ -466,7 +466,6 @@ transformers:
           "peft", # optimized fine-tuning library developed by Hugging Face
           "accelerate", # required for large torch models where weights will not fit in RAM
           "librosa", # required for transformers audio pipelines for bitrate conversion
-          "ffmpeg", # required for transformers audio pipelines for audio byte to numpy conversion
           "sentencepiece", # required for transformers text2text generation pipeline
           "protobuf<=3.20.3", # fix error `Couldn't build proto file into descriptor pool: duplicate file name sentencepiece_model.proto`
           "typing_extensions>=4.6.0", # fix error for SqlAlchemy == 2.0.25 cannot import name 'TypeAliasType' from 'typing_extensions'
@@ -480,8 +479,7 @@ transformers:
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
-      sudo apt-get update --snapshot=20260310T000000Z
-      sudo apt-get install --snapshot=20260310T000000Z -y ffmpeg
+      ./dev/install-ffmpeg.sh
       export PYTHONPATH=./
       python tests/transformers/helper.py
     run: |
