@@ -51,16 +51,25 @@ if [[ "$transitioned_to_ready" == "true" ]]; then
       echo "Warning: Timed out after ${review_max_seconds}s waiting for Copilot review"
       break
     fi
-    review_state=$(
+    review_info=$(
       gh api "repos/${repo}/pulls/${pr_number}/reviews" \
-        --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | last | .state // empty' 2>/dev/null \
+        --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | last | {state: (.state // empty), id: (.id // empty)}' 2>/dev/null \
         || {
           echo "Warning: Failed to fetch Copilot review state; treating as no review yet" >&2
-          echo ""
+          echo '{}'
         }
     )
+    review_state=$(echo "$review_info" | jq -r '.state // empty')
+    review_id=$(echo "$review_info" | jq -r '.id // empty')
     if [[ -n "$review_state" ]]; then
-      echo "Copilot review completed with state: $review_state"
+      comment_count=0
+      if [[ -n "$review_id" ]]; then
+        comment_count=$(
+          gh api "repos/${repo}/pulls/${pr_number}/reviews/${review_id}/comments" \
+            --jq 'length' 2>/dev/null || echo "0"
+        )
+      fi
+      echo "Copilot review: $review_state ($comment_count comments, elapsed $((SECONDS - review_start))s)"
       break
     fi
     echo "Waiting for Copilot review... (elapsed $((SECONDS - review_start))s)"
