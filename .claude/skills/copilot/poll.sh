@@ -53,7 +53,11 @@ if [[ "$transitioned_to_ready" == "true" ]]; then
     fi
     review_info=$(
       gh api "repos/${repo}/pulls/${pr_number}/reviews" \
-        --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | last | {state: (.state // empty), id: (.id // empty)}' 2>/dev/null \
+        --jq '
+          [.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")]
+          | last
+          | {state: (.state // empty), id: (.id // empty)}
+        ' 2>/dev/null \
         || {
           echo "Warning: Failed to fetch Copilot review state; treating as no review yet" >&2
           echo '{}'
