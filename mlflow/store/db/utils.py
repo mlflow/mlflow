@@ -57,6 +57,10 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInputTag,
     SqlJob,
     SqlLatestMetric,
+    SqlLoggedModel,
+    SqlLoggedModelMetric,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
     SqlMetric,
     SqlParam,
     SqlRun,
@@ -107,6 +111,10 @@ def _all_tables_exist(engine):
         SqlScorer.__tablename__,
         SqlScorerVersion.__tablename__,
         SqlJob.__tablename__,
+        SqlLoggedModel.__tablename__,
+        SqlLoggedModelMetric.__tablename__,
+        SqlLoggedModelParam.__tablename__,
+        SqlLoggedModelTag.__tablename__,
         SqlWorkspace.__tablename__,
     }
     actual_tables = {
