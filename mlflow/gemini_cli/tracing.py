@@ -129,17 +129,51 @@ def read_hook_input() -> dict[str, Any]:
 
 
 def read_transcript(transcript_path: str) -> list[dict[str, Any]]:
-    """Read and parse a Gemini CLI conversation transcript from JSONL file.
+    """Read and parse a Gemini CLI conversation transcript.
+
+    The Gemini CLI can produce two transcript formats:
+    - JSONL: one JSON object per line (the expected format)
+    - Single JSON object: {"messages": [...]} with one message per line
 
     Args:
-        transcript_path: Path to the transcript JSONL file
+        transcript_path: Path to the transcript file
 
     Returns:
         List of parsed JSON entries from the transcript
     """
     with open(transcript_path, encoding="utf-8") as f:
-        lines = f.readlines()
-        return [json.loads(line) for line in lines if line.strip()]
+        raw = f.read()
+
+    # Try standard JSONL parsing first (one JSON object per line)
+    lines = raw.splitlines()
+    if lines:
+        first_line = lines[0].strip()
+        try:
+            parsed_first = json.loads(first_line)
+            # If first line is a complete JSON object with "messages" key
+            # (not a JSONL entry), handle the single-JSON-object format
+            if isinstance(parsed_first, dict) and "messages" in parsed_first:
+                return parsed_first["messages"]
+            # Otherwise, treat as JSONL: parse each non-empty line
+            return [json.loads(line) for line in lines if line.strip()]
+        except json.JSONDecodeError:
+            pass
+
+    # Fallback: try parsing the raw content as a Python dict literal
+    # (Gemini CLI may write transcripts with single-quoted keys/strings)
+    try:
+        import ast
+        parsed = ast.literal_eval(raw)
+        if isinstance(parsed, dict) and "messages" in parsed:
+            return parsed["messages"]
+    except (ValueError, SyntaxError):
+        pass
+
+    raise json.JSONDecodeError(
+        f"Failed to parse transcript file: not valid JSONL or JSON object with 'messages'",
+        raw,
+        0,
+    )
 
 
 def get_hook_response(error: str | None = None, **kwargs) -> dict[str, Any]:

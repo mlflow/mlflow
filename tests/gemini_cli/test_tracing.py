@@ -198,6 +198,26 @@ def test_read_transcript(tmp_path):
     assert result[2]["type"] == "gemini"
 
 
+def test_read_transcript_single_json_object(tmp_path):
+    """Test reading transcript written as a single JSON object with 'messages' key."""
+    transcript_file = tmp_path / "transcript.json"
+    payload = {
+        "messages": [
+            {"type": "session_metadata", "sessionId": "test-session"},
+            {"type": "user", "content": [{"text": "Hello"}]},
+            {"type": "gemini", "content": [{"text": "Hi there!"}]},
+        ]
+    }
+    with open(transcript_file, "w") as f:
+        json.dump(payload, f)
+
+    result = read_transcript(str(transcript_file))
+    assert len(result) == 3
+    assert result[0]["type"] == "session_metadata"
+    assert result[1]["type"] == "user"
+    assert result[2]["type"] == "gemini"
+
+
 def test_process_transcript_creates_trace(tmp_path):
     transcript_file = tmp_path / "transcript.jsonl"
     entries = [
