@@ -55,8 +55,8 @@ export function translateSpansForMlflow(spans: ReadableSpan[]): void {
   for (const span of spans) {
     try {
       translateSpan(span);
-    } catch {
-      // Best-effort: leave span as-is, continue to next
+    } catch (e) {
+      console.debug('MLflowSpanExporter: failed to translate span, passing through unchanged', e);
     }
   }
 }
@@ -149,7 +149,9 @@ function extractInputs(attrs: Record<string, unknown>, operationId: string): unk
 }
 
 function extractOutputs(attrs: Record<string, unknown>, operationId: string): unknown {
-  // Chat "do" spans: unpack ai.response.* prefix attributes
+  // Chat "do" spans: unpack ai.response.* prefix attributes.
+  // This captures keys like ai.response.text and ai.response.object, so
+  // the fallback key list below only applies to non-"do" span types.
   if (CHAT_DO_OPERATIONS.has(operationId)) {
     const prefixed = collectPrefix(attrs, 'ai.response.');
     if (Object.keys(prefixed).length > 0) {
@@ -233,6 +235,9 @@ function toNumber(value: unknown): number | undefined {
  * Attempts up to 2 levels of JSON decoding.
  */
 function safeParse(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => safeParse(item));
+  }
   if (typeof value !== 'string') {
     return value;
   }

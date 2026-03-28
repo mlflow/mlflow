@@ -140,6 +140,36 @@ describe('translateSpansForMlflow', () => {
       });
     });
 
+    it('decodes tools array with individually stringified elements', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText.doGenerate',
+        'ai.prompt.messages': '[{"role":"user","content":"hello"}]',
+        'ai.prompt.tools': [
+          '{"type":"function","name":"weather","description":"Get weather"}',
+          '{"type":"function","name":"search","description":"Search web"}',
+        ],
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
+        messages: [{ role: 'user', content: 'hello' }],
+        tools: [
+          { type: 'function', name: 'weather', description: 'Get weather' },
+          { type: 'function', name: 'search', description: 'Search web' },
+        ],
+      });
+    });
+
+    it('falls through to non-prefix keys when doGenerate has no ai.prompt.* attrs', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText.doGenerate',
+        'ai.prompt': '{"messages":[{"role":"user","content":"hi"}]}',
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
+        prompt: { messages: [{ role: 'user', content: 'hi' }] },
+      });
+    });
+
     it('does not set inputs when no matching keys exist', () => {
       const span = makeSpan({
         'ai.operationId': 'ai.generateText',
@@ -513,6 +543,254 @@ describe('translateSpansForMlflow', () => {
       expect(getAttr(toolSpan, 'mlflow.spanType')).toBe('TOOL');
       expect(getAttr(embedSpan, 'mlflow.spanType')).toBe('EMBEDDING');
       expect(getAttr(httpSpan, 'mlflow.spanType')).toBeUndefined();
+    });
+
+    it('handles empty span array', () => {
+      expect(() => translateSpansForMlflow([])).not.toThrow();
+    });
+  });
+
+  // ── Unknown and edge-case operationId ─────────────────────────────
+
+  describe('unknown and edge-case operationId', () => {
+    it('skips spanType for unknown operationId but still extracts other attrs', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.someNewOp',
+        'ai.model.id': 'gpt-4',
+        'ai.model.provider': 'openai',
+        'ai.usage.promptTokens': 10,
+        'ai.usage.completionTokens': 5,
+      });
+      translateSpansForMlflow([span]);
+      expect(getAttr(span, 'mlflow.spanType')).toBeUndefined();
+      expect(getAttr(span, 'mlflow.llm.model')).toBe('gpt-4');
+      expect(getAttr(span, 'mlflow.llm.provider')).toBe('openai');
+      expect(parseAttr(span, 'mlflow.chat.tokenUsage')).toEqual({
+        input_tokens: 10,
+        output_tokens: 5,
+        total_tokens: 15,
+      });
+    });
+
+    it('treats empty string operationId as no operationId', () => {
+      const span = makeSpan({
+        'ai.operationId': '',
+        'ai.model.id': 'gpt-4',
+      });
+      const originalAttrs = { ...span.attributes };
+      translateSpansForMlflow([span]);
+      expect(span.attributes).toEqual(originalAttrs);
+    });
+  });
+
+  // ── safeParse edge cases ──────────────────────────────────────────
+
+  describe('safeParse edge cases', () => {
+    it('passes non-string primitives through unchanged', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText.doGenerate',
+        'ai.prompt.temperature': 0.7,
+        'ai.prompt.topK': 40,
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
+        temperature: 0.7,
+        topK: 40,
+      });
+    });
+
+    it('decodes arrays of JSON strings element-by-element', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText.doGenerate',
+        'ai.prompt.messages': ['{"role":"user","content":"hi"}', '{"role":"assistant","content":"hello"}'],
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
+        messages: [
+          { role: 'user', content: 'hi' },
+          { role: 'assistant', content: 'hello' },
+        ],
+      });
+    });
+
+    it('decodes only 2 levels of JSON encoding', () => {
+      const inner = JSON.stringify({ key: 'value' });
+      const double = JSON.stringify(inner);
+      const triple = JSON.stringify(double);
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'ai.prompt': triple,
+      });
+      translateSpansForMlflow([span]);
+      // Triple-encoded: only 2 levels decoded, so the innermost JSON string is preserved
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
+        prompt: '{"key":"value"}',
+      });
+    });
+
+    it('passes boolean values through unchanged', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText.doGenerate',
+        'ai.prompt.stream': true,
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
+        stream: true,
+      });
+    });
+  });
+
+  // ── toStr edge cases ──────────────────────────────────────────────
+
+  describe('toStr edge cases', () => {
+    it.each([
+      ['number', 42],
+      ['boolean', true],
+      ['null', null],
+      ['undefined', undefined],
+      ['empty string', ''],
+    ])('does not set model for %s ai.model.id', (_label, value) => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'ai.model.id': value,
+      });
+      translateSpansForMlflow([span]);
+      expect(getAttr(span, 'mlflow.llm.model')).toBeUndefined();
+    });
+  });
+
+  // ── toNumber edge cases ───────────────────────────────────────────
+
+  describe('toNumber edge cases', () => {
+    it.each([
+      ['NaN string', 'NaN'],
+      ['Infinity string', 'Infinity'],
+      ['-Infinity string', '-Infinity'],
+      ['non-numeric string', 'hello'],
+      ['boolean', true],
+      ['null', null],
+      ['undefined', undefined],
+    ])('does not set tokenUsage for %s token count', (_label, value) => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'ai.usage.promptTokens': value,
+      });
+      translateSpansForMlflow([span]);
+      expect(getAttr(span, 'mlflow.chat.tokenUsage')).toBeUndefined();
+    });
+  });
+
+  // ── Model fallback priority ───────────────────────────────────────
+
+  describe('model fallback priority', () => {
+    it('prefers gen_ai.request.model over gen_ai.response.model', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'gen_ai.request.model': 'request-model',
+        'gen_ai.response.model': 'response-model',
+      });
+      translateSpansForMlflow([span]);
+      expect(getAttr(span, 'mlflow.llm.model')).toBe('request-model');
+    });
+  });
+
+  // ── Extraction priority ───────────────────────────────────────────
+
+  describe('extraction priority', () => {
+    it('prefers ai.prompt over ai.toolCall.args for inputs', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'ai.prompt': '{"messages":[]}',
+        'ai.toolCall.args': '{"q":"test"}',
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
+        prompt: { messages: [] },
+      });
+    });
+
+    it('prefers ai.response.text over ai.toolCall.result for outputs', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'ai.response.text': 'hello',
+        'ai.toolCall.result': '{"temp":72}',
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.spanOutputs')).toEqual({
+        text: 'hello',
+      });
+    });
+  });
+
+  // ── Zero and null edge cases ──────────────────────────────────────
+
+  describe('zero and null edge cases', () => {
+    it('treats zero token counts as valid', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'ai.usage.promptTokens': 0,
+        'ai.usage.completionTokens': 0,
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.chat.tokenUsage')).toEqual({
+        input_tokens: 0,
+        output_tokens: 0,
+        total_tokens: 0,
+      });
+    });
+
+    it('treats null as a value (not as absent) for inputs but ignores for model', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText',
+        'ai.model.id': null,
+        'ai.prompt': null,
+      });
+      translateSpansForMlflow([span]);
+      // toStr rejects null → no model set
+      expect(getAttr(span, 'mlflow.llm.model')).toBeUndefined();
+      // null !== undefined → ai.prompt matches, wraps null as {prompt: null}
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({ prompt: null });
+    });
+  });
+
+  // ── collectPrefix with nested keys ────────────────────────────────
+
+  describe('collectPrefix with nested keys', () => {
+    it('preserves dotted sub-keys after prefix strip', () => {
+      const span = makeSpan({
+        'ai.operationId': 'ai.generateText.doGenerate',
+        'ai.prompt.config.temperature': '0.5',
+        'ai.prompt.config.topK': '10',
+      });
+      translateSpansForMlflow([span]);
+      expect(parseAttr(span, 'mlflow.spanInputs')).toEqual({
+        'config.temperature': 0.5,
+        'config.topK': 10,
+      });
+    });
+  });
+
+  // ── console.debug on translation failure ──────────────────────────
+
+  describe('debug logging on failure', () => {
+    it('calls console.debug when a span translation throws', () => {
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+      try {
+        const badSpan = makeSpan({});
+        Object.defineProperty(badSpan, 'attributes', {
+          get() {
+            throw new Error('boom');
+          },
+        });
+        translateSpansForMlflow([badSpan]);
+        expect(debugSpy).toHaveBeenCalledTimes(1);
+        expect(debugSpy).toHaveBeenCalledWith(
+          'MLflowSpanExporter: failed to translate span, passing through unchanged',
+          expect.any(Error)
+        );
+      } finally {
+        debugSpy.mockRestore();
+      }
     });
   });
 });

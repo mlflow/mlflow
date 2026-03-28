@@ -126,6 +126,18 @@ describe('MLflowSpanExporter', () => {
     expect(exportedSpans[0].attributes).toEqual(originalAttrs);
   });
 
+  it('delegates empty span array to inner exporter', () => {
+    const mock = createMockExporter();
+    const exporter = new MLflowSpanExporter(mock);
+    const callback = jest.fn();
+
+    exporter.export([], callback);
+
+    expect(mock.exportMock).toHaveBeenCalledTimes(1);
+    expect(mock.exportMock.mock.calls[0][0]).toHaveLength(0);
+    expect(callback).toHaveBeenCalledWith({ code: 0 });
+  });
+
   it('exports all spans even when translation fails for some', () => {
     const mock = createMockExporter();
     const exporter = new MLflowSpanExporter(mock);
