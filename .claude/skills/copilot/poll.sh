@@ -66,13 +66,10 @@ if [[ "$transitioned_to_ready" == "true" ]]; then
     review_state=$(echo "$review_info" | jq -r '.state // empty')
     review_id=$(echo "$review_info" | jq -r '.id // empty')
     if [[ -n "$review_state" ]]; then
-      comment_count=0
-      if [[ -n "$review_id" ]]; then
-        comment_count=$(
-          gh api "repos/${repo}/pulls/${pr_number}/reviews/${review_id}/comments" \
-            --jq 'length' 2>/dev/null || echo "0"
-        )
-      fi
+      comment_count=$(
+        gh api "repos/${repo}/pulls/${pr_number}/reviews/${review_id}/comments" \
+          --jq 'length' 2>/dev/null || echo "0"
+      )
       echo "Copilot review: $review_state ($comment_count comment(s), elapsed $((SECONDS - review_start))s)"
       break
     fi
