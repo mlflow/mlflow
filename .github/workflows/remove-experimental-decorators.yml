@@ -15,8 +15,7 @@ jobs:
     runs-on: ubuntu-slim
     timeout-minutes: 5
     # Only run on the main repository
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && github.repository == 'mlflow/mlflow'
+    if: github.repository == 'mlflow/mlflow'
     permissions:
       contents: write
       pull-requests: write
@@ -31,6 +30,7 @@ jobs:
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
 
       - uses: ./.github/actions/setup-python

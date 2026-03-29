@@ -28,6 +28,7 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
     Provider,
+    VertexAIConfig,
     _AuthConfigKey,
     _OpenAICompatibleConfig,
 )
@@ -252,6 +253,28 @@ def _build_endpoint_config(
         Provider.OLLAMA,
     }:
         provider_config = _build_openai_compatible_config(model_config)
+    elif model_config.provider in (Provider.DATABRICKS, Provider.DATABRICKS_MODEL_SERVING):
+        from mlflow.gateway.providers.databricks import DatabricksConfig
+
+        auth_config = model_config.auth_config or {}
+        auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "pat_token")
+        config_kwargs = {}
+        if api_base := auth_config.get(_AuthConfigKey.API_BASE):
+            config_kwargs["host"] = api_base
+        if auth_mode == "oauth_m2m":
+            config_kwargs["client_id"] = auth_config.get("client_id")
+            config_kwargs["client_secret"] = model_config.secret_value.get("client_secret")
+        else:
+            config_kwargs["token"] = model_config.secret_value.get(_AuthConfigKey.API_KEY)
+        provider_config = DatabricksConfig(**config_kwargs)
+        model_config.provider = Provider.DATABRICKS
+    elif model_config.provider == Provider.VERTEX_AI:
+        auth_config = model_config.auth_config or {}
+        provider_config = VertexAIConfig(
+            vertex_project=auth_config.get("vertex_project"),
+            vertex_location=auth_config.get("vertex_location"),
+            vertex_credentials=model_config.secret_value.get("vertex_credentials"),
+        )
     else:
         # Use LiteLLM as fallback for unsupported providers
         # Store the original provider name for LiteLLM's provider/model format

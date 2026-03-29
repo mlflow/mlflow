@@ -1193,6 +1193,7 @@ class SqlIssue(Base):
         Index(f"index_{__tablename__}_experiment_id", "experiment_id"),
         Index(f"index_{__tablename__}_source_run_id", "source_run_id"),
         Index(f"index_{__tablename__}_status", "status"),
+        Index(f"index_{__tablename__}_created_by", "created_by"),
     )
 
     def __repr__(self):
