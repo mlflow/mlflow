@@ -228,9 +228,14 @@ def optimize_prompts(
         if enable_tracking
         else nullcontext({})
     ) as log_results:
-        optimizer_output = optimizer.optimize(
-            eval_fn, converted_train_data, target_prompts_dict, enable_tracking
-        )
+        # Enter autologging context once for the entire optimization, matching
+        # evaluate()'s pattern at base.py:341-346. Previously this was inside
+        # _build_eval_fn's eval_fn closure (called per GEPA iteration), which
+        # tore down autologging patches on every exit via revert_patches().
+        with configure_autologging_for_evaluation(enable_tracing=True):
+            optimizer_output = optimizer.optimize(
+                eval_fn, converted_train_data, target_prompts_dict, enable_tracking
+            )
 
         optimized_prompts = [
             register_prompt(
@@ -327,13 +332,10 @@ def _build_eval_fn(
             )
 
         try:
-            with (
-                ThreadPoolExecutor(
-                    max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
-                    thread_name_prefix="MLflowPromptOptimization",
-                ) as executor,
-                configure_autologging_for_evaluation(enable_tracing=True),
-            ):
+            with ThreadPoolExecutor(
+                max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
+                thread_name_prefix="MLflowPromptOptimization",
+            ) as executor:
                 futures = [executor.submit(_run_single, record) for record in dataset]
                 results = [future.result() for future in futures]
 
