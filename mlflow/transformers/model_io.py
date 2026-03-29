@@ -107,6 +107,7 @@ def load_model_and_components_from_local_base_path(
     flavor_conf: dict[str, Any],
     accelerate_conf: dict[str, Any],
     device: str | int | None = None,
+    base_model_path: str | None = None,
 ) -> dict[str, Any]:
     """
     Load the base model from an external local path and pipeline components from the
@@ -118,10 +119,13 @@ def load_model_and_components_from_local_base_path(
         flavor_conf: The flavor configuration
         accelerate_conf: The configuration for the accelerate library
         device: The device to load the model onto
+        base_model_path: Optional override for the base model path stored in the flavor
+            config. When provided, the base model is loaded from this path instead of
+            the path stored at save time.
     """
     loaded = {}
 
-    base_model_path = flavor_conf[FlavorKey.MODEL_LOCAL_BASE]
+    base_model_path = base_model_path or flavor_conf[FlavorKey.MODEL_LOCAL_BASE]
     loaded[FlavorKey.MODEL] = _load_model(base_model_path, flavor_conf, accelerate_conf, device)
 
     components = flavor_conf.get(FlavorKey.COMPONENTS, [])

@@ -1205,6 +1205,13 @@ def load_model(
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
 
     if base_model_path is not None:
+        if FlavorKey.MODEL_LOCAL_BASE not in flavor_config:
+            raise MlflowException(
+                "The `base_model_path` parameter can only be used with models that were saved "
+                "with `base_model_path`. The specified model was not saved with a local base "
+                "model path.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
         base_model_path = os.path.abspath(base_model_path)
         if not os.path.isdir(base_model_path):
             raise MlflowException(
@@ -1212,9 +1219,9 @@ def load_model(
                 "not a directory. Please provide a valid path to the base model.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        flavor_config[FlavorKey.MODEL_LOCAL_BASE] = base_model_path
 
-    return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
+    return _load_model(local_model_path, flavor_config, return_type, device,
+                       base_model_path=base_model_path, **kwargs)
 
 
 def persist_pretrained_model(model_uri: str) -> None:
@@ -1342,7 +1349,7 @@ def is_gpu_available():
     return is_gpu
 
 
-def _load_model(path: str, flavor_config, return_type: str, device=None, **kwargs):
+def _load_model(path: str, flavor_config, return_type: str, device=None, base_model_path=None, **kwargs):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
@@ -1411,6 +1418,7 @@ def _load_model(path: str, flavor_config, return_type: str, device=None, **kwarg
             flavor_conf=flavor_config,
             accelerate_conf=accelerate_model_conf,
             device=device,
+            base_model_path=base_model_path,
         )
     elif FlavorKey.MODEL_REVISION not in flavor_config:
         model_and_components = load_model_and_components_from_local(
