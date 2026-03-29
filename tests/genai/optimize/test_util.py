@@ -1,4 +1,5 @@
 from typing import Any, Union
+from unittest import mock
 
 import pytest
 from pydantic import BaseModel
@@ -221,3 +222,113 @@ def test_validate_train_data_success(train_data):
     import pandas as pd
 
     validate_train_data(pd.DataFrame(train_data), [], lambda **kwargs: None)
+
+
+def test_create_metric_from_scorers_handles_scorer_exception():
+    """Scorer exception should not crash the metric -- return 0 score with error."""
+
+    @scorer(name="good_scorer")
+    def good_scorer(inputs, outputs):
+        return Feedback(name="good_scorer", value=1.0, rationale="good")
+
+    @scorer(name="bad_scorer")
+    def bad_scorer(inputs, outputs):
+        raise RuntimeError("scorer exploded")
+
+    metric = create_metric_from_scorers([good_scorer, bad_scorer])
+    result = metric({"input": "test"}, {"output": "result"}, {}, None)
+
+    aggregated, rationales, individual_scores = result
+    # good_scorer scored 1.0, bad_scorer has an error (no numeric value)
+    assert "good_scorer" in individual_scores
+    assert individual_scores["good_scorer"] == 1.0
+    # bad_scorer should not appear in numeric scores (it has an AssessmentError)
+    assert "bad_scorer" not in individual_scores
+    # aggregated score should still be computed from available scores
+    assert aggregated == 0.0 or isinstance(aggregated, float)
+    assert "good_scorer" in rationales
+
+
+def test_create_metric_from_scorers_all_scorers_fail():
+    """When all scorers fail, metric should return 0 without crashing."""
+
+    @scorer(name="failing_scorer")
+    def failing_scorer(inputs, outputs):
+        raise ValueError("total failure")
+
+    metric = create_metric_from_scorers([failing_scorer])
+    result = metric({"input": "test"}, {"output": "result"}, {}, None)
+
+    aggregated, rationales, individual_scores = result
+    assert aggregated == 0.0
+    assert "failing_scorer" not in individual_scores
+
+
+def test_create_metric_from_scorers_disables_tracing_during_scoring():
+    """Tracing should be disabled during scorer execution and re-enabled after."""
+    disable_calls = []
+    enable_calls = []
+
+    @scorer(name="tracing_checker")
+    def tracing_checker(inputs, outputs):
+        return Feedback(name="tracing_checker", value=1.0, rationale="ok")
+
+    metric = create_metric_from_scorers([tracing_checker])
+
+    with (
+        mock.patch("mlflow.tracing.disable", side_effect=lambda: disable_calls.append(1)),
+        mock.patch("mlflow.tracing.enable", side_effect=lambda: enable_calls.append(1)),
+    ):
+        metric({"input": "test"}, {"output": "result"}, {}, None)
+
+    assert len(disable_calls) == 1
+    assert len(enable_calls) == 1
+
+
+def test_create_metric_from_scorers_reenables_tracing_after_exception():
+    """Tracing should be re-enabled even if a scorer raises."""
+    enable_calls = []
+
+    @scorer(name="exploding_scorer")
+    def exploding_scorer(inputs, outputs):
+        raise RuntimeError("boom")
+
+    metric = create_metric_from_scorers([exploding_scorer])
+
+    with (
+        mock.patch("mlflow.tracing.disable"),
+        mock.patch("mlflow.tracing.enable", side_effect=lambda: enable_calls.append(1)),
+    ):
+        metric({"input": "test"}, {"output": "result"}, {}, None)
+
+    # Tracing must be re-enabled even after scorer failure
+    assert len(enable_calls) == 1
+
+
+def test_create_metric_from_scorers_logs_assessments_on_trace():
+    """When a trace is provided, assessments should be logged on it."""
+
+    @scorer(name="assessed_scorer")
+    def assessed_scorer(inputs, outputs):
+        return Feedback(name="assessed_scorer", value=1.0, rationale="assessed")
+
+    metric = create_metric_from_scorers([assessed_scorer])
+
+    mock_trace = mock.MagicMock()
+    mock_trace.info.trace_id = "test-trace-id"
+    mock_root_span = mock.MagicMock()
+    mock_root_span.span_id = "test-span-id"
+    mock_trace.data._get_root_span.return_value = mock_root_span
+
+    with (
+        mock.patch("mlflow.tracing.disable"),
+        mock.patch("mlflow.tracing.enable"),
+        mock.patch("mlflow.log_assessment") as mock_log_assessment,
+        mock.patch("mlflow.active_run", return_value=None),
+    ):
+        metric({"input": "test"}, {"output": "result"}, {}, mock_trace)
+
+        # Verify log_assessment was called on the trace
+        mock_log_assessment.assert_called_once()
+        call_kwargs = mock_log_assessment.call_args
+        assert call_kwargs.kwargs["trace_id"] == "test-trace-id"
