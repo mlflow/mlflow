@@ -122,7 +122,7 @@ def _generate_base_config(pipeline, torch_dtype=None):
 def _get_model_config(model, save_pretrained=True, base_model_path=None):
     conf = {
         FlavorKey.MODEL_TYPE: _get_instance_type(model),
-        FlavorKey.MODEL_NAME: base_model_path or model.name_or_path,
+        FlavorKey.MODEL_NAME: model.name_or_path,
     }
 
     if save_pretrained:
@@ -130,7 +130,7 @@ def _get_model_config(model, save_pretrained=True, base_model_path=None):
 
         conf[FlavorKey.MODEL_BINARY] = _MODEL_BINARY_FILE_NAME
     elif base_model_path:
-        conf[FlavorKey.MODEL_LOCAL_BASE] = True
+        conf[FlavorKey.MODEL_LOCAL_BASE] = base_model_path
     else:
         conf[FlavorKey.MODEL_REVISION] = get_latest_commit_for_repo(model.name_or_path)
 

@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.transformers.flavor_config import FlavorKey
 from mlflow.transformers.peft import get_peft_base_model, is_peft_model
+from mlflow.utils.logging_utils import suppress_logs
 
 SKIP_IF_PEFT_NOT_AVAILABLE = pytest.mark.skipif(
     importlib.util.find_spec("peft") is None,
@@ -109,10 +110,7 @@ def test_log_peft_pipeline(peft_pipeline):
 
 @pytest.fixture
 def peft_model_with_local_base(tmp_path_factory):
-    """Create a PEFT model whose base model is loaded from a local directory."""
     from peft import LoraConfig, TaskType, get_peft_model
-
-    from mlflow.utils.logging_utils import suppress_logs
 
     _PEFT_PIPELINE_ERROR_MSG = re.compile(r"is not supported for")
 
@@ -142,7 +140,6 @@ def peft_model_with_local_base(tmp_path_factory):
 
 
 def test_save_and_load_peft_with_base_model_path(peft_model_with_local_base, tmp_path):
-    """Test saving a PEFT model with a local base_model_path reference."""
     from peft import PeftModel
 
     pipeline, base_dir = peft_model_with_local_base
@@ -162,8 +159,7 @@ def test_save_and_load_peft_with_base_model_path(peft_model_with_local_base, tmp
     flavor_conf = Model.load(str(tmp_path.joinpath("MLmodel"))).flavors["transformers"]
     assert "model_binary" not in flavor_conf
     assert "source_model_revision" not in flavor_conf
-    assert flavor_conf[FlavorKey.MODEL_LOCAL_BASE] is True
-    assert flavor_conf[FlavorKey.MODEL_NAME] == os.path.abspath(base_dir)
+    assert flavor_conf[FlavorKey.MODEL_LOCAL_BASE] == os.path.abspath(base_dir)
     assert flavor_conf[FlavorKey.PEFT] == "peft"
 
     loaded_pipeline = mlflow.transformers.load_model(tmp_path)
@@ -172,7 +168,6 @@ def test_save_and_load_peft_with_base_model_path(peft_model_with_local_base, tmp
 
 
 def test_save_peft_with_base_model_path_components(peft_model_with_local_base, tmp_path):
-    """Test that components (tokenizer) are saved locally when using base_model_path."""
     pipeline, base_dir = peft_model_with_local_base
 
     mlflow.transformers.save_model(
@@ -187,7 +182,6 @@ def test_save_peft_with_base_model_path_components(peft_model_with_local_base, t
 
 
 def test_log_peft_with_base_model_path(peft_model_with_local_base):
-    """Test logging a PEFT model with base_model_path via log_model."""
     from peft import PeftModel
 
     pipeline, base_dir = peft_model_with_local_base
@@ -216,7 +210,6 @@ def test_base_model_path_rejects_non_peft_model(small_qa_pipeline, tmp_path):
 
 
 def test_base_model_path_rejects_invalid_path(peft_model_with_local_base, tmp_path):
-    """Test that base_model_path raises an error when path does not exist."""
     pipeline, _ = peft_model_with_local_base
 
     with pytest.raises(MlflowException, match="does not exist"):
@@ -228,7 +221,6 @@ def test_base_model_path_rejects_invalid_path(peft_model_with_local_base, tmp_pa
 
 
 def test_base_model_path_rejects_non_checkpoint_dir(peft_model_with_local_base, tmp_path):
-    """Test that base_model_path raises an error when directory has no config.json."""
     pipeline, _ = peft_model_with_local_base
 
     empty_dir = tmp_path / "empty_base"
