@@ -1349,7 +1349,7 @@ def is_gpu_available():
     return is_gpu
 
 
-def _load_model(path: str, flavor_config, return_type: str, device=None, base_model_path=None, **kwargs):
+def _load_model(path: str, flavor_config, return_type: str, device=None, base_model_path: str | None = None, **kwargs):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """
