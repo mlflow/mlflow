@@ -220,6 +220,25 @@ def test_base_model_path_rejects_invalid_path(peft_model_with_local_base, tmp_pa
         )
 
 
+def test_load_peft_with_base_model_path_override(peft_model_with_local_base, tmp_path):
+    from peft import PeftModel
+
+    pipeline, base_dir = peft_model_with_local_base
+    save_dir = tmp_path / "model_output"
+
+    # Save with a dummy path (simulating save on a different machine)
+    mlflow.transformers.save_model(
+        transformers_model=pipeline,
+        path=save_dir,
+        base_model_path=base_dir,
+    )
+
+    # Load with an explicit override path (simulating different mount point)
+    loaded_pipeline = mlflow.transformers.load_model(save_dir, base_model_path=base_dir)
+    assert isinstance(loaded_pipeline.model, PeftModel)
+    loaded_pipeline.predict("Hi")
+
+
 def test_base_model_path_rejects_non_checkpoint_dir(peft_model_with_local_base, tmp_path):
     pipeline, _ = peft_model_with_local_base
 

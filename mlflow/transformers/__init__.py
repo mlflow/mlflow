@@ -1120,7 +1120,12 @@ def log_model(
 
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 def load_model(
-    model_uri: str, dst_path: str | None = None, return_type="pipeline", device=None, **kwargs
+    model_uri: str,
+    dst_path: str | None = None,
+    return_type="pipeline",
+    device=None,
+    base_model_path: str | None = None,
+    **kwargs,
 ):
     """
     Load a ``transformers`` object from a local file or a run.
@@ -1163,6 +1168,11 @@ def load_model(
             saving. Default is "pipeline".
         device: The device on which to load the model. Default is None. Use 0 to
             load to the default GPU.
+        base_model_path: Optional path to a local directory containing the base model
+            weights. When provided, overrides the base model path stored in the MLflow
+            artifact at save time. This is useful when the base model is located at a
+            different path at load time than it was at save time (e.g. different mount
+            points across environments).
         kwargs: Optional configuration options for loading of a ``transformers`` object.
             For information on parameters and their usage, see
             `transformers documentation <https://huggingface.co/docs/transformers/index>`_.
@@ -1193,6 +1203,16 @@ def load_model(
         )
 
     _add_code_from_conf_to_system_path(local_model_path, flavor_config)
+
+    if base_model_path is not None:
+        base_model_path = os.path.abspath(base_model_path)
+        if not os.path.isdir(base_model_path):
+            raise MlflowException(
+                f"The specified base_model_path '{base_model_path}' does not exist or is "
+                "not a directory. Please provide a valid path to the base model.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        flavor_config[FlavorKey.MODEL_LOCAL_BASE] = base_model_path
 
     return _load_model(local_model_path, flavor_config, return_type, device, **kwargs)
 
