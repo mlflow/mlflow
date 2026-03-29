@@ -28,7 +28,7 @@ export const ImageGridMultipleKeyPlot = ({
   const lastWidth = useRef(0);
 
   useEffect(() => {
-    if (!measureRef.current) return;
+    if (!measureRef.current || !window.ResizeObserver) return;
     let rafId = 0;
     const observer = new ResizeObserver(([entry]) => {
       cancelAnimationFrame(rafId);
