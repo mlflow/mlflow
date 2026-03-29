@@ -25,7 +25,8 @@ from mlflow.genai.judges.utils.parsing_utils import (
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 
 # "endpoints" is a special case for MLflow deployment endpoints (e.g. Databricks model serving).
-_NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints"]
+# "gateway" is for MLflow AI Gateway endpoints.
+_NATIVE_PROVIDERS = ["openai", "anthropic", "gemini", "mistral", "endpoints", "gateway"]
 
 
 def _invoke_via_gateway(
@@ -82,6 +83,14 @@ def _invoke_via_gateway(
             endpoint_type=get_endpoint_type(model_uri) or EndpointType.LLM_V1_CHAT,
         )
 
+    # "endpoints" and "gateway" providers only support string prompts
+    if provider in ("endpoints", "gateway"):
+        raise MlflowException(
+            f"LiteLLM is required for using '{provider}' LLM with ChatMessage-style prompts. "
+            "Please install it with `pip install litellm`.",
+            error_code=BAD_REQUEST,
+        )
+
     _, model_name = _parse_model_uri(model_uri)
     rf_dict = _pydantic_to_response_format(response_format) if response_format else None
     return _call_llm_provider_api(
@@ -107,9 +116,9 @@ class GatewayAdapter(BaseJudgeAdapter):
         model_provider, _ = _parse_model_uri(model_uri)
         if model_provider not in _NATIVE_PROVIDERS:
             return False
-        # "endpoints" (Databricks model serving) only supports string prompts
-        # via score_model_on_payload; _get_provider_instance doesn't handle it.
-        if isinstance(prompt, list) and model_provider == "endpoints":
+        # "endpoints" and "gateway" (Databricks model serving / AI Gateway) only support
+        # string prompts via score_model_on_payload; _get_provider_instance doesn't handle them.
+        if isinstance(prompt, list) and model_provider in ("endpoints", "gateway"):
             return False
         return True
 
@@ -120,14 +129,14 @@ class GatewayAdapter(BaseJudgeAdapter):
                 "Please install it with `pip install litellm`.",
             )
 
-        # base_url and extra_headers are not supported for deployment endpoints
-        if input_params.model_provider == "endpoints" and (
+        # base_url and extra_headers are not supported for deployment endpoints or gateway
+        if input_params.model_provider in ("endpoints", "gateway") and (
             input_params.base_url is not None or input_params.extra_headers is not None
         ):
             raise MlflowException(
                 "base_url and extra_headers are not supported for deployment "
-                "endpoints (endpoints:/...). The endpoint URL is determined by the "
-                "deployment target configuration.",
+                "endpoints (endpoints:/...) or gateway (gateway:/...). The endpoint URL "
+                "is determined by the deployment target configuration.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

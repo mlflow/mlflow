@@ -36,6 +36,8 @@ def list_prompt():
         ("openai:/gpt-4", "string", GatewayAdapter),
         ("anthropic:/claude-3-5-sonnet-20241022", "string", GatewayAdapter),
         ("gemini:/gemini-2.5-flash", "string", GatewayAdapter),
+        # Gateway AI Gateway endpoints (without litellm)
+        ("gateway:/my-endpoint", "string", GatewayAdapter),
     ],
 )
 def test_get_adapter_without_litellm(
@@ -65,6 +67,9 @@ def test_get_adapter_without_litellm(
         ("openai:/gpt-4", "list", LiteLLMAdapter),
         ("anthropic:/claude-3-5-sonnet-20241022", "string", LiteLLMAdapter),
         ("anthropic:/claude-3-5-sonnet-20241022", "list", LiteLLMAdapter),
+        # Gateway AI Gateway endpoints (with litellm - uses LiteLLM adapter)
+        ("gateway:/my-endpoint", "string", LiteLLMAdapter),
+        ("gateway:/my-endpoint", "list", LiteLLMAdapter),
     ],
 )
 def test_get_adapter_with_litellm(
@@ -92,6 +97,7 @@ def test_get_adapter_gateway_with_list(list_prompt):
     ("model_uri", "prompt_type"),
     [
         ("endpoints:/my-endpoint", "list"),
+        ("gateway:/my-endpoint", "list"),
         ("vertex_ai:/gemini-pro", "list"),
         ("bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0", "list"),
         ("bedrock:/anthropic.claude-3-5-sonnet-20241022-v2:0", "string"),
