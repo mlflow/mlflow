@@ -864,18 +864,18 @@ def test_custom_base_url_overrides_provider():
 
 def test_lookup_with_provider_prefix():
     mock_cost = {"openai/gpt-4": {"max_input_tokens": 128000}}
-    with mock.patch("mlflow.utils.providers._get_model_cost", return_value=mock_cost):
+    with mock.patch("mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost):
         assert _get_max_context_tokens("openai", "gpt-4") == 128000
 
 
 def test_lookup_without_provider_prefix():
     mock_cost = {"gpt-4": {"max_input_tokens": 8192}}
-    with mock.patch("mlflow.utils.providers._get_model_cost", return_value=mock_cost):
+    with mock.patch("mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost):
         assert _get_max_context_tokens("openai", "gpt-4") == 8192
 
 
 def test_lookup_missing_model():
-    with mock.patch("mlflow.utils.providers._get_model_cost", return_value={}):
+    with mock.patch("mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value={}):
         assert _get_max_context_tokens("openai", "unknown-model") is None
 
 
@@ -884,7 +884,7 @@ def test_provider_prefix_takes_priority():
         "openai/gpt-4": {"max_input_tokens": 128000},
         "gpt-4": {"max_input_tokens": 8192},
     }
-    with mock.patch("mlflow.utils.providers._get_model_cost", return_value=mock_cost):
+    with mock.patch("mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost):
         assert _get_max_context_tokens("openai", "gpt-4") == 128000
 
 

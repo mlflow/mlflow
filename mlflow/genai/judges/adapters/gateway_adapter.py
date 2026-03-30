@@ -49,6 +49,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
 from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.metrics.genai.model_utils import _get_provider_instance, _parse_model_uri
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.utils.providers import _get_model_cost
 
 _logger = logging.getLogger(__name__)
 
@@ -217,8 +218,6 @@ def _build_request(
 
 def _get_max_context_tokens(provider: str, model: str) -> int | None:
     """Look up the max input token limit for a model from the vendored model prices JSON."""
-    from mlflow.utils.providers import _get_model_cost
-
     model_cost = _get_model_cost()
     # Try provider/model format first (e.g., "openai/gpt-4.1")
     for key in (f"{provider}/{model}", model):
@@ -263,6 +262,8 @@ def _parse_response_message(
         Tuple of (ChatMessage, usage_dict) where usage_dict has
         "prompt_tokens" and "completion_tokens" keys.
     """
+    # Lazy import: mlflow.types.llm → mlflow.types.schema → numpy, which breaks
+    # the skinny client. Must stay inside the function.
     from mlflow.types.llm import ChatMessage
 
     chat_response = provider.adapter_class.model_to_chat(response_data, provider.config)
@@ -522,6 +523,8 @@ class GatewayAdapter(BaseJudgeAdapter):
     def _invoke_with_tools(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         """Invoke the judge model with trace-based tool calling support."""
         from mlflow.tracing.constant import AssessmentMetadataKey
+
+        # Lazy import: mlflow.types.llm pulls in numpy via mlflow.types.schema
         from mlflow.types.llm import ChatMessage
 
         messages = (
@@ -589,6 +592,8 @@ class GatewayAdapter(BaseJudgeAdapter):
     ) -> InvokeOutput:
         """Run the tool-calling loop using the provider infrastructure for HTTP calls."""
         from mlflow.genai.judges.tools import list_judge_tools
+
+        # Lazy import: mlflow.types.llm pulls in numpy via mlflow.types.schema
         from mlflow.types.llm import ChatMessage
 
         # Resolve provider for config, URL, headers, and request/response transformation.
