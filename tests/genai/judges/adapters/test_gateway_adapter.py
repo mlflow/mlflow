@@ -14,9 +14,8 @@ from mlflow.genai.judges.adapters.gateway_adapter import (
     GatewayAdapter,
     InvokeOutput,
     _build_request,
+    _get_judge_provider,
     _get_max_context_tokens,
-    _get_mlflow_gateway_provider,
-    _get_provider,
     _parse_response_message,
     _should_proactively_prune,
 )
@@ -472,7 +471,7 @@ def test_parse_response_empty_choices_raises():
 
 def test_parse_anthropic_response_with_tool_calls(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
-    provider = _get_provider("anthropic", "claude-3-5-sonnet")
+    provider = _get_judge_provider("anthropic", "claude-3-5-sonnet")
 
     anthropic_response = {
         "id": "msg_123",
@@ -502,7 +501,7 @@ def test_parse_anthropic_response_with_tool_calls(monkeypatch):
 
 def test_parse_anthropic_response_text_only(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
-    provider = _get_provider("anthropic", "claude-3-5-sonnet")
+    provider = _get_judge_provider("anthropic", "claude-3-5-sonnet")
 
     anthropic_response = {
         "id": "msg_456",
@@ -589,7 +588,7 @@ def test_non_context_error():
 
 def test_get_provider_delegates_to_get_provider_instance(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
-    provider = _get_provider("openai", "gpt-4")
+    provider = _get_judge_provider("openai", "gpt-4")
     assert provider.adapter_class is not None
     assert provider.config is not None
     assert provider.config.model.name == "gpt-4"
@@ -600,28 +599,27 @@ def test_get_provider_delegates_to_get_provider_instance(monkeypatch):
 
 def test_get_provider_anthropic(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
-    provider = _get_provider("anthropic", "claude-3-5-sonnet")
+    provider = _get_judge_provider("anthropic", "claude-3-5-sonnet")
     assert provider.config.model.name == "claude-3-5-sonnet"
     assert "anthropic.com" in provider.get_endpoint_url("llm/v1/chat")
 
 
-def test_get_mlflow_gateway_provider():
+def test_get_judge_provider_gateway():
     mock_config = mock.MagicMock()
     mock_config.api_base = "http://localhost:5000/gateway/mlflow/v1/"
-    mock_config.extra_headers = None
+    mock_config.extra_headers = {"X-Auth": "token"}
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_config",
+        "mlflow.metrics.genai.model_utils.get_gateway_config",
         return_value=mock_config,
     ):
-        provider = _get_mlflow_gateway_provider("my-endpoint")
+        provider = _get_judge_provider("gateway", "my-endpoint")
 
-    assert (
-        provider.get_endpoint_url("llm/v1/chat")
-        == "http://localhost:5000/gateway/mlflow/v1/chat/completions"
-    )
+    assert "chat/completions" in provider.get_endpoint_url("llm/v1/chat")
     assert provider.config is not None
     assert provider.config.model.name == "my-endpoint"
+    # Judge provider adds the caller header
+    assert "X-MLflow-Gateway-Caller" in provider.headers
     payload = provider.adapter_class.chat_to_model(
         {"messages": [{"role": "user", "content": "hi"}]}, provider.config
     )
@@ -630,7 +628,7 @@ def test_get_mlflow_gateway_provider():
 
 def test_get_provider_unsupported_raises():
     with pytest.raises(MlflowException, match="not supported"):
-        _get_provider("cohere", "command-r")
+        _get_judge_provider("cohere", "command-r")
 
 
 # --- _invoke_and_handle_tools tests ---
@@ -641,7 +639,7 @@ def test_single_shot_no_tools():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            "mlflow.genai.judges.adapters.gateway_adapter._get_judge_provider",
             return_value=_mock_provider(),
         ),
         mock.patch(
@@ -679,7 +677,7 @@ def test_tool_calling_loop(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            "mlflow.genai.judges.adapters.gateway_adapter._get_judge_provider",
             return_value=_mock_provider(),
         ),
         mock.patch(
@@ -740,7 +738,7 @@ def test_context_window_error_triggers_pruning(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            "mlflow.genai.judges.adapters.gateway_adapter._get_judge_provider",
             return_value=_mock_provider(),
         ),
         mock.patch(
@@ -776,7 +774,7 @@ def test_max_iterations_exceeded(mock_trace, monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            "mlflow.genai.judges.adapters.gateway_adapter._get_judge_provider",
             return_value=_mock_provider(),
         ),
         mock.patch(
@@ -818,7 +816,7 @@ def test_response_format_fallback():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            "mlflow.genai.judges.adapters.gateway_adapter._get_judge_provider",
             return_value=_mock_provider(),
         ),
         mock.patch(
@@ -844,7 +842,7 @@ def test_custom_base_url_overrides_provider():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            "mlflow.genai.judges.adapters.gateway_adapter._get_judge_provider",
             return_value=_mock_provider(),
         ),
         mock.patch(
@@ -949,7 +947,7 @@ def test_proactive_pruning_triggers_during_tool_loop(mock_trace):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter._get_provider",
+            "mlflow.genai.judges.adapters.gateway_adapter._get_judge_provider",
             return_value=_mock_provider(),
         ),
         mock.patch(

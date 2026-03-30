@@ -669,7 +669,7 @@ def test_get_mlflow_gateway_provider():
     )
 
     with mock.patch(
-        "mlflow.genai.utils.gateway_utils.get_gateway_config",
+        "mlflow.metrics.genai.model_utils.get_gateway_config",
         return_value=gateway_config,
     ) as mock_get_config:
         provider = _get_provider_instance("gateway", "chat")

@@ -6,6 +6,7 @@ import requests
 from pydantic import BaseModel
 
 from mlflow.exceptions import MlflowException
+from mlflow.genai.utils.gateway_utils import get_gateway_config
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 if TYPE_CHECKING:
@@ -368,43 +369,30 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         return TogetherAIProvider(_get_route_config(config))
 
     elif provider == "gateway":
-        return _get_mlflow_gateway_provider(model)
+        from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
 
-    raise MlflowException(f"Provider '{provider}' is not supported for evaluation.")
+        gw_config = get_gateway_config(model)
+        openai_config = OpenAIConfig(
+            openai_api_key="mlflow-gateway-auth",
+            openai_api_base=gw_config.api_base,
+        )
+        gw_extra_headers = gw_config.extra_headers
 
+        class _MlflowGatewayProvider(OpenAIProvider):
+            @property
+            def headers(self) -> dict[str, str]:
+                return {**(gw_extra_headers or {})}
 
-class _MlflowGatewayProvider:
-    """Lightweight provider-like object for MLflow AI Gateway endpoints.
-
-    Matches the provider interface used by callers:
-    ``.get_endpoint_url()``, ``.headers``, ``.adapter_class``, ``.config``.
-    """
-
-    from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
-
-    adapter_class = OpenAICompatibleAdapter
-
-    def __init__(self, api_base, headers, config):
-        self._api_base = api_base
-        self.headers = headers
-        self.config = config
-
-    def get_endpoint_url(self, _endpoint_type):
-        return f"{self._api_base.rstrip('/')}/chat/completions"
-
-
-class _GatewayProviderConfig:
-    def __init__(self, model_name):
-        self.model = type("_ModelRef", (), {"name": model_name})()
-
-
-def _get_mlflow_gateway_provider(model_name: str) -> _MlflowGatewayProvider:
-    """Create a provider-like object for MLflow AI Gateway endpoints."""
-    from mlflow.genai.utils.gateway_utils import get_gateway_config
-
-    gw_config = get_gateway_config(model_name)
-    headers = {**(gw_config.extra_headers or {})}
-    return _MlflowGatewayProvider(gw_config.api_base, headers, _GatewayProviderConfig(model_name))
+        route_config = EndpointConfig(
+            name="gateway",
+            endpoint_type="llm/v1/chat",
+            model={
+                "provider": "openai",
+                "name": model,
+                "config": openai_config.model_dump(),
+            },
+        )
+        return _MlflowGatewayProvider(route_config)
 
 
 def _send_request(

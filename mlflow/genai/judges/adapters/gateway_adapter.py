@@ -91,7 +91,17 @@ def _get_judge_provider(
     """Get a configured provider instance, adding judge-specific headers for gateway."""
     provider_instance = _get_provider_instance(provider_name, model_name)
     if provider_name == "gateway":
-        provider_instance.headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
+        # headers is a @property returning a fresh dict, so we wrap it
+        # to inject the judge caller header on every access.
+        orig_headers = type(provider_instance).headers
+
+        @property
+        def _headers(self):
+            h = orig_headers.fget(self)
+            h[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
+            return h
+
+        type(provider_instance).headers = _headers
     return provider_instance
 
 
