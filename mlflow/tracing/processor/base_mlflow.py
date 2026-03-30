@@ -64,9 +64,7 @@ _batch_processor_registry: list["BaseMlflowSpanProcessor"] = []
 _batch_processor_registry_lock = threading.Lock()
 
 
-def flush_all_batch_processors(
-    timeout_millis: float = 30000, terminate: bool = False
-) -> None:
+def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = False) -> None:
     """Flush all registered batch processors so queued spans are exported.
 
     Args:

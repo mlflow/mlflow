@@ -54,7 +54,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.provider import (
-    _get_span_processor,
     _get_trace_exporter,
 )
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
@@ -1005,7 +1004,6 @@ def flush_trace_async_logging(terminate=False) -> None:
             trace_exporter._async_queue.flush(terminate=terminate)
     except Exception as e:
         _logger.error(f"Failed to flush trace async logging: {e}")
-
 
 
 def set_experiment_tag(key: str, value: Any) -> None:

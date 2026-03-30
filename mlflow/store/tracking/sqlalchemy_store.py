@@ -8,10 +8,10 @@ import logging
 import math
 import random
 import threading
-from dataclasses import dataclass, field
 import time
 import uuid
 from collections import defaultdict
+from dataclasses import dataclass, field
 from functools import reduce
 from pathlib import PurePath
 from typing import Any, TypedDict, TypeVar
@@ -4617,7 +4617,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         # trace that was created by the other process.
                         session.rollback()
                         sql_trace_info = (
-                            self._trace_query(session)
+                            self
+                            ._trace_query(session)
                             .filter(SqlTraceInfo.request_id == trace_id)
                             .one()
                         )
