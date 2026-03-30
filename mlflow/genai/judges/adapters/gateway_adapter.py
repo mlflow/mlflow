@@ -62,7 +62,6 @@ def _invoke_via_gateway(
     from mlflow.metrics.genai.model_utils import (
         _call_llm_provider_api,
         _parse_model_uri,
-        call_deployments_api,
         get_endpoint_type,
         score_model_on_payload,
     )
@@ -86,24 +85,9 @@ def _invoke_via_gateway(
 
     _, model_name = _parse_model_uri(model_uri)
 
-    # gateway:/ routes through the MLflow tracking server's deployments client
+    # gateway:/ routes through the MLflow tracking server's gateway HTTP API
     if provider == "gateway":
-        payload = {"messages": prompt}
-        if response_format is not None:
-            rf_dict = _pydantic_to_response_format(response_format)
-            if rf_dict is not None:
-                payload["response_format"] = rf_dict
-        response = call_deployments_api(
-            model_name, payload, inference_params, EndpointType.LLM_V1_CHAT
-        )
-        if not isinstance(response, str):
-            raise MlflowException(
-                f"Expected a string response from gateway deployment '{model_name}' "
-                f"for endpoint type '{EndpointType.LLM_V1_CHAT}', "
-                f"but got {type(response).__name__}.",
-                error_code=BAD_REQUEST,
-            )
-        return response
+        return _invoke_gateway_chat(model_name, prompt, inference_params, response_format)
 
     rf_dict = _pydantic_to_response_format(response_format) if response_format else None
     return _call_llm_provider_api(
@@ -113,6 +97,73 @@ def _invoke_via_gateway(
         eval_parameters=inference_params,
         response_format=rf_dict,
     )
+
+
+def _invoke_gateway_chat(
+    endpoint_name: str,
+    messages: list[dict[str, str]],
+    inference_params: dict[str, Any] | None = None,
+    response_format: type[pydantic.BaseModel] | None = None,
+) -> str:
+    """
+    Invoke a gateway endpoint via the MLflow tracking server's chat completions API.
+
+    Sends a POST request to ``/gateway/mlflow/v1/chat/completions`` on the tracking
+    server, using the OpenAI-compatible format where the endpoint name is passed as
+    the ``model`` field in the request body.
+
+    Args:
+        endpoint_name: The gateway endpoint name (e.g., "my-chat" from "gateway:/my-chat").
+        messages: List of message dicts with "role" and "content" keys.
+        inference_params: Optional inference parameters (temperature, etc.).
+        response_format: Optional Pydantic model for structured output.
+
+    Returns:
+        The model's response content as a string.
+    """
+    import requests
+
+    from mlflow.environment_variables import MLFLOW_GATEWAY_URI
+    from mlflow.tracking import get_tracking_uri
+    from mlflow.utils.uri import is_http_uri
+
+    gateway_uri = MLFLOW_GATEWAY_URI.get() or get_tracking_uri()
+    if not is_http_uri(gateway_uri):
+        raise MlflowException(
+            f"Gateway provider requires an HTTP(S) tracking URI, but got: '{gateway_uri}'. "
+            "Please set MLFLOW_TRACKING_URI to a valid HTTP(S) URL "
+            "(e.g., 'http://localhost:5000').",
+            error_code=BAD_REQUEST,
+        )
+    url = f"{gateway_uri.rstrip('/')}/gateway/mlflow/v1/chat/completions"
+
+    payload: dict[str, Any] = {"model": endpoint_name, "messages": messages}
+    if inference_params:
+        payload.update(inference_params)
+    if response_format is not None:
+        rf_dict = _pydantic_to_response_format(response_format)
+        if rf_dict is not None:
+            payload["response_format"] = rf_dict
+
+    try:
+        resp = requests.post(url=url, json=payload, timeout=60)
+        resp.raise_for_status()
+    except requests.exceptions.HTTPError as e:
+        body = getattr(e.response, "text", "")
+        raise MlflowException(
+            f"Failed to call gateway endpoint '{endpoint_name}' at {url}.\n"
+            f"- Error: {e}\n- Response body: {body}",
+            error_code=BAD_REQUEST,
+        ) from e
+
+    data = resp.json()
+    try:
+        return data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as e:
+        raise MlflowException(
+            f"Unexpected response format from gateway endpoint '{endpoint_name}': {data}",
+            error_code=BAD_REQUEST,
+        ) from e
 
 
 class GatewayAdapter(BaseJudgeAdapter):

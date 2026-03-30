@@ -92,32 +92,31 @@ def test_get_adapter_gateway_with_list(list_prompt):
 
 
 def test_gateway_adapter_invoke_with_list_prompt(list_prompt):
-    """Test that GatewayAdapter routes gateway:/ list prompts through call_deployments_api."""
+    """Test that GatewayAdapter routes gateway:/ list prompts via gateway HTTP API."""
     adapter = GatewayAdapter()
     input_params = AdapterInvocationInput(
         model_uri="gateway:/my-endpoint",
         prompt=list_prompt,
         assessment_name="test",
     )
-    mock_response = '{"result": "yes", "rationale": "looks good"}'
-    with mock.patch(
-        "mlflow.metrics.genai.model_utils.call_deployments_api",
-        return_value=mock_response,
-    ) as mock_api:
+    mock_json = {
+        "choices": [{"message": {"content": '{"result": "yes", "rationale": "looks good"}'}}]
+    }
+    mock_resp = mock.MagicMock()
+    mock_resp.json.return_value = mock_json
+    with (
+        mock.patch("mlflow.tracking.get_tracking_uri", return_value="http://localhost:5000"),
+        mock.patch("requests.post", return_value=mock_resp) as mock_post,
+    ):
         output = adapter.invoke(input_params)
-        from mlflow.gateway.config import EndpointType
-
-        mock_api.assert_called_once_with(
-            "my-endpoint",
-            {
-                "messages": [
-                    {"role": "system", "content": "You are a helpful assistant"},
-                    {"role": "user", "content": "Please evaluate this"},
-                ],
-            },
-            None,
-            EndpointType.LLM_V1_CHAT,
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args
+        assert call_kwargs.kwargs["url"] == (
+            "http://localhost:5000/gateway/mlflow/v1/chat/completions"
         )
+        payload = call_kwargs.kwargs["json"]
+        assert payload["model"] == "my-endpoint"
+        assert len(payload["messages"]) == 2
         assert output.feedback.value == "yes"
         assert output.feedback.rationale == "looks good"
 
