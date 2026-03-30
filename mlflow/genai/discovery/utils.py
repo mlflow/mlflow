@@ -15,7 +15,6 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.gateway.config import EndpointType
-from mlflow.gateway.schemas.chat import ResponsePayload
 from mlflow.genai.discovery.constants import (
     LLM_MAX_TOKENS,
     NUM_RETRIES,
@@ -26,11 +25,8 @@ from mlflow.genai.judges.adapters.litellm_adapter import (
     _is_litellm_available,
 )
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.utils.gateway_utils import get_gateway_config
-from mlflow.metrics.genai.model_utils import _send_request
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
-from mlflow.utils.uri import append_to_uri_path
 
 if TYPE_CHECKING:
     import litellm
@@ -280,7 +276,7 @@ def _call_llm_via_gateway(
     response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> Any:
-    # Lightweight fallback for when LiteLLM is not installed. Only supports
+    # Lightweight fallback for when LiteLLM is not installed. Supports
     # providers with MLflow gateway adapters (OpenAI, Anthropic, Gemini, Mistral)
     # and the MLflow AI Gateway (gateway:/ URIs).
     # Known gaps vs the LiteLLM path: no drop_params
@@ -296,6 +292,7 @@ def _call_llm_via_gateway(
     )
 
     provider_name, model_name = _parse_model_uri(model)
+    provider = _get_provider_instance(provider_name, model_name)
 
     payload = {"messages": messages, "max_completion_tokens": LLM_MAX_TOKENS}
     if response_format is not None:
@@ -303,10 +300,6 @@ def _call_llm_via_gateway(
     elif json_mode:
         payload["response_format"] = {"type": "json_object"}
 
-    if provider_name == "gateway":
-        return _call_llm_via_gateway_endpoint(model_name, payload, token_counter=token_counter)
-
-    provider = _get_provider_instance(provider_name, model_name)
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
 
     for attempt in range(NUM_RETRIES + 1):
@@ -326,41 +319,6 @@ def _call_llm_via_gateway(
             time.sleep(2**attempt)
 
     response = provider.adapter_class.model_to_chat(raw_response, provider.config)
-    if token_counter is not None:
-        token_counter.track(response)
-    return response
-
-
-def _call_llm_via_gateway_endpoint(
-    endpoint_name: str,
-    payload: dict[str, Any],
-    *,
-    token_counter: _TokenCounter | None = None,
-) -> ResponsePayload:
-    config = get_gateway_config(endpoint_name)
-    endpoint_url = append_to_uri_path(config.api_base, "chat/completions")
-    headers = {"Content-Type": "application/json"}
-    if config.extra_headers:
-        headers.update(config.extra_headers)
-    payload["model"] = endpoint_name
-
-    for attempt in range(NUM_RETRIES + 1):
-        try:
-            raw_response = _send_request(
-                endpoint=endpoint_url,
-                headers=headers,
-                payload=payload,
-            )
-            break
-        except (
-            requests.exceptions.RequestException,
-            mlflow.exceptions.MlflowException,
-        ):
-            if attempt >= NUM_RETRIES:
-                raise
-            time.sleep(2**attempt)
-
-    response = ResponsePayload(**raw_response)
     if token_counter is not None:
         token_counter.track(response)
     return response

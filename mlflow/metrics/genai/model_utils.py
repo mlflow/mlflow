@@ -367,7 +367,44 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         config = TogetherAIConfig(togetherai_api_key=os.environ.get("TOGETHERAI_API_KEY"))
         return TogetherAIProvider(_get_route_config(config))
 
+    elif provider == "gateway":
+        return _get_mlflow_gateway_provider(model)
+
     raise MlflowException(f"Provider '{provider}' is not supported for evaluation.")
+
+
+class _MlflowGatewayProvider:
+    """Lightweight provider-like object for MLflow AI Gateway endpoints.
+
+    Matches the provider interface used by callers:
+    ``.get_endpoint_url()``, ``.headers``, ``.adapter_class``, ``.config``.
+    """
+
+    from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
+
+    adapter_class = OpenAICompatibleAdapter
+
+    def __init__(self, api_base, headers, config):
+        self._api_base = api_base
+        self.headers = headers
+        self.config = config
+
+    def get_endpoint_url(self, _endpoint_type):
+        return f"{self._api_base.rstrip('/')}/chat/completions"
+
+
+class _GatewayProviderConfig:
+    def __init__(self, model_name):
+        self.model = type("_ModelRef", (), {"name": model_name})()
+
+
+def _get_mlflow_gateway_provider(model_name: str) -> _MlflowGatewayProvider:
+    """Create a provider-like object for MLflow AI Gateway endpoints."""
+    from mlflow.genai.utils.gateway_utils import get_gateway_config
+
+    gw_config = get_gateway_config(model_name)
+    headers = {**(gw_config.extra_headers or {})}
+    return _MlflowGatewayProvider(gw_config.api_base, headers, _GatewayProviderConfig(model_name))
 
 
 def _send_request(
