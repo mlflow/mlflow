@@ -15,6 +15,7 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.gateway.config import EndpointType
+from mlflow.gateway.schemas.chat import ResponsePayload
 from mlflow.genai.discovery.constants import (
     LLM_MAX_TOKENS,
     NUM_RETRIES,
@@ -25,8 +26,11 @@ from mlflow.genai.judges.adapters.litellm_adapter import (
     _is_litellm_available,
 )
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.utils.gateway_utils import get_gateway_config
+from mlflow.metrics.genai.model_utils import _send_request
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
+from mlflow.utils.uri import append_to_uri_path
 
 if TYPE_CHECKING:
     import litellm
@@ -332,11 +336,7 @@ def _call_llm_via_gateway_endpoint(
     payload: dict[str, Any],
     *,
     token_counter: _TokenCounter | None = None,
-) -> Any:
-    from mlflow.genai.utils.gateway_utils import get_gateway_config
-    from mlflow.metrics.genai.model_utils import _send_request
-    from mlflow.utils.uri import append_to_uri_path
-
+) -> ResponsePayload:
     config = get_gateway_config(endpoint_name)
     endpoint_url = append_to_uri_path(config.api_base, "chat/completions")
     headers = {"Content-Type": "application/json"}
@@ -359,8 +359,6 @@ def _call_llm_via_gateway_endpoint(
             if attempt >= NUM_RETRIES:
                 raise
             time.sleep(2**attempt)
-
-    from mlflow.gateway.schemas.chat import ResponsePayload
 
     response = ResponsePayload(**raw_response)
     if token_counter is not None:

@@ -4,6 +4,7 @@ from unittest import mock
 import pydantic
 import pytest
 
+import mlflow
 from mlflow.entities.issue import Issue, IssueStatus
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -14,6 +15,7 @@ from mlflow.genai.discovery.constants import CATEGORY_LATENCY, build_satisfactio
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.utils import (
     _call_llm,
+    _call_llm_via_gateway_endpoint,
     _lookup_model_cost,
     _ModelCost,
     _pydantic_to_response_format,
@@ -27,7 +29,7 @@ from mlflow.genai.discovery.utils import (
     group_traces_by_session,
     log_discovery_artifacts,
 )
-from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig
+from mlflow.genai.utils.gateway_utils import GatewayConfig, GatewayLiteLLMConfig
 from mlflow.genai.utils.trace_utils import _extract_trace_timing_info
 from mlflow.types.chat import ChatChoice, ChatCompletionResponse, ChatMessage, ChatUsage
 
@@ -602,3 +604,210 @@ def test_call_llm_tracks_tokens():
         assert counter.input_tokens == 100
         assert counter.output_tokens == 50
         assert counter.cost_usd == 0.01
+
+
+# ---- _call_llm_via_gateway_endpoint ----
+
+
+def test_call_llm_via_gateway_endpoint_sends_correct_request():
+    raw_response = {
+        "id": "chatcmpl-123",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gpt-4",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "hello"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+    gateway_config = GatewayConfig(
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        endpoint_name="chat",
+        extra_headers={"Authorization": "Bearer token123"},
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.discovery.utils.get_gateway_config",
+            return_value=gateway_config,
+        ) as mock_get_config,
+        mock.patch(
+            "mlflow.genai.discovery.utils._send_request",
+            return_value=raw_response,
+        ) as mock_send,
+    ):
+        payload = {"messages": [{"role": "user", "content": "test"}], "max_completion_tokens": 4096}
+        result = _call_llm_via_gateway_endpoint("chat", payload)
+
+    mock_get_config.assert_called_once_with("chat")
+    mock_send.assert_called_once()
+    call_kwargs = mock_send.call_args[1]
+    assert call_kwargs["endpoint"].endswith("/chat/completions")
+    assert call_kwargs["headers"]["Authorization"] == "Bearer token123"
+    assert call_kwargs["headers"]["Content-Type"] == "application/json"
+    assert call_kwargs["payload"]["model"] == "chat"
+    assert result.choices[0].message.content == "hello"
+
+
+def test_call_llm_via_gateway_endpoint_tracks_tokens():
+    raw_response = {
+        "id": "chatcmpl-456",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gpt-4",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "hi"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75},
+    }
+    gateway_config = GatewayConfig(
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        endpoint_name="chat",
+        extra_headers=None,
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.discovery.utils.get_gateway_config",
+            return_value=gateway_config,
+        ),
+        mock.patch(
+            "mlflow.genai.discovery.utils._send_request",
+            return_value=raw_response,
+        ),
+    ):
+        counter = _TokenCounter()
+        payload = {"messages": [{"role": "user", "content": "test"}]}
+        _call_llm_via_gateway_endpoint("chat", payload, token_counter=counter)
+
+    assert counter.input_tokens == 50
+    assert counter.output_tokens == 25
+
+
+def test_call_llm_via_gateway_endpoint_retries_on_failure():
+    raw_response = {
+        "id": "chatcmpl-789",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gpt-4",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "ok"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+    gateway_config = GatewayConfig(
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        endpoint_name="chat",
+        extra_headers=None,
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.discovery.utils.get_gateway_config",
+            return_value=gateway_config,
+        ),
+        mock.patch(
+            "mlflow.genai.discovery.utils._send_request",
+            side_effect=[
+                mlflow.exceptions.MlflowException("transient error"),
+                raw_response,
+            ],
+        ) as mock_send,
+        mock.patch("mlflow.genai.discovery.utils.time.sleep") as mock_sleep,
+    ):
+        payload = {"messages": [{"role": "user", "content": "test"}]}
+        result = _call_llm_via_gateway_endpoint("chat", payload)
+
+    assert mock_send.call_count == 2
+    mock_sleep.assert_called_once_with(1)
+    assert result.choices[0].message.content == "ok"
+
+
+def test_call_llm_via_gateway_endpoint_no_extra_headers():
+    raw_response = {
+        "id": "chatcmpl-000",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gpt-4",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "response"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 5, "completion_tokens": 3, "total_tokens": 8},
+    }
+    gateway_config = GatewayConfig(
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        endpoint_name="chat",
+        extra_headers=None,
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.discovery.utils.get_gateway_config",
+            return_value=gateway_config,
+        ),
+        mock.patch(
+            "mlflow.genai.discovery.utils._send_request",
+            return_value=raw_response,
+        ) as mock_send,
+    ):
+        payload = {"messages": [{"role": "user", "content": "test"}]}
+        _call_llm_via_gateway_endpoint("chat", payload)
+
+    call_kwargs = mock_send.call_args[1]
+    assert call_kwargs["headers"] == {"Content-Type": "application/json"}
+
+
+def test_call_llm_via_gateway_dispatches_gateway_uri_without_litellm():
+    raw_response = {
+        "id": "chatcmpl-dispatch",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gpt-4",
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": "dispatched"},
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+    }
+    gateway_config = GatewayConfig(
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        endpoint_name="my-endpoint",
+        extra_headers=None,
+    )
+
+    with (
+        mock.patch("mlflow.genai.discovery.utils._is_litellm_available", return_value=False),
+        mock.patch(
+            "mlflow.genai.discovery.utils.get_gateway_config",
+            return_value=gateway_config,
+        ) as mock_get_config,
+        mock.patch(
+            "mlflow.genai.discovery.utils._send_request",
+            return_value=raw_response,
+        ) as mock_send,
+    ):
+        messages = [{"role": "user", "content": "test"}]
+        result = _call_llm("gateway:/my-endpoint", messages)
+
+    mock_get_config.assert_called_once_with("my-endpoint")
+    mock_send.assert_called_once()
+    assert result.choices[0].message.content == "dispatched"
