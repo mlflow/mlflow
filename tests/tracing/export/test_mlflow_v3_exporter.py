@@ -150,7 +150,6 @@ def test_export(is_async, monkeypatch):
 
 @pytest.mark.timeout(20)
 def test_export_with_batch_span_processor(monkeypatch):
-    """Verify end-to-end export when BatchSpanProcessor is enabled (the default path)."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
@@ -236,7 +235,6 @@ def test_export_catch_failure(is_async, monkeypatch):
 
 
 def test_export_catch_failure_with_batch_span_processor(monkeypatch):
-    """Verify export failures are caught gracefully when BatchSpanProcessor is enabled."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
@@ -309,7 +307,6 @@ def test_async_bulk_export(monkeypatch):
 
 @pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
 def test_async_bulk_export_with_batch_span_processor(monkeypatch):
-    """Verify bulk concurrent export works with BatchSpanProcessor enabled."""
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
     monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
     monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")

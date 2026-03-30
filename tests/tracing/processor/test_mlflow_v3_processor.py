@@ -51,6 +51,7 @@ def test_on_start(monkeypatch):
 
 @skip_when_testing_trace_sdk
 def test_on_start_during_model_evaluation():
+    from mlflow.pyfunc.context import Context, set_prediction_context
 
     trace_id = 12345
     request_id = "tr-" + encode_trace_id(trace_id)
@@ -58,8 +59,6 @@ def test_on_start_during_model_evaluation():
     # Root span should create a new trace on start
     span = create_mock_otel_span(trace_id=trace_id, span_id=1)
     processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock(), export_metrics=False)
-
-    from mlflow.pyfunc.context import Context, set_prediction_context
 
     with set_prediction_context(Context(request_id=request_id, is_evaluate=True)):
         processor.on_start(span)
