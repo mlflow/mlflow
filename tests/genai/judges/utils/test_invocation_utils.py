@@ -198,7 +198,7 @@ def test_invoke_judge_model_with_trace_works_without_litellm(mock_trace):
             return_value=False,
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._run_tool_calling_loop",
+            "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
             return_value=mock_output,
         ),
     ):

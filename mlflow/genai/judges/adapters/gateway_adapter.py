@@ -82,14 +82,14 @@ def _get_provider(
     For all other providers, delegates to ``_get_provider_instance``.
     """
     if provider_name == "gateway":
-        return _get_gateway_provider(model_name)
+        return _get_mlflow_gateway_provider(model_name)
 
     from mlflow.metrics.genai.model_utils import _get_provider_instance
 
     return _get_provider_instance(provider_name, model_name)
 
 
-def _get_gateway_provider(model_name: str) -> "BaseProvider":
+def _get_mlflow_gateway_provider(model_name: str) -> "BaseProvider":
     """Create a minimal provider-like object for MLflow AI Gateway endpoints."""
     from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
     from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
@@ -446,7 +446,7 @@ class GatewayAdapter(BaseJudgeAdapter):
 
         provider, model_name = _parse_model_uri(model_uri)
 
-        output = self._run_tool_calling_loop(
+        output = self._invoke_and_handle_tools(
             provider=provider,
             model_name=model_name,
             messages=messages,
@@ -477,7 +477,7 @@ class GatewayAdapter(BaseJudgeAdapter):
             else input_params.prompt
         )
 
-        output = self._run_tool_calling_loop(
+        output = self._invoke_and_handle_tools(
             provider=input_params.model_provider,
             model_name=input_params.model_name,
             messages=messages,
@@ -519,7 +519,10 @@ class GatewayAdapter(BaseJudgeAdapter):
 
         return AdapterInvocationOutput(feedback=feedback)
 
-    def _run_tool_calling_loop(
+    # TODO: Consider extending _call_llm_provider_api to accept `tools` and return
+    # the full ChatResponse (not just text). This would allow replacing the custom
+    # send_chat_request + provider adapter calls below with a single shared util.
+    def _invoke_and_handle_tools(
         self,
         provider: str,
         model_name: str,
