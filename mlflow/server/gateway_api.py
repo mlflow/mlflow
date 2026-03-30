@@ -27,11 +27,11 @@ from mlflow.gateway.config import (
     LiteLLMConfig,
     MistralConfig,
     OpenAIAPIType,
-    _OpenAICompatibleConfig,
     OpenAIConfig,
     Provider,
     VertexAIConfig,
     _AuthConfigKey,
+    _OpenAICompatibleConfig,
 )
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
 from mlflow.gateway.providers import get_provider
@@ -274,23 +274,27 @@ def _build_endpoint_config(
         auth_mode = auth_config.get(_AuthConfigKey.AUTH_MODE, "api_key")
         if auth_mode == "api_key":
             # Bearer token auth — bypasses boto3 SigV4
-            provider_config = AmazonBedrockConfig(aws_config={
-                "aws_bearer_token": model_config.secret_value.get(_AuthConfigKey.API_KEY, ""),
-                "aws_region": auth_config.get("aws_region_name"),
-            })
+            provider_config = AmazonBedrockConfig(
+                aws_config={
+                    "aws_bearer_token": model_config.secret_value.get(_AuthConfigKey.API_KEY, ""),
+                    "aws_region": auth_config.get("aws_region_name"),
+                }
+            )
         elif auth_mode == "access_keys":
-            provider_config = AmazonBedrockConfig(aws_config={
-                "aws_access_key_id": model_config.secret_value.get("aws_access_key_id"),
-                "aws_secret_access_key": model_config.secret_value.get("aws_secret_access_key"),
-                "aws_region": auth_config.get("aws_region_name"),
-            })
+            provider_config = AmazonBedrockConfig(
+                aws_config={
+                    "aws_access_key_id": model_config.secret_value.get("aws_access_key_id"),
+                    "aws_secret_access_key": model_config.secret_value.get("aws_secret_access_key"),
+                    "aws_region": auth_config.get("aws_region_name"),
+                }
+            )
         elif auth_mode == "iam_role":
-            provider_config = AmazonBedrockConfig(aws_config={
-                "aws_access_key_id": model_config.secret_value.get("aws_access_key_id"),
-                "aws_secret_access_key": model_config.secret_value.get("aws_secret_access_key"),
-                "aws_role_arn": auth_config.get("aws_role_name"),
-                "aws_region": auth_config.get("aws_region_name"),
-            })
+            provider_config = AmazonBedrockConfig(
+                aws_config={
+                    "aws_role_arn": auth_config.get("aws_role_name"),
+                    "aws_region": auth_config.get("aws_region_name"),
+                }
+            )
         else:
             # default_chain — boto3 resolves credentials from the
             # environment (env vars, ~/.aws/credentials, instance profile, etc.)

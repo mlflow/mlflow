@@ -453,7 +453,13 @@ class AmazonBedrockProvider(BaseProvider):
     # ---- API methods ----
 
     def _get_token_auth_base_url(self) -> str:
-        region = self.bedrock_config.aws_config.aws_region or "us-east-1"
+        region = self.bedrock_config.aws_config.aws_region
+        if not region:
+            raise AIGatewayException(
+                status_code=400,
+                detail="aws_region_name is required for Bedrock API key authentication. "
+                "The API key can only be used in the AWS Region it was generated in.",
+            )
         return f"https://bedrock-runtime.{region}.amazonaws.com"
 
     def _get_token_auth_headers(self) -> dict[str, str]:
