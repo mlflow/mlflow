@@ -14,10 +14,16 @@ import mlflow
 from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvaluationResult
-from mlflow.genai.evaluation.harness import AUTO_INITIAL_RPS, backpressure_buffer
+from mlflow.genai.evaluation.harness import (
+    AUTO_INITIAL_RPS,
+    _should_clone_trace,
+    backpressure_buffer,
+)
 from mlflow.genai.evaluation.rate_limiter import RPSRateLimiter
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
@@ -28,8 +34,21 @@ from mlflow.server.handlers import initialize_backend_stores
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 from tests.helper_functions import get_safe_port
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import (
+    create_test_trace_info,
+    create_test_trace_info_with_uc_table,
+    get_traces,
+)
 from tests.tracking.integration_test_utils import ServerThread
+
+
+@pytest.fixture
+def mlflow_experiment_trace():
+    return Trace(
+        info=create_test_trace_info(trace_id="tr-123", experiment_id="exp-123"),
+        data=TraceData(spans=[]),
+    )
+
 
 _DUMMY_CHAT_RESPONSE = {
     "id": "1",
@@ -1722,3 +1741,74 @@ def test_adaptive_rate_reduces_on_429(monkeypatch):
     # At least one throttle event observed, and the rate was reduced
     assert len(rate_after_throttle) >= 1
     assert rate_after_throttle[0] < AUTO_INITIAL_RPS
+
+
+@pytest.mark.parametrize(
+    ("trace_or_none", "run_id"),
+    [
+        (None, "run-1"),
+        (
+            Trace(
+                info=create_test_trace_info_with_uc_table(
+                    trace_id="tr-uc", catalog_name="catalog", schema_name="schema"
+                ),
+                data=TraceData(spans=[]),
+            ),
+            "run-1",
+        ),
+    ],
+    ids=["none_trace", "uc_schema_trace"],
+)
+def test_should_clone_trace_returns_false_early(trace_or_none, run_id):
+    assert _should_clone_trace(trace_or_none, run_id=run_id) is False
+
+
+@pytest.mark.parametrize(
+    ("experiment_id", "expected"),
+    [
+        ("exp-999", True),
+        ("exp-123", False),
+    ],
+    ids=["different_experiment", "matching_experiment"],
+)
+def test_should_clone_trace_with_explicit_experiment_id(
+    mlflow_experiment_trace, experiment_id, expected
+):
+    with mock.patch(
+        "mlflow.genai.evaluation.harness._does_store_support_trace_linking",
+        return_value=True,
+    ) as mock_store:
+        result = _should_clone_trace(
+            mlflow_experiment_trace, run_id="run-1", experiment_id=experiment_id
+        )
+    assert result is expected
+    if expected is False:
+        mock_store.assert_called_once()
+
+
+def test_should_clone_trace_falls_back_to_get_experiment_id_when_none(mlflow_experiment_trace):
+    with (
+        mock.patch(
+            "mlflow.tracking.fluent._get_experiment_id",
+            return_value="exp-999",
+        ) as mock_get_exp,
+        mock.patch(
+            "mlflow.genai.evaluation.harness._does_store_support_trace_linking",
+            return_value=True,
+        ),
+    ):
+        result = _should_clone_trace(mlflow_experiment_trace, run_id="run-1", experiment_id=None)
+        mock_get_exp.assert_called_once()
+    assert result is True
+
+
+def test_should_clone_trace_does_not_call_get_experiment_id_when_provided(mlflow_experiment_trace):
+    with (
+        mock.patch("mlflow.tracking.fluent._get_experiment_id") as mock_get_exp,
+        mock.patch(
+            "mlflow.genai.evaluation.harness._does_store_support_trace_linking",
+            return_value=True,
+        ),
+    ):
+        _should_clone_trace(mlflow_experiment_trace, run_id="run-1", experiment_id="exp-123")
+        mock_get_exp.assert_not_called()

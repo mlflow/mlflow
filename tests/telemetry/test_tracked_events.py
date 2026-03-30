@@ -16,6 +16,8 @@ from mlflow.entities import (
     Expectation,
     Feedback,
     GatewayEndpointModelConfig,
+    IssueSeverity,
+    IssueStatus,
     Metric,
     Param,
     RunTag,
@@ -105,6 +107,7 @@ from mlflow.telemetry.events import (
     SimulateConversationEvent,
     StartTraceEvent,
     TracingContextPropagation,
+    UpdateIssueEvent,
 )
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
@@ -1165,12 +1168,13 @@ endpoints:
 """
     )
 
-    runner = CliRunner(catch_exceptions=False)
-    with mock.patch("mlflow.gateway.cli.run_app"):
-        runner.invoke(start, ["--config-path", str(config)])
+    def assert_event_recorded_before_run_app(**kwargs):
+        mock_telemetry_client.flush()
+        validate_telemetry_record(mock_telemetry_client, mock_requests, GatewayStartEvent.name)
 
-    mock_telemetry_client.flush()
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GatewayStartEvent.name)
+    runner = CliRunner(catch_exceptions=False)
+    with mock.patch("mlflow.gateway.cli.run_app", side_effect=assert_event_recorded_before_run_app):
+        runner.invoke(start, ["--config-path", str(config)])
 
 
 def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):
@@ -2269,4 +2273,38 @@ def test_tracing_context_propagation_get_and_set_success(
         mock_telemetry_client,
         mock_requests,
         TracingContextPropagation.name,
+    )
+
+
+def test_update_issue_telemetry(mock_requests, mock_telemetry_client: TelemetryClient, db_uri):
+    store = SqlAlchemyStore(db_uri, "/tmp")
+
+    exp_id = store.create_experiment("test-exp")
+    issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Original name",
+        description="Original description",
+        status=IssueStatus.PENDING,
+    )
+    mock_telemetry_client.flush()
+    mock_requests.clear()
+
+    store.update_issue(
+        issue_id=issue.issue_id,
+        status=IssueStatus.RESOLVED,
+        name="Updated name",
+        description="Updated description",
+        severity=IssueSeverity.HIGH,
+    )
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        UpdateIssueEvent.name,
+        {
+            "status": "resolved",
+            "has_name": True,
+            "has_description": True,
+            "severity": "high",
+        },
     )

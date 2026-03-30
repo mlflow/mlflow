@@ -88,6 +88,9 @@ export const MLFLOW_RUN_TYPE_VALUE_EVALUATION = 'evaluation';
 export const MLFLOW_RUN_TYPE_VALUE_GENAI_EVALUATE = 'genai_evaluate';
 export const MLFLOW_RUN_TYPE_VALUE_ISSUE_DETECTION = 'issue_detection';
 export const MLFLOW_ISSUE_DETECTION_JOB_ID_TAG = 'mlflow.issueDetection.jobId';
+export const MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG = 'mlflow.issueDetection.result.issues';
+export const MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG = 'mlflow.issueDetection.result.totalTracesAnalyzed';
+export const MLFLOW_ISSUE_DETECTION_RESULT_SUMMARY_TAG = 'mlflow.issueDetection.result.summary';
 
 export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
 export const MLFLOW_PROMPT_VERSION_COUNT_TAG = 'PromptVersionCount';

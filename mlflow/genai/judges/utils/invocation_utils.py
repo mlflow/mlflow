@@ -124,25 +124,24 @@ def _invoke_databricks_structured_output(
     Raises:
         MlflowException: If databricks-agents is not installed or invocation fails.
     """
-    import litellm
+    from mlflow.types.llm import ChatMessage
 
-    # Convert ChatMessage to litellm Messages
-    litellm_messages = [litellm.Message(role=msg.role, content=msg.content) for msg in messages]
+    judge_messages = [ChatMessage(role=msg.role, content=msg.content) for msg in messages]
 
     # Add schema instructions to the system message
     schema_instruction = (
         f"\n\nYou must return your response as JSON matching this schema:\n"
         f"{json.dumps(output_schema.model_json_schema(), indent=2)}"
     )
-    if litellm_messages and litellm_messages[0].role == "system":
-        litellm_messages[0] = litellm.Message(
+    if judge_messages and judge_messages[0].role == "system":
+        judge_messages[0] = ChatMessage(
             role="system",
-            content=litellm_messages[0].content + schema_instruction,
+            content=judge_messages[0].content + schema_instruction,
         )
     else:
-        litellm_messages.insert(
+        judge_messages.insert(
             0,
-            litellm.Message(role="system", content=schema_instruction),
+            ChatMessage(role="system", content=schema_instruction),
         )
 
     def parse_structured_output(content: str | None) -> pydantic.BaseModel:
@@ -161,7 +160,7 @@ def _invoke_databricks_structured_output(
                 f"Response does not match expected schema: {e}\n\nResponse: {content}"
             ) from e
 
-    return _run_databricks_agentic_loop(litellm_messages, trace, parse_structured_output)
+    return _run_databricks_agentic_loop(judge_messages, trace, parse_structured_output)
 
 
 def get_chat_completions_with_structured_output(

@@ -69,6 +69,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/untracked
@@ -137,6 +138,7 @@ jobs:
     steps: &test-steps
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           repository: ${{ github.event_name == 'schedule' && 'mlflow/mlflow' || github.event.inputs.repository }}
           ref: ${{ github.event.inputs.ref }}
       - uses: ./.github/actions/free-disk-space
@@ -195,7 +197,6 @@ jobs:
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: localhost
-          JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
           HF_HUB_ENABLE_HF_TRANSFER: 1
           MATRIX_RUN: ${{ matrix.run }}
         run: |
