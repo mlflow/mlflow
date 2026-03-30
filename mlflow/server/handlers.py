@@ -3250,6 +3250,69 @@ def _get_workspace_scoped_repo_path_if_enabled(artifact_path: str | None) -> str
     return posixpath.join(base, normalized)
 
 
+def _get_logged_model_artifact_path_for_run(run_id: str, artifact_path: str) -> str | None:
+    """
+    Check if the artifact path corresponds to a logged model for the given run.
+
+    When a model is logged using mlflow.<flavor>.log_model(name="model_name"), it's stored
+    in a separate location from run artifacts (<experiment>/models/<model_id>/artifacts/).
+    This function checks if the artifact path corresponds to a logged model and returns
+    the resolved artifact path for the logged model.
+
+    Args:
+        run_id: The run ID.
+        artifact_path: The artifact path relative to the run's artifact root.
+                       Expected format: artifacts/<model_name>/<rest_of_path>
+
+    Returns:
+        The resolved artifact path for the logged model if found, otherwise None.
+    """
+    # The artifact_path is expected to be in the format:
+    # artifacts/<model_name>/<rest_of_path>
+    # We need to extract the model name and check if it corresponds to a logged model
+    path_parts = artifact_path.split("/")
+
+    # Path should have at least: "artifacts", model_name
+    if len(path_parts) < 2:
+        return None
+
+    # The first component should be "artifacts"
+    if path_parts[0] != "artifacts":
+        return None
+
+    # The model name is the second component
+    model_name = path_parts[1]
+    rest_of_path = "/".join(path_parts[2:]) if len(path_parts) > 2 else ""
+
+    # Search for logged models with this name associated with the run
+    try:
+        run = _get_tracking_store().get_run(run_id)
+        experiment_id = run.info.experiment_id
+
+        # Search for logged models with the given name
+        models = _get_tracking_store().search_logged_models(
+            experiment_ids=[experiment_id],
+            filter_string=f"name = '{model_name}'",
+        )
+
+        # Find a model that was logged from this run
+        for model in models:
+            if model.source_run_id == run_id:
+                # Build the logged model's artifact path
+                # The logged model's artifact location is like: mlflow-artifacts:/<experiment_id>/models/<model_id>/artifacts
+                # We need to resolve this to a path relative to the artifacts destination
+                logged_model_path = _get_proxied_run_artifact_destination_path(
+                    model.artifact_location,
+                    relative_path=rest_of_path if rest_of_path else None,
+                )
+                return logged_model_path
+    except Exception:
+        # If anything goes wrong, fall back to the original path
+        pass
+
+    return None
+
+
 @catch_mlflow_exception
 @_disable_unless_serve_artifacts
 def _download_artifact(artifact_path):
@@ -3259,6 +3322,25 @@ def _download_artifact(artifact_path):
     """
     artifact_path = validate_path_is_safe(artifact_path)
     artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
+
+    # Check if this path corresponds to a logged model artifact
+    # The path format is: <experiment_id>/<run_id>/artifacts/<model_name>/<rest>
+    path_parts = artifact_path.split("/")
+    if len(path_parts) >= 3:
+        # Try to extract run_id (second component)
+        potential_run_id = path_parts[1]
+        # The artifact path within the run starts from the "artifacts" component
+        if "artifacts" in path_parts:
+            artifacts_idx = path_parts.index("artifacts")
+            artifact_subpath = "/".join(path_parts[artifacts_idx:])
+            logged_model_path = _get_logged_model_artifact_path_for_run(
+                potential_run_id, artifact_subpath
+            )
+            if logged_model_path:
+                # Use the logged model's artifact path
+                artifact_path = logged_model_path
+                artifact_path = _get_workspace_scoped_repo_path_if_enabled(artifact_path)
+
     tmp_dir = tempfile.TemporaryDirectory()
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     dst = artifact_repo.download_artifacts(artifact_path, tmp_dir.name)
@@ -3309,6 +3391,25 @@ def _list_artifacts_mlflow_artifacts():
     request_message = _get_request_message(ListArtifactsMlflowArtifacts())
     path = validate_path_is_safe(request_message.path) if request_message.HasField("path") else None
     path = _get_workspace_scoped_repo_path_if_enabled(path)
+
+    # Check if this path corresponds to a logged model artifact
+    # The path format is: <experiment_id>/<run_id>/artifacts/<model_name>/<rest>
+    if path:
+        path_parts = path.split("/")
+        if len(path_parts) >= 3 and "artifacts" in path_parts:
+            # Try to extract run_id (second component)
+            potential_run_id = path_parts[1]
+            # The artifact path within the run starts from the "artifacts" component
+            artifacts_idx = path_parts.index("artifacts")
+            artifact_subpath = "/".join(path_parts[artifacts_idx:])
+            logged_model_path = _get_logged_model_artifact_path_for_run(
+                potential_run_id, artifact_subpath
+            )
+            if logged_model_path:
+                # Use the logged model's artifact path
+                path = logged_model_path
+                path = _get_workspace_scoped_repo_path_if_enabled(path)
+
     artifact_repo = _get_artifact_repo_mlflow_artifacts()
     files = []
     for file_info in artifact_repo.list_artifacts(path):
