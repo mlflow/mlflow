@@ -464,6 +464,8 @@ def _get_span_processor():
     When multiple span processors are registered (e.g., OTLP + MLflow in dual-export mode),
     this prefers the MLflow span processor instead of assuming it is always at index 0.
     """
+    # Inline import to avoid circular dependency:
+    # provider -> base_mlflow -> fluent -> entities
     from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
 
     tracer_provider = provider.get()
@@ -760,7 +762,8 @@ def _get_mlflow_span_processor(tracking_uri: str):
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
-    # Databricks and SQL backends support V3 traces
+    # Inline imports to avoid circular dependency:
+    # provider -> base_mlflow -> fluent -> entities
     from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
     from mlflow.tracing.processor.base_mlflow import should_use_batch_span_processor
     from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor

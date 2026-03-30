@@ -2,16 +2,18 @@ import json
 from unittest import mock
 
 import pytest
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExportResult
 
 import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     TraceMetadataKey,
 )
+from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import encode_trace_id
@@ -50,7 +52,6 @@ def test_on_start(monkeypatch):
 
 @skip_when_testing_trace_sdk
 def test_on_start_during_model_evaluation():
-    from mlflow.pyfunc.context import Context, set_prediction_context
 
     trace_id = 12345
     request_id = "tr-" + encode_trace_id(trace_id)
@@ -329,7 +330,6 @@ def test_batch_processor_reads_existing_env_vars(monkeypatch):
 
 @pytest.mark.usefixtures("_reset_trace_manager")
 def test_spans_exported_in_batch_mode():
-    from opentelemetry.sdk.trace.export import SpanExportResult
 
     mock_exporter = mock.MagicMock()
     mock_exporter.export.return_value = SpanExportResult.SUCCESS
@@ -391,7 +391,6 @@ def test_spans_exported_in_batch_mode():
 @pytest.mark.usefixtures("_reset_trace_manager")
 @skip_when_testing_trace_sdk
 def test_on_end_bypasses_batch_during_evaluation():
-    from mlflow.pyfunc.context import Context, set_prediction_context
 
     mock_exporter = mock.MagicMock()
     processor = _create_processor(use_batch=True, exporter=mock_exporter)
@@ -420,7 +419,6 @@ def test_on_end_bypasses_batch_during_evaluation():
 
 @pytest.mark.usefixtures("_reset_trace_manager")
 def test_set_last_active_trace_id_called_once_for_root_span(monkeypatch):
-    from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 
     exporter = MlflowV3SpanExporter()
     processor = _create_processor(exporter=exporter)

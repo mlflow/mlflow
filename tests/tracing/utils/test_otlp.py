@@ -12,6 +12,7 @@ from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
+from mlflow.tracing.provider import provider as mlflow_provider
 from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
 
@@ -152,8 +153,6 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
         # In dual-export mode, _get_trace_exporter() returns the MLflow exporter
         # (since _get_span_processor prefers BaseMlflowSpanProcessor). Find the
         # OTLP exporter by looking up the OtelSpanProcessor from the tracer provider.
-        from mlflow.tracing.provider import provider as mlflow_provider
-
         tp = mlflow_provider.get()
         processors = tp._active_span_processor._span_processors
         otel_processor = next(p for p in processors if isinstance(p, OtelSpanProcessor))
