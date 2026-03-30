@@ -126,20 +126,18 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 )
             raise Exception(f"Unable to get the region name for bucket {self.bucket}.")
         except ClientError as error:
-            # If a client error occurs, we check to see if the x-amz-bucket-region field is set
-            # in the response and return that.
-            try:
-                return error.response[_RESPONSE_METADATA][_HTTP_HEADERS][
-                    _HTTP_HEADER_BUCKET_REGION
-                ]
-            except KeyError:
-                raise MlflowException(
-                    f"Unable to determine the region for S3 bucket '{self.bucket}'. "
-                    f"The HeadBucket request failed with: {error}. "
-                    "If you are running in AWS GovCloud or another non-standard partition, "
-                    "set the AWS_DEFAULT_REGION environment variable to your region "
-                    "(e.g., os.environ['AWS_DEFAULT_REGION'] = 'us-gov-west-1')"
-                ) from error
+            # If a client error occurs, we check to see if the x-amz-bucket-region field
+            # is set in the response and return that.
+            headers = error.response.get(_RESPONSE_METADATA, {}).get(_HTTP_HEADERS, {})
+            if _HTTP_HEADER_BUCKET_REGION in headers:
+                return headers[_HTTP_HEADER_BUCKET_REGION]
+            raise MlflowException(
+                f"Unable to determine the region for S3 bucket '{self.bucket}'. "
+                f"The HeadBucket request failed with: {error}. "
+                "If you are running in AWS GovCloud or another non-standard partition, "
+                "set the AWS_DEFAULT_REGION environment variable to your region "
+                "(e.g., os.environ['AWS_DEFAULT_REGION'] = 'us-gov-west-1')"
+            ) from error
 
     def _get_s3_client(self):
         return _get_s3_client(
