@@ -149,7 +149,8 @@ def test_invoke_judge_model_successful_with_native_provider():
             "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
         ),
         mock.patch(
-            "mlflow.metrics.genai.model_utils.score_model_on_payload", return_value=mock_response
+            "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
+            return_value=mock_response,
         ) as mock_score_model_on_payload,
     ):
         feedback = invoke_judge_model(
@@ -186,17 +187,29 @@ def test_invoke_judge_model_with_unsupported_provider():
             )
 
 
-def test_invoke_judge_model_with_trace_requires_litellm(mock_trace):
-    with pytest.raises(MlflowException, match=r"LiteLLM is required for using traces with judges"):
-        with mock.patch(
-            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available", return_value=False
-        ):
-            invoke_judge_model(
-                model_uri="openai:/gpt-4",
-                prompt="Test prompt",
-                assessment_name="test",
-                trace=mock_trace,
-            )
+def test_invoke_judge_model_with_trace_works_without_litellm(mock_trace):
+    mock_output = mock.MagicMock()
+    mock_output.response = json.dumps({"result": "yes", "rationale": "ok"})
+    mock_output.num_prompt_tokens = 10
+    mock_output.num_completion_tokens = 5
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
+            return_value=False,
+        ),
+        mock.patch(
+            "mlflow.genai.judges.adapters.gateway_adapter.GatewayAdapter._invoke_and_handle_tools",
+            return_value=mock_output,
+        ),
+    ):
+        feedback = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt",
+            assessment_name="test",
+            trace=mock_trace,
+        )
+    assert feedback.value == "yes"
 
 
 def test_invoke_judge_model_invalid_json_response():
