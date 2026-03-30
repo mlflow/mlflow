@@ -8,6 +8,7 @@ import logging
 import math
 import random
 import threading
+from dataclasses import dataclass, field
 import time
 import uuid
 from collections import defaultdict
@@ -4493,7 +4494,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         all_trace_ids = list(spans_by_trace.keys())
 
         # Pre-compute per-trace aggregates outside the DB session (pure Python, no I/O)
-        trace_aggregates: dict[str, dict[str, Any]] = {}
+        trace_aggregates: dict[str, _TraceAggregate] = {}
         all_span_rows = []
         all_metric_rows = []
         for trace_id, trace_spans in spans_by_trace.items():
@@ -4565,16 +4566,16 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 if span.parent_id is None:
                     root_span_dict = span_dict
 
-            trace_aggregates[trace_id] = {
-                "min_start_ms": min_start_ms,
-                "max_end_ms": max_end_ms,
-                "root_span_status": root_span_status,
-                "trace_status": root_span_status or TraceState.IN_PROGRESS.value,
-                "aggregated_token_usage": aggregated_token_usage,
-                "aggregated_cost": aggregated_cost,
-                "session_id": session_id,
-                "root_span_dict": root_span_dict,
-            }
+            trace_aggregates[trace_id] = _TraceAggregate(
+                min_start_ms=min_start_ms,
+                max_end_ms=max_end_ms,
+                root_span_status=root_span_status,
+                trace_status=root_span_status or TraceState.IN_PROGRESS.value,
+                aggregated_token_usage=aggregated_token_usage,
+                aggregated_cost=aggregated_cost,
+                session_id=session_id,
+                root_span_dict=root_span_dict,
+            )
 
         with self.ManagedSessionMaker() as session:
             # --- Phase 1: Batch-fetch all existing trace infos (1 query) ---
@@ -4586,7 +4587,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .all()
             }
 
-            # --- Phase 2: Bulk-create missing traces (1 flush) ---
+            # --- Phase 2: Create missing traces (1 flush per trace for safe rollback) ---
             if new_trace_ids := [tid for tid in all_trace_ids if tid not in existing_traces]:
                 experiment = self.get_experiment(location)
                 for trace_id in new_trace_ids:
@@ -4596,11 +4597,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     sql_trace_info = SqlTraceInfo(
                         request_id=trace_id,
                         experiment_id=location,
-                        timestamp_ms=agg["min_start_ms"],
+                        timestamp_ms=agg.min_start_ms,
                         execution_time_ms=(
-                            (agg["max_end_ms"] - agg["min_start_ms"]) if agg["max_end_ms"] else None
+                            (agg.max_end_ms - agg.min_start_ms) if agg.max_end_ms else None
                         ),
-                        status=agg["trace_status"],
+                        status=agg.trace_status,
                         client_request_id=None,
                     )
                     # Add the artifact location tag that's required for search_traces to work
@@ -4608,20 +4609,19 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         self._get_trace_artifact_location_tag(experiment, trace_id)
                     ]
                     session.add(sql_trace_info)
+                    try:
+                        session.flush()
+                    except IntegrityError:
+                        # Race condition: another process/thread created this trace
+                        # concurrently. Rollback this single insert and fetch the
+                        # trace that was created by the other process.
+                        session.rollback()
+                        sql_trace_info = (
+                            self._trace_query(session)
+                            .filter(SqlTraceInfo.request_id == trace_id)
+                            .one()
+                        )
                     existing_traces[trace_id] = sql_trace_info
-                try:
-                    session.flush()
-                except IntegrityError:
-                    # Race condition: some traces were created concurrently. Rollback and
-                    # re-fetch all traces to get the authoritative state.
-                    session.rollback()
-                    existing_traces = {
-                        t.request_id: t
-                        for t in self
-                        ._trace_query(session)
-                        .filter(SqlTraceInfo.request_id.in_(all_trace_ids))
-                        .all()
-                    }
 
             # Fill in experiment_id on span rows now that we have trace infos
             for row in all_span_rows:
@@ -4633,13 +4633,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
             # --- Phase 4: Batch-fetch existing metadata records (up to 3 queries) ---
             trace_ids_with_token_usage = [
-                tid for tid in all_trace_ids if trace_aggregates[tid]["aggregated_token_usage"]
+                tid for tid in all_trace_ids if trace_aggregates[tid].aggregated_token_usage
             ]
             trace_ids_with_cost = [
-                tid for tid in all_trace_ids if trace_aggregates[tid]["aggregated_cost"]
+                tid for tid in all_trace_ids if trace_aggregates[tid].aggregated_cost
             ]
             trace_ids_with_session = [
-                tid for tid in all_trace_ids if trace_aggregates[tid]["session_id"]
+                tid for tid in all_trace_ids if trace_aggregates[tid].session_id
             ]
 
             existing_token_usage: dict[str, SqlTraceMetadata] = {}
@@ -4685,9 +4685,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             for trace_id in all_trace_ids:
                 agg = trace_aggregates[trace_id]
                 sql_trace_info = existing_traces[trace_id]
-                min_start_ms = agg["min_start_ms"]
-                max_end_ms = agg["max_end_ms"]
-                root_span_status = agg["root_span_status"]
+                min_start_ms = agg.min_start_ms
+                max_end_ms = agg.max_end_ms
+                root_span_status = agg.root_span_status
 
                 # Atomic update of trace time range using SQLAlchemy's case expressions.
                 # This is necessary to handle concurrent span additions from multiple
@@ -4722,13 +4722,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     if root_span_status:
                         update_dict[SqlTraceInfo.status] = root_span_status
 
-                if root_span_dict := agg["root_span_dict"]:
+                if root_span_dict := agg.root_span_dict:
                     update_dict.update(
                         self._update_trace_info_attributes(sql_trace_info, root_span_dict)
                     )
 
                 # Token usage metadata + store as trace metrics for aggregation queries
-                if aggregated_token_usage := agg["aggregated_token_usage"]:
+                if aggregated_token_usage := agg.aggregated_token_usage:
                     existing_record = existing_token_usage.get(trace_id)
                     trace_token_usage = update_token_usage(
                         existing_record.value if existing_record else {},
@@ -4748,7 +4748,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             )
 
                 # Cost metadata
-                if aggregated_cost := agg["aggregated_cost"]:
+                if aggregated_cost := agg.aggregated_cost:
                     existing_record = existing_cost.get(trace_id)
                     recorded_cost = update_cost(
                         existing_record.value if existing_record else {}, aggregated_cost
@@ -4762,12 +4762,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     )
 
                 # Session ID metadata
-                if agg["session_id"] and trace_id not in existing_sessions:
+                if agg.session_id and trace_id not in existing_sessions:
                     session.merge(
                         SqlTraceMetadata(
                             request_id=trace_id,
                             key=TraceMetadataKey.TRACE_SESSION,
-                            value=agg["session_id"],
+                            value=agg.session_id,
                         )
                     )
 
@@ -7098,6 +7098,20 @@ def _try_parse_json_string(value: str) -> str:
     except json.JSONDecodeError:
         pass
     return value
+
+
+@dataclass
+class _TraceAggregate:
+    """Pre-computed per-trace aggregates used by log_spans() to minimize DB round-trips."""
+
+    min_start_ms: int
+    max_end_ms: int | None
+    root_span_status: str | None
+    trace_status: str
+    aggregated_token_usage: dict[str, Any] = field(default_factory=dict)
+    aggregated_cost: dict[str, Any] = field(default_factory=dict)
+    session_id: str | None = None
+    root_span_dict: dict[str, Any] | None = None
 
 
 def _bulk_upsert(session: Session, model_class: type, rows: list[dict[str, Any]]) -> None:
