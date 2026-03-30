@@ -252,3 +252,21 @@ def test_base_model_path_rejects_non_checkpoint_dir(peft_model_with_local_base, 
             path=save_dir,
             base_model_path=str(empty_dir),
         )
+
+
+def test_load_base_model_path_override_rejects_non_checkpoint_dir(
+    peft_model_with_local_base, tmp_path
+):
+    pipeline, base_dir = peft_model_with_local_base
+    save_dir = tmp_path / "model_output"
+    mlflow.transformers.save_model(
+        transformers_model=pipeline,
+        path=save_dir,
+        base_model_path=base_dir,
+    )
+
+    empty_dir = tmp_path / "empty_override"
+    empty_dir.mkdir()
+
+    with pytest.raises(MlflowException, match="config.json"):
+        mlflow.transformers.load_model(save_dir, base_model_path=str(empty_dir))
