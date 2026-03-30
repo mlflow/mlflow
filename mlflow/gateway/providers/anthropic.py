@@ -122,7 +122,9 @@ class AnthropicAdapter(ProviderAdapter):
         # https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview#tool-use-examples
         converted_messages = []
         for m in payload["messages"]:
-            if m["role"] == "user":
+            if m["role"] == "system":
+                continue
+            elif m["role"] == "user":
                 converted_messages.append(m)
             elif m["role"] == "assistant":
                 if m.get("tool_calls") is not None:
@@ -150,7 +152,7 @@ class AnthropicAdapter(ProviderAdapter):
                     ],
                 })
             else:
-                _logger.info(f"Discarded unknown message: {m}")
+                _logger.debug(f"Skipping message with unhandled role '{m['role']}'")
 
         payload["messages"] = converted_messages
 
