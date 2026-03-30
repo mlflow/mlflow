@@ -85,18 +85,9 @@ def invoke_model_without_tracing(
 
         provider, model_name = _parse_model_uri(model_uri)
         message_dicts = [{"role": msg.role, "content": msg.content} for msg in messages]
-
-        last_exception = None
-        for attempt in range(num_retries + 1):
-            try:
-                return _invoke_llm(
-                    provider, model_name, message_dicts, inference_params, response_format
-                )
-            except Exception as e:
-                last_exception = e
-                if attempt < num_retries:
-                    _logger.debug(f"Attempt {attempt + 1} failed: {e}. Retrying...")
-        raise last_exception
+        return _invoke_llm(
+            provider, model_name, message_dicts, inference_params, response_format
+        )
 
 
 def _invoke_llm(
@@ -106,8 +97,12 @@ def _invoke_llm(
     inference_params: dict[str, Any] | None,
     response_format: type | None,
 ) -> str:
+    from mlflow.gateway.provider_registry import is_supported_provider
     from mlflow.genai.utils.message_utils import pydantic_to_response_format
-    from mlflow.metrics.genai.model_utils import _call_llm_provider_api, call_deployments_api
+    from mlflow.metrics.genai.model_utils import (
+        _call_llm_provider_api,
+        call_deployments_api,
+    )
 
     response_format_dict = pydantic_to_response_format(response_format) if response_format else None
     if provider in ("gateway", "endpoints"):
@@ -125,8 +120,6 @@ def _invoke_llm(
         if result is None:
             raise MlflowException("Empty response from deployment endpoint")
         return result
-
-    from mlflow.gateway.provider_registry import is_supported_provider
 
     if is_supported_provider(provider):
         return _call_llm_provider_api(
