@@ -289,6 +289,48 @@ job_has_repo_check(job) if {
 	regex.match(`github\.repository\s*==\s*'mlflow/`, job["if"])
 }
 
+deny_secrets_in_top_level_env contains msg if {
+	some key, value in input.env
+	contains_secret(value)
+	msg := sprintf(
+		"Secret in top-level env.%s. Move secrets to step-level env for least-privilege scope.",
+		[key],
+	)
+}
+
+deny_secrets_in_job_level_env contains msg if {
+	some job_id, job in input.jobs
+	some key, value in job.env
+	contains_secret(value)
+	msg := sprintf(
+		"Secret in job-level env.%s of job '%s'. Move secrets to step-level env for least-privilege scope.",
+		[key, job_id],
+	)
+}
+
+contains_secret(value) if {
+	regex.match(`\$\{\{\s*secrets\.`, value)
+}
+
+deny_checkout_missing_persist_credentials contains msg if {
+	some job_id, job in input.jobs
+	some step in job.steps
+	startswith(step.uses, "actions/checkout@")
+	not has_explicit_persist_credentials(step)
+	msg := sprintf(
+		"actions/checkout in job '%s' must set 'persist-credentials' explicitly (false for read-only, true if pushing).",
+		[job_id],
+	)
+}
+
+has_explicit_persist_credentials(step) if {
+	step["with"]["persist-credentials"] == false
+}
+
+has_explicit_persist_credentials(step) if {
+	step["with"]["persist-credentials"] == true
+}
+
 deny_mutable_install contains msg if {
 	some job_id, job in input.jobs
 	some step in job.steps
