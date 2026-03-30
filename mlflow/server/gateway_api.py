@@ -276,7 +276,7 @@ def _build_endpoint_config(
             # Bearer token auth — bypasses boto3 SigV4
             provider_config = AmazonBedrockConfig(
                 aws_config={
-                    "aws_bearer_token": model_config.secret_value.get(_AuthConfigKey.API_KEY, ""),
+                    "aws_bearer_token": model_config.secret_value.get(_AuthConfigKey.API_KEY),
                     "aws_region": auth_config.get("aws_region_name"),
                 }
             )

@@ -209,9 +209,7 @@ class AmazonBedrockProvider(BaseProvider):
             import boto3
             import botocore.exceptions
         except ImportError:
-            raise ImportError(
-                "Bedrock provider requires boto3. Install it with: pip install boto3"
-            )
+            raise ImportError("Bedrock provider requires boto3. Install it with: pip install boto3")
 
         if self._client is not None and not self._client_expired():
             return self._client
@@ -321,6 +319,14 @@ class AmazonBedrockProvider(BaseProvider):
         for msg in messages:
             role = msg.get("role", "user")
             content = msg.get("content", "")
+
+            # Normalize content: extract text from list of content parts
+            if isinstance(content, list):
+                content = "\n".join(
+                    p.get("text", "")
+                    for p in content
+                    if isinstance(p, dict) and p.get("type") == "text"
+                )
 
             if role == "system":
                 system_prompts.append({"text": content})
@@ -501,7 +507,7 @@ class AmazonBedrockProvider(BaseProvider):
         messages = payload_dict.pop("messages", [])
         kwargs = self._build_converse_kwargs(messages, payload_dict)
 
-        response = await asyncio.get_event_loop().run_in_executor(
+        response = await asyncio.get_running_loop().run_in_executor(
             None, lambda: self.get_bedrock_client().converse(**kwargs)
         )
 
@@ -510,6 +516,13 @@ class AmazonBedrockProvider(BaseProvider):
     async def _chat_stream(
         self, payload: chat.RequestPayload
     ) -> AsyncIterable[chat.StreamResponsePayload]:
+        if self._is_token_auth:
+            raise AIGatewayException(
+                status_code=501,
+                detail="Streaming is not yet supported for Bedrock API key (bearer token) auth. "
+                "Use a non-streaming chat request instead.",
+            )
+
         from fastapi.encoders import jsonable_encoder
 
         payload_dict = jsonable_encoder(payload, exclude_none=True)
@@ -522,21 +535,26 @@ class AmazonBedrockProvider(BaseProvider):
         # blocking the async event loop.
         event_queue: queue.Queue = queue.Queue()
         _SENTINEL = object()
+        _stream_error: list[BaseException] = []
 
         def _consume_stream():
             try:
                 response = self.get_bedrock_client().converse_stream(**kwargs)
                 for event in response.get("stream", []):
                     event_queue.put(event)
+            except BaseException as e:
+                _stream_error.append(e)
             finally:
                 event_queue.put(_SENTINEL)
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         loop.run_in_executor(None, _consume_stream)
 
         while True:
             event = await loop.run_in_executor(None, event_queue.get)
             if event is _SENTINEL:
+                if _stream_error:
+                    raise _stream_error[0]
                 break
             if "contentBlockStart" in event:
                 start = event["contentBlockStart"].get("start", {})
@@ -587,6 +605,11 @@ class AmazonBedrockProvider(BaseProvider):
                         ],
                     )
                 elif "toolUse" in delta:
+                    tool_input = delta["toolUse"].get("input", "")
+                    if isinstance(tool_input, dict):
+                        arguments = json.dumps(tool_input)
+                    else:
+                        arguments = str(tool_input)
                     yield chat.StreamResponsePayload(
                         created=int(time.time()),
                         model=self.config.model.name,
@@ -603,7 +626,7 @@ class AmazonBedrockProvider(BaseProvider):
                                                 "contentBlockIndex", 0
                                             ),
                                             function=chat.Function(
-                                                arguments=delta["toolUse"].get("input", ""),
+                                                arguments=arguments,
                                             ),
                                         )
                                     ],
@@ -653,6 +676,13 @@ class AmazonBedrockProvider(BaseProvider):
                     )
 
     async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
+        if self._is_token_auth:
+            raise AIGatewayException(
+                status_code=501,
+                detail="Embeddings are not supported for Bedrock API key (bearer token) auth. "
+                "Use access_keys or default_chain auth mode for embeddings.",
+            )
+
         from fastapi.encoders import jsonable_encoder
 
         payload_dict = jsonable_encoder(payload, exclude_none=True)
@@ -666,7 +696,7 @@ class AmazonBedrockProvider(BaseProvider):
 
         for idx, text in enumerate(texts):
             body = {"inputText": text}
-            response = await asyncio.get_event_loop().run_in_executor(
+            response = await asyncio.get_running_loop().run_in_executor(
                 None,
                 lambda b=body: json.loads(
                     self
