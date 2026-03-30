@@ -1219,6 +1219,13 @@ def load_model(
                 "not a directory. Please provide a valid path to the base model.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        config_file_path = os.path.join(base_model_path, "config.json")
+        if not os.path.isfile(config_file_path):
+            raise MlflowException(
+                f"The specified base_model_path '{base_model_path}' is not a valid Transformers "
+                "checkpoint directory. Expected to find a 'config.json' file in this directory.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     return _load_model(local_model_path, flavor_config, return_type, device,
                        base_model_path=base_model_path, **kwargs)
