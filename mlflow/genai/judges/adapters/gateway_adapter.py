@@ -84,13 +84,6 @@ class InvokeOutput:
 # ---------------------------------------------------------------------------
 
 
-def _get_judge_provider(
-    provider_name: str,
-    model_name: str,
-) -> "BaseProvider":
-    return _get_provider_instance(provider_name, model_name)
-
-
 # ---------------------------------------------------------------------------
 # HTTP / request helpers
 # ---------------------------------------------------------------------------
@@ -543,10 +536,12 @@ class GatewayAdapter(BaseJudgeAdapter):
         # Resolve provider for config, URL, headers, and request/response transformation.
         # Each provider's get_endpoint_url() returns the full endpoint path
         # (e.g. OpenAI: .../chat/completions, Anthropic: .../messages).
-        provider_instance = _get_judge_provider(provider, model_name)
+        provider_instance = _get_provider_instance(provider, model_name)
         endpoint = base_url or provider_instance.get_endpoint_url("llm/v1/chat")
         headers = dict(provider_instance.headers or {})
-        headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
+        # Tag gateway requests so the server can attribute traffic to the judge
+        if provider == "gateway":
+            headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
         if extra_headers:
             headers.update(extra_headers)
 

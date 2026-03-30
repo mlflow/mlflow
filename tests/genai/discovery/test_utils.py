@@ -27,8 +27,9 @@ from mlflow.genai.discovery.utils import (
     group_traces_by_session,
     log_discovery_artifacts,
 )
-from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig
+from mlflow.genai.utils.gateway_utils import GatewayConfig, GatewayLiteLLMConfig
 from mlflow.genai.utils.trace_utils import _extract_trace_timing_info
+from mlflow.metrics.genai.model_utils import _get_provider_instance
 from mlflow.types.chat import ChatChoice, ChatCompletionResponse, ChatMessage, ChatUsage
 
 
@@ -608,7 +609,6 @@ def test_call_llm_tracks_tokens():
 
 
 def test_call_llm_via_gateway_dispatches_gateway_uri_without_litellm():
-    """gateway:/ URIs work through _call_llm_via_gateway via _get_provider_instance."""
     mock_provider = mock.MagicMock()
     mock_provider.adapter_class.chat_to_model.side_effect = lambda payload, config: payload
     mock_provider.get_endpoint_url.return_value = (
@@ -658,10 +658,6 @@ def test_call_llm_via_gateway_dispatches_gateway_uri_without_litellm():
 
 
 def test_get_mlflow_gateway_provider():
-    """_get_provider_instance returns a working provider for 'gateway'."""
-    from mlflow.genai.utils.gateway_utils import GatewayConfig
-    from mlflow.metrics.genai.model_utils import _get_provider_instance
-
     gateway_config = GatewayConfig(
         api_base="http://localhost:5000/gateway/mlflow/v1/",
         endpoint_name="chat",
