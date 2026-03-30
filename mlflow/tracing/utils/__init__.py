@@ -352,6 +352,17 @@ def calculate_cost_by_model_and_token_usage(
             litellm.suppress_debug_info = original_suppress
 
     if result is None:
+        # Try with provider as a last resort (builtin path only, litellm already tried above)
+        if litellm is None and model_provider:
+            result = cost_per_token(
+                model=model_name,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                custom_llm_provider=model_provider,
+                **cache_kwargs,
+            )
+
+    if result is None:
         _logger.debug(f"Failed to calculate cost for model {model_name}")
         return None
 
