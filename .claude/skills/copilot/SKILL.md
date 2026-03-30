@@ -57,3 +57,5 @@ gh api repos/<owner>/<repo>/pulls/<pr_number>/reviews --input - <<'EOF'
 }
 EOF
 ```
+
+After sending feedback, Copilot starts a new session, typically within ~10 seconds. Wait at least 15 seconds before polling so the new session gets picked up.

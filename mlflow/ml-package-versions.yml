@@ -480,8 +480,8 @@ transformers:
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       "< 4.52.0.dev0": ["accelerate<1"]
     pre_test: |
-      sudo apt-get update --snapshot=20260310T000000Z
-      sudo apt-get install --snapshot=20260310T000000Z -y ffmpeg
+      sudo apt-get update
+      sudo apt-get install -y ffmpeg
       export PYTHONPATH=./
       python tests/transformers/helper.py
     run: |
@@ -1017,28 +1017,6 @@ johnsnowlabs:
       else
         echo "Skipping tests due to missing license key"
       fi
-
-litellm:
-  package_info:
-    genai: true
-    repo: https://github.com/BerriAI/litellm/tree/HEAD
-    pip_release: "litellm"
-    install_dev: |
-      uv pip install --system git+https://github.com/BerriAI/litellm.git
-  autologging:
-    minimum: "1.63.14"
-    maximum: "1.74.9"
-    requirements:
-      ">= 0.0.0": [
-          "openai",
-          # Required to run tests/openai/mock_openai.py
-          "fastapi",
-          "uvicorn",
-        ]
-    run: pytest tests/litellm
-    # NB: LiteLLM tracing callback still depends on MLflowClient, so we need to migrate it before
-    # enabling tracing SDK tests. There are other issues like the one linked above, too.
-    test_tracing_sdk: false
 
 groq:
   package_info:

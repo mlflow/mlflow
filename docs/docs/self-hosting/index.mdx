@@ -32,6 +32,10 @@ First, install MLflow with:
 pip install mlflow
 ```
 
+:::info
+See [Secure Installs](/self-hosting/security/secure-installs) to learn how to pin dependencies to known good versions using hash checking and upload-time filtering.
+:::
+
 Then, start the server with:
 
 ```bash
@@ -70,9 +74,10 @@ The MLflow repository includes a ready-to-run Compose project under `docker-comp
 
 ```bash
 git clone https://github.com/mlflow/mlflow.git
-cd docker-compose
+cd mlflow/docker-compose
 cp .env.dev.example .env
 docker compose up -d
+# Open http://localhost:5000 in your browser to view the UI.
 ```
 
 Read the instructions [here](https://github.com/mlflow/mlflow/tree/master/docker-compose) for more details and configuration options for the docker compose bundle.

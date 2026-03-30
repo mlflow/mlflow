@@ -59,6 +59,11 @@ class Provider(str, Enum):
     LITELLM = "litellm"
     AZURE = "azure"
     GROQ = "groq"
+    DEEPSEEK = "deepseek"
+    XAI = "xai"
+    OPENROUTER = "openrouter"
+    OLLAMA = "ollama"
+    VERTEX_AI = "vertex_ai"
 
     @classmethod
     def values(cls):
@@ -274,6 +279,12 @@ class _OpenAICompatibleConfig(ConfigModel):
     @field_validator("api_key", mode="before")
     def validate_api_key(cls, value):
         return _resolve_api_key_from_input(value)
+
+
+class VertexAIConfig(ConfigModel):
+    vertex_project: str
+    vertex_location: str | None = None
+    vertex_credentials: str | None = None
 
 
 class LiteLLMConfig(ConfigModel):
