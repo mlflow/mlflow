@@ -28,7 +28,7 @@ class FlavorKey:
     MODEL_BINARY = "model_binary"
     MODEL_NAME = "source_model_name"
     MODEL_REVISION = "source_model_revision"
-    MODEL_LOCAL_BASE = "is_local_base_model"
+    MODEL_LOCAL_BASE = "local_base_model_path"
 
     PEFT = "peft_adaptor"
 
