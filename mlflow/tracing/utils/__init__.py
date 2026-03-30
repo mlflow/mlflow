@@ -342,7 +342,7 @@ def calculate_cost_by_model_and_token_usage(
                     model=model_name,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
-                    custom_llm_provider=model_provider,
+                    custom_llm_provider=model_provider.lower(),
                     **cache_kwargs,
                 )
             except Exception:
@@ -350,17 +350,6 @@ def calculate_cost_by_model_and_token_usage(
     finally:
         if litellm is not None:
             litellm.suppress_debug_info = original_suppress
-
-    if result is None:
-        # Try with provider as a last resort (builtin path only, litellm already tried above)
-        if litellm is None and model_provider:
-            result = cost_per_token(
-                model=model_name,
-                prompt_tokens=prompt_tokens,
-                completion_tokens=completion_tokens,
-                custom_llm_provider=model_provider,
-                **cache_kwargs,
-            )
 
     if result is None:
         _logger.debug(f"Failed to calculate cost for model {model_name}")
