@@ -8,7 +8,6 @@ import mlflow.tracking.context.default_context
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
-from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     TraceMetadataKey,
@@ -59,6 +58,8 @@ def test_on_start_during_model_evaluation():
     # Root span should create a new trace on start
     span = create_mock_otel_span(trace_id=trace_id, span_id=1)
     processor = MlflowV3SpanProcessor(span_exporter=mock.MagicMock(), export_metrics=False)
+
+    from mlflow.pyfunc.context import Context, set_prediction_context
 
     with set_prediction_context(Context(request_id=request_id, is_evaluate=True)):
         processor.on_start(span)
@@ -408,6 +409,8 @@ def test_on_end_bypasses_batch_during_evaluation():
             end_time=9_000_000,
         )
         LiveSpan(otel_span, "request_id")
+
+        from mlflow.pyfunc.context import Context, set_prediction_context
 
         with set_prediction_context(Context(request_id="eval-req-1", is_evaluate=True)):
             processor.on_end(otel_span)
