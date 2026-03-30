@@ -277,7 +277,8 @@ def _call_llm_via_gateway(
     token_counter: _TokenCounter | None = None,
 ) -> Any:
     # Lightweight fallback for when LiteLLM is not installed. Only supports
-    # providers with MLflow gateway adapters (OpenAI, Anthropic, Gemini, Mistral).
+    # providers with MLflow gateway adapters (OpenAI, Anthropic, Gemini, Mistral)
+    # and the MLflow AI Gateway (gateway:/ URIs).
     # Known gaps vs the LiteLLM path: no drop_params
     # (https://docs.litellm.ai/docs/completion/drop_params) - LiteLLM silently
     # strips unsupported params (e.g. response_format) per model before sending
@@ -291,7 +292,6 @@ def _call_llm_via_gateway(
     )
 
     provider_name, model_name = _parse_model_uri(model)
-    provider = _get_provider_instance(provider_name, model_name)
 
     payload = {"messages": messages, "max_completion_tokens": LLM_MAX_TOKENS}
     if response_format is not None:
@@ -299,6 +299,10 @@ def _call_llm_via_gateway(
     elif json_mode:
         payload["response_format"] = {"type": "json_object"}
 
+    if provider_name == "gateway":
+        return _call_llm_via_gateway_endpoint(model_name, payload, token_counter=token_counter)
+
+    provider = _get_provider_instance(provider_name, model_name)
     chat_payload = provider.adapter_class.chat_to_model(payload, provider.config)
 
     for attempt in range(NUM_RETRIES + 1):
@@ -318,6 +322,47 @@ def _call_llm_via_gateway(
             time.sleep(2**attempt)
 
     response = provider.adapter_class.model_to_chat(raw_response, provider.config)
+    if token_counter is not None:
+        token_counter.track(response)
+    return response
+
+
+def _call_llm_via_gateway_endpoint(
+    endpoint_name: str,
+    payload: dict[str, Any],
+    *,
+    token_counter: _TokenCounter | None = None,
+) -> Any:
+    from mlflow.genai.utils.gateway_utils import get_gateway_config
+    from mlflow.metrics.genai.model_utils import _send_request
+    from mlflow.utils.uri import append_to_uri_path
+
+    config = get_gateway_config(endpoint_name)
+    endpoint_url = append_to_uri_path(config.api_base, "chat/completions")
+    headers = {"Content-Type": "application/json"}
+    if config.extra_headers:
+        headers.update(config.extra_headers)
+    payload["model"] = endpoint_name
+
+    for attempt in range(NUM_RETRIES + 1):
+        try:
+            raw_response = _send_request(
+                endpoint=endpoint_url,
+                headers=headers,
+                payload=payload,
+            )
+            break
+        except (
+            requests.exceptions.RequestException,
+            mlflow.exceptions.MlflowException,
+        ):
+            if attempt >= NUM_RETRIES:
+                raise
+            time.sleep(2**attempt)
+
+    from mlflow.gateway.schemas.chat import ResponsePayload
+
+    response = ResponsePayload(**raw_response)
     if token_counter is not None:
         token_counter.track(response)
     return response
