@@ -618,8 +618,7 @@ def test_get_judge_provider_gateway():
     assert "chat/completions" in provider.get_endpoint_url("llm/v1/chat")
     assert provider.config is not None
     assert provider.config.model.name == "my-endpoint"
-    # Judge provider adds the caller header
-    assert "X-MLflow-Gateway-Caller" in provider.headers
+    assert provider.headers == {"X-Auth": "token"}
     payload = provider.adapter_class.chat_to_model(
         {"messages": [{"role": "user", "content": "hi"}]}, provider.config
     )
