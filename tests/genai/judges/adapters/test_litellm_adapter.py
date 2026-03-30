@@ -15,6 +15,7 @@ from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER
 from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.litellm_adapter import (
     _MODEL_RESPONSE_FORMAT_CAPABILITIES,
+    _coerce_result_value,
     _invoke_litellm,
     _remove_oldest_tool_call_pair,
 )
@@ -785,3 +786,200 @@ def test_record_failure_telemetry_without_databricks_agents():
 
         mock_logger.debug.assert_called_once()
         assert "databricks-agents needs to be installed" in str(mock_logger.debug.call_args)
+
+
+# ---------------------------------------------------------------------------
+# Tests for _coerce_result_value
+# ---------------------------------------------------------------------------
+
+
+class BoolResponseFormat(BaseModel):
+    result: bool = Field(description="Boolean result")
+    rationale: str = Field(description="Rationale")
+
+
+class StrResponseFormat(BaseModel):
+    result: str = Field(description="String result")
+    rationale: str = Field(description="Rationale")
+
+
+def test_coerce_result_value_no_response_format():
+    """Raw value is returned unchanged when no response_format is provided."""
+    assert _coerce_result_value("True", None) == "True"
+    assert _coerce_result_value(42, None) == 42
+
+
+def test_coerce_result_value_bool_already_correct():
+    """Python booleans pass through unchanged."""
+    assert _coerce_result_value(True, BoolResponseFormat) is True
+    assert _coerce_result_value(False, BoolResponseFormat) is False
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("True", True),
+    ("False", False),
+    ("true", True),
+    ("false", False),
+    ("TRUE", True),
+    ("FALSE", False),
+    ("  true  ", True),
+    ("yes", True),
+    ("1", True),
+    ("no", False),
+    ("0", False),
+    ("random", False),
+])
+def test_coerce_result_value_bool_from_string(raw, expected):
+    """String boolean representations are coerced to actual booleans."""
+    assert _coerce_result_value(raw, BoolResponseFormat) is expected
+
+
+def test_coerce_result_value_str_type_already_string():
+    """String values pass through for str-typed result fields."""
+    assert _coerce_result_value("yes", StrResponseFormat) == "yes"
+
+
+def test_coerce_result_value_str_type_coerces_int():
+    """Non-string values are cast when the expected type is str."""
+    assert _coerce_result_value(42, StrResponseFormat) == "42"
+
+
+def test_coerce_result_value_no_result_field():
+    """Returns raw value when the response_format has no 'result' field."""
+    class NoResultModel(BaseModel):
+        score: int = Field(description="Score")
+
+    assert _coerce_result_value("True", NoResultModel) == "True"
+
+
+def test_coerce_result_value_literal_type_exact_match():
+    """Literal values that already match are returned as-is."""
+    from typing import Literal
+
+    class LiteralModel(BaseModel):
+        result: Literal["yes", "no"] = Field(description="yes or no")
+
+    assert _coerce_result_value("yes", LiteralModel) == "yes"
+    assert _coerce_result_value("no", LiteralModel) == "no"
+
+
+def test_coerce_result_value_literal_type_case_insensitive():
+    """Literal values are matched case-insensitively."""
+    from typing import Literal
+
+    class LiteralModel(BaseModel):
+        result: Literal["yes", "no"] = Field(description="yes or no")
+
+    assert _coerce_result_value("YES", LiteralModel) == "yes"
+    assert _coerce_result_value("No", LiteralModel) == "no"
+
+
+def test_coerce_result_value_literal_type_no_match_returns_raw():
+    """Raw value is returned when it doesn't match any Literal option."""
+    from typing import Literal
+
+    class LiteralModel(BaseModel):
+        result: Literal["yes", "no"] = Field(description="yes or no")
+
+    assert _coerce_result_value("maybe", LiteralModel) == "maybe"
+
+
+# ---------------------------------------------------------------------------
+# Tests for LiteLLMAdapter.invoke bool coercion (integration)
+# ---------------------------------------------------------------------------
+
+
+def _make_invoke_input(response_format=None):
+    return AdapterInvocationInput(
+        prompt="Evaluate this.",
+        assessment_name="named_diagnosis",
+        model_uri="databricks:/databricks-gpt-5",
+        trace=None,
+        num_retries=3,
+        response_format=response_format,
+    )
+
+
+def test_invoke_coerces_string_true_to_bool():
+    """String 'True' from the model is coerced to Python True when feedback_value_type=bool."""
+    from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
+
+    adapter = LiteLLMAdapter()
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
+        return_value=mock.Mock(
+            response='{"result": "True", "rationale": "It qualifies."}',
+            cost=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+            request_id=None,
+        ),
+    ):
+        result = adapter.invoke(_make_invoke_input(response_format=BoolResponseFormat))
+
+    assert result.feedback.value is True
+
+
+def test_invoke_coerces_string_false_to_bool():
+    """String 'False' from the model is coerced to Python False when feedback_value_type=bool."""
+    from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
+
+    adapter = LiteLLMAdapter()
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
+        return_value=mock.Mock(
+            response='{"result": "False", "rationale": "Does not qualify."}',
+            cost=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+            request_id=None,
+        ),
+    ):
+        result = adapter.invoke(_make_invoke_input(response_format=BoolResponseFormat))
+
+    assert result.feedback.value is False
+
+
+def test_invoke_passes_through_native_bool():
+    """JSON boolean true/false (Python True/False after json.loads) is preserved as-is."""
+    from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
+
+    adapter = LiteLLMAdapter()
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
+        return_value=mock.Mock(
+            response='{"result": true, "rationale": "It qualifies."}',
+            cost=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+            request_id=None,
+        ),
+    ):
+        result = adapter.invoke(_make_invoke_input(response_format=BoolResponseFormat))
+
+    assert result.feedback.value is True
+
+
+def test_invoke_no_coercion_without_response_format():
+    """Without response_format, string values are left unchanged (existing behaviour)."""
+    from mlflow.genai.judges.adapters.litellm_adapter import LiteLLMAdapter
+
+    adapter = LiteLLMAdapter()
+
+    with mock.patch(
+        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm_and_handle_tools",
+        return_value=mock.Mock(
+            response='{"result": "True", "rationale": "It qualifies."}',
+            cost=None,
+            num_prompt_tokens=None,
+            num_completion_tokens=None,
+            request_id=None,
+        ),
+    ):
+        result = adapter.invoke(_make_invoke_input(response_format=None))
+
+    # No coercion — stays as the raw string
+    assert result.feedback.value == "True"
