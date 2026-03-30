@@ -113,3 +113,26 @@ def test_get_adapter_unsupported_without_litellm(
             MlflowException, match=f"No suitable adapter found for model_uri='{model_uri}'"
         ):
             get_adapter(model_uri, prompt)
+
+
+# --- Telemetry injection ---
+
+
+@pytest.mark.parametrize("model_uri", ["databricks:/test-model", "endpoints:/my-endpoint"])
+def test_get_adapter_injects_telemetry_for_databricks(model_uri):
+    from mlflow.genai.judges.adapters.base_adapter import DatabricksTelemetryRecorder
+
+    adapter = get_adapter(model_uri=model_uri, prompt="test")
+    assert isinstance(adapter._telemetry, DatabricksTelemetryRecorder)
+
+
+@pytest.mark.parametrize("model_uri", ["openai:/gpt-4", "anthropic:/claude-3"])
+def test_get_adapter_no_telemetry_for_non_databricks(model_uri):
+    adapter = get_adapter(model_uri=model_uri, prompt="test")
+    assert adapter._telemetry is None
+
+
+def test_get_adapter_no_telemetry_for_bare_databricks():
+    adapter = get_adapter(model_uri="databricks", prompt="test")
+    assert isinstance(adapter, DatabricksManagedJudgeAdapter)
+    assert adapter._telemetry is None
