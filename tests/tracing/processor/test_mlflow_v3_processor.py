@@ -289,7 +289,7 @@ def test_force_flush_uses_simple_processor_when_batch_disabled():
     mock_exporter = mock.MagicMock()
     processor = _create_processor(use_batch=False, exporter=mock_exporter)
 
-    result = processor.force_flush(timeout_millis=5000)
+    result = processor.force_flush()
 
     assert result is True
 
@@ -369,7 +369,7 @@ def test_spans_exported_in_batch_mode():
         ]:
             processor.on_end(spans[name])
 
-        processor.force_flush(timeout_millis=5000)
+        processor.force_flush()
 
         exported_spans = []
         for call in mock_exporter.export.call_args_list:
