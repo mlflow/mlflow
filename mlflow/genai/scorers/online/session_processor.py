@@ -330,7 +330,7 @@ class OnlineSessionScoringProcessor:
                         **(feedback.metadata or {}),
                         AssessmentMetadataKey.ONLINE_SCORING_SESSION_ID: session.session_id,
                     }
-                    _log_assessments(run_id=None, trace=trace, assessments=result.assessments)
+                _log_assessments(run_id=None, trace=trace, assessments=result.assessments)
 
                 # Clean up old assessments after successfully logging new ones
                 self._clean_up_old_assessments(trace, session.session_id, result.assessments)

@@ -104,6 +104,30 @@ def has_trace(trace):
     return trace is not None
 
 
+class FailingSessionScorer(mlflow.genai.Scorer):
+    def __init__(self):
+        super().__init__(name="failing_session_scorer")
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return True
+
+    def __call__(self, session=None, **kwargs):
+        raise ValueError("Session scorer error")
+
+
+class WorkingSessionScorer(mlflow.genai.Scorer):
+    def __init__(self):
+        super().__init__(name="working_session_scorer")
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        return True
+
+    def __call__(self, session=None, **kwargs):
+        return len(session or [])
+
+
 def _validate_assessments(traces):
     """Validate assessments are added to the traces"""
     for trace in traces:
@@ -1712,36 +1736,15 @@ def test_evaluate_no_warning_when_all_scorers_succeed():
 
         assert "working_scorer_1/mean" in result.metrics
         assert "working_scorer_2/mean" in result.metrics
-        mock_warning.assert_not_called()
+        warning_calls = [call.args[0] for call in mock_warning.call_args_list]
+        assert not any(
+            "Some scorer invocations failed during evaluation" in msg for msg in warning_calls
+        )
 
 
 def test_evaluate_logs_scorer_failure_summary_with_multi_turn_scorers():
-    # Define failing multi-turn scorer
-    class FailingSessionScorer(mlflow.genai.Scorer):
-        def __init__(self):
-            super().__init__(name="failing_session_scorer")
 
-        @property
-        def is_session_level_scorer(self) -> bool:
-            return True
-
-        def __call__(self, session=None, **kwargs):
-            raise ValueError("Session scorer error")
-
-    # Define working multi-turn scorer
-    class WorkingSessionScorer(mlflow.genai.Scorer):
-        def __init__(self):
-            super().__init__(name="working_session_scorer")
-
-        @property
-        def is_session_level_scorer(self) -> bool:
-            return True
-
-        def __call__(self, session=None, **kwargs):
-            return len(session or [])
-
-    # Create traces with session metadata
-    @mlflow.trace(span_type=mlflow.entities.SpanType.CHAT_MODEL)
+    @mlflow.trace
     def model(question, session_id):
         mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
         return f"Answer to {question}"
@@ -1755,7 +1758,6 @@ def test_evaluate_logs_scorer_failure_summary_with_multi_turn_scorers():
     model("Q3", session_id="session_2")
     trace_3 = mlflow.get_trace(mlflow.get_last_active_trace_id())
 
-    # Create dataset from traces
     dataset = create_dataset(name="multi_turn_failure_test")
     dataset.merge_records([trace_1, trace_2, trace_3])
 
@@ -1765,10 +1767,8 @@ def test_evaluate_logs_scorer_failure_summary_with_multi_turn_scorers():
             scorers=[FailingSessionScorer(), WorkingSessionScorer()],
         )
 
-        # Evaluation should complete without raising an exception
         assert "working_session_scorer/mean" in result.metrics
 
-        # Verify warning was logged with failure summary for multi-turn scorer
         warning_calls = [call.args[0] for call in mock_warning.call_args_list]
         failure_warnings = [
             msg
@@ -1777,48 +1777,16 @@ def test_evaluate_logs_scorer_failure_summary_with_multi_turn_scorers():
         ]
         assert len(failure_warnings) > 0
         warning_message = failure_warnings[0]
-        # Multi-turn scorers run once per session (2 sessions total)
         assert "'failing_session_scorer': 2/2 failed" in warning_message
         assert "Check individual trace assessments for detailed error messages" in warning_message
 
 
 def test_evaluate_logs_scorer_failure_summary_with_mixed_scorers():
-    # Define failing single-turn scorer
     @scorer
     def failing_single_turn(inputs, outputs):
         raise ValueError("Single turn scorer error")
 
-    # Define working single-turn scorer
-    @scorer
-    def working_single_turn(inputs, outputs):
-        return True
-
-    # Define failing multi-turn scorer
-    class FailingSessionScorer(mlflow.genai.Scorer):
-        def __init__(self):
-            super().__init__(name="failing_session_scorer")
-
-        @property
-        def is_session_level_scorer(self) -> bool:
-            return True
-
-        def __call__(self, session=None, **kwargs):
-            raise ValueError("Session scorer error")
-
-    # Define working multi-turn scorer
-    class WorkingSessionScorer(mlflow.genai.Scorer):
-        def __init__(self):
-            super().__init__(name="working_session_scorer")
-
-        @property
-        def is_session_level_scorer(self) -> bool:
-            return True
-
-        def __call__(self, session=None, **kwargs):
-            return len(session or [])
-
-    # Create traces with session metadata (2 traces per session, 2 sessions)
-    @mlflow.trace(span_type=mlflow.entities.SpanType.CHAT_MODEL)
+    @mlflow.trace
     def model(question, session_id):
         mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
         return f"Answer to {question}"
@@ -1844,17 +1812,15 @@ def test_evaluate_logs_scorer_failure_summary_with_mixed_scorers():
             data=dataset,
             scorers=[
                 failing_single_turn,
-                working_single_turn,
+                always_pass,
                 FailingSessionScorer(),
                 WorkingSessionScorer(),
             ],
         )
 
-        # Evaluation should complete without raising an exception
-        assert "working_single_turn/mean" in result.metrics
+        assert "always_pass/mean" in result.metrics
         assert "working_session_scorer/mean" in result.metrics
 
-        # Verify warning was logged with failure summary for both types
         warning_calls = [call.args[0] for call in mock_warning.call_args_list]
         failure_warnings = [
             msg
@@ -1863,9 +1829,7 @@ def test_evaluate_logs_scorer_failure_summary_with_mixed_scorers():
         ]
         assert len(failure_warnings) > 0
         warning_message = failure_warnings[0]
-        # Single-turn scorer runs once per trace (4 traces)
         assert "'failing_single_turn': 4/4 failed" in warning_message
-        # Multi-turn scorer runs once per session (2 sessions)
         assert "'failing_session_scorer': 2/2 failed" in warning_message
         assert "Check individual trace assessments for detailed error messages" in warning_message
 

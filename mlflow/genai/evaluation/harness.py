@@ -912,7 +912,10 @@ def _compute_eval_scores(
         futures = {executor.submit(run_scorer, scorer): scorer for scorer in scorers}
 
         try:
-            results = [(scorer, future.result()) for future, scorer in futures.items()]
+            results = []
+            for future in as_completed(futures):
+                scorer = futures[future]
+                results.append((scorer, future.result()))
         except KeyboardInterrupt:
             # Cancel pending futures
             executor.shutdown(cancel_futures=True)
