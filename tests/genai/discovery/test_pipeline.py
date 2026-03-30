@@ -1,3 +1,4 @@
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -1130,8 +1131,6 @@ def test_discover_issues_with_mixed_session_traces(make_trace):
 
 
 def _make_dedup_response(groups: list[list[int]]):
-    import json
-
     return _make_litellm_response(json.dumps({"groups": groups}))
 
 
@@ -1194,6 +1193,20 @@ def test_dedup_issues_categories_preserve_order_and_uniqueness():
         result = _dedup_issues([issue1, issue2])
     assert len(result) == 1
     assert result[0].categories == ["correctness", "latency", "hallucination"]
+
+
+def test_dedup_issues_overlapping_groups_merged_transitively():
+    issue0 = create_identified_issue(example_indices=[0], severity="low")
+    issue1 = create_identified_issue(example_indices=[1], severity="medium")
+    issue2 = create_identified_issue(example_indices=[2], severity="high")
+    with patch(
+        "mlflow.genai.discovery.pipeline._call_llm",
+        return_value=_make_dedup_response([[0, 1], [1, 2]]),
+    ):
+        result = _dedup_issues([issue0, issue1, issue2])
+    assert len(result) == 1
+    assert set(result[0].example_indices) == {0, 1, 2}
+    assert result[0].severity == "high"
 
 
 def test_dedup_issues_llm_failure_returns_original():

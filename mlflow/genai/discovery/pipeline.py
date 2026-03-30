@@ -24,10 +24,10 @@ from mlflow.genai.discovery.clustering import (
 )
 from mlflow.genai.discovery.constants import (
     CATEGORY_LATENCY,
+    DEDUP_ISSUES_PROMPT_TEMPLATE,
     DEFAULT_CATEGORIES,
     DEFAULT_MODEL,
     DEFAULT_SCORER_NAME,
-    DEDUP_ISSUES_PROMPT_TEMPLATE,
     NO_ISSUE_KEYWORD,
     TRACE_ANNOTATION_SYSTEM_PROMPT,
     build_satisfaction_instructions,
@@ -361,14 +361,24 @@ def _dedup_issues(
         _logger.debug("Failed to deduplicate issues via LLM; skipping dedup", exc_info=True)
         return issues
 
-    # Build a mapping from each issue index to the canonical index of its group
-    canonical: dict[int, int] = {}
+    parent = list(range(len(issues)))
+
+    def find(x: int) -> int:
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
     for group in result.groups:
         if len(group) < 2:
             continue
-        head = min(group)
-        for idx in group:
-            canonical[idx] = head
+        for idx in group[1:]:
+            ra, rb = find(group[0]), find(idx)
+            if ra != rb:
+                parent[max(ra, rb)] = min(ra, rb)
+
+    # Map each index to the minimum index in its component (canonical representative)
+    canonical = {i: find(i) for i in range(len(issues)) if find(i) != i}
 
     merged: dict[int, _IdentifiedIssue] = {}
     for i, issue in enumerate(issues):
