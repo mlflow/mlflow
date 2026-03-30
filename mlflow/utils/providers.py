@@ -340,7 +340,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "name": "vertex_project",
                     "description": "GCP Project ID",
                     "secret": False,
-                    "required": False,
+                    "required": True,
                 },
                 {
                     "name": "vertex_location",

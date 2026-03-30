@@ -342,7 +342,7 @@ def calculate_cost_by_model_and_token_usage(
                     model=model_name,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
-                    custom_llm_provider=model_provider,
+                    custom_llm_provider=model_provider.lower(),
                     **cache_kwargs,
                 )
             except Exception:
@@ -358,7 +358,7 @@ def calculate_cost_by_model_and_token_usage(
                 model=model_name,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
-                custom_llm_provider=model_provider,
+                custom_llm_provider=model_provider.lower(),
                 **cache_kwargs,
             )
 

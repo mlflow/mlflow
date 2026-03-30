@@ -28,6 +28,7 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
     Provider,
+    VertexAIConfig,
     _AuthConfigKey,
     _OpenAICompatibleConfig,
 )
@@ -267,6 +268,13 @@ def _build_endpoint_config(
             config_kwargs["token"] = model_config.secret_value.get(_AuthConfigKey.API_KEY)
         provider_config = DatabricksConfig(**config_kwargs)
         model_config.provider = Provider.DATABRICKS
+    elif model_config.provider == Provider.VERTEX_AI:
+        auth_config = model_config.auth_config or {}
+        provider_config = VertexAIConfig(
+            vertex_project=auth_config.get("vertex_project"),
+            vertex_location=auth_config.get("vertex_location"),
+            vertex_credentials=model_config.secret_value.get("vertex_credentials"),
+        )
     else:
         # Use LiteLLM as fallback for unsupported providers
         # Store the original provider name for LiteLLM's provider/model format
