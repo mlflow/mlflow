@@ -373,7 +373,8 @@ def _dedup_issues(
         if len(group) < 2:
             continue
         for idx in group[1:]:
-            ra, rb = find(group[0]), find(idx)
+            ra = find(group[0])
+            rb = find(idx)
             if ra != rb:
                 parent[max(ra, rb)] = min(ra, rb)
 
