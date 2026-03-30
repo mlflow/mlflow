@@ -180,11 +180,16 @@ def _build_request(
 
     if include_response_format:
         schema_cls = response_format or _get_default_judge_response_schema()
+        # OpenAI's structured output API requires "additionalProperties": false
+        # and "strict": true for json_schema response format. LiteLLM adds these
+        # automatically when given a Pydantic model; we must add them explicitly.
+        schema = schema_cls.model_json_schema()
+        schema["additionalProperties"] = False
         payload["response_format"] = {
             "type": "json_schema",
             "json_schema": {
                 "name": schema_cls.__name__,
-                "schema": schema_cls.model_json_schema(),
+                "schema": schema,
                 "strict": True,
             },
         }
