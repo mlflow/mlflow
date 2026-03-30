@@ -13,7 +13,7 @@ from mlflow.gateway.config import EndpointConfig, EndpointType
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request, send_stream_request
 from mlflow.gateway.schemas import chat, embeddings
-from mlflow.gateway.utils import stream_sse_data
+from mlflow.gateway.utils import parse_sse_lines, stream_sse_data
 
 
 class OpenAICompatibleAdapter(ProviderAdapter):
@@ -304,8 +304,6 @@ class OpenAICompatibleProvider(BaseProvider):
         )
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
-        from mlflow.gateway.utils import parse_sse_lines
-
         for data in parse_sse_lines(chunk):
             if chat_usage := data.get("usage"):
                 if token_usage := self._extract_token_usage_from_dict(

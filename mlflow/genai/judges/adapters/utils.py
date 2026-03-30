@@ -55,8 +55,8 @@ def get_adapter(
     # litellm.completion to mock at the gateway HTTP level instead.
     adapters = [
         DatabricksManagedJudgeAdapter,
-        LiteLLMAdapter,
         GatewayAdapter,
+        LiteLLMAdapter,
     ]
 
     for adapter_class in adapters:

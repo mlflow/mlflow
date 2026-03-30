@@ -38,7 +38,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _remove_oldest_tool_call_pair,
 )
 from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
@@ -556,7 +556,6 @@ class LiteLLMAdapter(BaseJudgeAdapter):
         return _is_litellm_available()
 
     def _invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
-        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
         from mlflow.types.llm import ChatMessage
 
         messages = (
