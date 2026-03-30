@@ -38,6 +38,7 @@ from mlflow.genai.judges.adapters.utils import (
     is_response_format_error,
     send_chat_request,
 )
+from mlflow.genai.judges.tools import list_judge_tools
 from mlflow.genai.judges.utils.parsing_utils import (
     _sanitize_justification,
     _strip_markdown_code_blocks,
@@ -56,6 +57,7 @@ from mlflow.metrics.genai.model_utils import (
     score_model_on_payload,
 )
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils.providers import _get_model_cost
 
 _logger = logging.getLogger(__name__)
@@ -520,8 +522,6 @@ class GatewayAdapter(BaseJudgeAdapter):
 
     def _invoke_with_tools(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         """Invoke the judge model with trace-based tool calling support."""
-        from mlflow.tracing.constant import AssessmentMetadataKey
-
         # Lazy import: mlflow.types.llm pulls in numpy via mlflow.types.schema
         from mlflow.types.llm import ChatMessage
 
@@ -589,8 +589,6 @@ class GatewayAdapter(BaseJudgeAdapter):
         extra_headers: dict[str, str] | None = None,
     ) -> InvokeOutput:
         """Run the tool-calling loop using the provider infrastructure for HTTP calls."""
-        from mlflow.genai.judges.tools import list_judge_tools
-
         # Lazy import: mlflow.types.llm pulls in numpy via mlflow.types.schema
         from mlflow.types.llm import ChatMessage
 
