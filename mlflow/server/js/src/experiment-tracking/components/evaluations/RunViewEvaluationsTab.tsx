@@ -182,9 +182,6 @@ const RunViewEvaluationsTabInner = ({
     isFetching: traceInfosFetching,
     error: traceInfosError,
     refetchMlflowTraces,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
   } = useSearchMlflowTraces({
     locations: traceLocations,
     currentRunDisplayName: runDisplayName,
@@ -387,9 +384,6 @@ const RunViewEvaluationsTabInner = ({
                     onTraceTagsEdit={showEditTagsModalForTrace}
                     isTableLoading={isTableLoading}
                     isGroupedBySession={isGroupedBySession}
-                    fetchNextPage={fetchNextPage}
-                    hasNextPage={hasNextPage}
-                    isFetchingNextPage={isFetchingNextPage}
                   />
                 </ContextProviders>
               )
