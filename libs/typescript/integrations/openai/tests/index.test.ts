@@ -2,12 +2,12 @@
  * Tests for MLflow OpenAI integration with MSW mock server
  */
 
-import * as mlflow from 'mlflow-tracing';
+import * as mlflow from '@mlflow/core';
 import { tracedOpenAI } from '../src';
 import { OpenAI } from 'openai';
 import { http, HttpResponse } from 'msw';
 import { openAIMswServer, useMockOpenAIServer } from '../../helpers/openaiTestHelper';
-import { createAuthProvider } from 'mlflow-tracing/src/auth';
+import { createAuthProvider } from '@mlflow/core/src/auth';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 

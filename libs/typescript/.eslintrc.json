@@ -73,6 +73,14 @@
         // AI SDK does not expose the type of createOpenAI return value
         "@typescript-eslint/no-unsafe-call": "off"
       }
+    },
+    {
+      "files": ["integrations/opencode/tests/*.test.ts"],
+      "rules": {
+        // OpenCode plugin types are mocked and not fully typed
+        "@typescript-eslint/no-unsafe-call": "off",
+        "@typescript-eslint/unbound-method": "off"
+      }
     }
   ]
 }

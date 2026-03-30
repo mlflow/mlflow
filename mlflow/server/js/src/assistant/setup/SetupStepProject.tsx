@@ -184,7 +184,7 @@ export const SetupStepProject = ({
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
               <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
                 <Checkbox
-                  componentId={`mlflow.assistant.setup.project.perm_mlflow_cli`}
+                  componentId="mlflow.assistant.setup.project.perm_mlflow_cli"
                   isChecked
                   disabled
                   onChange={() => {}}

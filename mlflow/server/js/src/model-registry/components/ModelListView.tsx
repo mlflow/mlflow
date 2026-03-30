@@ -19,7 +19,15 @@ import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Alert, CursorPagination, Spacer as DuBoisSpacer, Spacer, Typography } from '@databricks/design-system';
+import {
+  Alert,
+  CursorPagination,
+  ModelsIcon,
+  Spacer as DuBoisSpacer,
+  Spacer,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { shouldShowModelsNextUI, shouldEnableWorkspaces } from '../../common/utils/FeatureUtils';
 import { ModelListFilters } from './model-list/ModelListFilters';
 import { ModelListTable } from './model-list/ModelListTable';
@@ -29,6 +37,28 @@ import { extractWorkspaceFromSearchParams } from '../../workspaces/utils/Workspa
 
 const NAME_COLUMN_INDEX = 'name';
 const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
+
+const ModelListPageTitle = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+      <span
+        css={{
+          display: 'flex',
+          borderRadius: theme.borders.borderRadiusSm,
+          backgroundColor: theme.colors.backgroundSecondary,
+          padding: theme.spacing.sm,
+        }}
+      >
+        <ModelsIcon />
+      </span>
+      <FormattedMessage
+        defaultMessage="Registered Models"
+        description="Header for displaying models in the model registry"
+      />
+    </span>
+  );
+};
 
 type ModelListViewImplProps = {
   models: any[];
@@ -162,16 +192,10 @@ export class ModelListViewImpl extends React.Component<ModelListViewImplProps, M
     const workspaceFromUrl = extractWorkspaceFromSearchParams(searchParams);
     const showCreationButtons = !isEmptyState && (!workspacesEnabled || workspaceFromUrl !== null);
 
-    const title = (
-      <FormattedMessage
-        defaultMessage="Registered Models"
-        description="Header for displaying models in the model registry"
-      />
-    );
     return (
       <>
         <Spacer shrinks={false} />
-        <PageHeader title={title} spacerSize="xs">
+        <PageHeader title={<ModelListPageTitle />} spacerSize="xs">
           {showCreationButtons && <CreateModelButton />}
         </PageHeader>
         <Spacer />

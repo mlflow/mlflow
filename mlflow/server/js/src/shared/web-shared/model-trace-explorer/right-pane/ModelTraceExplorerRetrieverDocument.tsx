@@ -2,14 +2,17 @@ import { useCallback, useState } from 'react';
 
 import { ModelTraceExplorerRetrieverDocumentFull } from './ModelTraceExplorerRetrieverDocumentFull';
 import { ModelTraceExplorerRetrieverDocumentPreview } from './ModelTraceExplorerRetrieverDocumentPreview';
+import type { FeedbackAssessment } from '../ModelTrace.types';
 import { createListFromObject } from '../ModelTraceExplorer.utils';
 
 export function ModelTraceExplorerRetrieverDocument({
   text,
   metadata,
+  relevanceAssessment,
 }: {
   text: string;
   metadata: { [key: string]: any };
+  relevanceAssessment?: FeedbackAssessment;
 }) {
   const [expanded, setExpanded] = useState(false);
   const metadataTags = createListFromObject(metadata);
@@ -20,6 +23,7 @@ export function ModelTraceExplorerRetrieverDocument({
       text={text}
       metadataTags={metadataTags}
       setExpanded={setExpanded}
+      relevanceAssessment={relevanceAssessment}
     />
   ) : (
     <ModelTraceExplorerRetrieverDocumentPreview
@@ -27,6 +31,7 @@ export function ModelTraceExplorerRetrieverDocument({
       text={text}
       metadataTags={metadataTags}
       setExpanded={setExpanded}
+      relevanceAssessment={relevanceAssessment}
     />
   );
 }

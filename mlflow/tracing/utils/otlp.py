@@ -1,3 +1,4 @@
+import base64
 import gzip
 import os
 import zlib
@@ -8,14 +9,29 @@ from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoRe
 from opentelemetry.sdk.resources import Resource as OTelResource
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER
+from mlflow.environment_variables import MLFLOW_ENABLE_OTLP_EXPORTER, MLFLOW_TRACKING_TOKEN
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
+from mlflow.utils.credentials import read_mlflow_creds
 
 # Constants for OpenTelemetry integration
 MLFLOW_EXPERIMENT_ID_HEADER = "x-mlflow-experiment-id"
 OTLP_TRACES_PATH = "/v1/traces"
 OTLP_METRICS_PATH = "/v1/metrics"
+
+
+def build_otlp_headers(experiment_id: str) -> dict[str, str]:
+    """Build OTLP exporter headers with experiment ID and auth credentials."""
+    headers: dict[str, str] = {MLFLOW_EXPERIMENT_ID_HEADER: experiment_id}
+
+    creds = read_mlflow_creds()
+    if creds.username and creds.password:
+        basic_auth_str = f"{creds.username}:{creds.password}".encode()
+        headers["Authorization"] = f"Basic {base64.standard_b64encode(basic_auth_str).decode()}"
+    elif token := MLFLOW_TRACKING_TOKEN.get():
+        headers["Authorization"] = f"Bearer {token}"
+
+    return headers
 
 
 def should_use_otlp_exporter() -> bool:

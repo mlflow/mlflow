@@ -3,6 +3,7 @@ from __future__ import annotations
 from urllib.parse import quote
 
 from mlflow.entities import Workspace
+from mlflow.entities.workspace import WorkspaceDeletionMode
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import INVALID_STATE, RESOURCE_ALREADY_EXISTS
@@ -100,10 +101,17 @@ class RestWorkspaceStore(AbstractStore):
         )
         return self._workspace_from_proto(proto)
 
-    def delete_workspace(self, workspace_name: str) -> None:
+    def delete_workspace(
+        self,
+        workspace_name: str,
+        mode: WorkspaceDeletionMode = WorkspaceDeletionMode.RESTRICT,
+    ) -> None:
+        endpoint = f"{WORKSPACES_ENDPOINT}/{_quote_workspace(workspace_name)}"
+        if mode != WorkspaceDeletionMode.RESTRICT:
+            endpoint += f"?mode={mode.value}"
         call_endpoint(
             host_creds=self.get_host_creds(),
-            endpoint=f"{WORKSPACES_ENDPOINT}/{_quote_workspace(workspace_name)}",
+            endpoint=endpoint,
             method="DELETE",
             json_body=None,
             response_proto=DeleteWorkspace.Response(),

@@ -28,6 +28,12 @@ jest.mock('../hooks/useEndpointsQuery', () => ({
   useEndpointsQuery: () => mockUseEndpointsQuery(),
 }));
 
+// Mock useUsersQuery
+const mockUseUsersQuery = jest.fn();
+jest.mock('../hooks/useUsersQuery', () => ({
+  useUsersQuery: () => mockUseUsersQuery(),
+}));
+
 const mockEndpointsWithUsageTracking = [
   { endpoint_id: 'ep-1', name: 'Endpoint 1', usage_tracking: true, experiment_id: 'exp-1' },
   { endpoint_id: 'ep-2', name: 'Endpoint 2', usage_tracking: true, experiment_id: 'exp-2' },
@@ -37,9 +43,19 @@ const mockEndpointsWithoutUsageTracking = [
   { endpoint_id: 'ep-3', name: 'Endpoint 3', usage_tracking: false, experiment_id: null },
 ];
 
+const mockUsers = [
+  { id: 1, username: 'admin' },
+  { id: 2, username: 'alice' },
+];
+
 describe('GatewayUsagePage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseUsersQuery.mockReturnValue({
+      data: mockUsers,
+      isLoading: false,
+      error: undefined,
+    });
   });
 
   const renderComponent = () => {
@@ -69,21 +85,38 @@ describe('GatewayUsagePage', () => {
       renderComponent();
 
       expect(screen.getByText('Endpoint:')).toBeInTheDocument();
-      const selector = screen.getByRole('combobox');
-      expect(selector).toBeInTheDocument();
+      const selectors = screen.getAllByRole('combobox');
+      expect(selectors.length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText('All endpoints')).toBeInTheDocument();
+    });
+
+    test('renders user selector with "All users" option', () => {
+      renderComponent();
+
+      expect(screen.getByText('User:')).toBeInTheDocument();
+      expect(screen.getByText('All users')).toBeInTheDocument();
     });
 
     test('renders endpoint options in selector when opened', async () => {
       renderComponent();
 
-      // Open the dropdown
-      const selector = screen.getByRole('combobox');
-      await userEvent.click(selector);
+      const selectors = screen.getAllByRole('combobox');
+      // First combobox is the endpoint selector
+      await userEvent.click(selectors[0]);
 
-      // Options should now be visible
       expect(screen.getByText('Endpoint 1')).toBeInTheDocument();
       expect(screen.getByText('Endpoint 2')).toBeInTheDocument();
+    });
+
+    test('renders user options in selector when opened', async () => {
+      renderComponent();
+
+      const selectors = screen.getAllByRole('combobox');
+      // Second combobox is the user selector
+      await userEvent.click(selectors[1]);
+
+      expect(screen.getByText('admin')).toBeInTheDocument();
+      expect(screen.getByText('alice')).toBeInTheDocument();
     });
 
     test('renders time controls', () => {
@@ -109,14 +142,26 @@ describe('GatewayUsagePage', () => {
       renderComponent();
 
       // Open the dropdown
-      const selector = screen.getByRole('combobox');
-      await userEvent.click(selector);
+      const selectors = screen.getAllByRole('combobox');
+      await userEvent.click(selectors[0]);
 
       // Click on Endpoint 1
       await userEvent.click(screen.getByText('Endpoint 1'));
 
       // Charts should still be visible for the selected endpoint
       expect(screen.getByTestId('trace-requests-chart')).toBeInTheDocument();
+    });
+
+    test('hides user selector when useUsersQuery returns an error', () => {
+      mockUseUsersQuery.mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: new Error('Forbidden'),
+      });
+      renderComponent();
+
+      expect(screen.queryByText('User:')).not.toBeInTheDocument();
+      expect(screen.getByText('Endpoint:')).toBeInTheDocument();
     });
   });
 
@@ -169,8 +214,8 @@ describe('GatewayUsagePage', () => {
     test('disables endpoint selector while loading', () => {
       renderComponent();
 
-      const selector = screen.getByRole('combobox');
-      expect(selector).toBeDisabled();
+      const selectors = screen.getAllByRole('combobox');
+      expect(selectors[0]).toBeDisabled();
     });
   });
 

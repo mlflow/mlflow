@@ -19,6 +19,7 @@ from mlflow.protos.databricks_artifacts_pb2 import (
     CompleteMultipartUpload,
     CreateMultipartUpload,
     GetCredentialsForRead,
+    GetCredentialsForTraceDataDownload,
     GetCredentialsForTraceDataUpload,
     GetCredentialsForWrite,
     GetPresignedUploadPartUrl,
@@ -813,17 +814,11 @@ def test_get_read_credential_infos_handles_pagination(databricks_artifact_repo):
             for a in read_credential_infos
         ]
         assert read_credential_infos == credential_infos_mock_1 + credential_infos_mock_2
-        message_mock.assert_has_calls(
-            [
-                mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"])),
-                mock.call(
-                    GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"], page_token="2")
-                ),
-                mock.call(
-                    GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"], page_token="3")
-                ),
-            ]
-        )
+        message_mock.assert_has_calls([
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"])),
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"], page_token="2")),
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=["testpath"], page_token="3")),
+        ])
         assert call_endpoint_mock.call_count == 3
 
 
@@ -880,13 +875,11 @@ def test_get_read_credential_infos_respects_max_request_size(databricks_artifact
         )
         assert call_endpoint_mock.call_count == 3
         assert message_mock.call_count == 3
-        message_mock.assert_has_calls(
-            [
-                mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
-                mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_2)),
-                mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_3)),
-            ]
-        )
+        message_mock.assert_has_calls([
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_2)),
+            mock.call(GetCredentialsForRead(run_id=MOCK_RUN_ID, path=paths_chunk_3)),
+        ])
 
 
 def test_get_write_credential_infos_handles_pagination(databricks_artifact_repo):
@@ -931,17 +924,15 @@ def test_get_write_credential_infos_handles_pagination(databricks_artifact_repo)
             for a in write_credential_infos
         ]
         assert write_credential_infos == credential_infos_mock_1 + credential_infos_mock_2
-        message_mock.assert_has_calls(
-            [
-                mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"])),
-                mock.call(
-                    GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"], page_token="2")
-                ),
-                mock.call(
-                    GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"], page_token="3")
-                ),
-            ]
-        )
+        message_mock.assert_has_calls([
+            mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"])),
+            mock.call(
+                GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"], page_token="2")
+            ),
+            mock.call(
+                GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=["testpath"], page_token="3")
+            ),
+        ])
         assert call_endpoint_mock.call_count == 3
 
 
@@ -992,13 +983,11 @@ def test_get_write_credential_infos_respects_max_request_size(databricks_artifac
             paths_chunk_1 + paths_chunk_2 + paths_chunk_3
         )
         assert call_endpoint_mock.call_count == message_mock.call_count == 3
-        message_mock.assert_has_calls(
-            [
-                mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
-                mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_2)),
-                mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_3)),
-            ]
-        )
+        message_mock.assert_has_calls([
+            mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_1)),
+            mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_2)),
+            mock.call(GetCredentialsForWrite(run_id=MOCK_RUN_ID, path=paths_chunk_3)),
+        ])
 
 
 @pytest.mark.parametrize(
@@ -1678,3 +1667,93 @@ def test_upload_trace_data(databricks_artifact_repo_trace, cred_type):
         databricks_artifact_repo_trace.upload_trace_data(trace_data)
     # Verify that threading is not used in upload_trace_data
     mock_thread_pool.submit.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "cred_type",
+    [
+        ArtifactCredentialType.AZURE_SAS_URI,
+        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        ArtifactCredentialType.AWS_PRESIGNED_URL,
+        ArtifactCredentialType.GCP_SIGNED_URL,
+    ],
+)
+def test_download_trace_attachment(databricks_artifact_repo_trace, cred_type):
+    attachment_id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
+    cred_info = ArtifactCredentialInfo(signed_uri=MOCK_AWS_SIGNED_URI, type=cred_type)
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.get_credentials",
+            return_value=([cred_info], None),
+        ) as mock_get_creds,
+        mock.patch("requests.Session.request", return_value=MockResponse(b"\x89PNG fake image")),
+    ):
+        result = databricks_artifact_repo_trace.download_trace_attachment(attachment_id)
+    assert result == b"\x89PNG fake image"
+    mock_get_creds.assert_called_once_with(
+        cred_type=_CredentialType.READ,
+        artifact_path=f"attachments/{attachment_id}",
+    )
+
+
+@pytest.mark.parametrize(
+    "cred_type",
+    [
+        ArtifactCredentialType.AZURE_SAS_URI,
+        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        ArtifactCredentialType.AWS_PRESIGNED_URL,
+        ArtifactCredentialType.GCP_SIGNED_URL,
+    ],
+)
+def test_upload_attachment(databricks_artifact_repo_trace, cred_type):
+    attachment_id = "a1b2c3d4-e5f6-4890-abcd-ef1234567890"
+    cred_info = ArtifactCredentialInfo(signed_uri=MOCK_AWS_SIGNED_URI, type=cred_type)
+    with (
+        mock.patch(
+            f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.get_credentials",
+            return_value=([cred_info], None),
+        ) as mock_get_creds,
+        mock.patch("requests.Session.request", return_value=MockResponse(b"{}")) as mock_request,
+    ):
+        databricks_artifact_repo_trace.upload_attachment(attachment_id, b"fake image bytes")
+    mock_get_creds.assert_called_once_with(
+        cred_type=_CredentialType.WRITE,
+        artifact_path=f"attachments/{attachment_id}",
+        timeout=mock.ANY,
+    )
+    assert mock_request.call_count >= 1
+
+
+def test_get_credentials_passes_path_for_attachment(databricks_artifact_repo_trace):
+    attachment_path = "attachments/a1b2c3d4-e5f6-4890-abcd-ef1234567890"
+    cred_info = ArtifactCredentialInfo(signed_uri=MOCK_AWS_SIGNED_URI)
+    cred = GetCredentialsForTraceDataDownload.Response(credential_info=cred_info)
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+        return_value=cred,
+    ) as mock_call:
+        databricks_artifact_repo_trace.resource.get_credentials(
+            cred_type=_CredentialType.READ,
+            artifact_path=attachment_path,
+        )
+    call_args = mock_call.call_args
+    # Verify json_body includes the path
+    json_body = call_args.args[2] if len(call_args.args) > 2 else call_args.kwargs.get("json_body")
+    assert json_body is not None
+    assert "attachments/" in json_body
+
+
+def test_get_credentials_omits_path_for_trace_data(databricks_artifact_repo_trace):
+    cred_info = ArtifactCredentialInfo(signed_uri=MOCK_AWS_SIGNED_URI)
+    cred = GetCredentialsForTraceDataDownload.Response(credential_info=cred_info)
+    with mock.patch(
+        f"{DATABRICKS_ARTIFACT_REPOSITORY_RESOURCES}._Trace.call_endpoint",
+        return_value=cred,
+    ) as mock_call:
+        databricks_artifact_repo_trace.resource.get_credentials(
+            cred_type=_CredentialType.READ,
+        )
+    call_args = mock_call.call_args
+    # Verify no json_body is passed (backward compatible)
+    json_body = call_args.args[2] if len(call_args.args) > 2 else call_args.kwargs.get("json_body")
+    assert json_body is None

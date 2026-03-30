@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -126,6 +126,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
         <TableCell>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
             <Link
+              componentId="mlflow.home.workspaces.workspace_link"
               disableWorkspacePrefix
               to={`/?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`}
               onClick={(e) => {
@@ -319,7 +320,7 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
   }, [workspaces, currentPage]);
 
   // Reset to page 1 when workspaces change
-  useMemo(() => {
+  useEffect(() => {
     if (currentPage > 1 && paginatedWorkspaces.length === 0 && workspaces.length > 0) {
       setCurrentPage(1);
     }

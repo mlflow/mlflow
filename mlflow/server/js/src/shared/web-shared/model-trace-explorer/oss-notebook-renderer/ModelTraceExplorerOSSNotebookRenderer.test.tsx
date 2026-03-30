@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider } from '../../query-client/queryClient';
 
 import { ModelTraceExplorerOSSNotebookRenderer } from './ModelTraceExplorerOSSNotebookRenderer';
 import { getTraceArtifact } from './mlflow-fetch-utils';

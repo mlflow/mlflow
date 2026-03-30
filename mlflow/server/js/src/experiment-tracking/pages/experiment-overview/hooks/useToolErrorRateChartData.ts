@@ -87,10 +87,12 @@ export function useToolErrorRateChartData({
         bucketData.set(timestampMs, { error: 0, total: 0 });
       }
 
-      const bucket = bucketData.get(timestampMs)!;
-      bucket.total += count;
-      if (status === SpanStatus.ERROR) {
-        bucket.error += count;
+      const bucket = bucketData.get(timestampMs);
+      if (bucket) {
+        bucket.total += count;
+        if (status === SpanStatus.ERROR) {
+          bucket.error += count;
+        }
       }
     }
 

@@ -59,7 +59,7 @@ export const featureDefinitions: FeatureDefinition[] = [
         description="Feature card summary for AI Gateway"
       />
     ),
-    docsLink: 'https://mlflow.org/docs/latest/llms/gateway/index.html',
+    docsLink: 'https://mlflow.org/docs/latest/genai/governance/ai-gateway/',
   },
   {
     id: 'experiments',

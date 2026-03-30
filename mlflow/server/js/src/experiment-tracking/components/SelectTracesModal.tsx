@@ -5,29 +5,33 @@ import { useParams } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { TracesV3Logs } from './experiment-page/components/traces-v3/TracesV3Logs';
 import { GenAiTraceTableRowSelectionProvider } from '@databricks/web-shared/genai-traces-table/hooks/useGenAiTraceTableRowSelection';
+import type { TracesTableColumn } from '@databricks/web-shared/genai-traces-table';
 import {
   ActiveEvaluationContext,
   TRACE_ID_COLUMN_ID,
-  TracesTableColumn,
   TracesTableColumnType,
+  SESSION_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
 import { INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID } from '@databricks/web-shared/genai-traces-table/hooks/useTableColumns';
 import { TracesV3DateSelector } from './experiment-page/components/traces-v3/TracesV3DateSelector';
+import type { MonitoringFilters } from '../hooks/useMonitoringFilters';
 import {
-  MonitoringFilters,
   MonitoringFiltersUpdateContext,
   useMonitoringFilters,
   useMonitoringFiltersTimeRange,
 } from '../hooks/useMonitoringFilters';
+import { MonitoringConfigProvider } from '../hooks/useMonitoringConfig';
 
 /**
- * Default columns to be visible when selecting traces.
+ * Default columns to show when selecting traces. Shows Session ID when grouping by session, otherwise Trace ID.
  */
-const defaultCustomDefaultSelectedColumns = (column: TracesTableColumn) => {
+const getDefaultSelectedColumns = (groupBySession: boolean) => (column: TracesTableColumn) => {
   if (column.type === TracesTableColumnType.ASSESSMENT || column.type === TracesTableColumnType.EXPECTATION) {
     return true;
   }
-  return [TRACE_ID_COLUMN_ID, INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID].includes(column.id);
+
+  const idColumn = groupBySession ? SESSION_COLUMN_ID : TRACE_ID_COLUMN_ID;
+  return [idColumn, INPUTS_COLUMN_ID, RESPONSE_COLUMN_ID].includes(column.id);
 };
 
 interface SelectTracesModalProps {
@@ -36,18 +40,25 @@ interface SelectTracesModalProps {
   maxTraceCount?: number;
   customDefaultSelectedColumns?: (column: TracesTableColumn) => boolean;
   initialTraceIdsSelected?: string[];
+  defaultGroupBySession?: boolean;
 }
 
 const SelectTracesModalImpl = ({
   onClose,
   onSuccess,
   maxTraceCount,
-  customDefaultSelectedColumns = defaultCustomDefaultSelectedColumns,
+  customDefaultSelectedColumns,
   initialTraceIdsSelected = [],
+  defaultGroupBySession = false,
 }: SelectTracesModalProps) => {
   const { experimentId } = useParams();
   const timeRange = useMonitoringFiltersTimeRange();
   const [monitoringFilters] = useMonitoringFilters();
+
+  const effectiveColumnSelector = useMemo(
+    () => customDefaultSelectedColumns ?? getDefaultSelectedColumns(defaultGroupBySession),
+    [customDefaultSelectedColumns, defaultGroupBySession],
+  );
 
   // Provide isolated context for useActiveEvaluation to prevent the trace drawer
   // from rendering inside this modal. Instead, clicking a trace opens it in a new tab.
@@ -162,9 +173,10 @@ const SelectTracesModalImpl = ({
         <GenAiTraceTableRowSelectionProvider rowSelection={rowSelection} setRowSelection={setRowSelection}>
           <TracesV3Logs
             disableActions
-            experimentId={experimentId}
+            experimentIds={[experimentId]}
             timeRange={timeRange}
-            customDefaultSelectedColumns={customDefaultSelectedColumns}
+            customDefaultSelectedColumns={effectiveColumnSelector}
+            initialGroupBySession={defaultGroupBySession}
             // TODO: Move date selector to the toolbar in all callsites permanently
             toolbarAddons={<TracesV3DateSelector />}
           />
@@ -185,8 +197,10 @@ export const SelectTracesModal = (props: SelectTracesModalProps) => {
     [monitoringFilters, setMonitoringFilters],
   );
   return (
-    <MonitoringFiltersUpdateContext.Provider value={contextValue}>
-      <SelectTracesModalImpl {...props} />
-    </MonitoringFiltersUpdateContext.Provider>
+    <MonitoringConfigProvider>
+      <MonitoringFiltersUpdateContext.Provider value={contextValue}>
+        <SelectTracesModalImpl {...props} />
+      </MonitoringFiltersUpdateContext.Provider>
+    </MonitoringConfigProvider>
   );
 };

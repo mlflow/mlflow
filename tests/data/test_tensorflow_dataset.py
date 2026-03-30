@@ -100,45 +100,40 @@ def test_conversion_to_json():
     ("features", "targets"),
     [
         (
-            tf.data.Dataset.from_tensors(
-                {"a": np.random.sample((100, 2)), "b": np.random.sample((100, 4))}
-            ),
-            tf.data.Dataset.from_tensors(
-                {"c": np.random.sample((100, 1)), "d": np.random.sample((100,))}
-            ),
+            tf.data.Dataset.from_tensors({
+                "a": np.random.sample((100, 2)),
+                "b": np.random.sample((100, 4)),
+            }),
+            tf.data.Dataset.from_tensors({
+                "c": np.random.sample((100, 1)),
+                "d": np.random.sample((100,)),
+            }),
         ),
         (
-            tf.data.Dataset.from_tensors(
-                (
-                    np.random.sample((100, 2)),
-                    np.random.sample((100, 4)),
-                )
-            ),
-            tf.data.Dataset.from_tensors(
-                (
-                    np.random.sample((100, 1)),
-                    np.random.sample((100,)),
-                )
-            ),
+            tf.data.Dataset.from_tensors((
+                np.random.sample((100, 2)),
+                np.random.sample((100, 4)),
+            )),
+            tf.data.Dataset.from_tensors((
+                np.random.sample((100, 1)),
+                np.random.sample((100,)),
+            )),
         ),
         (
-            tf.data.Dataset.from_tensors(
-                (
-                    np.random.sample((100, 2)),
-                    np.random.sample((100, 4)),
-                )
-            ),
-            tf.data.Dataset.from_tensors(
-                {"c": np.random.sample((100, 1)), "d": np.random.sample((100,))}
-            ),
+            tf.data.Dataset.from_tensors((
+                np.random.sample((100, 2)),
+                np.random.sample((100, 4)),
+            )),
+            tf.data.Dataset.from_tensors({
+                "c": np.random.sample((100, 1)),
+                "d": np.random.sample((100,)),
+            }),
         ),
         (
-            tf.data.Dataset.from_tensors(
-                (
-                    np.random.sample((100, 2)),
-                    np.random.sample((100, 4)),
-                )
-            ),
+            tf.data.Dataset.from_tensors((
+                np.random.sample((100, 2)),
+                np.random.sample((100, 4)),
+            )),
             None,
         ),
     ],
@@ -162,35 +157,27 @@ def test_conversion_to_json_with_multi_tensor_datasets(features, targets):
 
 
 def test_schema_and_profile_with_multi_tensor_tuple_datasets():
-    features_dataset = tf.data.Dataset.from_tensors(
-        (
-            np.random.sample((100, 2)),
-            np.random.sample((100, 4)),
-        )
-    )
-    targets_dataset = tf.data.Dataset.from_tensors(
-        (
-            np.random.sample((100, 1)),
-            np.random.sample((100,)),
-        )
-    )
+    features_dataset = tf.data.Dataset.from_tensors((
+        np.random.sample((100, 2)),
+        np.random.sample((100, 4)),
+    ))
+    targets_dataset = tf.data.Dataset.from_tensors((
+        np.random.sample((100, 1)),
+        np.random.sample((100,)),
+    ))
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(
         features=features_dataset, targets=targets_dataset, source=source, name="testname"
     )
-    assert dataset.schema.features == _infer_schema(
-        {
-            "0": np.random.sample((100, 2)),
-            "1": np.random.sample((100, 4)),
-        }
-    )
-    assert dataset.schema.targets == _infer_schema(
-        {
-            "0": np.random.sample((100, 1)),
-            "1": np.random.sample((100,)),
-        }
-    )
+    assert dataset.schema.features == _infer_schema({
+        "0": np.random.sample((100, 2)),
+        "1": np.random.sample((100, 4)),
+    })
+    assert dataset.schema.targets == _infer_schema({
+        "0": np.random.sample((100, 1)),
+        "1": np.random.sample((100,)),
+    })
     assert dataset.profile == {
         "features_cardinality": 1,
         "targets_cardinality": 1,
@@ -202,29 +189,27 @@ def test_schema_and_profile_with_multi_tensor_tuple_datasets():
 
 
 def test_schema_and_profile_with_multi_tensor_dict_datasets():
-    features_dataset = tf.data.Dataset.from_tensors(
-        {"a": np.random.sample((100, 2)), "b": np.random.sample((100, 4))}
-    )
-    targets_dataset = tf.data.Dataset.from_tensors(
-        {"c": np.random.sample((100, 1)), "d": np.random.sample((100,))}
-    )
+    features_dataset = tf.data.Dataset.from_tensors({
+        "a": np.random.sample((100, 2)),
+        "b": np.random.sample((100, 4)),
+    })
+    targets_dataset = tf.data.Dataset.from_tensors({
+        "c": np.random.sample((100, 1)),
+        "d": np.random.sample((100,)),
+    })
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)
     dataset = TensorFlowDataset(
         features=features_dataset, targets=targets_dataset, source=source, name="testname"
     )
-    assert dataset.schema.features == _infer_schema(
-        {
-            "a": np.random.sample((100, 2)),
-            "b": np.random.sample((100, 4)),
-        }
-    )
-    assert dataset.schema.targets == _infer_schema(
-        {
-            "c": np.random.sample((100, 1)),
-            "d": np.random.sample((100,)),
-        }
-    )
+    assert dataset.schema.features == _infer_schema({
+        "a": np.random.sample((100, 2)),
+        "b": np.random.sample((100, 4)),
+    })
+    assert dataset.schema.targets == _infer_schema({
+        "c": np.random.sample((100, 1)),
+        "d": np.random.sample((100,)),
+    })
     assert dataset.profile == {
         "features_cardinality": 1,
         "targets_cardinality": 1,

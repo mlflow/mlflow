@@ -10,6 +10,8 @@ export interface TokenUsage {
   input_tokens: number;
   output_tokens: number;
   total_tokens: number;
+  cache_read_input_tokens?: number;
+  cache_creation_input_tokens?: number;
 }
 
 export const isTokenUsageType = (value?: unknown): value is TokenUsage => {
@@ -28,6 +30,9 @@ export const ModelTraceExplorerTokenUsageHoverCard = ({ tokenUsage }: { tokenUsa
   const totalTokens = useMemo(() => tokenUsage.total_tokens.toString(), [tokenUsage]);
   const inputTokens = useMemo(() => tokenUsage.input_tokens.toString(), [tokenUsage]);
   const outputTokens = useMemo(() => tokenUsage.output_tokens.toString(), [tokenUsage]);
+
+  const cacheReadTokens = tokenUsage.cache_read_input_tokens ?? null;
+  const cacheCreationTokens = tokenUsage.cache_creation_input_tokens ?? null;
 
   return (
     <HoverCard
@@ -88,6 +93,51 @@ export const ModelTraceExplorerTokenUsageHoverCard = ({ tokenUsage }: { tokenUsa
               <Tag componentId="shared.model-trace-explorer.token-usage-hovercard.input-tokens.tag">
                 <span>{inputTokens}</span>
               </Tag>
+            </div>
+            <div
+              css={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: theme.spacing.xs,
+                paddingLeft: theme.spacing.lg,
+              }}
+            >
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography.Text size="sm" color="secondary">
+                  <FormattedMessage
+                    defaultMessage="(cache read)"
+                    description="Label for cache read input token usage"
+                  />
+                </Typography.Text>
+                <Tag componentId="shared.model-trace-explorer.token-usage-hovercard.cached-input-tokens.tag">
+                  <span>{cacheReadTokens !== null ? cacheReadTokens.toString() : 'n/a'}</span>
+                </Tag>
+              </div>
+              <div
+                css={{
+                  display: 'flex',
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <Typography.Text size="sm" color="secondary">
+                  <FormattedMessage
+                    defaultMessage="(cache write)"
+                    description="Label for cache creation input token usage"
+                  />
+                </Typography.Text>
+                <Tag componentId="shared.model-trace-explorer.token-usage-hovercard.cache-creation-tokens.tag">
+                  <span>{cacheCreationTokens !== null ? cacheCreationTokens.toString() : 'n/a'}</span>
+                </Tag>
+              </div>
             </div>
             <div
               css={{

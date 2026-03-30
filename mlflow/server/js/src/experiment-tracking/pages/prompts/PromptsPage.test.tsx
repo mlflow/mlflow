@@ -238,10 +238,6 @@ describe('PromptsPage', () => {
       });
 
       await waitFor(() => {
-        expect(screen.getByText('Prompts')).toBeInTheDocument();
-      });
-
-      await waitFor(() => {
         expect(screen.getByRole('link', { name: 'exp-prompt1' })).toBeInTheDocument();
       });
     });

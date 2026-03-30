@@ -18,7 +18,6 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_OPTIMIZE_MAX_WORKERS
 from mlflow.genai.judges.optimizers.dspy_utils import (
     construct_dspy_lm,
-    convert_mlflow_uri_to_litellm,
 )
 from mlflow.genai.judges.optimizers.memalign.prompts import (
     DISTILLATION_PROMPT_TEMPLATE,
@@ -29,6 +28,7 @@ from mlflow.genai.utils.trace_utils import (
     extract_request_from_trace,
     extract_response_from_trace,
 )
+from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 
 # Try to import litellm at module level
 try:

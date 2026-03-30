@@ -24,7 +24,6 @@ def test_scorer_registry_functions_accessible_from_mlflow_genai():
 
 def test_mlflow_backend_scorer_operations():
     with (
-        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
         patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
     ):
         experiment_id = mlflow.create_experiment("test_scorer_mlflow_backend_experiment")
@@ -106,7 +105,6 @@ def test_databricks_backend_scorer_operations():
 
     with (
         patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
-        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
         patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
         patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_get_store,
         patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add,

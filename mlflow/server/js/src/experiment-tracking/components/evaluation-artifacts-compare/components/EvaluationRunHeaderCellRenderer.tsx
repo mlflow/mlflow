@@ -95,7 +95,11 @@ export const EvaluationRunHeaderCellRenderer = ({
       >
         <span css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
           <RunColorPill color={getRunColor(run.runUuid)} />
-          <Link to={ExperimentRoutes.getRunPageRoute(run.experimentId || '', run.runUuid)} target="_blank">
+          <Link
+            componentId="mlflow.experiment_tracking.evaluation.run_header_link"
+            to={ExperimentRoutes.getRunPageRoute(run.experimentId || '', run.runUuid)}
+            target="_blank"
+          >
             {run.runName}
           </Link>
         </span>

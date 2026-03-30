@@ -2,6 +2,7 @@ import cProfile
 import inspect
 import io
 import json
+import logging
 import os
 import posixpath
 import pstats
@@ -55,6 +56,9 @@ if not IS_TRACING_SDK_ONLY:
     )
 
 
+_logger = logging.getLogger(__name__)
+
+
 # Pytest hooks and configuration from root conftest.py
 def pytest_addoption(parser):
     parser.addoption(
@@ -88,7 +92,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--serve-wheel",
         action="store_true",
-        default=os.getenv("CI", "false").lower() == "true",
+        default=os.environ.get("CI", "false").lower() == "true",
         help="Serve a wheel for the dev version of MLflow. True by default in CI, False otherwise.",
     )
     parser.addoption(
@@ -389,17 +393,15 @@ def generate_duration_stats() -> str:
     # Prepare data for markdown table (headers + data rows)
     table_rows = [["Rank", "File", "Duration", "Tests", "Min", "Max", "Avg"]]
     for idx, (path, dur, count, min_, max_, avg_) in enumerate(rows, 1):
-        table_rows.append(
-            [
-                str(idx),
-                f"`{path}`",
-                f"{dur:.2f}s",
-                str(count),
-                f"{min_:.3f}s",
-                f"{max_:.3f}s",
-                f"{avg_:.3f}s",
-            ]
-        )
+        table_rows.append([
+            str(idx),
+            f"`{path}`",
+            f"{dur:.2f}s",
+            str(count),
+            f"{min_:.3f}s",
+            f"{max_:.3f}s",
+            f"{avg_:.3f}s",
+        ])
 
     return to_md_table(table_rows)
 
@@ -552,6 +554,7 @@ def pytest_ignore_collect(collection_path, config):
             "tests/mistral",
             "tests/models",
             "tests/onnx",
+            "tests/otel",
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
@@ -733,11 +736,14 @@ def remote_backend_for_tracing_sdk_test():
             [
                 "uv",
                 "run",
+                "--no-dev",
                 "--directory",
                 # Install from the dev version
                 mlflow_root,
                 "--with",
                 "setuptools<82",  # setuptools 82+ removed pkg_resources
+                "--with",
+                "litellm",  # Required for computing cost of LLM calls
                 "mlflow",
                 "server",
                 "--port",
@@ -962,6 +968,10 @@ def prevent_infer_pip_requirements_fallback(request):
         yield
 
 
+def _log_rmtree_error(func, path, exc_info):
+    _logger.warning("Failed to remove %s: %s", path, exc_info[1])
+
+
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_mlruns_directory(request):
     """
@@ -975,13 +985,10 @@ def clean_up_mlruns_directory(request):
 
     mlruns_dir = os.path.join(request.config.rootpath, "mlruns")
     if os.path.exists(mlruns_dir):
-        try:
-            shutil.rmtree(mlruns_dir)
-        except OSError:
-            if is_windows():
-                raise
-            # `shutil.rmtree` can't remove files owned by root in a docker container.
-            subprocess.check_call(["sudo", "rm", "-rf", mlruns_dir])
+        shutil.rmtree(mlruns_dir, onerror=_log_rmtree_error)
+    # In Docker, files may be owned by root. Try sudo as a fallback.
+    if not is_windows() and os.path.exists(mlruns_dir):
+        subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=False)
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
@@ -1026,16 +1033,39 @@ def enable_mlflow_testing():
         yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _mock_databricks_host_metadata():
+    """Prevent databricks-sdk from fetching host metadata during the test session.
+
+    databricks-sdk 0.101.0+ fetches /.well-known/databricks-config during
+    WorkspaceClient initialization, which causes timeouts with dummy hosts.
+    https://github.com/databricks/databricks-sdk-py/pull/1331
+    """
+    with mock.patch("databricks.sdk.config.Config._resolve_host_metadata"):
+        yield
+
+
+@pytest.fixture(scope="session", autouse=True)
+def disable_uv_auto_detect():
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("MLFLOW_UV_AUTO_DETECT", "false")
+        yield
+
+
 @pytest.fixture(scope="session", autouse=not IS_TRACING_SDK_ONLY)
 def serve_wheel(request, tmp_path_factory):
     """
     Models logged during tests have a dependency on the dev version of MLflow built from
     source (e.g., mlflow==1.20.0.dev0) and cannot be served because the dev version is not
     available on PyPI. This fixture serves a wheel for the dev version from a temporary
-    PyPI repository running on localhost and appends the repository URL to the
-    `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
+    PEP 700-compliant Simple Repository running on localhost and appends the repository URL
+    to the `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
+
+    The server provides upload-time metadata so that uv's ``exclude-newer`` can correctly
+    resolve the local dev wheel.
     """
     from tests.helper_functions import get_safe_port
+    from tests.simple_repository_server import SimpleRepositoryServer
 
     if "COPILOT_AGENT_ACTION" in os.environ:
         yield  # pytest expects a generator fixture to yield
@@ -1075,26 +1105,15 @@ def serve_wheel(request, tmp_path_factory):
             repo_root,
         ],
     )
-    with subprocess.Popen(
-        [
-            sys.executable,
-            "-m",
-            "http.server",
-            str(port),
-        ],
-        cwd=root,
-    ) as prc:
-        try:
-            url = f"http://localhost:{port}"
-            if existing_url := os.environ.get("PIP_EXTRA_INDEX_URL"):
-                url = f"{existing_url} {url}"
-            os.environ["PIP_EXTRA_INDEX_URL"] = url
-            # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
-            # url when using `uv` as environment manager
-            os.environ["UV_INDEX"] = f"mlflow={url}"
-            yield
-        finally:
-            prc.terminate()
+    with SimpleRepositoryServer(mlflow_dir, port) as server:
+        index_url = (
+            f"{url} {server.url}" if (url := os.environ.get("PIP_EXTRA_INDEX_URL")) else server.url
+        )
+        os.environ["PIP_EXTRA_INDEX_URL"] = index_url
+        # Set the `UV_INDEX` environment variable to allow fetching the wheel from the
+        # url when using `uv` as environment manager
+        os.environ["UV_INDEX"] = f"mlflow={server.url}"
+        yield
 
 
 @pytest.fixture
@@ -1224,11 +1243,17 @@ def mock_litellm_cost():
     Uses cost of 1.0 per input token and 2.0 per output token.
     Returns (input_cost, output_cost) based on the token counts passed.
     """
+    try:
+        import litellm  # noqa: F401
+    except ImportError:
+        # mock.patch will fail if litellm is not installed, e.g. tracing SDK test
+        yield None
+        return
 
-    def calculate_cost(model, prompt_tokens, completion_tokens):
+    def calculate_cost(model, prompt_tokens, completion_tokens, **kwargs):
         input_cost = prompt_tokens * 1.0
         output_cost = completion_tokens * 2.0
         return (input_cost, output_cost)
 
-    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost) as mock_cost:
+    with mock.patch("litellm.cost_per_token", side_effect=calculate_cost, create=True) as mock_cost:
         yield mock_cost

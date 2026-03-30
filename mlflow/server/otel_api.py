@@ -150,9 +150,9 @@ async def export_traces(
                 errors[trace_id] = e
 
         if errors:
-            error_msg = "\n".join(
-                [f"Trace {trace_id}: {error}" for trace_id, error in errors.items()]
-            )
+            error_msg = "\n".join([
+                f"Trace {trace_id}: {error}" for trace_id, error in errors.items()
+            ])
             raise HTTPException(
                 status_code=422,
                 detail=f"Failed to log OpenTelemetry spans: {error_msg}",

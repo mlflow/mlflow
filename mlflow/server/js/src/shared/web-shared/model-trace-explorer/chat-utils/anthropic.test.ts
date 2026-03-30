@@ -69,21 +69,6 @@ const MOCK_ANTHROPIC_OUTPUT_WITH_THINKING = {
   type: 'message',
 };
 
-// Output with thinking but no text
-const MOCK_ANTHROPIC_OUTPUT_THINKING_ONLY = {
-  id: 'msg_01ABC',
-  content: [
-    {
-      type: 'thinking',
-      thinking: 'Processing the request...',
-    },
-  ],
-  model: 'claude-sonnet-4-20250514',
-  role: 'assistant',
-  stop_reason: 'end_turn',
-  type: 'message',
-};
-
 // Output with tool use and thinking
 const MOCK_ANTHROPIC_OUTPUT_WITH_THINKING_AND_TOOL = {
   id: 'msg_01DEF',

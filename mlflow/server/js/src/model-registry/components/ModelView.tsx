@@ -234,8 +234,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
       })
       .catch((ex: ErrorWrapper | Error) => {
         this.setState({ isTagsRequestPending: false });
-        // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-        console.error(ex);
         const message = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
         Utils.displayGlobalErrorNotification('Failed to add tag. Error: ' + message);
       });
@@ -246,8 +244,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const modelName = model.name;
     return this.props.setRegisteredModelTagApi(modelName, name, value).catch((ex: ErrorWrapper | Error) => {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(ex);
       const message = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
       Utils.displayGlobalErrorNotification('Failed to set tag. Error: ' + message);
     });
@@ -258,8 +254,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const modelName = model.name;
     return this.props.deleteRegisteredModelTagApi(modelName, name).catch((ex: ErrorWrapper | Error) => {
-      // eslint-disable-next-line no-console -- TODO(FEINF-3587)
-      console.error(ex);
       const message = ex instanceof ErrorWrapper ? ex.getMessageField() : ex.message;
       Utils.displayGlobalErrorNotification('Failed to delete tag. Error: ' + message);
     });
@@ -580,7 +574,11 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const modelName = model.name;
 
     const breadcrumbs = [
-      <Link to={ModelRegistryRoutes.modelListPageRoute} key="registered-models">
+      <Link
+        componentId="mlflow.model_registry.model_view.breadcrumb_registered_models_link"
+        to={ModelRegistryRoutes.modelListPageRoute}
+        key="registered-models"
+      >
         <FormattedMessage
           defaultMessage="Registered Models"
           description="Text for link back to model page under the header on the model view page"

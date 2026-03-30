@@ -354,6 +354,7 @@ def test_get_experiment_json():
         "tags": {"env": "test"},
         "creation_time": exp.creation_time,
         "last_update_time": exp.last_update_time,
+        "trace_location": exp.trace_location,
         "workspace": exp.workspace,
     }
     assert output == expected
@@ -448,6 +449,7 @@ def test_get_experiment_by_name_json():
         "tags": {"team": "ml"},
         "creation_time": exp.creation_time,
         "last_update_time": exp.last_update_time,
+        "trace_location": exp.trace_location,
         "workspace": "default",
     }
     assert output == expected

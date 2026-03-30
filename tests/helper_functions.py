@@ -723,9 +723,14 @@ def start_mock_openai_server():
     """
     port = get_safe_port()
     script_path = Path(__file__).parent / "openai" / "mock_openai.py"
-    with subprocess.Popen(
-        [sys.executable, script_path, "--host", "localhost", "--port", str(port)]
-    ) as proc:
+    with subprocess.Popen([
+        sys.executable,
+        script_path,
+        "--host",
+        "localhost",
+        "--port",
+        str(port),
+    ]) as proc:
         try:
             base_url = f"http://localhost:{port}"
             for _ in range(10):

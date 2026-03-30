@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 
 from mlflow.environment_variables import MLFLOW_GATEWAY_URI
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import get_tracking_uri
+from mlflow.utils.credentials import read_mlflow_creds
 from mlflow.utils.uri import append_to_uri_path, is_http_uri
 
 
@@ -13,6 +15,7 @@ class GatewayLiteLLMConfig:
     api_base: str
     api_key: str
     model: str
+    extra_headers: dict[str, str] | None
 
 
 def get_gateway_litellm_config(endpoint_name: str) -> GatewayLiteLLMConfig:
@@ -23,7 +26,8 @@ def get_gateway_litellm_config(endpoint_name: str) -> GatewayLiteLLMConfig:
         endpoint_name: The name of the gateway endpoint (e.g., "chat" from "gateway:/chat").
 
     Returns:
-        A GatewayLiteLLMConfig with api_base, api_key, and model configured for LiteLLM.
+        A GatewayLiteLLMConfig with api_base, api_key, model, and extra_headers
+        configured for LiteLLM.
 
     Raises:
         MlflowException: If the gateway URI is not a valid HTTP(S) URL.
@@ -43,12 +47,18 @@ def get_gateway_litellm_config(endpoint_name: str) -> GatewayLiteLLMConfig:
             "(e.g., 'http://localhost:5000' or 'https://your-mlflow-server.com')."
         )
 
+    extra_headers = None
+    creds = read_mlflow_creds()
+    if creds.username and creds.password:
+        encoded = base64.b64encode(f"{creds.username}:{creds.password}".encode()).decode("ascii")
+        extra_headers = {"Authorization": f"Basic {encoded}"}
+
     return GatewayLiteLLMConfig(
         api_base=append_to_uri_path(gateway_uri, "gateway/mlflow/v1/"),
-        # LiteLLM requires api_key when using custom api_base. Gateway handles
-        # auth in the server layer, so we pass a dummy value to satisfy LiteLLM.
+        # Static dummy key to satisfy LiteLLM's requirement for a non-empty api_key.
         api_key="mlflow-gateway-auth",
         # Use openai/ prefix for LiteLLM to use OpenAI-compatible format.
         # LiteLLM strips the prefix, so gateway receives endpoint_name as the model.
         model=f"openai/{endpoint_name}",
+        extra_headers=extra_headers,
     )

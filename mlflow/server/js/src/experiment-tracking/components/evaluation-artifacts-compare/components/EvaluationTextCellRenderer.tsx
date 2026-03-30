@@ -1,4 +1,5 @@
 import { TableSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { escapeRegExp } from 'lodash';
 import type { ICellRendererParams } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
 import React from 'react';
@@ -37,7 +38,7 @@ const HighlightedText = React.memo(({ text, highlight }: { text: string; highlig
     return <>{text}</>;
   }
 
-  const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+  const parts = text.split(new RegExp(`(${escapeRegExp(highlight)})`, 'gi'));
 
   return (
     <>

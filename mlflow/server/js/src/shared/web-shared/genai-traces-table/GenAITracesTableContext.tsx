@@ -2,8 +2,11 @@ import type { Table } from '@tanstack/react-table';
 import { compact, isUndefined } from 'lodash';
 import React, { createContext, useCallback, useMemo, useState } from 'react';
 
-import { useModelTraceExplorerContext } from '../model-trace-explorer';
 import type { EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
+import { ModelTraceExplorerPreferencesProvider } from '../model-trace-explorer/ModelTraceExplorerPreferencesContext';
+import { useModelTraceExplorerContext } from '../model-trace-explorer/ModelTraceExplorerContext';
+import type { GetTraceFunction } from './hooks/useGetTrace';
+import { getExperimentIdFromTraceLocation } from './utils/TraceUtils';
 
 type TraceRow = EvalTraceComparisonEntry & { multiline?: boolean };
 
@@ -30,20 +33,22 @@ export const GenAITracesTableContext = createContext<GenAITracesTableContextValu
   table: undefined,
   setTable: () => {},
   selectedRowIds: [],
-  setSelectedRowIds: () => {},
   isGroupedBySession: false,
+  setSelectedRowIds: () => {},
 });
 
 interface GenAITracesTableProviderProps {
   children: React.ReactNode;
   experimentId?: string;
-  isGroupedBySession?: boolean;
+  getTrace?: GetTraceFunction;
+  isGroupedBySession: boolean;
 }
 
 export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITracesTableProviderProps>> = ({
   children,
   experimentId,
-  isGroupedBySession = false,
+  getTrace,
+  isGroupedBySession,
 }) => {
   const [table, setTable] = useState<Table<TraceRow> | undefined>();
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
@@ -61,23 +66,27 @@ export const GenAITracesTableProvider: React.FC<React.PropsWithChildren<GenAITra
     () => ({
       table,
       setTable,
+      getTrace,
       selectedRowIds,
       setSelectedRowIds,
       isGroupedBySession,
       showAddToEvaluationDatasetModal,
     }),
-    [table, selectedRowIds, isGroupedBySession, showAddToEvaluationDatasetModal],
+    [table, getTrace, selectedRowIds, isGroupedBySession, showAddToEvaluationDatasetModal],
   );
 
   return (
-    <GenAITracesTableContext.Provider value={value}>
-      {children}
-      {renderExportTracesToDatasetsModal?.({
-        selectedTraceInfos: selectedTraces ? compact(selectedTraces.map((trace) => trace.traceInfo)) : [],
-        experimentId: experimentId ?? '',
-        visible: showDatasetModal,
-        setVisible: setShowDatasetModal,
-      })}
-    </GenAITracesTableContext.Provider>
+    <ModelTraceExplorerPreferencesProvider>
+      <GenAITracesTableContext.Provider value={value}>
+        {children}
+        {renderExportTracesToDatasetsModal?.({
+          selectedTraceInfos: selectedTraces ? compact(selectedTraces.map((trace) => trace.traceInfo)) : [],
+          experimentId:
+            getExperimentIdFromTraceLocation(selectedTraces?.[0]?.traceInfo?.trace_location) ?? experimentId ?? '',
+          visible: showDatasetModal,
+          setVisible: setShowDatasetModal,
+        })}
+      </GenAITracesTableContext.Provider>
+    </ModelTraceExplorerPreferencesProvider>
   );
 };

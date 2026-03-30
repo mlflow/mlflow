@@ -47,13 +47,11 @@ def file_path(format_to_file_path):
 @pytest.fixture
 def format_to_file_path(spark_session):
     rows = [Row(8, 32, "bat"), Row(64, 40, "mouse"), Row(-27, 55, "horse")]
-    schema = StructType(
-        [
-            StructField("number2", IntegerType()),
-            StructField("number1", IntegerType()),
-            StructField("word", StringType()),
-        ]
-    )
+    schema = StructType([
+        StructField("number2", IntegerType()),
+        StructField("number1", IntegerType()),
+        StructField("word", StringType()),
+    ])
     rdd = spark_session.sparkContext.parallelize(rows)
     df = spark_session.createDataFrame(rdd, schema)
     res = {}

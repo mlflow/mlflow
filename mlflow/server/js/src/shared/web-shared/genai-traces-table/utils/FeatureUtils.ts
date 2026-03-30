@@ -32,6 +32,15 @@ export const shouldUseTracesV4API = () => {
   return false;
 };
 
+/**
+ * Determines if the long-running traces search API should be used.
+ * This is only applicable when V4 APIs are enabled.
+ * When enabled, trace searches will use an async polling pattern instead of synchronous requests.
+ */
+export const shouldUseLongRunningTracesAPI = () => {
+  return false;
+};
+
 export const shouldEnableSessionGrouping = () => {
   return true;
 };

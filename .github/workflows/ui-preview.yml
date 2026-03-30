@@ -1,0 +1,333 @@
+name: UI Preview
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - mlflow/server/js/**
+      - .github/workflows/ui-preview.yml
+      - .github/ui-preview/**
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - closed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || 'master' }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  COMMENT_MARKER: "<!-- ui-preview -->"
+
+jobs:
+  notify:
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
+    if: >-
+      false
+      && github.event_name != 'push'
+      && github.event.action != 'closed'
+      && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+      && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+      && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+    runs-on: ubuntu-slim
+    permissions:
+      pull-requests: write
+    timeout-minutes: 5
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          BODY="${COMMENT_MARKER}
+
+          **UI Preview** is being deployed for this PR :hourglass_flowing_sand:
+
+          | | |
+          |---|---|
+          | **Commit** | ${HEAD_SHA} |
+          | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
+
+          > Building and deploying... This comment will be updated with the preview URL."
+
+          # Only post if no existing comment (to avoid overwriting a previous preview URL)
+          COMMENT_ID=$(gh api --paginate \
+            "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
+            | head -1)
+
+          if [ -z "$COMMENT_ID" ]; then
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$BODY"
+          fi
+
+  build:
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
+    if: >-
+      false &&
+      github.event_name == 'push'
+      || (
+        github.event.action != 'closed'
+        && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+        && (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+        && (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) || (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          # For PRs, check out the merge ref so the preview reflects what the UI
+          # will look like after merge. For push events, falls back to github.sha.
+          ref: ${{ github.event.pull_request.number && format('refs/pull/{0}/merge', github.event.pull_request.number) || github.sha }}
+
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
+
+      - name: Install build tools
+        run: uv pip install --system build setuptools
+
+      - name: Build wheel
+        # Build the wheel before `yarn build` so it excludes UI assets
+        # (mlflow/server/js/build/), keeping the wheel under the 10MB
+        # Databricks Apps file upload limit. UI assets are uploaded
+        # separately as build.tar.gz.
+        run: |
+          python dev/build.py --package-type dev
+          WHEEL_PATH=$(find dist -name "*.whl" | head -1)
+          WHEEL_NAME=$(basename "$WHEEL_PATH")
+          WHEEL_SIZE=$(stat -c %s "$WHEEL_PATH")
+          echo "WHEEL_PATH=$WHEEL_PATH" >> $GITHUB_ENV
+          echo "WHEEL_NAME=$WHEEL_NAME" >> $GITHUB_ENV
+          echo "Wheel size: $(numfmt --to=iec $WHEEL_SIZE)"
+
+          if [ "$WHEEL_SIZE" -gt 10485760 ]; then
+            echo "::error::Wheel size exceeds 10MB Databricks Apps limit"
+            exit 1
+          fi
+
+      - name: Build UI
+        working-directory: mlflow/server/js
+        env:
+          CI: false
+        run: |
+          yarn install --immutable
+          yarn build
+
+      - name: Package UI assets
+        run: |
+          tar czf /tmp/build.tar.gz -C mlflow/server/js build
+          UI_SIZE=$(stat -c %s /tmp/build.tar.gz)
+          echo "UI assets size: $(numfmt --to=iec $UI_SIZE)"
+
+          if [ "$UI_SIZE" -gt 10485760 ]; then
+            echo "::error::UI assets size exceeds 10MB Databricks Apps limit"
+            exit 1
+          fi
+
+      - name: Prepare app files
+        run: |
+          mkdir -p /tmp/app-deploy
+          cp "$WHEEL_PATH" /tmp/app-deploy/
+          cp /tmp/build.tar.gz /tmp/app-deploy/
+          cp .github/ui-preview/app.py /tmp/app-deploy/
+          cp .github/ui-preview/app.yaml /tmp/app-deploy/
+          echo "./$WHEEL_NAME[genai]" > /tmp/app-deploy/requirements.txt
+
+      - name: Upload app files
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: app-deploy
+          path: /tmp/app-deploy/
+          retention-days: 1
+
+  deploy:
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
+    if: false
+    needs: build
+    runs-on: ubuntu-ui-preview
+    permissions:
+      pull-requests: write
+    timeout-minutes: 30
+    steps:
+      - name: Download app files
+        uses: actions/download-artifact@70fc10c6e5e1ce46ad2ea6f2b72d43f7d47b13c3 # v8.0.0
+        with:
+          name: app-deploy
+          path: /tmp/app-deploy
+
+      - name: Install Databricks CLI
+        run: |
+          # https://github.com/databricks/setup-cli/releases/tag/v0.295.0
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/2260866f83a41a2df55e1cfe7ffe038b78325bf6/install.sh | sh
+          databricks --version
+
+      - name: Create or update app
+        id: app
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          APP_DESCRIPTION: ${{ github.event.pull_request.html_url || format('{0}/{1}', github.server_url, github.repository) }}
+        run: |
+          if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
+            echo "App already exists"
+          else
+            echo "Creating app..."
+            databricks apps create \
+              --json "{\"name\": \"$APP_NAME\", \"description\": \"$APP_DESCRIPTION\"}" \
+              --no-wait
+            for i in $(seq 1 40); do
+              STATE=$(databricks apps get "$APP_NAME" -o json | jq -r '.compute_status.state')
+              echo "Compute state: $STATE"
+              if [ "$STATE" = "ACTIVE" ]; then
+                break
+              elif [ "$STATE" = "ERROR" ] || [ "$STATE" = "STOPPED" ]; then
+                echo "::error::Compute entered $STATE state"
+                exit 1
+              fi
+              sleep 15
+            done
+            if [ "$STATE" != "ACTIVE" ]; then
+              echo "::error::Timed out waiting for compute to become ACTIVE (last state: $STATE)"
+              exit 1
+            fi
+          fi
+
+          URL=$(databricks apps get "$APP_NAME" -o json | jq -r '.url')
+          echo "url=$URL" >> $GITHUB_OUTPUT
+
+      - name: Configure app environment
+        env:
+          APP_URL: ${{ steps.app.outputs.url }}
+        run: |
+          PASSPHRASE=$(openssl rand -hex 32)
+          echo "::add-mask::$PASSPHRASE"
+          sed -i "s|__APP_URL__|$APP_URL|" /tmp/app-deploy/app.yaml
+          sed -i "s|__KEK_PASSPHRASE__|$PASSPHRASE|" /tmp/app-deploy/app.yaml
+
+      - name: Upload files and deploy
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          APP_NAME: ${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+          WORKSPACE_PATH: /Users/${{ secrets.DATABRICKS_CLIENT_ID }}/apps/${{ github.event_name == 'push' && 'mlflow-ui-preview-dev' || format('mlflow-ui-preview-pr-{0}', github.event.pull_request.number) }}
+        run: |
+          databricks workspace mkdirs "/Workspace$WORKSPACE_PATH" 2>/dev/null || true
+          databricks workspace import-dir /tmp/app-deploy "$WORKSPACE_PATH" --overwrite
+          databricks apps deploy "$APP_NAME" --source-code-path "/Workspace$WORKSPACE_PATH"
+
+      - name: Print app URL
+        if: github.event_name == 'push'
+        env:
+          APP_URL: ${{ steps.app.outputs.url }}
+        run: echo "Deployed to $APP_URL" >> $GITHUB_STEP_SUMMARY
+
+      - name: Comment on PR
+        if: github.event_name != 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APP_URL: ${{ steps.app.outputs.url }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          BODY="${COMMENT_MARKER}
+
+          **UI Preview** is ready for this PR :rocket:
+
+          | | |
+          |---|---|
+          | **URL** | ${APP_URL} |
+          | **Commit** | $COMMIT_SHA |
+          | **Run** | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID} |
+
+          > [!NOTE]
+          > This preview is only accessible to core maintainers with workspace access.
+          > The preview updates automatically when new commits are pushed."
+
+          # Find existing comment
+          COMMENT_ID=$(gh api --paginate \
+            "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
+            | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            gh api \
+              "repos/$REPO/issues/comments/$COMMENT_ID" \
+              -X PATCH -f body="$BODY"
+          else
+            gh pr comment $PR_NUMBER \
+              --repo $REPO \
+              --body "$BODY"
+          fi
+
+  cleanup:
+    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
+    if: >-
+      false
+      && github.event_name != 'push'
+      && github.event.action == 'closed'
+      && contains(github.event.pull_request.labels.*.name, 'ui-preview')
+    runs-on: ubuntu-ui-preview
+    permissions:
+      pull-requests: write
+    timeout-minutes: 10
+    steps:
+      - name: Install Databricks CLI
+        run: |
+          # https://github.com/databricks/setup-cli/releases/tag/v0.295.0
+          curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/2260866f83a41a2df55e1cfe7ffe038b78325bf6/install.sh | sh
+          databricks --version
+
+      - name: Delete app
+        env:
+          DATABRICKS_HOST: ${{ secrets.DATABRICKS_HOST }}
+          DATABRICKS_CLIENT_ID: ${{ secrets.DATABRICKS_CLIENT_ID }}
+          DATABRICKS_CLIENT_SECRET: ${{ secrets.DATABRICKS_CLIENT_SECRET }}
+          APP_NAME: mlflow-ui-preview-pr-${{ github.event.pull_request.number }}
+        run: |
+          if databricks apps get "$APP_NAME" > /dev/null 2>&1; then
+            SOURCE_PATH=$(databricks apps get "$APP_NAME" -o json \
+              | jq -r '.default_source_code_path // empty')
+            databricks apps delete "$APP_NAME" --auto-approve
+            if [ -n "$SOURCE_PATH" ]; then
+              # Strip /Workspace prefix for workspace CLI
+              WS_PATH="${SOURCE_PATH#/Workspace}"
+              databricks workspace delete "$WS_PATH" --recursive 2>/dev/null || true
+            fi
+          fi
+
+      - name: Update PR comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          BODY="${COMMENT_MARKER}
+
+          **UI Preview** for this PR has been removed."
+
+          COMMENT_ID=$(gh api --paginate \
+            "repos/$REPO/issues/$PR_NUMBER/comments" \
+            --jq ".[] | select(.body | startswith(\"$COMMENT_MARKER\")) | .id" \
+            | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            gh api \
+              "repos/$REPO/issues/comments/$COMMENT_ID" \
+              -X PATCH -f body="$BODY"
+          fi

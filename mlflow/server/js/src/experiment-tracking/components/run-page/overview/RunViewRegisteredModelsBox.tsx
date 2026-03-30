@@ -18,6 +18,7 @@ export const RunViewRegisteredModelsBox = ({
     <Overflow>
       {registeredModelVersionSummaries?.map((modelSummary) => (
         <Link
+          componentId="mlflow.run_page.overview.registered_model_link"
           key={modelSummary.displayedName}
           to={modelSummary.link}
           css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}

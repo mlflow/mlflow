@@ -1,12 +1,14 @@
 import type { QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SearchExperimentsApiResponse } from '../../../types';
 import { useLocalStorage } from '@mlflow/mlflow/src/shared/web-shared/hooks/useLocalStorage';
 import type { CursorPaginationProps } from '@databricks/design-system';
 import type { SortingState } from '@tanstack/react-table';
 import type { TagFilter } from './useTagsFilter';
+import { isDemoExperiment } from '../../../utils/isDemoExperiment';
+import { EXPERIMENT_IS_GATEWAY_TAG } from '../utils/experimentPage.common-utils';
 
 const STORE_KEY = {
   PAGE_SIZE: 'experiments_page.page_size',
@@ -50,11 +52,10 @@ function getFilters({ searchFilter, tagsFilter }: Pick<ExperimentListQueryKey['1
     filters.push(tagFilterToSql(tagFilter));
   }
 
-  if (filters.length > 0) {
-    return ['filter', filters.join(' AND ')];
-  } else {
-    return undefined;
-  }
+  // Exclude gateway experiments server-side to ensure consistent page sizes
+  filters.push(`tags.\`${EXPERIMENT_IS_GATEWAY_TAG}\` IS NULL`);
+
+  return ['filter', filters.join(' AND ')];
 }
 
 const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => {
@@ -130,8 +131,16 @@ export const useExperimentListQuery = ({
     setCurrentPageToken(previousPageToken);
   }, []);
 
+  const sortedExperiments = useMemo(() => {
+    const experiments = queryResult.data?.experiments;
+    if (!experiments) return undefined;
+    const demo = experiments.filter(isDemoExperiment);
+    const nonDemo = experiments.filter((e) => !isDemoExperiment(e));
+    return [...demo, ...nonDemo];
+  }, [queryResult.data?.experiments]);
+
   return {
-    data: queryResult.data?.experiments,
+    data: sortedExperiments,
     error: queryResult.error ?? undefined,
     isLoading: queryResult.isLoading,
     hasNextPage: queryResult.data?.next_page_token !== undefined,

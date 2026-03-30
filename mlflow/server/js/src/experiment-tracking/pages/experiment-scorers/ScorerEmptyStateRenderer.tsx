@@ -10,7 +10,6 @@ import {
   Typography,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { COMPONENT_ID_PREFIX } from './constants';
 
 const getProductionMonitoringDocUrl = () => {
   return 'https://mlflow.org/docs/latest/genai/eval-monitor/';
@@ -74,7 +73,7 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
             <Button
               type="primary"
               icon={<PlusIcon />}
-              componentId={`${COMPONENT_ID_PREFIX}.empty-state-add-llm-scorer-button`}
+              componentId="mlflow.experiment-scorers.empty-state-add-llm-scorer-button"
               onClick={onAddLLMScorerClick}
             >
               <FormattedMessage
@@ -84,7 +83,7 @@ const ScorerEmptyStateRenderer: React.FC<ScorerEmptyStateRendererProps> = ({
             </Button>
             <Button
               icon={<CodeIcon />}
-              componentId={`${COMPONENT_ID_PREFIX}.empty-state-add-custom-code-scorer-button`}
+              componentId="mlflow.experiment-scorers.empty-state-add-custom-code-scorer-button"
               onClick={onAddCustomCodeScorerClick}
             >
               <FormattedMessage

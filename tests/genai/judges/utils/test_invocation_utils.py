@@ -4,7 +4,7 @@ from unittest import mock
 import litellm
 import pytest
 from litellm import RetryPolicy
-from litellm.types.utils import ModelResponse
+from litellm.types.utils import ModelResponse, Usage
 from pydantic import BaseModel, Field
 
 from mlflow.entities.assessment import AssessmentSourceType
@@ -162,6 +162,8 @@ def test_invoke_judge_model_successful_with_native_provider():
         model_uri="openai:/gpt-4",
         payload="Evaluate this response",
         eval_parameters=None,
+        extra_headers=None,
+        proxy_url=None,
         endpoint_type="llm/v1/chat",
     )
 
@@ -1027,8 +1029,7 @@ def test_invoke_judge_model_databricks_with_response_format(mock_response):
 def test_invoke_judge_model_databricks_success_telemetry(
     model_uri: str, expected_model_name: str, mock_response
 ):
-    mock_response.usage.prompt_tokens = 15
-    mock_response.usage.completion_tokens = 8
+    mock_response.usage = Usage(prompt_tokens=15, completion_tokens=8, total_tokens=23)
     mock_response.id = "req-456"
 
     with (
@@ -1065,8 +1066,7 @@ def test_invoke_judge_model_databricks_success_telemetry(
 def test_invoke_judge_model_databricks_telemetry_error_handling(
     model_uri: str, expected_model_name: str, mock_response
 ):
-    mock_response.usage.prompt_tokens = 5
-    mock_response.usage.completion_tokens = 3
+    mock_response.usage = Usage(prompt_tokens=5, completion_tokens=3, total_tokens=8)
     mock_response.id = "req-789"
 
     with (
@@ -1102,8 +1102,7 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
     ],
 )
 def test_invoke_judge_model_non_databricks_no_telemetry(model_uri: str, mock_response):
-    mock_response.usage.prompt_tokens = 10
-    mock_response.usage.completion_tokens = 5
+    mock_response.usage = Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15)
     mock_response.id = "req-123"
 
     with (
@@ -1126,3 +1125,27 @@ def test_invoke_judge_model_non_databricks_no_telemetry(model_uri: str, mock_res
 
     assert feedback.name == "test_assessment"
     assert feedback.value == "yes"
+
+
+@pytest.mark.parametrize(
+    ("extra_kwargs"),
+    [
+        {"base_url": "http://proxy:8080"},
+        {"extra_headers": {"Authorization": "Bearer token"}},
+        {"base_url": "http://proxy:8080", "extra_headers": {"Authorization": "Bearer token"}},
+    ],
+)
+def test_invoke_judge_model_base_url_and_extra_headers_not_supported_for_endpoints(extra_kwargs):
+    with (
+        pytest.raises(MlflowException, match="not supported for deployment endpoints"),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._is_litellm_available",
+            return_value=False,
+        ),
+    ):
+        invoke_judge_model(
+            model_uri="endpoints:/my-endpoint",
+            prompt="Evaluate this",
+            assessment_name="test",
+            **extra_kwargs,
+        )
