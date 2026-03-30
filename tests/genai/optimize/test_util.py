@@ -264,45 +264,43 @@ def test_create_metric_from_scorers_all_scorers_fail():
     assert "failing_scorer" not in individual_scores
 
 
-def test_create_metric_from_scorers_disables_tracing_during_scoring():
-    """Tracing should be disabled during scorer execution and re-enabled after."""
-    disable_calls = []
-    enable_calls = []
+def test_create_metric_from_scorers_conditional_tracing_when_enabled():
+    """Scorer should be wrapped with mlflow.trace when MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING is set."""
 
-    @scorer(name="tracing_checker")
-    def tracing_checker(inputs, outputs):
-        return Feedback(name="tracing_checker", value=1.0, rationale="ok")
+    @scorer(name="traced_scorer")
+    def traced_scorer(inputs, outputs):
+        return Feedback(name="traced_scorer", value=1.0, rationale="ok")
 
-    metric = create_metric_from_scorers([tracing_checker])
+    with mock.patch(
+        "mlflow.genai.optimize.util.MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING"
+    ) as mock_env:
+        mock_env.get.return_value = True
+        metric = create_metric_from_scorers([traced_scorer])
 
-    with (
-        mock.patch("mlflow.tracing.disable", side_effect=lambda: disable_calls.append(1)),
-        mock.patch("mlflow.tracing.enable", side_effect=lambda: enable_calls.append(1)),
-    ):
-        metric({"input": "test"}, {"output": "result"}, {}, None)
+        with mock.patch("mlflow.trace") as mock_trace:
+            mock_trace.return_value = lambda fn: fn  # pass-through decorator
+            metric({"input": "test"}, {"output": "result"}, {}, None)
 
-    assert len(disable_calls) == 1
-    assert len(enable_calls) == 1
+            mock_trace.assert_called_once()
 
 
-def test_create_metric_from_scorers_reenables_tracing_after_exception():
-    """Tracing should be re-enabled even if a scorer raises."""
-    enable_calls = []
+def test_create_metric_from_scorers_no_tracing_by_default():
+    """Scorer should NOT be wrapped with mlflow.trace by default."""
 
-    @scorer(name="exploding_scorer")
-    def exploding_scorer(inputs, outputs):
-        raise RuntimeError("boom")
+    @scorer(name="untraced_scorer")
+    def untraced_scorer(inputs, outputs):
+        return Feedback(name="untraced_scorer", value=1.0, rationale="ok")
 
-    metric = create_metric_from_scorers([exploding_scorer])
+    with mock.patch(
+        "mlflow.genai.optimize.util.MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING"
+    ) as mock_env:
+        mock_env.get.return_value = False
+        metric = create_metric_from_scorers([untraced_scorer])
 
-    with (
-        mock.patch("mlflow.tracing.disable"),
-        mock.patch("mlflow.tracing.enable", side_effect=lambda: enable_calls.append(1)),
-    ):
-        metric({"input": "test"}, {"output": "result"}, {}, None)
+        with mock.patch("mlflow.trace") as mock_trace:
+            metric({"input": "test"}, {"output": "result"}, {}, None)
 
-    # Tracing must be re-enabled even after scorer failure
-    assert len(enable_calls) == 1
+            mock_trace.assert_not_called()
 
 
 def test_create_metric_from_scorers_logs_assessments_on_trace():
@@ -321,8 +319,6 @@ def test_create_metric_from_scorers_logs_assessments_on_trace():
     mock_trace.data._get_root_span.return_value = mock_root_span
 
     with (
-        mock.patch("mlflow.tracing.disable"),
-        mock.patch("mlflow.tracing.enable"),
         mock.patch("mlflow.log_assessment") as mock_log_assessment,
         mock.patch("mlflow.active_run", return_value=None),
     ):

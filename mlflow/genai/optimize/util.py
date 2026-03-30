@@ -162,16 +162,19 @@ def create_metric_from_scorers(
     import traceback
 
     import mlflow
-    from mlflow.entities import Feedback
+    from mlflow.entities import Feedback, SpanType
     from mlflow.entities.assessment_error import AssessmentError
+    from mlflow.environment_variables import MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING
     from mlflow.genai.evaluation.harness import _log_assessments
     from mlflow.genai.evaluation.utils import (
         make_code_type_assessment_source,
         standardize_scorer_value,
     )
     from mlflow.genai.judges import CategoricalRating
+    from mlflow.tracing.constant import TraceTagKey
 
     _logger = logging.getLogger(__name__)
+    should_trace = MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
 
     def _convert_to_numeric(score: Any) -> float | None:
         """Convert a value to numeric, handling Feedback and primitive types."""
@@ -191,10 +194,6 @@ def create_metric_from_scorers(
         expectations: dict[str, Any],
         trace: Trace | None,
     ) -> tuple[float, dict[str, str], dict[str, float]]:
-        # Disable tracing during scorer execution so judge LLM calls
-        # don't create stray top-level traces in the experiment.
-        mlflow.tracing.disable()
-
         all_feedbacks = []
         scores = {}
         rationales = {}
@@ -204,7 +203,16 @@ def create_metric_from_scorers(
                 # Per-scorer try/except matching evaluate()'s pattern
                 # in harness.py:839-864.
                 try:
-                    value = scorer.run(
+                    scorer_func = scorer.run
+
+                    # Conditionally wrap scorer with tracing, matching
+                    # evaluate()'s pattern in harness.py:843-846.
+                    if should_trace:
+                        scorer_func = mlflow.trace(
+                            name=scorer.name, span_type=SpanType.EVALUATOR
+                        )(scorer_func)
+
+                    value = scorer_func(
                         inputs=inputs,
                         outputs=outputs,
                         expectations=expectations,
@@ -228,6 +236,22 @@ def create_metric_from_scorers(
                             ),
                         )
                     ]
+
+                # Record scorer trace ID on feedbacks, matching
+                # harness.py:867-878.
+                if should_trace and (
+                    trace_id := mlflow.get_last_active_trace_id(thread_local=True)
+                ):
+                    for feedback in feedbacks:
+                        feedback.metadata = {
+                            **(feedback.metadata or {}),
+                            "scorer_trace_id": trace_id,
+                        }
+                    mlflow.set_trace_tag(
+                        trace_id=trace_id,
+                        key=TraceTagKey.SOURCE_SCORER_NAME,
+                        value=scorer.name,
+                    )
 
                 all_feedbacks.extend(feedbacks)
 
@@ -278,7 +302,5 @@ def create_metric_from_scorers(
                 name: f"Error: {type(e).__name__}: {e}" for name in scorer_names
             }
             return 0.0, error_rationales, zero_scores
-        finally:
-            mlflow.tracing.enable()
 
     return metric
