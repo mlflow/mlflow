@@ -104,8 +104,8 @@ class MlflowV3SpanExporter(SpanExporter):
             )
             return
 
-        mlflow_spans_by_key = self._collect_mlflow_spans_for_export(spans)
-        for (experiment_id, _trace_id), spans_to_log in mlflow_spans_by_key.items():
+        mlflow_spans_by_experiment = self._collect_mlflow_spans_for_export(spans)
+        for experiment_id, spans_to_log in mlflow_spans_by_experiment.items():
             if self._should_log_async():
                 self._async_queue.put(
                     task=Task(
@@ -119,13 +119,9 @@ class MlflowV3SpanExporter(SpanExporter):
 
     def _collect_mlflow_spans_for_export(
         self, spans: Sequence[ReadableSpan]
-    ) -> dict[tuple[str, str], list[Span]]:
+    ) -> dict[str, list[Span]]:
         """
-        Collect MLflow spans from ReadableSpans for export, grouped by (experiment_id, trace_id).
-
-        Grouping by trace_id in addition to experiment_id is necessary because
-        BatchSpanProcessor may deliver spans from multiple traces in a single
-        export() call, and log_spans requires all spans to belong to the same trace.
+        Collect MLflow spans from ReadableSpans for export, grouped by experiment_id.
 
         The experiment_id is resolved from the trace info (set during on_start in the
         originating thread) rather than from get_experiment_id_for_trace(), which reads
@@ -135,10 +131,10 @@ class MlflowV3SpanExporter(SpanExporter):
             spans: Sequence of ReadableSpan objects.
 
         Returns:
-            Dictionary mapping (experiment_id, trace_id) to list of MLflow Span objects.
+            Dictionary mapping experiment_id to list of MLflow Span objects.
         """
         manager = InMemoryTraceManager.get_instance()
-        spans_by_key = defaultdict(list)
+        spans_by_experiment = defaultdict(list)
 
         for span in spans:
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
@@ -154,9 +150,9 @@ class MlflowV3SpanExporter(SpanExporter):
                 experiment_id = trace.info.experiment_id if trace else None
             if experiment_id is None:
                 experiment_id = get_experiment_id_for_trace(span)
-            spans_by_key[(experiment_id, mlflow_trace_id)].append(mlflow_span)
+            spans_by_experiment[experiment_id].append(mlflow_span)
 
-        return spans_by_key
+        return spans_by_experiment
 
     def _export_traces(self, spans: Sequence[ReadableSpan]) -> None:
         """
