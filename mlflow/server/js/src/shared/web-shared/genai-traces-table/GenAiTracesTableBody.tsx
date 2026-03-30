@@ -4,7 +4,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { isNil } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Empty, SearchIcon, Table, useDesignSystemTheme } from '@databricks/design-system';
+import { Empty, SearchIcon, Table, TableSkeletonRows, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import { isV4TraceId } from '../model-trace-explorer/ModelTraceExplorer.utils';
 import { shouldUseUnifiedModelTraceComparisonUI } from '../model-trace-explorer/FeatureUtils';
@@ -79,6 +79,9 @@ export const GenAiTracesTableBody = React.memo(
     isTableLoading,
     isGroupedBySession,
     searchQuery,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
   }: {
     experimentId?: string;
     selectedColumns: TracesTableColumn[];
@@ -116,6 +119,10 @@ export const GenAiTracesTableBody = React.memo(
     isGroupedBySession?: boolean;
     /** When set, matching text in the Request column is highlighted. */
     searchQuery?: string;
+    // Infinite scroll props (active when shouldUseInfinitePaginatedTraces is true)
+    fetchNextPage?: () => void;
+    hasNextPage?: boolean;
+    isFetchingNextPage?: boolean;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -539,11 +546,23 @@ export const GenAiTracesTableBody = React.memo(
       return null;
     }, [selectedEvaluation]);
 
+    const handleScrollForInfiniteFetch = useCallback(
+      (e: React.UIEvent<HTMLDivElement>) => {
+        if (!fetchNextPage || !hasNextPage || isFetchingNextPage) return;
+        const { scrollHeight, scrollTop, clientHeight } = e.currentTarget;
+        if (scrollHeight - scrollTop - clientHeight < 200) {
+          fetchNextPage();
+        }
+      },
+      [fetchNextPage, hasNextPage, isFetchingNextPage],
+    );
+
     return (
       <>
         <div
           className="container"
           ref={tableContainerRef}
+          onScroll={handleScrollForInfiniteFetch}
           css={{
             height: '100%',
             position: 'relative',
@@ -617,6 +636,7 @@ export const GenAiTracesTableBody = React.memo(
                 rowSelectionChangeHandler={rowSelectionChangeHandler}
               />
             )}
+            {isFetchingNextPage && <TableSkeletonRows table={table} />}
           </Table>
         </div>
         <React.Suspense fallback={null}>

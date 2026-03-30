@@ -285,6 +285,9 @@ const TracesV3LogsImpl = React.memo(
       isLoading: traceInfosLoading,
       isFetching: traceInfosFetching,
       error: traceInfosError,
+      fetchNextPage,
+      hasNextPage,
+      isFetchingNextPage,
     } = useSearchMlflowTraces({
       locations: traceSearchLocations,
       currentRunDisplayName: endpointName,
@@ -371,8 +374,12 @@ const TracesV3LogsImpl = React.memo(
     // Show loading overlay when fetching new data (but not during initial load)
 
     const tableError = traceInfosError || metadataError;
-    const isTableEmpty = isEmpty && !showInitialSkeleton && !traceInfosLoading && !traceInfosFetching && !tableError;
-    const isTableLoading = !showInitialSkeleton && (traceInfosLoading || traceInfosFetching);
+    const isTableEmpty =
+      isEmpty && !showInitialSkeleton && !traceInfosLoading && !traceInfosFetching && !tableError;
+    // When fetching the next page of infinite results, keep the existing rows visible
+    // and preserve scroll position instead of showing the loading skeleton.
+    const isTableLoading =
+      !showInitialSkeleton && (traceInfosLoading || (traceInfosFetching && !isFetchingNextPage));
 
     // Helper function to render the main content based on current state
     const renderMainContent = () => {
@@ -404,6 +411,9 @@ const TracesV3LogsImpl = React.memo(
                 isTableLoading={isTableLoading}
                 isGroupedBySession={forceGroupBySession || isGroupedBySession}
                 searchQuery={searchQuery}
+                fetchNextPage={fetchNextPage}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
               />
             </div>
           </>
@@ -467,6 +477,9 @@ const TracesV3LogsImpl = React.memo(
                   isTableLoading={isTableLoading}
                   isGroupedBySession={forceGroupBySession || isGroupedBySession}
                   searchQuery={searchQuery}
+                  fetchNextPage={fetchNextPage}
+                  hasNextPage={hasNextPage}
+                  isFetchingNextPage={isFetchingNextPage}
                 />
               </ContextProviders>
             )}
