@@ -109,10 +109,6 @@ This text should not be included"""
             '{"result": "yes"}',
         ),
         (
-            'Here is the result:\n```\n{"result": "yes"}\n```',
-            '{"result": "yes"}',
-        ),
-        (
             'Some preamble text.\n```json\n{\n  "result": "yes",\n  "rationale": "good"\n}\n```',
             '{\n  "result": "yes",\n  "rationale": "good"\n}',
         ),

@@ -7,9 +7,9 @@ def _strip_markdown_code_blocks(response: str) -> str:
     """
     Strip markdown code blocks from LLM responses.
 
-    Some legacy models wrap JSON responses in markdown code blocks (```json...```).
-    This function removes those wrappers to extract the raw JSON content.
-    It also handles cases where the JSON block is embedded within a larger response
+    Some legacy models wrap responses in markdown code blocks (```json...``` or
+    unlabeled fences). This function removes those wrappers to extract the raw content.
+    It also handles cases where a ```json block is embedded within a larger response
     that contains preamble text before the code block.
 
     Args:
@@ -33,10 +33,9 @@ def _strip_markdown_code_blocks(response: str) -> str:
 
         return "\n".join(lines[start_idx:end_idx])
 
-    # Handle embedded code blocks (preamble text followed by a JSON code block)
-    match = re.search(r"```(?:json)?\s*\n(.*?)\n```", cleaned, re.DOTALL)
-    if match:
-        return match.group(1).strip()
+    # Handle embedded code blocks (preamble text followed by a ```json code block)
+    if json_block_match := re.search(r"```json\s*\n(.*?)\n```", cleaned, re.DOTALL | re.IGNORECASE):
+        return json_block_match.group(1).strip()
 
     return cleaned
 
