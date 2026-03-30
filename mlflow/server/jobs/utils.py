@@ -143,8 +143,11 @@ def _find_huey_consumer_script() -> str:
     found = shutil.which("huey_consumer.py")
     if found is None:
         raise MlflowException(
-            "Could not find huey_consumer.py. "
-            "Ensure the 'huey' package is installed in the same Python environment as MLflow."
+            f"Could not find huey_consumer.py. Looked for '{candidate}' next to the current "
+            f"Python executable ('{sys.executable}') and via PATH lookup (shutil.which). "
+            "Ensure the 'huey' package is installed in the same Python environment as MLflow, "
+            "and that its huey_consumer.py script is either colocated with the Python "
+            "executable or discoverable on your PATH."
         )
     return found
 
