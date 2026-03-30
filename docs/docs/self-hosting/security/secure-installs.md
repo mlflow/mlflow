@@ -73,8 +73,6 @@ uv pip install --exclude-newer "2026-03-01T00:00:00Z" mlflow
 uv pip install --exclude-newer "7 days" mlflow
 ```
 
-Relative durations support units such as `hours`, `days`, and `weeks`. Calendar units like months and years are not supported — convert to days instead (e.g., `30 days`).
-
 For one-off tool invocations with `uvx`:
 
 ```bash
