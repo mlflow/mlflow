@@ -2256,11 +2256,6 @@ def test_search_traces_with_sql_warehouse_id(mock_client):
 @pytest.mark.parametrize("use_batch_processor", [False, True])
 def test_set_destination_in_threads(async_logging_enabled, use_batch_processor, monkeypatch):
     monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", str(use_batch_processor))
-    if use_batch_processor:
-        # Use a short batch interval so the batch processor timer fires quickly.
-        # The default 5000ms means spans sit in the queue until the timer fires,
-        # and even a double force_flush() can miss an in-flight timer-triggered export.
-        monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "100")
 
     # This test makes sure `set_destination` obeys thread-local behavior.
     class TestModel:

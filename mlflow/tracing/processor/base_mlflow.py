@@ -56,6 +56,39 @@ _logger = logging.getLogger(__name__)
 # https://opentelemetry.io/docs/specs/otel/trace/sdk/#batching-processor
 _DEFAULT_OTEL_MAX_QUEUE_SIZE = 2048
 
+# Registry of all BaseMlflowSpanProcessor instances that have a batch delegate.
+# When set_destination() creates a new tracer provider, the old processor is orphaned
+# but its BatchSpanProcessor background thread keeps running with queued spans.
+# This registry allows flush_all_batch_processors() to drain all of them.
+_batch_processor_registry: list["BaseMlflowSpanProcessor"] = []
+_batch_processor_registry_lock = threading.Lock()
+
+
+def flush_all_batch_processors(
+    timeout_millis: float = 30000, terminate: bool = False
+) -> None:
+    """Flush all registered batch processors so queued spans are exported.
+
+    Args:
+        timeout_millis: Timeout per processor for force_flush.
+        terminate: If True, also shutdown all processors and clear the registry.
+    """
+    with _batch_processor_registry_lock:
+        processors = list(_batch_processor_registry)
+    for processor in processors:
+        try:
+            processor.force_flush(timeout_millis)
+        except Exception:
+            _logger.debug(f"Failed to flush processor {processor}", exc_info=True)
+    if terminate:
+        for processor in processors:
+            try:
+                processor.shutdown()
+            except Exception:
+                _logger.debug(f"Failed to shutdown processor {processor}", exc_info=True)
+        with _batch_processor_registry_lock:
+            _batch_processor_registry.clear()
+
 
 def _create_batch_span_processor(exporter: SpanExporter) -> BatchSpanProcessor:
     max_export_batch_size = MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE.get()
@@ -95,6 +128,9 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         self._batch_delegate = (
             _create_batch_span_processor(span_exporter) if use_batch_processor else None
         )
+        if self._batch_delegate is not None:
+            with _batch_processor_registry_lock:
+                _batch_processor_registry.append(self)
         self.span_exporter = span_exporter
         self._export_metrics = export_metrics
         self._env_metadata = resolve_env_metadata()
@@ -170,8 +206,7 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
     def shutdown(self) -> None:
         if self._batch_delegate is not None:
             self._batch_delegate.shutdown()
-        else:
-            super().shutdown()
+        super().shutdown()
 
     def force_flush(self, timeout_millis: float = 30000) -> bool:
         if self._batch_delegate is not None:

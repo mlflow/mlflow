@@ -984,22 +984,16 @@ def flush_trace_async_logging(terminate=False) -> None:
     Args:
         terminate: If True, shut down the logging threads after flushing.
     """
-    # Flush the batch span processor first (if active), so queued spans
-    # are exported to the exporter's async queue before we drain it.
-    # Always force_flush here (not shutdown) because BatchSpanProcessor.shutdown()
-    # calls exporter.shutdown(), which closes the async queue before we drain it.
-    #
-    # We call force_flush twice because OTel's BatchSpanProcessor may have an
-    # in-flight timer-triggered export when the first force_flush runs. The first
-    # call waits for that export to finish and flushes remaining items, but a race
-    # in OTel's worker loop can leave spans unprocessed. The second call catches
-    # any stragglers.
+    # Flush ALL batch span processors (not just the current one). When
+    # set_destination() is called multiple times, each call creates a new tracer
+    # provider and processor, orphaning the old one. The registry tracks all of
+    # them so we can drain queued spans from every instance.
+    from mlflow.tracing.processor.base_mlflow import flush_all_batch_processors
+
     try:
-        if processor := _get_span_processor():
-            processor.force_flush()
-            processor.force_flush()
+        flush_all_batch_processors(terminate=terminate)
     except Exception as e:
-        _logger.debug(f"Failed to flush batch span processor: {e}", exc_info=True)
+        _logger.debug(f"Failed to flush batch processors: {e}", exc_info=True)
 
     try:
         trace_exporter = _get_trace_exporter()
@@ -1012,13 +1006,6 @@ def flush_trace_async_logging(terminate=False) -> None:
     except Exception as e:
         _logger.error(f"Failed to flush trace async logging: {e}")
 
-    # Shut down the batch processor after draining the async queue.
-    if terminate:
-        try:
-            if processor := _get_span_processor():
-                processor.shutdown()
-        except Exception as e:
-            _logger.debug(f"Failed to shutdown batch span processor: {e}", exc_info=True)
 
 
 def set_experiment_tag(key: str, value: Any) -> None:
