@@ -365,7 +365,10 @@ class GatewayAdapter(BaseJudgeAdapter):
         from mlflow.metrics.genai.model_utils import _parse_model_uri
 
         model_provider, _ = _parse_model_uri(model_uri)
-        if not is_supported_provider(model_provider) and model_provider != "endpoints":
+        if (
+            not is_supported_provider(model_provider)
+            and model_provider not in {"endpoints", "gateway"}
+        ):
             return False
         # "endpoints" (Databricks model serving) only supports string prompts
         # via score_model_on_payload; _get_provider_instance doesn't handle it.
