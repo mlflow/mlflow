@@ -513,6 +513,8 @@ const TemplateOption = ({
  * on selected traces. Shows one row per in-flight or completed evaluation,
  * with a spinner while loading and success/error states on completion.
  */
+const AUTO_DISMISS_DELAY_MS = 10000;
+
 const JudgesEvaluationStatusBanner = ({
   evaluations,
   onDismiss,
@@ -522,6 +524,37 @@ const JudgesEvaluationStatusBanner = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  useEffect(() => {
+    const completedKeys = new Set(evaluations.filter((e) => !e.isLoading).map((e) => e.requestKey));
+
+    // Start timers for newly completed evaluations that don't have a timer yet
+    completedKeys.forEach((key) => {
+      if (!timersRef.current.has(key)) {
+        const timer = setTimeout(() => {
+          onDismiss(key);
+          timersRef.current.delete(key);
+        }, AUTO_DISMISS_DELAY_MS);
+        timersRef.current.set(key, timer);
+      }
+    });
+
+    // Clear timers for evaluations no longer in the list (e.g., already dismissed)
+    timersRef.current.forEach((timer, key) => {
+      if (!completedKeys.has(key)) {
+        clearTimeout(timer);
+        timersRef.current.delete(key);
+      }
+    });
+  }, [evaluations, onDismiss]);
+
+  // Clean up all pending timers on unmount
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+    };
+  }, []);
 
   return (
     <div
