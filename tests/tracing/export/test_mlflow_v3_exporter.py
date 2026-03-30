@@ -148,6 +148,50 @@ def test_export(is_async, monkeypatch):
     assert mlflow.get_last_active_trace_id() is not None
 
 
+@pytest.mark.timeout(20)
+def test_export_with_batch_span_processor(monkeypatch):
+    """Verify end-to-end export when BatchSpanProcessor is enabled (the default path)."""
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "true")
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
+
+    trace_info = None
+
+    def mock_response(credentials, path, method, trace_json, *args, **kwargs):
+        nonlocal trace_info
+        trace_dict = json.loads(trace_json)
+        trace_proto = ParseDict(trace_dict["trace"], pb.Trace())
+        trace_info_proto = ParseDict(trace_dict["trace"]["trace_info"], pb.TraceInfoV3())
+        trace_info = TraceInfo.from_proto(trace_info_proto)
+        return pb.StartTraceV3.Response(trace=trace_proto)
+
+    with (
+        mock.patch(
+            "mlflow.store.tracking.rest_store.call_endpoint", side_effect=mock_response
+        ) as mock_call_endpoint,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
+        mock.patch("mlflow.tracing.client.TracingClient._upload_attachments", return_value=None),
+    ):
+        _predict("hello")
+
+        # Flush the batch processor and async queue to ensure spans are exported
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    # Verify the trace was exported through the batch processor pipeline
+    mock_call_endpoint.assert_called_once()
+    mock_upload_trace_data.assert_called_once()
+
+    assert trace_info is not None
+    assert trace_info.trace_id is not None
+    assert mlflow.get_last_active_trace_id() is not None
+
+
 def test_async_logging_disabled_in_databricks_notebook(monkeypatch):
     with mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True):
         exporter = MlflowV3SpanExporter()
