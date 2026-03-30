@@ -988,8 +988,15 @@ def flush_trace_async_logging(terminate=False) -> None:
     # are exported to the exporter's async queue before we drain it.
     # Always force_flush here (not shutdown) because BatchSpanProcessor.shutdown()
     # calls exporter.shutdown(), which closes the async queue before we drain it.
+    #
+    # We call force_flush twice because OTel's BatchSpanProcessor may have an
+    # in-flight timer-triggered export when the first force_flush runs. The first
+    # call waits for that export to finish and flushes remaining items, but a race
+    # in OTel's worker loop can leave spans unprocessed. The second call catches
+    # any stragglers.
     try:
         if processor := _get_span_processor():
+            processor.force_flush()
             processor.force_flush()
     except Exception as e:
         _logger.debug(f"Failed to flush batch span processor: {e}", exc_info=True)
