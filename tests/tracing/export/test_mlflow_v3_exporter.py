@@ -235,6 +235,34 @@ def test_export_catch_failure(is_async, monkeypatch):
     assert any("Failed to start trace" in msg for msg in warning_calls)
 
 
+def test_export_catch_failure_with_batch_span_processor(monkeypatch):
+    """Verify export failures are caught gracefully when BatchSpanProcessor is enabled."""
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "true")
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "true")
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=_EXPERIMENT_ID))
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            side_effect=Exception("Failed to start trace"),
+        ),
+        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
+    ):
+        _predict("hello")
+
+        # Flush batch processor to ensure the export (and failure) is processed
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    # Verify the failure was logged, not raised
+    mock_logger.warning.assert_called()
+    warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
+    assert any("Failed to start trace" in msg for msg in warning_calls)
+
+
 @pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
 def test_async_bulk_export(monkeypatch):
     monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
@@ -275,6 +303,48 @@ def test_async_bulk_export(monkeypatch):
         _flush_async_logging()
 
     # Verify the client methods were called the expected number of times
+    assert mock_start_trace.call_count == 100
+    assert mock_upload_trace_data.call_count == 100
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
+def test_async_bulk_export_with_batch_span_processor(monkeypatch):
+    """Verify bulk concurrent export works with BatchSpanProcessor enabled."""
+    monkeypatch.setenv("DATABRICKS_HOST", "dummy-host")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dummy-token")
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
+    monkeypatch.setenv("MLFLOW_USE_BATCH_SPAN_PROCESSOR", "true")
+
+    mlflow.set_tracking_uri("databricks")
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id=0))
+
+    def _mock_client_method(*args, **kwargs):
+        time.sleep(0.1)
+        mock_trace = mock.MagicMock()
+        mock_trace.info = mock.MagicMock()
+        return mock_trace
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace", side_effect=_mock_client_method
+        ) as mock_start_trace,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
+    ):
+        # Log many traces concurrently
+        start_time = time.time()
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for _ in range(100):
+                executor.submit(_predict, "hello")
+
+        # Trace logging should not block the main thread
+        assert time.time() - start_time < 5
+
+        # Flush batch processor and async queue
+        mlflow.flush_trace_async_logging(terminate=True)
+
+    # Verify all traces were exported
     assert mock_start_trace.call_count == 100
     assert mock_upload_trace_data.call_count == 100
 
