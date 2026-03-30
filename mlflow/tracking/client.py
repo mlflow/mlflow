@@ -41,6 +41,7 @@ from mlflow.entities import (
     SpanStatus,
     SpanType,
     Trace,
+    TraceArchivalConfig,
     ViewType,
     Workspace,
     WorkspaceDeletionMode,
@@ -334,7 +335,11 @@ class MlflowClient:
         return self._get_workspace_client().list_workspaces()
 
     def create_workspace(
-        self, name: str, description: str | None = None, default_artifact_root: str | None = None
+        self,
+        name: str,
+        description: str | None = None,
+        default_artifact_root: str | None = None,
+        trace_archival_config: TraceArchivalConfig | None = None,
     ) -> Workspace:
         """Create a new workspace.
 
@@ -342,12 +347,20 @@ class MlflowClient:
             name: The workspace name (alphanumeric, hyphens, underscores only).
             description: Optional description of the workspace.
             default_artifact_root: Optional artifact root URI; falls back to server default.
+            trace_archival_config: Optional Python-side grouping for trace archival settings.
+                Use ``TraceArchivalConfig.location`` to set the archival storage URI/root and
+                ``TraceArchivalConfig.retention`` to set the archived-trace retention duration such
+                as ``30d`` or ``12h``. Leave fields as ``None`` to omit them from the create
+                request.
 
         Returns:
             The newly created workspace.
         """
         return self._get_workspace_client().create_workspace(
-            name, description, default_artifact_root=default_artifact_root
+            name,
+            description,
+            default_artifact_root=default_artifact_root,
+            trace_archival_config=trace_archival_config,
         )
 
     def get_workspace(self, name: str) -> Workspace:
@@ -356,7 +369,11 @@ class MlflowClient:
         return self._get_workspace_client().get_workspace(name)
 
     def update_workspace(
-        self, name: str, description: str | None = None, default_artifact_root: str | None = None
+        self,
+        name: str,
+        description: str | None = None,
+        default_artifact_root: str | None = None,
+        trace_archival_config: TraceArchivalConfig | None = None,
     ) -> Workspace:
         """Update metadata for an existing workspace.
 
@@ -364,12 +381,20 @@ class MlflowClient:
             name: The name of the workspace to update.
             description: New description, or ``None`` to leave unchanged.
             default_artifact_root: New artifact root URI, empty string to clear, or ``None``.
+            trace_archival_config: Optional Python-side grouping for trace archival settings.
+                Use ``TraceArchivalConfig.location`` to update the archival storage URI/root and
+                ``TraceArchivalConfig.retention`` to update the archived-trace retention duration
+                such as ``30d`` or ``12h``. Use an empty string to clear an existing value, or
+                leave fields as ``None`` to keep the current value unchanged.
 
         Returns:
             The updated workspace.
         """
         return self._get_workspace_client().update_workspace(
-            name, description, default_artifact_root=default_artifact_root
+            name,
+            description,
+            default_artifact_root=default_artifact_root,
+            trace_archival_config=trace_archival_config,
         )
 
     def delete_workspace(self, name: str, mode: str = WorkspaceDeletionMode.RESTRICT) -> None:

@@ -51,6 +51,8 @@ def test_get_workspace_returns_entity(store, host_creds):
     response = GetWorkspace.Response()
     response.workspace.name = "team-b"
     response.workspace.description = "Team B"
+    response.workspace.trace_archival_config.location = "s3://archive/team-b"
+    response.workspace.trace_archival_config.retention = "30d"
     with mock.patch(
         "mlflow.store.workspace.rest_store.call_endpoint", return_value=response
     ) as call_endpoint:
@@ -58,6 +60,8 @@ def test_get_workspace_returns_entity(store, host_creds):
 
     assert workspace.name == "team-b"
     assert workspace.description == "Team B"
+    assert workspace.trace_archival_location == "s3://archive/team-b"
+    assert workspace.trace_archival_retention == "30d"
     call_endpoint.assert_called_once()
     kwargs = call_endpoint.call_args.kwargs
     assert kwargs["endpoint"] == f"{WORKSPACES_ENDPOINT}/team-b"
@@ -68,19 +72,37 @@ def test_create_workspace_sends_payload(store, host_creds):
     response = CreateWorkspace.Response()
     response.workspace.name = "team-c"
     response.workspace.description = "Team C"
+    response.workspace.trace_archival_config.location = "s3://archive/team-c"
+    response.workspace.trace_archival_config.retention = "14d"
     with mock.patch(
         "mlflow.store.workspace.rest_store.call_endpoint", return_value=response
     ) as call_endpoint:
-        workspace = store.create_workspace(Workspace(name="team-c", description="Team C"))
+        workspace = store.create_workspace(
+            Workspace(
+                name="team-c",
+                description="Team C",
+                trace_archival_location="s3://archive/team-c",
+                trace_archival_retention="14d",
+            )
+        )
 
     assert workspace.name == "team-c"
     assert workspace.description == "Team C"
+    assert workspace.trace_archival_location == "s3://archive/team-c"
+    assert workspace.trace_archival_retention == "14d"
     call_endpoint.assert_called_once()
     kwargs = call_endpoint.call_args.kwargs
     assert kwargs["endpoint"] == WORKSPACES_ENDPOINT
     assert kwargs["method"] == "POST"
     assert kwargs["expected_status"] == 201
-    assert json.loads(kwargs["json_body"]) == {"name": "team-c", "description": "Team C"}
+    assert json.loads(kwargs["json_body"]) == {
+        "name": "team-c",
+        "description": "Team C",
+        "trace_archival_config": {
+            "location": "s3://archive/team-c",
+            "retention": "14d",
+        },
+    }
 
 
 def test_create_workspace_conflict_raises_resource_exists(store, monkeypatch):
@@ -104,17 +126,34 @@ def test_update_workspace_returns_new_description(store, host_creds):
     response = UpdateWorkspace.Response()
     response.workspace.name = "team-e"
     response.workspace.description = "updated"
+    response.workspace.trace_archival_config.location = "s3://archive/team-e"
+    response.workspace.trace_archival_config.retention = "7d"
     with mock.patch(
         "mlflow.store.workspace.rest_store.call_endpoint", return_value=response
     ) as call_endpoint:
-        workspace = store.update_workspace(Workspace(name="team-e", description="updated"))
+        workspace = store.update_workspace(
+            Workspace(
+                name="team-e",
+                description="updated",
+                trace_archival_location="s3://archive/team-e",
+                trace_archival_retention="7d",
+            )
+        )
 
     assert workspace.description == "updated"
+    assert workspace.trace_archival_location == "s3://archive/team-e"
+    assert workspace.trace_archival_retention == "7d"
     call_endpoint.assert_called_once()
     kwargs = call_endpoint.call_args.kwargs
     assert kwargs["endpoint"] == f"{WORKSPACES_ENDPOINT}/team-e"
     assert kwargs["method"] == "PATCH"
-    assert json.loads(kwargs["json_body"]) == {"description": "updated"}
+    assert json.loads(kwargs["json_body"]) == {
+        "description": "updated",
+        "trace_archival_config": {
+            "location": "s3://archive/team-e",
+            "retention": "7d",
+        },
+    }
 
 
 def test_delete_workspace_returns_on_success(store, host_creds):

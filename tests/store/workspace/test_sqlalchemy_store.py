@@ -71,11 +71,19 @@ def test_get_workspace_not_found(workspace_store):
 
 def test_create_workspace_persists_record(workspace_store):
     created = workspace_store.create_workspace(
-        Workspace(name="team-a", description="Team A", default_artifact_root="s3://root/team-a"),
+        Workspace(
+            name="team-a",
+            description="Team A",
+            default_artifact_root="s3://root/team-a",
+            trace_archival_location="s3://archive/team-a",
+            trace_archival_retention="30d",
+        ),
     )
     assert created.name == "team-a"
     assert created.description == "Team A"
     assert created.default_artifact_root == "s3://root/team-a"
+    assert created.trace_archival_location == "s3://archive/team-a"
+    assert created.trace_archival_retention == "30d"
     assert ("team-a", "Team A") in _workspace_rows(workspace_store)
 
 
@@ -132,6 +140,60 @@ def test_update_workspace_can_clear_default_artifact_root(workspace_store):
     assert cleared.default_artifact_root is None
     fetched = workspace_store.get_workspace("team-a")
     assert fetched.default_artifact_root is None
+
+
+def test_update_workspace_sets_trace_archival_location(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    updated = workspace_store.update_workspace(
+        Workspace(name="team-a", trace_archival_location="s3://archive/team-a")
+    )
+    assert updated.trace_archival_location == "s3://archive/team-a"
+    fetched = workspace_store.get_workspace("team-a")
+    assert fetched.trace_archival_location == "s3://archive/team-a"
+
+
+def test_update_workspace_can_clear_trace_archival_location(workspace_store):
+    workspace_store.create_workspace(
+        Workspace(
+            name="team-a",
+            description="old",
+            trace_archival_location="s3://archive/team-a",
+        )
+    )
+
+    cleared = workspace_store.update_workspace(Workspace(name="team-a", trace_archival_location=""))
+    assert cleared.trace_archival_location is None
+    fetched = workspace_store.get_workspace("team-a")
+    assert fetched.trace_archival_location is None
+
+
+def test_update_workspace_sets_trace_archival_retention(workspace_store):
+    workspace_store.create_workspace(Workspace(name="team-a", description="old"))
+
+    updated = workspace_store.update_workspace(
+        Workspace(name="team-a", trace_archival_retention="14d")
+    )
+    assert updated.trace_archival_retention == "14d"
+    fetched = workspace_store.get_workspace("team-a")
+    assert fetched.trace_archival_retention == "14d"
+
+
+def test_update_workspace_can_clear_trace_archival_retention(workspace_store):
+    workspace_store.create_workspace(
+        Workspace(
+            name="team-a",
+            description="old",
+            trace_archival_retention="30d",
+        )
+    )
+
+    cleared = workspace_store.update_workspace(
+        Workspace(name="team-a", trace_archival_retention="")
+    )
+    assert cleared.trace_archival_retention is None
+    fetched = workspace_store.get_workspace("team-a")
+    assert fetched.trace_archival_retention is None
 
 
 def test_delete_workspace_removes_empty_workspace(workspace_store):
