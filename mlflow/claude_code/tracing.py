@@ -120,14 +120,7 @@ def setup_mlflow() -> None:
     except Exception as e:
         get_logger().warning("Failed to set experiment: %s", e)
 
-    _record_event(
-        AutologgingEvent,
-        {
-            "flavor": "claude_code",
-            "log_traces": is_tracing_enabled(),
-            "disable": not is_tracing_enabled(),
-        },
-    )
+    _record_event(AutologgingEvent, {"flavor": "claude_code"})
 
 
 def is_tracing_enabled() -> bool:
