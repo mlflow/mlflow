@@ -324,25 +324,37 @@ def _invoke_via_gateway(
         score_model_on_payload,
     )
 
+    # "gateway" uses the gateway config to call the endpoint directly,
+    # matching how LiteLLMAdapter handles gateway:/ URIs.
+    if provider == "gateway":
+        from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+        from mlflow.genai.judges.adapters.utils import send_chat_request
+        from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+
+        _, endpoint_name = _parse_model_uri(model_uri)
+        config = get_gateway_litellm_config(endpoint_name)
+        headers = {
+            **(config.extra_headers or {}),
+            MLFLOW_GATEWAY_CALLER_HEADER: GatewayCaller.JUDGE.value,
+        }
+        messages = [{"role": "user", "content": prompt}] if isinstance(prompt, str) else prompt
+        # Use the endpoint name as the model, not the litellm-format "provider/name"
+        payload = {"model": endpoint_name, "messages": messages}
+        if inference_params:
+            payload.update(inference_params)
+
+        endpoint = f"{config.api_base.rstrip('/')}/chat/completions"
+        response = send_chat_request(
+            endpoint=endpoint, headers=headers, payload=payload, num_retries=3
+        )
+        content = response["choices"][0]["message"]["content"]
+        return content[0]["text"] if isinstance(content, list) else content
+
     if isinstance(prompt, str):
         return score_model_on_payload(
             model_uri=model_uri,
             payload=prompt,
             eval_parameters=inference_params,
-            extra_headers=extra_headers,
-            proxy_url=base_url,
-            endpoint_type=get_endpoint_type(model_uri) or EndpointType.LLM_V1_CHAT,
-        )
-
-    # "gateway" and "endpoints" use score_model_on_payload (deployment client)
-    # rather than _call_llm_provider_api, which doesn't support these providers.
-    if provider in ("gateway", "endpoints"):
-        payload = {"messages": prompt}
-        if inference_params:
-            payload.update(inference_params)
-        return score_model_on_payload(
-            model_uri=model_uri,
-            payload=payload,
             extra_headers=extra_headers,
             proxy_url=base_url,
             endpoint_type=get_endpoint_type(model_uri) or EndpointType.LLM_V1_CHAT,
