@@ -334,6 +334,20 @@ def _invoke_via_gateway(
             endpoint_type=get_endpoint_type(model_uri) or EndpointType.LLM_V1_CHAT,
         )
 
+    # "gateway" and "endpoints" use score_model_on_payload (deployment client)
+    # rather than _call_llm_provider_api, which doesn't support these providers.
+    if provider in ("gateway", "endpoints"):
+        payload = {"messages": prompt}
+        if inference_params:
+            payload.update(inference_params)
+        return score_model_on_payload(
+            model_uri=model_uri,
+            payload=payload,
+            extra_headers=extra_headers,
+            proxy_url=base_url,
+            endpoint_type=get_endpoint_type(model_uri) or EndpointType.LLM_V1_CHAT,
+        )
+
     _, model_name = _parse_model_uri(model_uri)
     rf_dict = _pydantic_to_response_format(response_format) if response_format else None
     return _call_llm_provider_api(
@@ -365,10 +379,10 @@ class GatewayAdapter(BaseJudgeAdapter):
         from mlflow.metrics.genai.model_utils import _parse_model_uri
 
         model_provider, _ = _parse_model_uri(model_uri)
-        if (
-            not is_supported_provider(model_provider)
-            and model_provider not in {"endpoints", "gateway"}
-        ):
+        if not is_supported_provider(model_provider) and model_provider not in {
+            "endpoints",
+            "gateway",
+        }:
             return False
         # "endpoints" (Databricks model serving) only supports string prompts
         # via score_model_on_payload; _get_provider_instance doesn't handle it.
