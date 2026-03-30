@@ -2166,5 +2166,13 @@ class RestStore(WorkspaceRestStoreMixin, RestGatewayStoreMixin, AbstractStore):
         return spans
 
     async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        """Async wrapper for log_spans. Delegates to the synchronous implementation."""
+        """Async wrapper for log_spans. Delegates to the synchronous implementation.
+
+        Args:
+            location: Experiment ID of an MLflow experiment.
+            spans: List of Span entities to log.
+
+        Returns:
+            List of logged Span entities.
+        """
         return self.log_spans(location, spans)

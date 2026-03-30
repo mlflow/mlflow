@@ -4516,14 +4516,18 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         )
                     if span_cost := span_attributes.get(SpanAttributeKey.LLM_COST):
                         aggregated_cost = update_cost(aggregated_cost, span_cost)
+                    # Session ID from OTel semantic conventions:
+                    # https://opentelemetry.io/docs/specs/semconv/registry/attributes/session/#session-id
                     if session_id is None and (
                         span_session_id := span_attributes.get("session.id")
                     ):
                         session_id = span_session_id
+                    # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
+                # Prepare dimension attributes with model name and provider if available
                 dimension_attribute_keys = [
                     SpanAttributeKey.MODEL,
                     SpanAttributeKey.MODEL_PROVIDER,
@@ -4587,6 +4591,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 experiment = self.get_experiment(location)
                 for trace_id in new_trace_ids:
                     agg = trace_aggregates[trace_id]
+                    # Create trace info for this new trace. We need to establish the trace
+                    # before we can add spans to it, as spans have a foreign key to trace_info.
                     sql_trace_info = SqlTraceInfo(
                         request_id=trace_id,
                         experiment_id=location,
@@ -4597,6 +4603,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         status=agg["trace_status"],
                         client_request_id=None,
                     )
+                    # Add the artifact location tag that's required for search_traces to work
                     sql_trace_info.tags = [
                         self._get_trace_artifact_location_tag(experiment, trace_id)
                     ]
@@ -4682,7 +4689,11 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 max_end_ms = agg["max_end_ms"]
                 root_span_status = agg["root_span_status"]
 
-                # Build atomic time-range update
+                # Atomic update of trace time range using SQLAlchemy's case expressions.
+                # This is necessary to handle concurrent span additions from multiple
+                # processes/threads without race conditions. The database performs the
+                # min/max comparisons atomically, ensuring the trace always reflects the
+                # earliest start and latest end times across all spans.
                 timestamp_update_expr = case(
                     (SqlTraceInfo.timestamp_ms > min_start_ms, min_start_ms),
                     else_=SqlTraceInfo.timestamp_ms,
@@ -4703,6 +4714,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         - timestamp_update_expr
                     )
 
+                # If trace status is IN_PROGRESS or unspecified, check for root span to update it
                 if sql_trace_info.status in (
                     TraceState.IN_PROGRESS.value,
                     TraceState.STATE_UNSPECIFIED.value,
@@ -4715,7 +4727,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         self._update_trace_info_attributes(sql_trace_info, root_span_dict)
                     )
 
-                # Token usage metadata + metrics
+                # Token usage metadata + store as trace metrics for aggregation queries
                 if aggregated_token_usage := agg["aggregated_token_usage"]:
                     existing_record = existing_token_usage.get(trace_id)
                     trace_token_usage = update_token_usage(
@@ -4763,8 +4775,12 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     SqlTraceInfo.request_id == trace_id
                 ).update(
                     update_dict,
+                    # Skip session synchronization for performance — we don't
+                    # use the ORM object afterward.
                     synchronize_session=False,
                 )
+                # Mark that spans are stored in the tracking store DB (required for
+                # concurrent calls that create or update the trace info).
                 session.merge(
                     SqlTraceTag(
                         request_id=trace_id,
@@ -4811,7 +4827,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
         return update_dict
 
     async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
-        """Async wrapper for log_spans. Delegates to the synchronous implementation."""
+        """Async wrapper for log_spans. Delegates to the synchronous implementation.
+
+        Args:
+            location: Experiment ID of an MLflow experiment.
+            spans: List of Span entities to log.
+
+        Returns:
+            List of logged Span entities.
+        """
         # TODO: Implement proper async support
         return self.log_spans(location, spans)
 
