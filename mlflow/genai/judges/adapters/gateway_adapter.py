@@ -671,9 +671,17 @@ class GatewayAdapter(BaseJudgeAdapter):
                         include_response_format = False
                         continue
 
+                    # Map HTTP status codes to appropriate MLflow error codes
+                    if e.status_code == 400:
+                        error_code = BAD_REQUEST
+                    elif e.status_code in (401, 403):
+                        error_code = INVALID_PARAMETER_VALUE
+                    else:
+                        error_code = INTERNAL_ERROR
+
                     raise MlflowException(
                         f"Failed to invoke judge model: {e.message}",
-                        error_code=INTERNAL_ERROR,
+                        error_code=error_code,
                     ) from e
 
                 # Use the provider adapter to normalize the response
