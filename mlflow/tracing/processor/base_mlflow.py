@@ -65,7 +65,13 @@ _batch_processor_registry_lock = threading.Lock()
 
 
 def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = False) -> None:
-    """Flush all registered batch processors so queued spans are exported.
+    """Flush all registered batch processors and their exporters' async queues.
+
+    Two-layer flush:
+      1. force_flush each BatchSpanProcessor (drains span queue → exporter.export())
+      2. flush each exporter's _async_queue (drains DB write queue → tracking store)
+
+    Only after both layers are drained do we optionally shutdown.
 
     Args:
         timeout_millis: Timeout per processor for force_flush.
@@ -73,11 +79,20 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
     """
     with _batch_processor_registry_lock:
         processors = list(_batch_processor_registry)
+    # Layer 1: drain span queues into exporters
     for processor in processors:
         try:
             processor.force_flush(timeout_millis)
         except Exception:
             _logger.debug(f"Failed to flush processor {processor}", exc_info=True)
+    # Layer 2: drain all exporters' async queues into the tracking store
+    for processor in processors:
+        try:
+            exporter = processor.span_exporter
+            if hasattr(exporter, "_async_queue"):
+                exporter._async_queue.flush(terminate=terminate)
+        except Exception:
+            _logger.debug(f"Failed to flush exporter queue for {processor}", exc_info=True)
     if terminate:
         for processor in processors:
             try:
