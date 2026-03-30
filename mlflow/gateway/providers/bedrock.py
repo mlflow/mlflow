@@ -306,13 +306,10 @@ class AmazonBedrockProvider(BaseProvider):
 
     # ---- Converse API helpers ----
 
-    def _messages_to_converse(
-        self, messages: list[dict[str, Any]]
-    ) -> tuple[list[dict[str, Any]], list[dict[str, str]] | None]:
-        """Convert OpenAI-format messages to Bedrock Converse format.
-
-        Returns (converse_messages, system_prompts).
-        """
+    def _build_converse_kwargs(
+        self, messages: list[dict[str, Any]], payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build kwargs for the Converse API call."""
         system_prompts = []
         converse_messages = []
 
@@ -353,21 +350,13 @@ class AmazonBedrockProvider(BaseProvider):
                     "content": [{"text": content}],
                 })
 
-        return converse_messages, system_prompts or None
-
-    def _build_converse_kwargs(
-        self, messages: list[dict[str, Any]], payload: dict[str, Any]
-    ) -> dict[str, Any]:
-        """Build kwargs for the Converse API call."""
-        converse_messages, system = self._messages_to_converse(messages)
-
         kwargs = {
             "modelId": self.config.model.name,
             "messages": converse_messages,
         }
 
-        if system:
-            kwargs["system"] = system
+        if system_prompts:
+            kwargs["system"] = system_prompts
 
         # Build inferenceConfig from OpenAI params
         inference_config = {}
@@ -428,16 +417,7 @@ class AmazonBedrockProvider(BaseProvider):
                 )
 
         usage = response.get("usage", {})
-        stop_reason = response.get("stopReason", "end_turn")
-        match stop_reason:
-            case "tool_use":
-                finish_reason = "tool_calls"
-            case "max_tokens":
-                finish_reason = "length"
-            case "content_filtered":
-                finish_reason = "content_filter"
-            case _:
-                finish_reason = "stop"
+        finish_reason = self._map_stop_reason(response.get("stopReason", "end_turn"))
 
         return chat.ResponsePayload(
             created=int(time.time()),
@@ -475,6 +455,95 @@ class AmazonBedrockProvider(BaseProvider):
 
     def _get_token_auth_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.bedrock_config.aws_config.aws_bearer_token}"}
+
+    def _make_stream_chunk(
+        self,
+        delta: chat.StreamDelta,
+        finish_reason: str | None = None,
+        usage: chat.ChatUsage | None = None,
+    ) -> chat.StreamResponsePayload:
+        return chat.StreamResponsePayload(
+            created=int(time.time()),
+            model=self.config.model.name,
+            choices=[chat.StreamChoice(index=0, finish_reason=finish_reason, delta=delta)],
+            usage=usage,
+        )
+
+    @staticmethod
+    def _map_stop_reason(stop_reason: str) -> str:
+        match stop_reason:
+            case "tool_use":
+                return "tool_calls"
+            case "max_tokens":
+                return "length"
+            case "content_filtered":
+                return "content_filter"
+            case _:
+                return "stop"
+
+    def _parse_stream_event(self, event: dict[str, Any]) -> chat.StreamResponsePayload | None:
+        if "contentBlockStart" in event:
+            start = event["contentBlockStart"].get("start", {})
+            if "toolUse" in start:
+                tool_use = start["toolUse"]
+                return self._make_stream_chunk(
+                    delta=chat.StreamDelta(
+                        role=None,
+                        content=None,
+                        tool_calls=[
+                            chat.ToolCallDelta(
+                                index=event["contentBlockStart"].get("contentBlockIndex", 0),
+                                id=tool_use.get("toolUseId"),
+                                type="function",
+                                function=chat.Function(
+                                    name=tool_use.get("name"),
+                                    arguments="",
+                                ),
+                            )
+                        ],
+                    ),
+                )
+        elif "contentBlockDelta" in event:
+            delta = event["contentBlockDelta"].get("delta", {})
+            if text := delta.get("text"):
+                return self._make_stream_chunk(
+                    delta=chat.StreamDelta(role=None, content=text),
+                )
+            elif "toolUse" in delta:
+                tool_input = delta["toolUse"].get("input", "")
+                if isinstance(tool_input, dict):
+                    arguments = json.dumps(tool_input)
+                else:
+                    arguments = str(tool_input)
+                return self._make_stream_chunk(
+                    delta=chat.StreamDelta(
+                        role=None,
+                        content=None,
+                        tool_calls=[
+                            chat.ToolCallDelta(
+                                index=event["contentBlockDelta"].get("contentBlockIndex", 0),
+                                function=chat.Function(arguments=arguments),
+                            )
+                        ],
+                    ),
+                )
+        elif "messageStop" in event:
+            stop_reason = event["messageStop"].get("stopReason", "end_turn")
+            return self._make_stream_chunk(
+                delta=chat.StreamDelta(role=None, content=None),
+                finish_reason=self._map_stop_reason(stop_reason),
+            )
+        elif "metadata" in event:
+            if usage := event["metadata"].get("usage", {}):
+                return self._make_stream_chunk(
+                    delta=chat.StreamDelta(role=None, content=None),
+                    usage=chat.ChatUsage(
+                        prompt_tokens=usage.get("inputTokens"),
+                        completion_tokens=usage.get("outputTokens"),
+                        total_tokens=usage.get("totalTokens"),
+                    ),
+                )
+        return None
 
     async def _chat_with_token(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         """Chat using bearer token auth via direct HTTP to Bedrock Converse API."""
@@ -548,6 +617,8 @@ class AmazonBedrockProvider(BaseProvider):
                 event_queue.put(_SENTINEL)
 
         loop = asyncio.get_running_loop()
+        # Fire-and-forget: stream is consumed in background thread,
+        # events are read from the queue below. Not awaited intentionally.
         loop.run_in_executor(None, _consume_stream)
 
         while True:
@@ -556,124 +627,8 @@ class AmazonBedrockProvider(BaseProvider):
                 if _stream_error:
                     raise _stream_error[0]
                 break
-            if "contentBlockStart" in event:
-                start = event["contentBlockStart"].get("start", {})
-                if "toolUse" in start:
-                    tool_use = start["toolUse"]
-                    yield chat.StreamResponsePayload(
-                        created=int(time.time()),
-                        model=self.config.model.name,
-                        choices=[
-                            chat.StreamChoice(
-                                index=0,
-                                finish_reason=None,
-                                delta=chat.StreamDelta(
-                                    role=None,
-                                    content=None,
-                                    tool_calls=[
-                                        chat.ToolCallDelta(
-                                            index=event["contentBlockStart"].get(
-                                                "contentBlockIndex", 0
-                                            ),
-                                            id=tool_use.get("toolUseId"),
-                                            type="function",
-                                            function=chat.Function(
-                                                name=tool_use.get("name"),
-                                                arguments="",
-                                            ),
-                                        )
-                                    ],
-                                ),
-                            )
-                        ],
-                    )
-            elif "contentBlockDelta" in event:
-                delta = event["contentBlockDelta"].get("delta", {})
-                if text := delta.get("text"):
-                    yield chat.StreamResponsePayload(
-                        created=int(time.time()),
-                        model=self.config.model.name,
-                        choices=[
-                            chat.StreamChoice(
-                                index=0,
-                                finish_reason=None,
-                                delta=chat.StreamDelta(
-                                    role=None,
-                                    content=text,
-                                ),
-                            )
-                        ],
-                    )
-                elif "toolUse" in delta:
-                    tool_input = delta["toolUse"].get("input", "")
-                    if isinstance(tool_input, dict):
-                        arguments = json.dumps(tool_input)
-                    else:
-                        arguments = str(tool_input)
-                    yield chat.StreamResponsePayload(
-                        created=int(time.time()),
-                        model=self.config.model.name,
-                        choices=[
-                            chat.StreamChoice(
-                                index=0,
-                                finish_reason=None,
-                                delta=chat.StreamDelta(
-                                    role=None,
-                                    content=None,
-                                    tool_calls=[
-                                        chat.ToolCallDelta(
-                                            index=event["contentBlockDelta"].get(
-                                                "contentBlockIndex", 0
-                                            ),
-                                            function=chat.Function(
-                                                arguments=arguments,
-                                            ),
-                                        )
-                                    ],
-                                ),
-                            )
-                        ],
-                    )
-            elif "messageStop" in event:
-                stop_reason = event["messageStop"].get("stopReason", "end_turn")
-                match stop_reason:
-                    case "tool_use":
-                        finish_reason = "tool_calls"
-                    case "max_tokens":
-                        finish_reason = "length"
-                    case "content_filtered":
-                        finish_reason = "content_filter"
-                    case _:
-                        finish_reason = "stop"
-                yield chat.StreamResponsePayload(
-                    created=int(time.time()),
-                    model=self.config.model.name,
-                    choices=[
-                        chat.StreamChoice(
-                            index=0,
-                            finish_reason=finish_reason,
-                            delta=chat.StreamDelta(role=None, content=None),
-                        )
-                    ],
-                )
-            elif "metadata" in event:
-                if usage := event["metadata"].get("usage", {}):
-                    yield chat.StreamResponsePayload(
-                        created=int(time.time()),
-                        model=self.config.model.name,
-                        choices=[
-                            chat.StreamChoice(
-                                index=0,
-                                finish_reason=None,
-                                delta=chat.StreamDelta(role=None, content=None),
-                            )
-                        ],
-                        usage=chat.ChatUsage(
-                            prompt_tokens=usage.get("inputTokens"),
-                            completion_tokens=usage.get("outputTokens"),
-                            total_tokens=usage.get("totalTokens"),
-                        ),
-                    )
+            if chunk := self._parse_stream_event(event):
+                yield chunk
 
     async def _embeddings(self, payload: embeddings.RequestPayload) -> embeddings.ResponsePayload:
         if self._is_token_auth:
