@@ -985,13 +985,12 @@ def flush_trace_async_logging(terminate=False) -> None:
         terminate: If True, shut down the logging threads after flushing.
     """
     # Flush the batch span processor first (if active), so queued spans
-    # are exported before we flush the exporter's async queue.
+    # are exported to the exporter's async queue before we drain it.
+    # Always force_flush here (not shutdown) because BatchSpanProcessor.shutdown()
+    # calls exporter.shutdown(), which closes the async queue before we drain it.
     try:
         if processor := _get_span_processor():
-            if terminate and hasattr(processor, "shutdown"):
-                processor.shutdown()
-            else:
-                processor.force_flush()
+            processor.force_flush()
     except Exception as e:
         _logger.debug(f"Failed to flush batch span processor: {e}", exc_info=True)
 
@@ -1005,6 +1004,14 @@ def flush_trace_async_logging(terminate=False) -> None:
             trace_exporter._async_queue.flush(terminate=terminate)
     except Exception as e:
         _logger.error(f"Failed to flush trace async logging: {e}")
+
+    # Shut down the batch processor after draining the async queue.
+    if terminate:
+        try:
+            if processor := _get_span_processor():
+                processor.shutdown()
+        except Exception as e:
+            _logger.debug(f"Failed to shutdown batch span processor: {e}", exc_info=True)
 
 
 def set_experiment_tag(key: str, value: Any) -> None:

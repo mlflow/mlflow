@@ -104,8 +104,8 @@ class MlflowV3SpanExporter(SpanExporter):
             )
             return
 
-        mlflow_spans_by_experiment = self._collect_mlflow_spans_for_export(spans)
-        for experiment_id, spans_to_log in mlflow_spans_by_experiment.items():
+        mlflow_spans_by_key = self._collect_mlflow_spans_for_export(spans)
+        for (experiment_id, _trace_id), spans_to_log in mlflow_spans_by_key.items():
             if self._should_log_async():
                 self._async_queue.put(
                     task=Task(
@@ -119,29 +119,44 @@ class MlflowV3SpanExporter(SpanExporter):
 
     def _collect_mlflow_spans_for_export(
         self, spans: Sequence[ReadableSpan]
-    ) -> dict[str, list[Span]]:
+    ) -> dict[tuple[str, str], list[Span]]:
         """
-        Collect MLflow spans from ReadableSpans for export, grouped by experiment ID.
+        Collect MLflow spans from ReadableSpans for export, grouped by (experiment_id, trace_id).
+
+        Grouping by trace_id in addition to experiment_id is necessary because
+        BatchSpanProcessor may deliver spans from multiple traces in a single
+        export() call, and log_spans requires all spans to belong to the same trace.
+
+        The experiment_id is resolved from the trace info (set during on_start in the
+        originating thread) rather than from get_experiment_id_for_trace(), which reads
+        thread-local ContextVars that are unavailable in the batch processor's worker thread.
 
         Args:
             spans: Sequence of ReadableSpan objects.
 
         Returns:
-            Dictionary mapping experiment_id to list of MLflow Span objects.
+            Dictionary mapping (experiment_id, trace_id) to list of MLflow Span objects.
         """
         manager = InMemoryTraceManager.get_instance()
-        spans_by_experiment = defaultdict(list)
+        spans_by_key = defaultdict(list)
 
         for span in spans:
             mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
-            experiment_id = get_experiment_id_for_trace(span)
+            if mlflow_trace_id is None:
+                continue
             span_id = encode_span_id(span.context.span_id)
-            # we need to fetch the mlflow span from the trace manager because the span
-            # may be updated in processor before exporting (e.g. deduplication).
-            if mlflow_span := manager.get_span_from_id(mlflow_trace_id, span_id):
-                spans_by_experiment[experiment_id].append(mlflow_span)
+            mlflow_span = manager.get_span_from_id(mlflow_trace_id, span_id)
+            if mlflow_span is None:
+                continue
+            # Get experiment_id from trace info (resolved at on_start time in the
+            # originating thread) to survive BatchSpanProcessor thread hops.
+            with manager.get_trace(mlflow_trace_id) as trace:
+                experiment_id = trace.info.experiment_id if trace else None
+            if experiment_id is None:
+                experiment_id = get_experiment_id_for_trace(span)
+            spans_by_key[(experiment_id, mlflow_trace_id)].append(mlflow_span)
 
-        return spans_by_experiment
+        return spans_by_key
 
     def _export_traces(self, spans: Sequence[ReadableSpan]) -> None:
         """
