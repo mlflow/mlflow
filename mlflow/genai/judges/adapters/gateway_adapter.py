@@ -46,7 +46,7 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _raise_iteration_limit_exceeded,
     _remove_oldest_tool_call_pair,
 )
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+from mlflow.genai.utils.gateway_utils import get_gateway_config
 from mlflow.metrics.genai.model_utils import _get_provider_instance, _parse_model_uri
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.providers import _get_model_cost
@@ -81,7 +81,7 @@ class _ModelRef:
         self.name = name
 
 
-class _GatewayConfig:
+class _ProviderConfig:
     def __init__(self, model_name):
         self.model = _ModelRef(model_name)
 
@@ -127,11 +127,11 @@ def _get_provider(
 
 def _get_mlflow_gateway_provider(model_name: str) -> _MlflowGatewayProvider:
     """Create a minimal provider-like object for MLflow AI Gateway endpoints."""
-    gw_config = get_gateway_litellm_config(model_name)
+    gw_config = get_gateway_config(model_name)
     headers = {**(gw_config.extra_headers or {})}
     headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
 
-    return _MlflowGatewayProvider(gw_config.api_base, headers, _GatewayConfig(model_name))
+    return _MlflowGatewayProvider(gw_config.api_base, headers, _ProviderConfig(model_name))
 
 
 # ---------------------------------------------------------------------------
@@ -360,14 +360,13 @@ def _invoke_via_gateway(
     # matching how LiteLLMAdapter handles gateway:/ URIs.
     if provider == "gateway":
         _, endpoint_name = _parse_model_uri(model_uri)
-        config = get_gateway_litellm_config(endpoint_name)
+        config = get_gateway_config(endpoint_name)
         headers = {
             **(config.extra_headers or {}),
             MLFLOW_GATEWAY_CALLER_HEADER: GatewayCaller.JUDGE.value,
         }
         messages = [{"role": "user", "content": prompt}] if isinstance(prompt, str) else prompt
-        # Use the endpoint name as the model, not the litellm-format "provider/name"
-        payload = {"model": endpoint_name, "messages": messages}
+        payload = {"model": config.endpoint_name, "messages": messages}
         if inference_params:
             payload.update(inference_params)
 

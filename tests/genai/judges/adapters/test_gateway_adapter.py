@@ -239,24 +239,23 @@ def test_endpoints_rejects_base_url():
 
 
 def _mock_gateway_config(api_base="http://localhost:5000/gateway/mlflow/v1/", extra_headers=None):
-    config = mock.MagicMock()
-    config.api_base = api_base
-    config.model = "openai/my-endpoint"  # litellm format — should NOT be used as model
-    config.api_key = "test-key"
-    config.extra_headers = extra_headers
-    return config
+    from mlflow.genai.utils.gateway_utils import GatewayConfig
+
+    return GatewayConfig(
+        api_base=api_base,
+        endpoint_name="my-endpoint",
+        extra_headers=extra_headers,
+    )
 
 
 def test_invoke_via_gateway_string_prompt():
     from mlflow.genai.judges.adapters.gateway_adapter import _invoke_via_gateway
 
-    response_json = {
-        "choices": [{"message": {"content": '{"result": "yes", "rationale": "ok"}'}}]
-    }
+    response_json = {"choices": [{"message": {"content": '{"result": "yes", "rationale": "ok"}'}}]}
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
+            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_config",
             return_value=_mock_gateway_config(),
         ),
         mock.patch(
@@ -281,9 +280,7 @@ def test_invoke_via_gateway_string_prompt():
 def test_invoke_via_gateway_list_prompt():
     from mlflow.genai.judges.adapters.gateway_adapter import _invoke_via_gateway
 
-    response_json = {
-        "choices": [{"message": {"content": '{"result": "no", "rationale": "bad"}'}}]
-    }
+    response_json = {"choices": [{"message": {"content": '{"result": "no", "rationale": "bad"}'}}]}
     messages = [
         {"role": "system", "content": "You are a judge"},
         {"role": "user", "content": "test"},
@@ -291,7 +288,7 @@ def test_invoke_via_gateway_list_prompt():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
+            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_config",
             return_value=_mock_gateway_config(),
         ),
         mock.patch(
@@ -318,7 +315,7 @@ def test_invoke_via_gateway_sets_caller_header():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
+            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_config",
             return_value=_mock_gateway_config(),
         ),
         mock.patch(
@@ -326,9 +323,7 @@ def test_invoke_via_gateway_sets_caller_header():
             return_value=response_json,
         ) as mock_send,
     ):
-        _invoke_via_gateway(
-            model_uri="gateway:/my-endpoint", provider="gateway", prompt="test"
-        )
+        _invoke_via_gateway(model_uri="gateway:/my-endpoint", provider="gateway", prompt="test")
 
     call_kwargs = mock_send.call_args[1]
     assert MLFLOW_GATEWAY_CALLER_HEADER in call_kwargs["headers"]
@@ -342,7 +337,7 @@ def test_invoke_via_gateway_with_inference_params():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
+            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_config",
             return_value=_mock_gateway_config(),
         ),
         mock.patch(
@@ -368,7 +363,7 @@ def test_invoke_via_gateway_endpoint_url():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
+            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_config",
             return_value=_mock_gateway_config(api_base="http://myserver:8080/gateway/v1/"),
         ),
         mock.patch(
@@ -376,9 +371,7 @@ def test_invoke_via_gateway_endpoint_url():
             return_value=response_json,
         ) as mock_send,
     ):
-        _invoke_via_gateway(
-            model_uri="gateway:/my-endpoint", provider="gateway", prompt="test"
-        )
+        _invoke_via_gateway(model_uri="gateway:/my-endpoint", provider="gateway", prompt="test")
 
     call_kwargs = mock_send.call_args[1]
     assert call_kwargs["endpoint"] == "http://myserver:8080/gateway/v1/chat/completions"
@@ -605,7 +598,7 @@ def test_get_mlflow_gateway_provider():
     mock_config.extra_headers = None
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
+        "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_config",
         return_value=mock_config,
     ):
         provider = _get_mlflow_gateway_provider("my-endpoint")
@@ -864,18 +857,24 @@ def test_custom_base_url_overrides_provider():
 
 def test_lookup_with_provider_prefix():
     mock_cost = {"openai/gpt-4": {"max_input_tokens": 128000}}
-    with mock.patch("mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost):
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost
+    ):
         assert _get_max_context_tokens("openai", "gpt-4") == 128000
 
 
 def test_lookup_without_provider_prefix():
     mock_cost = {"gpt-4": {"max_input_tokens": 8192}}
-    with mock.patch("mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost):
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost
+    ):
         assert _get_max_context_tokens("openai", "gpt-4") == 8192
 
 
 def test_lookup_missing_model():
-    with mock.patch("mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value={}):
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value={}
+    ):
         assert _get_max_context_tokens("openai", "unknown-model") is None
 
 
@@ -884,7 +883,9 @@ def test_provider_prefix_takes_priority():
         "openai/gpt-4": {"max_input_tokens": 128000},
         "gpt-4": {"max_input_tokens": 8192},
     }
-    with mock.patch("mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost):
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter._get_model_cost", return_value=mock_cost
+    ):
         assert _get_max_context_tokens("openai", "gpt-4") == 128000
 
 
