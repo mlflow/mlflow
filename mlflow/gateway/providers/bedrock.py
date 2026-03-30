@@ -6,10 +6,10 @@ from enum import Enum
 from typing import Any, AsyncIterable
 
 from mlflow.gateway.config import (
+    AmazonBedrockConfig,
     AWSBearerToken,
     AWSIdAndKey,
     AWSRole,
-    AmazonBedrockConfig,
     EndpointConfig,
 )
 from mlflow.gateway.constants import (
@@ -19,7 +19,7 @@ from mlflow.gateway.exceptions import AIGatewayConfigException, AIGatewayExcepti
 from mlflow.gateway.providers.anthropic import AnthropicAdapter
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.cohere import CohereAdapter
-from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
+from mlflow.gateway.providers.utils import rename_payload_keys, send_request
 from mlflow.gateway.schemas import chat, completions, embeddings
 
 AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS = 8191
