@@ -96,8 +96,8 @@ jobs:
           source ./dev/install-common-deps.sh --ml
           uv pip install --system fastapi uvicorn
           # Required for the transformers example that uses the Whisper model
-          sudo apt-get update --snapshot=20260310T000000Z
-          sudo apt-get install --snapshot=20260310T000000Z -y ffmpeg
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
       - name: Run example tests
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true'
