@@ -24,6 +24,8 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointType
+from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
 from mlflow.genai.discovery.utils import _pydantic_to_response_format
 from mlflow.genai.judges.adapters.base_adapter import (
     AdapterInvocationInput,
@@ -44,6 +46,8 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _raise_iteration_limit_exceeded,
     _remove_oldest_tool_call_pair,
 )
+from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+from mlflow.metrics.genai.model_utils import _get_provider_instance, _parse_model_uri
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 
 _logger = logging.getLogger(__name__)
@@ -67,6 +71,39 @@ class InvokeOutput:
 
 
 # ---------------------------------------------------------------------------
+# MLflow Gateway provider (lightweight provider-like object)
+# ---------------------------------------------------------------------------
+
+
+class _ModelRef:
+    def __init__(self, name):
+        self.name = name
+
+
+class _GatewayConfig:
+    def __init__(self, model_name):
+        self.model = _ModelRef(model_name)
+
+
+class _MlflowGatewayProvider:
+    """Lightweight provider-like object for MLflow AI Gateway endpoints.
+
+    Matches the provider interface used by the tool-calling loop:
+    ``.get_endpoint_url()``, ``.headers``, ``.adapter_class``, ``.config``.
+    """
+
+    adapter_class = OpenAICompatibleAdapter
+
+    def __init__(self, api_base, headers, config):
+        self._api_base = api_base
+        self.headers = headers
+        self.config = config
+
+    def get_endpoint_url(self, _endpoint_type):
+        return f"{self._api_base.rstrip('/')}/chat/completions"
+
+
+# ---------------------------------------------------------------------------
 # Provider resolution
 # ---------------------------------------------------------------------------
 
@@ -84,43 +121,16 @@ def _get_provider(
     if provider_name == "gateway":
         return _get_mlflow_gateway_provider(model_name)
 
-    from mlflow.metrics.genai.model_utils import _get_provider_instance
-
     return _get_provider_instance(provider_name, model_name)
 
 
-def _get_mlflow_gateway_provider(model_name: str) -> "BaseProvider":
+def _get_mlflow_gateway_provider(model_name: str) -> _MlflowGatewayProvider:
     """Create a minimal provider-like object for MLflow AI Gateway endpoints."""
-    from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
-    from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
-    from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-
     gw_config = get_gateway_litellm_config(model_name)
     headers = {**(gw_config.extra_headers or {})}
     headers[MLFLOW_GATEWAY_CALLER_HEADER] = GatewayCaller.JUDGE.value
 
-    # Lightweight config object — the adapter only needs config.model.name
-    # to add the model field to the request payload.
-    class _ModelRef:
-        def __init__(self, name):
-            self.name = name
-
-    class _Config:
-        def __init__(self, model_name):
-            self.model = _ModelRef(model_name)
-
-    class _GatewayProvider:
-        adapter_class = OpenAICompatibleAdapter
-
-        def __init__(self, api_base, headers, config):
-            self._api_base = api_base
-            self.headers = headers
-            self.config = config
-
-        def get_endpoint_url(self, _endpoint_type):
-            return f"{self._api_base.rstrip('/')}/chat/completions"
-
-    return _GatewayProvider(gw_config.api_base, headers, _Config(model_name))
+    return _MlflowGatewayProvider(gw_config.api_base, headers, _GatewayConfig(model_name))
 
 
 # ---------------------------------------------------------------------------
@@ -321,10 +331,26 @@ def _invoke_via_gateway(
 
     Supports both string prompts (via ``score_model_on_payload``) and
     ChatMessage-style message lists (via the provider infrastructure).
+
+    Args:
+        model_uri: The full model URI.
+        provider: The provider name.
+        prompt: The prompt to evaluate. Either a string or a list of message dicts.
+        inference_params: Optional dictionary of inference parameters to pass to the
+            model (e.g., temperature, top_p, max_tokens).
+        response_format: Optional Pydantic model class for structured output.
+            Only used for ChatMessage-style prompts.
+        base_url: Optional base URL to route requests through.
+        extra_headers: Optional extra HTTP headers.
+
+    Returns:
+        The JSON response string from the model.
+
+    Raises:
+        MlflowException: If the provider is not supported or invocation fails.
     """
     from mlflow.metrics.genai.model_utils import (
         _call_llm_provider_api,
-        _parse_model_uri,
         get_endpoint_type,
         score_model_on_payload,
     )
@@ -332,10 +358,6 @@ def _invoke_via_gateway(
     # "gateway" uses the gateway config to call the endpoint directly,
     # matching how LiteLLMAdapter handles gateway:/ URIs.
     if provider == "gateway":
-        from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
-        from mlflow.genai.judges.adapters.utils import send_chat_request
-        from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-
         _, endpoint_name = _parse_model_uri(model_uri)
         config = get_gateway_litellm_config(endpoint_name)
         headers = {
@@ -393,7 +415,6 @@ class GatewayAdapter(BaseJudgeAdapter):
         prompt: str | list["ChatMessage"],
     ) -> bool:
         from mlflow.gateway.provider_registry import is_supported_provider
-        from mlflow.metrics.genai.model_utils import _parse_model_uri
 
         model_provider, _ = _parse_model_uri(model_uri)
         if not is_supported_provider(model_provider) and model_provider not in {
@@ -476,8 +497,6 @@ class GatewayAdapter(BaseJudgeAdapter):
         inference_params: dict[str, Any] | None = None,
     ) -> pydantic.BaseModel:
         """Invoke the model and parse the response into a Pydantic schema."""
-        from mlflow.metrics.genai.model_utils import _parse_model_uri
-
         provider, model_name = _parse_model_uri(model_uri)
 
         output = self._invoke_and_handle_tools(

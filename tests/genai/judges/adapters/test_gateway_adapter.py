@@ -256,11 +256,11 @@ def test_invoke_via_gateway_string_prompt():
 
     with (
         mock.patch(
-            "mlflow.genai.utils.gateway_utils.get_gateway_litellm_config",
+            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
             return_value=_mock_gateway_config(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.utils.send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             return_value=response_json,
         ) as mock_send,
     ):
@@ -291,11 +291,11 @@ def test_invoke_via_gateway_list_prompt():
 
     with (
         mock.patch(
-            "mlflow.genai.utils.gateway_utils.get_gateway_litellm_config",
+            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
             return_value=_mock_gateway_config(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.utils.send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             return_value=response_json,
         ) as mock_send,
     ):
@@ -318,11 +318,11 @@ def test_invoke_via_gateway_sets_caller_header():
 
     with (
         mock.patch(
-            "mlflow.genai.utils.gateway_utils.get_gateway_litellm_config",
+            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
             return_value=_mock_gateway_config(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.utils.send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             return_value=response_json,
         ) as mock_send,
     ):
@@ -342,11 +342,11 @@ def test_invoke_via_gateway_with_inference_params():
 
     with (
         mock.patch(
-            "mlflow.genai.utils.gateway_utils.get_gateway_litellm_config",
+            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
             return_value=_mock_gateway_config(),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.utils.send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             return_value=response_json,
         ) as mock_send,
     ):
@@ -368,11 +368,11 @@ def test_invoke_via_gateway_endpoint_url():
 
     with (
         mock.patch(
-            "mlflow.genai.utils.gateway_utils.get_gateway_litellm_config",
+            "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
             return_value=_mock_gateway_config(api_base="http://myserver:8080/gateway/v1/"),
         ),
         mock.patch(
-            "mlflow.genai.judges.adapters.utils.send_chat_request",
+            "mlflow.genai.judges.adapters.gateway_adapter.send_chat_request",
             return_value=response_json,
         ) as mock_send,
     ):
@@ -605,7 +605,7 @@ def test_get_mlflow_gateway_provider():
     mock_config.extra_headers = None
 
     with mock.patch(
-        "mlflow.genai.utils.gateway_utils.get_gateway_litellm_config",
+        "mlflow.genai.judges.adapters.gateway_adapter.get_gateway_litellm_config",
         return_value=mock_config,
     ):
         provider = _get_mlflow_gateway_provider("my-endpoint")
