@@ -2913,30 +2913,30 @@ __metadata:
   linkType: hard
 
 "@emnapi/core@npm:^1.4.3":
-  version: 1.9.0
-  resolution: "@emnapi/core@npm:1.9.0"
+  version: 1.8.1
+  resolution: "@emnapi/core@npm:1.8.1"
   dependencies:
-    "@emnapi/wasi-threads": "npm:1.2.0"
+    "@emnapi/wasi-threads": "npm:1.1.0"
     tslib: "npm:^2.4.0"
-  checksum: 10c0/defbfa5861aa5ff1346dbc6a19df50d727ae76ae276a31a97b178db8eecae0c5179976878087b43ac2441750e40e6c50e465280383256deb16dd2fb167dd515c
+  checksum: 10c0/2c242f4b49779bac403e1cbcc98edacdb1c8ad36562408ba9a20663824669e930bc8493be46a2522d9dc946b8d96cd7073970bae914928c7671b5221c85b432e
   languageName: node
   linkType: hard
 
 "@emnapi/runtime@npm:^1.4.3":
-  version: 1.9.0
-  resolution: "@emnapi/runtime@npm:1.9.0"
+  version: 1.8.1
+  resolution: "@emnapi/runtime@npm:1.8.1"
   dependencies:
     tslib: "npm:^2.4.0"
-  checksum: 10c0/f825e53b2d3f9d31fd880e669197d006bb5158c3a52ab25f0546f3d52ac58eb539a4bd1dcc378af6c10d202956fa064b28ab7b572a76de58972c0b8656a692ef
+  checksum: 10c0/f4929d75e37aafb24da77d2f58816761fe3f826aad2e37fa6d4421dac9060cbd5098eea1ac3c9ecc4526b89deb58153852fa432f87021dc57863f2ff726d713f
   languageName: node
   linkType: hard
 
-"@emnapi/wasi-threads@npm:1.2.0":
-  version: 1.2.0
-  resolution: "@emnapi/wasi-threads@npm:1.2.0"
+"@emnapi/wasi-threads@npm:1.1.0":
+  version: 1.1.0
+  resolution: "@emnapi/wasi-threads@npm:1.1.0"
   dependencies:
     tslib: "npm:^2.4.0"
-  checksum: 10c0/1e3724b5814b06c14782fda87eee9b9aa68af01576c81ffeaefdf621ddb74386e419d5b3b1027b6a8172397729d95a92f814fc4b8d3c224376428faa07a6a01a
+  checksum: 10c0/e6d54bf2b1e64cdd83d2916411e44e579b6ae35d5def0dea61a3c452d9921373044dff32a8b8473ae60c80692bdc39323e98b96a3f3d87ba6886b24dd0ef7ca1
   languageName: node
   linkType: hard
 
@@ -13414,24 +13414,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"caniuse-lite@npm:^1.0.0, caniuse-lite@npm:^1.0.30001109, caniuse-lite@npm:^1.0.30001283, caniuse-lite@npm:^1.0.30001759":
-  version: 1.0.30001760
-  resolution: "caniuse-lite@npm:1.0.30001760"
-  checksum: 10c0/cee26dff5c5b15ba073ab230200e43c0d4e88dc3bac0afe0c9ab963df70aaa876c3e513dde42a027f317136bf6e274818d77b073708b74c5807dfad33c029d3c
-  languageName: node
-  linkType: hard
-
-"caniuse-lite@npm:^1.0.30001332":
-  version: 1.0.30001769
-  resolution: "caniuse-lite@npm:1.0.30001769"
-  checksum: 10c0/161b8c30ab967371807d45d361f0d5bc06e38ef2dbf811493d70cd97c21e1522f5b91fd944c419a00047ee09c931ca64627f125a9ffa7a17a9fdff8dad9765b0
-  languageName: node
-  linkType: hard
-
-"caniuse-lite@npm:^1.0.30001524":
-  version: 1.0.30001779
-  resolution: "caniuse-lite@npm:1.0.30001779"
-  checksum: 10c0/6cae9492140722ebc6be76cf3057ff8d1b427c7d8c2588b92bba7979bb1ec7ece457c7d3578a099a757ec12cb01b893fe05f224ac8feb841072897f0c12de6cc
+"caniuse-lite@npm:^1.0.0, caniuse-lite@npm:^1.0.30001109, caniuse-lite@npm:^1.0.30001283, caniuse-lite@npm:^1.0.30001332, caniuse-lite@npm:^1.0.30001524, caniuse-lite@npm:^1.0.30001759":
+  version: 1.0.30001777
+  resolution: "caniuse-lite@npm:1.0.30001777"
+  checksum: 10c0/e35443fa7c470edc06e315297cca706790840e96983fff12dfe502a4b123d6e4a64b9b4e8e35fb2f5bb60c31b24fbda93d76b2f700ce183df474671236fa7a4a
   languageName: node
   linkType: hard
 
@@ -17730,13 +17716,13 @@ __metadata:
   linkType: hard
 
 "eslint-plugin-playwright@npm:^2.2.0":
-  version: 2.10.0
-  resolution: "eslint-plugin-playwright@npm:2.10.0"
+  version: 2.9.0
+  resolution: "eslint-plugin-playwright@npm:2.9.0"
   dependencies:
     globals: "npm:^17.3.0"
   peerDependencies:
     eslint: ">=8.40.0"
-  checksum: 10c0/ca68b0587b99a5f4021c5df2138ec4a71dc5205e9f4b01a9d961ee5b6c4f2e4c398a5fc22b5d9efaed547a021292950a78e723696cd9f5b4ef004a7521c621cd
+  checksum: 10c0/8f5528547c7d731b9ff4afad7a8b98ede86d93342842be9f06a5428358180c17f7b7624e4dcaae331f211345bcecf9f3cc48f8a995549f30dfd633b8300e5a08
   languageName: node
   linkType: hard
 
@@ -18771,9 +18757,9 @@ __metadata:
   linkType: hard
 
 "flow-parser@npm:0.*":
-  version: 0.305.0
-  resolution: "flow-parser@npm:0.305.0"
-  checksum: 10c0/3a58e4ec958075639944dc3020038a18e02e18130b89f6680ddc63b096051112bc0e2fbc40e2626b98dcd648249905d8e99f3a02aacacca2b7c97a132f1b07dd
+  version: 0.304.0
+  resolution: "flow-parser@npm:0.304.0"
+  checksum: 10c0/349095c8af6c6b165dccdcafb4cd41324732e962d71183982877be37206ac107e3b8227af1263deb0b4b05c1ff03cfe938b26205f5484beaad43904a112fa400
   languageName: node
   linkType: hard
 

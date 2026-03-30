@@ -3,6 +3,7 @@ import contextlib
 import shutil
 import subprocess
 import sys
+import zipfile
 from collections.abc import Generator
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +30,8 @@ PACKAGES = [
     RELEASE,
     TRACING,
 ]
+
+JS_BUILD_DIR = Path("mlflow/server/js/build")
 
 
 def parse_args() -> argparse.Namespace:
@@ -59,6 +62,30 @@ def restore_changes() -> Generator[None, None, None]:
         ])
 
 
+def validate_ui_assets_pre_build(package: Package) -> None:
+    if package != RELEASE:
+        return
+    if not JS_BUILD_DIR.exists() or not any(JS_BUILD_DIR.iterdir()):
+        raise RuntimeError("Build the UI first before building the release package.")
+
+
+def validate_ui_assets_post_build(wheel_path: Path, package: Package) -> None:
+    ui_asset_prefix = f"{JS_BUILD_DIR.as_posix()}/"
+    with zipfile.ZipFile(wheel_path) as zf:
+        has_ui_assets = any(name.startswith(ui_asset_prefix) for name in zf.namelist())
+    if package == RELEASE:
+        if not has_ui_assets:
+            raise RuntimeError(
+                f"UI assets are missing from the release wheel: {wheel_path}. "
+                "Build the UI first before building the release package."
+            )
+    elif package in (SKINNY, TRACING):
+        if has_ui_assets:
+            raise RuntimeError(
+                f"UI assets should not be included in the {package.type} wheel: {wheel_path}."
+            )
+
+
 def main() -> None:
     args = parse_args()
 
@@ -82,32 +109,28 @@ def main() -> None:
 
     package = next(p for p in PACKAGES if p.type == args.package_type)
 
+    validate_ui_assets_pre_build(package)
+
     with restore_changes():
         pyproject = Path("pyproject.toml")
         if package == RELEASE:
             pyproject.write_text(Path("pyproject.release.toml").read_text())
 
+        DIST_DIR = Path("dist").resolve()
+        DIST_DIR.mkdir(exist_ok=True)
         subprocess.check_call([
             sys.executable,
             "-m",
             "build",
             package.build_path,
+            "--outdir",
+            DIST_DIR,
         ])
 
-        DIST_DIR = Path("dist")
-        DIST_DIR.mkdir(exist_ok=True)
-        if package in (SKINNY, TRACING):
-            # Move `libs/xyz/dist/*` to `dist/`
-            for src in (Path(package.build_path) / "dist").glob("*"):
-                print(src)
-                dst = DIST_DIR / src.name
-                if dst.exists():
-                    dst.unlink()
-                src.rename(dst)
+    wheel = next(DIST_DIR.glob("mlflow*.whl"))
+    validate_ui_assets_post_build(wheel, package)
 
     if args.sha:
-        # If build succeeds, there should be one wheel in the dist directory
-        wheel = next(DIST_DIR.glob("mlflow*.whl"))
         name, version, rest = wheel.name.split("-", 2)
         build_tag = f"0.sha.{args.sha}"  # build tag must start with a digit
         wheel.rename(wheel.with_name(f"{name}-{version}-{build_tag}-{rest}"))
