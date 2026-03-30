@@ -18,9 +18,11 @@ from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
-from mlflow.genai.evaluation.entities import EvaluationResult
+from mlflow.genai.evaluation.entities import EvalItem, EvaluationResult
 from mlflow.genai.evaluation.harness import (
     AUTO_INITIAL_RPS,
+    _get_new_expectations,
+    _run_predict,
     _should_clone_trace,
     backpressure_buffer,
 )
@@ -1812,3 +1814,85 @@ def test_should_clone_trace_does_not_call_get_experiment_id_when_provided(mlflow
     ):
         _should_clone_trace(mlflow_experiment_trace, run_id="run-1", experiment_id="exp-123")
         mock_get_exp.assert_not_called()
+
+
+def test_run_predict_keeps_original_trace_when_clone_fetch_returns_none():
+    original_trace = Trace(
+        info=create_test_trace_info(trace_id="tr-original", experiment_id="exp-source"),
+        data=TraceData(spans=[]),
+    )
+    eval_item = EvalItem(
+        request_id="req-1",
+        inputs={"q": "hello"},
+        outputs="world",
+        expectations={},
+        trace=original_trace,
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.evaluation.harness._should_clone_trace",
+            return_value=True,
+        ),
+        mock.patch(
+            "mlflow.genai.evaluation.harness.copy_trace_to_experiment",
+            return_value="tr-cloned",
+        ) as mock_copy,
+        mock.patch(
+            "mlflow.genai.evaluation.harness.mlflow.get_trace",
+            return_value=None,
+        ) as mock_get_trace,
+    ):
+        _run_predict(eval_item, predict_fn=None, run_id=None, rate_limiter=None)
+
+    mock_copy.assert_called_once()
+    mock_get_trace.assert_called_once_with("tr-cloned")
+    # Original trace should be preserved when clone fetch returns None
+    assert eval_item.trace is original_trace
+
+
+def _mock_eval_context():
+    """Create a mock context for tests that call get_expectation_assessments."""
+    ctx = MagicMock()
+    ctx.get_user_name.return_value = "test-user"
+    return mock.patch("mlflow.genai.evaluation.entities.get_context", return_value=ctx)
+
+
+def test_get_new_expectations_returns_all_when_trace_is_none():
+    eval_item = EvalItem(
+        request_id="req-1",
+        inputs={"q": "hello"},
+        outputs="world",
+        expectations={"correctness": True, "relevance": False},
+        trace=None,
+    )
+    with _mock_eval_context():
+        result = _get_new_expectations(eval_item)
+    assert {e.name for e in result} == {"correctness", "relevance"}
+
+
+def test_get_new_expectations_filters_existing():
+    existing_expectation = Expectation(
+        trace_id="tr-1",
+        name="correctness",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN,
+            source_id="user",
+        ),
+        value=True,
+    )
+    trace = Trace(
+        info=create_test_trace_info(trace_id="tr-1"),
+        data=TraceData(spans=[]),
+    )
+    trace.info.assessments = [existing_expectation]
+    eval_item = EvalItem(
+        request_id="req-1",
+        inputs={"q": "hello"},
+        outputs="world",
+        expectations={"correctness": True, "relevance": False},
+        trace=trace,
+    )
+    with _mock_eval_context():
+        result = _get_new_expectations(eval_item)
+    assert {e.name for e in result} == {"relevance"}
