@@ -105,6 +105,8 @@ def test_gateway_adapter_invoke_with_list_prompt(list_prompt):
         return_value=mock_response,
     ) as mock_api:
         output = adapter.invoke(input_params)
+        from mlflow.gateway.config import EndpointType
+
         mock_api.assert_called_once_with(
             "my-endpoint",
             {
@@ -114,7 +116,7 @@ def test_gateway_adapter_invoke_with_list_prompt(list_prompt):
                 ],
             },
             None,
-            "llm/v1/chat",
+            EndpointType.LLM_V1_CHAT,
         )
         assert output.feedback.value == "yes"
         assert output.feedback.rationale == "looks good"

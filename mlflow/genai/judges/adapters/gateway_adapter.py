@@ -93,10 +93,13 @@ def _invoke_via_gateway(
             rf_dict = _pydantic_to_response_format(response_format)
             if rf_dict is not None:
                 payload["response_format"] = rf_dict
-        response = call_deployments_api(model_name, payload, inference_params, "llm/v1/chat")
+        response = call_deployments_api(
+            model_name, payload, inference_params, EndpointType.LLM_V1_CHAT
+        )
         if not isinstance(response, str):
             raise MlflowException(
-                "Expected a string response from the gateway deployment for 'llm/v1/chat', "
+                f"Expected a string response from gateway deployment '{model_name}' "
+                f"for endpoint type '{EndpointType.LLM_V1_CHAT}', "
                 f"but got {type(response).__name__}.",
                 error_code=BAD_REQUEST,
             )
