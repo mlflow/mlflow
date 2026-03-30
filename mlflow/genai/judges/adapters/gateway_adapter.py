@@ -25,6 +25,7 @@ from mlflow.environment_variables import MLFLOW_JUDGE_MAX_ITERATIONS
 from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointType
 from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
 from mlflow.genai.discovery.utils import _pydantic_to_response_format
 from mlflow.genai.judges.adapters.base_adapter import (
@@ -47,7 +48,13 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _remove_oldest_tool_call_pair,
 )
 from mlflow.genai.utils.gateway_utils import get_gateway_config
-from mlflow.metrics.genai.model_utils import _get_provider_instance, _parse_model_uri
+from mlflow.metrics.genai.model_utils import (
+    _call_llm_provider_api,
+    _get_provider_instance,
+    _parse_model_uri,
+    get_endpoint_type,
+    score_model_on_payload,
+)
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, INVALID_PARAMETER_VALUE
 from mlflow.utils.providers import _get_model_cost
 
@@ -350,12 +357,6 @@ def _invoke_via_gateway(
     Raises:
         MlflowException: If the provider is not supported or invocation fails.
     """
-    from mlflow.metrics.genai.model_utils import (
-        _call_llm_provider_api,
-        get_endpoint_type,
-        score_model_on_payload,
-    )
-
     # "gateway" uses the gateway config to call the endpoint directly,
     # matching how LiteLLMAdapter handles gateway:/ URIs.
     if provider == "gateway":
@@ -414,8 +415,6 @@ class GatewayAdapter(BaseJudgeAdapter):
         model_uri: str,
         prompt: str | list["ChatMessage"],
     ) -> bool:
-        from mlflow.gateway.provider_registry import is_supported_provider
-
         model_provider, _ = _parse_model_uri(model_uri)
         if not is_supported_provider(model_provider) and model_provider not in {
             "endpoints",

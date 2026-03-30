@@ -66,7 +66,7 @@ def _mock_provider(endpoint_url="https://api.openai.com/v1/chat/completions", he
 # --- is_applicable tests ---
 
 
-@pytest.mark.parametrize("provider", ["openai", "anthropic", "gemini", "mistral"])
+@pytest.mark.parametrize("provider", ["openai", "anthropic", "gemini", "mistral", "gateway"])
 def test_native_providers_applicable(provider):
     assert GatewayAdapter.is_applicable(model_uri=f"{provider}:/test-model", prompt="test")
 
@@ -232,6 +232,19 @@ def test_endpoints_rejects_base_url():
     )
 
     with pytest.raises(MlflowException, match="base_url and extra_headers are not supported"):
+        adapter.invoke(input_params)
+
+
+def test_endpoints_rejects_trace(mock_trace):
+    adapter = GatewayAdapter()
+    input_params = AdapterInvocationInput(
+        model_uri="endpoints:/my-ep",
+        prompt="test",
+        assessment_name="test_metric",
+        trace=mock_trace,
+    )
+
+    with pytest.raises(MlflowException, match="Trace-based tool calling is not supported"):
         adapter.invoke(input_params)
 
 
