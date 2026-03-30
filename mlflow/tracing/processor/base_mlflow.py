@@ -52,11 +52,20 @@ from mlflow.tracking.fluent import (
 _logger = logging.getLogger(__name__)
 
 
+# Default max_queue_size in OTel's BatchSpanProcessor.
+# https://opentelemetry.io/docs/specs/otel/trace/sdk/#batching-processor
+_DEFAULT_OTEL_MAX_QUEUE_SIZE = 2048
+
+
 def _create_batch_span_processor(exporter: SpanExporter) -> BatchSpanProcessor:
+    max_export_batch_size = MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE.get()
+    # OTel requires max_export_batch_size <= max_queue_size (raises ValueError otherwise).
+    max_queue_size = max(max_export_batch_size, _DEFAULT_OTEL_MAX_QUEUE_SIZE)
     return BatchSpanProcessor(
         exporter,
         schedule_delay_millis=MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS.get(),
-        max_export_batch_size=MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE.get(),
+        max_queue_size=max_queue_size,
+        max_export_batch_size=max_export_batch_size,
     )
 
 

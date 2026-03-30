@@ -324,6 +324,7 @@ def test_batch_processor_reads_existing_env_vars(monkeypatch):
         mock_batch_cls.assert_called_once_with(
             mock_exporter,
             schedule_delay_millis=1000,
+            max_queue_size=2048,
             max_export_batch_size=256,
         )
 
