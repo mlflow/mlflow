@@ -29,6 +29,7 @@ export const TimelineTreeNode = ({
   traceEndTime,
   onSelect,
   linesToRender,
+  viewMatchedSpanKeys,
 }: {
   node: ModelTraceSpanNode;
   selectedKey: string | number;
@@ -41,6 +42,10 @@ export const TimelineTreeNode = ({
   // connecting line is supposed to in at the `i`th spacer. see
   // TimelineTreeHierarchyBars for more details.
   linesToRender: Array<HierarchyBar>;
+  // When a trace view with a span filter is active, this set contains the keys
+  // of spans that match the filter. Spans not in the set are visually dimmed.
+  // null means no filter is active (all spans shown normally).
+  viewMatchedSpanKeys?: Set<string | number> | null;
 }) => {
   const expanded = expandedKeys.has(node.key);
   const { theme } = useDesignSystemTheme();
@@ -55,6 +60,7 @@ export const TimelineTreeNode = ({
   const hasException = getSpanExceptionCount(node) > 0;
   const gatewayTraceHref = useGatewayTraceLink(node.linkedGatewayTraceId);
 
+  const isDimmedByView = viewMatchedSpanKeys != null && !viewMatchedSpanKeys.has(node.key);
   const backgroundColor = isActive ? theme.colors.actionDefaultBackgroundHover : 'transparent';
 
   return (
@@ -69,6 +75,8 @@ export const TimelineTreeNode = ({
             cursor: 'pointer',
             boxSizing: 'border-box',
             backgroundColor,
+            opacity: isDimmedByView ? 0.3 : 1,
+            transition: 'opacity 150ms ease',
             ':hover': {
               backgroundColor: theme.colors.actionDefaultBackgroundHover,
             },
@@ -200,6 +208,7 @@ export const TimelineTreeNode = ({
             traceStartTime={traceStartTime}
             traceEndTime={traceEndTime}
             onSelect={onSelect}
+            viewMatchedSpanKeys={viewMatchedSpanKeys}
             linesToRender={linesToRender.concat({
               // render the connecting line at this depth
               // if there are more children to render

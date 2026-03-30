@@ -9,6 +9,7 @@ import { TimelineTreeNode } from './TimelineTreeNode';
 import { TimelineTreeGanttBars } from './gantt/TimelineTreeGanttBars';
 import type { ModelTraceSpanNode, SpanFilterState } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useTraceViewSpanMatches } from '../hooks/useTraceViewFiltering';
 
 export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: NodeType[] }>({
   rootNodes,
@@ -49,8 +50,13 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
     ],
   );
 
-  const { showTimelineTreeGantt: showTimelineInfo, setShowTimelineTreeGantt: setShowTimelineInfo } =
-    useModelTraceExplorerViewState();
+  const {
+    showTimelineTreeGantt: showTimelineInfo,
+    setShowTimelineTreeGantt: setShowTimelineInfo,
+    activeTraceView,
+  } = useModelTraceExplorerViewState();
+
+  const viewMatchedSpanKeys = useTraceViewSpanMatches(rootNodes, activeTraceView);
 
   const expandedNodesList = useMemo(
     () => getTimelineTreeExpandedNodesList(rootNodes, expandedKeys),
@@ -90,6 +96,7 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
               traceStartTime={traceStartTime}
               traceEndTime={traceEndTime}
               onSelect={onSpanClick}
+              viewMatchedSpanKeys={viewMatchedSpanKeys}
               linesToRender={[]}
             />
           ))
@@ -106,6 +113,7 @@ export const TimelineTree = <NodeType extends ModelTraceSpanNode & { children?: 
       rootNodes,
       expandedKeys,
       setExpandedKeys,
+      viewMatchedSpanKeys,
     ],
   );
 

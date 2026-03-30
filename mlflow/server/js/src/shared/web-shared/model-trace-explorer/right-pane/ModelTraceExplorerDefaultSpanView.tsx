@@ -1,13 +1,16 @@
 import { isNil } from 'lodash';
 import { useMemo } from 'react';
 
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+
 import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTraceSpanNode, SearchMatch } from '../ModelTrace.types';
 import { createListFromObject } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
+import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { applyJsonPath } from '../hooks/useTraceViewFiltering';
 
 export function ModelTraceExplorerDefaultSpanView({
   activeSpan,
@@ -21,8 +24,26 @@ export function ModelTraceExplorerDefaultSpanView({
   activeMatch: SearchMatch | null;
 }) {
   const { theme } = useDesignSystemTheme();
-  const inputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
-  const outputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
+  const { activeTraceView } = useModelTraceExplorerViewState();
+
+  const rawInputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
+  const rawOutputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
+
+  const inputList = useMemo(() => {
+    if (!activeTraceView?.input_path) return rawInputList;
+    return rawInputList.map((item) => ({
+      ...item,
+      value: applyJsonPath(item.value, activeTraceView.input_path),
+    }));
+  }, [rawInputList, activeTraceView?.input_path]);
+
+  const outputList = useMemo(() => {
+    if (!activeTraceView?.output_path) return rawOutputList;
+    return rawOutputList.map((item) => ({
+      ...item,
+      value: applyJsonPath(item.value, activeTraceView.output_path),
+    }));
+  }, [rawOutputList, activeTraceView?.output_path]);
 
   if (isNil(activeSpan)) {
     return null;
@@ -33,8 +54,27 @@ export function ModelTraceExplorerDefaultSpanView({
 
   const isActiveMatchSpan = !isNil(activeMatch) && activeMatch.span.key === activeSpan.key;
 
+  const hasJsonPathFilter = !!(activeTraceView?.input_path || activeTraceView?.output_path);
+
   return (
     <div data-testid="model-trace-explorer-default-span-view">
+      {hasJsonPathFilter && activeTraceView && (
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.xs,
+            marginBottom: theme.spacing.sm,
+            padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+            backgroundColor: theme.colors.backgroundSecondary,
+            borderRadius: theme.borders.borderRadiusMd,
+          }}
+        >
+          <Typography.Text size="sm" color="secondary">
+            Filtered by: {activeTraceView.name}
+          </Typography.Text>
+        </div>
+      )}
       {containsInputs && (
         <ModelTraceExplorerCollapsibleSection
           withBorder

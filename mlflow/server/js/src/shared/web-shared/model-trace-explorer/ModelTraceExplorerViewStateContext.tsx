@@ -7,6 +7,7 @@ import {
   parseModelTraceToTreeWithMultipleRoots,
   searchTreeBySpanId,
 } from './ModelTraceExplorer.utils';
+import type { TraceView } from './hooks/useTraceViews';
 import { getTimelineTreeNodesMap } from './timeline-tree/TimelineTree.utils';
 import { useModelTraceExplorerPreferences } from './ModelTraceExplorerPreferencesContext';
 
@@ -52,6 +53,8 @@ export type ModelTraceExplorerViewState = {
   // NB: There can be multiple top-level spans in the trace when it is in-progress. They are not
   // root spans, but used as a tentative roots until the trace is complete.
   topLevelNodes: ModelTraceSpanNode[];
+  activeTraceView: TraceView | null;
+  setActiveTraceView: (view: TraceView | null) => void;
   subscribeToHighlightEvent: (assessmentId: string, callback: () => void) => () => void;
   highlightAssessment: (assessmentId: string) => void;
 };
@@ -75,6 +78,8 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   assessmentsPaneEnabled: true,
   updatePaneSizeRatios: () => {},
   getPaneSizeRatios: () => getDefaultPaneSizeRatios(),
+  activeTraceView: null,
+  setActiveTraceView: () => {},
   readOnly: false,
   topLevelNodes: [],
   subscribeToHighlightEvent: () => () => {},
@@ -156,6 +161,8 @@ export const ModelTraceExplorerViewStateProvider = ({
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
   const [showGraph, setShowGraph] = useState(!!rootNode);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
+  const [activeTraceView, setActiveTraceView] = useState<TraceView | null>(null);
+
   const [assessmentsPaneExpanded, setAssessmentsPaneExpandedInternal] = useState(() => {
     if (preferences.assessmentsPaneExpanded !== undefined) {
       return preferences.assessmentsPaneExpanded;
@@ -234,6 +241,8 @@ export const ModelTraceExplorerViewStateProvider = ({
       isTraceInitialLoading,
       updatePaneSizeRatios,
       getPaneSizeRatios,
+      activeTraceView,
+      setActiveTraceView,
       readOnly,
       topLevelNodes,
       subscribeToHighlightEvent,
@@ -255,6 +264,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       isTraceInitialLoading,
       updatePaneSizeRatios,
       getPaneSizeRatios,
+      activeTraceView,
       readOnly,
       topLevelNodes,
       subscribeToHighlightEvent,

@@ -4,6 +4,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
   Button,
+  CloseIcon,
   FullscreenExitIcon,
   FullscreenIcon,
   InfoFillIcon,
@@ -96,6 +97,8 @@ export const ModelTraceExplorerDetailView = ({
     updatePaneSizeRatios,
     getPaneSizeRatios,
     topLevelNodes,
+    activeTraceView,
+    setActiveTraceView,
   } = useModelTraceExplorerViewState();
 
   const activeLayoutConfig = isGraphExpanded ? EXPANDED_WORKFLOW_LAYOUT_CONFIG : DEFAULT_WORKFLOW_LAYOUT_CONFIG;
@@ -379,6 +382,33 @@ export const ModelTraceExplorerDetailView = ({
           handlePreviousSearchMatch={handlePreviousSearchMatch}
         />
       </div>
+      {activeTraceView && (
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: `${theme.spacing.xs}px ${theme.spacing.md}px`,
+            backgroundColor: theme.colors.actionPrimaryBackgroundDefault,
+            color: theme.colors.white,
+            flexShrink: 0,
+          }}
+        >
+          <Typography.Text size="sm" css={{ color: 'inherit' }}>
+            Viewing: &ldquo;{activeTraceView.name}&rdquo;
+          </Typography.Text>
+          <Button
+            componentId="shared.model-trace-explorer.clear-trace-view"
+            size="small"
+            icon={<CloseIcon />}
+            onClick={() => setActiveTraceView(null)}
+            css={{
+              color: 'inherit',
+              '&:hover': { color: 'inherit', opacity: 0.8 },
+            }}
+          />
+        </div>
+      )}
       <ModelTraceExplorerResizablePane
         ref={paneRef}
         initialRatio={getPaneSizeRatios().detailsPane}
