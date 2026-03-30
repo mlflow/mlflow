@@ -243,9 +243,13 @@ class AWSIdAndKey(AWSBaseConfig):
     aws_session_token: str | None = None
 
 
+class AWSBearerToken(AWSBaseConfig):
+    aws_bearer_token: str
+
+
 class AmazonBedrockConfig(ConfigModel):
     # order here is important, at least for pydantic<2
-    aws_config: AWSRole | AWSIdAndKey | AWSBaseConfig
+    aws_config: AWSBearerToken | AWSRole | AWSIdAndKey | AWSBaseConfig
 
 
 class MistralConfig(ConfigModel):

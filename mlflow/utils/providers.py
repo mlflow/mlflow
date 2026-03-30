@@ -171,6 +171,12 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "secret": True,
                     "required": True,
                 },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region",
+                    "secret": False,
+                    "required": True,
+                },
             ],
         },
         "access_keys": {
@@ -199,31 +205,14 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
         },
         "iam_role": {
             "display_name": "IAM Role Assumption",
-            "description": "Assume an IAM role using base credentials (for cross-account access)",
+            "description": "Assume an IAM role using the server's ambient credentials "
+            "(instance profile, IRSA, ECS task role, ~/.aws/credentials, etc.)",
             "fields": [
-                {
-                    "name": "aws_access_key_id",
-                    "description": "AWS Access Key ID (for assuming role)",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "aws_secret_access_key",
-                    "description": "AWS Secret Access Key",
-                    "secret": True,
-                    "required": True,
-                },
                 {
                     "name": "aws_role_name",
                     "description": "IAM Role ARN to assume",
                     "secret": False,
                     "required": True,
-                },
-                {
-                    "name": "aws_session_name",
-                    "description": "Session name for assumed role",
-                    "secret": False,
-                    "required": False,
                 },
                 {
                     "name": "aws_region_name",

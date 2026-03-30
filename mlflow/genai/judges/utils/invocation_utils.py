@@ -18,7 +18,6 @@ from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     _run_databricks_agentic_loop,
 )
-from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm_and_handle_tools
 from mlflow.genai.judges.adapters.utils import get_adapter
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
@@ -194,8 +193,7 @@ def get_chat_completions_with_structured_output(
         Instance of output_schema with the structured data from the LLM.
 
     Raises:
-        ImportError: If LiteLLM is not installed.
-        JSONDecodeError: If the LLM response cannot be parsed as JSON.
+        MlflowException: If the LLM invocation fails or the response is not valid JSON.
         ValidationError: If the LLM response does not match the output schema.
 
     Example:
@@ -229,24 +227,43 @@ def get_chat_completions_with_structured_output(
     if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
         return _invoke_databricks_structured_output(messages, output_schema, trace)
 
+    # TODO: When adapter order is changed to Gateway-first, update this to match.
+    # Currently uses litellm-first to match get_adapter() priority, falling back
+    # to GatewayAdapter when litellm is unavailable.
+    from mlflow.genai.judges.adapters.litellm_adapter import (
+        _invoke_litellm_and_handle_tools,
+        _is_litellm_available,
+    )
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     model_provider, model_name = _parse_model_uri(model_uri)
 
-    # TODO: The cost measurement and telemetry data are discarded here from the
-    # parsing of the tool handling response. We should eventually pass this cost
-    # estimation through so that the total cost of the usage of the scorer incorporates
-    # tool call usage. Deferring for initial implementation due to complexity.
-    output = _invoke_litellm_and_handle_tools(
-        provider=model_provider,
-        model_name=model_name,
+    if _is_litellm_available():
+        output = _invoke_litellm_and_handle_tools(
+            provider=model_provider,
+            model_name=model_name,
+            messages=messages,
+            trace=trace,
+            num_retries=num_retries,
+            response_format=output_schema,
+            inference_params=inference_params,
+        )
+        cleaned_response = _strip_markdown_code_blocks(output.response)
+        try:
+            response_dict = json.loads(cleaned_response)
+        except json.JSONDecodeError as e:
+            raise MlflowException(
+                f"Failed to parse response from judge model. Response: {output.response}",
+            ) from e
+        return output_schema(**response_dict)
+
+    from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
+
+    return GatewayAdapter().invoke_with_structured_output(
+        model_uri=model_uri,
         messages=messages,
+        output_schema=output_schema,
         trace=trace,
         num_retries=num_retries,
-        response_format=output_schema,
         inference_params=inference_params,
     )
-
-    cleaned_response = _strip_markdown_code_blocks(output.response)
-    response_dict = json.loads(cleaned_response)
-    return output_schema(**response_dict)

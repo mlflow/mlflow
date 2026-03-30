@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, is_dataclass
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, Any, NoReturn
 
 if TYPE_CHECKING:
     from mlflow.entities.trace import Trace
@@ -97,3 +97,28 @@ def _create_tool_response_message(tool_call_id: str, tool_name: str, content: st
         name=tool_name,
         content=content,
     )
+
+
+def _remove_oldest_tool_call_pair(
+    messages: list[Any],
+) -> list[Any] | None:
+    """Remove the oldest assistant message with tool calls and its corresponding tool responses.
+
+    Works with any message type that has `role`, `tool_calls`, and `tool_call_id` attributes
+    (e.g. ChatMessage, litellm.Message).
+    """
+    result = next(
+        ((i, msg) for i, msg in enumerate(messages) if msg.role == "assistant" and msg.tool_calls),
+        None,
+    )
+    if result is None:
+        return None
+
+    assistant_idx, assistant_msg = result
+    modified = messages[:]
+    modified.pop(assistant_idx)
+
+    tool_call_ids = {tc.id if hasattr(tc, "id") else tc["id"] for tc in assistant_msg.tool_calls}
+    return [
+        msg for msg in modified if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
+    ]
