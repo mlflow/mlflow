@@ -514,6 +514,11 @@ const TemplateOption = ({
  * with a spinner while loading and success/error states on completion.
  */
 const AUTO_DISMISS_DELAY_MS = 10000;
+const FADE_OUT_DURATION_MS = 1000;
+const completedEvaluationFadeOutCss = {
+  animation: `fadeOut ${FADE_OUT_DURATION_MS}ms ease-out ${AUTO_DISMISS_DELAY_MS - FADE_OUT_DURATION_MS}ms forwards`,
+  '@keyframes fadeOut': { from: { opacity: 1 }, to: { opacity: 0 } },
+} as const;
 
 const JudgesEvaluationStatusBanner = ({
   evaluations,
@@ -588,38 +593,40 @@ const JudgesEvaluationStatusBanner = ({
 
         if (evaluation.error) {
           return (
-            <Alert
-              key={evaluation.requestKey}
-              componentId="mlflow.experiment-scorers.judges-error-banner"
-              type="error"
-              closable
-              onClose={() => onDismiss(evaluation.requestKey)}
-              message={intl.formatMessage(
-                {
-                  defaultMessage: 'Judge "{label}" failed: {error}',
-                  description: 'Banner message shown when a judge run fails',
-                },
-                { label: evaluation.label, error: evaluation.error.message },
-              )}
-            />
+            <div key={evaluation.requestKey} css={completedEvaluationFadeOutCss}>
+              <Alert
+                componentId="mlflow.experiment-scorers.judges-error-banner"
+                type="error"
+                closable
+                onClose={() => onDismiss(evaluation.requestKey)}
+                message={intl.formatMessage(
+                  {
+                    defaultMessage: 'Judge "{label}" failed: {error}',
+                    description: 'Banner message shown when a judge run fails',
+                  },
+                  { label: evaluation.label, error: evaluation.error.message },
+                )}
+              />
+            </div>
           );
         }
 
         return (
-          <Alert
-            key={evaluation.requestKey}
-            componentId="mlflow.experiment-scorers.judges-success-banner"
-            type="info"
-            closable
-            onClose={() => onDismiss(evaluation.requestKey)}
-            message={intl.formatMessage(
-              {
-                defaultMessage: 'Judge "{label}" completed successfully.',
-                description: 'Banner message shown when a judge run completes successfully',
-              },
-              { label: evaluation.label },
-            )}
-          />
+          <div key={evaluation.requestKey} css={completedEvaluationFadeOutCss}>
+            <Alert
+              componentId="mlflow.experiment-scorers.judges-success-banner"
+              type="info"
+              closable
+              onClose={() => onDismiss(evaluation.requestKey)}
+              message={intl.formatMessage(
+                {
+                  defaultMessage: 'Judge "{label}" completed successfully.',
+                  description: 'Banner message shown when a judge run completes successfully',
+                },
+                { label: evaluation.label },
+              )}
+            />
+          </div>
         );
       })}
     </div>

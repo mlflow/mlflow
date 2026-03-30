@@ -192,8 +192,15 @@ describe('useRunJudgesOnTracesConfiguration', () => {
 
     expect(screen.getByText(/Auto Judge.*completed successfully/)).toBeDefined();
 
+    // Still visible just before the fade starts (9 seconds)
     act(() => {
-      jest.advanceTimersByTime(10000);
+      jest.advanceTimersByTime(9000);
+    });
+    expect(screen.getByText(/Auto Judge.*completed successfully/)).toBeDefined();
+
+    // Dismissed after the full 10 seconds
+    act(() => {
+      jest.advanceTimersByTime(1000);
     });
 
     await waitFor(() => {
@@ -224,8 +231,15 @@ describe('useRunJudgesOnTracesConfiguration', () => {
 
     expect(screen.getByText(/Error Judge/)).toBeDefined();
 
+    // Still visible just before the fade starts (9 seconds)
     act(() => {
-      jest.advanceTimersByTime(10000);
+      jest.advanceTimersByTime(9000);
+    });
+    expect(screen.getByText(/Error Judge/)).toBeDefined();
+
+    // Dismissed after the full 10 seconds
+    act(() => {
+      jest.advanceTimersByTime(1000);
     });
 
     await waitFor(() => {
