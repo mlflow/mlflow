@@ -5,6 +5,7 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import Feedback
+from mlflow.entities.issue import IssueSeverity, IssueStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_OTEL_GENAI_SEMCONV
 from mlflow.telemetry.constant import (
     GENAI_MODULES,
@@ -732,4 +733,23 @@ class DiscoverIssuesEvent(Event):
             "issue_count": len(result.issues),
             "total_traces_analyzed": result.total_traces_analyzed,
             "total_cost_usd": result.total_cost_usd,
+        }
+
+
+class UpdateIssueEvent(Event):
+    name: str = "update_issue"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        status = arguments.get("status")
+        if isinstance(status, IssueStatus):
+            status = status.value
+        severity = arguments.get("severity")
+        if isinstance(severity, IssueSeverity):
+            severity = severity.value
+        return {
+            "status": status,
+            "has_name": arguments.get("name") is not None,
+            "has_description": arguments.get("description") is not None,
+            "severity": severity,
         }

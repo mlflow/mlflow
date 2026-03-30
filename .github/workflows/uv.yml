@@ -23,8 +23,7 @@ defaults:
 jobs:
   uv:
     # Skip scheduled runs on forks
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false && (github.event_name != 'schedule' || github.repository == 'mlflow/mlflow')
+    if: github.event_name != 'schedule' || github.repository == 'mlflow/mlflow'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -38,6 +37,7 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: true
           token: ${{ steps.app-token.outputs.token }}
       - uses: ./.github/actions/setup-python
       - name: Update uv.lock and create PR

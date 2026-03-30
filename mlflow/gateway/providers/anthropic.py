@@ -23,6 +23,23 @@ from mlflow.types.chat import Function, ToolCallDelta
 _logger = logging.getLogger(__name__)
 
 
+def _normalize_anthropic_input_tokens(
+    token_usage: dict[str, int] | None,
+) -> dict[str, int] | None:
+    """Anthropic's input_tokens excludes cache tokens. Add them so input_tokens
+    represents the total input (consistent with OpenAI/Gemini).
+    """
+    if not token_usage or TokenUsageKey.INPUT_TOKENS not in token_usage:
+        return token_usage
+    cache_read = token_usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS, 0)
+    cache_creation = token_usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS, 0)
+    if cache_read or cache_creation:
+        token_usage[TokenUsageKey.INPUT_TOKENS] += cache_read + cache_creation
+        if TokenUsageKey.TOTAL_TOKENS in token_usage:
+            token_usage[TokenUsageKey.TOTAL_TOKENS] += cache_read + cache_creation
+    return token_usage
+
+
 class _UnsupportedSchemaError(Exception):
     """Schema contains constructs that Anthropic structured outputs cannot represent."""
 
@@ -277,21 +294,30 @@ class AnthropicAdapter(ProviderAdapter):
 
     @classmethod
     def _build_chat_usage(cls, usage_data: dict[str, Any]) -> chat.ChatUsage:
+        # Anthropic's input_tokens excludes cache tokens, but we normalize prompt_tokens
+        # to include them (consistent with OpenAI/Gemini) so cost calculation works uniformly.
+        # Ref: https://platform.claude.com/docs/en/build-with-claude/prompt-caching
         input_tokens = usage_data.get("input_tokens")
         output_tokens = usage_data.get("output_tokens")
+        cache_read = usage_data.get("cache_read_input_tokens")
+        cache_creation = usage_data.get("cache_creation_input_tokens")
+
+        prompt_tokens = input_tokens
+        if prompt_tokens is not None:
+            prompt_tokens += (cache_read or 0) + (cache_creation or 0)
+
         total_tokens = None
-        if input_tokens is not None and output_tokens is not None:
-            total_tokens = input_tokens + output_tokens
+        if prompt_tokens is not None and output_tokens is not None:
+            total_tokens = prompt_tokens + output_tokens
+
         prompt_tokens_details = None
-        if "cache_read_input_tokens" in usage_data:
-            prompt_tokens_details = chat.PromptTokensDetails(
-                cached_tokens=usage_data["cache_read_input_tokens"]
-            )
+        if cache_read is not None:
+            prompt_tokens_details = chat.PromptTokensDetails(cached_tokens=cache_read)
         extra = {}
-        if "cache_creation_input_tokens" in usage_data:
-            extra["cache_creation_input_tokens"] = usage_data["cache_creation_input_tokens"]
+        if cache_creation is not None:
+            extra["cache_creation_input_tokens"] = cache_creation
         return chat.ChatUsage(
-            prompt_tokens=input_tokens,
+            prompt_tokens=prompt_tokens,
             completion_tokens=output_tokens,
             total_tokens=total_tokens,
             prompt_tokens_details=prompt_tokens_details,
@@ -637,13 +663,14 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
             }
         }
         """
-        return self._extract_token_usage_from_dict(
+        token_usage = self._extract_token_usage_from_dict(
             result.get("usage"),
             "input_tokens",
             "output_tokens",
             cache_read_key="cache_read_input_tokens",
             cache_creation_key="cache_creation_input_tokens",
         )
+        return _normalize_anthropic_input_tokens(token_usage)
 
     def _extract_streaming_token_usage(self, chunk: bytes) -> dict[str, int]:
         """
@@ -672,7 +699,8 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                         usage[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = created
                 case {"type": "message_delta", "usage": {"output_tokens": int(output_tokens)}}:
                     usage[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
-        return usage
+        # Anthropic's input_tokens excludes cache tokens; normalize to include them.
+        return _normalize_anthropic_input_tokens(usage) or usage
 
     async def _passthrough(
         self,
