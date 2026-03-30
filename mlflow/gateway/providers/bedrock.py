@@ -205,8 +205,13 @@ class AmazonBedrockProvider(BaseProvider):
         )
 
     def get_bedrock_client(self):
-        import boto3
-        import botocore.exceptions
+        try:
+            import boto3
+            import botocore.exceptions
+        except ImportError:
+            raise ImportError(
+                "Bedrock provider requires boto3. Install it with: pip install boto3"
+            )
 
         if self._client is not None and not self._client_expired():
             return self._client

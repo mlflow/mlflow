@@ -173,7 +173,7 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                 },
                 {
                     "name": "aws_region_name",
-                    "description": "AWS Region (must match the region the API key was generated in)",
+                    "description": "AWS Region",
                     "secret": False,
                     "required": True,
                 },
