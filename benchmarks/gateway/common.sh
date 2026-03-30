@@ -8,7 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 if command -v uv &>/dev/null && [ -f "$SCRIPT_DIR/../../pyproject.toml" ]; then
-    RUN_PREFIX="uv run --extra gateway"
+    export UV_NO_SOURCES=1
+    RUN_PREFIX="uv run --no-build-isolation --extra gateway"
 else
     RUN_PREFIX=""
 fi

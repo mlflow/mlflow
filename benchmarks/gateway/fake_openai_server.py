@@ -107,13 +107,11 @@ async def embeddings(request: EmbeddingsRequest):
     data = []
     inputs = request.input if isinstance(request.input, list) else [request.input]
     for i, _ in enumerate(inputs):
-        data.append(
-            {
-                "object": "embedding",
-                "embedding": fake_embedding,
-                "index": i,
-            }
-        )
+        data.append({
+            "object": "embedding",
+            "embedding": fake_embedding,
+            "index": i,
+        })
     return JSONResponse(
         content={
             "object": "list",
