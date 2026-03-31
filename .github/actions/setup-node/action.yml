@@ -12,3 +12,6 @@ runs:
     - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
       with:
         node-version: ${{ inputs.node-version }}
+    # min-release-age requires npm >= 11.10.0 (https://github.com/npm/cli/releases/tag/v11.10.0)
+    - run: npm install -g npm@">=11.10.0"
+      shell: bash
