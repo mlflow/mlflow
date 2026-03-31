@@ -32,7 +32,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.server import auth as auth_module
-from mlflow.server.auth import _authenticate_fastapi_request
+from mlflow.server.auth import _authenticate_fastapi_request, _re_compile_path
 from mlflow.server.auth.routes import (
     AJAX_LIST_USERS,
     CREATE_REGISTERED_MODEL_PERMISSION,
@@ -40,6 +40,7 @@ from mlflow.server.auth.routes import (
     GET_SCORER_PERMISSION,
     LIST_USERS,
 )
+from mlflow.server.handlers import STATIC_PREFIX_ENV_VAR, _get_ajax_path
 from mlflow.utils.os import is_windows
 from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
@@ -781,6 +782,88 @@ def test_logged_model(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
             client.delete_logged_model_tag(model_id=model.model_id, key="key")
         with pytest.raises(MlflowException, match="Permission denied"):
             client.delete_logged_model(model_id=model.model_id)
+
+
+@pytest.mark.parametrize(
+    "client",
+    [{"MLFLOW_AUTH_CONFIG_PATH": "tests/server/auth/fixtures/no_permission_auth.ini"}],
+    indirect=True,
+)
+def test_logged_model_artifact_authorization(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        exp_id = client.create_experiment("logged-model-artifact-authz-test")
+        model = client.create_logged_model(experiment_id=exp_id)
+
+    # user1 (owner) should be able to access the artifact endpoint (404 since no artifact
+    # exists, but should NOT be 403)
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + f"/ajax-api/2.0/mlflow/logged-models/{model.model_id}/artifacts/files"
+        ),
+        params={"artifact_file_path": "test.txt"},
+        auth=(username1, password1),
+    )
+    assert response.status_code != 403
+
+    # user2 has no permission on the experiment — expect 403
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + f"/ajax-api/2.0/mlflow/logged-models/{model.model_id}/artifacts/files"
+        ),
+        params={"artifact_file_path": "test.txt"},
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+    # Also verify the list-artifacts (directories) endpoint
+    # user1 (owner) should be able to list artifacts
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + f"/api/2.0/mlflow/logged-models/{model.model_id}/artifacts/directories"
+        ),
+        auth=(username1, password1),
+    )
+    assert response.status_code != 403
+
+    # user2 has no permission — expect 403
+    response = requests.get(
+        url=(
+            client.tracking_uri
+            + f"/api/2.0/mlflow/logged-models/{model.model_id}/artifacts/directories"
+        ),
+        auth=(username2, password2),
+    )
+    assert response.status_code == 403
+
+
+def test_logged_model_artifact_validator_respects_static_prefix(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    base = "/mlflow/logged-models/<model_id>/artifacts/files"
+
+    # Without prefix — should match the bare path
+    pat_no_prefix = _re_compile_path(_get_ajax_path(base))
+    assert pat_no_prefix.fullmatch("/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files")
+
+    # With prefix — should match the prefixed path
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/custom-prefix")
+    _re_compile_path.cache_clear()
+    pat_with_prefix = _re_compile_path(_get_ajax_path(base))
+    assert pat_with_prefix.fullmatch(
+        "/custom-prefix/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files"
+    )
+    # bare path should NOT match the prefixed pattern
+    assert not pat_with_prefix.fullmatch(
+        "/ajax-api/2.0/mlflow/logged-models/abc123/artifacts/files"
+    )
+
+    _re_compile_path.cache_clear()
 
 
 def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):

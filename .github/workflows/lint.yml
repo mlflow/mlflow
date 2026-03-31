@@ -32,11 +32,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        is-merge-queue:
-          - ${{ github.event_name == 'merge_group' }}
+        is-pull-request:
+          - ${{ github.event_name == 'pull_request' }}
         exclude:
           - os: macos-latest
-            is-merge-queue: true
+            is-pull-request: false
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     permissions:
@@ -47,11 +47,14 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           # To ensure `git diff` works correctly in dev/check_function_signatures.py,
           # we need to fetch enough history to include the base branch.
           fetch-depth: 300
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+        with:
+          pin-micro-version: false
       - uses: ./.github/actions/setup-node
       - name: Add problem matchers
         if: matrix.os == 'ubuntu-latest'
@@ -88,10 +91,12 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           uv run --no-project dev/check_whitespace_only.py \
-            --repo ${{ github.repository }} \
-            --pr ${{ github.event.pull_request.number }}
+            --repo $REPO \
+            --pr $PR_NUMBER
 
       - name: Check uv.lock changes
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'

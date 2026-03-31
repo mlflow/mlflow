@@ -38,6 +38,12 @@ jest.mock('@databricks/web-shared/hooks/useLocalStorage', () => ({
   useLocalStorage: jest.fn(() => [true, jest.fn()]), // Return true to indicate guidance has been seen
 }));
 
+// Mock useGetExperimentQuery
+const mockUseGetExperimentQuery = jest.fn();
+jest.mock('../../hooks/useExperimentQuery', () => ({
+  useGetExperimentQuery: (params: any) => mockUseGetExperimentQuery(params),
+}));
+
 const mockFetchOrFail = jest.mocked(fetchOrFail);
 const mockShouldEnableIssueDetection = jest.mocked(shouldEnableIssueDetection);
 
@@ -77,6 +83,16 @@ describe('ExperimentGenAIOverviewPage', () => {
     } as Response);
     // Default mock for shouldEnableIssueDetection
     mockShouldEnableIssueDetection.mockReturnValue(false);
+    // Default mock for useGetExperimentQuery - returns non-demo experiment
+    mockUseGetExperimentQuery.mockReturnValue({
+      data: {
+        experimentId: testExperimentId,
+        name: 'Test Experiment',
+        tags: [],
+      },
+      loading: false,
+      error: null,
+    });
   });
 
   describe('page rendering', () => {
@@ -324,6 +340,172 @@ describe('ExperimentGenAIOverviewPage', () => {
 
       await waitFor(() => {
         expect(screen.queryByTestId('issue-detection-modal')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('demo experiment time range', () => {
+    it('should set time range from demo experiment tags', async () => {
+      // Mock demo experiment with time range tags
+      const demoStartTimeMs = Date.now() - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+      const demoEndTimeMs = Date.now();
+
+      mockUseGetExperimentQuery.mockReturnValue({
+        data: {
+          experimentId: testExperimentId,
+          name: 'MLflow Demo',
+          tags: [
+            { key: 'mlflow.demo.version.traces', value: '1' },
+            { key: 'mlflow.demo.start_time_ms', value: String(demoStartTimeMs) },
+            { key: 'mlflow.demo.end_time_ms', value: String(demoEndTimeMs) },
+          ],
+        },
+        loading: false,
+        error: null,
+      });
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(mockFetchOrFail).toHaveBeenCalled();
+      });
+
+      // Verify that the API was called with the demo time range
+      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+      expect(callBody.start_time_ms).toBeGreaterThanOrEqual(demoStartTimeMs - 1000); // Allow 1s tolerance
+      expect(callBody.start_time_ms).toBeLessThanOrEqual(demoStartTimeMs + 1000);
+      expect(callBody.end_time_ms).toBeGreaterThanOrEqual(demoEndTimeMs - 1000);
+      expect(callBody.end_time_ms).toBeLessThanOrEqual(demoEndTimeMs + 1000);
+    });
+
+    it('should not override user-selected time range for demo experiments', async () => {
+      // Mock demo experiment with time range tags
+      const demoStartTimeMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const demoEndTimeMs = Date.now();
+
+      mockUseGetExperimentQuery.mockReturnValue({
+        data: {
+          experimentId: testExperimentId,
+          name: 'MLflow Demo',
+          tags: [
+            { key: 'mlflow.demo.version.traces', value: '1' },
+            { key: 'mlflow.demo.start_time_ms', value: String(demoStartTimeMs) },
+            { key: 'mlflow.demo.end_time_ms', value: String(demoEndTimeMs) },
+          ],
+        },
+        loading: false,
+        error: null,
+      });
+
+      // User has already selected a custom time range in URL
+      const customStartTime = '2025-01-01T00:00:00.000Z';
+      const customEndTime = '2025-01-07T23:59:59.999Z';
+      const urlWithParams = `/experiments/${testExperimentId}/overview/usage?startTimeLabel=LAST_24_HOURS`;
+
+      renderComponent(urlWithParams);
+
+      await waitFor(() => {
+        expect(mockFetchOrFail).toHaveBeenCalled();
+      });
+
+      // Verify that the API was called with the user-selected time range, not demo time range
+      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+      const now = Date.now();
+      const oneDayAgo = now - 24 * 60 * 60 * 1000;
+
+      // Should use LAST_24_HOURS, not the demo time range
+      expect(callBody.start_time_ms).toBeGreaterThanOrEqual(oneDayAgo - 60000); // Allow 1 minute tolerance
+      expect(callBody.start_time_ms).toBeLessThanOrEqual(oneDayAgo + 60000);
+      // Should NOT match demo start time
+      expect(Math.abs(callBody.start_time_ms - demoStartTimeMs)).toBeGreaterThan(60000);
+    });
+
+    it('should use default time range for non-demo experiments', async () => {
+      // Mock non-demo experiment (no demo version tags)
+      mockUseGetExperimentQuery.mockReturnValue({
+        data: {
+          experimentId: testExperimentId,
+          name: 'Regular Experiment',
+          tags: [{ key: 'some.other.tag', value: 'value' }],
+        },
+        loading: false,
+        error: null,
+      });
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(mockFetchOrFail).toHaveBeenCalled();
+      });
+
+      // Verify that the API was called with the default 7-day time range
+      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+      const now = Date.now();
+      const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+      expect(callBody.start_time_ms).toBeGreaterThanOrEqual(sevenDaysAgo - 60000); // Allow 1 minute tolerance
+      expect(callBody.start_time_ms).toBeLessThanOrEqual(sevenDaysAgo + 60000);
+    });
+
+    it('should not set time range if demo experiment lacks time tags', async () => {
+      // Mock demo experiment without time range tags
+      mockUseGetExperimentQuery.mockReturnValue({
+        data: {
+          experimentId: testExperimentId,
+          name: 'MLflow Demo',
+          tags: [
+            { key: 'mlflow.demo.version.traces', value: '1' },
+            // Missing mlflow.demo.start_time_ms and mlflow.demo.end_time_ms
+          ],
+        },
+        loading: false,
+        error: null,
+      });
+
+      renderComponent();
+
+      await waitFor(() => {
+        expect(mockFetchOrFail).toHaveBeenCalled();
+      });
+
+      // Verify that the API was called with the default 7-day time range
+      const callBody = JSON.parse((mockFetchOrFail.mock.calls[0]?.[1] as any)?.body || '{}');
+      const now = Date.now();
+      const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+
+      expect(callBody.start_time_ms).toBeGreaterThanOrEqual(sevenDaysAgo - 60000);
+      expect(callBody.start_time_ms).toBeLessThanOrEqual(sevenDaysAgo + 60000);
+    });
+
+    it('should handle loading state while fetching experiment data', async () => {
+      // Mock loading state
+      mockUseGetExperimentQuery.mockReturnValue({
+        data: undefined,
+        loading: true,
+        error: null,
+      });
+
+      renderComponent();
+
+      await waitFor(() => {
+        // Should still render the page with default time range
+        expect(screen.getByRole('tablist')).toBeInTheDocument();
+      });
+    });
+
+    it('should handle error state when fetching experiment data', async () => {
+      // Mock error state
+      mockUseGetExperimentQuery.mockReturnValue({
+        data: undefined,
+        loading: false,
+        error: { message: 'Failed to fetch experiment' },
+      });
+
+      renderComponent();
+
+      await waitFor(() => {
+        // Should still render the page with default time range
+        expect(screen.getByRole('tablist')).toBeInTheDocument();
       });
     });
   });

@@ -24,15 +24,17 @@ MLflow also supports calling model providers directly:
 - OpenAI / Azure OpenAI
 - Anthropic
 - Amazon Bedrock
-- Cohere
-- Together AI
-- Any other providers supported by [LiteLLM](https://docs.litellm.ai/docs/providers), such as Google Gemini, xAI, Mistral, and more.
+- Gemini
+- xAI
+- Vertex AI
+- Mistral
+- [Many others](https://mlflow.org/docs/latest/api_reference/python_api/mlflow.gateway.html#mlflow.gateway.config.Provider)
 
 :::warning
 Judges configured with direct model providers require API keys to be set locally (e.g., `OPENAI_API_KEY`) and **cannot be run from the UI**. Use AI Gateway endpoints if you want to run the judges from the UI.
 :::
 
-To use LiteLLM integrated models, install LiteLLM by running `pip install litellm` and specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
+For any models that are not supported natively, it is also possible to use LiteLLM. Since LiteLLM is not a dependency of MLflow, you'll need to install it separately by running `pip install litellm`. After this, simply specify the provider and model name in the same format as natively supported providers, e.g., `gemini:/gemini-2.0-flash`.
 
 ## Databricks-Hosted Models
 

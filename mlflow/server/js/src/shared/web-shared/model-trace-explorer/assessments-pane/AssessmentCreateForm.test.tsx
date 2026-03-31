@@ -46,6 +46,7 @@ describe('AssessmentCreateForm', () => {
   const mockSetExpanded = jest.fn();
   const defaultProps = {
     traceId: 'test-trace-id',
+    assessmentType: 'feedback' as const,
     setExpanded: mockSetExpanded,
   };
 
@@ -54,7 +55,7 @@ describe('AssessmentCreateForm', () => {
   });
 
   describe('handleChangeSchema - existing schemas', () => {
-    it('should update all fields when selecting an existing schema', async () => {
+    it('should update data type when selecting an existing schema', async () => {
       const user = userEvent.setup();
 
       // Mock existing assessments to populate schemas
@@ -65,29 +66,15 @@ describe('AssessmentCreateForm', () => {
 
       render(
         <TestWrapper assessments={existingAssessments}>
-          <AssessmentCreateForm {...defaultProps} />
+          <AssessmentCreateForm {...defaultProps} assessmentType="expectation" />
         </TestWrapper>,
       );
 
-      // Get the select buttons
-      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
       const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
-
-      expect(assessmentTypeSelect).toBeInTheDocument();
       expect(dataTypeSelect).toBeInTheDocument();
-
-      // Verify initial values
-      expect(assessmentTypeSelect).toHaveTextContent('Feedback');
       expect(dataTypeSelect).toHaveTextContent('Boolean');
 
-      // Change assessment type to expectation and data type to number
-      await user.click(assessmentTypeSelect);
-      const expectationOption = await screen.findByText('Expectation');
-      await user.click(expectationOption);
-      await waitFor(() => {
-        expect(assessmentTypeSelect).toHaveTextContent('Expectation');
-      });
-
+      // Change data type to number
       await user.click(dataTypeSelect);
       await user.click(screen.getAllByText('Number')[0]);
       await waitFor(() => {
@@ -95,7 +82,7 @@ describe('AssessmentCreateForm', () => {
       });
 
       // Open the name typeahead
-      const nameInput = screen.getByPlaceholderText('Enter an assessment name');
+      const nameInput = screen.getByPlaceholderText('Enter an expectation name');
       await user.click(nameInput);
 
       // Select an existing schema (expected_facts which is expectation/json)
@@ -104,17 +91,48 @@ describe('AssessmentCreateForm', () => {
       });
       await user.click(screen.getByText('expected_facts'));
 
-      // All fields should be updated to match the schema
+      // Data type should be updated to match the schema
       await waitFor(() => {
         expect(nameInput).toHaveValue('expected_facts');
-        expect(assessmentTypeSelect).toHaveTextContent('Expectation');
         expect(dataTypeSelect).toHaveTextContent('JSON');
       });
     });
   });
 
+  describe('handleChangeSchema - data type clamping', () => {
+    it('should clamp JSON data type to string when selecting an existing schema in feedback form', async () => {
+      const user = userEvent.setup();
+
+      // MOCK_EXPECTATION has dataType 'json'
+      const existingAssessments: Assessment[] = [MOCK_EXPECTATION];
+
+      render(
+        <TestWrapper assessments={existingAssessments}>
+          <AssessmentCreateForm {...defaultProps} assessmentType="feedback" />
+        </TestWrapper>,
+      );
+
+      const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
+
+      // Open the name typeahead and select the expectation schema (json type)
+      const nameInput = screen.getByPlaceholderText('Enter a feedback name');
+      await user.click(nameInput);
+
+      await waitFor(() => {
+        expect(screen.getByText('expected_facts')).toBeInTheDocument();
+      });
+      await user.click(screen.getByText('expected_facts'));
+
+      // Data type should be clamped to string (not json) since this is a feedback form
+      await waitFor(() => {
+        expect(nameInput).toHaveValue('expected_facts');
+        expect(dataTypeSelect).toHaveTextContent('String');
+      });
+    });
+  });
+
   describe('handleChangeSchema - new assessment names', () => {
-    it('should preserve user-selected fields when typing a new assessment name', async () => {
+    it('should preserve user-selected data type when typing a new assessment name', async () => {
       const user = userEvent.setup();
 
       // Mock existing assessments to populate schemas
@@ -126,18 +144,9 @@ describe('AssessmentCreateForm', () => {
         </TestWrapper>,
       );
 
-      // Get the select buttons
-      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
       const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
 
-      // Change assessment type to expectation and data type to number
-      await user.click(assessmentTypeSelect);
-      const expectationOption = await screen.findByText('Expectation');
-      await user.click(expectationOption);
-      await waitFor(() => {
-        expect(assessmentTypeSelect).toHaveTextContent('Expectation');
-      });
-
+      // Change data type to number
       await user.click(dataTypeSelect);
       await user.click(screen.getByText('Number'));
       await waitFor(() => {
@@ -145,7 +154,7 @@ describe('AssessmentCreateForm', () => {
       });
 
       // Type a new assessment name that doesn't exist in schemas
-      const nameInput = screen.getByPlaceholderText('Enter an assessment name');
+      const nameInput = screen.getByPlaceholderText('Enter a feedback name');
       await user.type(nameInput, 'my_new_assessment');
 
       // Open the dropdown
@@ -159,15 +168,14 @@ describe('AssessmentCreateForm', () => {
       // Select the new name
       await user.click(screen.getByText('my_new_assessment'));
 
-      // Name should be updated, but assessment type and data type should be preserved
+      // Name should be updated, but data type should be preserved
       await waitFor(() => {
         expect(nameInput).toHaveValue('my_new_assessment');
-        expect(assessmentTypeSelect).toHaveTextContent('Expectation');
         expect(dataTypeSelect).toHaveTextContent('Number');
       });
     });
 
-    it('should preserve user-selected fields when pressing Enter on a new name', async () => {
+    it('should preserve user-selected data type when pressing Enter on a new name', async () => {
       const user = userEvent.setup();
 
       const existingAssessments: Assessment[] = [MOCK_ASSESSMENT];
@@ -178,39 +186,31 @@ describe('AssessmentCreateForm', () => {
         </TestWrapper>,
       );
 
-      // Get the select buttons
-      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
       const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
 
-      // Change to non-default values
-      await user.click(assessmentTypeSelect);
-      const expectationOption = await screen.findByText('Expectation');
-      await user.click(expectationOption);
-
+      // Change to non-default value
       await user.click(dataTypeSelect);
       await user.click(screen.getAllByText('String')[0]);
 
       await waitFor(() => {
-        expect(assessmentTypeSelect).toHaveTextContent('Expectation');
         expect(dataTypeSelect).toHaveTextContent('String');
       });
 
       // Type a new name and press Enter
-      const nameInput = screen.getByPlaceholderText('Enter an assessment name');
+      const nameInput = screen.getByPlaceholderText('Enter a feedback name');
       await user.type(nameInput, 'another_new_name');
       await user.keyboard('{Enter}');
 
-      // Fields should be preserved
+      // Data type should be preserved
       await waitFor(() => {
         expect(nameInput).toHaveValue('another_new_name');
-        expect(assessmentTypeSelect).toHaveTextContent('Expectation');
         expect(dataTypeSelect).toHaveTextContent('String');
       });
     });
   });
 
   describe('handleChangeSchema - clearing selection', () => {
-    it('should reset all fields when clearing the name', async () => {
+    it('should reset fields when clearing the name', async () => {
       const user = userEvent.setup();
 
       render(
@@ -219,25 +219,15 @@ describe('AssessmentCreateForm', () => {
         </TestWrapper>,
       );
 
-      // Get the select button
-      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
-
-      // Change some values
-      await user.click(assessmentTypeSelect);
-      const expectationOption = await screen.findByText('Expectation');
-      await user.click(expectationOption);
-
-      const nameInput = screen.getByPlaceholderText('Enter an assessment name');
+      const nameInput = screen.getByPlaceholderText('Enter a feedback name');
       await user.type(nameInput, 'test_name');
 
       // Clear the input (simulating the clear button)
       await user.clear(nameInput);
 
-      // All fields should reset to defaults
+      // Fields should reset to defaults
       await waitFor(() => {
         expect(nameInput).toHaveValue('');
-        // Note: We can't easily test the internal state reset here
-        // as the selects may not visibly change until interaction
       });
     });
   });
@@ -252,31 +242,24 @@ describe('AssessmentCreateForm', () => {
         </TestWrapper>,
       );
 
-      // Get the select buttons
-      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
       const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
 
-      // Change to non-default values
-      await user.click(assessmentTypeSelect);
-      await user.click(screen.getByText('Expectation'));
-
+      // Change to non-default value
       await user.click(dataTypeSelect);
       await user.click(screen.getByText('Number'));
 
       await waitFor(() => {
-        expect(assessmentTypeSelect).toHaveTextContent('Expectation');
         expect(dataTypeSelect).toHaveTextContent('Number');
       });
 
       // Type a name when there are no existing schemas
-      const nameInput = screen.getByPlaceholderText('Enter an assessment name');
+      const nameInput = screen.getByPlaceholderText('Enter a feedback name');
       await user.type(nameInput, 'first_assessment');
       await user.keyboard('{Enter}');
 
-      // Fields should be preserved since this is a new name
+      // Data type should be preserved since this is a new name
       await waitFor(() => {
         expect(nameInput).toHaveValue('first_assessment');
-        expect(assessmentTypeSelect).toHaveTextContent('Expectation');
         expect(dataTypeSelect).toHaveTextContent('Number');
       });
     });
@@ -292,20 +275,10 @@ describe('AssessmentCreateForm', () => {
         </TestWrapper>,
       );
 
-      // Get the select buttons
-      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
       const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
 
-      // Change values first
-      await user.click(assessmentTypeSelect);
-      await user.click(screen.getByText('Expectation'));
-
-      await waitFor(() => {
-        expect(assessmentTypeSelect).toHaveTextContent('Expectation');
-      });
-
       // Type the exact name of an existing schema
-      const nameInput = screen.getByPlaceholderText('Enter an assessment name');
+      const nameInput = screen.getByPlaceholderText('Enter a feedback name');
       await user.type(nameInput, 'Relevance');
       await user.click(nameInput);
 
@@ -315,10 +288,9 @@ describe('AssessmentCreateForm', () => {
       });
       await user.click(screen.getByTestId('assessment-name-typeahead-item-Relevance'));
 
-      // Since 'Relevance' is an existing schema (feedback/string), it should update all fields
+      // Since 'Relevance' is an existing schema (feedback/string), it should update data type
       await waitFor(() => {
         expect(nameInput).toHaveValue('Relevance');
-        expect(assessmentTypeSelect).toHaveTextContent('Feedback');
         expect(dataTypeSelect).toHaveTextContent('String');
       });
     });

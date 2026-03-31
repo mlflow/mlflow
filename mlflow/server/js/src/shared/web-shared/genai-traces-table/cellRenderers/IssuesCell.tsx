@@ -30,7 +30,7 @@ const IssueTag = ({ issue }: { issue: Issue }) => {
         navigate(url);
       }
     } catch (error) {
-      console.error('Failed to fetch issue:', error);
+      // fail silently
     }
   };
 

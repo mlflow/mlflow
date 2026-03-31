@@ -89,6 +89,7 @@ class InstructionsJudge(Judge):
     _inference_params: dict[str, Any] | None = PrivateAttr(default=None)
     _base_url: str | None = PrivateAttr(default=None)
     _extra_headers: dict[str, str] | None = PrivateAttr(default=None)
+    _include_timing_in_conversation: bool = PrivateAttr(default=False)
 
     def __init__(
         self,
@@ -102,6 +103,7 @@ class InstructionsJudge(Judge):
         inference_params: dict[str, Any] | None = None,
         base_url: str | None = None,
         extra_headers: dict[str, str] | None = None,
+        include_timing_in_conversation: bool = False,
         **kwargs,
     ):
         """
@@ -129,6 +131,9 @@ class InstructionsJudge(Judge):
             extra_headers: Optional dictionary of additional HTTP headers to include in
                            requests to the LLM provider. Can be used for authentication,
                            tracking, or other custom requirements.
+            include_timing_in_conversation: If True, append timing information (duration and
+                           slowest spans) to assistant responses in conversation. Useful for
+                           latency-aware evaluation. Default is False for backward compatibility.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -170,6 +175,7 @@ class InstructionsJudge(Judge):
         self._inference_params = inference_params
         self._base_url = base_url
         self._extra_headers = extra_headers
+        self._include_timing_in_conversation = include_timing_in_conversation
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -545,7 +551,9 @@ class InstructionsJudge(Judge):
         if session is not None and session:
             self._validate_session(session)
             conversation = resolve_conversation_from_session(
-                session, include_tool_calls=self._include_tool_calls_in_conversation
+                session,
+                include_tool_calls=self._include_tool_calls_in_conversation,
+                include_timing=self._include_timing_in_conversation,
             )
             if self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
                 expectations = resolve_expectations_from_session(expectations, session)

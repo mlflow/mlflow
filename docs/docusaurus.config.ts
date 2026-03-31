@@ -85,6 +85,71 @@ const config: Config = {
 
   clientModules: [require.resolve('./src/docusaurus.theme.js')],
 
+  headTags: [
+    // Open Graph
+    {
+      tagName: 'meta',
+      attributes: { property: 'og:type', content: 'website' },
+    },
+    {
+      tagName: 'meta',
+      attributes: { property: 'og:site_name', content: 'MLflow' },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:title',
+        content: 'MLflow — Open Source AI Platform for Agents, LLMs & Models',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:description',
+        content:
+          'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        property: 'og:image',
+        content: 'https://mlflow.org/img/mlflow-card.png',
+      },
+    },
+    // Twitter Card
+    {
+      tagName: 'meta',
+      attributes: { name: 'twitter:card', content: 'summary_large_image' },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:title',
+        content: 'MLflow — Open Source AI Platform for Agents, LLMs & Models',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:description',
+        content:
+          'Official MLflow documentation for LLM tracing, agent evaluation, prompt management, experiment tracking, model registry, and beyond.',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: {
+        name: 'twitter:image',
+        content: 'https://mlflow.org/img/mlflow-card.png',
+      },
+    },
+    {
+      tagName: 'meta',
+      attributes: { name: 'twitter:site', content: '@mlflow' },
+    },
+  ],
+
   themeConfig: {
     docs: {
       sidebar: {

@@ -14,6 +14,12 @@ import Routes from '../../../routes';
 import type { RunInfoEntity } from '../../../types';
 import type { KeyValueEntity } from '../../../../common/types';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
+import { runStatusToJobStatus } from '../../../utils/statusMapping';
+import {
+  MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG,
+  MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG,
+  MLFLOW_ISSUE_DETECTION_RESULT_SUMMARY_TAG,
+} from '../../../constants';
 
 export interface IssueDetectionRunOverviewProps {
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
@@ -44,18 +50,44 @@ export const IssueDetectionRunOverview = ({
     enabled: !!jobId,
   });
 
-  // Parse issue-specific result format
+  // Parse issue-specific result format from job if available
   const isFailed = jobStatus === JobStatus.FAILED || jobStatus === JobStatus.TIMEOUT;
   const jobErrorMessage = isFailed && typeof rawResult === 'string' ? rawResult : undefined;
-  const result =
+  const jobResult =
     !isFailed && typeof rawResult === 'object' && rawResult !== null ? (rawResult as IssueJobResult) : undefined;
+
+  // Fall back to reading result from run tags if no job exists
+  const resultFromTags: IssueJobResult | undefined = !jobId
+    ? (() => {
+        const issuesTag = tags[MLFLOW_ISSUE_DETECTION_RESULT_ISSUES_TAG]?.value;
+        const tracesTag = tags[MLFLOW_ISSUE_DETECTION_RESULT_TOTAL_TRACES_TAG]?.value;
+        const summaryTag = tags[MLFLOW_ISSUE_DETECTION_RESULT_SUMMARY_TAG]?.value;
+
+        if (issuesTag && tracesTag) {
+          return {
+            issues: parseInt(issuesTag, 10),
+            total_traces_analyzed: parseInt(tracesTag, 10),
+            summary: summaryTag,
+          };
+        }
+        return undefined;
+      })()
+    : undefined;
+
+  const result = jobResult || resultFromTags;
+
+  // Derive job status from run status if no job exists
+  const effectiveJobStatus = jobStatus || (!jobId && runInfo.status ? runStatusToJobStatus(runInfo.status) : undefined);
 
   const model = tags['model']?.value;
   const categoriesStr = tags['categories']?.value;
   const categories = categoriesStr ? categoriesStr.split(',').map((c) => c.trim()) : undefined;
-  const totalTraces = tags['total_traces']?.value ? parseInt(tags['total_traces'].value, 10) : undefined;
+  // Use total_traces_analyzed from result if available, otherwise fall back to total_traces tag
+  const totalTraces =
+    result?.total_traces_analyzed ??
+    (tags['total_traces']?.value ? parseInt(tags['total_traces'].value, 10) : undefined);
 
-  const jobComplete = isJobComplete(jobStatus) || !!jobStatusError;
+  const jobComplete = isJobComplete(effectiveJobStatus) || !!jobStatusError;
   const prevJobCompleteRef = useRef(jobComplete);
 
   useEffect(() => {
@@ -169,11 +201,11 @@ export const IssueDetectionRunOverview = ({
     >
       <IssueDetectionProgress
         jobId={jobId}
-        jobStatus={jobStatus}
+        jobStatus={effectiveJobStatus}
         jobStage={jobStatusDetails?.stage}
         totalTraces={totalTraces}
         result={result}
-        isLoadingJobStatus={isLoadingJobStatus}
+        isLoadingJobStatus={jobId ? isLoadingJobStatus : false}
         jobStatusError={jobStatusError}
         jobErrorMessage={jobErrorMessage}
       />

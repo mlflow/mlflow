@@ -2,7 +2,7 @@
 # This file defines the package metadata of `mlflow-skinny`.
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools<=82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -89,8 +89,6 @@ genai = [
   "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
-  "gepa<1,>=0.0.26",
-  "litellm<2,>=1.0.0",
   "slowapi<1,>=0.1.9",
   "tiktoken<1",
   "uvicorn[standard]<1",

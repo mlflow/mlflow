@@ -197,7 +197,7 @@ export const sendMessageStream = async (
           }
         }
       } catch (err) {
-        console.error('Failed to parse message event:', err);
+        // fail silently
       }
     });
 
@@ -215,7 +215,7 @@ export const sendMessageStream = async (
           }
         }
       } catch (err) {
-        console.error('Failed to parse stream_event:', err);
+        // fail silently
       }
     });
 
@@ -239,7 +239,7 @@ export const sendMessageStream = async (
         onDone();
         eventSource.close();
       } catch (err) {
-        console.error('Failed to parse done event:', err);
+        // fail silently
         onToolUse?.([]);
         onDone();
         eventSource.close();

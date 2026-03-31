@@ -812,13 +812,6 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
     "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
 )
 
-#: Enable periodic heartbeat logging during mlflow.genai.evaluate. When True, pipeline
-#: progress (predicted/scored counts, pending futures, current rate limits) is logged at
-#: DEBUG level every 15 seconds. Useful for diagnosing throughput issues. (default: ``False``)
-MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT = _BooleanEnvironmentVariable(
-    "MLFLOW_GENAI_EVAL_ENABLE_HEARTBEAT", False
-)
-
 #: Timeout in seconds for async predict functions in mlflow.genai.evaluate. When an async
 #: function is passed as predict_fn, it will be wrapped with asyncio.run() with this timeout.
 #: (default: ``300``)
@@ -1137,7 +1130,11 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
 #: (default: ``None``)
 MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
 
-
+#: Specifies whether to export spans incrementally as they complete, in addition to
+#: exporting the full trace. When enabled, spans are written to the tracking store
+#: individually via ``log_spans`` as each span finishes. This provides real-time span
+#: visibility for long-running traces but adds extra DB round-trips that may increase
+#: latency under high concurrency. When disabled, spans are batch-written to the database
 #: Specifies the location to send traces to. This can be either an MLflow experiment ID or a
 #: Databricks Unity Catalog (UC) schema (format: `<catalog_name>.<schema_name>`).
 #: (default: ``None`` (an active MLflow experiment will be used))
