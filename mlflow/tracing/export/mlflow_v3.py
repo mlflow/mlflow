@@ -121,7 +121,11 @@ class MlflowV3SpanExporter(SpanExporter):
             # Get experiment_id from trace info (resolved at on_start time in the
             # originating thread) to survive BatchSpanProcessor thread hops.
             with manager.get_trace(mlflow_trace_id) as trace:
-                experiment_id = trace.info.experiment_id if trace else None
+                try:
+                    experiment_id = trace.info.experiment_id if trace else None
+                except AttributeError:
+                    # Remote/distributed traces may have trace_location=None
+                    experiment_id = None
             if experiment_id is None:
                 experiment_id = get_experiment_id_for_trace(span)
             spans_by_experiment[experiment_id].append(mlflow_span)

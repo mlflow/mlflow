@@ -685,7 +685,6 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
         model.batch([input] * 2)
 
     if async_logging_enabled:
-        time.sleep(0.3)
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
@@ -758,7 +757,6 @@ async def test_langchain_autolog_callback_injection_in_abatch(
         await model.abatch([input] * 2)
 
     if async_logging_enabled:
-        time.sleep(0.3)
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
@@ -894,7 +892,7 @@ def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path, asy
     assert stream_trace.data.response == invoke_trace.data.response
     assert len(stream_trace.data.spans) == len(invoke_trace.data.spans)
 
-
+# @pytest.mark.repeat(5)
 def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
     mlflow.langchain.autolog()
 
@@ -911,7 +909,6 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
         _ = [f.result() for f in futures]
 
     if async_logging_enabled:
-        time.sleep(0.3)
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()

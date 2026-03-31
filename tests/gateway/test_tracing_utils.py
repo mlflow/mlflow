@@ -582,7 +582,7 @@ async def test_maybe_traced_gateway_call_with_traceparent_multiple_providers(gat
     )
     await traced({"input": "test"})
 
-    mlflow.flush_trace_async_logging(terminate=True)
+    mlflow.flush_trace_async_logging()
     agent_trace = mlflow.get_trace(agent_trace_id)
     assert agent_trace is not None
 

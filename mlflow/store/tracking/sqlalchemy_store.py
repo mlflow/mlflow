@@ -4607,42 +4607,53 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 .all()
             }
 
-            # --- Phase 2: Create missing traces (1 flush per trace for safe rollback) ---
-            if new_trace_ids := [tid for tid in all_trace_ids if tid not in existing_traces]:
+            # --- Phase 2: Create missing traces ---
+            # On IntegrityError (concurrent start_trace race), roll back and retry so that
+            # previously flushed trace_infos (which session.rollback() would undo) are
+            # re-created in the next attempt. Loop until all traces are in existing_traces.
+            if any(tid not in existing_traces for tid in all_trace_ids):
                 experiment = self.get_experiment(location)
-                for trace_id in new_trace_ids:
-                    agg = trace_aggregates[trace_id]
-                    # Create trace info for this new trace. We need to establish the trace
-                    # before we can add spans to it, as spans have a foreign key to trace_info.
-                    sql_trace_info = SqlTraceInfo(
-                        request_id=trace_id,
-                        experiment_id=location,
-                        timestamp_ms=agg.min_start_ms,
-                        execution_time_ms=(
-                            (agg.max_end_ms - agg.min_start_ms) if agg.max_end_ms else None
-                        ),
-                        status=agg.trace_status,
-                        client_request_id=None,
-                    )
-                    # Add the artifact location tag that's required for search_traces to work
-                    sql_trace_info.tags = [
-                        self._get_trace_artifact_location_tag(experiment, trace_id)
-                    ]
-                    session.add(sql_trace_info)
-                    try:
-                        session.flush()
-                    except IntegrityError:
-                        # Race condition: another process/thread created this trace
-                        # concurrently. Rollback this single insert and fetch the
-                        # trace that was created by the other process.
-                        session.rollback()
-                        sql_trace_info = (
-                            self
-                            ._trace_query(session)
-                            .filter(SqlTraceInfo.request_id == trace_id)
-                            .one()
+                max_retries = 3
+                for _attempt in range(max_retries):
+                    pending = [tid for tid in all_trace_ids if tid not in existing_traces]
+                    if not pending:
+                        break
+                    conflict = None
+                    for trace_id in pending:
+                        agg = trace_aggregates[trace_id]
+                        sql_trace_info = SqlTraceInfo(
+                            request_id=trace_id,
+                            experiment_id=location,
+                            timestamp_ms=agg.min_start_ms,
+                            execution_time_ms=(
+                                (agg.max_end_ms - agg.min_start_ms) if agg.max_end_ms else None
+                            ),
+                            status=agg.trace_status,
+                            client_request_id=None,
                         )
-                    existing_traces[trace_id] = sql_trace_info
+                        sql_trace_info.tags = [
+                            self._get_trace_artifact_location_tag(experiment, trace_id)
+                        ]
+                        session.add(sql_trace_info)
+                        try:
+                            session.flush()
+                        except IntegrityError:
+                            # A concurrent start_trace() created this trace. Roll back
+                            # the entire transaction (undoing any trace_infos we just
+                            # flushed) and re-fetch to rebuild existing_traces.
+                            session.rollback()
+                            conflict = trace_id
+                            break
+                        existing_traces[trace_id] = sql_trace_info
+                    if conflict is not None:
+                        # Re-fetch whatever now exists in DB (created by start_trace or us)
+                        existing_traces = {
+                            t.request_id: t
+                            for t in self
+                            ._trace_query(session)
+                            .filter(SqlTraceInfo.request_id.in_(all_trace_ids))
+                            .all()
+                        }
 
             # Fill in experiment_id on span rows now that we have trace infos
             for row in all_span_rows:
