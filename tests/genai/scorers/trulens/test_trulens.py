@@ -107,19 +107,14 @@ def test_trulens_get_scorer(mock_provider):
     assert result.name == "Groundedness"
 
 
-def test_trulens_scorer_provider_is_real_instance():
-    from trulens.providers.litellm import LiteLLM
+def test_trulens_scorer_provider_is_real_instance(monkeypatch):
+    from trulens.feedback.llm_provider import LLMProvider
 
     from mlflow.genai.scorers.trulens import Groundedness
 
-    try:
-        scorer = Groundedness(model="openai:/gpt-4")
-        assert isinstance(scorer._provider, LiteLLM)
-    except AttributeError as e:
-        # TruLens LiteLLM provider has an instrumentation bug with CallTypes enum
-        if "CallTypes" in str(e):
-            pytest.skip("TruLens LiteLLM instrumentation bug - see TruLens issue tracker")
-        raise
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    scorer = Groundedness(model="openai:/gpt-4")
+    assert isinstance(scorer._provider, LLMProvider)
 
 
 def test_trulens_scorer_error_handling(mock_provider):
@@ -141,3 +136,69 @@ def test_trulens_scorer_error_handling(mock_provider):
     assert result.error is not None
     assert "Evaluation failed" in str(result.error)
     assert result.metadata == {"mlflow.scorer.framework": "trulens"}
+
+
+# --- Model adapter tests ---
+
+
+def test_gateway_provider_create_chat_completion():
+    from mlflow.genai.scorers.trulens.models import _create_gateway_provider
+
+    provider = _create_gateway_provider("openai", "gpt-4")
+
+    with patch(
+        "mlflow.genai.scorers.trulens.models._call_llm_provider_api",
+        return_value="The answer is 42.",
+    ) as mock_call:
+        result = provider._create_chat_completion(prompt="What is the answer?")
+
+    assert result == "The answer is 42."
+    mock_call.assert_called_once_with(
+        "openai", "gpt-4", input_data="What is the answer?", eval_parameters=None
+    )
+
+
+def test_gateway_provider_handles_messages():
+    from mlflow.genai.scorers.trulens.models import _create_gateway_provider
+
+    provider = _create_gateway_provider("openai", "gpt-4")
+    messages = [
+        {"role": "system", "content": "You are helpful"},
+        {"role": "user", "content": "Hello"},
+    ]
+
+    with patch(
+        "mlflow.genai.scorers.trulens.models._call_llm_provider_api",
+        return_value="Hi there!",
+    ) as mock_call:
+        result = provider._create_chat_completion(messages=messages)
+
+    assert result == "Hi there!"
+    mock_call.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "env_var"),
+    [
+        ("openai:/gpt-4", "OPENAI_API_KEY"),
+        ("anthropic:/claude-3", "ANTHROPIC_API_KEY"),
+    ],
+)
+def test_create_trulens_provider_uses_gateway_for_supported(model_uri, env_var, monkeypatch):
+    from trulens.feedback.llm_provider import LLMProvider
+
+    from mlflow.genai.scorers.trulens.models import create_trulens_provider
+
+    monkeypatch.setenv(env_var, "test-key")
+    provider = create_trulens_provider(model_uri)
+    assert isinstance(provider, LLMProvider)
+    assert "gateway" in provider.endpoint.name
+
+
+def test_create_trulens_provider_uses_databricks_for_bare_uri():
+    from trulens.feedback.llm_provider import LLMProvider
+
+    from mlflow.genai.scorers.trulens.models import create_trulens_provider
+
+    provider = create_trulens_provider("databricks")
+    assert isinstance(provider, LLMProvider)
