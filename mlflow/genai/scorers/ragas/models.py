@@ -5,7 +5,6 @@ import json
 import typing as t
 
 import instructor
-import litellm
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 from ragas.embeddings import OpenAIEmbeddings
@@ -63,6 +62,8 @@ def create_ragas_model(model_uri: str):
     """
     if model_uri == "databricks":
         return DatabricksRagasLLM()
+
+    import litellm
 
     # Parse provider:/model format using shared helper
     provider, model_name = _parse_model_uri(model_uri)

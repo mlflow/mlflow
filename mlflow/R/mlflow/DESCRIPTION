@@ -43,10 +43,8 @@ Imports:
     openssl (<= 2.3.5),
     processx (<= 3.8.6),
     purrr (<= 1.2.1),
-    rlang (>= 0.2.0),
     rlang (<= 1.1.7),
     swagger (<= 5.17.14.1),
-    tibble (>= 2.0.0),
     tibble (<= 3.3.1),
     withr (<= 3.0.2),
     yaml (<= 2.3.12),
@@ -59,7 +57,6 @@ Suggests:
     lintr (<= 3.3.0-1),
     sparklyr (<= 1.9.3),
     stringi (<= 1.8.7),
-    testthat (>= 2.0.0),
     testthat (<= 3.3.2),
     reticulate (<= 1.45.0),
     xgboost (<= 3.2.0.1)

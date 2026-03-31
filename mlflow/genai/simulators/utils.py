@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    _create_message_from_databricks_response,
     call_chat_completions,
-    create_litellm_message_from_databricks_response,
     serialize_messages_to_databricks_prompts,
 )
 from mlflow.genai.judges.constants import (
@@ -84,7 +84,7 @@ def invoke_model_without_tracing(
                 raise MlflowException("Empty response from Databricks managed endpoint")
 
             parsed_json = json.loads(output_json) if isinstance(output_json, str) else output_json
-            return create_litellm_message_from_databricks_response(parsed_json).content
+            return _create_message_from_databricks_response(parsed_json).content
 
         provider, model_name = _parse_model_uri(model_uri)
 

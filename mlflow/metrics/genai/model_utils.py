@@ -6,6 +6,9 @@ import requests
 from pydantic import BaseModel
 
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
+from mlflow.genai.utils.gateway_utils import get_gateway_config
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
 if TYPE_CHECKING:
@@ -280,9 +283,25 @@ def _call_llm_provider_api(
     return content[0].text if isinstance(content, list) else content
 
 
+class _MlflowGatewayProvider(OpenAIProvider):
+    """OpenAI-compatible provider for MLflow AI Gateway endpoints.
+
+    Overrides ``headers`` to use gateway auth headers instead of
+    the standard ``Bearer {api_key}`` used by OpenAIProvider.
+    """
+
+    def __init__(self, config: EndpointConfig, extra_headers: dict[str, str] | None = None):
+        super().__init__(config)
+        self._extra_headers = extra_headers
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {**(self._extra_headers or {})}
+
+
 def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     """Get the provider instance for the given provider name and the model name."""
-    from mlflow.gateway.config import EndpointConfig, Provider
+    from mlflow.gateway.config import Provider
 
     def _get_route_config(config):
         return EndpointConfig(
@@ -298,7 +317,6 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     # NB: Not all LLM providers in MLflow Gateway are supported here. We can add
     # new ones as requested, as long as the provider support chat endpoints.
     if provider == Provider.OPENAI:
-        from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
         from mlflow.openai.model import _get_api_config, _OAITokenHolder
 
         api_config = _get_api_config()
@@ -366,6 +384,23 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
 
         config = TogetherAIConfig(togetherai_api_key=os.environ.get("TOGETHERAI_API_KEY"))
         return TogetherAIProvider(_get_route_config(config))
+
+    elif provider == "gateway":
+        gw_config = get_gateway_config(model)
+        openai_config = OpenAIConfig(
+            openai_api_key="mlflow-gateway-auth",
+            openai_api_base=gw_config.api_base.rstrip("/"),
+        )
+        route_config = EndpointConfig(
+            name="gateway",
+            endpoint_type="llm/v1/chat",
+            model={
+                "provider": "openai",
+                "name": model,
+                "config": openai_config.model_dump(),
+            },
+        )
+        return _MlflowGatewayProvider(route_config, extra_headers=gw_config.extra_headers)
 
     raise MlflowException(f"Provider '{provider}' is not supported for evaluation.")
 

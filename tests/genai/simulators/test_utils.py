@@ -83,7 +83,7 @@ def test_invoke_model_without_tracing_with_databricks(model_uri):
     with (
         mock.patch("mlflow.genai.simulators.utils.call_chat_completions") as mock_call,
         mock.patch(
-            "mlflow.genai.simulators.utils.create_litellm_message_from_databricks_response"
+            "mlflow.genai.simulators.utils._create_message_from_databricks_response"
         ) as mock_create,
     ):
         mock_call.return_value = mock.MagicMock(error_code=None, output_json='{"content": "Hi"}')

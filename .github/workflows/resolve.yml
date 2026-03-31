@@ -23,9 +23,7 @@ jobs:
     permissions:
       pull-requests: write
     timeout-minutes: 5
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >
-      false &&
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
@@ -129,8 +127,6 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
   resolve:
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
-    if: false
     needs: precheck
     runs-on: ubuntu-latest
     permissions:
@@ -145,6 +141,7 @@ jobs:
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: true
           repository: ${{ needs.precheck.outputs.head_repository }}
           ref: ${{ needs.precheck.outputs.head_ref }}
           token: ${{ steps.app-token.outputs.token }}
@@ -215,9 +212,7 @@ jobs:
 
   report:
     needs: [precheck, resolve]
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: |
-      false &&
       always() &&
       !contains(needs.*.result, 'cancelled') &&
       !contains(needs.*.result, 'skipped')

@@ -504,3 +504,160 @@ def test_no_log_spans_to_artifacts_if_stored_in_tracking_store():
         exporter.export([otel_span])
         mock_upload_trace_data.assert_not_called()
         mock_start_trace.assert_called_once()
+
+
+@pytest.mark.parametrize("incremental_export_enabled", [True, False])
+def test_should_export_spans_incrementally_flag(monkeypatch, incremental_export_enabled):
+    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", str(incremental_export_enabled))
+
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=99999,
+        span_id=1,
+        parent_id=None,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ) as mock_start_trace,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.log_spans",
+        ) as mock_log_spans,
+    ):
+        exporter = MlflowV3SpanExporter()
+        exporter.export([otel_span])
+
+        mock_start_trace.assert_called_once()
+        # log_spans is called in both cases:
+        # - incremental ON: called during export() for each span as it completes
+        # - incremental OFF: called during _log_trace() as a batch write at trace completion
+        mock_log_spans.assert_called_once()
+
+        if incremental_export_enabled:
+            # Incremental path: start_trace mock doesn't set SPANS_LOCATION tag,
+            # so artifact upload proceeds as a fallback
+            mock_upload_trace_data.assert_called_once()
+        else:
+            # Batch path: spans batch-written to DB, artifact upload skipped
+            mock_upload_trace_data.assert_not_called()
+
+
+def test_remote_trace_exported_when_incremental_export_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "False")
+
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=88888,
+        span_id=1,
+        parent_id=None,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info, is_remote_trace=True)
+    trace_manager.register_span(span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ) as mock_start_trace,
+        mock.patch("mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None),
+        mock.patch("mlflow.tracing.client.TracingClient.log_spans") as mock_log_spans,
+    ):
+        exporter = MlflowV3SpanExporter()
+        exporter.export([otel_span])
+
+        # Remote trace should still be exported via start_trace
+        mock_start_trace.assert_called_once()
+        # log_spans is called twice:
+        # 1. In export() for remote trace spans (incremental path for remote traces)
+        # 2. In _log_trace() for the batch write at trace completion
+        assert mock_log_spans.call_count == 2
+
+
+def test_batch_write_spans_at_trace_completion(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "False")
+
+    # Create root and child OTel spans
+    root_otel = create_mock_otel_span(name="root", trace_id=77777, span_id=1, parent_id=None)
+    child_otel = create_mock_otel_span(name="child", trace_id=77777, span_id=2, parent_id=1)
+
+    trace_id = generate_trace_id_v3(root_otel)
+    root_span = LiveSpan(root_otel, trace_id)
+    child_span = LiveSpan(child_otel, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_manager.register_trace(root_otel.context.trace_id, trace_info)
+    trace_manager.register_span(root_span)
+    trace_manager.register_span(child_span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ) as mock_start_trace,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
+        mock.patch("mlflow.tracing.client.TracingClient.log_spans") as mock_log_spans,
+    ):
+        exporter = MlflowV3SpanExporter()
+        # Export child first (non-root), then root to trigger _log_trace
+        exporter.export([child_otel, root_otel])
+
+        mock_start_trace.assert_called_once()
+        # Batch write should happen once in _log_trace with all spans
+        mock_log_spans.assert_called_once()
+        logged_spans = mock_log_spans.call_args.args[1]
+        assert len(logged_spans) == 2
+        # Artifact upload is skipped when spans are batch-written to DB
+        mock_upload_trace_data.assert_not_called()
+
+
+def test_batch_write_skipped_when_store_unsupported(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "False")
+
+    otel_span = create_mock_otel_span(name="root", trace_id=66666, span_id=1, parent_id=None)
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, _EXPERIMENT_ID)
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient.start_trace",
+            return_value=trace_info,
+        ) as mock_start_trace,
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
+        ) as mock_upload_trace_data,
+        mock.patch("mlflow.tracing.client.TracingClient.log_spans") as mock_log_spans,
+    ):
+        exporter = MlflowV3SpanExporter()
+        exporter._store_supports_log_spans = False
+        exporter.export([otel_span])
+
+        mock_start_trace.assert_called_once()
+        # log_spans should NOT be called when store doesn't support it
+        mock_log_spans.assert_not_called()
+        # Artifact upload should still happen as fallback
+        mock_upload_trace_data.assert_called_once()
