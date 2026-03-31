@@ -4231,6 +4231,7 @@ def _invoke_issue_detection_handler():
         tags={
             MLFLOW_RUN_TYPE: MLFLOW_RUN_TYPE_ISSUE_DETECTION,
             "categories": ",".join(categories),
+            "endpoint_name": endpoint_name,
             "model": model_name,
             "total_traces": len(trace_ids),
         },
