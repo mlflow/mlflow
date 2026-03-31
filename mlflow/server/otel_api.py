@@ -11,6 +11,7 @@ to MLflow spans, which requires more complex conversion logic.
 """
 
 import json
+import logging
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
@@ -34,6 +35,8 @@ from mlflow.tracking.request_header.default_request_header_provider import (
     _MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX,
     _USER_AGENT,
 )
+
+_logger = logging.getLogger(__name__)
 
 # Create FastAPI router for OTel endpoints
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
@@ -132,10 +135,12 @@ async def export_traces(
                 status_code=e.get_http_status_code(),
                 content=json.loads(e.serialize_as_json()),
             )
-        except Exception as e:
+        except Exception:
+            trace_ids = {s.trace_id for s in all_spans}
+            _logger.exception("Failed to log OpenTelemetry spans for trace(s): %s", trace_ids)
             raise HTTPException(
                 status_code=422,
-                detail=f"Failed to log OpenTelemetry spans: {e}",
+                detail="Failed to log OpenTelemetry spans",
             )
 
         if completed_trace_ids:
