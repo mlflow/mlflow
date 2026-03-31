@@ -15,7 +15,7 @@ from mlflow.genai.discovery.entities import (
     _ConversationAnalysis,
     _IdentifiedIssue,
 )
-from mlflow.genai.discovery.utils import _call_llm, _TokenCounter
+from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
 
 _logger = logging.getLogger(__name__)
 
