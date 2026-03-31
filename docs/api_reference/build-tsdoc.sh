@@ -16,7 +16,7 @@ build_tsdoc() {
     pushd "$package_path"
 
     # Generate TypeDoc documentation
-    npm exec -- typedoc -- \
+    npm exec -- typedoc \
         --out "$output_path" \
         --name "$package_name" \
         --readme README.md \
