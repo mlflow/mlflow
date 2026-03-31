@@ -351,8 +351,8 @@ def test_log_image_with_slash_in_key():
 
         assert len(files) == 2
         for file in files:
-            # '~' must be used instead of '#' as the separator
-            assert "~" in file
+            # '_' must be used instead of '#' as the separator
+            assert "category_name" in file
             assert "#" not in file
 
         run_id = mlflow.active_run().info.run_id

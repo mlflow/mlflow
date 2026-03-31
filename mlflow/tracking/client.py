@@ -3226,10 +3226,10 @@ class MlflowClient:
             step = step or 0
             timestamp = timestamp or get_current_time_millis()
 
-            # Sanitize key to use in filename (replace / with ~ to avoid subdirectories).
+            # Sanitize key to use in filename (replace / with _ to avoid subdirectories).
             # '#' was previously used here but is rejected by validate_path_is_safe(),
             # making artifacts with slash-containing keys impossible to download.
-            sanitized_key = re.sub(r"/", "~", key)
+            sanitized_key = re.sub(r"/", "_", key)
             filename_uuid = str(uuid.uuid4())
             # Use + as separator instead of % to avoid conflicts with URL encoding.
             # The frontend supports both + and % delimiters for backwards compatibility.
