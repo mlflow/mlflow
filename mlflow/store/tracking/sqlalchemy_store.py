@@ -4658,9 +4658,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # Log a warning for any traces we still couldn't create after retries
             # (e.g., concurrent start_trace hasn't committed yet). Skip their spans
             # rather than crashing with KeyError.
-            missing_trace_ids = {
-                tid for tid in all_trace_ids if tid not in existing_traces
-            }
+            missing_trace_ids = {tid for tid in all_trace_ids if tid not in existing_traces}
             if missing_trace_ids:
                 _logger.warning(
                     "Could not create trace_info for %d trace(s) after %d retries; "
