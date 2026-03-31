@@ -138,8 +138,6 @@ def _get_runtime_integration_client():
     from dbruntime import UserNamespaceInitializer
 
     driver_connection = UserNamespaceInitializer.getOrCreate().get_driver_connection()
-    if driver_connection is None:
-        raise _NoDbutilsError
     return driver_connection.runtime_integration_client
 
 
@@ -511,9 +509,7 @@ def get_repl_id():
         The ID of the current Databricks Python REPL.
     """
     try:
-        repl_id = _get_runtime_integration_client().getReplId()
-        if repl_id is not None:
-            return repl_id
+        return _get_runtime_integration_client().getReplId()
     except Exception:
         pass
 
