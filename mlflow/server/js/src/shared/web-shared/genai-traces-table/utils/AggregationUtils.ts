@@ -789,8 +789,9 @@ export function getUniqueValueCountsBySourceId(
 }
 
 /**
- * Builds AssessmentAggregates from server-side count metrics for a categorical assessment.
+ * Builds AssessmentAggregates from server-side count metrics.
  * Used when infinite pagination is enabled to get accurate counts across all traces.
+ * Handles both categorical (pass-fail, boolean, string) and numeric assessments.
  */
 export function buildAggregatesFromCountMetrics(
   assessmentInfo: AssessmentInfo,
@@ -798,8 +799,35 @@ export function buildAggregatesFromCountMetrics(
   allAssessmentFilters: AssessmentFilter[],
 ): AssessmentAggregates {
   const relevantMetrics = metricsData.filter((m) => m.assessmentName === assessmentInfo.name);
-  const currentCounts: AssessmentRunCounts = new Map();
+  const assessmentFilters = allAssessmentFilters.filter((f) => f.assessmentName === assessmentInfo.name);
 
+  if (assessmentInfo.dtype === 'numeric') {
+    // For numeric assessments, expand (value, count) pairs into a values array
+    // and build the histogram using the existing bucketing logic.
+    const numericValues: number[] = [];
+    for (const metric of relevantMetrics) {
+      const value = parseFloat(metric.assessmentValue);
+      if (!isNaN(value)) {
+        for (let i = 0; i < metric.count; i++) {
+          numericValues.push(value);
+        }
+      }
+    }
+    return {
+      assessmentInfo,
+      currentCounts: undefined,
+      otherCounts: undefined,
+      currentNumericValues: numericValues,
+      otherNumericValues: undefined,
+      currentNumericAggregate: getNumericAggregate(numericValues),
+      currentNumRootCause: 0,
+      otherNumRootCause: 0,
+      assessmentFilters,
+    };
+  }
+
+  // For categorical assessments, build the value → count map directly.
+  const currentCounts: AssessmentRunCounts = new Map();
   for (const metric of relevantMetrics) {
     let typedValue: AssessmentValueType;
     if (assessmentInfo.dtype === 'boolean') {
@@ -809,8 +837,6 @@ export function buildAggregatesFromCountMetrics(
     }
     currentCounts.set(typedValue, metric.count);
   }
-
-  const assessmentFilters = allAssessmentFilters.filter((f) => f.assessmentName === assessmentInfo.name);
 
   return {
     assessmentInfo,

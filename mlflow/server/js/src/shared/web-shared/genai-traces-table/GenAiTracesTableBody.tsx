@@ -507,7 +507,7 @@ export const GenAiTracesTableBody = React.memo(
       const result: Record<string, AssessmentAggregates> = {};
       const useServerCounts = assessmentCountMetrics && !assessmentCountMetrics.isLoading;
       for (const assessmentInfo of selectedAssessmentInfos) {
-        if (useServerCounts && assessmentInfo.dtype !== 'numeric' && assessmentInfo.dtype !== 'unknown') {
+        if (useServerCounts && assessmentInfo.dtype !== 'unknown') {
           result[assessmentInfo.name] = buildAggregatesFromCountMetrics(
             assessmentInfo,
             assessmentCountMetrics.data,
