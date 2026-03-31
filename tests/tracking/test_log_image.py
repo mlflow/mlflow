@@ -339,11 +339,6 @@ def test_async_log_image_flush():
 
 
 def test_log_image_with_slash_in_key():
-    """Regression test: keys containing '/' must produce downloadable artifacts.
-
-    Previously '/' was replaced with '#' in filenames, but '#' is rejected by
-    validate_path_is_safe(), making such artifacts impossible to download.
-    """
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
     with mlflow.start_run():
