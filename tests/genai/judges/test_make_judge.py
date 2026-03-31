@@ -31,7 +31,7 @@ from mlflow.genai import make_judge
 from mlflow.genai.judges.constants import _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
-from mlflow.genai.judges.utils import _NATIVE_PROVIDERS, validate_judge_model
+from mlflow.genai.judges.utils import validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.constant import TraceMetadataKey
@@ -296,27 +296,11 @@ def test_databricks_model_requires_databricks_agents(monkeypatch):
         )
 
 
-@pytest.mark.parametrize("provider", {"vertexai", "cohere", "replicate", "groq", "together"})
-def test_litellm_provider_requires_litellm(monkeypatch, provider):
-    monkeypatch.setitem(sys.modules, "litellm", None)
-
-    with pytest.raises(
-        MlflowException,
-        match=f"LiteLLM is required for using '{provider}' as a provider",
-    ):
-        make_judge(
-            name="test_judge",
-            instructions="Check if {{ outputs }} is valid",
-            feedback_value_type=str,
-            model=f"{provider}:/test-model",
-        )
-
-
 @pytest.mark.parametrize(
     "provider",
-    _NATIVE_PROVIDERS,
+    ["openai", "anthropic", "gemini", "mistral", "endpoints", "gateway", "cohere", "groq"],
 )
-def test_native_providers_work_without_litellm(monkeypatch, provider):
+def test_providers_work_without_litellm(monkeypatch, provider):
     monkeypatch.setitem(sys.modules, "litellm", None)
 
     judge = make_judge(
@@ -4022,3 +4006,31 @@ def test_inference_params_preserved_after_round_trip_serialization():
 
     assert restored.inference_params == inference_params
     assert restored_from_json.inference_params == inference_params
+
+
+@pytest.mark.parametrize("include_timing", [True, False])
+def test_conversation_with_timing_parameter(mock_invoke_judge_model, include_timing):
+    session_id = "test_session"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "Test question"}]})
+        span.set_outputs("Test response")
+        mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    judge = make_judge(
+        name="test_timing_judge",
+        instructions="Evaluate this {{ conversation }}",
+        model="openai:/gpt-4",
+        include_timing_in_conversation=include_timing,
+    )
+
+    judge(session=traces)
+
+    _, prompt, _ = mock_invoke_judge_model.calls[0]
+    user_msg = prompt[1]
+    conversation_content = user_msg.content
+
+    assert ("Response duration:" in conversation_content) is include_timing
+    assert ("slowest spans:" in conversation_content) is include_timing

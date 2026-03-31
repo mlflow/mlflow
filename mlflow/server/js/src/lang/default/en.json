@@ -3,10 +3,6 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > retrieval relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
   },
-  "++Ydlz": {
-    "defaultMessage": "Assessments",
-    "description": "Label for the assessments pane"
-  },
   "+/Zrmm": {
     "defaultMessage": "Temperature",
     "description": "Label for temperature input"
@@ -26,6 +22,10 @@
   "+4+wQY": {
     "defaultMessage": "Store it securely and restrict access to server administrators only.",
     "description": "AI Gateway setup guide > Passphrase warning security note"
+  },
+  "+6tmRn": {
+    "defaultMessage": "Name",
+    "description": "Field label for assessment name in a creation form"
   },
   "+8+eEg": {
     "defaultMessage": "Follow these steps to enable the AI Gateway feature for managing AI provider credentials.",
@@ -58,10 +58,6 @@
   "+Njd07": {
     "defaultMessage": "No sessions found",
     "description": "Title for the empty sessions list in the select sessions modal"
-  },
-  "+SBxBK": {
-    "defaultMessage": "Assessment Type",
-    "description": "Field label for assessment type in a creation form"
   },
   "+VGmLL": {
     "defaultMessage": "Optional description",
@@ -346,10 +342,6 @@
   "08WP3h": {
     "defaultMessage": "Staging",
     "description": "Column title for staging phase version in the registered model page"
-  },
-  "0AOcOr": {
-    "defaultMessage": "Feedback",
-    "description": "Feedback select menu option for assessment type"
   },
   "0BIVHk": {
     "defaultMessage": "Response follows instructions, constraints, policies, and formatting",
@@ -1318,6 +1310,10 @@
     "defaultMessage": "Value",
     "description": "Tag assignment modal > Value label"
   },
+  "6yxGSV": {
+    "defaultMessage": "Failed to load attachment",
+    "description": "Error message when trace attachment fails to load"
+  },
   "7+XQ3q": {
     "defaultMessage": "Correctness",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -1942,10 +1938,6 @@
     "defaultMessage": "Response from the endpoint after clicking Send request.",
     "description": "Response body tooltip"
   },
-  "AdlJNW": {
-    "defaultMessage": "Assessment Name",
-    "description": "Field label for assessment name in a creation form"
-  },
   "AeRhuI": {
     "defaultMessage": "Conversational guidelines",
     "description": "Evaluation results > known type of evaluation result assessment > conversational guidelines assessment. Used to indicate if the assistant adheres to the guidelines throughout a conversation."
@@ -2462,6 +2454,10 @@
     "defaultMessage": "Model version tag deleted",
     "description": "Webhook event label"
   },
+  "DmQLLV": {
+    "defaultMessage": "Download attachment ({contentType})",
+    "description": "Download link for trace attachment with unknown content type"
+  },
   "Dw+Z8L": {
     "defaultMessage": "Budget exceeded",
     "description": "Warning icon label for exceeded budget"
@@ -2785,10 +2781,6 @@
   "GDzD7I": {
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
-  },
-  "GGbdya": {
-    "defaultMessage": "View status",
-    "description": "Link to view issue detection job status"
   },
   "GJWVBA": {
     "defaultMessage": "Inputs",
@@ -3961,6 +3953,10 @@
   "OLZyxe": {
     "defaultMessage": "{errorCount, plural, one {# error} other {# errors}}",
     "description": "Error count in tooltip"
+  },
+  "OMyvg6": {
+    "defaultMessage": "Select provider",
+    "description": "Placeholder for provider selector"
   },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
@@ -6795,10 +6791,6 @@
     "defaultMessage": "<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}",
     "description": "Message for displaying how many runs match search criteria on experiment page"
   },
-  "gN67TK": {
-    "defaultMessage": "Enter an assessment name",
-    "description": "Placeholder for the assessment name typeahead"
-  },
   "gOUJ0f": {
     "defaultMessage": "No assessment for this evaluation",
     "description": "Text displayed when there is no assessment for a given evaluation"
@@ -7042,6 +7034,10 @@
   "hpAK1G": {
     "defaultMessage": "Created by:",
     "description": "Label for created by"
+  },
+  "hr2v8O": {
+    "defaultMessage": "To use other providers, create an AI Gateway endpoint and select it.",
+    "description": "Hint explaining how to use other providers via Gateway"
   },
   "hvImg5": {
     "defaultMessage": "No resources are using this key",
@@ -7602,6 +7598,10 @@
   "lIURTA": {
     "defaultMessage": "Name",
     "description": "Workspaces table name column header"
+  },
+  "lJC4eF": {
+    "defaultMessage": "Assessments",
+    "description": "Title for the assessments pane"
   },
   "lJQEW4": {
     "defaultMessage": "Using controls above, select at least one \"group by\" column.",
@@ -8186,6 +8186,10 @@
   "ogDiio": {
     "defaultMessage": "Select at least one session to enable actions",
     "description": "Tooltip for disabled actions button when no sessions are selected"
+  },
+  "ojLGIx": {
+    "defaultMessage": "Enter a feedback name",
+    "description": "Placeholder for the feedback name typeahead"
   },
   "okQ1oB": {
     "defaultMessage": "Please input a new name for the new experiment.",
@@ -8879,10 +8883,6 @@
     "defaultMessage": "Model {modelName} does not exist",
     "description": "Sub-message text for error message on overall model page"
   },
-  "tEaqGu": {
-    "defaultMessage": "Expectation",
-    "description": "Expectation select menu option for assessment type"
-  },
   "tEwQWS": {
     "defaultMessage": "Active",
     "description": "Webhook active status"
@@ -9227,6 +9227,10 @@
     "defaultMessage": "Status",
     "description": "Run page > Overview > Run status section label"
   },
+  "w+Josc": {
+    "defaultMessage": "Enter an expectation name",
+    "description": "Placeholder for the expectation name typeahead"
+  },
   "w/sljb": {
     "defaultMessage": "Sort descending",
     "description": "Label for the sort descending button in the logged model list page"
@@ -9570,10 +9574,6 @@
   "xyQFjH": {
     "defaultMessage": "Prompt Caching",
     "description": "Filter option for prompt caching support"
-  },
-  "y2E9ui": {
-    "defaultMessage": "Issue detection job triggered",
-    "description": "Notification message when issue detection job is started"
   },
   "y2oQyU": {
     "defaultMessage": "Model name",

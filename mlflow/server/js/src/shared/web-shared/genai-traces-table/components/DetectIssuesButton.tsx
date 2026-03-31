@@ -4,27 +4,21 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
 
 // Default storage key for tracking first-time user guidance
-const DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY = 'mlflow.detectIssues.guidanceShown';
+export const DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY = 'mlflow.detectIssues.guidanceShown';
 const DETECT_ISSUES_GUIDANCE_STORAGE_VERSION = 1;
 
 interface DetectIssuesButtonProps {
   componentId: string;
   onClick: () => void;
-  // Optional storage key for guidance - allows different instances to show guidance independently
-  guidanceStorageKey?: string;
 }
 
-export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({
-  componentId,
-  onClick,
-  guidanceStorageKey = DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY,
-}) => {
+export const DetectIssuesButton: React.FC<DetectIssuesButtonProps> = ({ componentId, onClick }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
 
   // Track whether the user has seen the guidance
   const [hasSeenGuidance, setHasSeenGuidance] = useLocalStorage({
-    key: guidanceStorageKey,
+    key: DEFAULT_DETECT_ISSUES_GUIDANCE_STORAGE_KEY,
     version: DETECT_ISSUES_GUIDANCE_STORAGE_VERSION,
     initialValue: false,
   });

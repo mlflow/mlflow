@@ -1032,6 +1032,27 @@ def test_resolve_conversation_from_session_empty():
     assert resolve_conversation_from_session([]) == []
 
 
+@pytest.mark.parametrize("include_timing", [True, False])
+def test_resolve_conversation_from_session_with_timing_parameter(include_timing):
+    session_id = "test_session"
+    traces = []
+
+    with mlflow.start_span(name="turn_0") as span:
+        span.set_inputs({"messages": [{"role": "user", "content": "What is MLflow?"}]})
+        span.set_outputs("MLflow is an ML platform.")
+        mlflow.update_current_trace(metadata={"mlflow.trace.session": session_id})
+    traces.append(mlflow.get_trace(span.trace_id))
+
+    conversation = resolve_conversation_from_session(traces, include_timing=include_timing)
+
+    assert len(conversation) == 2
+    assert conversation[0] == {"role": "user", "content": "What is MLflow?"}
+    assert conversation[1]["role"] == "assistant"
+    assert "MLflow is an ML platform." in conversation[1]["content"]
+    assert ("[Response duration:" in conversation[1]["content"]) is include_timing
+    assert ("slowest spans:" in conversation[1]["content"]) is include_timing
+
+
 def test_session_level_expectations_filtering():
     session_id = "test-session"
 

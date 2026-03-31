@@ -53,6 +53,10 @@ function getMissingHeadings(body, headings) {
 }
 
 async function getCloseReason({ github, context }) {
+  const association = context.payload.pull_request.author_association;
+  if (["OWNER", "MEMBER", "COLLABORATOR"].includes(association)) return undefined;
+  if (context.payload.pull_request.user.type === "Bot") return undefined;
+
   const prNumber = context.payload.pull_request.number;
   const prAuthor = context.payload.pull_request.user.login;
   const { owner, repo } = context.repo;
@@ -129,7 +133,7 @@ async function getCloseReason({ github, context }) {
   return undefined;
 }
 
-module.exports = async ({ context, github }) => {
+async function main({ context, github }) {
   const commentBody = await getCloseReason({ github, context });
   if (commentBody !== undefined) {
     const prNumber = context.payload.pull_request.number;
@@ -150,4 +154,6 @@ module.exports = async ({ context, github }) => {
 
     console.log(`PR #${prNumber} closed.`);
   }
-};
+}
+
+module.exports = { main, getCloseReason };

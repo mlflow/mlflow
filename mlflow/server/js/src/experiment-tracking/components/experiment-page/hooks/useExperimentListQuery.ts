@@ -66,7 +66,7 @@ const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => 
 
   const data: (string[] | undefined)[] = [['max_results', String(pageSize)], ...orderBy];
 
-  // NOTE: undefined values are fine, they're filtered out by `getBigIntJson` inside `MlflowService`
+  // NOTE: undefined values are fine, they're filtered out by the request helpers inside `MlflowService`
   data.push(getFilters({ searchFilter, tagsFilter }));
 
   if (pageToken) {

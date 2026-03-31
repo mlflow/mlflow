@@ -9,6 +9,7 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+      - "dev/clint/**"
       - ".github/workflows/docs.yml"
       - ".github/workflows/preview-docs.yml"
       - "mlflow/server/js/**"
@@ -53,6 +54,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
@@ -77,6 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           submodules: true
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
@@ -97,9 +101,12 @@ jobs:
           # that might conflict with the built-in modules (e.g. `types`).
           uv run --no-sync python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
           source dev/setup-ssh.sh
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP \
             --quiet --requires-ssh --ignore-flavors \
             --ignore=tests/examples \
             --ignore=tests/evaluate \
@@ -122,6 +129,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/untracked
       - name: Build
         run: |
@@ -180,8 +189,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
         with:
           java-version: 11
@@ -201,6 +213,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -234,6 +248,8 @@ jobs:
           - splits: 3
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
@@ -248,8 +264,11 @@ jobs:
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP tests/models
 
   evaluate:
     if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
@@ -265,6 +284,8 @@ jobs:
           - splits: 1
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -278,8 +299,11 @@ jobs:
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
           uv run --no-sync pytest tests/evaluate/test_default_evaluator_delta.py
@@ -292,6 +316,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
@@ -328,6 +354,8 @@ jobs:
           - splits: 4
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/free-disk-space
       - uses: ./.github/actions/setup-python
@@ -342,8 +370,11 @@ jobs:
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
+        env:
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
-          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          uv run --no-sync pytest --splits=$SPLITS --group=$GROUP --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
@@ -364,6 +395,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          persist-credentials: false
           submodules: true
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
@@ -374,7 +406,7 @@ jobs:
           uv sync --extra extras --extra genai --extra mcp
           uv pip install \
             -r requirements/test-requirements.txt \
-            pyspark datasets tensorflow torch transformers tf-keras openai \
+            pyspark datasets tensorflow torch transformers openai \
             tests/resources/mlflow-test-plugin
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
@@ -388,11 +420,13 @@ jobs:
           # Use non-GUI matplotlib backend since Tkinter may not be installed properly on Windows runners
           # https://github.com/stefmolin/data-morph/pull/273
           MPLBACKEND: Agg
+          SPLITS: ${{ matrix.splits }}
+          GROUP: ${{ matrix.group }}
         run: |
           export PATH=$PATH:$HADOOP_HOME/bin
           uv run --no-sync pytest tests \
-            --splits=${{ matrix.splits }} \
-            --group=${{ matrix.group }} \
+            --splits=$SPLITS \
+            --group=$GROUP \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \

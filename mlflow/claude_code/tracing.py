@@ -22,6 +22,8 @@ from mlflow.environment_variables import (
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_TRACKING_URI,
 )
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -117,6 +119,8 @@ def setup_mlflow() -> None:
             mlflow.set_experiment(experiment_name)
     except Exception as e:
         get_logger().warning("Failed to set experiment: %s", e)
+
+    _record_event(AutologgingEvent, {"flavor": "claude_code"})
 
 
 def is_tracing_enabled() -> bool:

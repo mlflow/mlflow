@@ -39,6 +39,7 @@ from mlflow.genai.judges.utils.telemetry_utils import (
 from mlflow.genai.judges.utils.tool_calling_utils import (
     _process_tool_calls,
     _raise_iteration_limit_exceeded,
+    _remove_oldest_tool_call_pair,
 )
 from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
@@ -383,8 +384,30 @@ def _invoke_litellm_and_handle_tools(
                 )
 
             messages.append(message)
-            tool_response_messages = _process_tool_calls(tool_calls=message.tool_calls, trace=trace)
-            messages.extend(tool_response_messages)
+            from mlflow.types.llm import ToolCall as MlflowToolCall
+
+            mlflow_tool_calls = [
+                MlflowToolCall(
+                    id=tc.id,
+                    function={
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,
+                    },
+                )
+                for tc in message.tool_calls
+            ]
+            tool_response_messages = _process_tool_calls(tool_calls=mlflow_tool_calls, trace=trace)
+            # Convert ChatMessage responses back to litellm Messages for the conversation
+            litellm_tool_messages = [
+                litellm.Message(
+                    role=msg.role,
+                    content=msg.content,
+                    tool_call_id=msg.tool_call_id,
+                    name=msg.name,
+                )
+                for msg in tool_response_messages
+            ]
+            messages.extend(litellm_tool_messages)
 
         except MlflowException:
             raise
@@ -422,35 +445,6 @@ def _extract_litellm_error(e: Exception) -> tuple[str, str]:
 def _extract_response_cost(response: "litellm.Completion") -> float | None:
     if hidden_params := getattr(response, "_hidden_params", None):
         return hidden_params.get("response_cost")
-
-
-def _remove_oldest_tool_call_pair(
-    messages: list["litellm.Message"],
-) -> list["litellm.Message"] | None:
-    """
-    Remove the oldest assistant message with tool calls and its corresponding tool responses.
-
-    Args:
-        messages: List of LiteLLM message objects.
-
-    Returns:
-        Modified messages with oldest tool call pair removed, or None if no tool calls to remove.
-    """
-    result = next(
-        ((i, msg) for i, msg in enumerate(messages) if msg.role == "assistant" and msg.tool_calls),
-        None,
-    )
-    if result is None:
-        return None
-
-    assistant_idx, assistant_msg = result
-    modified = messages[:]
-    modified.pop(assistant_idx)
-
-    tool_call_ids = {tc.id if hasattr(tc, "id") else tc["id"] for tc in assistant_msg.tool_calls}
-    return [
-        msg for msg in modified if not (msg.role == "tool" and msg.tool_call_id in tool_call_ids)
-    ]
 
 
 def _get_default_judge_response_schema() -> type[pydantic.BaseModel]:
