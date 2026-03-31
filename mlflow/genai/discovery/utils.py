@@ -276,8 +276,9 @@ def _call_llm_via_gateway(
     response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
 ) -> Any:
-    # Lightweight fallback for when LiteLLM is not installed. Only supports
-    # providers with MLflow gateway adapters (OpenAI, Anthropic, Gemini, Mistral).
+    # Lightweight fallback for when LiteLLM is not installed. Supports
+    # providers with MLflow gateway adapters (OpenAI, Anthropic, Gemini, Mistral)
+    # and the MLflow AI Gateway (gateway:/ URIs).
     # Known gaps vs the LiteLLM path: no drop_params
     # (https://docs.litellm.ai/docs/completion/drop_params) - LiteLLM silently
     # strips unsupported params (e.g. response_format) per model before sending
