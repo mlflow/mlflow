@@ -3,10 +3,12 @@ from unittest import mock
 import pytest
 
 import mlflow
+
 from mlflow.entities import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
+import mlflow.tracking.fluent as fluent_module
 
 
 def _experiment(experiment_id="789"):
@@ -93,8 +95,6 @@ def test_resolve_receives_experiment_object():
 
 
 def test_does_not_sync_provider_or_set_active():
-    import mlflow.tracking.fluent as fluent_module
-
     original_active = fluent_module._active_experiment_id
 
     with (
