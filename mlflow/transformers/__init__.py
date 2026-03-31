@@ -1227,8 +1227,14 @@ def load_model(
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    return _load_model(local_model_path, flavor_config, return_type, device,
-                       base_model_path=base_model_path, **kwargs)
+    return _load_model(
+        local_model_path,
+        flavor_config,
+        return_type,
+        device,
+        base_model_path=base_model_path,
+        **kwargs,
+    )
 
 
 def persist_pretrained_model(model_uri: str) -> None:
@@ -1356,7 +1362,14 @@ def is_gpu_available():
     return is_gpu
 
 
-def _load_model(path: str, flavor_config, return_type: str, device=None, base_model_path: str | None = None, **kwargs):
+def _load_model(
+    path: str,
+    flavor_config,
+    return_type: str,
+    device=None,
+    base_model_path: str | None = None,
+    **kwargs,
+):
     """
     Loads components from a locally serialized ``Pipeline`` object.
     """

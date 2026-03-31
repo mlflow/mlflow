@@ -200,7 +200,6 @@ def test_log_peft_with_base_model_path(peft_model_with_local_base):
 
 
 def test_base_model_path_rejects_non_peft_model(small_qa_pipeline, tmp_path):
-    """Test that base_model_path raises an error for non-PEFT models."""
     with pytest.raises(MlflowException, match="only supported for PEFT models"):
         mlflow.transformers.save_model(
             transformers_model=small_qa_pipeline,
