@@ -47,7 +47,6 @@ from mlflow.genai.judges.utils.tool_calling_utils import (
     _raise_iteration_limit_exceeded,
     _remove_oldest_tool_call_pair,
 )
-from mlflow.genai.utils.gateway_utils import get_gateway_config
 from mlflow.metrics.genai.model_utils import (
     _call_llm_provider_api,
     _get_provider_instance,
@@ -300,29 +299,6 @@ def _invoke_via_gateway(
     Raises:
         MlflowException: If the provider is not supported or invocation fails.
     """
-    # "gateway" uses the gateway config to call the endpoint directly,
-    # matching how LiteLLMAdapter handles gateway:/ URIs.
-    if provider == "gateway":
-        _, endpoint_name = _parse_model_uri(model_uri)
-        config = get_gateway_config(endpoint_name)
-        headers = {
-            **(config.extra_headers or {}),
-            MLFLOW_GATEWAY_CALLER_HEADER: GatewayCaller.JUDGE.value,
-        }
-        messages = [{"role": "user", "content": prompt}] if isinstance(prompt, str) else prompt
-        payload = {"model": config.endpoint_name, "messages": messages}
-        if response_format is not None:
-            payload["response_format"] = _pydantic_to_response_format(response_format)
-        if inference_params:
-            payload.update(inference_params)
-
-        endpoint = f"{config.api_base.rstrip('/')}/chat/completions"
-        response = send_chat_request(
-            endpoint=endpoint, headers=headers, payload=payload, num_retries=3
-        )
-        content = response["choices"][0]["message"]["content"]
-        return content[0]["text"] if isinstance(content, list) else content
-
     if isinstance(prompt, str):
         return score_model_on_payload(
             model_uri=model_uri,

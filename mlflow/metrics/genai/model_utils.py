@@ -374,7 +374,7 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         gw_config = get_gateway_config(model)
         openai_config = OpenAIConfig(
             openai_api_key="mlflow-gateway-auth",
-            openai_api_base=gw_config.api_base,
+            openai_api_base=gw_config.api_base.rstrip("/"),
         )
         gw_extra_headers = gw_config.extra_headers
 
