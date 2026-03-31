@@ -86,6 +86,18 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
         # go into a fresh registry.
         if terminate:
             _batch_processor_registry.clear()
+    # Wait for all in-flight on_end calls to finish before flushing.
+    # This guarantees every span is in the BSP queue before force_flush() is
+    # called, preventing the race where a span arrives just after the flush
+    # signal is sent to the BSP worker thread.
+    timeout_secs = timeout_millis / 1000
+    for processor in processors:
+        with processor._pending_on_end_condition:
+            processor._pending_on_end_condition.wait_for(
+                lambda: processor._pending_on_end_count == 0,
+                timeout=timeout_secs,
+            )
+
     # Layer 1: drain span queues into exporters
     for processor in processors:
         try:
@@ -161,6 +173,11 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         # This ensures that when multiple spans end simultaneously, their names are
         # deduplicated atomically without interference
         self._deduplication_lock = threading.RLock()
+        # Counter tracking in-flight on_end calls. flush_all_batch_processors()
+        # waits for this to reach 0 before calling force_flush(), ensuring every
+        # span is in the BSP queue before the flush starts.
+        self._pending_on_end_count = 0
+        self._pending_on_end_condition = threading.Condition(threading.Lock())
 
     def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         """
@@ -200,6 +217,17 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         Args:
             span: An OpenTelemetry ReadableSpan object that is ended.
         """
+        with self._pending_on_end_condition:
+            self._pending_on_end_count += 1
+        try:
+            self._on_end_impl(span)
+        finally:
+            with self._pending_on_end_condition:
+                self._pending_on_end_count -= 1
+                if self._pending_on_end_count == 0:
+                    self._pending_on_end_condition.notify_all()
+
+    def _on_end_impl(self, span: OTelReadableSpan) -> None:
         if self._export_metrics:
             self.record_metrics_for_span(span)
 

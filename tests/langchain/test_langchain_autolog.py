@@ -685,9 +685,6 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
         model.batch([input] * 2)
 
     if async_logging_enabled:
-        # Brief sleep to allow concurrent batch callbacks that may still be
-        # dispatching to finish queuing spans in the BatchSpanProcessor.
-        time.sleep(0.1)
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
@@ -760,9 +757,6 @@ async def test_langchain_autolog_callback_injection_in_abatch(
         await model.abatch([input] * 2)
 
     if async_logging_enabled:
-        # Brief sleep to allow concurrent abatch callbacks that may still be
-        # dispatching to finish queuing spans in the BatchSpanProcessor.
-        time.sleep(0.1)
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
@@ -915,9 +909,6 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
         _ = [f.result() for f in futures]
 
     if async_logging_enabled:
-        # Brief sleep to allow concurrent thread callbacks to finish queuing
-        # spans in the BatchSpanProcessor before force_flush() is called.
-        time.sleep(0.2)
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
