@@ -9,18 +9,23 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
+from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.providers.openai import OpenAIConfig
+from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
 from mlflow.genai.judges.adapters.base_adapter import AdapterInvocationInput
 from mlflow.genai.judges.adapters.gateway_adapter import (
     GatewayAdapter,
     InvokeOutput,
     _build_request,
     _get_max_context_tokens,
+    _invoke_via_gateway,
     _parse_response_message,
     _should_proactively_prune,
 )
 from mlflow.genai.judges.adapters.utils import ChatCompletionError, is_context_window_error
 from mlflow.genai.judges.utils.tool_calling_utils import _remove_oldest_tool_call_pair
-from mlflow.metrics.genai.model_utils import _get_provider_instance
+from mlflow.genai.utils.gateway_utils import GatewayConfig
+from mlflow.metrics.genai.model_utils import _get_provider_instance, _MlflowGatewayProvider
 from mlflow.types.llm import ChatMessage
 
 
@@ -51,8 +56,6 @@ def _chat_response(content, tool_calls=None, usage=None):
 
 
 def _mock_provider(endpoint_url="https://api.openai.com/v1/chat/completions", headers=None):
-    from mlflow.gateway.providers.openai_compatible import OpenAICompatibleAdapter
-
     provider = mock.MagicMock()
     provider.get_endpoint_url.return_value = endpoint_url
     provider.headers = headers or {}
@@ -245,6 +248,106 @@ def test_endpoints_rejects_trace(mock_trace):
 
     with pytest.raises(MlflowException, match="Trace-based tool calling is not supported"):
         adapter.invoke(input_params)
+
+
+# --- _invoke_via_gateway with gateway:/ URI tests ---
+
+
+def _gateway_chat_response(content):
+    return {
+        "id": "chatcmpl-gw",
+        "object": "chat.completion",
+        "created": 0,
+        "model": "my-endpoint",
+        "choices": [{"index": 0, "message": {"role": "assistant", "content": content}}],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
+
+
+def test_invoke_via_gateway_string_prompt():
+    with mock.patch(
+        "mlflow.genai.judges.adapters.gateway_adapter.score_model_on_payload",
+        return_value='{"result": "yes", "rationale": "ok"}',
+    ) as mock_score:
+        result = _invoke_via_gateway(
+            model_uri="gateway:/my-endpoint",
+            provider="gateway",
+            prompt="Is this helpful?",
+        )
+
+    assert '{"result": "yes"' in result
+    mock_score.assert_called_once()
+    assert mock_score.call_args[1]["payload"] == "Is this helpful?"
+
+
+def test_invoke_via_gateway_list_prompt():
+    messages = [
+        {"role": "system", "content": "You are a judge"},
+        {"role": "user", "content": "test"},
+    ]
+
+    with (
+        mock.patch(
+            "mlflow.metrics.genai.model_utils._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.metrics.genai.model_utils._send_request",
+            return_value=_gateway_chat_response('{"result": "no", "rationale": "bad"}'),
+        ) as mock_send,
+    ):
+        _invoke_via_gateway(
+            model_uri="gateway:/my-endpoint",
+            provider="gateway",
+            prompt=messages,
+        )
+
+    call_kwargs = mock_send.call_args[1]
+    assert call_kwargs["payload"]["model"] == "gpt-4"
+    assert any(m["content"] == "test" for m in call_kwargs["payload"]["messages"])
+
+
+def test_invoke_via_gateway_with_inference_params():
+    with (
+        mock.patch(
+            "mlflow.metrics.genai.model_utils._get_provider_instance",
+            return_value=_mock_provider(),
+        ),
+        mock.patch(
+            "mlflow.metrics.genai.model_utils._send_request",
+            return_value=_gateway_chat_response("ok"),
+        ) as mock_send,
+    ):
+        _invoke_via_gateway(
+            model_uri="gateway:/my-endpoint",
+            provider="gateway",
+            prompt=[{"role": "user", "content": "test"}],
+            inference_params={"temperature": 0.5},
+        )
+
+    call_kwargs = mock_send.call_args[1]
+    assert call_kwargs["payload"]["temperature"] == 0.5
+
+
+def test_invoke_via_gateway_endpoint_url():
+    gw_config = GatewayConfig(
+        api_base="http://myserver:8080/gateway/v1/",
+        endpoint_name="my-endpoint",
+        extra_headers=None,
+    )
+    openai_config = OpenAIConfig(
+        openai_api_key="mlflow-gateway-auth",
+        openai_api_base=gw_config.api_base.rstrip("/"),
+    )
+    route_config = EndpointConfig(
+        name="gateway",
+        endpoint_type="llm/v1/chat",
+        model={"provider": "openai", "name": "my-endpoint", "config": openai_config.model_dump()},
+    )
+    provider = _MlflowGatewayProvider(route_config)
+    assert provider.get_endpoint_url("llm/v1/chat") == (
+        "http://myserver:8080/gateway/v1/chat/completions"
+    )
 
 
 # --- _build_request tests ---
