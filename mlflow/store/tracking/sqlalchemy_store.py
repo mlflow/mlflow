@@ -4629,14 +4629,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         self._get_trace_artifact_location_tag(experiment, trace_id)
                     ]
                     session.add(sql_trace_info)
-                    nested = session.begin_nested()
                     try:
                         session.flush()
                     except IntegrityError:
                         # Race condition: another process/thread created this trace
-                        # concurrently. Rollback only this SAVEPOINT so previously
-                        # flushed traces remain intact.
-                        nested.rollback()
+                        # concurrently. Rollback this single insert and fetch the
+                        # trace that was created by the other process.
+                        session.rollback()
                         sql_trace_info = (
                             self
                             ._trace_query(session)
