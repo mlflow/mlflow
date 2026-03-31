@@ -5749,9 +5749,9 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
-        # NB: Use _get_paths() (not _add_static_prefix()) so that the endpoint is reachable
-        # both at /api/3.0/mlflow/server-info (for the Python client, unaffected by static prefix)
-        # and at <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
+        # NB: Use _get_paths() so that the endpoint is reachable at both
+        # <static-prefix>/api/3.0/mlflow/server-info (for the Python client)
+        # and <static-prefix>/ajax-api/3.0/mlflow/server-info (for the frontend).
         + [
             (_path, _get_server_info, ["GET"])
             for _path in _get_paths("/mlflow/server-info", version=3)
