@@ -25,6 +25,9 @@ python -m pip install sqlalchemy alembic cryptography
 # unintended libraries.
 pytest tests/test_skinny_client_omits_data_science_libs.py
 
+# Verify that mlflow.types.chat can be imported without numpy (issue #21779)
+pytest tests/test_skinny_client_anthropic_import.py
+
 # Install numpy that is required by mlflow.types.schema and pre-installed in DBR.
 python -m pip install numpy
 
