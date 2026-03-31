@@ -4613,7 +4613,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # re-created in the next attempt. Loop until all traces are in existing_traces.
             if any(tid not in existing_traces for tid in all_trace_ids):
                 experiment = self.get_experiment(location)
-                max_retries = 3
+                max_retries = _LOG_SPANS_MAX_TRACE_CREATE_RETRIES
                 for _attempt in range(max_retries):
                     pending = [tid for tid in all_trace_ids if tid not in existing_traces]
                     if not pending:
@@ -4654,6 +4654,25 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             .filter(SqlTraceInfo.request_id.in_(all_trace_ids))
                             .all()
                         }
+
+            # Log a warning for any traces we still couldn't create after retries
+            # (e.g., concurrent start_trace hasn't committed yet). Skip their spans
+            # rather than crashing with KeyError.
+            missing_trace_ids = {
+                tid for tid in all_trace_ids if tid not in existing_traces
+            }
+            if missing_trace_ids:
+                _logger.warning(
+                    "Could not create trace_info for %d trace(s) after %d retries; "
+                    "spans for these traces will be dropped: %s",
+                    len(missing_trace_ids),
+                    max_retries,
+                    missing_trace_ids,
+                )
+                all_span_rows = [r for r in all_span_rows if r["trace_id"] not in missing_trace_ids]
+                all_metric_rows = [
+                    r for r in all_metric_rows if r["trace_id"] not in missing_trace_ids
+                ]
 
             # Fill in experiment_id on span rows now that we have trace infos
             for row in all_span_rows:
@@ -7165,6 +7184,12 @@ class _TraceAggregate:
     session_id: str | None = None
     user_id: str | None = None
     root_span_dict: dict[str, Any] | None = None
+
+
+# Maximum number of attempts to create trace_info rows in log_spans() Phase 2.
+# Each IntegrityError means start_trace() raced ahead of us; we roll back and
+# re-fetch before retrying. Three attempts handles virtually all real races.
+_LOG_SPANS_MAX_TRACE_CREATE_RETRIES = 3
 
 
 def _bulk_upsert(session: Session, model_class: type, rows: list[dict[str, Any]]) -> None:

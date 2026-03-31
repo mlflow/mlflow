@@ -56,6 +56,10 @@ async def export_traces(
     This endpoint accepts OTLP/HTTP protobuf trace export requests.
     Protobuf format reference: https://opentelemetry.io/docs/specs/otlp/#binary-protobuf-encoding
 
+    Note: All spans in the batch are persisted in a single log_spans() call. If that
+    call fails, the entire batch is rejected (all-or-nothing). Partial-success is not
+    supported; clients that need per-trace error isolation should batch by trace.
+
     Args:
         request: OTel ExportTraceServiceRequest in protobuf format
         x_mlflow_experiment_id: Required header containing the experiment ID

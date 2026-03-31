@@ -90,6 +90,9 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
     # This guarantees every span is in the BSP queue before force_flush() is
     # called, preventing the race where a span arrives just after the flush
     # signal is sent to the BSP worker thread.
+    # Note: wait_for() always evaluates the predicate before blocking, so even
+    # if notify_all() fires before wait_for() is entered (counter already 0),
+    # the predicate is true and wait_for() returns immediately.
     timeout_secs = timeout_millis / 1000
     for processor in processors:
         with processor._pending_on_end_condition:
