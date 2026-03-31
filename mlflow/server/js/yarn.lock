@@ -2903,6 +2903,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@databricks/eslint-plugin@workspace:eslint-plugin"
   dependencies:
+    "@jest/expect": "npm:30.0.2"
     "@swc-node/register": "npm:^1.10.9"
     "@swc/core": "npm:^1.15.11"
     "@types/node": "npm:^22.18.8"
