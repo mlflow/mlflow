@@ -8,7 +8,7 @@ on:
   pull_request: # To test updates
     paths:
       - ".github/workflows/snapshots.yml"
-      - ".github/scripts/src/snapshots.ts"
+      - ".github/scripts/src/snapshots.js"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -68,9 +68,9 @@ jobs:
               -exec cp {} $ARTIFACT_DIR/ \;
           ls $ARTIFACT_DIR
 
-      - name: Install and build
+      - name: Install tools
         working-directory: .github/scripts
-        run: npm ci && npm run build
+        run: npm ci
 
       - name: Upload artifacts to nightly release
         # This step requires contents write permission, but pull requests filed from forks do not have this permission.
@@ -79,7 +79,7 @@ jobs:
         with:
           retries: 3
           script: |
-            const { uploadSnapshots } = require('./.github/scripts/dist/bundle.js');
+            const { uploadSnapshots } = require('./.github/scripts/src/main.js');
             await uploadSnapshots({
               github,
               context,
