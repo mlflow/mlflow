@@ -348,7 +348,7 @@ class GatewayAdapter(BaseJudgeAdapter):
             return False
         return True
 
-    def invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
+    def _invoke(self, input_params: AdapterInvocationInput) -> AdapterInvocationOutput:
         # base_url and extra_headers are not supported for deployment endpoints
         if input_params.model_provider == "endpoints" and (
             input_params.base_url is not None or input_params.extra_headers is not None
@@ -490,7 +490,12 @@ class GatewayAdapter(BaseJudgeAdapter):
             metadata=metadata,
         )
 
-        return AdapterInvocationOutput(feedback=feedback)
+        return AdapterInvocationOutput(
+            feedback=feedback,
+            request_id=output.request_id,
+            num_prompt_tokens=output.num_prompt_tokens,
+            num_completion_tokens=output.num_completion_tokens,
+        )
 
     # TODO: Consider extending _call_llm_provider_api to accept `tools` and return
     # the full ChatResponse (not just text). This would allow replacing the custom
