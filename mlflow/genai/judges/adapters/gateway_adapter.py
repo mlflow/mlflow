@@ -311,6 +311,8 @@ def _invoke_via_gateway(
         }
         messages = [{"role": "user", "content": prompt}] if isinstance(prompt, str) else prompt
         payload = {"model": config.endpoint_name, "messages": messages}
+        if response_format is not None:
+            payload["response_format"] = _pydantic_to_response_format(response_format)
         if inference_params:
             payload.update(inference_params)
 
