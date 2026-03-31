@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import BaseModel
 from ragas.embeddings.base import BaseRagasEmbedding
 
 import mlflow
@@ -366,3 +367,87 @@ def test_agentic_scorer_with_expectations(scorer_class, expectations, sample_ass
 
     assert isinstance(result, Feedback)
     assert result.name == scorer_class.metric_name
+
+
+# --- Model adapter tests ---
+
+
+def test_gateway_ragas_llm_generate():
+    from mlflow.genai.scorers.ragas.models import GatewayRagasLLM
+
+    class TestOutput(BaseModel):
+        score: int
+        reason: str
+
+    adapter = GatewayRagasLLM("openai", "gpt-4")
+
+    with patch(
+        "mlflow.genai.scorers.ragas.models._call_llm_provider_api",
+        return_value='{"score": 5, "reason": "Excellent"}',
+    ) as mock_call:
+        result = adapter.generate("Rate this", response_model=TestOutput)
+
+    assert isinstance(result, TestOutput)
+    assert result.score == 5
+    assert result.reason == "Excellent"
+    mock_call.assert_called_once()
+    prompt = mock_call.call_args.kwargs["input_data"]
+    assert "Rate this" in prompt
+    assert "score" in prompt
+
+
+def test_gateway_ragas_llm_get_model_name():
+    from mlflow.genai.scorers.ragas.models import GatewayRagasLLM
+
+    adapter = GatewayRagasLLM("anthropic", "claude-3")
+    assert adapter.get_model_name() == "anthropic/claude-3"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "env_var"),
+    [
+        ("openai:/gpt-4", "OPENAI_API_KEY"),
+        ("anthropic:/claude-3", "ANTHROPIC_API_KEY"),
+    ],
+)
+def test_create_ragas_model_uses_gateway_for_supported_providers(model_uri, env_var, monkeypatch):
+    from mlflow.genai.scorers.ragas.models import GatewayRagasLLM, create_ragas_model
+
+    monkeypatch.setenv(env_var, "test-key")
+    model = create_ragas_model(model_uri)
+    assert isinstance(model, GatewayRagasLLM)
+
+
+def test_create_ragas_model_falls_back_to_litellm_for_unsupported_provider():
+    pytest.importorskip("litellm")
+    from ragas.llms.litellm_llm import LiteLLMStructuredLLM
+
+    from mlflow.genai.scorers.ragas.models import create_ragas_model
+
+    model = create_ragas_model("some_unknown:/model")
+    assert isinstance(model, LiteLLMStructuredLLM)
+
+
+def test_create_ragas_model_uses_litellm_for_gateway_uri():
+    pytest.importorskip("litellm")
+    from ragas.llms.litellm_llm import LiteLLMStructuredLLM
+
+    from mlflow.genai.scorers.ragas.models import create_ragas_model
+
+    with patch("mlflow.genai.scorers.ragas.models.get_gateway_litellm_config") as mock_config:
+        mock_config.return_value = MagicMock(
+            model="my-endpoint",
+            api_base="http://localhost:5000",
+            api_key="test",
+            extra_headers=None,
+        )
+        model = create_ragas_model("gateway:/my-endpoint")
+
+    assert isinstance(model, LiteLLMStructuredLLM)
+
+
+def test_create_ragas_model_uses_databricks_for_bare_uri():
+    from mlflow.genai.scorers.ragas.models import DatabricksRagasLLM, create_ragas_model
+
+    model = create_ragas_model("databricks")
+    assert isinstance(model, DatabricksRagasLLM)

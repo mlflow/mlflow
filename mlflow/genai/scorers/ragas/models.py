@@ -9,15 +9,17 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel
 from ragas.embeddings import OpenAIEmbeddings
 from ragas.llms import InstructorBaseRagasLLM
-from ragas.llms.litellm_llm import LiteLLMStructuredLLM
 
+from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
 from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-from mlflow.metrics.genai.model_utils import _parse_model_uri
+from mlflow.metrics.genai.model_utils import _call_llm_provider_api, _parse_model_uri
+
+T = t.TypeVar("T", bound=BaseModel)
 
 
 class DatabricksRagasLLM(InstructorBaseRagasLLM):
@@ -43,6 +45,36 @@ class DatabricksRagasLLM(InstructorBaseRagasLLM):
         return _DATABRICKS_DEFAULT_JUDGE_MODEL
 
 
+class GatewayRagasLLM(InstructorBaseRagasLLM):
+    """RAGAS LLM adapter using MLflow Gateway providers.
+
+    Uses the native provider infrastructure (_call_llm_provider_api) instead
+    of litellm. Handles structured output via JSON prompt injection and
+    response parsing (same approach as DatabricksRagasLLM).
+    """
+
+    def __init__(self, provider: str, model_name: str):
+        super().__init__()
+        self.is_async = False
+        self._provider = provider
+        self._model_name = model_name
+
+    def generate(self, prompt: str, response_model: type[T]) -> T:
+        full_prompt = _build_json_prompt(prompt, response_model)
+        response = _call_llm_provider_api(
+            self._provider,
+            self._model_name,
+            input_data=full_prompt,
+        )
+        return _parse_json_response(response, response_model)
+
+    async def agenerate(self, prompt: str, response_model: type[T]) -> T:
+        return self.generate(prompt, response_model)
+
+    def get_model_name(self) -> str:
+        return f"{self._provider}/{self._model_name}"
+
+
 def create_ragas_model(model_uri: str):
     """
     Create a RAGAS LLM adapter from a model URI.
@@ -52,7 +84,7 @@ def create_ragas_model(model_uri: str):
             - "databricks" - Use default Databricks managed judge
             - "databricks:/endpoint" - Use Databricks serving endpoint
             - "gateway:/endpoint" - Use MLflow AI Gateway endpoint
-            - "provider:/model" - Use LiteLLM (e.g., "openai:/gpt-4")
+            - "provider:/model" - Use native gateway provider or LiteLLM fallback
 
     Returns:
         A RAGAS-compatible LLM adapter
@@ -63,12 +95,13 @@ def create_ragas_model(model_uri: str):
     if model_uri == "databricks":
         return DatabricksRagasLLM()
 
-    import litellm
-
-    # Parse provider:/model format using shared helper
     provider, model_name = _parse_model_uri(model_uri)
 
+    # Gateway endpoints require litellm-based routing
     if provider == "gateway":
+        import litellm
+        from ragas.llms.litellm_llm import LiteLLMStructuredLLM
+
         config = get_gateway_litellm_config(model_name)
         bound_completion = functools.partial(
             litellm.acompletion,
@@ -83,6 +116,13 @@ def create_ragas_model(model_uri: str):
             provider="openai",
             drop_params=True,
         )
+
+    # Use native gateway provider for supported providers, litellm for others
+    if is_supported_provider(provider):
+        return GatewayRagasLLM(provider, model_name)
+
+    import litellm
+    from ragas.llms.litellm_llm import LiteLLMStructuredLLM
 
     client = instructor.from_litellm(litellm.acompletion)
     return LiteLLMStructuredLLM(
@@ -101,9 +141,6 @@ def create_default_embeddings():
         An OpenAIEmbeddings instance configured with a sync client.
     """
     return OpenAIEmbeddings(client=AsyncOpenAI())
-
-
-T = t.TypeVar("T", bound=BaseModel)
 
 
 def _build_json_prompt(prompt: str, response_model: type[T]) -> str:

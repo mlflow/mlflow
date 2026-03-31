@@ -59,12 +59,15 @@ def test_create_ragas_model_databricks():
 
 def test_create_ragas_model_databricks_serving_endpoint():
     model = create_ragas_model("databricks:/my-endpoint")
-    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
+    assert model.__class__.__name__ == "GatewayRagasLLM"
+    assert model.get_model_name() == "databricks/my-endpoint"
 
 
-def test_create_ragas_model_openai():
+def test_create_ragas_model_openai(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     model = create_ragas_model("openai:/gpt-4")
-    assert model.__class__.__name__ == "LiteLLMStructuredLLM"
+    assert model.__class__.__name__ == "GatewayRagasLLM"
+    assert model.get_model_name() == "openai/gpt-4"
 
 
 def test_create_ragas_model_rejects_provider_no_slash():
