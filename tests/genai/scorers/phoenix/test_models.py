@@ -6,6 +6,7 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.phoenix.models import (
     DatabricksPhoenixModel,
+    GatewayPhoenixModel,
     create_phoenix_model,
 )
 from mlflow.genai.utils.gateway_utils import GatewayLiteLLMConfig
@@ -44,14 +45,14 @@ def test_create_phoenix_model_databricks():
 
 def test_create_phoenix_model_databricks_endpoint():
     model = create_phoenix_model("databricks:/my-endpoint")
-    assert isinstance(model, phoenix_evals.LiteLLMModel)
-    assert model.model == "databricks/my-endpoint"
+    assert isinstance(model, GatewayPhoenixModel)
+    assert model.get_model_name() == "databricks/my-endpoint"
 
 
 def test_create_phoenix_model_openai(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     model = create_phoenix_model("openai:/gpt-4")
-    assert isinstance(model, phoenix_evals.LiteLLMModel)
+    assert isinstance(model, GatewayPhoenixModel)
 
 
 def test_create_phoenix_model_invalid_format():
@@ -105,3 +106,46 @@ def test_create_phoenix_model_gateway_sets_api_base_and_key():
             "drop_params": True,
         },
     )
+
+
+def test_gateway_phoenix_model_call():
+    model = GatewayPhoenixModel("openai", "gpt-4")
+
+    with patch(
+        "mlflow.genai.scorers.phoenix.models._call_llm_provider_api",
+        return_value="The answer is 42.",
+    ) as mock_call:
+        result = model("What is the answer?")
+
+    assert result == "The answer is 42."
+    mock_call.assert_called_once_with("openai", "gpt-4", input_data="What is the answer?")
+
+
+def test_gateway_phoenix_model_converts_non_string_prompt():
+    model = GatewayPhoenixModel("openai", "gpt-4")
+
+    with patch(
+        "mlflow.genai.scorers.phoenix.models._call_llm_provider_api",
+        return_value="response",
+    ) as mock_call:
+        model(12345)
+
+    mock_call.assert_called_once_with("openai", "gpt-4", input_data="12345")
+
+
+def test_gateway_phoenix_model_get_model_name():
+    model = GatewayPhoenixModel("anthropic", "claude-3")
+    assert model.get_model_name() == "anthropic/claude-3"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "env_var"),
+    [
+        ("openai:/gpt-4", "OPENAI_API_KEY"),
+        ("anthropic:/claude-3", "ANTHROPIC_API_KEY"),
+    ],
+)
+def test_create_phoenix_model_uses_gateway_for_supported_providers(model_uri, env_var, monkeypatch):
+    monkeypatch.setenv(env_var, "test-key")
+    model = create_phoenix_model(model_uri)
+    assert isinstance(model, GatewayPhoenixModel)
