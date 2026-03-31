@@ -124,6 +124,9 @@ def test_distributed_tracing_e2e(tmp_path):
             assert payload["trace_id"] == client_span.trace_id
             assert payload["parent_id"] == client_span.span_id
 
+    # Brief sleep to allow the server subprocess's BatchSpanProcessor to export
+    # the server-handler span before we read the trace.
+    time.sleep(0.2)
     mlflow.flush_trace_async_logging()
     trace = mlflow.get_trace(client_span.trace_id)
 
