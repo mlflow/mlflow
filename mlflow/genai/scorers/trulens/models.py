@@ -7,9 +7,8 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
+from mlflow.genai.scorers.llm_backend import MLflowLLMBackend
 from mlflow.genai.utils.message_utils import serialize_chat_messages_to_prompts
-from mlflow.metrics.genai.model_utils import _parse_model_uri
 
 if TYPE_CHECKING:
     from typing import Sequence
@@ -53,51 +52,54 @@ def _create_databricks_managed_judge_provider(**kwargs: Any):
     return DatabricksManagedJudgeProvider()
 
 
+def _create_gateway_provider(backend: MLflowLLMBackend, **kwargs: Any):
+    from trulens.core.feedback.endpoint import Endpoint
+    from trulens.feedback.llm_provider import LLMProvider
+
+    class GatewayProvider(LLMProvider):
+        def __init__(self):
+            endpoint = Endpoint(name=f"gateway-{backend._provider}")
+            super().__init__(model_engine=backend.model_name, endpoint=endpoint)
+
+        def _create_chat_completion(
+            self,
+            prompt: str | None = None,
+            messages: "Sequence[dict] | None" = None,
+            **kwargs,
+        ) -> str:
+            if messages:
+                user_prompt, system_prompt = serialize_chat_messages_to_prompts(list(messages))
+                input_data = user_prompt
+                if system_prompt:
+                    input_data = f"{system_prompt}\n\n{user_prompt}"
+            else:
+                input_data = prompt if prompt is not None else ""
+
+            # Extract response_format from kwargs and pass it to the backend
+            response_format = kwargs.pop("response_format", None)
+            import pydantic
+
+            rf_class = None
+            if isinstance(response_format, type) and issubclass(
+                response_format, pydantic.BaseModel
+            ):
+                rf_class = response_format
+
+            return backend.complete(input_data, response_format=rf_class, **kwargs)
+
+    return GatewayProvider()
+
+
 def create_trulens_provider(model_uri: str, **kwargs: Any):
-    """
-    Create a TruLens provider from a model URI.
+    """Create a TruLens provider from a model URI.
 
-    Args:
-        model_uri: Model URI in one of these formats:
-            - "databricks" - Use default Databricks managed judge
-            - "databricks:/endpoint" - Use LiteLLM with Databricks endpoint
-            - "gateway:/endpoint" - Use MLflow AI Gateway endpoint
-            - "provider:/model" - Use LiteLLM with the specified model
-        kwargs: Additional arguments passed to the underlying provider
-
-    Returns:
-        A TruLens-compatible provider
-
-    Raises:
-        MlflowException: If the model URI format is invalid
+    Routing:
+        - ``"databricks"`` → DatabricksManagedJudgeProvider
+        - All other URIs → GatewayProvider backed by MLflowLLMBackend
     """
     _check_trulens_installed()
 
-    # Use managed judge for plain "databricks" without endpoint
     if model_uri == "databricks":
         return _create_databricks_managed_judge_provider(**kwargs)
 
-    # Parse provider:/model format using shared helper
-    provider, model_name = _parse_model_uri(model_uri)
-
-    # Use LiteLLM for all providers (including databricks:/endpoint)
-    try:
-        from trulens.providers.litellm import LiteLLM
-
-        if provider == "gateway":
-            config = get_gateway_litellm_config(model_name)
-            return LiteLLM(
-                model_engine=config.model,
-                api_base=config.api_base,
-                api_key=config.api_key,
-                **({"extra_headers": config.extra_headers} if config.extra_headers else {}),
-                **kwargs,
-            )
-
-        litellm_model = f"{provider}/{model_name}" if provider != "litellm" else model_name
-        return LiteLLM(model_engine=litellm_model, **kwargs)
-    except ImportError:
-        raise MlflowException.invalid_parameter_value(
-            "Non-Databricks providers require 'trulens-providers-litellm'. "
-            "Install it with: `pip install trulens-providers-litellm`"
-        )
+    return _create_gateway_provider(MLflowLLMBackend(model_uri), **kwargs)

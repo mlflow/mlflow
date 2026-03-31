@@ -2,16 +2,11 @@ from __future__ import annotations
 
 import json
 
-from deepeval.models import LiteLLMModel
 from deepeval.models.base_model import DeepEvalBaseLLM
 from pydantic import ValidationError
 
-from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
-    call_chat_completions,
-)
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-from mlflow.metrics.genai.model_utils import _parse_model_uri
+from mlflow.genai.scorers.llm_backend import MLflowLLMBackend
 
 
 def _build_json_prompt_with_schema(prompt: str, schema) -> str:
@@ -37,56 +32,39 @@ def _parse_json_output_with_schema(output: str, schema):
         raise ValueError(f"Failed to instantiate schema with data: {e}\nOutput: {output}")
 
 
-class DatabricksDeepEvalLLM(DeepEvalBaseLLM):
-    """
-    DeepEval model adapter for Databricks managed judge.
+class GatewayDeepEvalLLM(DeepEvalBaseLLM):
+    """DeepEval model adapter using the shared MLflow LLM backend."""
 
-    Uses the default Databricks endpoint via call_chat_completions.
-    """
-
-    def __init__(self):
-        super().__init__(model_name=_DATABRICKS_DEFAULT_JUDGE_MODEL)
+    def __init__(self, backend: MLflowLLMBackend):
+        super().__init__(model_name=backend.model_name)
+        self._backend = backend
 
     def load_model(self, **kwargs):
         return self
 
+    # Return type is str when schema is None, or a validated schema instance when
+    # schema is provided. The -> str annotation matches DeepEvalBaseLLM's abstract
+    # method signature; DeepEval's own LiteLLMModel follows the same convention.
     def generate(self, prompt: str, schema=None) -> str:
         if schema is not None:
-            # TODO: Add support for structured outputs once the Databricks endpoint supports it
-            json_prompt = _build_json_prompt_with_schema(prompt, schema)
-            result = call_chat_completions(user_prompt=json_prompt, system_prompt="")
-            return _parse_json_output_with_schema(result.output.strip(), schema)
-        else:
-            result = call_chat_completions(user_prompt=prompt, system_prompt="")
-            return result.output
+            prompt = _build_json_prompt_with_schema(prompt, schema)
+
+        response = self._backend.complete(prompt)
+
+        if schema is not None:
+            return _parse_json_output_with_schema(response.strip(), schema)
+        return response
 
     async def a_generate(self, prompt: str, schema=None) -> str:
         return self.generate(prompt, schema=schema)
 
     def get_model_name(self) -> str:
-        return _DATABRICKS_DEFAULT_JUDGE_MODEL
+        return self._backend.model_name
 
 
 def create_deepeval_model(model_uri: str):
-    if model_uri == "databricks":
-        return DatabricksDeepEvalLLM()
+    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        # Databricks managed judge uses the backend's databricks route
+        return GatewayDeepEvalLLM(MLflowLLMBackend(model_uri))
 
-    # Parse provider:/model format using shared helper
-    provider, model_name = _parse_model_uri(model_uri)
-
-    if provider == "gateway":
-        config = get_gateway_litellm_config(model_name)
-        return LiteLLMModel(
-            model=config.model,
-            base_url=config.api_base,
-            api_key=config.api_key,
-            generation_kwargs={
-                "drop_params": True,
-                **({"extra_headers": config.extra_headers} if config.extra_headers else {}),
-            },
-        )
-
-    return LiteLLMModel(
-        model=f"{provider}/{model_name}",
-        generation_kwargs={"drop_params": True},
-    )
+    return GatewayDeepEvalLLM(MLflowLLMBackend(model_uri))
