@@ -182,7 +182,7 @@ def test_on_end():
 # ── Batch span processor tests ──────────────────────────────────────────
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def _reset_trace_manager():
     InMemoryTraceManager.reset()
     yield
@@ -197,7 +197,6 @@ def _create_processor(*, use_batch: bool = False, exporter=None):
     )
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_on_end_delegates_to_batch_processor():
     mock_exporter = mock.MagicMock()
     processor = _create_processor(use_batch=True, exporter=mock_exporter)
@@ -224,7 +223,6 @@ def test_on_end_delegates_to_batch_processor():
         processor.shutdown()
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_on_end_uses_simple_processor_when_batch_disabled():
     mock_exporter = mock.MagicMock()
     processor = _create_processor(use_batch=False, exporter=mock_exporter)
@@ -247,7 +245,6 @@ def test_on_end_uses_simple_processor_when_batch_disabled():
     mock_exporter.export.assert_called_once_with((otel_span,))
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_shutdown_delegates_to_batch_processor():
     processor = _create_processor(use_batch=True)
 
@@ -260,7 +257,6 @@ def test_shutdown_delegates_to_batch_processor():
         mock_shutdown.assert_called_once()
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_shutdown_uses_simple_processor_when_batch_disabled():
     mock_exporter = mock.MagicMock()
     processor = _create_processor(use_batch=False, exporter=mock_exporter)
@@ -270,7 +266,6 @@ def test_shutdown_uses_simple_processor_when_batch_disabled():
     mock_exporter.shutdown.assert_called_once()
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_force_flush_delegates_to_batch_processor():
     processor = _create_processor(use_batch=True)
     try:
@@ -284,7 +279,6 @@ def test_force_flush_delegates_to_batch_processor():
         processor.shutdown()
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_force_flush_uses_simple_processor_when_batch_disabled():
     mock_exporter = mock.MagicMock()
     processor = _create_processor(use_batch=False, exporter=mock_exporter)
@@ -294,13 +288,11 @@ def test_force_flush_uses_simple_processor_when_batch_disabled():
     assert result is True
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_batch_delegate_is_none_when_batch_disabled():
     processor = _create_processor(use_batch=False)
     assert processor._batch_delegate is None
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_batch_delegate_is_created_when_batch_enabled():
     processor = _create_processor(use_batch=True)
     try:
@@ -309,7 +301,6 @@ def test_batch_delegate_is_created_when_batch_enabled():
         processor.shutdown()
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_batch_processor_reads_existing_env_vars(monkeypatch):
     mock_exporter = mock.MagicMock()
     monkeypatch.setenv("MLFLOW_ASYNC_TRACE_LOGGING_MAX_INTERVAL_MILLIS", "1000")
@@ -329,7 +320,6 @@ def test_batch_processor_reads_existing_env_vars(monkeypatch):
         )
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_spans_exported_in_batch_mode():
 
     mock_exporter = mock.MagicMock()
@@ -389,7 +379,6 @@ def test_spans_exported_in_batch_mode():
         processor.shutdown()
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 @skip_when_testing_trace_sdk
 def test_on_end_bypasses_batch_during_evaluation():
 
@@ -420,7 +409,6 @@ def test_on_end_bypasses_batch_during_evaluation():
         processor.shutdown()
 
 
-@pytest.mark.usefixtures("_reset_trace_manager")
 def test_set_last_active_trace_id_called_once_for_root_span(monkeypatch):
 
     exporter = MlflowV3SpanExporter()

@@ -459,10 +459,11 @@ def _get_tracer(module_name: str) -> trace.Tracer:
 
 def _get_span_processor():
     """
-    Get the MLflow span processor instance that is used by the current tracer provider.
+    Get the MLflow span processor instance from the current tracer provider.
 
     When multiple span processors are registered (e.g., OTLP + MLflow in dual-export mode),
-    this prefers the MLflow span processor instead of assuming it is always at index 0.
+    this scans for a BaseMlflowSpanProcessor explicitly rather than assuming index 0.
+    Returns None if no MLflow span processor is found or the provider is not SDK-based.
     """
     # Inline import to avoid circular dependency:
     # provider -> base_mlflow -> fluent -> entities
@@ -481,7 +482,7 @@ def _get_span_processor():
 
     return next(
         (p for p in processors if isinstance(p, BaseMlflowSpanProcessor)),
-        processors[0],
+        None,
     )
 
 
@@ -490,7 +491,7 @@ def _get_trace_exporter():
     Get the exporter instance from the MLflow span processor in the current tracer provider.
     """
     if processor := _get_span_processor():
-        return processor.span_exporter
+        return getattr(processor, "span_exporter", None)
     return None
 
 
