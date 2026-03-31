@@ -6,9 +6,7 @@ from unittest import mock
 import pytest
 import requests
 
-from mlflow.deployments.server.config import Endpoint
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointModelInfo
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.model_utils import (
     _MODELS_WITHOUT_OUTPUT_CONFIG,
@@ -340,86 +338,44 @@ def test_score_model_togetherai(monkeypatch):
 
 
 def test_score_model_gateway_completions():
-    from mlflow.deployments.mlflow import MlflowDeploymentClient
+    expected_text = "man, one giant leap for mankind."
 
-    expected_output = {
-        "choices": [
-            {"text": "man, one giant leap for mankind.", "metadata": {"finish_reason": "stop"}}
-        ],
-        "metadata": {
-            "model": "gpt-4-0613",
-            "input_tokens": 13,
-            "total_tokens": 21,
-            "output_tokens": 8,
-            "endpoint_type": "llm/v1/completions",
-        },
-    }
-
-    with (
-        mock.patch(
-            "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
-            return_value=Endpoint(
-                name="my-route",
-                endpoint_type="llm/v1/completions",
-                model=EndpointModelInfo(provider="openai"),
-                endpoint_url="my-route",
-                limit=None,
-            ),
-        ),
-        mock.patch(
-            "mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output
-        ),
-        mock.patch(
-            "mlflow.deployments.get_deploy_client", return_value=MlflowDeploymentClient("url")
-        ),
-    ):
-        response = score_model_on_payload("gateway:/my-route", "")
-        assert response == expected_output["choices"][0]["text"]
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._call_llm_provider_api",
+        return_value=expected_text,
+    ) as mock_call:
+        response = score_model_on_payload("gateway:/my-route", "my prompt")
+        assert response == expected_text
+        mock_call.assert_called_once_with(
+            "gateway",
+            "my-route",
+            input_data="my prompt",
+            eval_parameters={},
+            extra_headers={},
+            proxy_url=None,
+        )
 
 
 def test_score_model_gateway_chat():
-    from mlflow.deployments.mlflow import MlflowDeploymentClient
+    expected_text = (
+        "The core of the sun is estimated to have a temperature of about "
+        "15 million degrees Celsius (27 million degrees Fahrenheit)."
+    )
 
-    expected_output = {
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "The core of the sun is estimated to have a temperature of about "
-                    "15 million degrees Celsius (27 million degrees Fahrenheit).",
-                },
-                "metadata": {"finish_reason": "stop"},
-            }
-        ],
-        "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
-            "total_tokens": 41,
-            "model": "gpt-4o-mini",
-            "endpoint_type": "llm/v1/chat",
-        },
-    }
-
-    with (
-        mock.patch(
-            "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
-            return_value=Endpoint(
-                name="my-route",
-                endpoint_type="llm/v1/chat",
-                model=EndpointModelInfo(provider="openai"),
-                endpoint_url="my-route",
-                limit=None,
-            ),
-        ),
-        mock.patch(
-            "mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output
-        ),
-        mock.patch(
-            "mlflow.deployments.get_deploy_client", return_value=MlflowDeploymentClient("url")
-        ),
-    ):
-        response = score_model_on_payload("gateway:/my-route", "")
-        assert response == expected_output["choices"][0]["message"]["content"]
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._call_llm_provider_api",
+        return_value=expected_text,
+    ) as mock_call:
+        response = score_model_on_payload("gateway:/my-route", "my prompt")
+        assert response == expected_text
+        mock_call.assert_called_once_with(
+            "gateway",
+            "my-route",
+            input_data="my prompt",
+            eval_parameters={},
+            extra_headers={},
+            proxy_url=None,
+        )
 
 
 @pytest.mark.parametrize(
