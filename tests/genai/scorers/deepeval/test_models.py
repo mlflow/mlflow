@@ -55,7 +55,7 @@ def test_create_deepeval_model_gateway_sets_api_base_and_key():
             "mlflow.genai.scorers.deepeval.models.get_gateway_litellm_config",
             return_value=mock_config,
         ),
-        patch("mlflow.genai.scorers.deepeval.models.LiteLLMModel") as mock_litellm_model,
+        patch("deepeval.models.LiteLLMModel") as mock_litellm_model,
     ):
         create_deepeval_model("gateway:/my-endpoint")
 
@@ -67,18 +67,10 @@ def test_create_deepeval_model_gateway_sets_api_base_and_key():
     )
 
 
-@pytest.mark.parametrize(
-    ("model_uri", "expected_model_arg"),
-    [
-        ("openai:/gpt-4", "openai/gpt-4"),
-        ("databricks:/my-endpoint", "databricks/my-endpoint"),
-    ],
-)
-def test_create_deepeval_model_non_gateway(model_uri, expected_model_arg):
-    with patch("mlflow.genai.scorers.deepeval.models.LiteLLMModel") as mock_litellm_model:
-        create_deepeval_model(model_uri)
+def test_create_deepeval_model_supported_provider_uses_gateway(monkeypatch):
+    from mlflow.genai.scorers.deepeval.models import GatewayDeepEvalLLM
 
-    mock_litellm_model.assert_called_once_with(
-        model=expected_model_arg,
-        generation_kwargs={"drop_params": True},
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    model = create_deepeval_model("openai:/gpt-4")
+    assert isinstance(model, GatewayDeepEvalLLM)
+    assert model.get_model_name() == "openai/gpt-4"
