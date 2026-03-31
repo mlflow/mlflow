@@ -783,7 +783,7 @@ def test_start_and_end_trace(tracking_uri, with_active_run, async_logging_enable
         model.predict(1, 2)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     trace_id = mlflow.get_trace(mlflow.get_last_active_trace_id()).info.trace_id
 
@@ -894,7 +894,7 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     model.predict(1)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = MlflowClient().search_traces(locations=[exp_id])
     assert len(traces) == 1
@@ -993,7 +993,7 @@ def test_log_trace_with_databricks_tracking_uri(mock_store_start_trace, monkeypa
         ),
     ):
         model.predict(1, 2)
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     mock_store_start_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
@@ -1050,7 +1050,7 @@ def test_start_trace_within_active_run(async_logging_enabled):
         client.end_trace(root_span.trace_id)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = client.search_traces(locations=[exp_id])
     assert len(traces) == 1

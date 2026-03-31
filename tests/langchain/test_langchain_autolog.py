@@ -163,7 +163,7 @@ def test_autolog_record_exception(async_logging_enabled):
         model.invoke("test")
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -447,7 +447,7 @@ def test_agent_autolog(async_logging_enabled):
     assert result["messages"][-1].content == expected_output
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -474,7 +474,7 @@ def test_runnable_sequence_autolog(async_logging_enabled):
     assert chain.invoke(input_example) == TEST_CONTENT
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -503,7 +503,7 @@ def test_retriever_autolog(tmp_path, async_logging_enabled):
     model.invoke(query)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -598,7 +598,7 @@ def test_langchain_autolog_callback_injection_in_invoke(invoke_arg, config, asyn
         model.invoke(input)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -640,7 +640,7 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(
         await model.ainvoke(input)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -685,7 +685,10 @@ def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async
         model.batch([input] * 2)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        # Brief sleep to allow concurrent batch callbacks that may still be
+        # dispatching to finish queuing spans in the BatchSpanProcessor.
+        time.sleep(0.1)
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -757,7 +760,10 @@ async def test_langchain_autolog_callback_injection_in_abatch(
         await model.abatch([input] * 2)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        # Brief sleep to allow concurrent abatch callbacks that may still be
+        # dispatching to finish queuing spans in the BatchSpanProcessor.
+        time.sleep(0.1)
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -795,7 +801,7 @@ def test_langchain_autolog_callback_injection_in_stream(invoke_arg, config, asyn
         list(model.stream(input))
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -841,7 +847,7 @@ async def test_langchain_autolog_callback_injection_in_astream(
     await invoke_astream(model, config)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -880,7 +886,7 @@ def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path, asy
     retrieval_chain.invoke(question)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 2
@@ -909,7 +915,7 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
         _ = [f.result() for f in futures]
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 30
@@ -993,7 +999,7 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_lo
     model.invoke({"key": "square", "input": 3})
 
     if async_logging_enabled and should_log_traces:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     if should_log_traces:
@@ -1056,7 +1062,7 @@ def test_langchain_auto_tracing_work_when_langchain_parent_package_not_installed
         assert chain.invoke(input_example) == TEST_CONTENT
 
         if async_logging_enabled:
-            mlflow.flush_trace_async_logging()
+            mlflow.flush_trace_async_logging(terminate=True)
 
         traces = get_traces()
         assert len(traces) == 2

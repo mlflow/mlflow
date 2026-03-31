@@ -208,7 +208,7 @@ def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
         model.predict(2, 5) if wrap_sync_func else asyncio.run(model.predict(2, 5))
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -345,7 +345,7 @@ def test_trace_with_databricks_tracking_uri(databricks_tracking_uri, monkeypatch
     ):
         mock_get_store().start_trace.return_value = mock_trace_info
         model.predict(2, 5)
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     mock_get_store().start_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
@@ -493,7 +493,7 @@ def test_trace_in_model_evaluation(monkeypatch, async_logging_enabled):
             model.predict(3, 4)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     trace = mlflow.get_trace(request_id_1)
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
@@ -706,7 +706,7 @@ def test_start_span_context_manager(async_logging_enabled):
     model.predict(1, 2)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -788,7 +788,7 @@ def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
     model.predict(1, 2)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -2310,7 +2310,7 @@ def test_set_destination_in_threads(async_logging_enabled, use_batch_processor, 
     thread3.join()
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces(experiment_id1)
     assert len(traces) == 2  # main thread + thread 3
@@ -2361,7 +2361,7 @@ async def test_set_destination_in_async_contexts(async_logging_enabled):
     await asyncio.gather(task1, task2)
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     for exp_id in [experiment_id1, experiment_id2]:
         traces = get_traces(exp_id)
@@ -2388,7 +2388,7 @@ def test_traces_can_be_searched_by_span_properties(async_logging_enabled):
     test_function()
 
     if async_logging_enabled:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
 
     traces = mlflow.search_traces(filter_string='span.name = "test_span"', return_type="list")
     assert len(traces) == 1, "Should find exactly one trace with span name 'test_span'"
@@ -2953,7 +2953,7 @@ def test_flush_trace_async_logging_calls_flush_when_async_queue_exists():
 
 def test_flush_trace_async_logging_skips_when_async_queue_missing():
     # A bare SpanExporter (as used by StrandsSpanProcessor, mlflow/strands/autolog.py:40)
-    # has no _async_queue attribute. flush_trace_async_logging() should return without
+    # has no _async_queue attribute. flush_trace_async_logging(terminate=True) should return without
     # reaching the error handler.
     exporter = SpanExporter()
     assert not hasattr(exporter, "_async_queue")
@@ -2970,5 +2970,5 @@ def test_flush_trace_async_logging_skips_when_async_queue_missing():
 def test_flush_trace_async_logging_no_spurious_error_when_tracing_disabled():
     mlflow.tracing.disable()
     with mock.patch("mlflow.tracking.fluent._logger") as mock_logger:
-        mlflow.flush_trace_async_logging()
+        mlflow.flush_trace_async_logging(terminate=True)
     mock_logger.error.assert_not_called()
