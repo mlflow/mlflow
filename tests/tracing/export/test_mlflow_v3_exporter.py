@@ -180,7 +180,7 @@ def test_export_with_batch_span_processor(monkeypatch):
         _predict("hello")
 
         # Flush the batch processor and async queue to ensure spans are exported
-        mlflow.flush_trace_async_logging(terminate=True)
+        mlflow.flush_trace_async_logging()
 
     # Verify the trace was exported through the batch processor pipeline
     mock_call_endpoint.assert_called_once()
@@ -253,7 +253,7 @@ def test_export_catch_failure_with_batch_span_processor(monkeypatch):
         _predict("hello")
 
         # Flush batch processor to ensure the export (and failure) is processed
-        mlflow.flush_trace_async_logging(terminate=True)
+        mlflow.flush_trace_async_logging()
 
     # Verify the failure was logged, not raised
     mock_logger.warning.assert_called()
@@ -339,7 +339,7 @@ def test_async_bulk_export_with_batch_span_processor(monkeypatch):
         assert time.time() - start_time < 5
 
         # Flush batch processor and async queue
-        mlflow.flush_trace_async_logging(terminate=True)
+        mlflow.flush_trace_async_logging()
 
     # Verify all traces were exported
     assert mock_start_trace.call_count == 100
