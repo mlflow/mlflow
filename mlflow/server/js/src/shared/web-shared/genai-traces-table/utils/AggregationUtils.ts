@@ -24,6 +24,7 @@ import {
 } from '../components/GenAiEvaluationTracesReview.utils';
 import type {
   AssessmentAggregates,
+  AssessmentCountMetrics,
   AssessmentRunCounts,
   AssessmentInfo,
   EvalTraceComparisonEntry,
@@ -785,4 +786,41 @@ export function getUniqueValueCountsBySourceId(
   }
 
   return valueCounts;
+}
+
+/**
+ * Builds AssessmentAggregates from server-side count metrics for a categorical assessment.
+ * Used when infinite pagination is enabled to get accurate counts across all traces.
+ */
+export function buildAggregatesFromCountMetrics(
+  assessmentInfo: AssessmentInfo,
+  metricsData: AssessmentCountMetrics['data'],
+  allAssessmentFilters: AssessmentFilter[],
+): AssessmentAggregates {
+  const relevantMetrics = metricsData.filter((m) => m.assessmentName === assessmentInfo.name);
+  const currentCounts: AssessmentRunCounts = new Map();
+
+  for (const metric of relevantMetrics) {
+    let typedValue: AssessmentValueType;
+    if (assessmentInfo.dtype === 'boolean') {
+      typedValue = metric.assessmentValue.toLowerCase() === 'true';
+    } else {
+      typedValue = metric.assessmentValue;
+    }
+    currentCounts.set(typedValue, metric.count);
+  }
+
+  const assessmentFilters = allAssessmentFilters.filter((f) => f.assessmentName === assessmentInfo.name);
+
+  return {
+    assessmentInfo,
+    currentCounts,
+    otherCounts: undefined,
+    currentNumericValues: undefined,
+    otherNumericValues: undefined,
+    currentNumericAggregate: undefined,
+    currentNumRootCause: 0,
+    otherNumRootCause: 0,
+    assessmentFilters,
+  };
 }
