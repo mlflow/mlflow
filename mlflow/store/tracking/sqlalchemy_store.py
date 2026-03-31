@@ -4521,6 +4521,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             aggregated_token_usage = {}
             aggregated_cost = {}
             session_id = None
+            user_id = None
             root_span_dict = None
             for span in trace_spans:
                 span_dict = translate_span_when_storing(span)
@@ -4538,6 +4539,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         span_session_id := span_attributes.get("session.id")
                     ):
                         session_id = span_session_id
+                    # user id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/#user-id
+                    if user_id is None and (span_user_id := span_attributes.get("user.id")):
+                        user_id = span_user_id
                     # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
@@ -4589,6 +4593,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 aggregated_token_usage=aggregated_token_usage,
                 aggregated_cost=aggregated_cost,
                 session_id=session_id,
+                user_id=user_id,
                 root_span_dict=root_span_dict,
             )
 
@@ -4786,6 +4791,26 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             value=agg.session_id,
                         )
                     )
+
+                # User ID metadata
+                if agg.user_id:
+                    existing_user_id = (
+                        session
+                        .query(SqlTraceMetadata)
+                        .filter(
+                            SqlTraceMetadata.request_id == trace_id,
+                            SqlTraceMetadata.key == TraceMetadataKey.TRACE_USER,
+                        )
+                        .one_or_none()
+                    )
+                    if not existing_user_id:
+                        session.merge(
+                            SqlTraceMetadata(
+                                request_id=trace_id,
+                                key=TraceMetadataKey.TRACE_USER,
+                                value=agg.user_id,
+                            )
+                        )
 
                 self._trace_query(session, for_update_or_delete=True).filter(
                     SqlTraceInfo.request_id == trace_id
@@ -7127,6 +7152,7 @@ class _TraceAggregate:
     aggregated_token_usage: dict[str, Any] = field(default_factory=dict)
     aggregated_cost: dict[str, Any] = field(default_factory=dict)
     session_id: str | None = None
+    user_id: str | None = None
     root_span_dict: dict[str, Any] | None = None
 
 
