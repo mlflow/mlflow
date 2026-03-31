@@ -6,8 +6,8 @@ importing mlflow.types.chat transitively pulled in numpy via
 mlflow.types.__init__ -> mlflow.types.llm -> mlflow.types.schema.
 """
 
+import importlib.util
 import os
-import sys
 
 import pytest
 
@@ -19,8 +19,8 @@ def is_skinny():
 
 
 def test_mlflow_types_chat_importable_without_numpy():
-    # numpy should not be available in skinny environment before explicit install
-    assert "numpy" not in sys.modules
+    # Verify numpy is genuinely not installed (not just not yet imported)
+    assert importlib.util.find_spec("numpy") is None
 
     # This import chain was failing before the fix:
     # mlflow.types.chat -> mlflow.types.__init__ -> mlflow.types.llm -> mlflow.types.schema -> numpy
