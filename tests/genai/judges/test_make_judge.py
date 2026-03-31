@@ -3078,6 +3078,70 @@ def test_make_judge_validates_feedback_value_type():
         )
 
 
+def test_make_judge_validates_optional_top_level_feedback_value_type():
+    # typing.Optional[T] and T | None should be accepted as top-level feedback_value_type
+    for fvt in [
+        typing.Optional[int],  # noqa: UP045
+        typing.Optional[float],  # noqa: UP045
+        typing.Optional[str],  # noqa: UP045
+        typing.Optional[bool],  # noqa: UP045
+        int | None,
+        float | None,
+        str | None,
+        bool | None,
+    ]:
+        make_judge(
+            name="optional_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=fvt,
+        )
+
+    # Multi-type union without None should still be rejected
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported feedback_value_type",
+    ):
+        make_judge(
+            name="invalid_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=int | str,
+        )
+
+    # Verify serialization and round-trip for int | None
+    judge = make_judge(
+        name="optional_int_judge",
+        instructions="Rate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=int | None,
+    )
+    serialized = judge.model_dump()
+    assert serialized["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "anyOf": [{"type": "integer"}, {"type": "null"}],
+        "title": "Result",
+    }
+    restored = Scorer.model_validate(serialized)
+    assert typing.get_origin(restored._feedback_value_type) in (typing.Union, types.UnionType)
+    assert set(typing.get_args(restored._feedback_value_type)) == {int, type(None)}
+
+    # Verify serialization and round-trip for Optional[str]
+    judge_str = make_judge(
+        name="optional_str_judge",
+        instructions="Rate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=typing.Optional[str],  # noqa: UP045
+    )
+    serialized_str = judge_str.model_dump()
+    assert serialized_str["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "anyOf": [{"type": "string"}, {"type": "null"}],
+        "title": "Result",
+    }
+    restored_str = Scorer.model_validate(serialized_str)
+    restored_args = set(typing.get_args(restored_str._feedback_value_type))
+    assert restored_args == {str, type(None)}
+
+
 def test_make_judge_with_default_feedback_value_type(monkeypatch):
     # Test that feedback_value_type defaults to str when omitted
     captured_response_format = None

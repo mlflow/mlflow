@@ -753,24 +753,43 @@ class InstructionsJudge(Judge):
 
         Supports all FeedbackValueType types:
         - PbValueType: str, int, float, bool
+        - Optional[PbValueType] / PbValueType | None (from anyOf-with-null top-level schema)
         - Literal types (from enum)
         - dict[str, PbValueType] (from object with additionalProperties)
         - list[PbValueType] (from array with items)
         """
-        if not isinstance(serialized, dict) or "type" not in serialized:
+        if not isinstance(serialized, dict):
             raise MlflowException.invalid_parameter_value(
                 f"Invalid feedback_value_type serialization: {serialized}"
             )
 
-        schema_type = serialized["type"]
-
-        # Map JSON Schema types back to Python types
+        # Map JSON Schema types back to Python types (defined here for the anyOf branch below)
         type_map = {
             "string": str,
             "integer": int,
             "number": float,
             "boolean": bool,
         }
+
+        # Handle anyOf-with-null: produced by Pydantic for Optional[T] / T | None
+        if "anyOf" in serialized and "type" not in serialized:
+            non_null = [
+                s for s in serialized["anyOf"] if isinstance(s, dict) and s.get("type") != "null"
+            ]
+            if len(non_null) == 1 and "type" in non_null[0]:
+                inner_type = type_map.get(non_null[0]["type"])
+                if inner_type is not None:
+                    return inner_type | None
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid feedback_value_type serialization: {serialized}"
+            )
+
+        if "type" not in serialized:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid feedback_value_type serialization: {serialized}"
+            )
+
+        schema_type = serialized["type"]
 
         # Handle enum (Literal types)
         if "enum" in serialized:
