@@ -124,6 +124,10 @@ class AsyncTraceExportQueue:
             if self._is_active:
                 return
 
+            # Clear the stop event so the new consumer thread doesn't exit
+            # immediately. This is needed when reactivating after a
+            # flush(terminate=True) which leaves _stop_event set.
+            self._stop_event.clear()
             self._set_up_threads()
             self._is_active = True
 

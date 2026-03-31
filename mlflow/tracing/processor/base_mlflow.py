@@ -97,12 +97,7 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
         try:
             exporter = processor.span_exporter
             if hasattr(exporter, "_async_queue"):
-                # Always flush without terminating the queue. The queue must
-                # stay alive because the exporter may be reused after the batch
-                # delegate is nulled out (falling through to SimpleSpanProcessor).
-                # If we terminate the queue here, its _stop_event stays set and
-                # future put() → activate() creates a consumer that exits immediately.
-                exporter._async_queue.flush(terminate=False)
+                exporter._async_queue.flush(terminate=terminate)
         except Exception:
             _logger.debug(f"Failed to flush exporter queue for {processor}", exc_info=True)
     if terminate:
