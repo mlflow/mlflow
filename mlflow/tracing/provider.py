@@ -482,7 +482,7 @@ def _get_span_processor():
 
     return next(
         (p for p in processors if isinstance(p, BaseMlflowSpanProcessor)),
-        None,
+        processors[0],
     )
 
 
