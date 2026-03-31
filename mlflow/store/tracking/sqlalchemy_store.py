@@ -3281,11 +3281,22 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
             sql_trace_info.tags = tags
 
-            request_metadata = [
-                SqlTraceMetadata(request_id=trace_id, key=k, value=v)
-                for k, v in trace_info.trace_metadata.items()
-            ]
-            sql_trace_info.request_metadata = request_metadata
+            # Build metadata and metrics but don't attach to sql_trace_info yet —
+            # they're written via cascade on the happy path or via individual merge
+            # (upsert) on the conflict path to handle races with log_spans().
+            request_metadata = dict(trace_info.trace_metadata.items())
+            trace_metrics = {}
+            if token_usage_metadata := request_metadata.get(TraceMetadataKey.TOKEN_USAGE):
+                try:
+                    token_usage_dict = json.loads(token_usage_metadata)
+                    trace_metrics = {
+                        key: float(value)
+                        for key in TokenUsageKey.all_keys()
+                        if (value := token_usage_dict.get(key)) is not None
+                    }
+                except Exception as e:
+                    _logger.debug(f"Failed to parse token usage metadata: {e}", exc_info=True)
+
             # The caller may not always specify a trace_id on each assessment when
             # exporting traces with assessments, so backfill it on the SQL entity.
             sql_assessments = []
@@ -3296,33 +3307,40 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                 sql_assessments.append(sql_assessment)
             sql_trace_info.assessments = sql_assessments
 
-            # Parse and store token usage as trace metrics if present in metadata
-            if token_usage_metadata := trace_info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE):
-                try:
-                    token_usage_dict = json.loads(token_usage_metadata)
-
-                    # Create a metric row for each token usage field
-                    trace_metrics = [
-                        SqlTraceMetrics(request_id=trace_id, key=key, value=float(value))
-                        for key in TokenUsageKey.all_keys()
-                        if (value := token_usage_dict.get(key)) is not None
-                    ]
-
-                    sql_trace_info.metrics = trace_metrics
-                except Exception as e:
-                    # If token usage metadata is malformed, skip it
-                    _logger.debug(f"Failed to parse token usage metadata: {e}", exc_info=True)
-
             try:
+                # Happy path: attach metadata/metrics via cascade for a single flush
+                sql_trace_info.request_metadata = [
+                    SqlTraceMetadata(request_id=trace_id, key=k, value=v)
+                    for k, v in request_metadata.items()
+                ]
+                sql_trace_info.metrics = [
+                    SqlTraceMetrics(request_id=trace_id, key=k, value=v)
+                    for k, v in trace_metrics.items()
+                ]
                 session.add(sql_trace_info)
                 session.flush()
             except IntegrityError:
-                # Trace already exists (likely created by log_spans())
-                # Use merge to update with start_trace() data, preserving any logged spans
+                # Trace already exists (likely created by log_spans() racing with
+                # start_trace()). Rollback the failed INSERT and use merge (upsert)
+                # to update the trace with the complete data from start_trace().
                 session.rollback()
-                # This is required to preserve the spans_location tag if it was set by log_spans;
-                # We cannot set the tag in TraceInfo directly because this may be invoked by
-                # older mlflow clients that log spans to artifact repository.
+
+                # Re-create sql_trace_info without metadata/metrics relationships
+                # to avoid cascade INSERT conflicts during merge.
+                sql_trace_info = SqlTraceInfo(
+                    request_id=trace_id,
+                    experiment_id=trace_info.experiment_id,
+                    timestamp_ms=trace_info.request_time,
+                    execution_time_ms=trace_info.execution_duration,
+                    status=trace_info.state.value,
+                    client_request_id=trace_info.client_request_id,
+                    request_preview=sql_trace_info.request_preview,
+                    response_preview=sql_trace_info.response_preview,
+                )
+                sql_trace_info.tags = tags
+                sql_trace_info.assessments = sql_assessments
+
+                # Preserve the spans_location tag if it was set by log_spans
                 db_sql_trace_info = (
                     self
                     ._trace_query(session)
@@ -3338,17 +3356,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             )
                             break
 
-                    new_metadata_keys = {m.key for m in request_metadata}
-                    for metadata in db_sql_trace_info.request_metadata:
-                        if metadata.key not in new_metadata_keys:
-                            sql_trace_info.request_metadata.append(
-                                SqlTraceMetadata(
-                                    request_id=trace_id, key=metadata.key, value=metadata.value
-                                )
-                            )
-
                     # Preserve request/response previews computed by log_spans()
-                    # translation if the incoming trace doesn't have them set.
                     if (
                         sql_trace_info.request_preview is None
                         and db_sql_trace_info.request_preview is not None
@@ -3362,6 +3370,13 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
 
                 session.merge(sql_trace_info)
                 session.flush()
+
+                # Upsert metadata and metrics individually so the complete data
+                # from start_trace() overwrites any partial values from log_spans().
+                for k, v in request_metadata.items():
+                    session.merge(SqlTraceMetadata(request_id=trace_id, key=k, value=v))
+                for k, v in trace_metrics.items():
+                    session.merge(SqlTraceMetrics(request_id=trace_id, key=k, value=v))
 
             return sql_trace_info.to_mlflow_entity()
 
