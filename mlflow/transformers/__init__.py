@@ -866,7 +866,6 @@ def log_model(
     model_config: dict[str, Any] | None = None,
     prompt_template: str | None = None,
     save_pretrained: bool = True,
-    base_model_path: str | None = None,
     prompts: list[str | Prompt] | None = None,
     name: str | None = None,
     params: dict[str, Any] | None = None,
@@ -874,6 +873,7 @@ def log_model(
     model_type: str | None = None,
     step: int = 0,
     model_id: str | None = None,
+    base_model_path: str | None = None,
     **kwargs,
 ):
     """
@@ -1067,10 +1067,6 @@ def log_model(
                     )
         prompt_template: {{ prompt_template }}
         save_pretrained: {{ save_pretrained }}
-        base_model_path: Optional path to a local directory containing the base model
-            weights for PEFT models. When provided, only the PEFT adapter weights are
-            saved and the base model weights are referenced by this path instead of
-            being saved to the MLflow artifact. See :py:func:`save_model` for details.
         prompts: {{ prompts }}
         name: {{ name }}
         params: {{ params }}
@@ -1078,6 +1074,10 @@ def log_model(
         model_type: {{ model_type }}
         step: {{ step }}
         model_id: {{ model_id }}
+        base_model_path: Optional path to a local directory containing the base model
+            weights for PEFT models. When provided, only the PEFT adapter weights are
+            saved and the base model weights are referenced by this path instead of
+            being saved to the MLflow artifact. See :py:func:`save_model` for details.
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
     """
     return Model.log(
