@@ -10,7 +10,7 @@ runs:
       # Ref: https://github.com/pyenv/pyenv/wiki#suggested-build-environment
       # Note: llvm is optional (required only for building PyPy/clang)
       run: |
-        sudo apt-get update -y
+        sudo apt-get update
         sudo apt-get purge -y man-db || true
         sudo apt-get install -y --no-install-recommends make build-essential libssl-dev zlib1g-dev \
         libbz2-dev libreadline-dev libsqlite3-dev wget curl \
@@ -19,7 +19,14 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        git clone https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+        # Pin to pyenv v2.6.25 by tag + SHA verification for reproducible builds
+        git clone --branch v2.6.25 --depth 1 https://github.com/pyenv/pyenv.git "$HOME/.pyenv"
+        actual_sha=$(git -C "$HOME/.pyenv" rev-parse HEAD)
+        expected_sha="aa2e8b82605b8ba085dd15f7a31fe1990fabdcfa"
+        if [ "$actual_sha" != "$expected_sha" ]; then
+          echo "::error::pyenv SHA mismatch: expected $expected_sha, got $actual_sha"
+          exit 1
+        fi
     - name: Setup environment variables
       if: runner.os == 'Linux'
       shell: bash
@@ -39,7 +46,7 @@ runs:
       if: runner.os == 'Windows'
       shell: bash
       run: |
-        pip install pyenv-win --target $HOME\\.pyenv
+        uv pip install --system pyenv-win --target $HOME\\.pyenv
     - name: Setup environment variables
       if: runner.os == 'Windows'
       shell: bash

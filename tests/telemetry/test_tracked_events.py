@@ -16,6 +16,8 @@ from mlflow.entities import (
     Expectation,
     Feedback,
     GatewayEndpointModelConfig,
+    IssueSeverity,
+    IssueStatus,
     Metric,
     Param,
     RunTag,
@@ -105,6 +107,7 @@ from mlflow.telemetry.events import (
     SimulateConversationEvent,
     StartTraceEvent,
     TracingContextPropagation,
+    UpdateIssueEvent,
 )
 from mlflow.tracing.distributed import (
     get_tracing_context_headers_for_http_request,
@@ -368,7 +371,26 @@ def test_start_trace(mock_requests, mlflow_client, mock_telemetry_client: Teleme
     data = validate_telemetry_record(
         mock_telemetry_client, mock_requests, event_name, check_params=False
     )
-    assert "openai" in json.loads(data["params"])["imports"]
+    params = json.loads(data["params"])
+    assert "openai" in params["imports"]
+    assert params["format"] == "native"
+
+
+def test_start_trace_genai_semconv(
+    mock_requests, monkeypatch, mock_telemetry_client: TelemetryClient
+):
+    monkeypatch.setenv("MLFLOW_ENABLE_OTEL_GENAI_SEMCONV", "true")
+    event_name = StartTraceEvent.name
+
+    @mlflow.trace
+    def test_func():
+        pass
+
+    test_func()
+    data = validate_telemetry_record(
+        mock_telemetry_client, mock_requests, event_name, check_params=False
+    )
+    assert json.loads(data["params"])["format"] == "genai_semconv"
 
 
 def test_create_prompt(mock_requests, mlflow_client, mock_telemetry_client: TelemetryClient):
@@ -1146,12 +1168,13 @@ endpoints:
 """
     )
 
-    runner = CliRunner(catch_exceptions=False)
-    with mock.patch("mlflow.gateway.cli.run_app"):
-        runner.invoke(start, ["--config-path", str(config)])
+    def assert_event_recorded_before_run_app(**kwargs):
+        mock_telemetry_client.flush()
+        validate_telemetry_record(mock_telemetry_client, mock_requests, GatewayStartEvent.name)
 
-    mock_telemetry_client.flush()
-    validate_telemetry_record(mock_telemetry_client, mock_requests, GatewayStartEvent.name)
+    runner = CliRunner(catch_exceptions=False)
+    with mock.patch("mlflow.gateway.cli.run_app", side_effect=assert_event_recorded_before_run_app):
+        runner.invoke(start, ["--config-path", str(config)])
 
 
 def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):
@@ -2250,4 +2273,38 @@ def test_tracing_context_propagation_get_and_set_success(
         mock_telemetry_client,
         mock_requests,
         TracingContextPropagation.name,
+    )
+
+
+def test_update_issue_telemetry(mock_requests, mock_telemetry_client: TelemetryClient, db_uri):
+    store = SqlAlchemyStore(db_uri, "/tmp")
+
+    exp_id = store.create_experiment("test-exp")
+    issue = store.create_issue(
+        experiment_id=exp_id,
+        name="Original name",
+        description="Original description",
+        status=IssueStatus.PENDING,
+    )
+    mock_telemetry_client.flush()
+    mock_requests.clear()
+
+    store.update_issue(
+        issue_id=issue.issue_id,
+        status=IssueStatus.RESOLVED,
+        name="Updated name",
+        description="Updated description",
+        severity=IssueSeverity.HIGH,
+    )
+
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        UpdateIssueEvent.name,
+        {
+            "status": "resolved",
+            "has_name": True,
+            "has_description": True,
+            "severity": "high",
+        },
     )

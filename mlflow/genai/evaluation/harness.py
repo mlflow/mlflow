@@ -234,6 +234,7 @@ class _PredictSubmitter:
         max_rps_multiplier: float,
         pool_workers: int,
         score_workers: int,
+        experiment_id: str | None,
     ):
         """
         Args:
@@ -248,10 +249,12 @@ class _PredictSubmitter:
             pool_workers: Number of threads in the predict pool.
             score_workers: Number of score-pool threads, used to size the
                 backpressure buffer that bounds predicted-but-not-yet-scored items.
+            experiment_id: MLflow experiment ID for trace/assessment logging.
         """
         self._eval_items = eval_items
         self._predict_fn = predict_fn
         self._run_id = run_id
+        self._experiment_id = experiment_id
         self._max_retries = max_retries
 
         self._limiter = _make_rate_limiter(
@@ -314,6 +317,7 @@ class _PredictSubmitter:
                     self._run_id,
                     self._limiter,
                     self._max_retries,
+                    self._experiment_id,
                 )
                 self._queue.put((future, i))
         except Exception as e:
@@ -401,7 +405,6 @@ class _ScoreSubmitter:
         self._session_groups = session_groups
         self._run_id = run_id
         self._max_retries = max_retries
-
         self._limiter = _make_rate_limiter(
             rps, adaptive=adaptive, max_rps_multiplier=max_rps_multiplier
         )
@@ -504,6 +507,7 @@ def _run_pipeline(
     run_id: str | None,
     progress_bar,
     multi_turn_assessments: dict[str, list[Feedback]],
+    experiment_id: str | None,
 ) -> tuple[list[float], list[float]]:
     """Run the predict→score pipeline and multi-turn scoring.
 
@@ -532,6 +536,7 @@ def _run_pipeline(
         max_rps_multiplier=_AIMD_UPPER_MULTIPLIER,
         pool_workers=predict_workers,
         score_workers=score_workers,
+        experiment_id=experiment_id,
     )
     scorer_submitter = _ScoreSubmitter(
         eval_items,
@@ -657,6 +662,7 @@ def run(
             run_id=run_id,
             progress_bar=progress_bar,
             multi_turn_assessments=multi_turn_assessments,
+            experiment_id=experiment_id,
         )
     finally:
         predict_total = sum(predict_times)
@@ -726,6 +732,7 @@ def _run_predict(
     run_id: str | None,
     rate_limiter: RateLimiter,
     max_retries: int = 0,
+    experiment_id: str | None = None,
 ) -> None:
     if run_id:
         ctx = context.get_context()
@@ -752,7 +759,7 @@ def _run_predict(
 
         eval_item.trace = mlflow.get_trace(eval_request_id, silent=True)
     elif eval_item.trace is not None:
-        if _should_clone_trace(eval_item.trace, run_id):
+        if _should_clone_trace(eval_item.trace, run_id, experiment_id):
             try:
                 trace_id = copy_trace_to_experiment(eval_item.trace.to_dict())
                 eval_item.trace = mlflow.get_trace(trace_id)
@@ -959,7 +966,9 @@ def _refresh_eval_result_traces(eval_results: list[EvalResult]) -> None:
                 eval_result.eval_item.trace = refreshed_trace
 
 
-def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:
+def _should_clone_trace(
+    trace: Trace | None, run_id: str | None, experiment_id: str | None = None
+) -> bool:
     from mlflow.tracking.fluent import _get_experiment_id
 
     if trace is None:
@@ -971,7 +980,7 @@ def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:
 
     # Check if the trace is from the same experiment. If it isn't, we need to clone the trace
     trace_experiment = trace.info.trace_location.mlflow_experiment
-    current_experiment = _get_experiment_id()
+    current_experiment = experiment_id or _get_experiment_id()
     if trace_experiment is not None and trace_experiment.experiment_id != current_experiment:
         return True
 

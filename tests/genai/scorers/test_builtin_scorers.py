@@ -39,6 +39,7 @@ from mlflow.genai.scorers import (
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.builtin_scorers import (
+    BuiltInScorer,
     ExtractedFields,
     _construct_field_extraction_config,
     _validate_required_fields,
@@ -2376,3 +2377,91 @@ def test_summarization_with_trace():
         assert result.value == "yes"
         assert result.rationale == "Accurate summary"
         mock_invoke_judge.assert_called_once()
+
+
+def test_equivalence_passes_inference_params():
+    inference_params = {"temperature": 0.0, "max_tokens": 100}
+    scorer = Equivalence(inference_params=inference_params)
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(name="equivalence", value="yes", rationale="Match"),
+    ) as mock_invoke:
+        scorer(
+            outputs="Paris is the capital",
+            expectations={"expected_response": "The capital is Paris"},
+        )
+
+        mock_invoke.assert_called_once()
+        _, kwargs = mock_invoke.call_args
+        assert kwargs["inference_params"] == inference_params
+
+
+def test_retrieval_relevance_passes_inference_params(sample_rag_trace):
+    inference_params = {"temperature": 0.0}
+    scorer = RetrievalRelevance(inference_params=inference_params)
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(name="retrieval_relevance", value="yes", rationale="Relevant"),
+    ) as mock_invoke:
+        scorer(trace=sample_rag_trace)
+
+        for args in mock_invoke.call_args_list:
+            assert args.kwargs["inference_params"] == inference_params
+
+
+@pytest.mark.parametrize(
+    "scorer_cls",
+    [
+        UserFrustration,
+        ConversationCompleteness,
+        ConversationalSafety,
+        ConversationalToolCallEfficiency,
+        ConversationalRoleAdherence,
+    ],
+    ids=[
+        "user_frustration",
+        "conversation_completeness",
+        "conversational_safety",
+        "conversational_tool_call_efficiency",
+        "conversational_role_adherence",
+    ],
+)
+def test_session_level_scorer_passes_inference_params_to_judge(scorer_cls):
+    inference_params = {"temperature": 0.0}
+    scorer = scorer_cls(inference_params=inference_params)
+    assert scorer.inference_params == inference_params
+
+    judge = scorer._get_judge()
+    assert judge.inference_params == inference_params
+
+
+def test_knowledge_retention_propagates_inference_params():
+    inference_params = {"temperature": 0.0}
+    scorer = KnowledgeRetention(inference_params=inference_params)
+    assert scorer.inference_params == inference_params
+    assert scorer.last_turn_scorer.inference_params == inference_params
+
+    judge = scorer.last_turn_scorer._get_judge()
+    assert judge.inference_params == inference_params
+
+
+@pytest.mark.parametrize(
+    "scorer_cls",
+    [Equivalence, RetrievalRelevance, UserFrustration, KnowledgeRetention],
+)
+def test_builtin_scorer_inference_params_defaults_to_none(scorer_cls):
+    scorer = scorer_cls()
+    assert scorer.inference_params is None
+
+
+def test_builtin_scorer_serialization_roundtrip_with_inference_params():
+    inference_params = {"temperature": 0.0, "top_p": 0.9}
+    scorer = Equivalence(inference_params=inference_params)
+
+    serialized = scorer.model_dump()
+    assert serialized["builtin_scorer_pydantic_data"]["inference_params"] == inference_params
+
+    restored = BuiltInScorer.model_validate(serialized)
+    assert restored.inference_params == inference_params

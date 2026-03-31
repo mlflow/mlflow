@@ -209,7 +209,7 @@ def is_in_databricks_model_serving_environment():
     The environment variable set by Databricks when starting the serving container.
     """
     val = os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false")
-    return val.lower() == "true"
+    return val.lower() in ("true", "1")
 
 
 def is_mlflow_tracing_enabled_in_model_serving() -> bool:

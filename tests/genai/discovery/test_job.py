@@ -16,7 +16,7 @@ from mlflow.genai.discovery.job import (
         ("openai", {"api_key": "test-key"}, {"OPENAI_API_KEY": "test-key"}),
         ("anthropic", {"api_key": "test-key"}, {"ANTHROPIC_API_KEY": "test-key"}),
         ("gemini", {"api_key": "test-key"}, {"GEMINI_API_KEY": "test-key"}),
-        ("azure", {"api_key": "test-key"}, {"AZURE_OPENAI_API_KEY": "test-key"}),
+        ("azure", {"api_key": "test-key"}, {"AZURE_API_KEY": "test-key"}),
         (
             "bedrock",
             {

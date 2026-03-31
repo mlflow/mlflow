@@ -635,6 +635,62 @@ def test_generate_trace_id_v4_from_otel_trace_id():
     assert parsed_id == expected_hex_id
 
 
+def test_builtin_cost_fallback_when_litellm_unavailable():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o", {"input_tokens": 1000, "output_tokens": 500}
+        )
+    assert result is not None
+    assert result["input_cost"] == pytest.approx(0.0025)
+    assert result["output_cost"] == pytest.approx(0.005)
+    assert result["total_cost"] == pytest.approx(0.0075)
+
+
+def test_builtin_cost_fallback_returns_none_for_unknown_model():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "unknown-model", {"input_tokens": 100, "output_tokens": 50}
+        )
+    assert result is None
+
+
+def test_builtin_cost_fallback_with_cache_tokens():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {
+                "input_tokens": 1000,
+                "output_tokens": 500,
+                "cache_read_input_tokens": 200,
+            },
+        )
+    assert result is not None
+    assert result["input_cost"] == pytest.approx(0.00225)
+
+
+def test_builtin_cost_fallback_with_provider():
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {"input_tokens": 1000, "output_tokens": 500},
+            model_provider="openai",
+        )
+    assert result is not None
+    assert result["total_cost"] == pytest.approx(0.0075)
+
+
+@pytest.mark.parametrize("model_provider", ["OpenAI", "OPENAI", "openai"])
+def test_builtin_cost_fallback_with_provider_case_insensitive(model_provider):
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {"input_tokens": 1000, "output_tokens": 500},
+            model_provider=model_provider,
+        )
+    assert result is not None
+    assert result["total_cost"] == pytest.approx(0.0075)
+
+
 def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
     litellm.suppress_debug_info = False
 

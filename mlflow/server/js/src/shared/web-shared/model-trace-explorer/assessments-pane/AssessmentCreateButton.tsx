@@ -7,11 +7,13 @@ import { AssessmentCreateForm } from './AssessmentCreateForm';
 export const AssessmentCreateButton = ({
   title,
   assessmentName,
+  assessmentType,
   spanId,
   traceId,
 }: {
   title: React.ReactNode;
   assessmentName?: string;
+  assessmentType: 'feedback' | 'expectation';
   spanId?: string;
   traceId: string;
 }) => {
@@ -39,6 +41,7 @@ export const AssessmentCreateButton = ({
         <AssessmentCreateForm
           ref={ref}
           assessmentName={assessmentName}
+          assessmentType={assessmentType}
           spanId={spanId}
           traceId={traceId}
           setExpanded={setExpanded}
