@@ -230,7 +230,7 @@ def test_build_summary_with_issues():
 
 
 def test_token_counter_tracks_usage():
-    counter = _TokenCounter()
+    counter = _TokenCounter(model="openai:/gpt-4o")
     assert counter.input_tokens == 0
     assert counter.output_tokens == 0
     assert counter.cost_usd is None
@@ -502,6 +502,7 @@ def test_call_llm_handles_gateway_models():
     )
 
     with (
+        mock.patch("mlflow.genai.discovery.utils._is_litellm_available", return_value=True),
         mock.patch(
             "mlflow.genai.utils.gateway_utils.get_gateway_litellm_config",
             return_value=gateway_config,
@@ -533,6 +534,7 @@ def test_call_llm_handles_non_gateway_models():
     mock_response.usage.completion_tokens = 20
 
     with (
+        mock.patch("mlflow.genai.discovery.utils._is_litellm_available", return_value=True),
         mock.patch(
             "mlflow.metrics.genai.model_utils.convert_mlflow_uri_to_litellm",
             return_value="openai/gpt-4",
@@ -559,10 +561,13 @@ def test_call_llm_handles_non_gateway_models():
 
 def test_call_llm_with_json_mode():
     mock_response = mock.MagicMock()
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-        return_value=mock_response,
-    ) as mock_invoke:
+    with (
+        mock.patch("mlflow.genai.discovery.utils._is_litellm_available", return_value=True),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            return_value=mock_response,
+        ) as mock_invoke,
+    ):
         messages = [{"role": "user", "content": "test"}]
         _call_llm("openai:/gpt-4", messages, json_mode=True)
 
@@ -576,10 +581,13 @@ def test_call_llm_with_response_format():
         field: str
 
     mock_response = mock.MagicMock()
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-        return_value=mock_response,
-    ) as mock_invoke:
+    with (
+        mock.patch("mlflow.genai.discovery.utils._is_litellm_available", return_value=True),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            return_value=mock_response,
+        ) as mock_invoke,
+    ):
         messages = [{"role": "user", "content": "test"}]
         _call_llm("openai:/gpt-4", messages, response_format=TestModel)
 
@@ -595,11 +603,14 @@ def test_call_llm_tracks_tokens():
     mock_response.usage.completion_tokens = 50
     mock_response._hidden_params = {"response_cost": 0.01}
 
-    with mock.patch(
-        "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
-        return_value=mock_response,
+    with (
+        mock.patch("mlflow.genai.discovery.utils._is_litellm_available", return_value=True),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            return_value=mock_response,
+        ),
     ):
-        counter = _TokenCounter()
+        counter = _TokenCounter(model="openai:/gpt-4")
         messages = [{"role": "user", "content": "test"}]
         _call_llm("openai:/gpt-4", messages, token_counter=counter)
 
@@ -644,11 +655,11 @@ def test_call_llm_via_gateway_dispatches_gateway_uri_without_litellm():
     with (
         mock.patch("mlflow.genai.discovery.utils._is_litellm_available", return_value=False),
         mock.patch(
-            "mlflow.metrics.genai.model_utils._get_provider_instance",
+            "mlflow.genai.discovery.utils._get_provider_instance",
             return_value=mock_provider,
         ) as mock_get_provider,
         mock.patch(
-            "mlflow.metrics.genai.model_utils._send_request",
+            "mlflow.genai.discovery.utils._send_request",
             return_value=raw_response,
         ) as mock_send,
     ):
@@ -715,15 +726,23 @@ def test_resolve_model_for_gateway(mock_store, expected):
         assert _resolve_model_for_gateway("my-endpoint") == expected
 
 
-def test_token_counter_model_getter_and_setter():
-    counter = _TokenCounter(model="openai:/gpt-4o")
-    assert counter.model == "openai:/gpt-4o"
+def test_token_counter_resolves_gateway_model_on_init():
+    with mock.patch(
+        "mlflow.genai.discovery.utils._resolve_model_for_gateway",
+        return_value="openai:/gpt-4o",
+    ) as mock_resolve:
+        counter = _TokenCounter(model="gateway:/my-endpoint")
 
-    counter.model = "anthropic:/claude-3-5-sonnet"
-    assert counter.model == "anthropic:/claude-3-5-sonnet"
+    mock_resolve.assert_called_once_with("my-endpoint")
+    assert counter._model == "openai:/gpt-4o"
 
-    counter.model = None
-    assert counter.model is None
+
+def test_token_counter_does_not_resolve_non_gateway_model():
+    with mock.patch("mlflow.genai.discovery.utils._resolve_model_for_gateway") as mock_resolve:
+        counter = _TokenCounter(model="openai:/gpt-4o")
+
+    mock_resolve.assert_not_called()
+    assert counter._model == "openai:/gpt-4o"
 
 
 @pytest.mark.parametrize(
@@ -765,27 +784,28 @@ def test_lookup_model_cost_passes_provider_and_model():
     assert cost == 1000 * 1 + 500 * 3
 
 
-def test_call_llm_via_gateway_resolves_gateway_model_on_token_counter():
+def test_call_llm_via_gateway_uses_resolved_model_from_token_counter():
     mock_provider = mock.MagicMock()
-    mock_provider.adapter_class.model_to_chat.return_value.usage.prompt_tokens = 0
-    mock_provider.adapter_class.model_to_chat.return_value.usage.completion_tokens = 0
+    mock_provider.adapter_class.model_to_chat.return_value.usage.prompt_tokens = 10
+    mock_provider.adapter_class.model_to_chat.return_value.usage.completion_tokens = 5
 
-    counter = _TokenCounter(model="gateway:/my-endpoint")
+    with mock.patch(
+        "mlflow.genai.discovery.utils._resolve_model_for_gateway",
+        return_value="openai:/gpt-4o",
+    ):
+        counter = _TokenCounter(model="gateway:/my-endpoint")
+
+    assert counter._model == "openai:/gpt-4o"
 
     with (
         mock.patch(
-            "mlflow.metrics.genai.model_utils._get_provider_instance",
+            "mlflow.genai.discovery.utils._get_provider_instance",
             return_value=mock_provider,
         ),
-        mock.patch("mlflow.metrics.genai.model_utils._send_request", return_value={}),
-        mock.patch(
-            "mlflow.genai.discovery.utils._resolve_model_for_gateway",
-            return_value="openai:/gpt-4o",
-        ) as mock_resolve,
+        mock.patch("mlflow.genai.discovery.utils._send_request", return_value={}),
     ):
         _call_llm_via_gateway(
             "gateway:/my-endpoint", [{"role": "user", "content": "hi"}], token_counter=counter
         )
 
-    mock_resolve.assert_called_once_with("my-endpoint")
-    assert counter.model == "openai:/gpt-4o"
+    assert counter._model == "openai:/gpt-4o"

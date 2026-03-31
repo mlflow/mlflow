@@ -25,6 +25,7 @@ from mlflow.genai.judges.adapters.litellm_adapter import (
     _is_litellm_available,
 )
 from mlflow.genai.scorers.base import Scorer
+from mlflow.metrics.genai.model_utils import _get_provider_instance, _parse_model_uri, _send_request
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._tracking_service.utils import _get_store
@@ -162,25 +163,21 @@ class _TokenCounter:
 
     def __init__(
         self,
+        model: str,
         input_tokens: int = 0,
         output_tokens: int = 0,
         cost_usd: float = 0.0,
-        model: str | None = None,
     ):
         self._lock = threading.RLock()
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
         self._cost_usd = cost_usd
         self._cost_resolved = False
-        self._model = model
-
-    @property
-    def model(self) -> str | None:
-        return self._model
-
-    @model.setter
-    def model(self, value: str | None) -> None:
-        self._model = value
+        provider, model_name = _parse_model_uri(model)
+        if provider == "gateway":
+            self._model = _resolve_model_for_gateway(model_name)
+        else:
+            self._model = model
 
     @property
     def cost_usd(self) -> float | None:
@@ -188,14 +185,14 @@ class _TokenCounter:
         with self._lock:
             if self._cost_usd == 0 and not self._cost_resolved:
                 total = self.input_tokens + self.output_tokens
-                if total > 0 and self.model:
+                if total > 0 and self._model:
                     if cost := _lookup_model_cost(
-                        self.model, self.input_tokens, self.output_tokens
+                        self._model, self.input_tokens, self.output_tokens
                     ):
                         self._cost_usd = cost
                 # Mark resolved once we've attempted lookup with tokens present,
                 # or when there are no tokens yet (nothing to look up).
-                self._cost_resolved = total > 0 or not self.model
+                self._cost_resolved = total > 0 or not self._model
             return self._cost_usd or None
 
     def add_cost(self, cost: float) -> None:
@@ -259,7 +256,7 @@ def _call_llm_via_litellm(
 ) -> Any:
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
     from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-    from mlflow.metrics.genai.model_utils import _parse_model_uri, convert_mlflow_uri_to_litellm
+    from mlflow.metrics.genai.model_utils import convert_mlflow_uri_to_litellm
 
     provider, model_name = _parse_model_uri(model)
 
@@ -310,16 +307,8 @@ def _call_llm_via_gateway(
     # the request, while this path sends them as-is. Not an issue for OpenAI
     # and Anthropic which both support structured outputs. Also missing:
     # no context window management and no per-request cost tracking.
-    from mlflow.metrics.genai.model_utils import (
-        _get_provider_instance,
-        _parse_model_uri,
-        _send_request,
-    )
-
     provider_name, model_name = _parse_model_uri(model)
     provider = _get_provider_instance(provider_name, model_name)
-    if provider_name == "gateway":
-        token_counter.model = _resolve_model_for_gateway(model_name)
 
     payload = {"messages": messages, "max_completion_tokens": LLM_MAX_TOKENS}
     if response_format is not None:
@@ -385,8 +374,6 @@ def _fetch_model_cost(provider: str, model_name: str) -> _ModelCost | None:
 
 
 def _lookup_model_cost(model_uri: str, input_tokens: int, output_tokens: int) -> float | None:
-    from mlflow.metrics.genai.model_utils import _parse_model_uri
-
     provider, model_name = _parse_model_uri(model_uri)
     if cost := _fetch_model_cost(provider, model_name):
         return input_tokens * cost.input_cost_per_token + output_tokens * cost.output_cost_per_token
