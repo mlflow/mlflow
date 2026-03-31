@@ -135,18 +135,12 @@ def _get_dbutils():
 
 
 def _get_runtime_integration_client():
-    try:
-        import IPython
+    from dbruntime import UserNamespaceInitializer
 
-        ip_shell = IPython.get_ipython()
-        if ip_shell is None:
-            raise _NoDbutilsError
-        kernel = ip_shell.kernel
-        if kernel is None or kernel._driver_connection is None:
-            raise _NoDbutilsError
-        return kernel._driver_connection.runtime_integration_client
-    except (ImportError, AttributeError):
+    driver_connection = UserNamespaceInitializer.getOrCreate().get_driver_connection()
+    if driver_connection is None:
         raise _NoDbutilsError
+    return driver_connection.runtime_integration_client
 
 
 class _NoDbutilsError(Exception):
@@ -523,7 +517,16 @@ def get_repl_id():
     except Exception:
         pass
 
-    # If the runtime integration client is unavailable due to an older runtime version (< 9.0),
+    # Fallback for runtimes without runtime_integration_client: use entry_point directly.
+    try:
+        dbutils = _get_dbutils()
+        repl_id = dbutils.entry_point.getReplId()
+        if repl_id is not None:
+            return repl_id
+    except Exception:
+        pass
+
+    # If the REPL ID entrypoint property is unavailable due to an older runtime version (< 9.0),
     # attempt to fetch the REPL ID from the Spark Context. This property may not be available
     # until several seconds after REPL startup
     try:
@@ -1482,19 +1485,31 @@ if is_in_databricks_runtime():
 
 
 def get_databricks_nfs_temp_dir():
+    entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
-        return _get_dbutils().entry_point.getReplNFSTempDir()
-    # Safe-spark: get the user-scoped NFS temp directory via runtime_integration_client,
-    # which routes to gRPC or Py4J depending on cluster configuration.
-    return _get_runtime_integration_client().getUserNFSTempDir()
+        return entry_point.getReplNFSTempDir()
+    try:
+        return _get_runtime_integration_client().getUserNFSTempDir()
+    except Exception:
+        pass
+    try:
+        return entry_point.getUserNFSTempDir()
+    except Exception:
+        return entry_point.getReplNFSTempDir()
 
 
 def get_databricks_local_temp_dir():
+    entry_point = _get_dbutils().entry_point
     if getpass.getuser().lower() == "root":
-        return _get_dbutils().entry_point.getReplLocalTempDir()
-    # Safe-spark: get the user-scoped local temp directory via runtime_integration_client,
-    # which routes to gRPC or Py4J depending on cluster configuration.
-    return _get_runtime_integration_client().getUserLocalTempDir()
+        return entry_point.getReplLocalTempDir()
+    try:
+        return _get_runtime_integration_client().getUserLocalTempDir()
+    except Exception:
+        pass
+    try:
+        return entry_point.getUserLocalTempDir()
+    except Exception:
+        return entry_point.getReplLocalTempDir()
 
 
 def stage_model_for_databricks_model_serving(model_name: str, model_version: str):

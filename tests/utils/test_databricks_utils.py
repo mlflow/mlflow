@@ -362,6 +362,16 @@ def test_get_repl_id():
         assert databricks_utils.get_repl_id() == "testReplId1"
         mock_client.getReplId.assert_called_once()
 
+    # When runtime_integration_client is unavailable, fall back to entry_point.
+    mock_dbutils = mock.MagicMock()
+    mock_dbutils.entry_point.getReplId.return_value = "testReplId1"
+    with mock.patch(
+        "mlflow.utils.databricks_utils._get_runtime_integration_client",
+        side_effect=Exception("unavailable"),
+    ), mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+        assert databricks_utils.get_repl_id() == "testReplId1"
+        mock_dbutils.entry_point.getReplId.assert_called_once()
+
     mock_sparkcontext_inst = mock.MagicMock()
     mock_sparkcontext_inst.getLocalProperty.return_value = "testReplId2"
     mock_sparkcontext_class = mock.MagicMock()
