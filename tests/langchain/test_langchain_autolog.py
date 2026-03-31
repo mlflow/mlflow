@@ -915,6 +915,9 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
         _ = [f.result() for f in futures]
 
     if async_logging_enabled:
+        # Brief sleep to allow concurrent thread callbacks to finish queuing
+        # spans in the BatchSpanProcessor before force_flush() is called.
+        time.sleep(0.2)
         mlflow.flush_trace_async_logging(terminate=True)
 
     traces = get_traces()
