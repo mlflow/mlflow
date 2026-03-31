@@ -3,12 +3,11 @@ from unittest import mock
 import pytest
 
 import mlflow
-
+import mlflow.tracking.fluent as fluent_module
 from mlflow.entities import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
 from mlflow.entities.trace_location import UnityCatalog
 from mlflow.exceptions import MlflowException
-import mlflow.tracking.fluent as fluent_module
 
 
 def _experiment(experiment_id="789"):
