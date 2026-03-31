@@ -7,6 +7,7 @@ import pytest
 import requests
 
 from mlflow.exceptions import MlflowException
+from mlflow.genai.utils.gateway_utils import GatewayConfig
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.model_utils import (
     _MODELS_WITHOUT_OUTPUT_CONFIG,
@@ -338,43 +339,27 @@ def test_score_model_togetherai(monkeypatch):
 
 
 def test_score_model_gateway_completions():
-    expected_text = "man, one giant leap for mankind."
-
-    with mock.patch(
-        "mlflow.metrics.genai.model_utils._call_llm_provider_api",
-        return_value=expected_text,
-    ) as mock_call:
-        response = score_model_on_payload("gateway:/my-route", "my prompt")
-        assert response == expected_text
-        mock_call.assert_called_once_with(
-            "gateway",
-            "my-route",
-            input_data="my prompt",
-            eval_parameters={},
-            extra_headers={},
-            proxy_url=None,
-        )
-
-
-def test_score_model_gateway_chat():
-    expected_text = (
-        "The core of the sun is estimated to have a temperature of about "
-        "15 million degrees Celsius (27 million degrees Fahrenheit)."
+    gw_config = GatewayConfig(
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        endpoint_name="my-route",
+        extra_headers=None,
     )
 
-    with mock.patch(
-        "mlflow.metrics.genai.model_utils._call_llm_provider_api",
-        return_value=expected_text,
-    ) as mock_call:
+    with (
+        mock.patch(
+            "mlflow.metrics.genai.model_utils.get_gateway_config", return_value=gw_config
+        ) as mock_get_config,
+        mock.patch(
+            "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+        ) as mock_send,
+    ):
         response = score_model_on_payload("gateway:/my-route", "my prompt")
-        assert response == expected_text
-        mock_call.assert_called_once_with(
-            "gateway",
-            "my-route",
-            input_data="my prompt",
-            eval_parameters={},
-            extra_headers={},
-            proxy_url=None,
+        assert response == "\n\nThis is a test!"
+        mock_get_config.assert_called_once_with("my-route")
+        mock_send.assert_called_once_with(
+            endpoint="http://localhost:5000/gateway/mlflow/v1/chat/completions",
+            headers={},
+            payload={"model": "my-route", "messages": [{"role": "user", "content": "my prompt"}]},
         )
 
 
