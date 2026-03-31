@@ -18,7 +18,7 @@ from mlflow.azure.client import (
     put_block,
     put_block_list,
 )
-from mlflow.entities import FileInfo
+from mlflow.entities import FileInfo, TraceData
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
@@ -268,6 +268,11 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             except json.JSONDecodeError as e:
                 raise MlflowTraceDataCorrupted(request_id=self.resource.id) from e
 
+    def download_archived_trace_data(self) -> TraceData:
+        raise MlflowException.invalid_parameter_value(
+            "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace payloads."
+        )
+
     def upload_trace_data(self, trace_data: str) -> None:
         cred = self._get_upload_trace_data_cred_info()
         with write_local_temp_trace_data_file(trace_data) as temp_file:
@@ -298,6 +303,16 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 ArtifactCredentialType.GCP_SIGNED_URL,
             ):
                 self._signed_url_upload_file(cred, temp_file)
+
+    def upload_archived_trace_data(self, trace_data: TraceData | str) -> None:
+        raise MlflowException.invalid_parameter_value(
+            "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace payloads."
+        )
+
+    def upload_archived_trace_data_bytes(self, data: bytes) -> None:
+        raise MlflowException.invalid_parameter_value(
+            "Databricks trace artifact repositories do not yet support ARCHIVE_REPO trace payloads."
+        )
 
     def _get_upload_trace_data_cred_info(self):
         """Returns the credential info for trace data upload."""

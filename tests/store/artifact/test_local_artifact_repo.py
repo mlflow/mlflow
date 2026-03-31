@@ -4,9 +4,14 @@ import pathlib
 import posixpath
 
 import pytest
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
+from mlflow.entities.span import Span, SpanAttributeKey
+from mlflow.entities.trace_data import TraceData
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
+from mlflow.tracing.otel.otel_archival import TRACE_ARCHIVAL_FILENAME, spans_to_traces_data_pb
+from mlflow.tracing.utils import build_otel_context
 from mlflow.utils.file_utils import TempDir
 
 
@@ -243,6 +248,73 @@ def test_trace_data(local_artifact_repo):
     mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
     local_artifact_repo.upload_trace_data(json.dumps(mock_trace_data))
     assert local_artifact_repo.download_trace_data() == mock_trace_data
+
+
+def _make_span() -> Span:
+    otel_span = OTelReadableSpan(
+        name="test-span",
+        context=build_otel_context(1, 10),
+        start_time=1_000_000,
+        end_time=2_000_000,
+        attributes={
+            SpanAttributeKey.REQUEST_ID: json.dumps("tr-abc123"),
+            SpanAttributeKey.INPUTS: json.dumps({"q": "hello"}),
+            SpanAttributeKey.OUTPUTS: json.dumps({"a": "world"}),
+            SpanAttributeKey.SPAN_TYPE: json.dumps("UNKNOWN"),
+        },
+    )
+    return Span(otel_span)
+
+
+def test_archived_trace_data_errors(local_artifact_repo):
+    with pytest.raises(MlflowTraceDataNotFound, match=r"Trace data not found for path="):
+        local_artifact_repo.download_archived_trace_data()
+
+    trace_pb_path = pathlib.Path(local_artifact_repo.artifact_dir, TRACE_ARCHIVAL_FILENAME)
+    trace_pb_path.write_bytes(b"")
+    with pytest.raises(MlflowTraceDataCorrupted, match=r"Trace data is corrupted for path="):
+        local_artifact_repo.download_archived_trace_data()
+
+
+def test_upload_archived_trace_data_rejects_empty_spans(local_artifact_repo):
+    with pytest.raises(MlflowException, match="at least one span"):
+        local_artifact_repo.upload_archived_trace_data(json.dumps({"spans": []}))
+
+
+def test_trace_data_artifact_repo(local_artifact_repo):
+    trace_data = TraceData(spans=[_make_span()]).to_dict()
+
+    local_artifact_repo.upload_trace_data(json.dumps(trace_data))
+
+    restored = local_artifact_repo.download_trace_data()
+    assert restored == trace_data
+
+
+def test_archived_trace_data_with_serialized_json(local_artifact_repo):
+    trace_data = TraceData(spans=[_make_span()]).to_dict()
+
+    local_artifact_repo.upload_archived_trace_data(json.dumps(trace_data))
+
+    restored = local_artifact_repo.download_archived_trace_data()
+    assert restored.to_dict() == trace_data
+
+
+def test_archived_trace_data_with_trace_data_object(local_artifact_repo):
+    trace_data = TraceData(spans=[_make_span()])
+
+    local_artifact_repo.upload_archived_trace_data(trace_data)
+
+    restored = local_artifact_repo.download_archived_trace_data()
+    assert restored.to_dict() == trace_data.to_dict()
+
+
+def test_upload_archived_trace_data_bytes(local_artifact_repo):
+    trace_data = TraceData(spans=[_make_span()])
+
+    local_artifact_repo.upload_archived_trace_data_bytes(spans_to_traces_data_pb(trace_data.spans))
+
+    restored = local_artifact_repo.download_archived_trace_data()
+    assert restored.to_dict() == trace_data.to_dict()
 
 
 @pytest.fixture
