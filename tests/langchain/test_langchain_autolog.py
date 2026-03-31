@@ -892,7 +892,6 @@ def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path, asy
     assert stream_trace.data.response == invoke_trace.data.response
     assert len(stream_trace.data.spans) == len(invoke_trace.data.spans)
 
-# @pytest.mark.repeat(5)
 def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
     mlflow.langchain.autolog()
 
