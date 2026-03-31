@@ -35,6 +35,9 @@ jobs:
             https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json \
             -o mlflow/utils/model_prices_and_context_window.json
 
+      - name: Format JSON with prettier
+        run: npx prettier --write mlflow/utils/model_prices_and_context_window.json
+
       - name: Check for changes
         id: diff
         run: |
