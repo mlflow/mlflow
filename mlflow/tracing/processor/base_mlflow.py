@@ -1,6 +1,7 @@
 import json
 import logging
 import threading
+import weakref
 from typing import Any
 
 from opentelemetry.context import Context
@@ -60,7 +61,9 @@ _DEFAULT_OTEL_MAX_QUEUE_SIZE = 2048
 # When set_destination() creates a new tracer provider, the old processor is orphaned
 # but its BatchSpanProcessor background thread keeps running with queued spans.
 # This registry allows flush_all_batch_processors() to drain all of them.
-_batch_processor_registry: list["BaseMlflowSpanProcessor"] = []
+# Uses WeakSet so processors that are garbage-collected (e.g., when the tracer
+# provider is replaced) are automatically removed without unbounded growth.
+_batch_processor_registry: weakref.WeakSet["BaseMlflowSpanProcessor"] = weakref.WeakSet()
 _batch_processor_registry_lock = threading.Lock()
 
 
@@ -79,6 +82,10 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
     """
     with _batch_processor_registry_lock:
         processors = list(_batch_processor_registry)
+        # Clear immediately so any new processors created during flush
+        # go into a fresh registry.
+        if terminate:
+            _batch_processor_registry.clear()
     # Layer 1: drain span queues into exporters
     for processor in processors:
         try:
@@ -97,10 +104,13 @@ def flush_all_batch_processors(timeout_millis: float = 30000, terminate: bool = 
         for processor in processors:
             try:
                 processor.shutdown()
+                # Null out the delegate so future on_end calls fall through
+                # to SimpleSpanProcessor instead of going to the dead batch
+                # processor. This is critical for test isolation: the tracer
+                # provider may outlive the shutdown and reuse the processor.
+                processor._batch_delegate = None
             except Exception:
                 _logger.debug(f"Failed to shutdown processor {processor}", exc_info=True)
-        with _batch_processor_registry_lock:
-            _batch_processor_registry.clear()
 
 
 def _create_batch_span_processor(exporter: SpanExporter) -> BatchSpanProcessor:
@@ -143,7 +153,7 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
         )
         if self._batch_delegate is not None:
             with _batch_processor_registry_lock:
-                _batch_processor_registry.append(self)
+                _batch_processor_registry.add(self)
         self.span_exporter = span_exporter
         self._export_metrics = export_metrics
         self._env_metadata = resolve_env_metadata()

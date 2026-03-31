@@ -669,7 +669,6 @@ async def test_langchain_autolog_callback_injection_in_ainvoke(
     # list of configs are also supported for batch call
     + [[config, config] for config in _CONFIG_PATTERNS],
 )
-@pytest.mark.flaky(reruns=3)
 def test_langchain_autolog_callback_injection_in_batch(invoke_arg, config, async_logging_enabled):
     mlflow.langchain.autolog()
 
@@ -740,7 +739,6 @@ def test_tracing_source_run_in_pyfunc_model_predict(model_info):
     + [[config, config] for config in _CONFIG_PATTERNS + _ASYNC_CONFIG_PATTERNS],
 )
 @pytest.mark.asyncio
-@pytest.mark.flaky(reruns=3)
 async def test_langchain_autolog_callback_injection_in_abatch(
     invoke_arg, config, async_logging_enabled
 ):
@@ -895,7 +893,6 @@ def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path, asy
     assert len(stream_trace.data.spans) == len(invoke_trace.data.spans)
 
 
-@pytest.mark.flaky(reruns=3)
 def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
     mlflow.langchain.autolog()
 
