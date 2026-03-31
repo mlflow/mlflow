@@ -297,7 +297,7 @@ def build(package_type: PackageType) -> None:
 
     data = {
         "build-system": {
-            "requires": ["setuptools"],
+            "requires": ["setuptools<=82.0.1"],
             "build-backend": "setuptools.build_meta",
         },
         "project": {
@@ -478,12 +478,15 @@ def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:
             "models/notebook_resources/**/*",
             "ai_commands/**/*.md",
             "assistant/skills/**/*",
-            "utils/model_prices_and_context_window.json",
         ]
     }
 
     if package_type != PackageType.SKINNY:
-        package_data["mlflow"] += ["models/container/**/*", "server/js/build/**/*"]
+        package_data["mlflow"] += [
+            "models/container/**/*",
+            "server/js/build/**/*",
+            "utils/model_prices_and_context_window.json",
+        ]
 
     return package_data
 

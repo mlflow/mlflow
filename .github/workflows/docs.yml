@@ -40,6 +40,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
@@ -59,13 +61,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         working-directory: .
         run: |
-          uv sync --group docs --extra gateway
+          uv sync --group docs --group torch --extra gateway
       - run: |
           npm ci
       - uses: ./.github/actions/show-versions
@@ -129,11 +133,13 @@ jobs:
         working-directory: docs/api_reference
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         working-directory: .
         run: |
-          uv sync --group docs --extra gateway
+          uv sync --group docs --group torch --extra gateway
       - name: Extract examples
         run: |
           uv run source/testcode_block.py
@@ -142,13 +148,15 @@ jobs:
           uv run pytest .examples
 
   r:
-    if: github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+    if: (github.event_name != 'pull_request' || (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot'))
     permissions:
       contents: read
     timeout-minutes: 15
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Build docs
         working-directory: docs/api_reference
         run: |

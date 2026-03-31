@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import importlib.util
 import json
 from typing import Any, AsyncIterable
 
+from mlflow.exceptions import MlflowException
 from mlflow.gateway.config import EndpointConfig, LiteLLMConfig
 from mlflow.gateway.providers.base import BaseProvider, PassthroughAction, ProviderAdapter
 from mlflow.gateway.schemas import chat, embeddings
@@ -63,6 +65,11 @@ class LiteLLMProvider(BaseProvider):
 
     def __init__(self, config: EndpointConfig, enable_tracing: bool = False) -> None:
         super().__init__(config, enable_tracing=enable_tracing)
+        if importlib.util.find_spec("litellm") is None:
+            raise MlflowException(
+                "The `litellm` package is required to use the LiteLLM provider but is not "
+                "installed. Please install it with: `pip install litellm`"
+            )
         if config.model.config is None or not isinstance(config.model.config, LiteLLMConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.litellm_config: LiteLLMConfig = config.model.config

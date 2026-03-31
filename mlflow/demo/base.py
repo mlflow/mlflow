@@ -18,6 +18,7 @@ class DemoFeature(str, Enum):
     EVALUATION = "evaluation"
     PROMPTS = "prompts"
     JUDGES = "judges"
+    ISSUES = "issues"
 
 
 @dataclass

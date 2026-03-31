@@ -4,7 +4,7 @@
 # This file will be replaced by `pyproject.release.toml` when releasing a new version.
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools<=82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -108,8 +108,6 @@ genai = [
   "aiohttp<4",
   "boto3<2,>=1.28.56",
   "fastapi<1",
-  "gepa<1,>=0.0.26",
-  "litellm<2,>=1.0.0",
   "slowapi<1,>=0.1.9",
   "tiktoken<1",
   "uvicorn[standard]<1",
@@ -156,9 +154,9 @@ mlflow = [
   "models/notebook_resources/**/*",
   "ai_commands/**/*.md",
   "assistant/skills/**/*",
-  "utils/model_prices_and_context_window.json",
   "models/container/**/*",
   "server/js/build/**/*",
+  "utils/model_prices_and_context_window.json",
 ]
 
 [tool.setuptools.packages.find]
@@ -211,6 +209,7 @@ test = [
   "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
+torch = ["torch>=1.11.0", "torchvision>=0.12.0,!=0.24.0", "lightning>=1.8.1"]
 docs = [
   "sphinx==4.2.0",
   "sphinx-autobuild",
@@ -229,9 +228,6 @@ docs = [
   "pyspark",
   "datasets",
   "plotly",
-  "torch>=1.11.0",
-  "torchvision>=0.12.0,!=0.24.0",
-  "lightning>=1.8.1",
   "Flask-WTF<2",
   "polars>=1",
   "openai",
@@ -239,7 +235,6 @@ docs = [
   "deepeval",
   "ragas",
   "instructor",
-  "litellm",
   "langchain-community>=0.3.0",
 ]
 
