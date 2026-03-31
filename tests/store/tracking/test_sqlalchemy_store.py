@@ -8197,9 +8197,7 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
         )
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize("is_async", [False])
-async def test_log_spans_multiple_traces(store: SqlAlchemyStore, is_async: bool):
+def test_log_spans_multiple_traces(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_multi_trace_experiment")
 
     span1 = create_mlflow_span(

@@ -4687,8 +4687,8 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             existing_sessions: set[str] = set()
             if trace_ids_with_session:
                 existing_sessions = {
-                    r.request_id
-                    for r in session
+                    request_id
+                    for (request_id,) in session
                     .query(SqlTraceMetadata.request_id)
                     .filter(
                         SqlTraceMetadata.request_id.in_(trace_ids_with_session),
