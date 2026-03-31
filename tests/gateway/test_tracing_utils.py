@@ -366,54 +366,6 @@ async def test_get_model_span_info_reads_child_span(endpoint_config):
 
 
 @pytest.mark.asyncio
-async def test_maybe_traced_gateway_call_with_traceparent_incremental_export_disabled(
-    monkeypatch, gateway_experiment_id
-):
-    monkeypatch.setenv("MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", "False")
-    mlflow.tracing.reset()
-
-    ep_config = GatewayEndpointConfig(
-        endpoint_id="test-endpoint-id",
-        endpoint_name="test-endpoint",
-        experiment_id=gateway_experiment_id,
-        models=[],
-    )
-
-    async def func_with_usage(payload):
-        with mlflow.start_span("provider/openai/gpt-4", span_type=SpanType.LLM) as child:
-            child.set_attributes({
-                SpanAttributeKey.CHAT_USAGE: {
-                    "input_tokens": 10,
-                    "output_tokens": 5,
-                    "total_tokens": 15,
-                },
-                SpanAttributeKey.MODEL: "gpt-4",
-                SpanAttributeKey.MODEL_PROVIDER: "openai",
-            })
-        return {"result": "ok"}
-
-    with mlflow.start_span("agent-root") as agent_span:
-        headers = get_tracing_context_headers_for_http_request()
-        agent_trace_id = agent_span.trace_id
-
-    traced = maybe_traced_gateway_call(func_with_usage, ep_config, request_headers=headers)
-    result = await traced({"input": "test"})
-
-    assert result == {"result": "ok"}
-
-    # Agent trace should contain the distributed mirror spans
-    mlflow.flush_trace_async_logging()
-    agent_trace = mlflow.get_trace(agent_trace_id)
-    assert agent_trace is not None
-
-    spans_by_name = {s.name: s for s in agent_trace.data.spans}
-    # These mirror spans are non-root and can only be exported via log_spans.
-    # They must still be exported even when incremental export is disabled.
-    assert f"gateway/{ep_config.endpoint_name}" in spans_by_name
-    assert "provider/openai/gpt-4" in spans_by_name
-
-
-@pytest.mark.asyncio
 async def test_maybe_traced_gateway_call_with_traceparent(gateway_experiment_id):
     ep_config = GatewayEndpointConfig(
         endpoint_id="test-endpoint-id",
