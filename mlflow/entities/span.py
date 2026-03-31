@@ -405,10 +405,22 @@ class Span:
         return cls(otel_span)
 
     @classmethod
-    def from_otel_proto(cls, otel_proto_span, location_id: str | None = None) -> "Span":
+    def from_otel_proto(
+        cls,
+        otel_proto_span,
+        location_id: str | None = None,
+        resource=None,
+    ) -> "Span":
         """
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
+
+        Args:
+            otel_proto_span: The OTel protobuf Span message.
+            location_id: Optional location ID for trace ID generation.
+            resource: Optional OTel protobuf Resource message containing resource attributes
+                (e.g., service.name, telemetry.sdk.language). If provided, these attributes
+                are preserved on the underlying OTel ReadableSpan.
         """
         # Validate required fields - empty bytes indicate missing trace_id or span_id
         if not otel_proto_span.trace_id:
@@ -435,6 +447,18 @@ class Span:
             if location_id
             else generate_mlflow_trace_id_from_otel_trace_id(trace_id)
         )
+
+        # Convert proto Resource to OTel SDK Resource if provided.
+        # We avoid _OTelResource.create() which has significant overhead from
+        # environment variable reads (see https://github.com/mlflow/mlflow/issues/15625).
+        if resource is not None and resource.attributes:
+            otel_resource = _OTelResource({
+                attr.key: _decode_otel_proto_anyvalue(attr.value)
+                for attr in resource.attributes
+            })
+        else:
+            otel_resource = _OTelResource.get_empty()
+
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
@@ -462,7 +486,7 @@ class Span:
                 )
                 for event in otel_proto_span.events
             ],
-            resource=_OTelResource.get_empty(),
+            resource=otel_resource,
         )
 
         return cls(otel_span)

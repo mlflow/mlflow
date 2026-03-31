@@ -4900,6 +4900,21 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     )
                 )
 
+            # Persist OTel resource attributes (e.g., service.name) as trace tags so
+            # they are visible in the UI and available for filtering.
+            resource = getattr(spans[0]._span, "resource", None)
+            if resource is not None:
+                for key, value in resource.attributes.items():
+                    tag_value = str(value) if not isinstance(value, str) else value
+                    if len(key) <= 250 and len(tag_value) <= 8000:
+                        session.merge(
+                            SqlTraceTag(
+                                request_id=trace_id,
+                                key=key,
+                                value=tag_value,
+                            )
+                        )
+
         return spans
 
     def _update_trace_info_attributes(

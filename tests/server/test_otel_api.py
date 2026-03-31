@@ -13,9 +13,17 @@ from mlflow.utils import workspace_context
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 
-def _build_otlp_payload():
+def _build_otlp_payload(resource_attrs=None):
     request = ExportTraceServiceRequest()
-    span = request.resource_spans.add().scope_spans.add().spans.add()
+    resource_span = request.resource_spans.add()
+    if resource_attrs:
+        from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
+
+        for key, value in resource_attrs.items():
+            attr = resource_span.resource.attributes.add()
+            attr.key = key
+            _set_otel_proto_anyvalue(attr.value, value)
+    span = resource_span.scope_spans.add().spans.add()
     span.trace_id = b"\x00" * 16
     span.span_id = b"\x01" * 8
     span.name = "span"
@@ -264,3 +272,43 @@ def test_otlp_conversion_error(monkeypatch):
     )
     assert response.status_code == 422
     assert "Cannot convert OpenTelemetry span" in response.json()["detail"]
+
+
+def test_otlp_resource_attributes_preserved(monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_WORKSPACES.name, "false")
+
+    class DummyTrackingStore:
+        def __init__(self):
+            self.logged_spans = []
+
+        def log_spans(self, experiment_id, spans):
+            self.logged_spans.extend(spans)
+
+    tracking_store = DummyTrackingStore()
+    monkeypatch.setattr(
+        "mlflow.server.otel_api._get_tracking_store",
+        lambda: tracking_store,
+    )
+
+    client = _make_test_client()
+    resource_attrs = {
+        "service.name": "my-service",
+        "telemetry.sdk.language": "python",
+        "telemetry.sdk.name": "opentelemetry",
+    }
+    response = client.post(
+        OTLP_TRACES_PATH,
+        data=_build_otlp_payload(resource_attrs=resource_attrs),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            "X-MLflow-Experiment-Id": "42",
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(tracking_store.logged_spans) == 1
+    span = tracking_store.logged_spans[0]
+    res = dict(span._span.resource.attributes)
+    assert res["service.name"] == "my-service"
+    assert res["telemetry.sdk.language"] == "python"
+    assert res["telemetry.sdk.name"] == "opentelemetry"
