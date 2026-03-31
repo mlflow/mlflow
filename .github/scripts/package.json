@@ -1,9 +1,0 @@
-{
-  "name": "tools",
-  "version": "1.0.0",
-  "main": "src/main.js",
-  "dependencies": {
-    "@actions/core": "^1.11.1",
-    "@actions/github": "^6.0.1"
-  }
-}

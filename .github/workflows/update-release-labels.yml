@@ -28,16 +28,10 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: ./.github/actions/setup-node
-
-      - name: Install tools
-        working-directory: .github/scripts
-        run: npm ci
-
       - name: Update release labels
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           retries: 3
           script: |
-            const { updateReleaseLabels } = require('.github/scripts/src/main.js');
+            const { updateReleaseLabels } = require('.github/workflows/update-release-labels.js');
             await updateReleaseLabels({ github, context });
