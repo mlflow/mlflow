@@ -38,7 +38,7 @@
  * **Type-Safe `satisfies`:** Allows `satisfies` expressions with enum types for compile-time safety
  */
 
-import { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/utils';
+import { type TSESTree, AST_NODE_TYPES } from '@typescript-eslint/utils';
 import { createRuleWithoutOptions } from '../utils/createRule';
 
 type MessageIds = 'dynamicPropertyValue' | 'propertyValueFromVariable';
@@ -102,18 +102,18 @@ interface JSXAttributeConfig {
  */
 const FUNCTION_CONFIGS: FunctionConfig[] = [
   // Example: add your logging/observability function configurations here
-  // {
-  //   functionNames: ['recordEvent'],
-  //   getArgumentIndex: () => 0,
-  //   requireInlineObject: true,
-  //   propertyChecks: [
-  //     {
-  //       propertyPath: ['eventId'],
-  //       allowedParams: [],
-  //       allowedEnumPrefixesAndTypes: [],
-  //     },
-  //   ],
-  // },
+  {
+    functionNames: ['logTelemetryEvent'],
+    getArgumentIndex: () => 0,
+    requireInlineObject: true,
+    propertyChecks: [
+      {
+        propertyPath: ['componentId'],
+        allowedParams: [{ type: 'object-property', argPosition: 0, propertyPath: ['componentId'] }],
+        allowedEnumPrefixesAndTypes: [],
+      },
+    ],
+  },
 ];
 
 /**
