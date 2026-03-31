@@ -485,7 +485,7 @@ def test_get_provider_instance_gateway():
 
 def test_get_provider_unsupported_raises():
     with pytest.raises(MlflowException, match="not supported"):
-        _get_provider_instance("cohere", "command-r")
+        _get_provider_instance("nonexistent-provider", "some-model")
 
 
 # --- _invoke_and_handle_tools tests ---

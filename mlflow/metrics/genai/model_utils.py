@@ -402,6 +402,8 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         )
         return _MlflowGatewayProvider(route_config, extra_headers=gw_config.extra_headers)
 
+    raise MlflowException(f"Provider '{provider}' is not supported for evaluation.")
+
 
 def _send_request(
     endpoint: str, headers: dict[str, str], payload: dict[str, Any]
