@@ -213,7 +213,7 @@ export const IssueDetectionModal: React.FC<IssueDetectionModalProps> = ({
           </div>
         }
         visible
-        onCancel={handleClose}
+        onCancel={isCreatingSecret || isInvokingIssueDetection ? undefined : handleClose}
         footer={currentStep === 1 ? renderStep1Footer() : renderStep2Footer()}
       >
         {(createSecretError || issueDetectionError) && (
