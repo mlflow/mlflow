@@ -3843,6 +3843,7 @@ class MlflowClient:
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        _suppress_default_limit_warning: bool = False,
     ) -> PagedList[Run]:
         """
         Search for Runs that fit the specified criteria.
@@ -3924,10 +3925,23 @@ class MlflowClient:
             metrics: {'m': 1.55}
             tags: {'s.release': '1.1.0-RC'}
         """
-        return self._tracking_client.search_runs(
+        result= self._tracking_client.search_runs(
             experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
         )
-
+        if (
+        not _suppress_default_limit_warning
+        and max_results == SEARCH_MAX_RESULTS_DEFAULT
+        and result.token is not None
+    ):
+            warnings.warn(
+            f"MlflowClient.search_runs() returned {len(result)} results but more are available. "
+            f"Results are limited to the default max_results={SEARCH_MAX_RESULTS_DEFAULT}. "
+            "To retrieve all results, either increase max_results or use mlflow.search_runs() "
+            "which paginates automatically.",
+            UserWarning,
+            stacklevel=2,
+        )
+        return result
     # Registry API
 
     # Registered Model Methods
