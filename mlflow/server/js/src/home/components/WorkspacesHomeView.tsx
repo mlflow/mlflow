@@ -165,7 +165,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
               {workspace.description}
             </div>
             <Button
-              componentId="mlflow.home.workspaces.edit_description"
+              componentId={`mlflow.home.workspaces.edit_description.${workspace.name}`}
               size="small"
               type="tertiary"
               icon={workspace.description ? <PencilIcon /> : undefined}
@@ -210,7 +210,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
               {workspace.default_artifact_root}
             </div>
             <Button
-              componentId="mlflow.home.workspaces.edit_artifact_root"
+              componentId={`mlflow.home.workspaces.edit_artifact_root.${workspace.name}`}
               size="small"
               type="tertiary"
               icon={workspace.default_artifact_root ? <PencilIcon /> : undefined}
@@ -245,7 +245,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
       </TableRow>
 
       <Modal
-        componentId="mlflow.home.workspaces.edit_modal"
+        componentId={`mlflow.home.workspaces.edit_modal.${workspace.name}`}
         visible={editingField !== null}
         onCancel={handleCancel}
         onOk={handleSave}
@@ -279,7 +279,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
           }}
         >
           <Input
-            componentId="mlflow.home.workspaces.edit_modal_input"
+            componentId={`mlflow.home.workspaces.edit_${editingField}_input`}
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             placeholder={
