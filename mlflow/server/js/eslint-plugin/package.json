@@ -7,13 +7,11 @@
     "test": "jest"
   },
   "devDependencies": {
-    "@jest/expect": "30.0.2",
     "@types/node": "^22.18.8",
     "@typescript-eslint/eslint-plugin": "8.46.2",
     "@typescript-eslint/parser": "8.46.2",
     "@typescript-eslint/rule-tester": "8.46.2",
     "@typescript-eslint/utils": "8.46.2",
-    "jest": "^30.0.2",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
