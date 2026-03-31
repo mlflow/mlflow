@@ -9,6 +9,7 @@ import type { AssistantAgentContextType, ChatMessage, ToolUseInfo } from './type
 import { cancelSession as cancelSessionApi, sendMessageStream, getConfig } from './AssistantService';
 import { useLocalStorage } from '../shared/web-shared/hooks/useLocalStorage';
 import { useAssistantPageContextActions } from './AssistantPageContext';
+import { useInvalidateTraceViews } from '../shared/web-shared/model-trace-explorer/hooks/useTraceViews';
 
 const AssistantReactContext = createContext<AssistantAgentContextType | null>(null);
 
@@ -23,6 +24,28 @@ const checkIsLocalServer = (): boolean => {
 const generateMessageId = (): string => {
   return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
+
+const TRACE_VIEW_MARKER_REGEX = /\[trace_view_created:\s*(\{.*?\})\]/g;
+
+function parseTraceViewMarkers(content: string): {
+  cleanContent: string;
+  viewUpdates: Array<{ view_id: string; trace_id: string }>;
+} {
+  const viewUpdates: Array<{ view_id: string; trace_id: string }> = [];
+  const cleanContent = content.replace(TRACE_VIEW_MARKER_REGEX, (match, jsonStr) => {
+    try {
+      const parsed = JSON.parse(jsonStr);
+      if (parsed.view_id && parsed.trace_id) {
+        viewUpdates.push(parsed);
+        return '';
+      }
+    } catch {
+      // Malformed marker -- leave visible
+    }
+    return match;
+  });
+  return { cleanContent: cleanContent.trim(), viewUpdates };
+}
 
 export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // Detect if server is local - memoized since hostname doesn't change
@@ -53,6 +76,10 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
   // NB: Using the actions hook to avoid re-rendering the component when the context changes.
   const { getContext: getPageContext } = useAssistantPageContextActions();
 
+  const invalidateTraceViews = useInvalidateTraceViews();
+  const invalidateTraceViewsRef = useRef(invalidateTraceViews);
+  invalidateTraceViewsRef.current = invalidateTraceViews;
+
   // Use ref to track active EventSource for cancellation
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -75,7 +102,11 @@ export const AssistantProvider = ({ children }: { children: ReactNode }) => {
     setMessages((prev) => {
       const lastMessage = prev[prev.length - 1];
       if (lastMessage && lastMessage.role === 'assistant' && lastMessage.isStreaming) {
-        return [...prev.slice(0, -1), { ...lastMessage, isStreaming: false }];
+        const { cleanContent, viewUpdates } = parseTraceViewMarkers(lastMessage.content);
+        for (const update of viewUpdates) {
+          invalidateTraceViewsRef.current(update.trace_id);
+        }
+        return [...prev.slice(0, -1), { ...lastMessage, content: cleanContent, isStreaming: false }];
       }
       return prev;
     });
