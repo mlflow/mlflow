@@ -1135,17 +1135,6 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 #: individually via ``log_spans`` as each span finishes. This provides real-time span
 #: visibility for long-running traces but adds extra DB round-trips that may increase
 #: latency under high concurrency. When disabled, spans are batch-written to the database
-#: at trace completion instead of individually during the request. This removes real-time
-#: visibility for in-progress traces but reduces DB contention. Remote/distributed trace
-#: spans (from ``traceparent`` headers) are still exported incrementally when the backend
-#: supports ``log_spans``, as they cannot be persisted through the full trace export path.
-#: The MLflow tracking server disables this by default to reduce DB contention.
-#: (default: ``True``)
-MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT = _BooleanEnvironmentVariable(
-    "MLFLOW_ENABLE_INCREMENTAL_SPAN_EXPORT", True
-)
-
-
 #: Specifies the location to send traces to. This can be either an MLflow experiment ID or a
 #: Databricks Unity Catalog (UC) schema (format: `<catalog_name>.<schema_name>`).
 #: (default: ``None`` (an active MLflow experiment will be used))
