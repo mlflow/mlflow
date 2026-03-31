@@ -893,7 +893,6 @@ def test_langchain_autolog_produces_expected_traces_with_streaming(tmp_path, asy
     assert len(stream_trace.data.spans) == len(invoke_trace.data.spans)
 
 
-
 def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
     mlflow.langchain.autolog()
 
