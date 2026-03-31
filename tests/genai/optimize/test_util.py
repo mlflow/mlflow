@@ -265,16 +265,17 @@ def test_create_metric_from_scorers_all_scorers_fail():
 
 
 def test_create_metric_from_scorers_conditional_tracing_when_enabled():
-    """Scorer should be wrapped with mlflow.trace when MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING is set."""
+    """Scorer should be wrapped with mlflow.trace when scorer tracing is enabled."""
 
     @scorer(name="traced_scorer")
     def traced_scorer(inputs, outputs):
         return Feedback(name="traced_scorer", value=1.0, rationale="ok")
 
     with mock.patch(
-        "mlflow.genai.optimize.util.MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING"
+        "mlflow.environment_variables.MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING"
     ) as mock_env:
         mock_env.get.return_value = True
+        # should_trace is captured at create_metric_from_scorers call time
         metric = create_metric_from_scorers([traced_scorer])
 
         with mock.patch("mlflow.trace") as mock_trace:
@@ -292,7 +293,7 @@ def test_create_metric_from_scorers_no_tracing_by_default():
         return Feedback(name="untraced_scorer", value=1.0, rationale="ok")
 
     with mock.patch(
-        "mlflow.genai.optimize.util.MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING"
+        "mlflow.environment_variables.MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING"
     ) as mock_env:
         mock_env.get.return_value = False
         metric = create_metric_from_scorers([untraced_scorer])

@@ -208,9 +208,9 @@ def create_metric_from_scorers(
                     # Conditionally wrap scorer with tracing, matching
                     # evaluate()'s pattern in harness.py:843-846.
                     if should_trace:
-                        scorer_func = mlflow.trace(
-                            name=scorer.name, span_type=SpanType.EVALUATOR
-                        )(scorer_func)
+                        scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.EVALUATOR)(
+                            scorer_func
+                        )
 
                     value = scorer_func(
                         inputs=inputs,
@@ -266,9 +266,7 @@ def create_metric_from_scorers(
                 try:
                     active_run = mlflow.active_run()
                     run_id = active_run.info.run_id if active_run else None
-                    _log_assessments(
-                        run_id=run_id, trace=trace, assessments=all_feedbacks
-                    )
+                    _log_assessments(run_id=run_id, trace=trace, assessments=all_feedbacks)
                 except Exception as e:
                     _logger.debug(f"Failed to log assessments: {e}")
 
@@ -297,10 +295,8 @@ def create_metric_from_scorers(
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
             scorer_names = [s.name for s in scorers]
-            zero_scores = {name: 0.0 for name in scorer_names}
-            error_rationales = {
-                name: f"Error: {type(e).__name__}: {e}" for name in scorer_names
-            }
+            zero_scores = dict.fromkeys(scorer_names, 0.0)
+            error_rationales = {name: f"Error: {type(e).__name__}: {e}" for name in scorer_names}
             return 0.0, error_rationales, zero_scores
 
     return metric
