@@ -14,9 +14,12 @@ from mlflow.genai.discovery.constants import CATEGORY_LATENCY, build_satisfactio
 from mlflow.genai.discovery.entities import _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.discovery.utils import (
     _call_llm,
+    _call_llm_via_gateway,
+    _fetch_model_cost,
     _lookup_model_cost,
     _ModelCost,
     _pydantic_to_response_format,
+    _resolve_model_for_gateway,
     _TokenCounter,
     build_summary,
     collect_affected_trace_ids,
@@ -674,3 +677,115 @@ def test_get_mlflow_gateway_provider():
     assert provider.get_endpoint_url("llm/v1/chat").endswith("/chat/completions")
     assert provider.headers == {"X-Custom": "header"}
     assert provider.config.model.name == "chat"
+
+
+def _make_mapping(provider=None, model_name=None):
+    mapping = mock.MagicMock()
+    if provider:
+        mapping.model_definition.provider = provider
+        mapping.model_definition.model_name = model_name
+    else:
+        mapping.model_definition = None
+    return mapping
+
+
+def _make_store(model_mappings=(), raises=False):
+    store = mock.MagicMock()
+    if raises:
+        store.get_gateway_endpoint.side_effect = Exception()
+    else:
+        endpoint = mock.MagicMock()
+        endpoint.model_mappings = list(model_mappings)
+        store.get_gateway_endpoint.return_value = endpoint
+    return store
+
+
+@pytest.mark.parametrize(
+    ("mock_store", "expected"),
+    [
+        (_make_store([_make_mapping("openai", "gpt-4o")]), "openai:/gpt-4o"),
+        (_make_store(), None),
+        (_make_store([_make_mapping()]), None),
+        (_make_store(raises=True), None),
+    ],
+    ids=["success", "no_mappings", "no_model_def", "exception"],
+)
+def test_resolve_model_for_gateway(mock_store, expected):
+    with mock.patch("mlflow.genai.discovery.utils._get_store", return_value=mock_store):
+        assert _resolve_model_for_gateway("my-endpoint") == expected
+
+
+def test_token_counter_model_getter_and_setter():
+    counter = _TokenCounter(model="openai:/gpt-4o")
+    assert counter.model == "openai:/gpt-4o"
+
+    counter.model = "anthropic:/claude-3-5-sonnet"
+    assert counter.model == "anthropic:/claude-3-5-sonnet"
+
+    counter.model = None
+    assert counter.model is None
+
+
+@pytest.mark.parametrize(
+    ("cost_map", "provider", "model_name", "expected_cost"),
+    [
+        (
+            {
+                ("openai", "gpt-4o"): {
+                    "input_cost_per_token": 0.00001,
+                    "output_cost_per_token": 0.00003,
+                }
+            },
+            "openai",
+            "gpt-4o",
+            _ModelCost(input_cost_per_token=0.00001, output_cost_per_token=0.00003),
+        ),
+        ({}, "openai", "unknown-model", None),
+    ],
+)
+def test_fetch_model_cost(cost_map, provider, model_name, expected_cost):
+    with mock.patch(
+        "mlflow.utils.providers._get_model_cost", return_value=cost_map
+    ) as mock_get_cost:
+        _fetch_model_cost.cache_clear()
+        result = _fetch_model_cost(provider, model_name)
+
+    mock_get_cost.assert_called_once()
+    assert result == expected_cost
+
+
+def test_lookup_model_cost_passes_provider_and_model():
+    cost_info = _ModelCost(input_cost_per_token=1, output_cost_per_token=3)
+    with mock.patch(
+        "mlflow.genai.discovery.utils._fetch_model_cost", return_value=cost_info
+    ) as mock_fetch:
+        cost = _lookup_model_cost("anthropic:/claude-3-5-sonnet", 1000, 500)
+
+    mock_fetch.assert_called_once_with("anthropic", "claude-3-5-sonnet")
+    assert cost == 1000 * 1 + 500 * 3
+
+
+def test_call_llm_via_gateway_resolves_gateway_model_on_token_counter():
+    mock_provider = mock.MagicMock()
+    mock_provider.adapter_class.model_to_chat.return_value.usage.prompt_tokens = 0
+    mock_provider.adapter_class.model_to_chat.return_value.usage.completion_tokens = 0
+
+    counter = _TokenCounter(model="gateway:/my-endpoint")
+
+    with (
+        mock.patch(
+            "mlflow.metrics.genai.model_utils._get_provider_instance",
+            return_value=mock_provider,
+        ),
+        mock.patch("mlflow.metrics.genai.model_utils._send_request", return_value={}),
+        mock.patch(
+            "mlflow.genai.discovery.utils._resolve_model_for_gateway",
+            return_value="openai:/gpt-4o",
+        ) as mock_resolve,
+    ):
+        _call_llm_via_gateway(
+            "gateway:/my-endpoint", [{"role": "user", "content": "hi"}], token_counter=counter
+        )
+
+    mock_resolve.assert_called_once_with("my-endpoint")
+    assert counter.model == "openai:/gpt-4o"
