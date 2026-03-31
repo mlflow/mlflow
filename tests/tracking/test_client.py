@@ -1392,7 +1392,33 @@ def test_client_search_runs_page_token(mock_store):
         page_token="blah",
     )
 
+def test_client_search_runs_warns_when_results_truncated(mock_store):
+    from mlflow.store.entities.paged_list import PagedList
+    import warnings
 
+    # Simulate store returning 1000 results with a next-page token
+    mock_runs = [mock.MagicMock()] * SEARCH_MAX_RESULTS_DEFAULT
+    mock_store.search_runs.return_value = PagedList(mock_runs, token="next-page-token")
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        MlflowClient().search_runs(["0"])
+        assert len(w) == 1
+        assert "more are available" in str(w[0].message)
+        assert issubclass(w[0].category, UserWarning)
+
+def test_client_search_runs_no_warn_when_suppressed(mock_store):
+    from mlflow.store.entities.paged_list import PagedList
+    import warnings
+
+    mock_runs = [mock.MagicMock()] * SEARCH_MAX_RESULTS_DEFAULT
+    mock_store.search_runs.return_value = PagedList(mock_runs, token="next-page-token")
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        MlflowClient().search_runs(["0"], _suppress_default_limit_warning=True)
+        assert len(w) == 0  # No warning when suppressed
+        
 def test_update_registered_model(mock_registry_store):
     """
     Update registered model no longer supports name change.

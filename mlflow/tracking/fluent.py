@@ -3316,6 +3316,7 @@ def search_runs(
                 number_to_get,
                 order_by,
                 next_page_token,
+                _suppress_default_limit_warning=True,
             )
 
         runs = get_results_from_paginated_fn(
