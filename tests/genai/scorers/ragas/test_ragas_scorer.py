@@ -428,22 +428,13 @@ def test_create_ragas_model_falls_back_to_litellm_for_unsupported_provider():
     assert isinstance(model, LiteLLMStructuredLLM)
 
 
-def test_create_ragas_model_uses_litellm_for_gateway_uri():
-    pytest.importorskip("litellm")
-    from ragas.llms.litellm_llm import LiteLLMStructuredLLM
+def test_create_ragas_model_uses_gateway_for_gateway_uri():
+    from mlflow.genai.scorers.ragas.models import GatewayRagasLLM, create_ragas_model
 
-    from mlflow.genai.scorers.ragas.models import create_ragas_model
-
-    with patch("mlflow.genai.scorers.ragas.models.get_gateway_litellm_config") as mock_config:
-        mock_config.return_value = MagicMock(
-            model="my-endpoint",
-            api_base="http://localhost:5000",
-            api_key="test",
-            extra_headers=None,
-        )
+    with patch("mlflow.genai.scorers.ragas.models._get_provider_instance"):
         model = create_ragas_model("gateway:/my-endpoint")
 
-    assert isinstance(model, LiteLLMStructuredLLM)
+    assert isinstance(model, GatewayRagasLLM)
 
 
 def test_create_ragas_model_uses_databricks_for_bare_uri():
@@ -451,3 +442,35 @@ def test_create_ragas_model_uses_databricks_for_bare_uri():
 
     model = create_ragas_model("databricks")
     assert isinstance(model, DatabricksRagasLLM)
+
+
+@pytest.mark.parametrize("provider", ["cohere", "mosaicml", "palm"])
+def test_create_ragas_model_registered_but_unsupported_falls_back_to_litellm(provider):
+    pytest.importorskip("litellm")
+    from ragas.llms.litellm_llm import LiteLLMStructuredLLM
+
+    from mlflow.genai.scorers.ragas.models import create_ragas_model
+
+    model = create_ragas_model(f"{provider}:/my-model")
+    assert isinstance(model, LiteLLMStructuredLLM)
+
+
+def test_high_level_scorer_call_chain():
+    """Exercises the full call chain as recommended in docs/blogs:
+    Faithfulness(model=...) → scorer(inputs=..., outputs=..., expectations=...)
+    """
+    scorer = Faithfulness(model="openai:/gpt-4", threshold=0.7)
+    scorer._metric.threshold = 0.7
+
+    with patch.object(scorer._metric, "ascore", make_mock_ascore(0.9)):
+        feedback = scorer(
+            inputs="What is MLflow?",
+            outputs="MLflow is an open-source platform.",
+            expectations={"context": "MLflow is an open-source platform for ML."},
+        )
+
+    assert isinstance(feedback, Feedback)
+    assert feedback.name == "Faithfulness"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4"

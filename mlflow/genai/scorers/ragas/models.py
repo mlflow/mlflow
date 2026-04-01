@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import functools
 import json
 import typing as t
 
@@ -10,14 +9,16 @@ from pydantic import BaseModel
 from ragas.embeddings import OpenAIEmbeddings
 from ragas.llms import InstructorBaseRagasLLM
 
-from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.parsing_utils import _strip_markdown_code_blocks
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-from mlflow.metrics.genai.model_utils import _call_llm_provider_api, _parse_model_uri
+from mlflow.metrics.genai.model_utils import (
+    _call_llm_provider_api,
+    _get_provider_instance,
+    _parse_model_uri,
+)
 
 T = t.TypeVar("T", bound=BaseModel)
 
@@ -97,29 +98,13 @@ def create_ragas_model(model_uri: str):
 
     provider, model_name = _parse_model_uri(model_uri)
 
-    # Gateway endpoints require litellm-based routing
-    if provider == "gateway":
-        import litellm
-        from ragas.llms.litellm_llm import LiteLLMStructuredLLM
-
-        config = get_gateway_litellm_config(model_name)
-        bound_completion = functools.partial(
-            litellm.acompletion,
-            api_base=config.api_base,
-            api_key=config.api_key,
-            **({"extra_headers": config.extra_headers} if config.extra_headers else {}),
-        )
-        client = instructor.from_litellm(bound_completion)
-        return LiteLLMStructuredLLM(
-            client=client,
-            model=config.model,
-            provider="openai",
-            drop_params=True,
-        )
-
-    # Use native gateway provider for supported providers, litellm for others
-    if is_supported_provider(provider):
+    # Use native gateway provider if _get_provider_instance can construct it,
+    # otherwise fall back to litellm
+    try:
+        _get_provider_instance(provider, model_name)
         return GatewayRagasLLM(provider, model_name)
+    except Exception:
+        pass
 
     import litellm
     from ragas.llms.litellm_llm import LiteLLMStructuredLLM
