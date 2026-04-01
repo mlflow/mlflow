@@ -773,15 +773,32 @@ class InstructionsJudge(Judge):
 
         # Handle anyOf-with-null: produced by Pydantic for Optional[T] / T | None
         if "anyOf" in serialized and "type" not in serialized:
-            non_null = [
-                s for s in serialized["anyOf"] if isinstance(s, dict) and s.get("type") != "null"
+            any_of = serialized.get("anyOf")
+            if not isinstance(any_of, list):
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid feedback_value_type serialization: 'anyOf' must be a list: {serialized}"
+                )
+
+            null_schemas = [
+                s for s in any_of if isinstance(s, dict) and s.get("type") == "null"
             ]
-            if len(non_null) == 1 and "type" in non_null[0]:
-                inner_type = type_map.get(non_null[0]["type"])
+            non_null_schemas = [
+                s for s in any_of if isinstance(s, dict) and s.get("type") != "null"
+            ]
+
+            if (
+                len(null_schemas) == 1
+                and len(non_null_schemas) == 1
+                and "type" in non_null_schemas[0]
+            ):
+                inner_type = type_map.get(non_null_schemas[0]["type"])
                 if inner_type is not None:
                     return inner_type | None
+
             raise MlflowException.invalid_parameter_value(
-                f"Invalid feedback_value_type serialization: {serialized}"
+                "Invalid feedback_value_type serialization for anyOf-with-null. "
+                "Expected exactly one null schema and one non-null schema with a supported "
+                f"primitive type: {serialized}"
             )
 
         if "type" not in serialized:
