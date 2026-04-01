@@ -27,12 +27,18 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
 import benchmark as bm  # local module; path inserted above
-from rich.console import Console
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.console import Console  # type: ignore[import-not-found]
+from rich.panel import Panel  # type: ignore[import-not-found]
+from rich.progress import (  # type: ignore[import-not-found]
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 
 SCRIPT_DIR = Path(__file__).parent
 
@@ -48,12 +54,12 @@ _API_ENDPOINT_CREATE = "gateway/endpoints/create"
 
 console = Console()
 
-_procs: list[subprocess.Popen] = []
+_procs: list[subprocess.Popen[bytes]] = []
 _docker_containers: list[str] = []
 _tmpdir: str | None = None
 
 
-def _cleanup():
+def _cleanup() -> None:
     console.print("\n[dim]Cleaning up...[/dim]")
     for proc in reversed(_procs):
         try:
@@ -90,7 +96,7 @@ def _subprocess_env() -> dict[str, str]:
     return os.environ | {"OBJC_DISABLE_INITIALIZE_FORK_SAFETY": "YES"}
 
 
-def _wait_for_port(port: int, label: str, log_file: Path | None = None, timeout: int = 30):
+def _wait_for_port(port: int, label: str, log_file: Path | None = None, timeout: int = 30) -> None:
     url = f"http://127.0.0.1:{port}/health"
     with Progress(
         SpinnerColumn(),
@@ -117,7 +123,8 @@ def _wait_for_port(port: int, label: str, log_file: Path | None = None, timeout:
     console.print(f"  [green]✓[/green] {label} ready")
 
 
-def _start_fake_server(port: int = FAKE_SERVER_PORT, workers: int = 8):
+def _start_fake_server(port: int = FAKE_SERVER_PORT, workers: int = 8) -> None:
+    assert _tmpdir is not None
     prefix = _uv_prefix()
     log_file = Path(_tmpdir) / "fake_server.log"
     with log_file.open("w") as f:
@@ -146,6 +153,7 @@ def _start_fake_server(port: int = FAKE_SERVER_PORT, workers: int = 8):
 
 def _start_mlflow(port: int, workers: int, backend_uri: str) -> Path:
     """Start an MLflow server and return the log file path."""
+    assert _tmpdir is not None
     prefix = _uv_prefix()
     log_file = Path(_tmpdir) / f"mlflow-{port}.log"
     with log_file.open("w") as f:
@@ -172,7 +180,7 @@ def _start_mlflow(port: int, workers: int, backend_uri: str) -> Path:
     return log_file
 
 
-def _check_docker():
+def _check_docker() -> None:
     try:
         result = subprocess.run(["docker", "info"], capture_output=True)
     except FileNotFoundError:
@@ -239,7 +247,7 @@ def _start_postgres(container_name: str = "benchmark-postgres") -> str:
     return f"postgresql://postgres:benchmarkpass@127.0.0.1:{POSTGRES_PORT}/mlflow"
 
 
-def _install_psycopg2():
+def _install_psycopg2() -> None:
     prefix = _uv_prefix()
     cmd = (
         [*prefix, "pip", "install", "psycopg2-binary", "-q"]
@@ -258,7 +266,7 @@ def _install_psycopg2():
     console.print("  [green]✓[/green] psycopg2-binary ready")
 
 
-def _api_post(tracking_uri: str, path: str, body: dict) -> dict:
+def _api_post(tracking_uri: str, path: str, body: dict[str, object]) -> Any:
     url = f"{tracking_uri.rstrip('/')}/api/3.0/mlflow/{path}"
     req = urllib.request.Request(
         url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
@@ -317,7 +325,7 @@ def _setup_endpoint(
     return invoke_url
 
 
-def _sanity_check(url: str):
+def _sanity_check(url: str) -> None:
     console.print("  Sending sanity-check request...")
     body = json.dumps({"messages": [{"role": "user", "content": "test"}]}).encode()
     req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
@@ -339,14 +347,17 @@ def _run_benchmark(
     runs: int,
     min_rps: float | None = None,
     max_p99_ms: float | None = None,
-):
+) -> None:
     results = bm.run_benchmark(url, n_requests, max_concurrent, runs)
     bm.print_results(results)
     if not bm.check_thresholds(results, min_rps=min_rps, max_p99_ms=max_p99_ms):
         raise SystemExit(1)
 
 
-def _start_nginx(instance_ports: list[int], port: int, container_name: str = "benchmark-nginx"):
+def _start_nginx(
+    instance_ports: list[int], port: int, container_name: str = "benchmark-nginx"
+) -> None:
+    assert _tmpdir is not None
     nginx_dir = Path(_tmpdir) / "nginx"
     conf_d = nginx_dir / "conf.d"
     conf_d.mkdir(parents=True)
@@ -441,7 +452,7 @@ def _start_nginx(instance_ports: list[int], port: int, container_name: str = "be
     console.print("  [green]✓[/green] nginx ready")
 
 
-def cmd_bench(args):
+def cmd_bench(args: argparse.Namespace) -> None:
     global _tmpdir
 
     instances = args.instances
@@ -560,7 +571,7 @@ def cmd_bench(args):
     )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="MLflow AI Gateway benchmark",
         formatter_class=argparse.RawDescriptionHelpFormatter,

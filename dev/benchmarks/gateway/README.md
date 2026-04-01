@@ -9,6 +9,12 @@ so results reflect pure MLflow processing time rather than provider variance.
 - Python 3.10+ with [`uv`](https://docs.astral.sh/uv/)
 - Docker (required for `--backend postgres` and `multi` mode)
 
+`run.py` and `benchmark.py` require `aiohttp` and `rich`, which are not part of the MLflow project dependencies. `uv run` installs them automatically via the inline script metadata, but if you run the scripts directly (e.g. `python run.py`) you'll need to install them first:
+
+```bash
+pip install aiohttp rich
+```
+
 ## Quick start
 
 ```bash

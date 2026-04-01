@@ -30,14 +30,14 @@ DELAY_MS = int(os.environ.get("FAKE_RESPONSE_DELAY_MS", "50"))
 
 class ChatRequest(BaseModel):
     model: str = "gpt-3.5-turbo"
-    messages: list[dict] = []
+    messages: list[dict[str, str]] = []
     stream: bool = False
     temperature: float = 1.0
     max_tokens: int = 50
 
 
 @app.post("/v1/chat/completions")
-async def chat_completions(req: ChatRequest):
+async def chat_completions(req: ChatRequest) -> dict[str, object]:
     await asyncio.sleep(DELAY_MS / 1000)
     return {
         "id": "chatcmpl-fake",
@@ -56,7 +56,7 @@ async def chat_completions(req: ChatRequest):
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, str]:
     # Polled by run.py's _wait_for_port to detect when the server is ready.
     return {"status": "ok"}
 

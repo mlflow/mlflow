@@ -16,8 +16,8 @@ import time
 from dataclasses import dataclass, field
 
 import aiohttp
-from rich.console import Console
-from rich.progress import (
+from rich.console import Console  # type: ignore[import-not-found]
+from rich.progress import (  # type: ignore[import-not-found]
     BarColumn,
     MofNCompleteColumn,
     Progress,
@@ -25,7 +25,7 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
-from rich.table import Table
+from rich.table import Table  # type: ignore[import-not-found]
 
 console = Console()
 
@@ -114,7 +114,7 @@ async def _run_once(
     return result
 
 
-async def _warmup(url: str, n: int, max_concurrent: int):
+async def _warmup(url: str, n: int, max_concurrent: int) -> None:
     sem = asyncio.Semaphore(max_concurrent)
     connector = aiohttp.TCPConnector(limit=max(max_concurrent * 2, 200))
     async with aiohttp.ClientSession(connector=connector) as session:
@@ -146,7 +146,7 @@ def run_benchmark(
     return results
 
 
-def print_results(results: list[RunResult]):
+def print_results(results: list[RunResult]) -> None:
     table = Table(show_header=True, header_style="bold cyan", box=None, padding=(0, 2))
     table.add_column("Run", style="dim", width=5)
     table.add_column("Mean ms", justify="right")
@@ -244,7 +244,7 @@ def check_thresholds(
     return passed
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Async HTTP benchmark client for MLflow Gateway")
     parser.add_argument("--url", required=True, help="Gateway invocation URL")
     parser.add_argument("--requests", type=int, default=2000)
