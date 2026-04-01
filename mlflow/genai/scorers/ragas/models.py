@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from ragas.embeddings import OpenAIEmbeddings
 from ragas.llms import InstructorBaseRagasLLM
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
@@ -102,9 +103,10 @@ def create_ragas_model(model_uri: str):
     # otherwise fall back to litellm
     try:
         _get_provider_instance(provider, model_name)
-        return GatewayRagasLLM(provider, model_name)
-    except Exception:
+    except MlflowException:
         pass
+    else:
+        return GatewayRagasLLM(provider, model_name)
 
     import litellm
     from ragas.llms.litellm_llm import LiteLLMStructuredLLM
