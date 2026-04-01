@@ -136,10 +136,10 @@ def func():
     assert "Would remove" in output
 
 
-def test_skip_removal_preserves_decorator(tmp_path: Path) -> None:
+def test_permanent_preserves_decorator(tmp_path: Path) -> None:
     test_file = tmp_path / "test.py"
     test_file.write_text("""
-@experimental(version="1.0.0", skip_removal=True)
+@experimental(version="1.0.0", permanent=True)
 def func():
     pass
 """)
@@ -149,10 +149,10 @@ def func():
     assert test_file.read_text() == original_content
 
 
-def test_skip_removal_dry_run_shows_skipped(tmp_path: Path) -> None:
+def test_permanent_dry_run_shows_skipped(tmp_path: Path) -> None:
     test_file = tmp_path / "test.py"
     test_file.write_text("""
-@experimental(version="1.0.0", skip_removal=True)
+@experimental(version="1.0.0", permanent=True)
 def func():
     pass
 """)
@@ -160,14 +160,14 @@ def func():
     output = subprocess.check_output(
         [sys.executable, SCRIPT_PATH, "--dry-run", test_file], text=True
     )
-    assert "Skipped (skip_removal=True)" in output
+    assert "Skipped (permanent=True)" in output
     assert "Would remove" not in output
 
 
-def test_skip_removal_false_still_removed(tmp_path: Path) -> None:
+def test_permanent_false_still_removed(tmp_path: Path) -> None:
     test_file = tmp_path / "test.py"
     test_file.write_text("""
-@experimental(version="1.0.0", skip_removal=False)
+@experimental(version="1.0.0", permanent=False)
 def func():
     pass
 """)
@@ -177,10 +177,10 @@ def func():
     assert "@experimental" not in content
 
 
-def test_skip_removal_mixed_file(tmp_path: Path) -> None:
+def test_permanent_mixed_file(tmp_path: Path) -> None:
     test_file = tmp_path / "test.py"
     test_file.write_text("""
-@experimental(version="1.0.0", skip_removal=True)
+@experimental(version="1.0.0", permanent=True)
 def func_keep():
     pass
 
@@ -196,7 +196,7 @@ def func_remove():
     assert (
         content
         == """
-@experimental(version="1.0.0", skip_removal=True)
+@experimental(version="1.0.0", permanent=True)
 def func_keep():
     pass
 

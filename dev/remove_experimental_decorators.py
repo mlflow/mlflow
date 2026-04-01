@@ -21,7 +21,7 @@ class ExperimentalDecorator:
     column: int
     age_days: int
     content: str
-    skip_removal: bool = False
+    permanent: bool = False
 
 
 def get_tracked_python_files() -> list[Path]:
@@ -87,7 +87,7 @@ def find_experimental_decorators(
                 column=decorator.col_offset + 1,  # 1-indexed
                 age_days=age_days,
                 content=ast.unparse(decorator),
-                skip_removal=_has_skip_removal(decorator),
+                permanent=_is_permanent(decorator),
             )
             decorators.append(decorator_info)
 
@@ -102,10 +102,10 @@ def _extract_version_from_ast_decorator(decorator: ast.Call) -> str | None:
     return None
 
 
-def _has_skip_removal(decorator: ast.Call) -> bool:
-    """Check if the decorator has skip_removal=True."""
+def _is_permanent(decorator: ast.Call) -> bool:
+    """Check if the decorator has permanent=True."""
     return any(
-        kw.arg == "skip_removal" and isinstance(kw.value, ast.Constant) and kw.value.value is True
+        kw.arg == "permanent" and isinstance(kw.value, ast.Constant) and kw.value.value is True
         for kw in decorator.keywords
     )
 
@@ -173,16 +173,16 @@ def main() -> None:
 
         # Filter to only decorators that should be removed (older than cutoff days)
         old_decorators = [
-            d for d in decorators if d.age_days > args.cutoff_days and not d.skip_removal
+            d for d in decorators if d.age_days > args.cutoff_days and not d.permanent
         ]
 
-        # Log skipped decorators (those with skip_removal=True and past the cutoff)
+        # Log skipped decorators (those with permanent=True and past the cutoff)
         if args.dry_run:
             for decorator in decorators:
-                if decorator.skip_removal and decorator.age_days > args.cutoff_days:
+                if decorator.permanent and decorator.age_days > args.cutoff_days:
                     print(
                         f"{file_path}:{decorator.line_number}:{decorator.column}: "
-                        f"Skipped (skip_removal=True) {decorator.content}"
+                        f"Skipped (permanent=True) {decorator.content}"
                     )
         if not old_decorators:
             continue
