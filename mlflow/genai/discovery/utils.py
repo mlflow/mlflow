@@ -11,7 +11,6 @@ from mlflow.genai.discovery.constants import (
 )
 from mlflow.genai.discovery.entities import Issue, _ConversationAnalysis, _IdentifiedIssue
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.utils.message_utils import pydantic_to_response_format
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import trace_disabled
 
