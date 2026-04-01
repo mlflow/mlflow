@@ -124,6 +124,7 @@ from mlflow.server import (
 )
 from mlflow.server.handlers import (
     ARTIFACT_STREAM_CHUNK_SIZE,
+    STATIC_PREFIX_ENV_VAR,
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
     _batch_get_trace_infos,
@@ -150,6 +151,7 @@ from mlflow.server.handlers import (
     _delete_trace_tag_v3,
     _deprecated_search_traces_v2,
     _download_artifact,
+    _get_ajax_path,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
     _get_dataset_records_handler,
@@ -161,6 +163,7 @@ from mlflow.server.handlers import (
     _get_presigned_download_url,
     _get_registered_model,
     _get_request_message,
+    _get_rest_path,
     _get_scorer,
     _get_trace,
     _get_trace_artifact_repo,
@@ -5009,3 +5012,19 @@ def test_cancel_job_success(mock_job_store):
 
         assert json_response["status"] == "CANCELED"
         mock_cancel.assert_called_once_with("job-123")
+
+
+def test_get_rest_path_respects_static_prefix(monkeypatch):
+    # Without prefix, both return bare paths
+    assert _get_rest_path("/mlflow/experiments/search") == "/api/2.0/mlflow/experiments/search"
+    assert _get_ajax_path("/mlflow/experiments/search") == "/ajax-api/2.0/mlflow/experiments/search"
+
+    # With prefix, both should include the prefix
+    monkeypatch.setenv(STATIC_PREFIX_ENV_VAR, "/myapp")
+    assert (
+        _get_rest_path("/mlflow/experiments/search") == "/myapp/api/2.0/mlflow/experiments/search"
+    )
+    assert (
+        _get_ajax_path("/mlflow/experiments/search")
+        == "/myapp/ajax-api/2.0/mlflow/experiments/search"
+    )
