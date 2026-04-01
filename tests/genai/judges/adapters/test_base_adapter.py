@@ -83,7 +83,7 @@ def test_telemetry_recorded_on_success_for_databricks(model_provider):
     input_params = _make_input(f"{model_provider}:/test-model")
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.base_adapter._record_judge_model_usage_success_databricks_telemetry"
+        "mlflow.genai.judges.utils.telemetry_utils._record_judge_model_usage_success_databricks_telemetry"
     ) as mock_telemetry:
         adapter.invoke(input_params)
 
@@ -131,7 +131,7 @@ def test_telemetry_recorded_on_failure_for_databricks(model_provider):
     input_params = _make_input(f"{model_provider}:/test-model")
 
     with mock.patch(
-        "mlflow.genai.judges.adapters.base_adapter._record_judge_model_usage_failure_databricks_telemetry"
+        "mlflow.genai.judges.utils.telemetry_utils._record_judge_model_usage_failure_databricks_telemetry"
     ) as mock_telemetry:
         with pytest.raises(MlflowException, match="Model error"):
             adapter.invoke(input_params)
