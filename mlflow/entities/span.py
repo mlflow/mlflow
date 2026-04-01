@@ -558,22 +558,20 @@ class LiveSpan(Span):
     def set_inputs(self, inputs: Any):
         """Set the input values to the span."""
         extract_base64 = self._should_extract_base64()
-        attachments_before = len(self._attachments)
         inputs = self._extract_attachments(inputs, extract_base64)
         self.set_attribute(SpanAttributeKey.INPUTS, inputs)
-        # Post-process only if the first pass didn't extract anything.
-        # This handles framework objects (e.g., LangChain BaseMessage) that
-        # only become plain dicts after JSON serialization.
-        if extract_base64 and len(self._attachments) == attachments_before:
+        # Second pass on the serialized form handles framework objects
+        # (e.g., Pydantic models, LangChain BaseMessage) that only become
+        # plain dicts after JSON serialization by set_attribute.
+        if extract_base64:
             self._extract_attachments_from_serialized(SpanAttributeKey.INPUTS)
 
     def set_outputs(self, outputs: Any):
         """Set the output values to the span."""
         extract_base64 = self._should_extract_base64()
-        attachments_before = len(self._attachments)
         outputs = self._extract_attachments(outputs, extract_base64)
         self.set_attribute(SpanAttributeKey.OUTPUTS, outputs)
-        if extract_base64 and len(self._attachments) == attachments_before:
+        if extract_base64:
             self._extract_attachments_from_serialized(SpanAttributeKey.OUTPUTS)
 
     def _extract_attachments_from_serialized(self, attr_key: str):
@@ -602,6 +600,13 @@ class LiveSpan(Span):
             if isinstance(value, dict):
                 converted = self._try_convert_structured_content(value)
                 if converted is not None:
+                    # Recurse into the converted dict to catch remaining patterns
+                    # in sibling keys (e.g. a data URI in another field)
+                    if isinstance(converted, dict):
+                        return {
+                            k: self._extract_attachments(v, extract_base64)
+                            for k, v in converted.items()
+                        }
                     return converted
         if isinstance(value, dict):
             return {k: self._extract_attachments(v, extract_base64) for k, v in value.items()}
@@ -634,6 +639,11 @@ class LiveSpan(Span):
         return self._store_attachment(Attachment(content_type=mime, content_bytes=content_bytes))
 
     def _try_convert_structured_content(self, value: dict[str, Any]) -> dict[str, Any] | str | None:
+        # TODO: If this grows unwieldy, consider either (a) splitting into per-provider
+        # helpers (parse_openai_audio, parse_anthropic_image, etc.) or (b) moving
+        # extraction into individual autolog integrations as post-execution hooks.
+        # See: https://github.com/mlflow/mlflow/pull/21955#discussion_r2999432747
+
         # OpenAI input_audio content part
         if value.get("type") == "input_audio" and isinstance(
             audio := value.get("input_audio"), dict
