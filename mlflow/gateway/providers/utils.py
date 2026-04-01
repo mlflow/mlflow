@@ -1,10 +1,16 @@
+import time
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from typing import Any, AsyncGenerator
 
 from mlflow.gateway.constants import (
     MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS,
 )
 from mlflow.utils.uri import append_to_uri_path
+
+# Accumulates the total time (ms) spent waiting for provider HTTP responses in the current
+# request context. Set to 0.0 at the start of each request by _record_gateway_invocation.
+provider_call_duration_ms: ContextVar[float] = ContextVar("provider_call_duration_ms", default=0.0)
 
 # Request gzip/deflate only so upstream never sends Brotli; aiohttp fails to decode
 # Content-Encoding: br without the optional brotli package.
@@ -20,9 +26,14 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
     request_headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
     request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
     url = append_to_uri_path(base_url, path)
+    start = time.perf_counter()
     async with aiohttp.ClientSession(headers=request_headers) as session:
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
         async with session.post(url, json=payload, timeout=timeout) as response:
+            # Record time from request start to when provider response headers arrive (TTFB).
+            provider_call_duration_ms.set(
+                provider_call_duration_ms.get() + (time.perf_counter() - start) * 1000
+            )
             yield response
 
 

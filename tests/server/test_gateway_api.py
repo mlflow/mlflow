@@ -5,8 +5,9 @@ from unittest import mock
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from starlette.testclient import TestClient
 
 import mlflow
 from mlflow.entities import (
@@ -27,6 +28,7 @@ from mlflow.gateway.config import (
     OpenAIAPIType,
     OpenAIConfig,
 )
+from mlflow.gateway.constants import MLFLOW_GATEWAY_DURATION_HEADER, MLFLOW_GATEWAY_OVERHEAD_HEADER
 from mlflow.gateway.providers.anthropic import AnthropicProvider
 from mlflow.gateway.providers.base import (
     FallbackProvider,
@@ -949,6 +951,51 @@ async def test_chat_completions_endpoint(store: SqlAlchemyStore):
         assert response.id == "test-id"
         assert response.choices[0].message.content == "Hello from OpenAI!"
         assert mock_provider.chat.called
+
+
+def test_response_timing_headers(store: SqlAlchemyStore):
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    mock_response = chat.ResponsePayload(
+        id="test-id",
+        object="chat.completion",
+        created=1234567890,
+        model="gpt-4",
+        choices=[
+            chat.Choice(
+                index=0,
+                message=chat.ResponseMessage(role="assistant", content="Hello!"),
+                finish_reason="stop",
+            )
+        ],
+        usage=chat.ChatUsage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+    )
+    mock_endpoint_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id", endpoint_name="my-endpoint", models=[]
+    )
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
+        patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.chat = AsyncMock(return_value=mock_response)
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
+
+        client = TestClient(app)
+        response = client.post(
+            "/gateway/mlflow/v1/chat/completions",
+            json={"model": "my-endpoint", "messages": [{"role": "user", "content": "Hi"}]},
+        )
+
+    assert response.status_code == 200
+    assert response.headers[MLFLOW_GATEWAY_DURATION_HEADER].isdigit()
+    assert response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER].isdigit()
 
 
 @pytest.mark.asyncio

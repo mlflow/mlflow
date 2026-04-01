@@ -7,12 +7,13 @@ functionality directly into the MLflow tracking server.
 """
 
 import functools
+import inspect
 import logging
 import time
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import StreamingResponse
 
 from mlflow.entities.gateway_endpoint import GatewayModelLinkageType
@@ -33,7 +34,12 @@ from mlflow.gateway.config import (
     _AuthConfigKey,
     _OpenAICompatibleConfig,
 )
-from mlflow.gateway.constants import MLFLOW_GATEWAY_CALLER_HEADER, GatewayCaller
+from mlflow.gateway.constants import (
+    MLFLOW_GATEWAY_CALLER_HEADER,
+    MLFLOW_GATEWAY_DURATION_HEADER,
+    MLFLOW_GATEWAY_OVERHEAD_HEADER,
+    GatewayCaller,
+)
 from mlflow.gateway.providers import get_provider
 from mlflow.gateway.providers.base import (
     PASSTHROUGH_ROUTES,
@@ -42,6 +48,7 @@ from mlflow.gateway.providers.base import (
     PassthroughAction,
     TrafficRouteProvider,
 )
+from mlflow.gateway.providers.utils import provider_call_duration_ms
 from mlflow.gateway.schemas import chat, embeddings
 from mlflow.gateway.tracing_utils import aggregate_chat_stream_chunks, maybe_traced_gateway_call
 from mlflow.gateway.utils import safe_stream, to_sse_chunk, translate_http_exception
@@ -132,6 +139,15 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
             start_time = time.time()
             success = True
             result = None
+            duration_ms = 0
+
+            # FastAPI injects a mutable Response via the _timing_response parameter
+            # (added to wrapper.__signature__ below). Popping it here keeps it out of
+            # the args/kwargs forwarded to the actual handler.
+            timing_response: Response | None = kwargs.pop("_timing_response", None)
+
+            # Reset provider call duration for this request context.
+            provider_call_duration_ms.set(0.0)
 
             # Extract caller header from the Request object if present,
             # only accepting known caller values to avoid logging arbitrary input.
@@ -144,7 +160,6 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
 
             try:
                 result = await func(*args, **kwargs)
-                return result  # noqa: RET504
             except Exception:
                 success = False
                 raise
@@ -162,6 +177,30 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                     success=success,
                     duration_ms=duration_ms,
                 )
+
+            overhead_ms = max(0, duration_ms - int(provider_call_duration_ms.get()))
+            if timing_response is not None:
+                timing_response.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
+                timing_response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
+            elif isinstance(result, StreamingResponse):
+                # StreamingResponse is returned directly; add headers to it.
+                result.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
+                result.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
+            return result
+
+        # Augment the wrapper's signature with a Response parameter so FastAPI
+        # injects a mutable response object. Headers set on it are merged into
+        # the final HTTP response regardless of what the handler returns.
+        orig_sig = inspect.signature(func)
+        timing_param = inspect.Parameter(
+            "_timing_response",
+            inspect.Parameter.KEYWORD_ONLY,
+            annotation=Response,
+            default=None,
+        )
+        wrapper.__signature__ = orig_sig.replace(
+            parameters=[*orig_sig.parameters.values(), timing_param]
+        )
 
         return wrapper
 
