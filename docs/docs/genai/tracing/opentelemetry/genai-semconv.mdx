@@ -1,6 +1,4 @@
-import FeatureHighlights from '@site/src/components/FeatureHighlights';
 import ImageBox from '@site/src/components/ImageBox';
-import { CircleCheck, CircleArrowRight, CircleArrowLeft } from "lucide-react";
 
 # OpenTelemetry GenAI Semantic Conventions
 
@@ -24,14 +22,14 @@ When enabled, MLflow translates span attributes at export time. This allows othe
 
 The following table summarizes the key mappings:
 
-| MLflow Attribute | GenAI Semconv Attribute | Description |
-| --- | --- | --- |
-| `mlflow.spanType` | `gen_ai.operation.name` | Operation type (e.g., `CHAT_MODEL` → `chat`) |
-| `mlflow.llm.model` | `gen_ai.request.model` | Model name |
-| `mlflow.llm.provider` | `gen_ai.provider.name` | Provider (e.g., `openai`, `anthropic`) |
-| `mlflow.chat.tokenUsage` | `gen_ai.usage.input_tokens` / `gen_ai.usage.output_tokens` | Token counts |
-| `mlflow.spanInputs` | `gen_ai.input.messages` | Input messages |
-| `mlflow.spanOutputs` | `gen_ai.output.messages` | Output messages |
+| MLflow Attribute         | GenAI Semconv Attribute                                    | Description                                  |
+| ------------------------ | ---------------------------------------------------------- | -------------------------------------------- |
+| `mlflow.spanType`        | `gen_ai.operation.name`                                    | Operation type (e.g., `CHAT_MODEL` → `chat`) |
+| `mlflow.llm.model`       | `gen_ai.request.model`                                     | Model name                                   |
+| `mlflow.llm.provider`    | `gen_ai.provider.name`                                     | Provider (e.g., `openai`, `anthropic`)       |
+| `mlflow.chat.tokenUsage` | `gen_ai.usage.input_tokens` / `gen_ai.usage.output_tokens` | Token counts                                 |
+| `mlflow.spanInputs`      | `gen_ai.input.messages`                                    | Input messages                               |
+| `mlflow.spanOutputs`     | `gen_ai.output.messages`                                   | Output messages                              |
 
 For the full mapping tables, see the [Attribute Mapping Reference](/genai/tracing/opentelemetry/attribute-mapping).
 
