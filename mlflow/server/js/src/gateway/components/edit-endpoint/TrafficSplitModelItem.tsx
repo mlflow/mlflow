@@ -9,7 +9,7 @@ import {
   TrashIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { GatewayInput } from '../common';
 import type { TrafficSplitModel } from '../../hooks/useEditEndpointForm';
 import { ProviderSelect } from '../create-endpoint/ProviderSelect';
@@ -38,6 +38,7 @@ export const TrafficSplitModelItem = ({
 }: TrafficSplitModelItemProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const domId = useRef(`traffic-split-${Math.random().toString(36).slice(2, 9)}`).current;
   const [isExpanded, setIsExpanded] = useState(!model.provider && !model.modelName);
   const [localWeightInput, setLocalWeightInput] = useState<string | null>(null);
 
@@ -152,11 +153,12 @@ export const TrafficSplitModelItem = ({
           />
 
           <div css={{ width: 120 }}>
-            <FormUI.Label htmlFor={`${componentId}.weight`}>
+            <FormUI.Label htmlFor={`${domId}.weight`}>
               <FormattedMessage defaultMessage="Weight" description="Label for traffic split weight input" />
             </FormUI.Label>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
               <GatewayInput
+                id={`${domId}.weight`}
                 componentId={`${componentId}.weight`}
                 type="number"
                 min={0}

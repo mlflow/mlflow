@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useRef, useMemo, useCallback, memo } from 'react';
 import { Input, useDesignSystemTheme, FormUI, Tag, ModelsIcon } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ModelSelectorModal } from '../model-selector/ModelSelectorModal';
@@ -11,7 +11,7 @@ interface ModelSelectProps {
   onChange: (model: string) => void;
   disabled?: boolean;
   error?: string;
-  /** Component ID prefix for telemetry (default: 'mlflow.gateway.model-select') */
+  /** Component ID for telemetry (default: 'mlflow.gateway.model-select') */
   componentId?: string;
   /** Custom label for the select field. If not provided, defaults to "Model" */
   label?: React.ReactNode;
@@ -31,6 +31,7 @@ export const ModelSelect = ({
 }: ModelSelectProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const domId = useRef(`model-select-${Math.random().toString(36).slice(2, 9)}`).current;
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch models to get the selected model's details
@@ -56,11 +57,11 @@ export const ModelSelect = ({
 
   return (
     <div>
-      <FormUI.Label htmlFor={componentId}>
+      <FormUI.Label htmlFor={domId}>
         {label ?? <FormattedMessage defaultMessage="Model" description="Label for model select field" />}
       </FormUI.Label>
       <Input
-        id={componentId}
+        id={domId}
         componentId={componentId}
         placeholder={
           !provider

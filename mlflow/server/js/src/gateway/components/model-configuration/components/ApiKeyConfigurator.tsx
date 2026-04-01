@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import { FormUI, Radio, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { GatewayInput } from '../../common';
@@ -44,6 +44,7 @@ export function ApiKeyConfigurator({
 }: ApiKeyConfiguratorProps) {
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
+  const outerDomId = useRef(`api-key-${Math.random().toString(36).slice(2, 9)}`).current;
 
   const hasExistingSecrets = existingSecrets.length > 0;
   const hasMultipleAuthModes = authModes.length > 1;
@@ -153,7 +154,7 @@ export function ApiKeyConfigurator({
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <Radio.Group
         componentId={`${componentId}.mode`}
-        name={`${componentId}.mode`}
+        name={`${outerDomId}.mode`}
         value={value.mode}
         onChange={(e) => handleModeChange(e.target.value as 'new' | 'existing')}
         layout="horizontal"
@@ -242,6 +243,7 @@ function NewSecretForm({
 }: NewSecretFormProps) {
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
+  const domId = useRef(`api-key-config-${Math.random().toString(36).slice(2, 9)}`).current;
 
   // Combine secret and config fields into a single sorted list
   const sortedFields = useMemo(() => {
@@ -260,12 +262,12 @@ function NewSecretForm({
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       <div>
-        <FormUI.Label htmlFor={`${componentId}.name`}>
+        <FormUI.Label htmlFor={`${domId}.name`}>
           <FormattedMessage defaultMessage="API key name" description="Label for API key name input" />
           <span css={{ color: theme.colors.textValidationDanger }}> *</span>
         </FormUI.Label>
         <GatewayInput
-          id={`${componentId}.name`}
+          id={`${domId}.name`}
           componentId={`${componentId}.name`}
           value={value.name}
           onChange={(e) => onNameChange(e.target.value)}
@@ -294,7 +296,7 @@ function NewSecretForm({
             <FormattedMessage defaultMessage="Authentication method" description="Label for auth mode selector" />
           </FormUI.Label>
           <Radio.Group
-            name={`${componentId}.auth-mode`}
+            name={`${domId}.auth-mode`}
             componentId={`${componentId}.auth-mode`}
             value={value.authMode || defaultAuthMode}
             onChange={(e) => onAuthModeChange(e.target.value)}
@@ -320,13 +322,13 @@ function NewSecretForm({
 
       {sortedFields.map((field) => (
         <div key={field.name}>
-          <FormUI.Label htmlFor={`${componentId}.${field.fieldType}.${field.name}`}>
+          <FormUI.Label htmlFor={`${domId}.${field.fieldType}.${field.name}`}>
             {formatCredentialFieldName(field.name)}
             {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
           </FormUI.Label>
           {field.fieldType === 'secret' ? (
             <SecretInput
-              id={`${componentId}.secret.${field.name}`}
+              id={`${domId}.secret.${field.name}`}
               componentId={`${componentId}.secret`}
               value={value.secretFields[field.name] ?? ''}
               onChange={(e) => onSecretFieldChange(field.name, e.target.value)}
@@ -336,7 +338,7 @@ function NewSecretForm({
             />
           ) : (
             <GatewayInput
-              id={`${componentId}.config.${field.name}`}
+              id={`${domId}.config.${field.name}`}
               componentId={`${componentId}.config`}
               value={value.configFields[field.name] ?? ''}
               onChange={(e) => onConfigFieldChange(field.name, e.target.value)}

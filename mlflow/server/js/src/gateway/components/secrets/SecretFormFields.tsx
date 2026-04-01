@@ -1,7 +1,7 @@
 import type { ChangeEvent } from 'react';
 import { FormUI, Spinner, useDesignSystemTheme, Radio, type RadioChangeEvent } from '@databricks/design-system';
 import { GatewayInput } from '../common';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useProviderConfigQuery } from '../../hooks/useProviderConfigQuery';
 import { formatCredentialFieldName, sortFieldsByProvider } from '../../utils/providerUtils';
@@ -34,6 +34,7 @@ export const SecretFormFields = ({
 }: SecretFormFieldsProps) => {
   const { theme } = useDesignSystemTheme();
   const { formatMessage } = useIntl();
+  const domId = useRef(`secret-form-${Math.random().toString(36).slice(2, 9)}`).current;
   const { data: providerConfig, isLoading } = useProviderConfigQuery({ provider });
 
   const authModes = useMemo(() => providerConfig?.auth_modes ?? [], [providerConfig?.auth_modes]);
@@ -125,12 +126,12 @@ export const SecretFormFields = ({
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       {!hideNameField && (
         <div>
-          <FormUI.Label htmlFor={`${componentId}.name`}>
+          <FormUI.Label htmlFor={`${domId}.name`}>
             <FormattedMessage defaultMessage="API key name" description="Label for API key name input" />
             <span css={{ color: theme.colors.textValidationDanger }}> *</span>
           </FormUI.Label>
           <GatewayInput
-            id={`${componentId}.name`}
+            id={`${domId}.name`}
             componentId={`${componentId}.name`}
             value={value.name}
             onChange={(e: ChangeEvent<HTMLInputElement>) => handleNameChange(e.target.value)}
@@ -151,7 +152,7 @@ export const SecretFormFields = ({
             <FormattedMessage defaultMessage="Authentication method" description="Label for auth mode selector" />
           </FormUI.Label>
           <Radio.Group
-            name={`${componentId}.auth-mode`}
+            name={`${domId}.auth-mode`}
             componentId={`${componentId}.auth-mode`}
             value={effectiveAuthMode}
             onChange={(e: RadioChangeEvent) => handleAuthModeChange(e.target.value)}
@@ -177,13 +178,13 @@ export const SecretFormFields = ({
 
       {sortedFields.map((field) => (
         <div key={field.name}>
-          <FormUI.Label htmlFor={`${componentId}.${field.fieldType}.${field.name}`}>
+          <FormUI.Label htmlFor={`${domId}.${field.fieldType}.${field.name}`}>
             {formatCredentialFieldName(field.name)}
             {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
           </FormUI.Label>
           {field.fieldType === 'secret' ? (
             <SecretInput
-              id={`${componentId}.secret.${field.name}`}
+              id={`${domId}.secret.${field.name}`}
               componentId={`${componentId}.secret`}
               value={value.secretFields[field.name] ?? ''}
               onChange={(e: ChangeEvent<HTMLInputElement>) => handleSecretFieldChange(field.name, e.target.value)}
@@ -193,7 +194,7 @@ export const SecretFormFields = ({
             />
           ) : (
             <GatewayInput
-              id={`${componentId}.config.${field.name}`}
+              id={`${domId}.config.${field.name}`}
               componentId={`${componentId}.config`}
               value={value.configFields[field.name] ?? ''}
               onChange={(e: ChangeEvent<HTMLInputElement>) => handleConfigFieldChange(field.name, e.target.value)}

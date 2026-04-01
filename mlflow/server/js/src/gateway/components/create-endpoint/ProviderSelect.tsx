@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef } from 'react';
 import { useDesignSystemTheme, FormUI, Spinner, Typography } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { NavigableCombobox } from '../../../common/components/navigable-combobox/NavigableCombobox';
@@ -31,6 +31,7 @@ export const ProviderSelect = ({
 }: ProviderSelectProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
+  const domId = useRef(`provider-select-${Math.random().toString(36).slice(2, 9)}`).current;
   const { data: providers, isLoading, error: queryError } = useProvidersQuery();
 
   const { config, hasOtherProviders } = useMemo((): {
@@ -171,7 +172,7 @@ export const ProviderSelect = ({
     return (
       <div>
         {!hideLabel && (
-          <FormUI.Label htmlFor={componentId}>
+          <FormUI.Label htmlFor={domId}>
             <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
           </FormUI.Label>
         )}
@@ -184,7 +185,7 @@ export const ProviderSelect = ({
     return (
       <div>
         {!hideLabel && (
-          <FormUI.Label htmlFor={componentId}>
+          <FormUI.Label htmlFor={domId}>
             <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
           </FormUI.Label>
         )}
@@ -199,7 +200,7 @@ export const ProviderSelect = ({
   return (
     <div css={{ minWidth: 300 }}>
       {!hideLabel && (
-        <FormUI.Label htmlFor={componentId}>
+        <FormUI.Label htmlFor={domId}>
           <FormattedMessage defaultMessage="Provider" description="Label for provider select field" />
         </FormUI.Label>
       )}
