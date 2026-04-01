@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["fastapi", "uvicorn[standard]"]
+# dependencies = ["fastapi>=0.115.0,<1", "uvicorn[standard]>=0.30.0,<1"]
 # ///
 """Fake OpenAI-compatible server for benchmarking.
 
@@ -18,6 +18,7 @@ Or with multiple workers (as launched by run.py):
 import asyncio
 import os
 import time
+from typing import Any
 
 import uvicorn
 from fastapi import FastAPI
@@ -37,7 +38,7 @@ class ChatRequest(BaseModel):
 
 
 @app.post("/v1/chat/completions")
-async def chat_completions(req: ChatRequest) -> dict[str, object]:
+async def chat_completions(req: ChatRequest) -> dict[str, Any]:
     await asyncio.sleep(DELAY_MS / 1000)
     return {
         "id": "chatcmpl-fake",

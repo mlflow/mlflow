@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["aiohttp", "rich"]
+# dependencies = ["aiohttp>=3.13.3,<4", "rich>=14.3.3,<15"]
 # ///
 """Async HTTP benchmark client for the MLflow AI Gateway.
 

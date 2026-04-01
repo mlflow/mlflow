@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["aiohttp", "rich"]
+# dependencies = ["aiohttp>=3.13.3,<4", "rich>=14.3.3,<15"]
 # ///
 """MLflow AI Gateway benchmark runner.
 
@@ -56,7 +56,6 @@ console = Console()
 
 _procs: list[subprocess.Popen[bytes]] = []
 _docker_containers: list[str] = []
-_tmpdir: str | None = None
 
 
 def _cleanup() -> None:
@@ -77,8 +76,6 @@ def _cleanup() -> None:
                 pass
     for name in _docker_containers:
         subprocess.run(["docker", "rm", "-f", name], capture_output=True)
-    if _tmpdir:
-        shutil.rmtree(_tmpdir, ignore_errors=True)
 
 
 atexit.register(_cleanup)
@@ -123,10 +120,9 @@ def _wait_for_port(port: int, label: str, log_file: Path | None = None, timeout:
     console.print(f"  [green]✓[/green] {label} ready")
 
 
-def _start_fake_server(port: int = FAKE_SERVER_PORT, workers: int = 8) -> None:
-    assert _tmpdir is not None
+def _start_fake_server(work_dir: str, port: int = FAKE_SERVER_PORT, workers: int = 8) -> None:
     prefix = _uv_prefix()
-    log_file = Path(_tmpdir) / "fake_server.log"
+    log_file = Path(work_dir) / "fake_server.log"
     with log_file.open("w") as f:
         proc = subprocess.Popen(
             [
@@ -151,11 +147,10 @@ def _start_fake_server(port: int = FAKE_SERVER_PORT, workers: int = 8) -> None:
     _wait_for_port(port, "fake OpenAI server", log_file)
 
 
-def _start_mlflow(port: int, workers: int, backend_uri: str) -> Path:
+def _start_mlflow(work_dir: str, port: int, workers: int, backend_uri: str) -> Path:
     """Start an MLflow server and return the log file path."""
-    assert _tmpdir is not None
     prefix = _uv_prefix()
-    log_file = Path(_tmpdir) / f"mlflow-{port}.log"
+    log_file = Path(work_dir) / f"mlflow-{port}.log"
     with log_file.open("w") as f:
         proc = subprocess.Popen(
             [
@@ -266,7 +261,7 @@ def _install_psycopg2() -> None:
     console.print("  [green]✓[/green] psycopg2-binary ready")
 
 
-def _api_post(tracking_uri: str, path: str, body: dict[str, object]) -> Any:
+def _api_post(tracking_uri: str, path: str, body: dict[str, Any]) -> Any:
     url = f"{tracking_uri.rstrip('/')}/api/3.0/mlflow/{path}"
     req = urllib.request.Request(
         url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}
@@ -355,11 +350,10 @@ def _run_benchmark(
 
 
 def _start_nginx(
-    instance_ports: list[int], port: int, container_name: str = "benchmark-nginx"
+    work_dir: str, instance_ports: list[int], port: int, container_name: str = "benchmark-nginx"
 ) -> None:
-    assert _tmpdir is not None
-    nginx_dir = Path(_tmpdir) / "nginx"
-    conf_d = nginx_dir / "conf.d"
+    nginxwork_dir = Path(work_dir) / "nginx"
+    conf_d = nginxwork_dir / "conf.d"
     conf_d.mkdir(parents=True)
 
     upstream_lines = "\n".join(f"    server host.docker.internal:{p};" for p in instance_ports)
@@ -384,7 +378,7 @@ def _start_nginx(
         f"    }}\n"
         f"}}\n"
     )
-    (nginx_dir / "nginx.conf").write_text(
+    (nginxwork_dir / "nginx.conf").write_text(
         "worker_processes auto;\n"
         "worker_rlimit_nofile 65535;\n"
         "events {\n"
@@ -423,7 +417,7 @@ def _start_nginx(
                 "--ulimit",
                 "nofile=65535:65535",
                 "-v",
-                f"{nginx_dir / 'nginx.conf'}:/etc/nginx/nginx.conf:ro",
+                f"{nginxwork_dir / 'nginx.conf'}:/etc/nginx/nginx.conf:ro",
                 "-v",
                 f"{conf_d}:/etc/nginx/conf.d:ro",
                 "-p",
@@ -453,8 +447,6 @@ def _start_nginx(
 
 
 def cmd_bench(args: argparse.Namespace) -> None:
-    global _tmpdir
-
     instances = args.instances
     mode = "1 instance" if instances == 1 else f"{instances} instances, nginx LB"
 
@@ -479,96 +471,96 @@ def cmd_bench(args: argparse.Namespace) -> None:
     if needs_docker:
         _check_docker()
 
-    _tmpdir = tempfile.mkdtemp(prefix="mlflow-bench-")
-    port = args.port
-    fake_port = args.fake_server_port
-    instance_ports = [args.base_port + i for i in range(instances)]
+    with tempfile.TemporaryDirectory(prefix="mlflow-bench-") as work_dir:
+        port = args.port
+        fake_port = args.fake_server_port
+        instance_ports = [args.base_port + i for i in range(instances)]
 
-    if instances == 1:
-        panel = (
-            f"[bold]Gateway Benchmark[/bold] ({mode})\n"
-            f"Workers: {args.workers}  ·  DB: {args.backend}  ·  "
-            f"Usage tracking: {args.usage_tracking}\n"
-            f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
-            f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
-            f"Ports: MLflow :{port}  ·  Fake server :{fake_port}"
+        if instances == 1:
+            panel = (
+                f"[bold]Gateway Benchmark[/bold] ({mode})\n"
+                f"Workers: {args.workers}  ·  DB: {args.backend}  ·  "
+                f"Usage tracking: {args.usage_tracking}\n"
+                f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
+                f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
+                f"Ports: MLflow :{port}  ·  Fake server :{fake_port}"
+            )
+        else:
+            panel = (
+                f"[bold]Gateway Benchmark[/bold] ({mode})\n"
+                f"Workers/instance: {args.workers}  ·  "
+                f"Total workers: {instances * args.workers}  ·  "
+                f"Usage tracking: {args.usage_tracking}\n"
+                f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
+                f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
+                f"Ports: instances {instance_ports[0]}–{instance_ports[-1]}"
+                f"  ·  LB :{port}  ·  Fake server :{fake_port}"
+            )
+        console.print(Panel.fit(panel, border_style="cyan"))
+
+        # Backend
+        if instances > 1 or args.backend == "postgres":
+            console.print("\n[bold]PostgreSQL[/bold]")
+            backend_uri = _start_postgres()
+            _install_psycopg2()
+        else:
+            db_path = Path(work_dir) / "mlflow.db"
+            backend_uri = f"sqlite:///{db_path}"
+            console.print(f"\n[dim]Using SQLite: {db_path}[/dim]")
+
+        # Servers
+        console.print("\n[bold]Starting servers[/bold]")
+        _start_fake_server(work_dir, port=fake_port, workers=8 if instances == 1 else 16)
+
+        if instances == 1:
+            log = _start_mlflow(work_dir, port, args.workers, backend_uri)
+            _wait_for_port(port, "MLflow server", log)
+
+            console.print("\n[bold]Setting up gateway endpoint[/bold]")
+            invoke_url = _setup_endpoint(
+                f"http://127.0.0.1:{port}",
+                f"http://127.0.0.1:{fake_port}/v1",
+                ENDPOINT_NAME,
+                usage_tracking=args.usage_tracking,
+            )
+            _sanity_check(invoke_url)
+        else:
+            # Start instance 0 first — it initializes the DB schema.
+            # All instances share the same PostgreSQL DB, so starting concurrently
+            # can cause CREATE TABLE race conditions.
+            log0 = _start_mlflow(work_dir, instance_ports[0], args.workers, backend_uri)
+            _wait_for_port(instance_ports[0], "MLflow instance 0", log0)
+
+            remaining_logs = [
+                _start_mlflow(work_dir, p, args.workers, backend_uri) for p in instance_ports[1:]
+            ]
+            for i, (p, log) in enumerate(zip(instance_ports[1:], remaining_logs), start=1):
+                _wait_for_port(p, f"MLflow instance {i}", log)
+
+            console.print("\n[bold]Setting up gateway endpoint[/bold]")
+            _setup_endpoint(
+                f"http://127.0.0.1:{instance_ports[0]}",
+                f"http://127.0.0.1:{fake_port}/v1",
+                ENDPOINT_NAME,
+                usage_tracking=args.usage_tracking,
+            )
+
+            console.print("\n[bold]Starting nginx load balancer[/bold]")
+            _start_nginx(work_dir, instance_ports, port=port)
+            subprocess.run(
+                ["docker", "exec", "benchmark-nginx", "nginx", "-s", "reload"],
+                capture_output=True,
+            )
+            time.sleep(1)
+
+            invoke_url = f"http://127.0.0.1:{port}/gateway/{ENDPOINT_NAME}/mlflow/invocations"
+            _sanity_check(invoke_url)
+
+        console.print("\n[bold]Running benchmark[/bold]")
+        _run_benchmark(
+            invoke_url, args.requests, args.max_concurrent, args.runs,
+            args.min_rps, args.max_p99_ms,
         )
-    else:
-        panel = (
-            f"[bold]Gateway Benchmark[/bold] ({mode})\n"
-            f"Workers/instance: {args.workers}  ·  "
-            f"Total workers: {instances * args.workers}  ·  "
-            f"Usage tracking: {args.usage_tracking}\n"
-            f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
-            f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
-            f"Ports: instances {instance_ports[0]}–{instance_ports[-1]}"
-            f"  ·  LB :{port}  ·  Fake server :{fake_port}"
-        )
-    console.print(Panel.fit(panel, border_style="cyan"))
-
-    # Backend
-    if instances > 1 or args.backend == "postgres":
-        console.print("\n[bold]PostgreSQL[/bold]")
-        backend_uri = _start_postgres()
-        _install_psycopg2()
-    else:
-        db_path = Path(_tmpdir) / "mlflow.db"
-        backend_uri = f"sqlite:///{db_path}"
-        console.print(f"\n[dim]Using SQLite: {db_path}[/dim]")
-
-    # Servers
-    console.print("\n[bold]Starting servers[/bold]")
-    _start_fake_server(port=fake_port, workers=8 if instances == 1 else 16)
-
-    if instances == 1:
-        log = _start_mlflow(port, args.workers, backend_uri)
-        _wait_for_port(port, "MLflow server", log)
-
-        console.print("\n[bold]Setting up gateway endpoint[/bold]")
-        invoke_url = _setup_endpoint(
-            f"http://127.0.0.1:{port}",
-            f"http://127.0.0.1:{fake_port}/v1",
-            ENDPOINT_NAME,
-            usage_tracking=args.usage_tracking,
-        )
-        _sanity_check(invoke_url)
-    else:
-        # Start instance 0 first — it initializes the DB schema.
-        # All instances share the same PostgreSQL DB, so starting concurrently
-        # can cause CREATE TABLE race conditions.
-        log0 = _start_mlflow(instance_ports[0], args.workers, backend_uri)
-        _wait_for_port(instance_ports[0], "MLflow instance 0", log0)
-
-        remaining_logs = [
-            _start_mlflow(p, args.workers, backend_uri) for p in instance_ports[1:]
-        ]
-        for i, (p, log) in enumerate(zip(instance_ports[1:], remaining_logs), start=1):
-            _wait_for_port(p, f"MLflow instance {i}", log)
-
-        console.print("\n[bold]Setting up gateway endpoint[/bold]")
-        _setup_endpoint(
-            f"http://127.0.0.1:{instance_ports[0]}",
-            f"http://127.0.0.1:{fake_port}/v1",
-            ENDPOINT_NAME,
-            usage_tracking=args.usage_tracking,
-        )
-
-        console.print("\n[bold]Starting nginx load balancer[/bold]")
-        _start_nginx(instance_ports, port=port)
-        subprocess.run(
-            ["docker", "exec", "benchmark-nginx", "nginx", "-s", "reload"],
-            capture_output=True,
-        )
-        time.sleep(1)
-
-        invoke_url = f"http://127.0.0.1:{port}/gateway/{ENDPOINT_NAME}/mlflow/invocations"
-        _sanity_check(invoke_url)
-
-    console.print("\n[bold]Running benchmark[/bold]")
-    _run_benchmark(
-        invoke_url, args.requests, args.max_concurrent, args.runs,
-        args.min_rps, args.max_p99_ms,
-    )
 
 
 def main() -> None:

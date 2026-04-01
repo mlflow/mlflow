@@ -6,14 +6,8 @@ so results reflect pure MLflow processing time rather than provider variance.
 
 ## Prerequisites
 
-- Python 3.10+ with [`uv`](https://docs.astral.sh/uv/)
+- Python 3.10+ with [`uv`](https://docs.astral.sh/uv/) — all scripts must be run via `uv run`, which handles dependency installation automatically via inline script metadata
 - Docker (required for `--backend postgres` and `multi` mode)
-
-`run.py` and `benchmark.py` require `aiohttp` and `rich`, which are not part of the MLflow project dependencies. `uv run` installs them automatically via the inline script metadata, but if you run the scripts directly (e.g. `python run.py`) you'll need to install them first:
-
-```bash
-pip install aiohttp rich
-```
 
 ## Quick start
 
@@ -35,8 +29,6 @@ uv run run.py --instances 8 --workers 8
 # Benchmark an existing endpoint directly (skips all setup)
 uv run run.py --url http://your-server/gateway/my-endpoint/mlflow/invocations
 
-# If uv tries to pull from custom package sources and fails (Databricks-internal environments):
-UV_NO_SOURCES=1 uv run run.py --instances 1
 ```
 
 ## What is measured
