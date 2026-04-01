@@ -1,13 +1,15 @@
 from __future__ import annotations
 
-from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.scorers.phoenix.utils import _NoOpRateLimiter, check_phoenix_installed
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
-from mlflow.metrics.genai.model_utils import _call_llm_provider_api, _parse_model_uri
+from mlflow.metrics.genai.model_utils import (
+    _call_llm_provider_api,
+    _get_provider_instance,
+    _parse_model_uri,
+)
 
 
 # Phoenix has BaseModel in phoenix.evals.models.base, but it requires implementing
@@ -65,9 +67,8 @@ def create_phoenix_model(model_uri: str):
 
     Routing:
         - ``"databricks"`` → DatabricksPhoenixModel (managed judge)
-        - ``"gateway:/endpoint"`` → LiteLLMModel (gateway routing)
-        - Supported providers (e.g. ``"openai:/gpt-4"``) → GatewayPhoenixModel
-        - Unsupported providers → LiteLLMModel (litellm fallback)
+        - Providers constructable by ``_get_provider_instance`` → GatewayPhoenixModel
+        - All other providers → LiteLLMModel (litellm fallback)
     """
     check_phoenix_installed()
 
@@ -76,24 +77,13 @@ def create_phoenix_model(model_uri: str):
 
     provider, model_name = _parse_model_uri(model_uri)
 
-    # Gateway endpoints require litellm-based routing
-    if provider == "gateway":
-        from phoenix.evals import LiteLLMModel
-
-        config = get_gateway_litellm_config(model_name)
-        return LiteLLMModel(
-            model=config.model,
-            model_kwargs={
-                "api_base": config.api_base,
-                "api_key": config.api_key,
-                "drop_params": True,
-                **({"extra_headers": config.extra_headers} if config.extra_headers else {}),
-            },
-        )
-
-    # Use native gateway provider for supported providers, litellm for others
-    if is_supported_provider(provider):
+    # Use native gateway provider if _get_provider_instance can construct it,
+    # otherwise fall back to litellm
+    try:
+        _get_provider_instance(provider, model_name)
         return GatewayPhoenixModel(provider, model_name)
+    except Exception:
+        pass
 
     from phoenix.evals import LiteLLMModel
 
