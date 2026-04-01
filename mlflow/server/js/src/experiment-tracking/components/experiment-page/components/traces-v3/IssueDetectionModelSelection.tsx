@@ -37,14 +37,15 @@ const DEFAULT_PROVIDER = 'openai';
 // Allowed core providers for issue detection, for these we support fetching API keys
 // and set them when running jobs. For other providers, users should configure gateway
 // endpoints directly.
-// TODO: add azure and bedrock (requires boto3)
-const ALLOWED_PROVIDERS = ['openai', 'anthropic', 'gemini'] as const;
+// TODO: add bedrock (requires boto3)
+const ALLOWED_PROVIDERS = ['openai', 'anthropic', 'gemini', 'azure'] as const;
 
 // Display names for providers
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
   gemini: 'Google Gemini',
+  azure: 'Azure OpenAI',
 };
 
 const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
