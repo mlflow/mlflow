@@ -571,10 +571,6 @@
     "defaultMessage": "User frustration",
     "description": "LLM template option"
   },
-  "1q0tQB": {
-    "defaultMessage": "Create endpoint",
-    "description": "Gateway > Quick start card > Create endpoint link text"
-  },
   "1uyr/n": {
     "defaultMessage": "View {count} {count, plural, one {issue} other {issues}}",
     "description": "Issue detection summary > View issues button"
@@ -3149,6 +3145,10 @@
   "J961B2": {
     "defaultMessage": "Filters{numFilters}",
     "description": "Evaluation review > evaluations list > filter dropdown button"
+  },
+  "J9twTr": {
+    "defaultMessage": "An endpoint routes your API calls to an AI model. Add your API key to get started.",
+    "description": "Gateway > Endpoints > Quick start explanation of what an endpoint is"
   },
   "JCboZ7": {
     "defaultMessage": "Path copied",

@@ -1,4 +1,4 @@
-import { Button, CloudModelIcon, PlusIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, CloudModelIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import GatewayRoutes from '../../routes';
@@ -9,27 +9,37 @@ interface QuickStartTemplate {
   model: string;
   endpointName: string;
   secretName: string;
+  capabilities: string;
 }
 
 const QUICK_START_TEMPLATES: QuickStartTemplate[] = [
-  { provider: 'openai', model: 'gpt-5.4', endpointName: 'openai-gpt-5.4-endpoint', secretName: 'openai-api-key' },
+  {
+    provider: 'openai',
+    model: 'gpt-5.4',
+    endpointName: 'openai-gpt-5.4-endpoint',
+    secretName: 'openai-api-key',
+    capabilities: 'Tools · Vision · JSON mode',
+  },
   {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
     endpointName: 'anthropic-claude-sonnet-endpoint',
     secretName: 'anthropic-api-key',
+    capabilities: 'Tools · Vision · Extended thinking',
   },
   {
     provider: 'gemini',
     model: 'gemini-2.5-pro',
     endpointName: 'gemini-2.5-pro-endpoint',
     secretName: 'gemini-api-key',
+    capabilities: 'Tools · Vision · 1M context',
   },
   {
     provider: 'databricks',
     model: 'databricks-gpt-5',
     endpointName: 'databricks-gpt-5-endpoint',
     secretName: 'databricks-api-key',
+    capabilities: 'Tools · Enterprise-grade',
   },
 ];
 
@@ -58,6 +68,12 @@ export const QuickStartTemplates = () => {
           <FormattedMessage
             defaultMessage="Quick-start with a popular model, or choose from 60+ providers and all their supported models."
             description="Gateway > Endpoints > Quick start description"
+          />
+        </Typography.Text>
+        <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+          <FormattedMessage
+            defaultMessage="An endpoint routes your API calls to an AI model. Add your API key to get started."
+            description="Gateway > Endpoints > Quick start explanation of what an endpoint is"
           />
         </Typography.Text>
       </div>
@@ -109,17 +125,9 @@ export const QuickStartTemplates = () => {
               <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
                 {template.model}
               </Typography.Text>
-              <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginTop: theme.spacing.xs }}>
-                <PlusIcon css={{ fontSize: 12, color: theme.colors.actionPrimaryBackgroundDefault }} />
-                <Typography.Text
-                  css={{ color: theme.colors.actionPrimaryBackgroundDefault, fontSize: theme.typography.fontSizeSm }}
-                >
-                  <FormattedMessage
-                    defaultMessage="Create endpoint"
-                    description="Gateway > Quick start card > Create endpoint link text"
-                  />
-                </Typography.Text>
-              </div>
+              <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
+                {template.capabilities}
+              </Typography.Text>
             </div>
           </Link>
         ))}
@@ -128,17 +136,14 @@ export const QuickStartTemplates = () => {
       <Link
         componentId="mlflow.gateway.quick_start.browse_all"
         to={GatewayRoutes.createEndpointPageRoute}
-        css={{
-          color: theme.colors.actionPrimaryBackgroundDefault,
-          fontSize: theme.typography.fontSizeSm,
-          textDecoration: 'none',
-          '&:hover': { textDecoration: 'underline' },
-        }}
+        css={{ textDecoration: 'none' }}
       >
-        <FormattedMessage
-          defaultMessage="Or browse all providers and models →"
-          description="Gateway > Quick start > Link to create endpoint with full model selection"
-        />
+        <Button componentId="mlflow.gateway.quick_start.browse_all_button" type="tertiary">
+          <FormattedMessage
+            defaultMessage="Or browse all providers and models →"
+            description="Gateway > Quick start > Link to create endpoint with full model selection"
+          />
+        </Button>
       </Link>
     </div>
   );
