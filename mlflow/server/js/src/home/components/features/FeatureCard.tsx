@@ -1,27 +1,15 @@
-import { useMemo } from 'react';
-import {
-  Typography,
-  useDesignSystemTheme,
-  DesignSystemEventProviderAnalyticsEventTypes,
-  DesignSystemEventProviderComponentTypes,
-  useDesignSystemEventComponentCallbacks,
-} from '@databricks/design-system';
+import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { FeatureDefinition } from './feature-definitions';
 import { useHomePageViewState } from '../../HomePageViewStateContext';
 
 interface FeatureCardProps {
   feature: FeatureDefinition;
+  componentId: string;
 }
 
-export const FeatureCard = ({ feature }: FeatureCardProps) => {
+export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
   const { theme } = useDesignSystemTheme();
   const { openLogTracesDrawer } = useHomePageViewState();
-  const events = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
-  const eventContext = useDesignSystemEventComponentCallbacks({
-    componentType: DesignSystemEventProviderComponentTypes.Button,
-    componentId: feature.componentId,
-    analyticsEvents: events,
-  });
 
   const containerStyles = {
     overflow: 'hidden',
@@ -90,48 +78,41 @@ export const FeatureCard = ({ feature }: FeatureCardProps) => {
     </div>
   );
 
+  const wrapperStyles = {
+    '&&': {
+      textDecoration: 'none',
+      color: theme.colors.textPrimary,
+      display: 'block',
+      border: 0,
+      padding: 0,
+      background: 'transparent',
+      font: 'inherit',
+      textAlign: 'left' as const,
+      flex: 1,
+      minWidth: 240,
+      height: 'auto',
+      cursor: 'pointer',
+    },
+  };
+
   if (feature.hasDrawer) {
     return (
-      <button
-        type="button"
-        onClick={(e) => {
-          eventContext.onClick(e);
-          openLogTracesDrawer();
-        }}
-        css={{
-          textDecoration: 'none',
-          color: theme.colors.textPrimary,
-          display: 'block',
-          border: 0,
-          padding: 0,
-          background: 'transparent',
-          cursor: 'pointer',
-          font: 'inherit',
-          textAlign: 'left',
-          flex: 1,
-          minWidth: 240,
-        }}
-      >
+      <Button componentId={componentId} type="tertiary" onClick={openLogTracesDrawer} css={wrapperStyles}>
         {card}
-      </button>
+      </Button>
     );
   }
 
   return (
-    <a
+    <Button
+      componentId={componentId}
+      type="tertiary"
       href={feature.docsLink}
       target="_blank"
       rel="noopener noreferrer"
-      onClick={(e) => eventContext.onClick(e)}
-      css={{
-        textDecoration: 'none',
-        color: theme.colors.textPrimary,
-        display: 'block',
-        flex: 1,
-        minWidth: 240,
-      }}
+      css={wrapperStyles}
     >
       {card}
-    </a>
+    </Button>
   );
 };

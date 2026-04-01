@@ -17,13 +17,13 @@ describe('FeatureCard', () => {
   const evaluationFeature = featureDefinitions.find((f) => f.id === 'evaluation')!;
 
   it('renders feature title and summary', () => {
-    renderWithDesignSystem(<FeatureCard feature={tracingFeature} />);
+    renderWithDesignSystem(<FeatureCard feature={tracingFeature} componentId={tracingFeature.componentId} />);
 
     expect(screen.getByRole('heading', { level: 2, name: 'Tracing' })).toBeInTheDocument();
   });
 
   it('renders as a button and opens drawer for features with hasDrawer', async () => {
-    renderWithDesignSystem(<FeatureCard feature={tracingFeature} />);
+    renderWithDesignSystem(<FeatureCard feature={tracingFeature} componentId={tracingFeature.componentId} />);
 
     await userEvent.click(screen.getByRole('button'));
 
@@ -31,7 +31,7 @@ describe('FeatureCard', () => {
   });
 
   it('renders as a link for features without hasDrawer', () => {
-    renderWithDesignSystem(<FeatureCard feature={evaluationFeature} />);
+    renderWithDesignSystem(<FeatureCard feature={evaluationFeature} componentId={evaluationFeature.componentId} />);
 
     const link = screen.getByRole('link');
     expect(link).toHaveAttribute('href', evaluationFeature.docsLink);
