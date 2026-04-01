@@ -9,7 +9,6 @@ from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.metrics.genai.model_utils import (
     _call_llm_provider_api,
     _get_provider_instance,
@@ -115,21 +114,6 @@ def create_deepeval_model(model_uri: str):
         return DatabricksDeepEvalLLM()
 
     provider, model_name = _parse_model_uri(model_uri)
-
-    # Gateway endpoints require litellm-based routing
-    if provider == "gateway":
-        from deepeval.models import LiteLLMModel
-
-        config = get_gateway_litellm_config(model_name)
-        return LiteLLMModel(
-            model=config.model,
-            base_url=config.api_base,
-            api_key=config.api_key,
-            generation_kwargs={
-                "drop_params": True,
-                **({"extra_headers": config.extra_headers} if config.extra_headers else {}),
-            },
-        )
 
     # Use native gateway provider if _get_provider_instance can construct it,
     # otherwise fall back to litellm

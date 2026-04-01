@@ -427,21 +427,15 @@ def test_create_deepeval_model_falls_back_to_litellm_for_unsupported_provider():
     assert isinstance(model, LiteLLMModel)
 
 
-def test_create_deepeval_model_uses_litellm_for_gateway_uri():
-    from deepeval.models import LiteLLMModel
+def test_create_deepeval_model_uses_gateway_for_gateway_uri():
+    from mlflow.genai.scorers.deepeval.models import GatewayDeepEvalLLM, create_deepeval_model
 
-    from mlflow.genai.scorers.deepeval.models import create_deepeval_model
-
-    with patch("mlflow.genai.scorers.deepeval.models.get_gateway_litellm_config") as mock_config:
-        mock_config.return_value = Mock(
-            model="my-endpoint",
-            api_base="http://localhost:5000",
-            api_key="test-key",
-            extra_headers=None,
-        )
+    with patch(
+        "mlflow.genai.scorers.deepeval.models._get_provider_instance",
+    ):
         model = create_deepeval_model("gateway:/my-endpoint")
 
-    assert isinstance(model, LiteLLMModel)
+    assert isinstance(model, GatewayDeepEvalLLM)
 
 
 def test_create_deepeval_model_uses_databricks_for_bare_uri():
