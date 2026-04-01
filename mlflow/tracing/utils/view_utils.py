@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 
-from mlflow.entities.trace_view import SpanFilter, TraceView
+from mlflow.entities.trace_view import SpanSelector, TraceView
 
 try:
     from jsonpath_ng import parse as jsonpath_parse
@@ -16,7 +16,6 @@ _logger = logging.getLogger(__name__)
 
 
 def _unwrap_json_str(value):
-    """If value is a JSON-encoded string, decode it once."""
     if not isinstance(value, str):
         return value
     try:
@@ -26,10 +25,8 @@ def _unwrap_json_str(value):
 
 
 def _matches_span_type(span: dict, span_type: str) -> bool:
-    # Check direct span_type field first
     if "span_type" in span and span["span_type"] == span_type:
         return True
-    # Fallback: check attributes with JSON unwrapping
     attrs = span.get("attributes", {})
     attr_type = attrs.get("mlflow.spanType")
     if attr_type is not None:
@@ -37,26 +34,89 @@ def _matches_span_type(span: dict, span_type: str) -> bool:
     return False
 
 
-def find_first_matching_span(spans: list[dict], filter_config: SpanFilter) -> dict | None:
-    return next(
-        (span for span in spans if _span_matches(span, filter_config)),
-        None,
-    )
+def _get_span_id(span: dict) -> str | None:
+    ctx = span.get("context")
+    if isinstance(ctx, dict):
+        return ctx.get("span_id")
+    return None
 
 
-def _span_matches(span: dict, f: SpanFilter) -> bool:
-    if f.span_name is not None and span.get("name") != f.span_name:
+def _span_matches(span: dict, selector: SpanSelector) -> bool:
+    if selector.span_name is not None and span.get("name") != selector.span_name:
         return False
-    if f.span_type is not None and not _matches_span_type(span, f.span_type):
+    if selector.span_type is not None and not _matches_span_type(span, selector.span_type):
         return False
-    if f.attribute_key is not None:
+    if selector.span_id is not None and _get_span_id(span) != selector.span_id:
+        return False
+    if selector.attribute_key is not None:
         attrs = span.get("attributes", {})
-        if f.attribute_key not in attrs:
+        if selector.attribute_key not in attrs:
             return False
-        if f.attribute_value is not None:
-            if str(attrs[f.attribute_key]) != str(f.attribute_value):
+        if selector.attribute_value is not None:
+            if str(attrs[selector.attribute_key]) != str(selector.attribute_value):
                 return False
     return True
+
+
+def _dfs_order(root: dict) -> list[dict]:
+    result = []
+    stack = [root]
+    while stack:
+        span = stack.pop()
+        result.append(span)
+        children = span.get("child_spans", [])
+        stack.extend(reversed(children))
+    return result
+
+
+def _subtree_ids(span: dict) -> set[str]:
+    ids = set()
+    stack = [span]
+    while stack:
+        s = stack.pop()
+        sid = _get_span_id(s)
+        if sid:
+            ids.add(sid)
+        stack.extend(s.get("child_spans", []))
+    return ids
+
+
+def resolve_range(root: dict, span_range) -> list[dict]:
+    spans_dfs = _dfs_order(root)
+
+    from_idx = next(
+        (i for i, s in enumerate(spans_dfs) if _span_matches(s, span_range.from_selector)),
+        None,
+    )
+    if from_idx is None:
+        return []
+
+    from_span = spans_dfs[from_idx]
+
+    if span_range.to_selector is None:
+        sub_ids = _subtree_ids(from_span)
+        return [s for s in spans_dfs[from_idx:] if _get_span_id(s) in sub_ids]
+
+    to_idx = next(
+        (j for j in range(from_idx + 1, len(spans_dfs))
+         if _span_matches(spans_dfs[j], span_range.to_selector)),
+        None,
+    )
+    if to_idx is None:
+        sub_ids = _subtree_ids(from_span)
+        return [s for s in spans_dfs[from_idx:] if _get_span_id(s) in sub_ids]
+
+    to_span = spans_dfs[to_idx]
+
+    to_sub_ids = _subtree_ids(to_span)
+    end_idx = to_idx
+    for k in range(to_idx + 1, len(spans_dfs)):
+        if _get_span_id(spans_dfs[k]) in to_sub_ids:
+            end_idx = k
+        else:
+            break
+
+    return spans_dfs[from_idx:end_idx + 1]
 
 
 def _extract_io(span: dict) -> tuple[str | None, str | None]:
@@ -80,17 +140,6 @@ def _extract_io(span: dict) -> tuple[str | None, str | None]:
         return json.dumps(val)
 
     return _serialize(inputs), _serialize(outputs)
-
-
-def apply_span_filter(
-    spans_data: list[dict], filter_config: SpanFilter | None
-) -> tuple[str | None, str | None]:
-    if filter_config is None:
-        return None, None
-    span = find_first_matching_span(spans_data, filter_config)
-    if span is None:
-        return None, None
-    return _extract_io(span)
 
 
 def apply_jsonpath(data: str, jsonpath_expr: str | None) -> tuple[str | None, bool]:
@@ -134,24 +183,44 @@ def validate_jsonpath(expr: str) -> tuple[bool, str | None]:
         return False, str(e)
 
 
-def apply_view(
-    trace_spans_data: list[dict],
-    view: TraceView,
-    fallback_input: str | None,
-    fallback_output: str | None,
-) -> tuple[str, str]:
-    inp, out = apply_span_filter(trace_spans_data, view.span_filter)
+def resolve_view(root: dict, view: TraceView) -> list[dict]:
+    results = []
+    for span_range in sorted(view.ranges, key=lambda r: r.position):
+        matched = resolve_range(root, span_range)
 
-    if inp is not None and view.input_path:
-        extracted, success = apply_jsonpath(inp, view.input_path)
-        if success:
-            inp = extracted
+        extracted_input = None
+        extracted_output = None
 
-    if out is not None and view.output_path:
-        extracted, success = apply_jsonpath(out, view.output_path)
-        if success:
-            out = extracted
+        if matched and span_range.input_path:
+            inp_data, _ = _extract_io(matched[0])
+            if inp_data:
+                extracted, success = apply_jsonpath(inp_data, span_range.input_path)
+                if success:
+                    extracted_input = extracted
 
-    final_input = inp if inp is not None else (fallback_input or "")
-    final_output = out if out is not None else (fallback_output or "")
-    return final_input, final_output
+            # Fallback: try extracting from outputs of first span
+            if extracted_input is None:
+                _, out_data = _extract_io(matched[0])
+                if out_data:
+                    extracted, success = apply_jsonpath(out_data, span_range.input_path)
+                    if success:
+                        extracted_input = extracted
+
+        if matched and span_range.output_path:
+            # Try each matched span from last to first for output extraction
+            for span in reversed(matched):
+                _, out_data = _extract_io(span)
+                if out_data:
+                    extracted, success = apply_jsonpath(out_data, span_range.output_path)
+                    if success:
+                        extracted_output = extracted
+                        break
+
+        results.append({
+            "label": span_range.label,
+            "description": span_range.description,
+            "spans": matched,
+            "extracted_input": extracted_input,
+            "extracted_output": extracted_output,
+        })
+    return results

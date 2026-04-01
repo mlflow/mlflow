@@ -1,4 +1,4 @@
-"""add trace_views table
+"""add trace_views and trace_view_ranges tables
 
 Create Date: 2026-03-26 00:00:00.000000
 
@@ -6,8 +6,6 @@ Create Date: 2026-03-26 00:00:00.000000
 
 import sqlalchemy as sa
 from alembic import op
-
-from mlflow.store.tracking.dbmodels.models import SqlTraceView
 
 # revision identifiers, used by Alembic.
 revision = "eb885a9619f6"
@@ -18,16 +16,12 @@ depends_on = None
 
 def upgrade():
     op.create_table(
-        SqlTraceView.__tablename__,
+        "trace_views",
         sa.Column("view_id", sa.String(length=50), nullable=False),
         sa.Column("name", sa.String(length=256), nullable=False),
         sa.Column("trace_id", sa.String(length=50), nullable=True),
         sa.Column("experiment_id", sa.Integer(), nullable=True),
-        sa.Column("span_filter", sa.Text(), nullable=True),
-        sa.Column("input_path", sa.Text(), nullable=True),
-        sa.Column("output_path", sa.Text(), nullable=True),
         sa.Column("created_by", sa.String(length=256), nullable=True),
-        sa.Column("description", sa.Text(), nullable=True),
         sa.Column("created_timestamp", sa.BigInteger(), nullable=False),
         sa.Column("last_updated_timestamp", sa.BigInteger(), nullable=False),
         sa.ForeignKeyConstraint(
@@ -49,23 +43,47 @@ def upgrade():
         ),
     )
 
-    with op.batch_alter_table(SqlTraceView.__tablename__, schema=None) as batch_op:
+    with op.batch_alter_table("trace_views", schema=None) as batch_op:
         batch_op.create_index(
-            f"index_{SqlTraceView.__tablename__}_trace_id_created_timestamp",
+            "index_trace_views_trace_id_created_timestamp",
             ["trace_id", "created_timestamp"],
             unique=False,
         )
         batch_op.create_index(
-            f"index_{SqlTraceView.__tablename__}_experiment_id_created_timestamp",
+            "index_trace_views_experiment_id_created_timestamp",
             ["experiment_id", "created_timestamp"],
             unique=False,
         )
+
+    op.create_table(
+        "trace_view_ranges",
+        sa.Column("range_id", sa.String(length=50), nullable=False),
+        sa.Column("view_id", sa.String(length=50), nullable=False),
+        sa.Column("position", sa.Integer(), nullable=False),
+        sa.Column("label", sa.String(length=256), nullable=False, server_default=""),
+        sa.Column("description", sa.Text(), nullable=False, server_default=""),
+        sa.Column("from_selector", sa.Text(), nullable=False),
+        sa.Column("to_selector", sa.Text(), nullable=True),
+        sa.Column("input_path", sa.Text(), nullable=True),
+        sa.Column("output_path", sa.Text(), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["view_id"],
+            ["trace_views.view_id"],
+            name="fk_trace_view_ranges_view_id",
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("range_id", name="trace_view_ranges_pk"),
+        sa.UniqueConstraint("view_id", "position", name="uq_trace_view_ranges_view_position"),
+    )
+
+    with op.batch_alter_table("trace_view_ranges", schema=None) as batch_op:
         batch_op.create_index(
-            f"index_{SqlTraceView.__tablename__}_last_updated_timestamp",
-            ["last_updated_timestamp"],
+            "index_trace_view_ranges_view_id_position",
+            ["view_id", "position"],
             unique=False,
         )
 
 
 def downgrade():
-    op.drop_table(SqlTraceView.__tablename__)
+    op.drop_table("trace_view_ranges")
+    op.drop_table("trace_views")

@@ -1126,54 +1126,16 @@ class SqlTraceView(Base):
     __tablename__ = "trace_views"
 
     view_id = Column(String(50), nullable=False)
-    """
-    View ID: `String` (limit 50 characters). *Primary Key* for ``trace_views`` table.
-    Format: "tv-<uuid>".
-    """
     name = Column(String(256), nullable=False)
-    """
-    View name: `String` (limit 256 characters).
-    """
     trace_id = Column(
         String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=True
     )
-    """
-    Trace ID: `String` (limit 50 characters). *Foreign Key* into ``trace_info`` table. Nullable.
-    """
     experiment_id = Column(
         Integer, ForeignKey("experiments.experiment_id"), nullable=True
     )
-    """
-    Experiment ID: `Integer`. *Foreign Key* into ``experiments`` table. Nullable.
-    """
-    span_filter = Column(Text, nullable=True)
-    """
-    Span filter stored as JSON: `Text`. Nullable.
-    """
-    input_path = Column(Text, nullable=True)
-    """
-    JSONPath expression for input extraction: `Text`. Nullable.
-    """
-    output_path = Column(Text, nullable=True)
-    """
-    JSONPath expression for output extraction: `Text`. Nullable.
-    """
     created_by = Column(String(256), nullable=True)
-    """
-    Creator identity: `String` (limit 256 characters). Nullable.
-    """
-    description = Column(Text, nullable=True)
-    """
-    View description: `Text`. Nullable.
-    """
     created_timestamp = Column(BigInteger, nullable=False)
-    """
-    Creation timestamp: `BigInteger` in milliseconds.
-    """
     last_updated_timestamp = Column(BigInteger, nullable=False)
-    """
-    Last update timestamp: `BigInteger` in milliseconds.
-    """
 
     __table_args__ = (
         PrimaryKeyConstraint("view_id", name="trace_views_pk"),
@@ -1184,23 +1146,41 @@ class SqlTraceView(Base):
         ),
     )
 
-    def to_mlflow_entity(self):
-        from mlflow.entities.trace_view import SpanFilter, TraceView
+    ranges = relationship(
+        "SqlTraceViewRange",
+        back_populates="view",
+        cascade="all, delete-orphan",
+        order_by="SqlTraceViewRange.position",
+        lazy="joined",
+    )
 
-        span_filter = None
-        if self.span_filter is not None:
-            span_filter = SpanFilter.from_json(self.span_filter)
+    def to_mlflow_entity(self):
+        from mlflow.entities.trace_view import SpanRange, SpanSelector, TraceView
+
+        mlflow_ranges = []
+        for sql_range in self.ranges:
+            from_sel = SpanSelector.from_json(sql_range.from_selector)
+            to_sel = SpanSelector.from_json(sql_range.to_selector) if sql_range.to_selector else None
+            mlflow_ranges.append(
+                SpanRange(
+                    from_selector=from_sel,
+                    to_selector=to_sel,
+                    label=sql_range.label,
+                    description=sql_range.description,
+                    input_path=sql_range.input_path,
+                    output_path=sql_range.output_path,
+                    position=sql_range.position,
+                    range_id=sql_range.range_id,
+                )
+            )
 
         return TraceView(
             view_id=self.view_id,
             name=self.name,
             trace_id=self.trace_id,
             experiment_id=str(self.experiment_id) if self.experiment_id is not None else None,
-            span_filter=span_filter,
-            input_path=self.input_path,
-            output_path=self.output_path,
+            ranges=mlflow_ranges,
             created_by=self.created_by,
-            description=self.description,
             create_time_ms=self.created_timestamp,
             last_update_time_ms=self.last_updated_timestamp,
         )
@@ -1209,25 +1189,63 @@ class SqlTraceView(Base):
     def from_mlflow_entity(cls, view):
         current_timestamp = int(time.time() * 1000)
         view_id = view.view_id or f"tv-{uuid.uuid4().hex[:12]}"
-        span_filter_json = view.span_filter.to_json() if view.span_filter else None
         experiment_id = int(view.experiment_id) if view.experiment_id is not None else None
 
-        return cls(
+        sql_view = cls(
             view_id=view_id,
             name=view.name,
             trace_id=view.trace_id,
             experiment_id=experiment_id,
-            span_filter=span_filter_json,
-            input_path=view.input_path,
-            output_path=view.output_path,
             created_by=view.created_by,
-            description=view.description,
             created_timestamp=view.create_time_ms or current_timestamp,
             last_updated_timestamp=view.last_update_time_ms or current_timestamp,
         )
 
+        for i, r in enumerate(view.ranges):
+            sql_view.ranges.append(
+                SqlTraceViewRange(
+                    range_id=r.range_id or f"tvr-{uuid.uuid4().hex[:12]}",
+                    view_id=view_id,
+                    position=i,
+                    label=r.label,
+                    description=r.description,
+                    from_selector=r.from_selector.to_json(),
+                    to_selector=r.to_selector.to_json() if r.to_selector else None,
+                    input_path=r.input_path,
+                    output_path=r.output_path,
+                )
+            )
+
+        return sql_view
+
     def __repr__(self):
         return f"<SqlTraceView({self.view_id}, {self.name})>"
+
+
+class SqlTraceViewRange(Base):
+    __tablename__ = "trace_view_ranges"
+
+    range_id = Column(String(50), nullable=False)
+    view_id = Column(
+        String(50), ForeignKey("trace_views.view_id", ondelete="CASCADE"), nullable=False
+    )
+    position = Column(Integer, nullable=False)
+    label = Column(String(256), nullable=False, default="")
+    description = Column(Text, nullable=False, default="")
+    from_selector = Column(Text, nullable=False)
+    to_selector = Column(Text, nullable=True)
+    input_path = Column(Text, nullable=True)
+    output_path = Column(Text, nullable=True)
+
+    __table_args__ = (
+        PrimaryKeyConstraint("range_id", name="trace_view_ranges_pk"),
+        UniqueConstraint("view_id", "position", name="uq_trace_view_ranges_view_position"),
+    )
+
+    view = relationship("SqlTraceView", back_populates="ranges")
+
+    def __repr__(self):
+        return f"<SqlTraceViewRange({self.range_id}, pos={self.position})>"
 
 
 class SqlIssue(Base):
