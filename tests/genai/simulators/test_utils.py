@@ -72,6 +72,7 @@ def test_invoke_model_without_tracing_with_inference_params():
             [{"role": "user", "content": "Hello"}],
             {"temperature": 0.5},
             None,
+            3,
         )
 
 
