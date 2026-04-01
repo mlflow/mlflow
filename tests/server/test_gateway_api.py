@@ -975,6 +975,13 @@ def test_response_timing_headers(store: SqlAlchemyStore):
         endpoint_id="test-endpoint-id", endpoint_name="my-endpoint", models=[]
     )
 
+    from mlflow.gateway.providers.utils import provider_call_duration_ms
+
+    async def _mock_chat_with_provider_timing(payload):
+        # Simulate a real provider call by setting the ContextVar as send_request would.
+        provider_call_duration_ms.set(50.0)
+        return mock_response
+
     with (
         patch("mlflow.server.gateway_api._get_store", return_value=store),
         patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
@@ -984,7 +991,7 @@ def test_response_timing_headers(store: SqlAlchemyStore):
         ) as mock_create_provider,
     ):
         mock_provider = MagicMock()
-        mock_provider.chat = AsyncMock(return_value=mock_response)
+        mock_provider.chat = _mock_chat_with_provider_timing
         mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
 
         client = TestClient(app)
@@ -994,8 +1001,10 @@ def test_response_timing_headers(store: SqlAlchemyStore):
         )
 
     assert response.status_code == 200
-    assert response.headers[MLFLOW_GATEWAY_DURATION_HEADER].isdigit()
-    assert response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER].isdigit()
+    duration = int(response.headers[MLFLOW_GATEWAY_DURATION_HEADER])
+    overhead = int(response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER])
+    assert duration >= 0
+    assert 0 <= overhead <= duration
 
 
 @pytest.mark.asyncio

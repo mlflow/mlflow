@@ -26,14 +26,9 @@ async def _aiohttp_post(headers: dict[str, str], base_url: str, path: str, paylo
     request_headers = {k: v for k, v in headers.items() if k.lower() != "accept-encoding"}
     request_headers["Accept-Encoding"] = SUPPORTED_ACCEPT_ENCODING
     url = append_to_uri_path(base_url, path)
-    start = time.perf_counter()
     async with aiohttp.ClientSession(headers=request_headers) as session:
         timeout = aiohttp.ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS)
         async with session.post(url, json=payload, timeout=timeout) as response:
-            # Record time from request start to when provider response headers arrive (TTFB).
-            provider_call_duration_ms.set(
-                provider_call_duration_ms.get() + (time.perf_counter() - start) * 1000
-            )
             yield response
 
 
@@ -56,6 +51,7 @@ async def send_request(headers: dict[str, str], base_url: str, path: str, payloa
     import aiohttp
     from fastapi import HTTPException
 
+    start = time.perf_counter()
     async with _aiohttp_post(headers, base_url, path, payload) as response:
         content_type = response.headers.get("Content-Type")
         if content_type and "application/json" in content_type:
@@ -73,7 +69,11 @@ async def send_request(headers: dict[str, str], base_url: str, path: str, payloa
         except aiohttp.ClientResponseError as e:
             detail = js.get("error", {}).get("message", e.message) if "error" in js else js
             raise HTTPException(status_code=e.status, detail=detail)
-        return js
+    # Record full provider HTTP time (connection + response headers + body) for non-streaming.
+    provider_call_duration_ms.set(
+        provider_call_duration_ms.get() + (time.perf_counter() - start) * 1000
+    )
+    return js
 
 
 async def send_stream_request(

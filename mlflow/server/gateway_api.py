@@ -136,7 +136,7 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         @functools.wraps(func)
         async def wrapper(*args, **kwargs):
-            start_time = time.time()
+            start_time = time.perf_counter()
             success = True
             result = None
             duration_ms = 0
@@ -164,7 +164,7 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                 success = False
                 raise
             finally:
-                duration_ms = int((time.time() - start_time) * 1000)
+                duration_ms = int((time.perf_counter() - start_time) * 1000)
                 params = {
                     "is_streaming": isinstance(result, StreamingResponse),
                     "invocation_type": invocation_type,
@@ -178,14 +178,27 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                     duration_ms=duration_ms,
                 )
 
-            overhead_ms = max(0, duration_ms - int(provider_call_duration_ms.get()))
-            if timing_response is not None:
-                timing_response.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
-                timing_response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
-            elif isinstance(result, StreamingResponse):
-                # StreamingResponse is returned directly; add headers to it.
-                result.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
-                result.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
+                # Inject timing headers on every response, including error paths.
+                # overhead_ms is only set when provider timing is available (non-streaming
+                # calls via aiohttp); omit it for providers that don't use those helpers
+                # (e.g. LiteLLM) to avoid reporting overhead ≈ duration misleadingly.
+                provider_duration_ms = int(provider_call_duration_ms.get())
+                is_streaming = isinstance(result, StreamingResponse)
+                overhead_ms = (
+                    max(0, duration_ms - provider_duration_ms)
+                    if provider_duration_ms > 0 or is_streaming
+                    else None
+                )
+                if timing_response is not None:
+                    timing_response.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
+                    if overhead_ms is not None:
+                        timing_response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
+                elif is_streaming:
+                    # StreamingResponse is returned directly; add headers to it.
+                    result.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
+                    if overhead_ms is not None:
+                        result.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
+
             return result
 
         # Augment the wrapper's signature with a Response parameter so FastAPI
