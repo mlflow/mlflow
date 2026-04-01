@@ -4613,8 +4613,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             # re-created in the next attempt. Loop until all traces are in existing_traces.
             if any(tid not in existing_traces for tid in all_trace_ids):
                 experiment = self.get_experiment(location)
-                max_retries = _LOG_SPANS_MAX_TRACE_CREATE_RETRIES
-                for _attempt in range(max_retries):
+                for _attempt in range(_LOG_SPANS_MAX_TRACE_CREATE_RETRIES):
                     pending = [tid for tid in all_trace_ids if tid not in existing_traces]
                     if not pending:
                         break
@@ -4663,7 +4662,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                     "Could not create trace_info for %d trace(s) after %d retries; "
                     "spans for these traces will be dropped: %s",
                     len(missing_trace_ids),
-                    max_retries,
+                    _LOG_SPANS_MAX_TRACE_CREATE_RETRIES,
                     missing_trace_ids,
                 )
                 all_span_rows = [r for r in all_span_rows if r["trace_id"] not in missing_trace_ids]
@@ -7185,8 +7184,9 @@ class _TraceAggregate:
 
 # Maximum number of attempts to create trace_info rows in log_spans() Phase 2.
 # Each IntegrityError means start_trace() raced ahead of us; we roll back and
-# re-fetch before retrying. Three attempts handles virtually all real races.
-_LOG_SPANS_MAX_TRACE_CREATE_RETRIES = 3
+# re-fetch before retrying. 10 attempts reduces span drops in high-concurrency
+# scenarios without significant backend load increase (log_spans runs async).
+_LOG_SPANS_MAX_TRACE_CREATE_RETRIES = 10
 
 
 def _bulk_upsert(session: Session, model_class: type, rows: list[dict[str, Any]]) -> None:
