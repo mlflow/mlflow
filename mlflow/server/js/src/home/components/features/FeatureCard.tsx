@@ -1,4 +1,11 @@
-import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useMemo } from 'react';
+import {
+  Typography,
+  useDesignSystemTheme,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  useDesignSystemEventComponentCallbacks,
+} from '@databricks/design-system';
 import type { FeatureDefinition } from './feature-definitions';
 import { useHomePageViewState } from '../../HomePageViewStateContext';
 
@@ -10,6 +17,12 @@ interface FeatureCardProps {
 export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
   const { theme } = useDesignSystemTheme();
   const { openLogTracesDrawer } = useHomePageViewState();
+  const events = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId,
+    analyticsEvents: events,
+  });
 
   const containerStyles = {
     overflow: 'hidden',
@@ -78,41 +91,48 @@ export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
     </div>
   );
 
-  const wrapperStyles = {
-    '&&': {
-      textDecoration: 'none',
-      color: theme.colors.textPrimary,
-      display: 'block',
-      border: 0,
-      padding: 0,
-      background: 'transparent',
-      font: 'inherit',
-      textAlign: 'left' as const,
-      flex: 1,
-      minWidth: 240,
-      height: 'auto',
-      cursor: 'pointer',
-    },
-  };
-
   if (feature.hasDrawer) {
     return (
-      <Button componentId={componentId} type="tertiary" onClick={openLogTracesDrawer} css={wrapperStyles}>
+      <button
+        type="button"
+        onClick={(e) => {
+          eventContext.onClick(e);
+          openLogTracesDrawer();
+        }}
+        css={{
+          textDecoration: 'none',
+          color: theme.colors.textPrimary,
+          display: 'block',
+          border: 0,
+          padding: 0,
+          background: 'transparent',
+          cursor: 'pointer',
+          font: 'inherit',
+          textAlign: 'left',
+          flex: 1,
+          minWidth: 240,
+        }}
+      >
         {card}
-      </Button>
+      </button>
     );
   }
 
   return (
-    <Button
-      componentId={componentId}
-      type="tertiary"
+    <a
       href={feature.docsLink}
       target="_blank"
       rel="noopener noreferrer"
-      css={wrapperStyles}
+      onClick={(e) => eventContext.onClick(e)}
+      css={{
+        textDecoration: 'none',
+        color: theme.colors.textPrimary,
+        display: 'block',
+        flex: 1,
+        minWidth: 240,
+      }}
     >
       {card}
-    </Button>
+    </a>
   );
 };
