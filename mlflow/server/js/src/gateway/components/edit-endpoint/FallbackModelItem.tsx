@@ -157,11 +157,7 @@ export const FallbackModelItem = ({
             description: 'Tooltip for remove fallback model button',
           })}
         >
-          <Button
-            componentId={`${componentId}.remove`}
-            icon={<TrashIcon />}
-            onClick={() => onRemove(index)}
-          />
+          <Button componentId={`${componentId}.remove`} icon={<TrashIcon />} onClick={() => onRemove(index)} />
         </Tooltip>
       </div>
 

@@ -112,12 +112,7 @@ export const DeleteConfirmationModal = ({
         </Typography.Text>
 
         {warningMessage && (
-          <Alert
-            componentId={`${componentId}.warning`}
-            type="warning"
-            message={warningMessage}
-            closable={false}
-          />
+          <Alert componentId={`${componentId}.warning`} type="warning" message={warningMessage} closable={false} />
         )}
 
         {additionalContent}

@@ -107,11 +107,7 @@ export const TrafficSplitModelItem = ({
             description: 'Tooltip for remove traffic split model button',
           })}
         >
-          <Button
-            componentId={`${componentId}.remove`}
-            icon={<TrashIcon />}
-            onClick={() => onRemove(index)}
-          />
+          <Button componentId={`${componentId}.remove`} icon={<TrashIcon />} onClick={() => onRemove(index)} />
         </Tooltip>
       </div>
 
