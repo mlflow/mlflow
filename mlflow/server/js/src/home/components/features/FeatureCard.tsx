@@ -1,4 +1,4 @@
-import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { FeatureDefinition } from './feature-definitions';
 import { useHomePageViewState } from '../../HomePageViewStateContext';
 import { Link } from '../../../common/utils/RoutingUtils';
@@ -87,32 +87,18 @@ export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
 
   if (feature.hasDrawer) {
     return (
-      <Button
+      <Link
         componentId={componentId}
-        type="tertiary"
-        onClick={openLogTracesDrawer}
-        css={{
-          '&&&&': {
-            ...wrapperStyles,
-            padding: 0,
-            height: 'auto',
-            border: 'none',
-            background: 'transparent',
-            boxShadow: 'none',
-            borderRadius: 0,
-            whiteSpace: 'normal' as const,
-            lineHeight: 'inherit',
-            font: 'inherit',
-            cursor: 'pointer',
-          },
-          // Reset Button's inner span wrappers without affecting card content
-          '&&&& > span, &&&& > span > span': {
-            display: 'contents',
-          },
+        to="#"
+        disableWorkspacePrefix
+        onClick={(e: React.MouseEvent) => {
+          e.preventDefault();
+          openLogTracesDrawer();
         }}
+        css={wrapperStyles}
       >
         {card}
-      </Button>
+      </Link>
     );
   }
 

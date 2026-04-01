@@ -25,10 +25,10 @@ describe('FeatureCard', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Tracing' })).toBeInTheDocument();
   });
 
-  it('renders as a button and opens drawer for features with hasDrawer', async () => {
+  it('opens drawer on click for features with hasDrawer', async () => {
     renderWithRouter(<FeatureCard feature={tracingFeature} componentId="" />);
 
-    await userEvent.click(screen.getByRole('button'));
+    await userEvent.click(screen.getByRole('link'));
 
     expect(mockOpenLogTracesDrawer).toHaveBeenCalled();
   });
