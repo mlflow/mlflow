@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+import pandas as pd
 import pytest
 
 from mlflow.entities.evaluation_dataset import DatasetGranularity, EvaluationDataset
@@ -33,6 +34,7 @@ from mlflow.telemetry.events import (
     GatewayListEndpointsEvent,
     GatewayListSecretsEvent,
     GatewayUpdateEndpointEvent,
+    GenAIEvaluateEvent,
     LogAssessmentEvent,
     MakeJudgeEvent,
     MergeRecordsEvent,
@@ -710,3 +712,18 @@ def test_discover_issues_parse_result(result, expected_params):
 def test_update_issue_parse_params(arguments, expected_params):
     assert UpdateIssueEvent.name == "update_issue"
     assert UpdateIssueEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_eval_data_type"),
+    [
+        ({"data": [{"inputs": {"q": "a"}}]}, "list[dict]"),
+        ({"data": pd.DataFrame([{"inputs": {"q": "a"}}])}, "pd.DataFrame"),
+        ({"data": "unexpected_type"}, "unknown"),
+        ({"data": None}, None),
+        ({}, None),
+    ],
+)
+def test_genai_evaluate_event_parse_eval_data_type(arguments, expected_eval_data_type):
+    result = GenAIEvaluateEvent.parse(arguments)
+    assert result.get("eval_data_type") == expected_eval_data_type
