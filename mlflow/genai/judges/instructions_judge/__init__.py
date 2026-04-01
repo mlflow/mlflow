@@ -776,7 +776,8 @@ class InstructionsJudge(Judge):
             any_of = serialized.get("anyOf")
             if not isinstance(any_of, list):
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid feedback_value_type serialization: 'anyOf' must be a list: {serialized}"
+                    "Invalid feedback_value_type serialization: "
+                    f"'anyOf' must be a list: {serialized}"
                 )
 
             null_schemas = [s for s in any_of if isinstance(s, dict) and s.get("type") == "null"]
