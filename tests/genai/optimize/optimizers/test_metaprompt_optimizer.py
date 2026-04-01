@@ -227,9 +227,9 @@ def test_call_reflection_model_success(mock_llm_response):
         assert "{{question}}" in result["instruction"]
 
         mock_call.assert_called_once()
-        call_kwargs = mock_call.call_args
-        assert call_kwargs[0][0] == "openai:/gpt-4o"
-        assert call_kwargs[1]["json_mode"] is True
+        args, kwargs = mock_call.call_args
+        assert args[0] == "openai:/gpt-4o"
+        assert kwargs["json_mode"] is True
 
 
 def test_call_reflection_model_with_markdown():
@@ -272,8 +272,8 @@ def test_call_reflection_model_with_lm_kwargs(mock_llm_response):
 
         # Verify that custom lm_kwargs were passed as inference_params
         mock_call.assert_called_once()
-        call_kwargs = mock_call.call_args[1]
-        assert call_kwargs["inference_params"] == custom_lm_kwargs
+        _, kwargs = mock_call.call_args
+        assert kwargs["inference_params"] == custom_lm_kwargs
 
 
 def test_optimize_zero_shot_mode(sample_target_prompts, mock_llm_response):
