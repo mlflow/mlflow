@@ -779,9 +779,7 @@ class InstructionsJudge(Judge):
                     f"Invalid feedback_value_type serialization: 'anyOf' must be a list: {serialized}"
                 )
 
-            null_schemas = [
-                s for s in any_of if isinstance(s, dict) and s.get("type") == "null"
-            ]
+            null_schemas = [s for s in any_of if isinstance(s, dict) and s.get("type") == "null"]
             non_null_schemas = [
                 s for s in any_of if isinstance(s, dict) and s.get("type") != "null"
             ]
