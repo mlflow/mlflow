@@ -121,9 +121,9 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
     Args:
         model_uri: Model URI in one of these formats:
             - "databricks" - Use default Databricks managed judge
-            - "databricks:/endpoint" - Use LiteLLM with Databricks endpoint
-            - "gateway:/endpoint" - Use MLflow AI Gateway endpoint
-            - "provider:/model" - Use native gateway provider or LiteLLM fallback
+            - "provider:/model" - Providers constructable by ``_get_provider_instance``
+              (openai, anthropic, gateway, databricks, etc.) use native gateway provider;
+              all others fall back to LiteLLM
         kwargs: Additional arguments passed to the underlying provider
 
     Returns:
