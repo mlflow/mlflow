@@ -1,4 +1,11 @@
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { useMemo } from 'react';
+import {
+  Typography,
+  useDesignSystemTheme,
+  DesignSystemEventProviderAnalyticsEventTypes,
+  DesignSystemEventProviderComponentTypes,
+  useDesignSystemEventComponentCallbacks,
+} from '@databricks/design-system';
 import type { FeatureDefinition } from './feature-definitions';
 import { useHomePageViewState } from '../../HomePageViewStateContext';
 
@@ -9,6 +16,12 @@ interface FeatureCardProps {
 export const FeatureCard = ({ feature }: FeatureCardProps) => {
   const { theme } = useDesignSystemTheme();
   const { openLogTracesDrawer } = useHomePageViewState();
+  const events = useMemo(() => [DesignSystemEventProviderAnalyticsEventTypes.OnClick], []);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Button,
+    componentId: feature.componentId,
+    analyticsEvents: events,
+  });
 
   const containerStyles = {
     overflow: 'hidden',
@@ -81,7 +94,10 @@ export const FeatureCard = ({ feature }: FeatureCardProps) => {
     return (
       <button
         type="button"
-        onClick={openLogTracesDrawer}
+        onClick={(e) => {
+          eventContext.onClick(e);
+          openLogTracesDrawer();
+        }}
         css={{
           textDecoration: 'none',
           color: theme.colors.textPrimary,
@@ -106,6 +122,7 @@ export const FeatureCard = ({ feature }: FeatureCardProps) => {
       href={feature.docsLink}
       target="_blank"
       rel="noopener noreferrer"
+      onClick={(e) => eventContext.onClick(e)}
       css={{
         textDecoration: 'none',
         color: theme.colors.textPrimary,
