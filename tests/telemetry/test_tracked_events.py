@@ -513,20 +513,20 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
                 {
                     "class": "UserDefinedScorer",
                     "kind": "decorator",
-                    "scope": "response",
+                    "scope": "trace",
                 },
                 {
                     "class": "UserDefinedScorer",
                     "kind": "instructions",
-                    "scope": "response",
+                    "scope": "trace",
                 },
                 {
                     "class": "UserDefinedScorer",
                     "kind": "instructions",
                     "scope": "session",
                 },
-                {"class": "Guidelines", "kind": "guidelines", "scope": "response"},
-                {"class": "RelevanceToQuery", "kind": "builtin", "scope": "response"},
+                {"class": "Guidelines", "kind": "guidelines", "scope": "trace"},
+                {"class": "RelevanceToQuery", "kind": "builtin", "scope": "trace"},
                 {"class": "UserFrustration", "kind": "builtin", "scope": "session"},
             ],
             "eval_data_type": "list[dict]",
@@ -549,8 +549,8 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
         expected_params = {
             "predict_fn_provided": True,
             "scorer_info": [
-                {"class": "RelevanceToQuery", "kind": "builtin", "scope": "response"},
-                {"class": "Guidelines", "kind": "guidelines", "scope": "response"},
+                {"class": "RelevanceToQuery", "kind": "builtin", "scope": "trace"},
+                {"class": "Guidelines", "kind": "guidelines", "scope": "trace"},
             ],
             "eval_data_type": "list[dict]",
             "eval_data_size": 1,
@@ -592,7 +592,7 @@ def test_genai_evaluate_telemetry_data_fields(
                 {
                     "class": "UserDefinedScorer",
                     "kind": "decorator",
-                    "scope": "response",
+                    "scope": "trace",
                 },
             ],
             "eval_data_type": "list[dict]",
@@ -619,7 +619,7 @@ def test_genai_evaluate_telemetry_data_fields(
                 {
                     "class": "UserDefinedScorer",
                     "kind": "decorator",
-                    "scope": "response",
+                    "scope": "trace",
                 },
             ],
             "eval_data_type": "pd.DataFrame",
@@ -649,7 +649,7 @@ def test_genai_evaluate_telemetry_data_fields(
                 {
                     "class": "UserDefinedScorer",
                     "kind": "decorator",
-                    "scope": "response",
+                    "scope": "trace",
                 },
             ],
             "eval_data_type": "list[Trace]",
@@ -687,7 +687,7 @@ def test_genai_evaluate_telemetry_data_fields(
                 {
                     "class": "UserDefinedScorer",
                     "kind": "decorator",
-                    "scope": "response",
+                    "scope": "trace",
                 },
             ],
             "eval_data_type": "EvaluationDataset",
@@ -1393,7 +1393,7 @@ def test_scorer_call_direct(mock_requests, mock_telemetry_client: TelemetryClien
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "decorator",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1420,7 +1420,7 @@ def test_scorer_call_direct(mock_requests, mock_telemetry_client: TelemetryClien
         {
             "scorer_class": "Safety",
             "scorer_kind": "builtin",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1444,7 +1444,7 @@ def test_scorer_call_direct(mock_requests, mock_telemetry_client: TelemetryClien
         {
             "scorer_class": "Guidelines",
             "scorer_kind": "guidelines",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1469,7 +1469,7 @@ def test_scorer_call_direct(mock_requests, mock_telemetry_client: TelemetryClien
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "class",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1538,7 +1538,7 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
         for params in event_params
         if params["scorer_class"] == "UserDefinedScorer"
         and params["scorer_kind"] == "decorator"
-        and params["is_session_level_scorer"] is False
+        and params["scope"] == "trace"
         and params["callsite"] == "genai_evaluate"
         and params["has_feedback_error"] is False
     ]
@@ -1550,7 +1550,7 @@ def test_scorer_call_from_genai_evaluate(mock_requests, mock_telemetry_client: T
         for params in event_params
         if params["scorer_class"] == "UserDefinedScorer"
         and params["scorer_kind"] == "instructions"
-        and params["is_session_level_scorer"] is True
+        and params["scope"] == "session"
         and params["callsite"] == "genai_evaluate"
         and params["has_feedback_error"] is False
     ]
@@ -1589,7 +1589,7 @@ def test_scorer_call_online_scoring_callsite(
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "decorator",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": expected_callsite,
             "has_feedback_error": False,
         },
@@ -1624,7 +1624,7 @@ def test_scorer_call_tracks_feedback_errors(mock_requests, mock_telemetry_client
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "instructions",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": True,
         },
@@ -1649,7 +1649,7 @@ def test_scorer_call_tracks_feedback_errors(mock_requests, mock_telemetry_client
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "decorator",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": True,
         },
@@ -1670,7 +1670,7 @@ def test_scorer_call_tracks_feedback_errors(mock_requests, mock_telemetry_client
         {
             "scorer_class": "UserDefinedScorer",
             "scorer_kind": "decorator",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1713,7 +1713,7 @@ def test_scorer_call_wrapped_builtin_scorer_direct(
         {
             "scorer_class": "Completeness",
             "scorer_kind": "builtin",
-            "is_session_level_scorer": False,
+            "scope": "trace",
             "callsite": "direct_scorer_call",
             "has_feedback_error": False,
         },
@@ -1772,7 +1772,7 @@ def test_scorer_call_wrapped_builtin_scorer_from_genai_evaluate(
         {
             "scorer_class": "UserFrustration",
             "scorer_kind": "builtin",
-            "is_session_level_scorer": True,
+            "scope": "session",
             "callsite": "genai_evaluate",
             "has_feedback_error": False,
         },

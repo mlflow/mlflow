@@ -136,7 +136,7 @@ class GenAIEvaluateEvent(Event):
             {
                 "class": _get_scorer_class_name_for_tracking(scorer),
                 "kind": scorer.kind.value,
-                "scope": "session" if scorer.is_session_level_scorer else "response",
+                "scope": "session" if scorer.is_session_level_scorer else "trace",
             }
             for scorer in scorers
             if isinstance(scorer, Scorer)
@@ -696,7 +696,7 @@ class ScorerCallEvent(Event):
         return {
             "scorer_class": _get_scorer_class_name_for_tracking(scorer_instance),
             "scorer_kind": scorer_instance.kind.value,
-            "is_session_level_scorer": scorer_instance.is_session_level_scorer,
+            "scope": "session" if scorer_instance.is_session_level_scorer else "trace",
             "callsite": callsite,
         }
 

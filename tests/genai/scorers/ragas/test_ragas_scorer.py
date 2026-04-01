@@ -321,7 +321,7 @@ def test_ragas_scorer_telemetry_in_genai_evaluate(
         {
             "predict_fn_provided": False,
             "scorer_info": [
-                {"class": expected_class, "kind": "third_party", "scope": "response"},
+                {"class": expected_class, "kind": "third_party", "scope": "trace"},
             ],
             "eval_data_type": "list[dict]",
             "eval_data_size": 1,
