@@ -6,9 +6,8 @@ from unittest import mock
 import pytest
 import requests
 
-from mlflow.deployments.server.config import Endpoint
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointModelInfo
+from mlflow.genai.utils.gateway_utils import GatewayConfig
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.model_utils import (
     _MODELS_WITHOUT_OUTPUT_CONFIG,
@@ -337,86 +336,28 @@ def test_score_model_togetherai(monkeypatch):
 
 
 def test_score_model_gateway_completions():
-    from mlflow.deployments.mlflow import MlflowDeploymentClient
-
-    expected_output = {
-        "choices": [
-            {"text": "man, one giant leap for mankind.", "metadata": {"finish_reason": "stop"}}
-        ],
-        "metadata": {
-            "model": "gpt-4-0613",
-            "input_tokens": 13,
-            "total_tokens": 21,
-            "output_tokens": 8,
-            "endpoint_type": "llm/v1/completions",
-        },
-    }
+    gw_config = GatewayConfig(
+        api_base="http://localhost:5000/gateway/mlflow/v1/",
+        endpoint_name="my-route",
+        extra_headers=None,
+    )
 
     with (
         mock.patch(
-            "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
-            return_value=Endpoint(
-                name="my-route",
-                endpoint_type="llm/v1/completions",
-                model=EndpointModelInfo(provider="openai"),
-                endpoint_url="my-route",
-                limit=None,
-            ),
-        ),
+            "mlflow.metrics.genai.model_utils.get_gateway_config", return_value=gw_config
+        ) as mock_get_config,
         mock.patch(
-            "mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output
-        ),
-        mock.patch(
-            "mlflow.deployments.get_deploy_client", return_value=MlflowDeploymentClient("url")
-        ),
+            "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+        ) as mock_send,
     ):
-        response = score_model_on_payload("gateway:/my-route", "")
-        assert response == expected_output["choices"][0]["text"]
-
-
-def test_score_model_gateway_chat():
-    from mlflow.deployments.mlflow import MlflowDeploymentClient
-
-    expected_output = {
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": "The core of the sun is estimated to have a temperature of about "
-                    "15 million degrees Celsius (27 million degrees Fahrenheit).",
-                },
-                "metadata": {"finish_reason": "stop"},
-            }
-        ],
-        "metadata": {
-            "input_tokens": 17,
-            "output_tokens": 24,
-            "total_tokens": 41,
-            "model": "gpt-4o-mini",
-            "endpoint_type": "llm/v1/chat",
-        },
-    }
-
-    with (
-        mock.patch(
-            "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
-            return_value=Endpoint(
-                name="my-route",
-                endpoint_type="llm/v1/chat",
-                model=EndpointModelInfo(provider="openai"),
-                endpoint_url="my-route",
-                limit=None,
-            ),
-        ),
-        mock.patch(
-            "mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output
-        ),
-        mock.patch(
-            "mlflow.deployments.get_deploy_client", return_value=MlflowDeploymentClient("url")
-        ),
-    ):
-        response = score_model_on_payload("gateway:/my-route", "")
-        assert response == expected_output["choices"][0]["message"]["content"]
+        response = score_model_on_payload("gateway:/my-route", "my prompt")
+        assert response == "\n\nThis is a test!"
+        mock_get_config.assert_called_once_with("my-route")
+        mock_send.assert_called_once_with(
+            endpoint="http://localhost:5000/gateway/mlflow/v1/chat/completions",
+            headers={},
+            payload={"model": "my-route", "messages": [{"role": "user", "content": "my prompt"}]},
+        )
 
 
 @pytest.mark.parametrize(

@@ -45,22 +45,32 @@ def get_endpoint_type(endpoint_uri: str) -> str | None:
 
 # TODO: improve this name
 def score_model_on_payload(
-    model_uri,
-    payload,
-    eval_parameters=None,
-    extra_headers=None,
-    proxy_url=None,
-    endpoint_type=None,
+    model_uri: str,
+    payload: str,
+    eval_parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
+    endpoint_type: str | None = None,
 ):
     """Call the model identified by the given uri with the given string prompt."""
-    from mlflow.deployments import get_deploy_client
-
     eval_parameters = eval_parameters or {}
     extra_headers = extra_headers or {}
 
     prefix, suffix = _parse_model_uri(model_uri)
 
-    if prefix in ["gateway", "endpoints"]:
+    if prefix == "gateway":
+        return _call_llm_provider_api(
+            "gateway",
+            suffix,
+            input_data=payload,
+            eval_parameters=eval_parameters,
+            extra_headers=extra_headers,
+            proxy_url=proxy_url,
+        )
+
+    elif prefix == "endpoints":
+        from mlflow.deployments import get_deploy_client
+
         if isinstance(payload, str) and endpoint_type is None:
             client = get_deploy_client()
             endpoint_type = client.get_endpoint(suffix).endpoint_type
