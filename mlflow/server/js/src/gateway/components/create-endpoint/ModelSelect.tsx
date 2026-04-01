@@ -12,7 +12,7 @@ interface ModelSelectProps {
   disabled?: boolean;
   error?: string;
   /** Component ID prefix for telemetry (default: 'mlflow.gateway.model-select') */
-  componentIdPrefix?: string;
+  componentId?: string;
   /** Custom label for the select field. If not provided, defaults to "Model" */
   label?: React.ReactNode;
   /** If true, hides the model capabilities tags (Tools, Reasoning, Caching) */
@@ -25,7 +25,7 @@ export const ModelSelect = ({
   onChange,
   disabled,
   error,
-  componentIdPrefix = 'mlflow.gateway.model-select',
+  componentId = 'mlflow.gateway.model-select',
   label,
   hideCapabilities,
 }: ModelSelectProps) => {
@@ -56,12 +56,12 @@ export const ModelSelect = ({
 
   return (
     <div>
-      <FormUI.Label htmlFor={componentIdPrefix}>
+      <FormUI.Label htmlFor={componentId}>
         {label ?? <FormattedMessage defaultMessage="Model" description="Label for model select field" />}
       </FormUI.Label>
       <Input
-        id={componentIdPrefix}
-        componentId={componentIdPrefix}
+        id={componentId}
+        componentId={componentId}
         placeholder={
           !provider
             ? intl.formatMessage({
@@ -125,7 +125,7 @@ const ModelCapabilities = memo(function ModelCapabilities({ model }: { model: Pr
       }}
     >
       {capabilities.map((cap) => (
-        <Tag key={cap} componentId={`mlflow.gateway.model-select.capability.${cap.toLowerCase()}`}>
+        <Tag key={cap} componentId="mlflow.gateway.model-select.capability">
           {cap}
         </Tag>
       ))}

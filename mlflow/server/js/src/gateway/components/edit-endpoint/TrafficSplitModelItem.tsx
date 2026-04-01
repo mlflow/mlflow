@@ -25,7 +25,7 @@ interface TrafficSplitModelItemProps {
   onModelChange: (index: number, updates: Partial<TrafficSplitModel>) => void;
   onWeightChange: (index: number, weight: number) => void;
   onRemove: (index: number) => void;
-  componentIdPrefix: string;
+  componentId: string;
 }
 
 export const TrafficSplitModelItem = ({
@@ -34,7 +34,7 @@ export const TrafficSplitModelItem = ({
   onModelChange,
   onWeightChange,
   onRemove,
-  componentIdPrefix,
+  componentId,
 }: TrafficSplitModelItemProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
@@ -79,7 +79,7 @@ export const TrafficSplitModelItem = ({
       <div css={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flex: 1 }}>
           <Button
-            componentId={`${componentIdPrefix}.expand.${index}`}
+            componentId={`${componentId}.expand`}
             icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
             onClick={() => setIsExpanded(!isExpanded)}
             size="small"
@@ -101,14 +101,14 @@ export const TrafficSplitModelItem = ({
           )}
         </div>
         <Tooltip
-          componentId={`${componentIdPrefix}.remove-tooltip.${index}`}
+          componentId={`${componentId}.remove-tooltip`}
           content={intl.formatMessage({
             defaultMessage: 'Remove model',
             description: 'Tooltip for remove traffic split model button',
           })}
         >
           <Button
-            componentId={`${componentIdPrefix}.remove.${index}`}
+            componentId={`${componentId}.remove`}
             icon={<TrashIcon />}
             onClick={() => onRemove(index)}
           />
@@ -133,14 +133,14 @@ export const TrafficSplitModelItem = ({
                 },
               });
             }}
-            componentIdPrefix={`${componentIdPrefix}.provider.${index}`}
+            componentId={`${componentId}.provider`}
           />
 
           <ModelSelect
             provider={model.provider}
             value={model.modelName}
             onChange={(modelName) => onModelChange(index, { modelName })}
-            componentIdPrefix={`${componentIdPrefix}.model.${index}`}
+            componentId={`${componentId}.model`}
           />
 
           <ApiKeyConfigurator
@@ -152,16 +152,16 @@ export const TrafficSplitModelItem = ({
             authModes={authModes}
             defaultAuthMode={defaultAuthMode}
             isLoadingProviderConfig={isLoadingProviderConfig}
-            componentIdPrefix={`${componentIdPrefix}.api-key.${index}`}
+            componentId={`${componentId}.api-key`}
           />
 
           <div css={{ width: 120 }}>
-            <FormUI.Label htmlFor={`${componentIdPrefix}.weight.${index}`}>
+            <FormUI.Label htmlFor={`${componentId}.weight`}>
               <FormattedMessage defaultMessage="Weight" description="Label for traffic split weight input" />
             </FormUI.Label>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
               <GatewayInput
-                componentId={`${componentIdPrefix}.weight.${index}`}
+                componentId={`${componentId}.weight`}
                 type="number"
                 min={0}
                 max={100}

@@ -299,7 +299,7 @@ export const EditEndpointFormRenderer = ({
                         <TrafficSplitConfigurator
                           value={field.value}
                           onChange={field.onChange}
-                          componentIdPrefix="mlflow.gateway.edit-endpoint.traffic-split"
+                          componentId="mlflow.gateway.edit-endpoint.traffic-split"
                         />
                       )}
                     />
@@ -335,7 +335,7 @@ export const EditEndpointFormRenderer = ({
                         <FallbackModelsConfigurator
                           value={field.value}
                           onChange={field.onChange}
-                          componentIdPrefix="mlflow.gateway.edit-endpoint.fallback"
+                          componentId="mlflow.gateway.edit-endpoint.fallback"
                         />
                       )}
                     />
@@ -363,7 +363,7 @@ export const EditEndpointFormRenderer = ({
                         <UsageTrackingConfigurator
                           value={field.value}
                           onChange={field.onChange}
-                          componentIdPrefix="mlflow.gateway.edit-endpoint.usage-tracking"
+                          componentId="mlflow.gateway.edit-endpoint.usage-tracking"
                         />
                       )}
                     />

@@ -19,7 +19,7 @@ export interface SecretFormFieldsProps {
     configFields?: Record<string, string>;
   };
   disabled?: boolean;
-  componentIdPrefix?: string;
+  componentId?: string;
   hideNameField?: boolean;
 }
 
@@ -29,7 +29,7 @@ export const SecretFormFields = ({
   onChange,
   errors,
   disabled,
-  componentIdPrefix = 'mlflow.gateway.secret-form',
+  componentId = 'mlflow.gateway.secret-form',
   hideNameField = false,
 }: SecretFormFieldsProps) => {
   const { theme } = useDesignSystemTheme();
@@ -125,13 +125,13 @@ export const SecretFormFields = ({
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
       {!hideNameField && (
         <div>
-          <FormUI.Label htmlFor={`${componentIdPrefix}.name`}>
+          <FormUI.Label htmlFor={`${componentId}.name`}>
             <FormattedMessage defaultMessage="API key name" description="Label for API key name input" />
             <span css={{ color: theme.colors.textValidationDanger }}> *</span>
           </FormUI.Label>
           <GatewayInput
-            id={`${componentIdPrefix}.name`}
-            componentId={`${componentIdPrefix}.name`}
+            id={`${componentId}.name`}
+            componentId={`${componentId}.name`}
             value={value.name}
             onChange={(e: ChangeEvent<HTMLInputElement>) => handleNameChange(e.target.value)}
             placeholder={formatMessage({
@@ -151,8 +151,8 @@ export const SecretFormFields = ({
             <FormattedMessage defaultMessage="Authentication method" description="Label for auth mode selector" />
           </FormUI.Label>
           <Radio.Group
-            name={`${componentIdPrefix}.auth-mode`}
-            componentId={`${componentIdPrefix}.auth-mode`}
+            name={`${componentId}.auth-mode`}
+            componentId={`${componentId}.auth-mode`}
             value={effectiveAuthMode}
             onChange={(e: RadioChangeEvent) => handleAuthModeChange(e.target.value)}
             disabled={disabled}
@@ -177,14 +177,14 @@ export const SecretFormFields = ({
 
       {sortedFields.map((field) => (
         <div key={field.name}>
-          <FormUI.Label htmlFor={`${componentIdPrefix}.${field.fieldType}.${field.name}`}>
+          <FormUI.Label htmlFor={`${componentId}.${field.fieldType}.${field.name}`}>
             {formatCredentialFieldName(field.name)}
             {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
           </FormUI.Label>
           {field.fieldType === 'secret' ? (
             <SecretInput
-              id={`${componentIdPrefix}.secret.${field.name}`}
-              componentId={`${componentIdPrefix}.secret.${field.name}`}
+              id={`${componentId}.secret.${field.name}`}
+              componentId={`${componentId}.secret`}
               value={value.secretFields[field.name] ?? ''}
               onChange={(e: ChangeEvent<HTMLInputElement>) => handleSecretFieldChange(field.name, e.target.value)}
               placeholder={field.description}
@@ -193,8 +193,8 @@ export const SecretFormFields = ({
             />
           ) : (
             <GatewayInput
-              id={`${componentIdPrefix}.config.${field.name}`}
-              componentId={`${componentIdPrefix}.config.${field.name}`}
+              id={`${componentId}.config.${field.name}`}
+              componentId={`${componentId}.config`}
               value={value.configFields[field.name] ?? ''}
               onChange={(e: ChangeEvent<HTMLInputElement>) => handleConfigFieldChange(field.name, e.target.value)}
               placeholder={field.description}

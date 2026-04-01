@@ -131,7 +131,7 @@ export const EditApiKeyModal = ({ open, secret, onClose, onSuccess }: EditApiKey
           value={formData}
           onChange={handleFormDataChange}
           errors={errors}
-          componentIdPrefix="mlflow.gateway.edit-api-key-modal"
+          componentId="mlflow.gateway.edit-api-key-modal"
           hideNameField
         />
       </div>
