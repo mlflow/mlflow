@@ -97,8 +97,13 @@ def _main():
         if job_id:
             _set_job_tracker(None)
         if telemetry_client := get_telemetry_client():
-            # flush the records before job exits
-            telemetry_client.flush()
+            # best-effort flush before job exits; timeout avoids blocking shutdown
+            try:
+                flush_thread = threading.Thread(target=telemetry_client.flush, daemon=True)
+                flush_thread.start()
+                flush_thread.join(timeout=5)
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
