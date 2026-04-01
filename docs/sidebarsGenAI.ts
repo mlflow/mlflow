@@ -573,6 +573,11 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Quickstart',
         },
         {
+          type: 'doc',
+          id: 'eval-monitor/ai-insights/detect-issues',
+          label: 'Automatic Issue Detection',
+        },
+        {
           type: 'category',
           label: 'Running Evaluations',
           items: [
@@ -860,11 +865,6 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'category',
           label: 'AI Insights',
           items: [
-            {
-              type: 'doc',
-              id: 'eval-monitor/ai-insights/detect-issues',
-              label: 'Automatic Issue Detection',
-            },
             {
               type: 'doc',
               id: 'eval-monitor/ai-insights/ai-issue-discovery',
