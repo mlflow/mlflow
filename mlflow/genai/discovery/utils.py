@@ -206,6 +206,7 @@ def _call_llm(
     json_mode: bool = False,
     response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> Any:
     if _is_litellm_available():
         return _call_llm_via_litellm(
@@ -214,6 +215,7 @@ def _call_llm(
             json_mode=json_mode,
             response_format=response_format,
             token_counter=token_counter,
+            inference_params=inference_params,
         )
     return _call_llm_via_gateway(
         model,
@@ -221,6 +223,7 @@ def _call_llm(
         json_mode=json_mode,
         response_format=response_format,
         token_counter=token_counter,
+        inference_params=inference_params,
     )
 
 
@@ -231,6 +234,7 @@ def _call_llm_via_litellm(
     json_mode: bool = False,
     response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> Any:
     from mlflow.genai.judges.adapters.litellm_adapter import _invoke_litellm
     from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
@@ -251,6 +255,9 @@ def _call_llm_via_litellm(
         extra_headers = None
 
     use_format = response_format or ({"type": "json_object"} if json_mode else None)
+    merged_params = {"max_completion_tokens": LLM_MAX_TOKENS}
+    if inference_params:
+        merged_params.update(inference_params)
     response = _invoke_litellm(
         litellm_model=litellm_model,
         messages=messages,
@@ -258,7 +265,7 @@ def _call_llm_via_litellm(
         num_retries=NUM_RETRIES,
         response_format=use_format,
         include_response_format=use_format is not None,
-        inference_params={"max_completion_tokens": LLM_MAX_TOKENS},
+        inference_params=merged_params,
         api_base=api_base,
         api_key=api_key,
         extra_headers=extra_headers,
@@ -275,6 +282,7 @@ def _call_llm_via_gateway(
     json_mode: bool = False,
     response_format: type[pydantic.BaseModel] | None = None,
     token_counter: _TokenCounter | None = None,
+    inference_params: dict[str, Any] | None = None,
 ) -> Any:
     # Lightweight fallback for when LiteLLM is not installed. Supports
     # providers with MLflow gateway adapters (OpenAI, Anthropic, Gemini, Mistral)
@@ -295,6 +303,8 @@ def _call_llm_via_gateway(
     provider = _get_provider_instance(provider_name, model_name)
 
     payload = {"messages": messages, "max_completion_tokens": LLM_MAX_TOKENS}
+    if inference_params:
+        payload.update(inference_params)
     if response_format is not None:
         payload["response_format"] = _pydantic_to_response_format(response_format)
     elif json_mode:
