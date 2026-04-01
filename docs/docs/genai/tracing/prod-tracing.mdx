@@ -209,7 +209,7 @@ def handle_chat(request: Request, chat_request: ChatRequest):
         session_id=session_id,
         user=user_id,
         client_request_id=client_request_id,
-        metadata={
+        tags={
             # Environment metadata - tracks deployment context
             "environment": "production",
             "app_version": os.getenv("APP_VERSION", "1.0.0"),

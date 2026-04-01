@@ -22,7 +22,6 @@ MLflow provides dedicated `session_id` and `user` parameters in both <APILink fn
 
 ## Basic Usage
 
-
 ### Context manager (Suitable for auto-instrumented applications)
 
 When using auto-instrumented libraries (e.g. `mlflow.langchain.autolog()`), you don't control
@@ -61,7 +60,6 @@ To record user and session information within a function you control, use the <A
   <TabItem value="python" label="Python" default>
     ```python
     import mlflow
-
 
     @mlflow.trace
     def chat_completion(message: list[dict], user_id: str, session_id: str):
