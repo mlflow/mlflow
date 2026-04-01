@@ -99,7 +99,9 @@ def _main():
         if telemetry_client := get_telemetry_client():
             # best-effort flush before job exits; timeout avoids blocking shutdown
             try:
-                flush_thread = threading.Thread(target=telemetry_client.flush, daemon=True)
+                flush_thread = threading.Thread(
+                    target=telemetry_client.flush, daemon=True, name="FlushTelemetryRecords"
+                )
                 flush_thread.start()
                 flush_thread.join(timeout=5)
             except Exception:
