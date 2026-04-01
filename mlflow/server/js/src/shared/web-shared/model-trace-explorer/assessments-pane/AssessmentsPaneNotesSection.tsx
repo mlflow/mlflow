@@ -49,7 +49,9 @@ export const AssessmentsPaneNotesSection = ({
   }
 
   const { createAssessmentMutation, isLoading: isCreating } = useCreateAssessment({ traceId });
-  const { updateAssessmentMutation, isLoading: isUpdating } = useUpdateAssessment({ assessment: existingNotes! });
+  const { updateAssessmentMutation, isLoading: isUpdating } = useUpdateAssessment({
+    assessment: existingNotes as FeedbackAssessment,
+  });
 
   const isLoading = isCreating || isUpdating;
   const isDirty = notesText !== serverText;
