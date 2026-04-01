@@ -43,8 +43,6 @@ from mlflow.genai.discovery.extraction import (
 )
 from mlflow.genai.discovery.sampling import sample_traces
 from mlflow.genai.discovery.utils import (
-    _call_llm,
-    _TokenCounter,
     build_summary,
     collect_affected_trace_ids,
     compute_latency_percentiles,
@@ -57,6 +55,7 @@ from mlflow.genai.discovery.utils import (
 )
 from mlflow.genai.judges.make_judge import make_judge
 from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.utils.llm_utils import _call_llm, _TokenCounter
 from mlflow.telemetry.events import DiscoverIssuesEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey

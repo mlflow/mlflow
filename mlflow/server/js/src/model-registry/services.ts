@@ -1,12 +1,4 @@
-import {
-  deleteJson,
-  getBigIntJson,
-  getJson,
-  patchBigIntJson,
-  patchJson,
-  postBigIntJson,
-  postJson,
-} from '../common/utils/FetchUtils';
+import { deleteJson, getJson, patchJson, postJson } from '../common/utils/FetchUtils';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class Services {
@@ -14,25 +6,25 @@ export class Services {
    * Create a registered model
    */
   static createRegisteredModel = (data: any) =>
-    postBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/create', data });
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/create', data });
 
   /**
    * List all registered models
    */
   static listRegisteredModels = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/list', data });
+    getJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/list', data });
 
   /**
    * Search registered models
    */
   static searchRegisteredModels = (data: any) =>
-    getBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/search', data });
+    getJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/search', data });
 
   /**
    * Update registered model
    */
   static updateRegisteredModel = (data: any) =>
-    patchBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/update', data });
+    patchJson({ relativeUrl: 'ajax-api/2.0/mlflow/registered-models/update', data });
 
   /**
    * Delete registered model
@@ -56,7 +48,7 @@ export class Services {
    * Create model version
    */
   static createModelVersion = (data: any) =>
-    postBigIntJson({ relativeUrl: 'ajax-api/2.0/mlflow/model-versions/create', data });
+    postJson({ relativeUrl: 'ajax-api/2.0/mlflow/model-versions/create', data });
 
   /**
    * Search model versions

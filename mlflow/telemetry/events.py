@@ -133,7 +133,7 @@ class GenAIEvaluateEvent(Event):
         if eval_data is not None:
             from mlflow.genai.evaluation.utils import _get_eval_data_type
 
-            record_params.update(_get_eval_data_type(eval_data))
+            record_params["eval_data_type"] = _get_eval_data_type(eval_data)
 
         # Track scorer information
         scorers = arguments.get("scorers") or []
