@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { CheckCircleIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import {
@@ -12,6 +12,8 @@ import {
   ResponsiveContainer,
   ReferenceLine,
   Legend,
+  // eslint-disable-next-line import/no-deprecated
+  Cell,
 } from 'recharts';
 import { useTraceAssessmentChartData } from '../hooks/useTraceAssessmentChartData';
 import {
@@ -72,6 +74,20 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
 
   // Use provided color or default to green
   const chartLineColor = lineColor || theme.colors.green500;
+
+  // Map assessment value names to Tag background colors with increased opacity for chart visibility.
+  // Base colors from design system Tag backgrounds (tagBackgroundLime/tagBackgroundCoral) with 5x opacity.
+  const barColorLime = 'rgba(2, 179, 2, 0.40)';
+  const barColorCoral = 'rgba(240, 0, 64, 0.50)';
+  const getBarColor = useCallback(
+    (name: string) => {
+      const lower = name.toLowerCase();
+      if (lower === 'yes' || lower === 'true') return barColorLime;
+      if (lower === 'no' || lower === 'false') return barColorCoral;
+      return chartLineColor;
+    },
+    [chartLineColor],
+  );
 
   const distributionTooltipFormatter = useCallback((value: number) => [value, 'count'] as [number, string], []);
 
@@ -134,6 +150,8 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
   const { timeSeriesChartData, distributionChartData, isLoading, error, hasData } =
     useTraceAssessmentChartData(assessmentName);
 
+  const reversedDistributionData = useMemo(() => [...distributionChartData].reverse(), [distributionChartData]);
+
   if (isLoading) {
     return <OverviewChartLoadingState />;
   }
@@ -175,15 +193,31 @@ export const TraceAssessmentChart: React.FC<TraceAssessmentChartProps> = ({ asse
             />
           }
         >
-          <BarChart data={distributionChartData} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+          <BarChart
+            data={reversedDistributionData}
+            layout="vertical"
+            barCategoryGap="28%"
+            margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+          >
             <XAxis type="number" allowDecimals={false} {...xAxisProps} />
-            <YAxis type="category" dataKey="name" {...yAxisProps} width={60} />
+            <YAxis
+              type="category"
+              dataKey="name"
+              {...yAxisProps}
+              tick={{ ...yAxisProps.tick, fontSize: 14 }}
+              width={80}
+            />
             <Tooltip
               content={distributionTooltipContent}
               cursor={{ fill: theme.colors.actionTertiaryBackgroundHover }}
             />
             <Legend {...scrollableLegendProps} />
-            <Bar dataKey="count" fill={chartLineColor} radius={[0, 4, 4, 0]} />
+            <Bar dataKey="count" fill={chartLineColor} radius={[0, 4, 4, 0]}>
+              {reversedDistributionData.map((entry) => (
+                // eslint-disable-next-line import/no-deprecated
+                <Cell key={entry.name} fill={getBarColor(entry.name)} />
+              ))}
+            </Bar>
           </BarChart>
         </ChartPanel>
 

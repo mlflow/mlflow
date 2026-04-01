@@ -4,9 +4,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
+import { ModelTraceExplorerAttachmentRenderer } from './ModelTraceExplorerAttachmentRenderer';
 import { ModelTraceExplorerChatToolsRenderer } from './ModelTraceExplorerChatToolsRenderer';
 import { ModelTraceExplorerRetrieverFieldRenderer } from './ModelTraceExplorerRetrieverFieldRenderer';
 import { ModelTraceExplorerTextFieldRenderer } from './ModelTraceExplorerTextFieldRenderer';
+import { parseAttachmentUri } from './attachment-utils';
 import type { Assessment } from '../ModelTrace.types';
 import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';
@@ -111,6 +113,19 @@ export const ModelTraceExplorerFieldRenderer = ({
   }
 
   if (dataIsScalar) {
+    if (isString(parsedData)) {
+      const attachment = parseAttachmentUri(parsedData);
+      if (attachment) {
+        return (
+          <ModelTraceExplorerAttachmentRenderer
+            title={title}
+            attachmentId={attachment.attachmentId}
+            traceId={attachment.traceId}
+            contentType={attachment.contentType}
+          />
+        );
+      }
+    }
     return <ModelTraceExplorerTextFieldRenderer title={title} value={String(parsedData)} />;
   }
 

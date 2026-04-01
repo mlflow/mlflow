@@ -84,7 +84,7 @@ export function useTraceCostOverTimeChartData(dimension: CostDimension = 'model'
         if (!map.has(timestampMs)) {
           map.set(timestampMs, new Map());
         }
-        map.get(timestampMs)!.set(dimValue, cost);
+        map.get(timestampMs)?.set(dimValue, cost);
       }
     }
 

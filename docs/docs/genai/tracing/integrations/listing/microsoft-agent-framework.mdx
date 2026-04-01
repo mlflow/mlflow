@@ -1,9 +1,14 @@
 ---
+title: Tracing Microsoft Agent Framework
+description: Trace Microsoft Agent Framework agent executions with MLflow via OpenTelemetry for full observability into modular AI agent workflows.
 sidebar_position: 5
 sidebar_label: Microsoft Agent Framework
+keywords: [microsoft, agent framework, tracing, mlflow, opentelemetry, ai agent]
+image: /images/llms/tracing/microsoft-agent-framework-tracing.png
 ---
 
 import ImageBox from "@site/src/components/ImageBox";
+import { APILink } from "@site/src/components/APILink";
 
 # Tracing Microsoft Agent Framework
 
@@ -14,7 +19,7 @@ import ImageBox from "@site/src/components/ImageBox";
 ## Step 1: Install libraries
 
 ```bash
-pip install 'mlflow[genai]>=3.6.0' agent-framework opentelemetry-exporter-otlp-proto-http
+pip install 'mlflow>=3.6.0' agent-framework opentelemetry-exporter-otlp-proto-http
 ```
 
 ## Step 2: Start the MLflow Tracking Server
@@ -95,6 +100,33 @@ python agent.py
 ```
 
 Open the MLflow UI at `http://localhost:5000` and navigate to the experiment to see the traces.
+
+## Combine with the MLflow Tracing SDK
+
+Since this integration is built on OpenTelemetry, you can combine the automatically generated traces with the [MLflow Tracing SDK](/genai/tracing) to add custom spans, set tags, and log assessments within the same trace. This is useful when you want to enrich the auto-generated traces with additional application-specific context.
+
+To enable this, set the `MLFLOW_USE_DEFAULT_TRACER_PROVIDER` environment variable to `false` and call <APILink fn="mlflow.tracing.set_destination" /> to merge spans from both SDKs into a single trace.
+
+```python
+import os
+
+os.environ["MLFLOW_USE_DEFAULT_TRACER_PROVIDER"] = "false"
+
+import mlflow
+from mlflow.entities.trace_location import MlflowExperimentLocation
+
+mlflow.set_tracking_uri("http://localhost:5000")
+exp_id = mlflow.set_experiment("Microsoft Agent Framework").experiment_id
+mlflow.tracing.set_destination(MlflowExperimentLocation(exp_id))
+
+# Add custom MLflow spans alongside the auto-generated traces
+with mlflow.start_span("custom_step") as span:
+    span.set_inputs({"query": "test"})
+    # your application logic here
+    span.set_outputs({"result": "success"})
+```
+
+For detailed instructions and examples, see [Combining the OpenTelemetry SDK and the MLflow Tracing SDK](/genai/tracing/app-instrumentation/opentelemetry#combining-the-opentelemetry-sdk-and-the-mlflow-tracing-sdk).
 
 ## Next Steps
 

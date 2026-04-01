@@ -11,7 +11,7 @@ from mlflow.genai.scorers.builtin_scorers import Guidelines
 
 @pytest.fixture(autouse=True)
 def mock_databricks_runtime():
-    with patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True):
+    with patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True):
         yield
 
 
@@ -178,7 +178,7 @@ def test_complex_logic_round_trip():
 def test_imports_and_feedback_round_trip():
     @scorer
     def feedback_scorer(outputs):
-        import re  # clint: disable=lazy-builtin-import
+        import re  # clint: disable=lazy-import
 
         pattern = r"\b\w+\b"
         words = re.findall(pattern, outputs)

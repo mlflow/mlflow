@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -126,6 +126,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
         <TableCell>
           <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
             <Link
+              componentId="mlflow.home.workspaces.workspace_link"
               disableWorkspacePrefix
               to={`/?${WORKSPACE_QUERY_PARAM}=${encodeURIComponent(workspace.name)}`}
               onClick={(e) => {
@@ -164,7 +165,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
               {workspace.description}
             </div>
             <Button
-              componentId={`mlflow.home.workspaces.edit_description.${workspace.name}`}
+              componentId="mlflow.home.workspaces.edit_description"
               size="small"
               type="tertiary"
               icon={workspace.description ? <PencilIcon /> : undefined}
@@ -209,7 +210,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
               {workspace.default_artifact_root}
             </div>
             <Button
-              componentId={`mlflow.home.workspaces.edit_artifact_root.${workspace.name}`}
+              componentId="mlflow.home.workspaces.edit_artifact_root"
               size="small"
               type="tertiary"
               icon={workspace.default_artifact_root ? <PencilIcon /> : undefined}
@@ -244,7 +245,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
       </TableRow>
 
       <Modal
-        componentId={`mlflow.home.workspaces.edit_modal.${workspace.name}`}
+        componentId="mlflow.home.workspaces.edit_modal"
         visible={editingField !== null}
         onCancel={handleCancel}
         onOk={handleSave}
@@ -278,7 +279,7 @@ const WorkspaceRow = ({ workspace, isLastUsed }: { workspace: Workspace; isLastU
           }}
         >
           <Input
-            componentId={`mlflow.home.workspaces.edit_${editingField}_input`}
+            componentId="mlflow.home.workspaces.edit_input"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             placeholder={
@@ -319,7 +320,7 @@ export const WorkspacesHomeView = ({ onCreateWorkspace }: WorkspacesHomeViewProp
   }, [workspaces, currentPage]);
 
   // Reset to page 1 when workspaces change
-  useMemo(() => {
+  useEffect(() => {
     if (currentPage > 1 && paginatedWorkspaces.length === 0 && workspaces.length > 0) {
       setCurrentPage(1);
     }

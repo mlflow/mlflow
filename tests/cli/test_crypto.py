@@ -155,34 +155,20 @@ def test_kek_version_defaults_to_1(runner, old_passphrase_env, mock_store, empty
         assert mock_kek.call_args_list[0][1]["kek_version"] == 1
 
 
-def test_kek_version_from_env(runner, mock_store, empty_db):
-    with patch_backend(mock_store), mock.patch("mlflow.cli.crypto.os.getenv") as mock_getenv:
-
-        def getenv_side_effect(key, default=None):
-            if key == "MLFLOW_CRYPTO_KEK_PASSPHRASE":
-                return "old-passphrase"
-            elif key == "MLFLOW_CRYPTO_KEK_VERSION":
-                return "5"
-            return default
-
-        mock_getenv.side_effect = getenv_side_effect
+def test_kek_version_from_env(runner, mock_store, empty_db, monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "old-passphrase")
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_VERSION", "5")
+    with patch_backend(mock_store):
         result = runner.invoke(
             commands, ["rotate-kek", "--new-passphrase", "new-passphrase", "--yes"]
         )
         assert result.exit_code == 0
 
 
-def test_version_increments_correctly(runner, mock_store, empty_db):
-    with patch_backend(mock_store), mock.patch("mlflow.cli.crypto.os.getenv") as mock_getenv:
-
-        def getenv_side_effect(key, default=None):
-            if key == "MLFLOW_CRYPTO_KEK_PASSPHRASE":
-                return "old-passphrase"
-            elif key == "MLFLOW_CRYPTO_KEK_VERSION":
-                return "3"
-            return default
-
-        mock_getenv.side_effect = getenv_side_effect
+def test_version_increments_correctly(runner, mock_store, empty_db, monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "old-passphrase")
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_VERSION", "3")
+    with patch_backend(mock_store):
         result = runner.invoke(
             commands, ["rotate-kek", "--new-passphrase", "new-passphrase", "--yes"]
         )
@@ -345,23 +331,12 @@ def test_shows_progress_for_multiple_secrets(runner, old_passphrase_env, mock_st
         assert "Found 5 secrets to rotate" in result.output
 
 
-def test_success_message_includes_version_info(runner, mock_store, mock_session):
+def test_success_message_includes_version_info(runner, mock_store, mock_session, monkeypatch):
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_PASSPHRASE", "old-passphrase")
+    monkeypatch.setenv("MLFLOW_CRYPTO_KEK_VERSION", "3")
     secret = mock.Mock(secret_id="test", encrypted_value=b"enc", wrapped_dek=b"wrap", kek_version=3)
     mock_session.query.return_value.filter.return_value.all.return_value = [secret]
-    with (
-        patch_backend(mock_store),
-        patch_rotation(),
-        mock.patch("mlflow.cli.crypto.os.getenv") as mock_getenv,
-    ):
-
-        def getenv_side_effect(key, default=None):
-            if key == "MLFLOW_CRYPTO_KEK_PASSPHRASE":
-                return "old-passphrase"
-            elif key == "MLFLOW_CRYPTO_KEK_VERSION":
-                return "3"
-            return default
-
-        mock_getenv.side_effect = getenv_side_effect
+    with patch_backend(mock_store), patch_rotation():
         result = runner.invoke(
             commands, ["rotate-kek", "--new-passphrase", "new-passphrase", "--yes"]
         )

@@ -1,0 +1,42 @@
+name: issue-warning
+
+on:
+  issues:
+    types: [opened, edited]
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  prepend-warning:
+    if: github.repository == 'mlflow/mlflow'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          REPO: ${{ github.repository }}
+        run: |
+          if echo "$ISSUE_BODY" | grep -qF '<!-- issue-warning -->'; then
+            echo "Warning already present, skipping."
+            exit 0
+          fi
+
+          body="<!-- issue-warning -->
+          > [!WARNING]
+          > Before submitting a PR, please make sure that:
+          > - A maintainer has triaged this issue and applied the \`ready\` label
+          > - This issue has no assignee
+          > - No duplicate PR exists
+          >
+          > PRs not meeting these requirements may be automatically closed.
+
+          ${ISSUE_BODY}"
+
+          # Why not a comment, but editing the issue body? Coding agents (e.g. "Fix <issue URL>") may not see the comments.
+          gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --body "$body"

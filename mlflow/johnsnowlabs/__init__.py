@@ -311,9 +311,10 @@ def log_model(
         trainable_classifier = nlp.load("train.classifier")
 
         # Create a sample training dataset
-        data = pd.DataFrame(
-            {"text": ["I hate covid ", "I love covid"], "y": ["negative", "positive"]}
-        )
+        data = pd.DataFrame({
+            "text": ["I hate covid ", "I love covid"],
+            "y": ["negative", "positive"],
+        })
 
         # Fit and get a trained classifier
         trained_classifier = trainable_classifier.fit(data)
@@ -799,9 +800,9 @@ def _get_or_create_sparksession(model_path=None):
             if license_path:
                 with open(license_path) as f:
                     loaded_license = json.load(f)
-                    os.environ.update(
-                        {k: str(v) for k, v in loaded_license.items() if v is not None}
-                    )
+                    os.environ.update({
+                        k: str(v) for k, v in loaded_license.items() if v is not None
+                    })
                     os.environ["JSL_NLP_LICENSE"] = loaded_license["HC_LICENSE"]
             _logger.info("Starting a new Session with Jars: %s", jar_paths)
             spark = nlp.start(

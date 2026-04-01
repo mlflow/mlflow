@@ -1,12 +1,9 @@
-from mlflow.utils.annotations import experimental
-
 _ERROR_MSG = (
     "The `databricks-agents` package is required to use databricks trace archival. "
     "Please install it with `pip install databricks-agents`."
 )
 
 
-@experimental(version="3.3.0")
 def enable_databricks_trace_archival(
     *,
     delta_table_fullname: str,
@@ -46,7 +43,6 @@ def enable_databricks_trace_archival(
     )
 
 
-@experimental(version="3.3.0")
 def disable_databricks_trace_archival(*, experiment_id: str | None = None) -> None:
     """
     Disable archiving traces for an MLflow experiment to a Unity Catalog Delta table.

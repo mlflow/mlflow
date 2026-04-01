@@ -1,9 +1,11 @@
 import base64
+import contextlib
 import json
 import logging
 import random
 import time
 import warnings
+from contextvars import ContextVar
 from functools import lru_cache
 from typing import Any, Callable
 
@@ -45,12 +47,32 @@ from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
 _logger = logging.getLogger(__name__)
 
+# Generic ContextVar to disable HTTP-layer 429 retries. When True,
+# _retry_databricks_sdk_call_with_exponential_backoff skips retrying on 429 so
+# that rate-limit errors propagate immediately to the caller's own retry logic.
+_DISABLE_429_RETRY = ContextVar("_DISABLE_429_RETRY", default=False)
+
+
+@contextlib.contextmanager
+def disable_429_retry():
+    token = _DISABLE_429_RETRY.set(True)
+    try:
+        yield
+    finally:
+        _DISABLE_429_RETRY.reset(token)
+
+
+def is_429_retry_disabled() -> bool:
+    return _DISABLE_429_RETRY.get()
+
+
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
 _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
 _V3_REST_API_PATH_PREFIX = "/api/3.0"
 _V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
+_V3_ISSUES_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/issues"
 _V4_REST_API_PATH_PREFIX = "/api/4.0"
 _V4_TRACE_REST_API_PATH_PREFIX = f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
@@ -208,12 +230,10 @@ def http_request(
             response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
             response.reason = str(e)
             response.encoding = "UTF-8"
-            response._content = json.dumps(
-                {
-                    "error_code": e.error_code,
-                    "message": str(e),
-                }
-            ).encode("UTF-8")
+            response._content = json.dumps({
+                "error_code": e.error_code,
+                "message": str(e),
+            }).encode("UTF-8")
             return response
 
     _validate_max_retries(max_retries)
@@ -471,6 +491,9 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
         DatabricksError: If all retries are exhausted or non-retryable error occurs
     """
     from databricks.sdk.errors import STATUS_CODE_MAPPING, DatabricksError
+
+    if is_429_retry_disabled():
+        retry_codes = frozenset(c for c in retry_codes if c != 429)
 
     start_time = time.time()
     attempt = 0

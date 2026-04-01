@@ -11,6 +11,7 @@ import {
   EXECUTION_DURATION_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RUN_NAME_COLUMN_ID,
+  SESSION_COLUMN_ID,
   STATE_COLUMN_ID,
   USER_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
@@ -25,6 +26,7 @@ import {
   SPAN_CONTENT_COLUMN_ID,
   INPUTS_COLUMN_ID,
   RESPONSE_COLUMN_ID,
+  ISSUE_ID_COLUMN_ID,
 } from './useTableColumns';
 import { TracesServiceV4 } from '../../model-trace-explorer/api';
 import type {
@@ -664,7 +666,14 @@ export const createMlflowSearchFilter = (
               networkFilter.key.includes('.') || networkFilter.key.includes(' ')
                 ? `${tagField}.\`${networkFilter.key}\``
                 : `${tagField}.${networkFilter.key}`;
-            filter.push(`${fieldName} ${networkFilter.operator} '${networkFilter.value}'`);
+            if (
+              networkFilter.operator === FilterOperator.IS_NULL ||
+              networkFilter.operator === FilterOperator.IS_NOT_NULL
+            ) {
+              filter.push(`${fieldName} ${networkFilter.operator}`);
+            } else {
+              filter.push(`${fieldName} ${networkFilter.operator} '${networkFilter.value}'`);
+            }
           }
           break;
         case EXECUTION_DURATION_COLUMN_ID:
@@ -677,6 +686,13 @@ export const createMlflowSearchFilter = (
           break;
         case USER_COLUMN_ID:
           filter.push(`request_metadata."mlflow.trace.user" = '${networkFilter.value}'`);
+          break;
+        case SESSION_COLUMN_ID:
+          if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`request_metadata.mlflow.trace.session ILIKE '%${networkFilter.value}%'`);
+          } else {
+            filter.push(`request_metadata.mlflow.trace.session = '${networkFilter.value}'`);
+          }
           break;
         case RUN_NAME_COLUMN_ID:
           filter.push(`attributes.run_id = '${networkFilter.value}'`);
@@ -743,6 +759,9 @@ export const createMlflowSearchFilter = (
           if (networkFilter.operator === 'CONTAINS') {
             filter.push(`span.content ILIKE '%${networkFilter.value}%'`);
           }
+          break;
+        case ISSUE_ID_COLUMN_ID:
+          filter.push(`${ISSUE_ID_COLUMN_ID} ${networkFilter.operator} '${networkFilter.value}'`);
           break;
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {

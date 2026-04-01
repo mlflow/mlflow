@@ -1,4 +1,18 @@
-export const COMMON_PROVIDERS = ['openai', 'anthropic', 'databricks', 'bedrock', 'gemini', 'vertex_ai', 'xai'] as const;
+export const COMMON_PROVIDERS = [
+  'openai',
+  'anthropic',
+  'databricks',
+  'bedrock',
+  'gemini',
+  'vertex_ai',
+  'xai',
+  'mistral',
+  'groq',
+  'deepseek',
+  'openrouter',
+  'ollama',
+  'together_ai',
+] as const;
 
 export interface ProviderGroup {
   groupId: string;
@@ -83,6 +97,9 @@ const PROVIDER_DISPLAY_NAMES = {
   deepinfra: 'DeepInfra',
   nvidia_nim: 'NVIDIA NIM',
   cerebras: 'Cerebras',
+  deepseek: 'DeepSeek',
+  openrouter: 'OpenRouter',
+  ollama: 'Ollama',
 } satisfies Record<string, string>;
 
 export function formatProviderName(provider: string): string {

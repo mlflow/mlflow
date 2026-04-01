@@ -1,7 +1,6 @@
 import React from 'react';
 
 import {
-  HoverCard,
   SpeechBubbleIcon,
   TableCell,
   Tag,
@@ -21,13 +20,10 @@ import {
   isFeedbackAssessment,
 } from '@databricks/web-shared/model-trace-explorer';
 
-const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
-  return trace.trace_metadata?.[SESSION_ID_METADATA_KEY] ?? null;
-};
-
 import { NullCell } from './NullCell';
 import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { StackedComponents } from './StackedComponents';
+import { IssuesCell, type Issue } from './IssuesCell';
 import { formatDateTime } from './rendererFunctions';
 import { EvaluationsReviewAssessmentTag } from '../components/EvaluationsReviewAssessmentTag';
 import { RunColorCircle } from '../components/RunColorCircle';
@@ -35,6 +31,7 @@ import { formatResponseTitle } from '../GenAiTracesTableBody.utils';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   INPUTS_COLUMN_ID,
+  ISSUES_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RESPONSE_COLUMN_ID,
   SESSION_COLUMN_ID,
@@ -63,6 +60,10 @@ import { SessionHeaderNumericAggregatedCell } from './SessionHeaderNumericAggreg
 import { SessionHeaderStringAggregatedCell } from './SessionHeaderStringAggregatedCell';
 import { StatusCellRenderer } from './StatusRenderer';
 import { calculateSessionDuration } from '../sessions-table/utils';
+
+const getSessionIdFromTrace = (trace: ModelTraceInfoV3): string | null => {
+  return trace.trace_metadata?.[SESSION_ID_METADATA_KEY] ?? null;
+};
 
 interface SessionHeaderCellProps {
   column: TracesTableColumn;
@@ -684,6 +685,31 @@ export const SessionHeaderCell: React.FC<SessionHeaderCellProps> = ({
     } else {
       cellContent = currentUniqueValueCounts.length > 0 ? renderAssessmentTags(currentUniqueValueCounts) : <NullCell />;
     }
+  } else if (column.id === ISSUES_COLUMN_ID) {
+    // Issues column - collect all unique issues from all traces in the session
+    const collectUniqueIssues = (tracesList: ModelTraceInfoV3[]): Issue[] => {
+      const issueMap = new Map<string, Issue>();
+      tracesList.forEach((trace) => {
+        trace.assessments?.forEach((assessment) => {
+          if ('issue' in assessment && assessment.issue) {
+            const issueName = assessment.issue.issue_name;
+            const issueId = assessment.assessment_name;
+            // Use issue name as key to deduplicate (same issue name = same issue type)
+            if (!issueMap.has(issueName)) {
+              issueMap.set(issueName, { id: issueId, name: issueName });
+            }
+          }
+        });
+      });
+      return Array.from(issueMap.values());
+    };
+
+    const currentIssues = traces.length > 0 ? collectUniqueIssues(traces) : [];
+    const otherIssuesCollected = otherTraces && otherTraces.length > 0 ? collectUniqueIssues(otherTraces) : [];
+
+    cellContent = (
+      <IssuesCell issues={currentIssues} otherIssues={otherIssuesCollected} isComparing={isComparing ?? false} />
+    );
   } else if (
     column.type === TracesTableColumnType.ASSESSMENT &&
     column.assessmentInfo &&

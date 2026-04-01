@@ -1,6 +1,10 @@
 ---
+title: Tracing Databricks
+description: Trace Databricks Foundation Model API calls with MLflow using OpenAI-compatible auto-tracing for full observability into LLM interactions.
 sidebar_position: 23
 sidebar_label: Databricks
+keywords: [databricks, tracing, mlflow, foundation models, openai-compatible, llm]
+image: /images/llms/tracing/openai-function-calling.png
 ---
 
 import TilesGrid from "@site/src/components/TilesGrid";
@@ -20,7 +24,7 @@ import { Users, BookOpen, Scale } from "lucide-react";
 
 ## Managed MLflow on Databricks
 
-Databricks offers a fully managed MLflow service as a part of their platform. This is the easiest way to get started with MLflow tracing, without having to set up any infrastructure. If you are using Databricks Foundation Model APIs, it is no brainer to use the managed MLflow for end-to-end LLMOps including tracing.
+Databricks offers a fully managed MLflow service as a part of their platform. This is the easiest way to get started with MLflow tracing, without having to set up any infrastructure. If you are using Databricks Foundation Model APIs, it is no brainer to use the managed MLflow for end-to-end [LLMOps](https://mlflow.org/llmops) including tracing.
 
 :::warning Visit Databricks documentation
 
@@ -37,7 +41,7 @@ This guide only covers how to trace Databricks Foundation Model APIs using MLflo
   <TabItem value="python" label="Python" default>
 
 ```bash
-pip install 'mlflow[genai]' openai
+pip install mlflow openai
 ```
 
   </TabItem>

@@ -13,10 +13,8 @@ from mlflow.entities.trace import Trace
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
-from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 @dataclass
 class RegexMatch:
     """Represents a single regex match found in a trace."""
@@ -26,7 +24,6 @@ class RegexMatch:
     surrounding_text: str
 
 
-@experimental(version="3.4.0")
 @dataclass
 class SearchTraceRegexResult:
     """Result of searching a trace with a regex pattern."""
@@ -37,7 +34,6 @@ class SearchTraceRegexResult:
     error: str | None = None
 
 
-@experimental(version="3.4.0")
 class SearchTraceRegexTool(JudgeTool):
     """
     Tool for searching through entire traces using regex patterns.

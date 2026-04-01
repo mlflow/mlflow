@@ -8,8 +8,13 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
 from mlflow.entities.span import create_mlflow_span
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
@@ -43,6 +48,101 @@ def test_get_trace_v4_retry():
 
     assert trace == "dummy_trace"
     assert mock_store.batch_get_traces.call_count == 2
+
+
+def test_batch_get_traces():
+    mock_store = Mock()
+    mock_store.batch_get_traces.return_value = ["trace1", "trace2"]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        traces = client.batch_get_traces(["id1", "id2"], location="catalog.schema")
+
+    assert traces == ["trace1", "trace2"]
+    mock_store.batch_get_traces.assert_called_once_with(["id1", "id2"], "catalog.schema")
+
+
+def test_batch_get_traces_without_location():
+    mock_store = Mock()
+    trace_info = TraceInfo(
+        trace_id="id1",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=1000,
+        state=TraceState.OK,
+        tags={TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE},
+    )
+    mock_store.batch_get_trace_infos.return_value = [trace_info]
+    mock_store.batch_get_traces.return_value = ["trace1"]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        traces = client.batch_get_traces(["id1"])
+
+    assert traces == ["trace1"]
+    mock_store.batch_get_trace_infos.assert_called_once_with(["id1"])
+    mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
+
+
+def test_batch_get_traces_empty():
+    mock_store = Mock()
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        traces = client.batch_get_traces([])
+
+    assert traces == []
+    mock_store.batch_get_trace_infos.assert_not_called()
+
+
+@skip_when_testing_trace_sdk
+def test_batch_get_traces_with_artifact_repo_traces():
+    # Create a trace with spans in the tracking store
+    with mlflow.start_span("tracking_span"):
+        tracking_trace_id = mlflow.get_active_trace_id()
+
+    # Create a trace without spans (artifact-repo case)
+    experiment_id = mlflow.tracking.fluent._get_experiment_id()
+    artifact_trace_id = f"tr-{uuid.uuid4().hex}"
+    store = mlflow.tracking.MlflowClient()._tracking_client.store
+    store.start_trace(
+        TraceInfo(
+            trace_id=artifact_trace_id,
+            trace_location=TraceLocation.from_experiment_id(experiment_id),
+            request_time=1000,
+            execution_duration=500,
+            state=TraceState.OK,
+        )
+    )
+
+    # Mock _download_spans_from_artifact_repo since there's no real artifact data
+    artifact_trace = Trace(
+        info=store.get_trace_info(artifact_trace_id),
+        data=TraceData(spans=[]),
+    )
+    with patch.object(
+        TracingClient, "_download_spans_from_artifact_repo", return_value=artifact_trace
+    ) as mock_download:
+        client = TracingClient()
+        traces = client.batch_get_traces([tracking_trace_id, artifact_trace_id])
+
+    assert len(traces) == 2
+    trace_ids = {t.info.trace_id for t in traces}
+    assert tracking_trace_id in trace_ids
+    assert artifact_trace_id in trace_ids
+    mock_download.assert_called_once()
+
+
+def test_batch_get_traces_fallback_when_batch_get_trace_infos_not_implemented():
+    mock_store = Mock()
+    mock_store.batch_get_trace_infos.side_effect = MlflowNotImplementedException()
+    mock_store.batch_get_traces.return_value = ["trace1"]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        traces = client.batch_get_traces(["id1"])
+
+    assert traces == ["trace1"]
+    mock_store.batch_get_traces.assert_called_once_with(["id1"], None)
 
 
 @skip_when_testing_trace_sdk
@@ -252,9 +352,9 @@ def test_tracing_client_get_trace_error_handling():
     store.log_spans(experiment_id, [span])
     trace = client.get_trace(trace_id)
     trace_info = trace.info
-    trace_info.trace_metadata[TraceMetadataKey.SIZE_STATS] = json.dumps(
-        {TraceSizeStatsKey.NUM_SPANS: 2}
-    )
+    trace_info.trace_metadata[TraceMetadataKey.SIZE_STATS] = json.dumps({
+        TraceSizeStatsKey.NUM_SPANS: 2
+    })
     store.start_trace(trace_info)
 
     with pytest.raises(

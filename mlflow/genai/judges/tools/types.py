@@ -14,7 +14,6 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.4.0")
 @dataclass
 class SpanResult:
     """Result from getting span content."""
@@ -26,7 +25,6 @@ class SpanResult:
     error: str | None = None
 
 
-@experimental(version="3.4.0")
 @dataclass
 class SpanInfo:
     """Information about a single span."""

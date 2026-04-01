@@ -463,6 +463,45 @@ def test_attribute_getter_excludes_private_attrs(
         assert key not in attrs
 
 
+def test_autolog_auto_enables_instrument():
+    mlflow.pydantic_ai.autolog(log_traces=True)
+
+    agent = Agent("openai:gpt-4o", system_prompt="Test")
+    assert agent.instrument is not None
+
+    # Verify the user can still explicitly set instrument=False
+    agent_no_instrument = Agent("openai:gpt-4o", system_prompt="Test", instrument=False)
+    assert agent_no_instrument.instrument is None or agent_no_instrument.instrument is False
+
+
+def test_autolog_auto_instrument_captures_llm_spans(mock_litellm_cost):
+    dummy = _make_dummy_response_without_tool()
+
+    async def request(self, *args, **kwargs):
+        return dummy
+
+    # Mock must be set BEFORE autolog so autolog patches the mock
+    with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
+        mlflow.pydantic_ai.autolog(log_traces=True)
+
+        # Create agent WITHOUT explicitly setting instrument=True
+        agent = Agent("openai:gpt-4o", system_prompt="Tell me the capital of {{input}}.")
+
+        result = agent.run_sync("France")
+        assert result.output == _FINAL_ANSWER_WITHOUT_TOOL
+
+    traces = get_traces()
+    assert len(traces) == 1
+    spans = traces[0].data.spans
+
+    # Should have Agent.run_sync > Agent.run > InstrumentedModel.request
+    span_names = [s.name for s in spans]
+    assert "InstrumentedModel.request" in span_names
+
+    llm_span = next(s for s in spans if s.name == "InstrumentedModel.request")
+    assert llm_span.span_type == SpanType.LLM
+
+
 def test_autolog_does_not_capture_client_references(simple_agent):
     dummy = _make_dummy_response_without_tool()
 

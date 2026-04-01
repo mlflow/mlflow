@@ -26,13 +26,11 @@ def handle():
     headers = dict(request.headers)
     with set_tracing_context_from_http_request_headers(headers):
         with mlflow.start_span("server-handler") as span:
-            return jsonify(
-                {
-                    "trace_id": span.trace_id,
-                    "span_id": span.span_id,
-                    "parent_id": span.parent_id,
-                }
-            )
+            return jsonify({
+                "trace_id": span.trace_id,
+                "span_id": span.span_id,
+                "parent_id": span.parent_id,
+            })
 
 
 @app.post("/handle1")
@@ -54,14 +52,12 @@ def handle1():
                 return jsonify({"error": f"Nested call failed: {resp2.status_code}"}), 502
 
             payload2 = resp2.json()
-            return jsonify(
-                {
-                    "trace_id": span.trace_id,
-                    "span_id": span.span_id,
-                    "parent_id": span.parent_id,
-                    "nested_call_resp": payload2,
-                }
-            )
+            return jsonify({
+                "trace_id": span.trace_id,
+                "span_id": span.span_id,
+                "parent_id": span.parent_id,
+                "nested_call_resp": payload2,
+            })
 
 
 @app.post("/handle2")
@@ -69,13 +65,11 @@ def handle2():
     headers = dict(request.headers)
     with set_tracing_context_from_http_request_headers(headers):
         with mlflow.start_span("server-handler2") as span:
-            return jsonify(
-                {
-                    "trace_id": span.trace_id,
-                    "span_id": span.span_id,
-                    "parent_id": span.parent_id,
-                }
-            )
+            return jsonify({
+                "trace_id": span.trace_id,
+                "span_id": span.span_id,
+                "parent_id": span.parent_id,
+            })
 
 
 if __name__ == "__main__":

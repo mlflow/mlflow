@@ -91,6 +91,7 @@ CREATE TABLE jobs (
 	retry_count INTEGER NOT NULL,
 	last_update_time BIGINT NOT NULL,
 	workspace VARCHAR(63) COLLATE "SQL_Latin1_General_CP1_CI_AS" DEFAULT ('default') NOT NULL,
+	status_details NVARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT jobs_pk PRIMARY KEY (id)
 )
 
@@ -401,6 +402,25 @@ CREATE TABLE endpoint_tags (
 	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	CONSTRAINT endpoint_tag_pk PRIMARY KEY (key, endpoint_id),
 	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE issues (
+	issue_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	experiment_id INTEGER NOT NULL,
+	name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	status VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	severity VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	root_causes VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	source_run_id VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	categories VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_timestamp BIGINT NOT NULL,
+	last_updated_timestamp BIGINT NOT NULL,
+	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT issues_pk PRIMARY KEY (issue_id),
+	CONSTRAINT fk_issues_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE,
+	CONSTRAINT fk_issues_source_run_id FOREIGN KEY(source_run_id) REFERENCES runs (run_uuid) ON DELETE SET NULL
 )
 
 

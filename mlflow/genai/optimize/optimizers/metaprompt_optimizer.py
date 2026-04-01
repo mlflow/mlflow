@@ -106,8 +106,7 @@ class MetaPromptOptimizer(BasePromptOptimizer):
             Format: "<provider>:/<model>" (e.g., "openai:/gpt-5.2",
             "anthropic:/claude-sonnet-4-5-20250929")
         lm_kwargs: Optional dictionary of additional parameters to pass to the reflection
-            model (e.g., {"temperature": 1.0, "max_tokens": 4096}). These are passed
-            directly to the underlying litellm.completion() call. Default: None
+            model (e.g., {"temperature": 1.0, "max_tokens": 4096}). Default: None
         guidelines: Optional custom guidelines to provide domain-specific or task-specific
             context for prompt optimization (e.g., "This is for a finance advisor to
             project tax situations."). Default: None
@@ -435,31 +434,25 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         template_variables: dict[str, set[str]],
     ) -> str:
         # Format the current prompts for each module
-        prompts_formatted = "\n\n".join(
-            [
-                f"Prompt name: {name}\nTemplate: {template}"
-                for name, template in current_prompts.items()
-            ]
-        )
+        prompts_formatted = "\n\n".join([
+            f"Prompt name: {name}\nTemplate: {template}"
+            for name, template in current_prompts.items()
+        ])
 
         # Format template variables
-        vars_formatted = "\n".join(
-            [
-                f"- Prompt '{name}': {', '.join(sorted(vars)) if vars else 'none'}"
-                for name, vars in template_variables.items()
-            ]
-        )
+        vars_formatted = "\n".join([
+            f"- Prompt '{name}': {', '.join(sorted(vars)) if vars else 'none'}"
+            for name, vars in template_variables.items()
+        ])
 
         # Add custom guidelines to the meta-prompt if provided
         custom_guidelines = f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
 
         # Format example JSON response with actual prompt names
-        response_format_example = "\n".join(
-            [
-                f'  "{name}": "improved prompt text with variables preserved exactly"'
-                for name in current_prompts.keys()
-            ]
-        )
+        response_format_example = "\n".join([
+            f'  "{name}": "improved prompt text with variables preserved exactly"'
+            for name in current_prompts.keys()
+        ])
 
         return META_PROMPT_TEMPLATE.format(
             current_prompts_formatted=prompts_formatted,
@@ -478,12 +471,10 @@ class MetaPromptOptimizer(BasePromptOptimizer):
     ) -> str:
         """Build few-shot meta-prompt with evaluation feedback."""
         # Format current prompts
-        prompts_formatted = "\n\n".join(
-            [
-                f"Prompt name: {name}\nTemplate: {template}"
-                for name, template in current_prompts.items()
-            ]
-        )
+        prompts_formatted = "\n\n".join([
+            f"Prompt name: {name}\nTemplate: {template}"
+            for name, template in current_prompts.items()
+        ])
 
         if not eval_results:
             raise MlflowException(
@@ -498,23 +489,19 @@ class MetaPromptOptimizer(BasePromptOptimizer):
         examples_formatted = self._format_examples(eval_results)
 
         # Format template variables
-        vars_formatted = "\n".join(
-            [
-                f"- Prompt '{name}': {', '.join(sorted(vars)) if vars else 'none'}"
-                for name, vars in template_variables.items()
-            ]
-        )
+        vars_formatted = "\n".join([
+            f"- Prompt '{name}': {', '.join(sorted(vars)) if vars else 'none'}"
+            for name, vars in template_variables.items()
+        ])
 
         # Add custom guidelines to the meta-prompt if provided
         custom_guidelines = f"CUSTOM GUIDELINES:\n{self.guidelines}" if self.guidelines else ""
 
         # Format example JSON response with actual prompt names
-        response_format_example = "\n".join(
-            [
-                f'  "{name}": "improved prompt text with variables preserved exactly"'
-                for name in current_prompts.keys()
-            ]
-        )
+        response_format_example = "\n".join([
+            f'  "{name}": "improved prompt text with variables preserved exactly"'
+            for name in current_prompts.keys()
+        ])
 
         # Build evaluation examples section (with or without score)
         if current_score is not None:
@@ -587,23 +574,7 @@ improve the prompt's effectiveness."""
         self, meta_prompt: str, enable_tracking: bool = True
     ) -> dict[str, str]:
         """Call the reflection model to generate improved prompts."""
-        try:
-            import litellm
-        except ImportError as e:
-            raise ImportError(
-                "litellm is required for metaprompt optimization. "
-                "Please install it with: `pip install litellm`"
-            ) from e
-
-        litellm_model = f"{self.provider}/{self.model}"
-
-        litellm_params = {
-            "model": litellm_model,
-            "messages": [{"role": "user", "content": meta_prompt}],
-            "response_format": {"type": "json_object"},  # Request JSON output
-            "max_retries": 3,
-            **self.lm_kwargs,  # Merge user-provided parameters
-        }
+        from mlflow.genai.utils.llm_utils import _call_llm
 
         content = None  # Initialize to avoid NameError in exception handler
 
@@ -615,10 +586,18 @@ improve the prompt's effectiveness."""
 
         with span_context as span:
             if enable_tracking:
-                span.set_inputs({"meta_prompt": meta_prompt, "model": litellm_model})
+                span.set_inputs({
+                    "meta_prompt": meta_prompt,
+                    "model": self.reflection_model,
+                })
 
             try:
-                response = litellm.completion(**litellm_params)
+                response = _call_llm(
+                    self.reflection_model,
+                    [{"role": "user", "content": meta_prompt}],
+                    json_mode=True,
+                    inference_params=self.lm_kwargs or None,
+                )
 
                 # Extract and parse response
                 content = response.choices[0].message.content.strip()
@@ -659,7 +638,7 @@ improve the prompt's effectiveness."""
                 ) from e
             except Exception as e:
                 raise MlflowException(
-                    f"Failed to call reflection model {litellm_model}: {e}"
+                    f"Failed to call reflection model {self.reflection_model}: {e}"
                 ) from e
 
     def _compute_aggregate_score(self, results: list[EvaluationResultRecord]) -> float | None:

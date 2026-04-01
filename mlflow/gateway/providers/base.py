@@ -85,6 +85,14 @@ class BaseProvider(ABC):
         self.config = config
         self._enable_tracing = enable_tracing
 
+    def get_endpoint_url(self, route_type: str) -> str:
+        """Return the full endpoint URL for the given route type.
+
+        Subclasses that support direct HTTP invocation (e.g. for judge
+        evaluation) should override this method.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not implement get_endpoint_url")
+
     # -------------------------------------------------------------------------
     # Internal implementation methods (override these in subclasses)
     # -------------------------------------------------------------------------
@@ -183,9 +191,10 @@ class BaseProvider(ABC):
                 async def passthrough():
                     span = mlflow.get_current_active_span()
                     if span is not None:
-                        span.set_attributes(
-                            {**self._get_provider_attributes(), "action": action.value}
-                        )
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "action": action.value,
+                        })
                     async for chunk in result:
                         yield chunk
 
@@ -196,9 +205,10 @@ class BaseProvider(ABC):
                 async def passthrough():
                     span = mlflow.get_current_active_span()
                     if span is not None:
-                        span.set_attributes(
-                            {**self._get_provider_attributes(), "action": action.value}
-                        )
+                        span.set_attributes({
+                            **self._get_provider_attributes(),
+                            "action": action.value,
+                        })
                     if span is not None:
                         if token_usage := self._extract_passthrough_token_usage(action, result):
                             span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_usage)
@@ -263,7 +273,6 @@ class BaseProvider(ABC):
         if (total_tokens := getattr(usage, "total_tokens", None)) is not None:
             token_usage[TokenUsageKey.TOTAL_TOKENS] = total_tokens
 
-        # Extract cached token details if available
         if (cached := getattr(usage, "cache_read_input_tokens", None)) is not None:
             token_usage[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cached
         elif details := getattr(usage, "prompt_tokens_details", None):

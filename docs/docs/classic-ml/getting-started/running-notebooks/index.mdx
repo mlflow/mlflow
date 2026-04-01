@@ -47,6 +47,10 @@ This guide shows you how to connect your development environment to an MLflow Ex
         pip install --upgrade "mlflow>=3.1"
         ```
 
+        :::info
+        See [Secure Installs](/self-hosting/security/secure-installs) to learn how to pin dependencies to known good versions using hash checking and upload-time filtering.
+        :::
+
         <br/>
 
         #### Step 2: Configure Tracking
@@ -160,7 +164,7 @@ This guide shows you how to connect your development environment to an MLflow Ex
     Install MLflow with Databricks connectivity:
 
     ```bash
-    pip install --upgrade "mlflow[databricks]>=3.1"
+    pip install --upgrade 'mlflow[databricks]>=3.1'
     ```
 
     <br/>
@@ -237,7 +241,7 @@ This guide shows you how to connect your development environment to an MLflow Ex
     Databricks runtimes include MLflow, but for the best experience, update to the latest version:
 
     ```bash
-    %pip install --upgrade "mlflow[databricks]>=3.1"
+    %pip install --upgrade 'mlflow[databricks]>=3.1'
     dbutils.library.restartPython()
     ```
     <br/>

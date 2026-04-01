@@ -56,6 +56,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
     update_wrapper_extended,
 )
+from mlflow.utils.data_utils import is_polars_dataframe
 from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_in_databricks_runtime,
@@ -556,37 +557,28 @@ def _load_pyfunc(path):
     Args:
         path: Local filesystem path to the MLflow Model with the ``sklearn`` flavor.
     """
-    if os.path.isfile(path):
-        # Scikit-learn models saved in older versions of MLflow (<= 1.9.1) specify the ``data``
-        # field within the pyfunc flavor configuration. For these older models, the ``path``
-        # parameter of ``_load_pyfunc()`` refers directly to a serialized scikit-learn model
-        # object. In this case, we assume that the serialization format is ``pickle``, since
-        # the model loading procedure in older versions of MLflow used ``pickle.load()``.
+    # When ``path`` is a file, it refers directly to a serialized scikit-learn model
+    # object (e.g., model.pkl or model.skops). The MLmodel file in the parent directory
+    # contains the serialization format and other flavor configuration.
+    model_dir = os.path.dirname(path) if os.path.isfile(path) else path
+
+    try:
+        sklearn_flavor_conf = _get_flavor_configuration(
+            model_path=model_dir, flavor_name=FLAVOR_NAME
+        )
+        serialization_format = sklearn_flavor_conf.get(
+            "serialization_format", SERIALIZATION_FORMAT_PICKLE
+        )
+        skops_trusted_types = sklearn_flavor_conf.get("skops_trusted_types", None)
+    except MlflowException:
+        _logger.warning(
+            "Could not find scikit-learn flavor configuration during model loading process."
+            " Assuming 'pickle' serialization format."
+        )
         serialization_format = SERIALIZATION_FORMAT_PICKLE
         skops_trusted_types = None
-    else:
-        # In contrast, scikit-learn models saved in versions of MLflow > 1.9.1 do not
-        # specify the ``data`` field within the pyfunc flavor configuration. For these newer
-        # models, the ``path`` parameter of ``load_pyfunc()`` refers to the top-level MLflow
-        # Model directory. In this case, we parse the model path from the MLmodel's pyfunc
-        # flavor configuration and attempt to fetch the serialization format from the
-        # scikit-learn flavor configuration
-        try:
-            sklearn_flavor_conf = _get_flavor_configuration(
-                model_path=path, flavor_name=FLAVOR_NAME
-            )
-            serialization_format = sklearn_flavor_conf.get(
-                "serialization_format", SERIALIZATION_FORMAT_PICKLE
-            )
-            skops_trusted_types = sklearn_flavor_conf.get("skops_trusted_types", None)
-        except MlflowException:
-            _logger.warning(
-                "Could not find scikit-learn flavor configuration during model loading process."
-                " Assuming 'pickle' serialization format."
-            )
-            serialization_format = SERIALIZATION_FORMAT_PICKLE
-            skops_trusted_types = None
 
+    if not os.path.isfile(path):
         pyfunc_flavor_conf = _get_flavor_configuration(
             model_path=path, flavor_name=pyfunc.FLAVOR_NAME
         )
@@ -2097,6 +2089,10 @@ def _autolog(
                 dataset = from_numpy(features=X, targets=y, source=source, name=dataset_name)
             else:
                 dataset = from_numpy(features=X, source=source, name=dataset_name)
+        elif is_polars_dataframe(X):
+            from mlflow.data.polars_dataset import from_polars
+
+            dataset = from_polars(df=X, source=source, name=dataset_name)
         else:
             _logger.warning("Unrecognized dataset type %s. Dataset logging skipped.", type(X))
             return None

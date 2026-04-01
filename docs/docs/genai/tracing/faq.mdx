@@ -79,7 +79,7 @@ You can customize what appears in the Request and Response columns of the trace 
 @mlflow.trace
 def predict(messages: list[dict]) -> str:
     # Customize the request preview for long message histories
-    custom_preview = f'{messages[0]["content"][:10]} ... {messages[-1]["content"][:10]}'
+    custom_preview = f"{messages[0]['content'][:10]} ... {messages[-1]['content'][:10]}"
     mlflow.update_current_trace(request_preview=custom_preview)
 
     # Your model logic here
@@ -476,6 +476,10 @@ Yes, MLflow Tracing is built on OpenTelemetry standards and can integrate with o
 **Standard formats**: Use industry-standard trace formats for interoperability
 
 For production monitoring, see [Production Tracing](/genai/tracing/prod-tracing) for integration patterns.
+
+### Q: Does the MLflow TypeScript SDK work in frontend (browser) environments?
+
+No, the MLflow TypeScript SDK (`@mlflow/core`, `@mlflow/openai`, etc.) works in **Node.js backend environments only**. It is not compatible with frontend JavaScript environments (e.g., browser, Edge Runtime) because it depends on OpenTelemetry's Node.js SDK internally.
 
 ### Q: Can I create custom manual traces and spans?
 

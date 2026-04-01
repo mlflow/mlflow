@@ -39,6 +39,7 @@ from mlflow.genai.scorers import (
 )
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.genai.scorers.builtin_scorers import (
+    BuiltInScorer,
     ExtractedFields,
     _construct_field_extraction_config,
     _validate_required_fields,
@@ -694,12 +695,10 @@ def test_fluency_get_input_fields():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_default_name():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "The text is fluent.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The text is fluent.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with patch("litellm.completion", return_value=mock_response):
@@ -712,12 +711,10 @@ def test_fluency_default_name():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_with_custom_model():
-    mock_content = json.dumps(
-        {
-            "result": "yes",
-            "rationale": "The text is fluent.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "yes",
+        "rationale": "The text is fluent.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with patch("litellm.completion", return_value=mock_response):
@@ -731,12 +728,10 @@ def test_fluency_with_custom_model():
 
 @pytest.mark.usefixtures("mock_openai_env")
 def test_fluency_with_custom_name():
-    mock_content = json.dumps(
-        {
-            "result": "no",
-            "rationale": "The text has issues.",
-        }
-    )
+    mock_content = json.dumps({
+        "result": "no",
+        "rationale": "The text has issues.",
+    })
     mock_response = ModelResponse(choices=[{"message": {"content": mock_content}}])
 
     with patch("litellm.completion", return_value=mock_response):
@@ -1587,12 +1582,10 @@ def test_completeness_with_trace():
 def test_conversational_safety_with_session():
     session_id = "test_session_safety"
     traces = []
-    for i, (q, a) in enumerate(
-        [
-            ("What is Python?", "Python is a programming language."),
-            ("How do I install it?", "You can download it from python.org."),
-        ]
-    ):
+    for i, (q, a) in enumerate([
+        ("What is Python?", "Python is a programming language."),
+        ("How do I install it?", "You can download it from python.org."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": q})
             span.set_outputs(a)
@@ -1668,12 +1661,10 @@ def test_conversational_safety_instructions():
 def test_conversational_tool_call_efficiency_with_session():
     session_id = "test_session_efficiency"
     traces = []
-    for i, (question, stock, stock_price) in enumerate(
-        [
-            ("What is the price of AAPL?", "AAPL", "150"),
-            ("How about MSFT?", "MSFT", "300"),
-        ]
-    ):
+    for i, (question, stock, stock_price) in enumerate([
+        ("What is the price of AAPL?", "AAPL", "150"),
+        ("How about MSFT?", "MSFT", "300"),
+    ]):
         answer = f"{stock} is ${stock_price}."
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
@@ -1964,12 +1955,10 @@ def test_tool_call_correctness_parse_expectations_empty(expectations):
 def test_conversational_role_adherence_with_session():
     session_id = "test_session_role"
     traces = []
-    for i, (question, answer) in enumerate(
-        [
-            ("What can you cook?", "I can help you make many dishes!"),
-            ("How do I make soup?", "Start by boiling vegetables..."),
-        ]
-    ):
+    for i, (question, answer) in enumerate([
+        ("What can you cook?", "I can help you make many dishes!"),
+        ("How do I make soup?", "Start by boiling vegetables..."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
             span.set_outputs(answer)
@@ -2016,12 +2005,10 @@ def test_conversational_role_adherence_instructions():
 def test_conversational_guidelines_with_session(guidelines):
     session_id = "test_session_guidelines"
     traces = []
-    for i, (question, answer) in enumerate(
-        [
-            ("What are your hours?", "We are open 9am-5pm Monday through Friday."),
-            ("Can I get a refund?", "Yes, we offer refunds within 30 days of purchase."),
-        ]
-    ):
+    for i, (question, answer) in enumerate([
+        ("What are your hours?", "We are open 9am-5pm Monday through Friday."),
+        ("Can I get a refund?", "Yes, we offer refunds within 30 days of purchase."),
+    ]):
         with mlflow.start_span(name=f"turn_{i}") as span:
             span.set_inputs({"question": question})
             span.set_outputs(answer)
@@ -2390,3 +2377,91 @@ def test_summarization_with_trace():
         assert result.value == "yes"
         assert result.rationale == "Accurate summary"
         mock_invoke_judge.assert_called_once()
+
+
+def test_equivalence_passes_inference_params():
+    inference_params = {"temperature": 0.0, "max_tokens": 100}
+    scorer = Equivalence(inference_params=inference_params)
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(name="equivalence", value="yes", rationale="Match"),
+    ) as mock_invoke:
+        scorer(
+            outputs="Paris is the capital",
+            expectations={"expected_response": "The capital is Paris"},
+        )
+
+        mock_invoke.assert_called_once()
+        _, kwargs = mock_invoke.call_args
+        assert kwargs["inference_params"] == inference_params
+
+
+def test_retrieval_relevance_passes_inference_params(sample_rag_trace):
+    inference_params = {"temperature": 0.0}
+    scorer = RetrievalRelevance(inference_params=inference_params)
+
+    with patch(
+        "mlflow.genai.scorers.builtin_scorers.invoke_judge_model",
+        return_value=Feedback(name="retrieval_relevance", value="yes", rationale="Relevant"),
+    ) as mock_invoke:
+        scorer(trace=sample_rag_trace)
+
+        for args in mock_invoke.call_args_list:
+            assert args.kwargs["inference_params"] == inference_params
+
+
+@pytest.mark.parametrize(
+    "scorer_cls",
+    [
+        UserFrustration,
+        ConversationCompleteness,
+        ConversationalSafety,
+        ConversationalToolCallEfficiency,
+        ConversationalRoleAdherence,
+    ],
+    ids=[
+        "user_frustration",
+        "conversation_completeness",
+        "conversational_safety",
+        "conversational_tool_call_efficiency",
+        "conversational_role_adherence",
+    ],
+)
+def test_session_level_scorer_passes_inference_params_to_judge(scorer_cls):
+    inference_params = {"temperature": 0.0}
+    scorer = scorer_cls(inference_params=inference_params)
+    assert scorer.inference_params == inference_params
+
+    judge = scorer._get_judge()
+    assert judge.inference_params == inference_params
+
+
+def test_knowledge_retention_propagates_inference_params():
+    inference_params = {"temperature": 0.0}
+    scorer = KnowledgeRetention(inference_params=inference_params)
+    assert scorer.inference_params == inference_params
+    assert scorer.last_turn_scorer.inference_params == inference_params
+
+    judge = scorer.last_turn_scorer._get_judge()
+    assert judge.inference_params == inference_params
+
+
+@pytest.mark.parametrize(
+    "scorer_cls",
+    [Equivalence, RetrievalRelevance, UserFrustration, KnowledgeRetention],
+)
+def test_builtin_scorer_inference_params_defaults_to_none(scorer_cls):
+    scorer = scorer_cls()
+    assert scorer.inference_params is None
+
+
+def test_builtin_scorer_serialization_roundtrip_with_inference_params():
+    inference_params = {"temperature": 0.0, "top_p": 0.9}
+    scorer = Equivalence(inference_params=inference_params)
+
+    serialized = scorer.model_dump()
+    assert serialized["builtin_scorer_pydantic_data"]["inference_params"] == inference_params
+
+    restored = BuiltInScorer.model_validate(serialized)
+    assert restored.inference_params == inference_params

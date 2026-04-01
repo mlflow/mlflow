@@ -44,6 +44,7 @@ const LogsTabContent = ({ experimentId }: { experimentId: string }) => {
       >
         <TracesV3DateSelector excludeOptions={['ALL']} />
         <Link
+          componentId="mlflow.gateway.edit_endpoint.traces_link"
           to={`/experiments/${experimentId}/traces`}
           css={{
             color: theme.colors.actionPrimaryBackgroundDefault,
@@ -97,7 +98,11 @@ export const EditEndpointFormRenderer = ({
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
   const [isUsageModalOpen, setIsUsageModalOpen] = useState(false);
-  const activeTab = searchParams.get('tab') || 'configuration';
+  const VALID_TABS = ['configuration', 'usage', 'traces'] as const;
+  const tabParam = searchParams.get('tab');
+  const activeTab = VALID_TABS.includes(tabParam as (typeof VALID_TABS)[number])
+    ? (tabParam as string)
+    : 'configuration';
 
   const trafficSplitModels = form.watch('trafficSplitModels');
   const fallbackModels = form.watch('fallbackModels');
@@ -150,12 +155,18 @@ export const EditEndpointFormRenderer = ({
       <div css={{ padding: theme.spacing.md }}>
         <Breadcrumb includeTrailingCaret>
           <Breadcrumb.Item>
-            <Link to={GatewayRoutes.gatewayPageRoute}>
+            <Link
+              componentId="mlflow.gateway.edit_endpoint.breadcrumb_gateway_link"
+              to={GatewayRoutes.gatewayPageRoute}
+            >
               <FormattedMessage defaultMessage="AI Gateway" description="Breadcrumb link to gateway page" />
             </Link>
           </Breadcrumb.Item>
           <Breadcrumb.Item>
-            <Link to={GatewayRoutes.gatewayPageRoute}>
+            <Link
+              componentId="mlflow.gateway.edit_endpoint.breadcrumb_endpoints_link"
+              to={GatewayRoutes.gatewayPageRoute}
+            >
               <FormattedMessage defaultMessage="Endpoints" description="Breadcrumb link to endpoints list" />
             </Link>
           </Breadcrumb.Item>
@@ -189,6 +200,7 @@ export const EditEndpointFormRenderer = ({
 
       <Tabs.Root
         componentId="mlflow.gateway.endpoint.tabs"
+        valueHasNoPii
         value={activeTab}
         onValueChange={(value) => {
           setSearchParams(
@@ -287,7 +299,7 @@ export const EditEndpointFormRenderer = ({
                         <TrafficSplitConfigurator
                           value={field.value}
                           onChange={field.onChange}
-                          componentIdPrefix="mlflow.gateway.edit-endpoint.traffic-split"
+                          componentId="mlflow.gateway.edit-endpoint.traffic-split"
                         />
                       )}
                     />
@@ -323,7 +335,7 @@ export const EditEndpointFormRenderer = ({
                         <FallbackModelsConfigurator
                           value={field.value}
                           onChange={field.onChange}
-                          componentIdPrefix="mlflow.gateway.edit-endpoint.fallback"
+                          componentId="mlflow.gateway.edit-endpoint.fallback"
                         />
                       )}
                     />
@@ -351,32 +363,11 @@ export const EditEndpointFormRenderer = ({
                         <UsageTrackingConfigurator
                           value={field.value}
                           onChange={field.onChange}
-                          componentIdPrefix="mlflow.gateway.edit-endpoint.usage-tracking"
+                          componentId="mlflow.gateway.edit-endpoint.usage-tracking"
                         />
                       )}
                     />
                   </div>
-                </div>
-
-                {/* Rate Limiting placeholder */}
-                <div
-                  css={{
-                    padding: theme.spacing.md,
-                    border: `2px dashed ${theme.colors.actionDefaultBorderDefault}`,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    backgroundColor: theme.colors.backgroundPrimary,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                  }}
-                >
-                  <Typography.Text bold>
-                    <FormattedMessage defaultMessage="Rate Limiting" description="Section title for rate limiting" />
-                  </Typography.Text>
-                  <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
-                    <FormattedMessage defaultMessage="Coming Soon" description="Coming soon label" />
-                  </Typography.Text>
                 </div>
               </div>
             </Tabs.Content>

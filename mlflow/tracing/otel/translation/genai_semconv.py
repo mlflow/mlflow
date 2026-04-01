@@ -51,6 +51,7 @@ class GenAiTranslator(OtelSchemaTranslator):
     # Reference: https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-spans/
     MODEL_NAME_KEYS = ["gen_ai.response.model", "gen_ai.request.model"]
     LLM_PROVIDER_KEY = "gen_ai.provider.name"
+    TOOL_DEFINITION_KEYS = ["gen_ai.tool.definitions"]
 
     def _decode_json_value(self, value: Any) -> Any:
         """Decode JSON-serialized string values."""
@@ -92,9 +93,10 @@ class GenAiTranslator(OtelSchemaTranslator):
 
             elif event_name == "gen_ai.assistant.message":
                 if content := event_attrs.get("content"):
-                    messages.append(
-                        {"role": "assistant", "content": self._decode_json_value(content)}
-                    )
+                    messages.append({
+                        "role": "assistant",
+                        "content": self._decode_json_value(content),
+                    })
 
         return json.dumps(messages) if messages else None
 
@@ -120,11 +122,9 @@ class GenAiTranslator(OtelSchemaTranslator):
             if event_name == "gen_ai.choice":
                 if content := event_attrs.get("content"):
                     role = event_attrs.get("role", "assistant")
-                    messages.append(
-                        {
-                            "role": self._decode_json_value(role),
-                            "content": self._decode_json_value(content),
-                        }
-                    )
+                    messages.append({
+                        "role": self._decode_json_value(role),
+                        "content": self._decode_json_value(content),
+                    })
 
         return json.dumps(messages) if messages else None

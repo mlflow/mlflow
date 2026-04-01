@@ -22,7 +22,7 @@ from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.utils.chat import parse_token_usage
+from mlflow.langchain.utils.chat import convert_lc_message_to_chat_message, parse_token_usage
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
@@ -78,6 +78,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
+        # run_id: audio output format from invocation_params (e.g. "wav", "mp3").
+        # Used in on_llm_end to reconstruct audio content blocks for OpenAI audio models.
+        self._run_audio_format: dict[str, str] = {}
 
     def _get_span_by_run_id(self, run_id: UUID) -> LiveSpan | None:
         if span_with_token := self._run_span_mapping.get(str(run_id), None):
@@ -280,6 +283,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
                 detach_span_from_context(st.token)
 
         self._run_span_mapping = {}
+        self._run_audio_format = {}
 
     def _assign_span_name(self, serialized: dict[str, Any], default_name="unknown") -> str:
         return serialized.get("name", serialized.get("id", [default_name])[-1])
@@ -302,12 +306,31 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             kwargs.update({"metadata": metadata})
         kwargs[SpanAttributeKey.MESSAGE_FORMAT] = "langchain"
 
+        try:
+            match messages:
+                case [msg_list]:
+                    normalized_inputs = {
+                        "messages": [
+                            convert_lc_message_to_chat_message(msg).model_dump() for msg in msg_list
+                        ]
+                    }
+                case _:
+                    # Batched invocations (len > 1) are rare in autolog usage.
+                    # Fall back to the raw nested-list format rather than flattening
+                    # multiple conversations into a single messages array, which would
+                    # lose the batch boundary. This matches the pre-normalization
+                    # behavior so it is non-regressive for callers using batching.
+                    normalized_inputs = messages
+        except Exception as e:
+            _logger.debug(f"Failed to normalize chat model inputs: {e}", exc_info=True)
+            normalized_inputs = messages
+
         span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
             parent_run_id=parent_run_id,
             span_type=SpanType.CHAT_MODEL,
             run_id=run_id,
-            inputs=messages,
+            inputs=normalized_inputs,
             attributes=kwargs,
         )
 
@@ -315,6 +338,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             set_span_chat_tools(span, tools)
 
         self._extract_and_set_model_name(span, kwargs)
+
+        # Stash audio output format so on_llm_end can reconstruct audio content blocks.
+        # OpenAI audio models specify format in the request (invocation_params.audio.format)
+        # but do not echo it back in the response.
+        match kwargs:
+            case {"invocation_params": {"audio": {"format": str(audio_fmt)}}}:
+                self._run_audio_format[str(run_id)] = audio_fmt
 
     def on_llm_start(
         self,
@@ -348,8 +378,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self._extract_and_set_model_name(span, kwargs)
 
     def _extract_and_set_model_name(self, span: LiveSpan, kwargs: dict[str, Any]):
-        if model := kwargs.get("invocation_params", {}).get("model"):
+        invocation_params = kwargs.get("invocation_params", {})
+        if model := invocation_params.get("model"):
             span.set_attribute(SpanAttributeKey.MODEL, model)
+        if _type := invocation_params.get("_type"):
+            # LangChain's _type field follows the pattern "<provider>" or "<provider>-chat"
+            provider = _type.removesuffix("-chat")
+            span.set_attribute(SpanAttributeKey.MODEL_PROVIDER, provider)
 
     def _extract_tool_definitions(self, kwargs: dict[str, Any]) -> list[ChatTool]:
         raw_tools = kwargs.get("invocation_params", {}).get("tools", [])
@@ -438,7 +473,59 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         except Exception as e:
             _logger.debug(f"Failed to log token usage for LangChain: {e}", exc_info=True)
 
-        self._end_span(run_id, llm_span, outputs=response)
+        try:
+            match response.generations:
+                case [gen_list]:
+                    choices = []
+                    audio_fmt = self._run_audio_format.pop(str(run_id), None)
+                    for g in gen_list:
+                        if hasattr(g, "message"):
+                            msg_dict = convert_lc_message_to_chat_message(g.message).model_dump()
+                            # OpenAI's gpt-4o-audio-preview returns audio responses
+                            # in additional_kwargs["audio"] rather than in the message
+                            # content field. LangChain preserves this structure, so the
+                            # converted content will be empty. Reconstruct the audio as
+                            # an input_audio content block (using the format stashed from
+                            # invocation_params) plus a text block for the transcript.
+                            if not msg_dict.get("content"):
+                                match getattr(g.message, "additional_kwargs", {}):
+                                    case {
+                                        "audio": {
+                                            "transcript": str(transcript),
+                                            "data": str(data),
+                                        }
+                                    } if audio_fmt:
+                                        msg_dict["content"] = [
+                                            {"type": "text", "text": transcript},
+                                            {
+                                                "type": "input_audio",
+                                                "input_audio": {
+                                                    "data": data,
+                                                    "format": audio_fmt,
+                                                },
+                                            },
+                                        ]
+                                    case {"audio": {"transcript": str(transcript)}}:
+                                        # No audio format available; store transcript only
+                                        msg_dict["content"] = transcript
+                        else:
+                            msg_dict = {"role": "assistant", "content": g.text}
+                        choices.append({"message": msg_dict, "finish_reason": None})
+                    normalized_outputs = {"choices": choices}
+                case _:
+                    # Batched invocations (len > 1) are rare in autolog usage.
+                    # Fall back to the raw LLMResult rather than flattening multiple
+                    # generation lists into a single choices array, which would lose
+                    # the batch boundary. This matches the pre-normalization behavior
+                    # so it is non-regressive for callers using batching.
+                    self._run_audio_format.pop(str(run_id), None)
+                    normalized_outputs = response
+        except Exception as e:
+            _logger.debug(f"Failed to normalize chat model outputs: {e}", exc_info=True)
+            self._run_audio_format.pop(str(run_id), None)
+            normalized_outputs = response
+
+        self._end_span(run_id, llm_span, outputs=normalized_outputs)
 
     def on_llm_error(
         self,
@@ -448,6 +535,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         **kwargs: Any,
     ):
         """Handle an error for an LLM run."""
+        self._run_audio_format.pop(str(run_id), None)
         llm_span = self._get_span_by_run_id(run_id)
         llm_span.add_event(SpanEvent.from_exception(error))
         self._end_span(run_id, llm_span, status=SpanStatus(SpanStatusCode.ERROR, str(error)))

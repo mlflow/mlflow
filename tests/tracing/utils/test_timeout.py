@@ -86,7 +86,8 @@ def test_trace_halted_after_timeout(monkeypatch):
     assert root_span.status.status_code == SpanStatusCode.ERROR
     assert root_span.events[0].name == "exception"
     assert (
-        root_span.events[0]
+        root_span
+        .events[0]
         .attributes["exception.message"]
         .startswith(f"Trace {trace.info.request_id} is timed out")
     )

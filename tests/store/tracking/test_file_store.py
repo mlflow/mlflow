@@ -305,6 +305,37 @@ def test_search_experiments_filter_by_tag(store):
     assert [e.name for e in experiments] == ["exp2"]
 
 
+def test_search_experiments_filter_by_tag_is_null(store):
+    experiments = [
+        ("exp1", [ExperimentTag("key1", "value"), ExperimentTag("key2", "value")]),
+        ("exp2", [ExperimentTag("key1", "value")]),
+        ("exp3", []),
+    ]
+    for name, tags in experiments:
+        time.sleep(0.001)
+        store.create_experiment(name, tags=tags)
+
+    # IS NOT NULL: experiments that have key1
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL")
+    assert [e.name for e in results] == ["exp2", "exp1"]
+
+    # IS NULL: experiments that don't have key2 (includes Default)
+    results = store.search_experiments(filter_string="tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp3", "exp2", "Default"]
+
+    # Combined IS NOT NULL and IS NULL
+    results = store.search_experiments(filter_string="tag.key1 IS NOT NULL AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Combined with value filter
+    results = store.search_experiments(filter_string="tag.key1 = 'value' AND tag.key2 IS NULL")
+    assert [e.name for e in results] == ["exp2"]
+
+    # Error: IS NULL on attribute
+    with pytest.raises(MlflowException, match="IS NULL / IS NOT NULL is only supported for tags"):
+        store.search_experiments(filter_string="name IS NULL")
+
+
 def test_search_experiments_order_by(store):
     experiment_names = ["x", "y", "z"]
     create_experiments(store, experiment_names)
@@ -603,14 +634,12 @@ def test_record_logged_model(store):
         tags=[
             RunTag(
                 MLFLOW_LOGGED_MODELS,
-                json.dumps(
-                    [
-                        m.get_tags_dict(),
-                        m2.get_tags_dict(),
-                        m3.get_tags_dict(),
-                        m4.get_tags_dict(),
-                    ]
-                ),
+                json.dumps([
+                    m.get_tags_dict(),
+                    m2.get_tags_dict(),
+                    m3.get_tags_dict(),
+                    m4.get_tags_dict(),
+                ]),
             )
         ],
     )
@@ -2836,9 +2865,10 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
     )
     expected_dataset2_storage_id = "419804e8e153199481c3e509de1fef8f"
     store.log_inputs(run2.info.run_id, [DatasetInput(dataset2)])
-    assert_expected_dataset_storage_ids_present(
-        [expected_dataset1_storage_id, expected_dataset2_storage_id]
-    )
+    assert_expected_dataset_storage_ids_present([
+        expected_dataset1_storage_id,
+        expected_dataset2_storage_id,
+    ])
     assert_expected_input_storage_ids_present(run2, [expected_dataset2_storage_id])
 
     dataset3 = Dataset(
@@ -2854,13 +2884,11 @@ def test_log_inputs_uses_expected_input_and_dataset_ids_for_storage(store):
         run2.info.run_id,
         [DatasetInput(dataset1), DatasetInput(dataset2), DatasetInput(dataset3, tags)],
     )
-    assert_expected_dataset_storage_ids_present(
-        [
-            expected_dataset1_storage_id,
-            expected_dataset2_storage_id,
-            expected_dataset3_storage_id,
-        ]
-    )
+    assert_expected_dataset_storage_ids_present([
+        expected_dataset1_storage_id,
+        expected_dataset2_storage_id,
+        expected_dataset3_storage_id,
+    ])
     assert_expected_input_storage_ids_present(
         run2,
         [

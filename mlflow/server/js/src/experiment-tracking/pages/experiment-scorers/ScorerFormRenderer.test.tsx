@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IntlProvider } from '@databricks/i18n';
 import { FormProvider, useForm } from 'react-hook-form';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { DesignSystemProvider } from '@databricks/design-system';
 import ScorerFormRenderer from './ScorerFormRenderer';
 import type { ScorerFormData } from './utils/scorerTransformUtils';
@@ -19,6 +19,11 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
 // Mock the endpoint selector to avoid API calls (forbidden in unit tests)
 jest.mock('../../components/EndpointSelector', () => ({
   EndpointSelector: () => <div data-testid="endpoint-selector" />,
+}));
+
+// Mock useExperimentIds used by ModelSectionRenderer for cache invalidation
+jest.mock('../../components/experiment-page/hooks/useExperimentIds', () => ({
+  useExperimentIds: () => ['exp-123'],
 }));
 
 const queryClient = new QueryClient({

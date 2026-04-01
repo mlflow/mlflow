@@ -7,10 +7,11 @@ import logging
 import uuid
 from collections import defaultdict
 from contextlib import contextmanager
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, fields, is_dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Generator
 
+import pydantic
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
@@ -72,13 +73,8 @@ class TraceJSONEncoder(json.JSONEncoder):
     """
 
     def default(self, obj):
-        try:
-            import pydantic
-
-            if isinstance(obj, pydantic.BaseModel):
-                return obj.model_dump()
-        except ImportError:
-            pass
+        if isinstance(obj, pydantic.BaseModel):
+            return obj.model_dump()
 
         # Some dataclass object defines __str__ method that doesn't return the full object
         # representation, so we use dict representation instead.
@@ -86,7 +82,14 @@ class TraceJSONEncoder(json.JSONEncoder):
         if is_dataclass(obj):
             try:
                 return asdict(obj)
-            except TypeError:
+            except Exception:
+                pass
+            # asdict() calls copy.deepcopy() on non-dataclass fields, which can fail for
+            # objects with asyncio internals (e.g. HTTP clients). Fall back to shallow
+            # field extraction via getattr() to avoid partially-constructed copies.
+            try:
+                return {f.name: getattr(obj, f.name) for f in fields(obj)}
+            except Exception:
                 pass
 
         # Some object has dangerous side effect in __str__ method, so we use class name instead.
@@ -126,6 +129,14 @@ def dump_span_attribute_value(value: Any) -> str:
     #   int, float, bool, and list of them. However, we serialize all into JSON string here
     #   for the simplicity in deserialization process.
     return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
+
+
+def try_json_loads(value: Any) -> Any:
+    """Try to parse a value as JSON, returning the original value on failure."""
+    try:
+        return json.loads(value)
+    except (json.JSONDecodeError, TypeError):
+        return value
 
 
 @lru_cache(maxsize=1)
@@ -285,13 +296,6 @@ def calculate_cost_by_model_and_token_usage(
     if not model_name or not usage:
         return None
 
-    try:
-        import litellm
-        from litellm import cost_per_token
-    except ImportError:
-        _logger.debug("LiteLLM not available for cost calculation")
-        return None
-
     prompt_tokens = usage.get(TokenUsageKey.INPUT_TOKENS, 0)
     completion_tokens = usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
 
@@ -304,46 +308,65 @@ def calculate_cost_by_model_and_token_usage(
     if (created := usage.get(TokenUsageKey.CACHE_CREATION_INPUT_TOKENS)) is not None:
         cache_kwargs["cache_creation_input_tokens"] = created
 
-    original_suppress = None
     try:
-        # Suppress litellm debug messages (e.g. "Provider List: ...") unless
-        # MLflow's logger is set to DEBUG level.
+        import litellm
+        from litellm import cost_per_token
+    except ImportError:
+        from mlflow.utils.providers import cost_per_token
+
+        litellm = None
+
+    if litellm is not None:
         original_suppress = getattr(litellm, "suppress_debug_info")
-        litellm.suppress_debug_info = not _logger.isEnabledFor(logging.DEBUG)
-        input_cost_usd, output_cost_usd = cost_per_token(
+
+    try:
+        if litellm is not None:
+            # Suppress litellm debug messages (e.g. "Provider List: ...") unless
+            # MLflow's logger is set to DEBUG level.
+            litellm.suppress_debug_info = not _logger.isEnabledFor(logging.DEBUG)
+
+        result = cost_per_token(
             model=model_name,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             **cache_kwargs,
         )
-    except Exception as e:
+    except Exception:
+        result = None
         if model_provider:
             # pass model_provider only in exception case to avoid invalid model_provider
             # being used when model_name itself is enough to calculate cost, since model_provider
             # field can be with any value and litellm may not support it.
             try:
-                input_cost_usd, output_cost_usd = cost_per_token(
+                result = cost_per_token(
                     model=model_name,
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
-                    custom_llm_provider=model_provider,
+                    custom_llm_provider=model_provider.lower(),
                     **cache_kwargs,
                 )
-            except Exception as e:
-                _logger.debug(
-                    f"Failed to calculate cost for model {model_name}: {e}", exc_info=True
-                )
-                return None
-        else:
-            _logger.debug(
-                f"Failed to calculate cost for model {model_name} without provider: {e}",
-                exc_info=True,
-            )
-            return None
+            except Exception:
+                pass
     finally:
-        if original_suppress is not None:
+        if litellm is not None:
             litellm.suppress_debug_info = original_suppress
 
+    if result is None:
+        # Try with provider as a last resort (builtin path only, litellm already tried above)
+        if litellm is None and model_provider:
+            result = cost_per_token(
+                model=model_name,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                custom_llm_provider=model_provider.lower(),
+                **cache_kwargs,
+            )
+
+    if result is None:
+        _logger.debug(f"Failed to calculate cost for model {model_name}")
+        return None
+
+    input_cost_usd, output_cost_usd = result
     return {
         CostKey.INPUT_COST: input_cost_usd,
         CostKey.OUTPUT_COST: output_cost_usd,
@@ -720,11 +743,11 @@ def get_active_spans_table_name() -> str | None:
     """
     Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
     """
-    from mlflow.entities.trace_location import UCSchemaLocation
+    from mlflow.entities.trace_location import UCSchemaLocation, UnityCatalog
     from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
 
     if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
-        if isinstance(destination, UCSchemaLocation):
+        if isinstance(destination, (UCSchemaLocation, UnityCatalog)):
             return destination.full_otel_spans_table_name
 
     return None

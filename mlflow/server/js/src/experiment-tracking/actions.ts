@@ -12,7 +12,7 @@ import { getUUID } from '../common/utils/ActionUtils';
 import { ErrorCodes } from '../common/constants';
 import { isArray, isObject } from 'lodash';
 import { ViewType } from './sdk/MlflowEnums';
-import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUtils';
+import { defaultResponseParser, fetchEndpoint } from '../common/utils/FetchUtils';
 import { stringify as queryStringStringify } from 'qs';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer';
@@ -137,7 +137,7 @@ export const uploadArtifactApi = (runUuid: any, filePath: any, fileContent: any)
     relativeUrl: `ajax-api/2.0/mlflow/upload-artifact?${queryParams}`,
     method: 'POST',
     body: JSON.stringify(fileContent),
-    success: jsonBigIntResponseParser,
+    success: defaultResponseParser,
     // Retry the call every time an artifact upload fails
     errorCondition: (res: Response) => !res || !res.ok,
     // Retry for maximum 3 times

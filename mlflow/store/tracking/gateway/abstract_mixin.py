@@ -13,11 +13,13 @@ from mlflow.entities import (
 )
 from mlflow.entities.gateway_budget_policy import (
     BudgetAction,
-    BudgetDurationUnit,
+    BudgetDuration,
     BudgetTargetScope,
     BudgetUnit,
     GatewayBudgetPolicy,
 )
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 
 
 class GatewayStoreMixin:
@@ -225,7 +227,7 @@ class GatewayStoreMixin:
         routing_strategy: RoutingStrategy | None = None,
         fallback_config: FallbackConfig | None = None,
         experiment_id: str | None = None,
-        usage_tracking: bool = False,
+        usage_tracking: bool = True,
     ) -> GatewayEndpoint:
         """
         Create a new endpoint with references to existing model definitions.
@@ -440,8 +442,7 @@ class GatewayStoreMixin:
         self,
         budget_unit: BudgetUnit,
         budget_amount: float,
-        duration_unit: BudgetDurationUnit,
-        duration_value: int,
+        duration: BudgetDuration,
         target_scope: BudgetTargetScope,
         budget_action: BudgetAction,
         created_by: str | None = None,
@@ -452,8 +453,7 @@ class GatewayStoreMixin:
         Args:
             budget_unit: Budget measurement unit (e.g. USD).
             budget_amount: Budget limit amount.
-            duration_unit: Unit of time window (MINUTES, HOURS, DAYS, MONTHS).
-            duration_value: Length of the window in units of duration_unit.
+            duration: Fixed time window (unit + length pair).
             target_scope: Scope of the budget (GLOBAL or WORKSPACE).
             budget_action: Action when budget is exceeded.
             created_by: Username of the creator.
@@ -483,8 +483,7 @@ class GatewayStoreMixin:
         budget_policy_id: str,
         budget_unit: BudgetUnit | None = None,
         budget_amount: float | None = None,
-        duration_unit: BudgetDurationUnit | None = None,
-        duration_value: int | None = None,
+        duration: BudgetDuration | None = None,
         target_scope: BudgetTargetScope | None = None,
         budget_action: BudgetAction | None = None,
         updated_by: str | None = None,
@@ -496,8 +495,7 @@ class GatewayStoreMixin:
             budget_policy_id: ID of the budget policy to update.
             budget_unit: Optional new budget unit.
             budget_amount: Optional new budget amount.
-            duration_unit: Optional new duration unit.
-            duration_value: Optional new duration value.
+            duration: Optional new fixed time window (unit + length pair).
             target_scope: Optional new target type.
             budget_action: Optional new budget action.
             updated_by: Username of the updater.
@@ -516,11 +514,35 @@ class GatewayStoreMixin:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_budget_policies(self) -> list[GatewayBudgetPolicy]:
+    def list_budget_policies(
+        self,
+        max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
+        page_token: str | None = None,
+    ) -> PagedList[GatewayBudgetPolicy]:
         """
-        List all budget policies.
+        List budget policies.
 
         Returns:
-            List of GatewayBudgetPolicy entities.
+            PagedList of GatewayBudgetPolicy entities.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def sum_gateway_trace_cost(
+        self,
+        start_time_ms: int,
+        end_time_ms: int,
+        workspace: str | None = None,
+    ) -> float:
+        """
+        Sum total_cost from span metrics for gateway traces within a time range.
+
+        Args:
+            start_time_ms: Window start in epoch milliseconds (inclusive).
+            end_time_ms: Window end in epoch milliseconds (exclusive).
+            workspace: If provided, filter to traces in experiments belonging
+                to this workspace.
+
+        Returns:
+            Total cost in USD.
         """
         raise NotImplementedError(self.__class__.__name__)

@@ -1,3 +1,7 @@
+---
+description: Evaluate AI agent tool calling with MLflow built-in judges for tool call correctness and efficiency assessment.
+---
+
 import { APILink } from "@site/src/components/APILink";
 import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
@@ -78,11 +82,9 @@ def agent(query: str):
         for tool_call in message.tool_calls:
             args = json.loads(tool_call.function.arguments)
             result = get_weather(**args)
-            responses.append(
-                {
-                    "response": f"Weather in {result['location']}: {result['condition']}, {result['temperature']}°F"
-                }
-            )
+            responses.append({
+                "response": f"Weather in {result['location']}: {result['condition']}, {result['temperature']}°F"
+            })
 
     return {"response": responses if responses else message.content}
 
