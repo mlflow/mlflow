@@ -1,5 +1,4 @@
 import json
-import sys
 from typing import Any
 from unittest.mock import Mock, patch
 
@@ -8,6 +7,8 @@ import pytest
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.metaprompt_optimizer import MetaPromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
+
+_CALL_LLM = "mlflow.genai.discovery.utils._call_llm"
 
 
 @pytest.fixture
@@ -65,8 +66,8 @@ def mock_eval_fn(candidate_prompts: dict[str, str], dataset: list[dict[str, Any]
 
 
 @pytest.fixture
-def mock_litellm_response():
-    """Mock litellm response with improved prompts."""
+def mock_llm_response():
+    """Mock LLM response with improved prompts."""
     mock_response = Mock()
     mock_response.choices = [Mock()]
     mock_response.choices[0].message = Mock()
@@ -216,8 +217,8 @@ def test_format_examples(sample_train_data):
     assert "Score:" in formatted
 
 
-def test_call_reflection_model_success(mock_litellm_response):
-    with patch("litellm.completion", return_value=mock_litellm_response) as mock_completion:
+def test_call_reflection_model_success(mock_llm_response):
+    with patch(_CALL_LLM, return_value=mock_llm_response) as mock_call:
         optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
         result = optimizer._call_reflection_model("test prompt")
 
@@ -225,12 +226,10 @@ def test_call_reflection_model_success(mock_litellm_response):
         assert "instruction" in result
         assert "{{question}}" in result["instruction"]
 
-        # Verify litellm.completion was called with correct base parameters
-        mock_completion.assert_called_once()
-        call_kwargs = mock_completion.call_args.kwargs
-        assert call_kwargs["model"] == "openai/gpt-4o"
-        assert call_kwargs["response_format"] == {"type": "json_object"}
-        assert call_kwargs["max_retries"] == 3
+        mock_call.assert_called_once()
+        args, kwargs = mock_call.call_args
+        assert args[0] == "openai:/gpt-4o"
+        assert kwargs["json_mode"] is True
 
 
 def test_call_reflection_model_with_markdown():
@@ -244,7 +243,7 @@ def test_call_reflection_model_with_markdown():
 }
 ```"""
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(_CALL_LLM, return_value=mock_response):
         optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
         result = optimizer._call_reflection_model("test prompt")
 
@@ -252,26 +251,18 @@ def test_call_reflection_model_with_markdown():
         assert "instruction" in result
 
 
-def test_call_reflection_model_litellm_not_installed():
-    with patch.dict(sys.modules, {"litellm": None}):
-        optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
-
-        with pytest.raises(ImportError, match="litellm is required"):
-            optimizer._call_reflection_model("test prompt")
-
-
 def test_call_reflection_model_llm_failure():
-    with patch("litellm.completion", side_effect=Exception("API error")):
+    with patch(_CALL_LLM, side_effect=Exception("API error")):
         optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
         with pytest.raises(MlflowException, match="Failed to call reflection model"):
             optimizer._call_reflection_model("test prompt")
 
 
-def test_call_reflection_model_with_lm_kwargs(mock_litellm_response):
+def test_call_reflection_model_with_lm_kwargs(mock_llm_response):
     custom_lm_kwargs = {"temperature": 0.5, "max_tokens": 2048, "top_p": 0.9}
 
-    with patch("litellm.completion", return_value=mock_litellm_response) as mock_completion:
+    with patch(_CALL_LLM, return_value=mock_llm_response) as mock_call:
         optimizer = MetaPromptOptimizer(
             reflection_model="openai:/gpt-4o", lm_kwargs=custom_lm_kwargs
         )
@@ -279,20 +270,14 @@ def test_call_reflection_model_with_lm_kwargs(mock_litellm_response):
 
         assert isinstance(result, dict)
 
-        # Verify that custom lm_kwargs were passed through
-        mock_completion.assert_called_once()
-        call_kwargs = mock_completion.call_args.kwargs
-        assert call_kwargs["temperature"] == 0.5
-        assert call_kwargs["max_tokens"] == 2048
-        assert call_kwargs["top_p"] == 0.9
-        # Also verify base parameters are still present
-        assert call_kwargs["model"] == "openai/gpt-4o"
-        assert call_kwargs["response_format"] == {"type": "json_object"}
-        assert call_kwargs["max_retries"] == 3
+        # Verify that custom lm_kwargs were passed as inference_params
+        mock_call.assert_called_once()
+        _, kwargs = mock_call.call_args
+        assert kwargs["inference_params"] == custom_lm_kwargs
 
 
-def test_optimize_zero_shot_mode(sample_target_prompts, mock_litellm_response):
-    with patch("litellm.completion", return_value=mock_litellm_response) as mock_completion:
+def test_optimize_zero_shot_mode(sample_target_prompts, mock_llm_response):
+    with patch(_CALL_LLM, return_value=mock_llm_response) as mock_call:
         optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
         result = optimizer.optimize(
@@ -308,11 +293,11 @@ def test_optimize_zero_shot_mode(sample_target_prompts, mock_litellm_response):
         assert "instruction" in result.optimized_prompts
         assert "{{question}}" in result.optimized_prompts["instruction"]
         # Zero-shot uses single pass
-        assert mock_completion.call_count == 1
+        assert mock_call.call_count == 1
 
 
-def test_optimize_few_shot_mode(sample_train_data, sample_target_prompts, mock_litellm_response):
-    with patch("litellm.completion", return_value=mock_litellm_response) as mock_completion:
+def test_optimize_few_shot_mode(sample_train_data, sample_target_prompts, mock_llm_response):
+    with patch(_CALL_LLM, return_value=mock_llm_response) as mock_call:
         optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
         result = optimizer.optimize(
@@ -326,11 +311,11 @@ def test_optimize_few_shot_mode(sample_train_data, sample_target_prompts, mock_l
         assert result.initial_eval_score is not None
         assert result.final_eval_score is not None  # Sanity check evaluation on train data
         assert "instruction" in result.optimized_prompts
-        assert mock_completion.call_count == 1  # Single pass
+        assert mock_call.call_count == 1  # Single pass
 
 
 def test_optimize_few_shot_with_baseline_eval(sample_train_data, sample_target_prompts):
-    # Mock litellm to return improved prompts
+    # Mock LLM to return improved prompts
     mock_response = Mock()
     mock_response.choices = [Mock()]
     mock_response.choices[0].message = Mock()
@@ -352,7 +337,7 @@ def test_optimize_few_shot_with_baseline_eval(sample_train_data, sample_target_p
             for record in dataset
         ]
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(_CALL_LLM, return_value=mock_response):
         optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
         result = optimizer.optimize(
@@ -379,7 +364,7 @@ def test_optimize_preserves_template_variables(sample_train_data):
 
     prompts = {"instruction": "Answer {{question}}"}
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(_CALL_LLM, return_value=mock_response):
         optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
         result = optimizer.optimize(
@@ -403,7 +388,7 @@ def test_optimize_with_multiple_prompts(sample_train_data, sample_target_prompts
         "instruction": "Improved: Answer {{question}}",
     })
 
-    with patch("litellm.completion", return_value=mock_response):
+    with patch(_CALL_LLM, return_value=mock_response):
         optimizer = MetaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
         result = optimizer.optimize(

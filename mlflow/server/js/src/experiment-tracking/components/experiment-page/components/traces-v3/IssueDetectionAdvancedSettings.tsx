@@ -35,7 +35,7 @@ export function IssueDetectionAdvancedSettings({
           provider={provider}
           value={model}
           onChange={onModelChange}
-          componentIdPrefix="mlflow.traces.issue-detection-modal.model"
+          componentId="mlflow.traces.issue-detection-modal.model"
           label={
             <Typography.Text color="secondary" css={{ fontSize: theme.typography.fontSizeSm }}>
               <FormattedMessage defaultMessage="Model *" description="Label for model selection (required)" />
