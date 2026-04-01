@@ -10,7 +10,7 @@ import { createListFromObject } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-import { applyJsonPath } from '../hooks/useTraceViewFiltering';
+import { applyJsonPathToObject } from '../hooks/useTraceViewFiltering';
 
 export function ModelTraceExplorerDefaultSpanView({
   activeSpan,
@@ -26,24 +26,17 @@ export function ModelTraceExplorerDefaultSpanView({
   const { theme } = useDesignSystemTheme();
   const { activeTraceView } = useModelTraceExplorerViewState();
 
-  const rawInputList = useMemo(() => createListFromObject(activeSpan?.inputs), [activeSpan]);
-  const rawOutputList = useMemo(() => createListFromObject(activeSpan?.outputs), [activeSpan]);
+  const filteredInputs = useMemo(
+    () => applyJsonPathToObject(activeSpan?.inputs, activeTraceView?.input_path),
+    [activeSpan?.inputs, activeTraceView?.input_path],
+  );
+  const filteredOutputs = useMemo(
+    () => applyJsonPathToObject(activeSpan?.outputs, activeTraceView?.output_path),
+    [activeSpan?.outputs, activeTraceView?.output_path],
+  );
 
-  const inputList = useMemo(() => {
-    if (!activeTraceView?.input_path) return rawInputList;
-    return rawInputList.map((item) => ({
-      ...item,
-      value: applyJsonPath(item.value, activeTraceView.input_path),
-    }));
-  }, [rawInputList, activeTraceView?.input_path]);
-
-  const outputList = useMemo(() => {
-    if (!activeTraceView?.output_path) return rawOutputList;
-    return rawOutputList.map((item) => ({
-      ...item,
-      value: applyJsonPath(item.value, activeTraceView.output_path),
-    }));
-  }, [rawOutputList, activeTraceView?.output_path]);
+  const inputList = useMemo(() => createListFromObject(filteredInputs as any), [filteredInputs]);
+  const outputList = useMemo(() => createListFromObject(filteredOutputs as any), [filteredOutputs]);
 
   if (isNil(activeSpan)) {
     return null;

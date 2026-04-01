@@ -1,10 +1,16 @@
 import { useMemo } from 'react';
 
-// @ts-expect-error jsonpath-plus does not ship type declarations
-import { JSONPath } from 'jsonpath-plus';
-
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
 import type { SpanFilter, TraceView } from './useTraceViews';
+
+// Lazy-load jsonpath-plus to avoid top-level import failures
+let JSONPath: ((opts: { path: string; json: unknown }) => unknown[]) | null = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  JSONPath = require('jsonpath-plus').JSONPath;
+} catch {
+  // jsonpath-plus not available — applyJsonPath will return raw data
+}
 
 /**
  * Checks whether a span matches the given span filter criteria.
@@ -48,16 +54,44 @@ export function spanMatchesFilter(span: ModelTraceSpanNode, filter: SpanFilter |
  * Falls back to the original data if the path is invalid or yields no results.
  */
 export function applyJsonPath(data: string, jsonPath: string | null | undefined): string {
-  if (!jsonPath) return data;
+  if (!jsonPath || !JSONPath) return data;
   try {
     const parsed = JSON.parse(data);
     const results = JSONPath({ path: jsonPath, json: parsed });
     if (!results || results.length === 0) return data;
-    const extracted = results
-      .filter((r: unknown) => r != null)
-      .map((r: unknown) => (typeof r === 'object' ? JSON.stringify(r, null, 2) : String(r)))
-      .join('\n');
-    return extracted || data;
+    // Filter nulls
+    const filtered = results.filter((r: unknown) => r != null);
+    if (filtered.length === 0) return data;
+    // If single result, JSON-serialize it so downstream components can parse it.
+    // ModelTraceExplorerCodeSnippet expects valid JSON strings.
+    if (filtered.length === 1) {
+      return JSON.stringify(filtered[0], null, 2);
+    }
+    // Multiple results: serialize as a JSON array
+    return JSON.stringify(filtered, null, 2);
+  } catch {
+    return data;
+  }
+}
+
+/**
+ * Applies a JSONPath expression to a raw data object (e.g. span inputs/outputs)
+ * and returns the extracted result. Unlike `applyJsonPath` which operates on
+ * individual serialized values, this operates on the whole object so that
+ * paths like `$.reasoning` correctly select a top-level key from the object.
+ *
+ * Returns the original data unchanged if the path is invalid, yields no results,
+ * or jsonpath-plus is unavailable.
+ */
+export function applyJsonPathToObject(data: unknown, jsonPath: string | null | undefined): unknown {
+  if (!jsonPath || !JSONPath || data == null) return data;
+  try {
+    const results = JSONPath({ path: jsonPath, json: data });
+    if (!results || results.length === 0) return data;
+    const filtered = results.filter((r: unknown) => r != null);
+    if (filtered.length === 0) return data;
+    if (filtered.length === 1) return filtered[0];
+    return filtered;
   } catch {
     return data;
   }

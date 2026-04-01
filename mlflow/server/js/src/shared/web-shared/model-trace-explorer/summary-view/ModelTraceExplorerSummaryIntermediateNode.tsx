@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Button, ChevronRightIcon, ChevronDownIcon, useDesignSystemTheme, Typography } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
@@ -11,6 +11,8 @@ import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateCo
 import { SpanNameDetailViewLink } from '../assessments-pane/SpanNameDetailViewLink';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 import { spanTimeFormatter } from '../timeline-tree/TimelineTree.utils';
+import type { TraceView } from '../hooks/useTraceViews';
+import { applyJsonPathToObject } from '../hooks/useTraceViewFiltering';
 
 const CONNECTOR_WIDTH = 12;
 const ROW_HEIGHT = 48;
@@ -18,14 +20,34 @@ const ROW_HEIGHT = 48;
 export const ModelTraceExplorerSummaryIntermediateNode = ({
   node,
   renderMode,
+  activeTraceView = null,
+  isDimmedByView = false,
+  isMatchedByView = false,
 }: {
   node: ModelTraceSpanNode;
   renderMode: 'default' | 'json';
+  activeTraceView?: TraceView | null;
+  isDimmedByView?: boolean;
+  isMatchedByView?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const [expanded, setExpanded] = useState(false);
-  const inputList = useMemo(() => createListFromObject(node.inputs), [node]);
-  const outputList = useMemo(() => createListFromObject(node.outputs), [node]);
+  const [expanded, setExpanded] = useState(isMatchedByView);
+
+  // Auto-expand when a trace view matches this span, collapse when view is cleared
+  useEffect(() => {
+    setExpanded(isMatchedByView);
+  }, [isMatchedByView]);
+  const filteredInputs = useMemo(
+    () => applyJsonPathToObject(node.inputs, activeTraceView?.input_path),
+    [node.inputs, activeTraceView?.input_path],
+  );
+  const filteredOutputs = useMemo(
+    () => applyJsonPathToObject(node.outputs, activeTraceView?.output_path),
+    [node.outputs, activeTraceView?.output_path],
+  );
+
+  const inputList = useMemo(() => createListFromObject(filteredInputs as any), [filteredInputs]);
+  const outputList = useMemo(() => createListFromObject(filteredOutputs as any), [filteredOutputs]);
   const exceptionEvents = getSpanExceptionEvents(node);
   const chatMessageFormat = node.chatMessageFormat;
 
@@ -42,6 +64,8 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
         flexDirection: 'row',
         minHeight: ROW_HEIGHT,
         flexShrink: 0,
+        opacity: isDimmedByView ? 0.3 : 1,
+        transition: 'opacity 150ms ease',
       }}
     >
       <div css={{ height: ROW_HEIGHT, display: 'flex', alignItems: 'center' }}>

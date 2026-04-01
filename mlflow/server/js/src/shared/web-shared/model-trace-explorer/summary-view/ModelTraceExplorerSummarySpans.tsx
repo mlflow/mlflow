@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { SegmentedControlButton, SegmentedControlGroup, useDesignSystemTheme } from '@databricks/design-system';
+import { SegmentedControlButton, SegmentedControlGroup, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSummaryIntermediateNode } from './ModelTraceExplorerSummaryIntermediateNode';
@@ -12,6 +12,8 @@ import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateCo
 import { AddToDatasetButton } from '../assessments-pane/AddToDatasetButton';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { useModelTraceExplorerPreferences } from '../ModelTraceExplorerPreferencesContext';
+import type { TraceView } from '../hooks/useTraceViews';
+import { applyJsonPathToObject } from '../hooks/useTraceViewFiltering';
 
 export const SUMMARY_SPANS_MIN_WIDTH = 400;
 
@@ -19,10 +21,14 @@ export const ModelTraceExplorerSummarySpans = ({
   rootNode,
   intermediateNodes,
   hideRenderModeSelector = false,
+  activeTraceView = null,
+  viewMatchedSpanKeys = null,
 }: {
   rootNode: ModelTraceSpanNode;
   intermediateNodes: ModelTraceSpanNode[];
   hideRenderModeSelector?: boolean;
+  activeTraceView?: TraceView | null;
+  viewMatchedSpanKeys?: Set<string | number> | null;
 }) => {
   const { theme } = useDesignSystemTheme();
   const preferences = useModelTraceExplorerPreferences();
@@ -48,8 +54,25 @@ export const ModelTraceExplorerSummarySpans = ({
   const hasIntermediateNodes = intermediateNodes.length > 0;
   const hasExceptions = exceptions.length > 0;
 
-  const inputList = createListFromObject(rootInputs).filter(({ value }) => value !== 'null');
-  const outputList = createListFromObject(rootOutputs).filter(({ value }) => value !== 'null');
+  const filteredInputs = useMemo(
+    () => applyJsonPathToObject(rootInputs, activeTraceView?.input_path),
+    [rootInputs, activeTraceView?.input_path],
+  );
+  const filteredOutputs = useMemo(
+    () => applyJsonPathToObject(rootOutputs, activeTraceView?.output_path),
+    [rootOutputs, activeTraceView?.output_path],
+  );
+
+  const inputList = useMemo(
+    () => createListFromObject(filteredInputs as any).filter(({ value }) => value !== 'null'),
+    [filteredInputs],
+  );
+  const outputList = useMemo(
+    () => createListFromObject(filteredOutputs as any).filter(({ value }) => value !== 'null'),
+    [filteredOutputs],
+  );
+
+  const hasJsonPathFilter = !!(activeTraceView?.input_path || activeTraceView?.output_path);
 
   return (
     <div
@@ -98,6 +121,23 @@ export const ModelTraceExplorerSummarySpans = ({
           </div>
         </div>
       )}
+      {hasJsonPathFilter && activeTraceView && (
+        <div
+          css={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.xs,
+            marginBottom: theme.spacing.sm,
+            padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+            backgroundColor: theme.colors.backgroundSecondary,
+            borderRadius: theme.borders.borderRadiusMd,
+          }}
+        >
+          <Typography.Text size="sm" color="secondary">
+            Filtered by: {activeTraceView.name}
+          </Typography.Text>
+        </div>
+      )}
       {hasExceptions && <ModelTraceExplorerSummaryViewExceptionsSection node={rootNode} />}
       <ModelTraceExplorerSummarySection
         title={
@@ -114,7 +154,14 @@ export const ModelTraceExplorerSummarySpans = ({
       />
       {hasIntermediateNodes &&
         intermediateNodes.map((node) => (
-          <ModelTraceExplorerSummaryIntermediateNode key={node.key} node={node} renderMode={renderMode} />
+          <ModelTraceExplorerSummaryIntermediateNode
+            key={node.key}
+            node={node}
+            renderMode={renderMode}
+            activeTraceView={activeTraceView}
+            isDimmedByView={viewMatchedSpanKeys != null && !viewMatchedSpanKeys.has(node.key)}
+            isMatchedByView={viewMatchedSpanKeys != null && viewMatchedSpanKeys.has(node.key)}
+          />
         ))}
       <ModelTraceExplorerSummarySection
         title={
