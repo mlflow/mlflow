@@ -49,10 +49,10 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python # Required for running a tracking server
       - name: Setup Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        uses: ./.github/actions/setup-node
         with:
           node-version: ${{ matrix.node-version }}
-          cache: "npm"
+          cache: npm
           cache-dependency-path: libs/typescript/package-lock.json
 
       - name: Install dependencies

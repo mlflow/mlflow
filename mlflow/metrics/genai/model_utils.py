@@ -10,6 +10,11 @@ from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
 from mlflow.genai.utils.gateway_utils import get_gateway_config
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.utils.providers import (
+    AZURE_API_BASE_ENV_VAR,
+    AZURE_API_KEY_ENV_VAR,
+    AZURE_API_VERSION_ENV_VAR,
+)
 
 if TYPE_CHECKING:
     from mlflow.gateway.providers import BaseProvider
@@ -317,19 +322,19 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     # NB: Not all LLM providers in MLflow Gateway are supported here. We can add
     # new ones as requested, as long as the provider support chat endpoints.
     if provider == Provider.OPENAI:
-        from mlflow.openai.model import _get_api_config, _OAITokenHolder
+        # Empty string default allows provider construction without a key; the error
+        # surfaces at HTTP call time (401) rather than at construction time, matching
+        # the behavior of the previous _get_api_config/_OAITokenHolder code path.
+        config = OpenAIConfig(openai_api_key=os.environ.get("OPENAI_API_KEY", ""))
+        return OpenAIProvider(_get_route_config(config))
 
-        api_config = _get_api_config()
-        api_token = _OAITokenHolder(api_config.api_type)
-        api_token.refresh()
-
+    elif provider == Provider.AZURE:
         config = OpenAIConfig(
-            openai_api_key=api_token.token,
-            openai_api_type=api_config.api_type or "openai",
-            openai_api_base=api_config.api_base,
-            openai_api_version=api_config.api_version,
-            openai_deployment_name=api_config.deployment_id,
-            openai_organization=api_config.organization,
+            openai_api_key=os.environ.get(AZURE_API_KEY_ENV_VAR),
+            openai_api_type="azure",
+            openai_api_base=os.environ.get(AZURE_API_BASE_ENV_VAR),
+            openai_api_version=os.environ.get(AZURE_API_VERSION_ENV_VAR),
+            openai_deployment_name=model,
         )
         return OpenAIProvider(_get_route_config(config))
 
@@ -340,10 +345,15 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
         return AnthropicProvider(_get_route_config(config))
 
     elif provider in [Provider.AMAZON_BEDROCK, Provider.BEDROCK]:
-        from mlflow.gateway.config import AWSIdAndKey, AWSRole
+        from mlflow.gateway.config import AWSBearerToken, AWSIdAndKey, AWSRole
         from mlflow.gateway.providers.bedrock import AmazonBedrockConfig, AmazonBedrockProvider
 
-        if aws_role_arn := os.environ.get("AWS_ROLE_ARN"):
+        if bearer_token := os.environ.get("AWS_BEARER_TOKEN_BEDROCK"):
+            aws_config = AWSBearerToken(
+                aws_region=os.environ.get("AWS_REGION"),
+                aws_bearer_token=bearer_token,
+            )
+        elif aws_role_arn := os.environ.get("AWS_ROLE_ARN"):
             aws_config = AWSRole(
                 aws_region=os.environ.get("AWS_REGION"),
                 aws_role_arn=aws_role_arn,
@@ -401,6 +411,62 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
             },
         )
         return _MlflowGatewayProvider(route_config, extra_headers=gw_config.extra_headers)
+
+    elif provider == Provider.GROQ:
+        from mlflow.gateway.config import _OpenAICompatibleConfig
+        from mlflow.gateway.providers.groq import GroqProvider
+
+        config = _OpenAICompatibleConfig(api_key=os.environ.get("GROQ_API_KEY"))
+        return GroqProvider(_get_route_config(config))
+
+    elif provider == Provider.DEEPSEEK:
+        from mlflow.gateway.config import _OpenAICompatibleConfig
+        from mlflow.gateway.providers.deepseek import DeepSeekProvider
+
+        config = _OpenAICompatibleConfig(api_key=os.environ.get("DEEPSEEK_API_KEY"))
+        return DeepSeekProvider(_get_route_config(config))
+
+    elif provider == Provider.XAI:
+        from mlflow.gateway.config import _OpenAICompatibleConfig
+        from mlflow.gateway.providers.xai import XAIProvider
+
+        config = _OpenAICompatibleConfig(api_key=os.environ.get("XAI_API_KEY"))
+        return XAIProvider(_get_route_config(config))
+
+    elif provider == Provider.OPENROUTER:
+        from mlflow.gateway.config import _OpenAICompatibleConfig
+        from mlflow.gateway.providers.openrouter import OpenRouterProvider
+
+        config = _OpenAICompatibleConfig(api_key=os.environ.get("OPENROUTER_API_KEY"))
+        return OpenRouterProvider(_get_route_config(config))
+
+    elif provider == Provider.OLLAMA:
+        from mlflow.gateway.providers.ollama import OllamaConfig, OllamaProvider
+
+        config = OllamaConfig(api_key=os.environ.get("OLLAMA_API_KEY", "ollama"))
+        return OllamaProvider(_get_route_config(config))
+
+    elif provider == Provider.DATABRICKS:
+        from mlflow.gateway.providers.databricks import DatabricksConfig, DatabricksProvider
+
+        config = DatabricksConfig(
+            host=os.environ.get("DATABRICKS_HOST"),
+            token=os.environ.get("DATABRICKS_TOKEN"),
+            client_id=os.environ.get("DATABRICKS_CLIENT_ID"),
+            client_secret=os.environ.get("DATABRICKS_CLIENT_SECRET"),
+        )
+        return DatabricksProvider(_get_route_config(config))
+
+    elif provider == Provider.VERTEX_AI:
+        from mlflow.gateway.config import VertexAIConfig
+        from mlflow.gateway.providers.vertex_ai import VertexAIProvider
+
+        config = VertexAIConfig(
+            vertex_project=os.environ.get("VERTEX_PROJECT", ""),
+            vertex_location=os.environ.get("VERTEX_LOCATION"),
+            vertex_credentials=os.environ.get("VERTEX_CREDENTIALS"),
+        )
+        return VertexAIProvider(_get_route_config(config))
 
     raise MlflowException(f"Provider '{provider}' is not supported for evaluation.")
 
