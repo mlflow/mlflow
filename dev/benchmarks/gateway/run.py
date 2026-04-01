@@ -8,10 +8,11 @@ Orchestrates fake OpenAI server, MLflow server(s), optional PostgreSQL and
 nginx (via Docker), then runs the async benchmark client.
 
 Usage:
-    uv run run.py single                     # Single instance, SQLite
-    uv run run.py single --backend postgres  # Single instance, PostgreSQL (Docker)
-    uv run run.py multi                      # 4 instances behind nginx (Docker)
-    uv run run.py multi --instances 8        # 8 instances
+    uv run run.py                              # 4 instances, PostgreSQL, nginx (Docker)
+    uv run run.py --instances 1               # single instance, SQLite, no Docker
+    uv run run.py --instances 1 --backend postgres
+    uv run run.py --instances 8 --workers 8
+    uv run run.py --url http://...            # benchmark an existing endpoint directly
 """
 
 import argparse
@@ -33,7 +34,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 SCRIPT_DIR = Path(__file__).parent
 FAKE_SERVER_PORT = 9137
-MLFLOW_LB_PORT = 5731
+MLFLOW_PORT = 5731
 INSTANCE_BASE_PORT = 5800
 POSTGRES_PORT = 5432
 ENDPOINT_NAME = "benchmark-chat"
@@ -328,19 +329,24 @@ def _sanity_check(url: str):
     console.print("  [green]✓[/green] Sanity check passed")
 
 
-def _run_benchmark(url: str, n_requests: int, max_concurrent: int, runs: int):
+def _run_benchmark(
+    url: str,
+    n_requests: int,
+    max_concurrent: int,
+    runs: int,
+    min_rps: float | None = None,
+    max_p99_ms: float | None = None,
+):
     sys.path.insert(0, str(SCRIPT_DIR))
     import benchmark as bm
 
     results = bm.run_benchmark(url, n_requests, max_concurrent, runs)
     bm.print_results(results)
+    if not bm.check_thresholds(results, min_rps=min_rps, max_p99_ms=max_p99_ms):
+        raise SystemExit(1)
 
 
-def _start_nginx(
-    instance_ports: list[int],
-    lb_port: int = MLFLOW_LB_PORT,
-    container_name: str = "benchmark-nginx",
-):
+def _start_nginx(instance_ports: list[int], port: int, container_name: str = "benchmark-nginx"):
     nginx_dir = Path(_tmpdir) / "nginx"
     conf_d = nginx_dir / "conf.d"
     conf_d.mkdir(parents=True)
@@ -354,7 +360,7 @@ def _start_nginx(
         f"    keepalive_timeout 60s;\n"
         f"}}\n"
         f"server {{\n"
-        f"    listen {lb_port} reuseport backlog=65535;\n"
+        f"    listen {port} reuseport backlog=65535;\n"
         f"    location / {{\n"
         f"        proxy_pass http://mlflow_backends;\n"
         f"        proxy_http_version 1.1;\n"
@@ -410,7 +416,7 @@ def _start_nginx(
                 "-v",
                 f"{conf_d}:/etc/nginx/conf.d:ro",
                 "-p",
-                f"{lb_port}:{lb_port}",
+                f"{port}:{port}",
                 "nginx:alpine",
             ],
             check=True,
@@ -435,13 +441,16 @@ def _start_nginx(
     console.print("  [green]✓[/green] nginx ready")
 
 
-def cmd_single(args):
+def cmd_bench(args):
     global _tmpdir
+
+    instances = args.instances
+    mode = "1 instance" if instances == 1 else f"{instances} instances, nginx LB"
 
     if args.url:
         console.print(
             Panel.fit(
-                f"[bold]Single-Instance Gateway Benchmark[/bold]\n"
+                f"[bold]Gateway Benchmark[/bold] ({mode})\n"
                 f"URL: [cyan]{args.url}[/cyan]\n"
                 f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}"
                 f"  ·  Runs: {args.runs}",
@@ -449,27 +458,45 @@ def cmd_single(args):
             )
         )
         console.print("\n[bold]Running benchmark[/bold]")
-        _run_benchmark(args.url, args.requests, args.max_concurrent, args.runs)
+        _run_benchmark(
+            args.url, args.requests, args.max_concurrent, args.runs,
+            args.min_rps, args.max_p99_ms,
+        )
         return
 
-    _tmpdir = tempfile.mkdtemp(prefix="mlflow-bench-")
-    mlflow_port = args.mlflow_port
-    fake_port = args.fake_server_port
+    needs_docker = instances > 1 or args.backend == "postgres"
+    if needs_docker:
+        _check_docker()
 
-    console.print(
-        Panel.fit(
-            f"[bold]Single-Instance Gateway Benchmark[/bold]\n"
+    _tmpdir = tempfile.mkdtemp(prefix="mlflow-bench-")
+    port = args.port
+    fake_port = args.fake_server_port
+    instance_ports = [args.base_port + i for i in range(instances)]
+
+    if instances == 1:
+        panel = (
+            f"[bold]Gateway Benchmark[/bold] ({mode})\n"
             f"Workers: {args.workers}  ·  DB: {args.backend}  ·  "
             f"Usage tracking: {args.usage_tracking}\n"
             f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
             f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
-            f"Ports: MLflow :{mlflow_port}  ·  Fake server :{fake_port}",
-            border_style="cyan",
+            f"Ports: MLflow :{port}  ·  Fake server :{fake_port}"
         )
-    )
+    else:
+        panel = (
+            f"[bold]Gateway Benchmark[/bold] ({mode})\n"
+            f"Workers/instance: {args.workers}  ·  "
+            f"Total workers: {instances * args.workers}  ·  "
+            f"Usage tracking: {args.usage_tracking}\n"
+            f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
+            f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
+            f"Ports: instances {instance_ports[0]}–{instance_ports[-1]}"
+            f"  ·  LB :{port}  ·  Fake server :{fake_port}"
+        )
+    console.print(Panel.fit(panel, border_style="cyan"))
 
-    if args.backend == "postgres":
-        _check_docker()
+    # Backend
+    if instances > 1 or args.backend == "postgres":
         console.print("\n[bold]PostgreSQL[/bold]")
         backend_uri = _start_postgres()
         _install_psycopg2()
@@ -478,175 +505,118 @@ def cmd_single(args):
         backend_uri = f"sqlite:///{db_path}"
         console.print(f"\n[dim]Using SQLite: {db_path}[/dim]")
 
+    # Servers
     console.print("\n[bold]Starting servers[/bold]")
-    _start_fake_server(port=fake_port, workers=8)
-    log = _start_mlflow(mlflow_port, args.workers, backend_uri)
-    _wait_for_port(mlflow_port, "MLflow server", log)
+    _start_fake_server(port=fake_port, workers=8 if instances == 1 else 16)
 
-    console.print("\n[bold]Setting up gateway endpoint[/bold]")
-    invoke_url = _setup_endpoint(
-        f"http://127.0.0.1:{mlflow_port}",
-        f"http://127.0.0.1:{fake_port}/v1",
-        ENDPOINT_NAME,
-        usage_tracking=args.usage_tracking,
-    )
-    _sanity_check(invoke_url)
+    if instances == 1:
+        log = _start_mlflow(port, args.workers, backend_uri)
+        _wait_for_port(port, "MLflow server", log)
+
+        console.print("\n[bold]Setting up gateway endpoint[/bold]")
+        invoke_url = _setup_endpoint(
+            f"http://127.0.0.1:{port}",
+            f"http://127.0.0.1:{fake_port}/v1",
+            ENDPOINT_NAME,
+            usage_tracking=args.usage_tracking,
+        )
+        _sanity_check(invoke_url)
+    else:
+        # Start instance 0 first — it initializes the DB schema.
+        # All instances share the same PostgreSQL DB, so starting concurrently
+        # can cause CREATE TABLE race conditions.
+        log0 = _start_mlflow(instance_ports[0], args.workers, backend_uri)
+        _wait_for_port(instance_ports[0], "MLflow instance 0", log0)
+
+        remaining_logs = [
+            _start_mlflow(p, args.workers, backend_uri) for p in instance_ports[1:]
+        ]
+        for i, (p, log) in enumerate(zip(instance_ports[1:], remaining_logs), start=1):
+            _wait_for_port(p, f"MLflow instance {i}", log)
+
+        console.print("\n[bold]Setting up gateway endpoint[/bold]")
+        _setup_endpoint(
+            f"http://127.0.0.1:{instance_ports[0]}",
+            f"http://127.0.0.1:{fake_port}/v1",
+            ENDPOINT_NAME,
+            usage_tracking=args.usage_tracking,
+        )
+
+        console.print("\n[bold]Starting nginx load balancer[/bold]")
+        _start_nginx(instance_ports, port=port)
+        subprocess.run(
+            ["docker", "exec", "benchmark-nginx", "nginx", "-s", "reload"],
+            capture_output=True,
+        )
+        time.sleep(1)
+
+        invoke_url = f"http://127.0.0.1:{port}/gateway/{ENDPOINT_NAME}/mlflow/invocations"
+        _sanity_check(invoke_url)
 
     console.print("\n[bold]Running benchmark[/bold]")
-    _run_benchmark(invoke_url, args.requests, args.max_concurrent, args.runs)
-
-
-def cmd_multi(args):
-    global _tmpdir
-
-    if args.url:
-        console.print(
-            Panel.fit(
-                f"[bold]Multi-Instance Gateway Benchmark[/bold]\n"
-                f"URL: [cyan]{args.url}[/cyan]\n"
-                f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}"
-                f"  ·  Runs: {args.runs}",
-                border_style="cyan",
-            )
-        )
-        console.print("\n[bold]Running benchmark[/bold]")
-        _run_benchmark(args.url, args.requests, args.max_concurrent, args.runs)
-        return
-
-    _check_docker()
-    _tmpdir = tempfile.mkdtemp(prefix="mlflow-bench-")
-    lb_port = args.lb_port
-    fake_port = args.fake_server_port
-    instance_ports = [args.base_port + i for i in range(args.instances)]
-
-    console.print(
-        Panel.fit(
-            f"[bold]Multi-Instance Gateway Benchmark[/bold]\n"
-            f"Instances: {args.instances}  ·  Workers/instance: {args.workers}  ·  "
-            f"Total workers: {args.instances * args.workers}"
-            f"  ·  Usage tracking: {args.usage_tracking}\n"
-            f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
-            f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
-            f"Ports: instances {instance_ports[0]}–{instance_ports[-1]}  ·  "
-            f"LB :{lb_port}  ·  Fake server :{fake_port}",
-            border_style="cyan",
-        )
-    )
-
-    console.print("\n[bold]PostgreSQL[/bold]")
-    backend_uri = _start_postgres()
-    _install_psycopg2()
-
-    console.print("\n[bold]Starting servers[/bold]")
-    _start_fake_server(port=fake_port, workers=16)
-
-    # Start instance 0 first — it initializes the DB schema.
-    # All instances share the same PostgreSQL DB, so starting concurrently
-    # can cause CREATE TABLE race conditions.
-    log0 = _start_mlflow(instance_ports[0], args.workers, backend_uri)
-    _wait_for_port(instance_ports[0], "MLflow instance 0", log0)
-
-    remaining_logs = [_start_mlflow(port, args.workers, backend_uri) for port in instance_ports[1:]]
-    for i, (port, log) in enumerate(zip(instance_ports[1:], remaining_logs), start=1):
-        _wait_for_port(port, f"MLflow instance {i}", log)
-
-    console.print("\n[bold]Setting up gateway endpoint[/bold]")
-    _setup_endpoint(
-        f"http://127.0.0.1:{instance_ports[0]}",
-        f"http://127.0.0.1:{fake_port}/v1",
-        ENDPOINT_NAME,
-        usage_tracking=args.usage_tracking,
-    )
-
-    console.print("\n[bold]Starting nginx load balancer[/bold]")
-    _start_nginx(instance_ports, lb_port=lb_port)
-    subprocess.run(
-        ["docker", "exec", "benchmark-nginx", "nginx", "-s", "reload"],
-        capture_output=True,
-    )
-    time.sleep(1)
-
-    invoke_url = f"http://127.0.0.1:{lb_port}/gateway/{ENDPOINT_NAME}/mlflow/invocations"
-    _sanity_check(invoke_url)
-
-    console.print("\n[bold]Running benchmark[/bold]")
-    _run_benchmark(invoke_url, args.requests, args.max_concurrent, args.runs)
-
-
-def _add_benchmark_args(
-    p: argparse.ArgumentParser, default_requests: int, default_max_concurrent: int
-):
-    p.add_argument(
-        "--requests", type=int, default=int(os.environ.get("REQUESTS", str(default_requests)))
-    )
-    p.add_argument(
-        "--max-concurrent",
-        type=int,
-        default=int(os.environ.get("MAX_CONCURRENT", str(default_max_concurrent))),
-    )
-    p.add_argument("--runs", type=int, default=int(os.environ.get("RUNS", "3")))
-    p.add_argument(
-        "--fake-delay-ms", type=int, default=int(os.environ.get("FAKE_RESPONSE_DELAY_MS", "50"))
+    _run_benchmark(
+        invoke_url, args.requests, args.max_concurrent, args.runs,
+        args.min_rps, args.max_p99_ms,
     )
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="MLflow AI Gateway benchmark orchestration",
+        description="MLflow AI Gateway benchmark",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    subs = parser.add_subparsers(dest="command", required=True)
-
-    p_single = subs.add_parser("single", help="Single MLflow instance")
-    p_single.add_argument("--url", help="Skip setup and benchmark this endpoint URL directly")
-    p_single.add_argument(
-        "--workers", type=int, default=int(os.environ.get("TRACKING_SERVER_WORKERS", "4"))
+    parser.add_argument("--url", help="Benchmark this endpoint directly, skip all setup")
+    parser.add_argument(
+        "--instances", type=int, default=int(os.environ.get("INSTANCES", "4")),
+        help="Number of MLflow instances (default: 4). Use 1 for single-instance mode.",
     )
-    p_single.add_argument("--backend", choices=["sqlite", "postgres"], default="sqlite")
-    p_single.add_argument(
-        "--no-usage-tracking", dest="usage_tracking", action="store_false", default=True
+    parser.add_argument(
+        "--workers", type=int, default=int(os.environ.get("WORKERS_PER_INSTANCE", "4")),
+        help="MLflow worker processes per instance",
     )
-    p_single.add_argument(
-        "--mlflow-port", type=int, default=int(os.environ.get("MLFLOW_PORT", str(MLFLOW_LB_PORT)))
+    parser.add_argument(
+        "--backend", choices=["sqlite", "postgres"], default="sqlite",
+        help="DB backend — only applies when --instances 1 (default: sqlite)",
     )
-    p_single.add_argument(
+    parser.add_argument(
+        "--no-usage-tracking", dest="usage_tracking", action="store_false", default=True,
+    )
+    parser.add_argument(
+        "--port", type=int, default=int(os.environ.get("MLFLOW_PORT", str(MLFLOW_PORT))),
+        help="Port to benchmark against (MLflow port for single, nginx LB port for multi)",
+    )
+    parser.add_argument(
+        "--base-port", type=int, default=int(os.environ.get("BASE_PORT", str(INSTANCE_BASE_PORT))),
+        help="Base port for MLflow instances in multi mode (rest are +1, +2, …)",
+    )
+    parser.add_argument(
         "--fake-server-port",
         type=int,
         default=int(os.environ.get("FAKE_SERVER_PORT", str(FAKE_SERVER_PORT))),
     )
-    _add_benchmark_args(p_single, default_requests=2000, default_max_concurrent=50)
-
-    p_multi = subs.add_parser("multi", help="Multiple instances behind nginx (requires Docker)")
-    p_multi.add_argument("--url", help="Skip setup and benchmark this endpoint URL directly")
-    p_multi.add_argument("--instances", type=int, default=int(os.environ.get("INSTANCES", "4")))
-    p_multi.add_argument(
-        "--workers", type=int, default=int(os.environ.get("WORKERS_PER_INSTANCE", "4"))
+    parser.add_argument(
+        "--requests", type=int, default=int(os.environ.get("REQUESTS", "2000")),
     )
-    p_multi.add_argument(
-        "--no-usage-tracking", dest="usage_tracking", action="store_false", default=True
+    parser.add_argument(
+        "--max-concurrent", type=int, default=int(os.environ.get("MAX_CONCURRENT", "50")),
     )
-    p_multi.add_argument(
-        "--lb-port", type=int, default=int(os.environ.get("LB_PORT", str(MLFLOW_LB_PORT)))
+    parser.add_argument("--runs", type=int, default=int(os.environ.get("RUNS", "3")))
+    parser.add_argument(
+        "--fake-delay-ms", type=int, default=int(os.environ.get("FAKE_RESPONSE_DELAY_MS", "50")),
     )
-    p_multi.add_argument(
-        "--base-port", type=int, default=int(os.environ.get("BASE_PORT", str(INSTANCE_BASE_PORT)))
+    parser.add_argument(
+        "--min-rps", type=float, default=None, metavar="N",
+        help="Fail (exit 1) if average throughput falls below N req/s",
     )
-    p_multi.add_argument(
-        "--fake-server-port",
-        type=int,
-        default=int(os.environ.get("FAKE_SERVER_PORT", str(FAKE_SERVER_PORT))),
+    parser.add_argument(
+        "--max-p99-ms", type=float, default=None, metavar="N",
+        help="Fail (exit 1) if average P99 latency exceeds N ms",
     )
-    _add_benchmark_args(p_multi, default_requests=10000, default_max_concurrent=200)
 
     args = parser.parse_args()
     os.environ["FAKE_RESPONSE_DELAY_MS"] = str(args.fake_delay_ms)
-
-    match args.command:
-        case "single":
-            cmd_single(args)
-        case "multi":
-            cmd_multi(args)
+    cmd_bench(args)
 
 
 if __name__ == "__main__":
