@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams, useSearchParams } from '../../../common/u
 import { RunPage } from '../../components/run-page/RunPage';
 import { ExperimentPageTabName, RunPageTabName, MLFLOW_ISSUE_DETECTION_JOB_ID_TAG } from '../../constants';
 import Routes from '../../routes';
+import { getTimeRangeQueryString } from '../experiment-page-tabs/side-nav/utils';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { IssueDetectionRunOverview } from '../../components/run-page/overview/IssueDetectionRunOverview';
 
@@ -17,15 +18,15 @@ export const IssueDetectionRunDetailsPage = () => {
   const [searchParams] = useSearchParams();
 
   const safeExperimentId = experimentId as string;
-  const queryString = searchParams.toString();
+  const timeRangeSearch = useMemo(() => getTimeRangeQueryString(searchParams.toString()), [searchParams]);
 
   // Fetch experiment data for breadcrumb
   const { data: experiment } = useGetExperimentQuery({ experimentId: safeExperimentId });
 
-  // Helper to append search params to a route
+  // Helper to append time-range search params to a route
   const withSearchParams = useCallback(
-    (route: string) => (queryString ? `${route}?${queryString}` : route),
-    [queryString],
+    (route: string) => (timeRangeSearch ? `${route}${timeRangeSearch}` : route),
+    [timeRangeSearch],
   );
 
   const customBreadcrumbs = useMemo(() => {
@@ -52,7 +53,7 @@ export const IssueDetectionRunDetailsPage = () => {
       <Link
         componentId="mlflow.experiment_tracking.issue_detection.breadcrumb_evaluation_runs_link"
         key="evaluation-runs"
-        to={{ pathname: evalRunsRoute, search: queryString }}
+        to={{ pathname: evalRunsRoute, search: timeRangeSearch }}
       >
         <FormattedMessage
           defaultMessage="Evaluation runs"
@@ -60,7 +61,7 @@ export const IssueDetectionRunDetailsPage = () => {
         />
       </Link>,
     ];
-  }, [experiment?.name, safeExperimentId, queryString]);
+  }, [experiment?.name, safeExperimentId, timeRangeSearch]);
 
   const handleDeleteSuccess = useCallback(
     (expId: string) => {

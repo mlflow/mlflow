@@ -19,6 +19,7 @@ import { DatasetSourceTypes, RunEntity } from '../../types';
 import { Link, useNavigate, useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useGetLoggedModelQuery } from '../../hooks/logged-models/useGetLoggedModelQuery';
 import Routes from '../../routes';
+import { getTimeRangeQueryString } from '../experiment-page-tabs/side-nav/utils';
 import { useSaveExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { useGetExperimentRunColor } from '../../components/experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../components/experiment-page/components/RunColorPill';
@@ -89,8 +90,8 @@ export const RunNameCell: ColumnDef<RunEntityOrGroupData>['cell'] = ({
     // When flag is ON and clicking on an issue detection run, navigate to the issue detection run details page
     if (isIssueDetectionRun && showIssuesPanelFlag) {
       const route = Routes.getIssueDetectionRunDetailsRoute(experimentId, runUuid);
-      const queryString = searchParams.toString();
-      navigate(queryString ? `${route}?${queryString}` : route);
+      const timeRangeSearch = getTimeRangeQueryString(searchParams.toString());
+      navigate(timeRangeSearch ? `${route}${timeRangeSearch}` : route);
       return;
     }
     // Otherwise follow old behavior - open the right-side panel
