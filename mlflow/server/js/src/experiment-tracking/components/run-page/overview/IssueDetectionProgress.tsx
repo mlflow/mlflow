@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import {
   Button,
@@ -19,6 +19,8 @@ import { useSearchIssuesQuery } from '../hooks/useSearchIssuesQuery';
 import { JobStatus, isJobComplete } from '../hooks/useFetchJobStatus';
 import { useCancelJob } from '../hooks/useCancelJob';
 import { useLogTelemetryEvent } from '../../../../telemetry/hooks/useLogTelemetryEvent';
+
+const loggedRunUuids = new Set<string>();
 
 export interface IssueJobResult {
   issues?: number;
@@ -109,10 +111,9 @@ export const IssueDetectionProgress = ({
 
   const identifiedIssues = issues.length;
 
-  const hasLoggedTelemetry = useRef(false);
   useEffect(() => {
-    if (isJobSucceeded && !hasLoggedTelemetry.current) {
-      hasLoggedTelemetry.current = true;
+    if (isJobSucceeded && runUuid && !loggedRunUuids.has(runUuid)) {
+      loggedRunUuids.add(runUuid);
       logTelemetryEvent({
         componentId: 'mlflow.issue-detection.completed',
         componentType: DesignSystemEventProviderComponentTypes.Button,
@@ -121,12 +122,12 @@ export const IssueDetectionProgress = ({
         eventType: DesignSystemEventProviderAnalyticsEventTypes.OnValueChange,
         value: JSON.stringify({
           totalTraces,
-          identifiedIssues,
+          identifiedIssues: result?.issues,
           totalCostUsd: result?.total_cost_usd,
         }),
       });
     }
-  }, [isJobSucceeded, totalTraces, identifiedIssues, result?.total_cost_usd]);
+  }, [isJobSucceeded, runUuid, totalTraces, result?.issues, result?.total_cost_usd, logTelemetryEvent]);
 
   if (isLoadingJobStatus) {
     return (
