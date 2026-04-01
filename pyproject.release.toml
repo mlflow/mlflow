@@ -4,7 +4,7 @@
 # child packages. This file will replace `pyproject.toml` when releasing a new version.
 
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools<=82.0.1"]
 build-backend = "setuptools.build_meta"
 
 [project]

@@ -85,6 +85,14 @@ class BaseProvider(ABC):
         self.config = config
         self._enable_tracing = enable_tracing
 
+    def get_endpoint_url(self, route_type: str) -> str:
+        """Return the full endpoint URL for the given route type.
+
+        Subclasses that support direct HTTP invocation (e.g. for judge
+        evaluation) should override this method.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not implement get_endpoint_url")
+
     # -------------------------------------------------------------------------
     # Internal implementation methods (override these in subclasses)
     # -------------------------------------------------------------------------

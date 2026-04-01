@@ -68,7 +68,6 @@ import {
   useRunJudgesOnTracesConfiguration,
 } from '../../../../pages/experiment-scorers/hooks/useRunScorerInTracesViewConfiguration';
 import { IssueDetectionModal } from './IssueDetectionModal';
-import { useIssueDetectionNotification } from './hooks/useIssueDetectionNotification';
 
 const JudgeContextProvider = ({
   children,
@@ -166,8 +165,6 @@ const TracesV3LogsImpl = React.memo(
     const enableTraceInsights = shouldEnableTraceInsights();
     const [isGroupedBySession, setIsGroupedBySession] = useState(initialGroupBySession);
     const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
-    const { showIssueDetectionNotification, notificationContextHolder } =
-      useIssueDetectionNotification(singleExperimentId);
 
     // Check if we're already inside a provider (e.g., from SelectTracesModal)
     // If so, we won't create our own provider to avoid shadowing the parent's selection state
@@ -535,11 +532,9 @@ const TracesV3LogsImpl = React.memo(
                 .filter(([, isSelected]) => isSelected)
                 .map(([traceId]) => traceId)}
               availableTraceIds={traceInfos?.map((trace) => trace.trace_id) ?? []}
-              onSubmitSuccess={showIssueDetectionNotification}
               defaultGroupBySession={forceGroupBySession || isGroupedBySession}
             />
           )}
-          {notificationContextHolder}
         </GenAITracesTableProvider>
       </ModelTraceExplorerContextProvider>
     );

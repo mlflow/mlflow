@@ -6,7 +6,6 @@ import { FormattedMessage } from 'react-intl';
 import { shouldEnableIssueDetection } from '../../../common/utils/FeatureUtils';
 import { IssueDetectionModal } from '../../components/experiment-page/components/traces-v3/IssueDetectionModal';
 import { DetectIssuesButton } from '../../../shared/web-shared/genai-traces-table/components/DetectIssuesButton';
-import { useIssueDetectionNotification } from '../../components/experiment-page/components/traces-v3/hooks/useIssueDetectionNotification';
 import { useIsFileStore } from '../../hooks/useServerInfo';
 import { TracesV3DateSelector } from '../../components/experiment-page/components/traces-v3/TracesV3DateSelector';
 import {
@@ -47,7 +46,6 @@ const ExperimentGenAIOverviewPageImpl = () => {
   const [selectedTimeUnit, setSelectedTimeUnit] = useState<TimeUnit | null>(null);
   const [isIssueDetectionModalOpen, setIsIssueDetectionModalOpen] = useState(false);
   const isFileStore = useIsFileStore();
-  const { showIssueDetectionNotification, notificationContextHolder } = useIssueDetectionNotification(experimentId);
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -275,13 +273,8 @@ const ExperimentGenAIOverviewPageImpl = () => {
         </OverviewChartProvider>
       </Tabs.Root>
       {isIssueDetectionModalOpen && (
-        <IssueDetectionModal
-          onClose={() => setIsIssueDetectionModalOpen(false)}
-          experimentId={experimentId}
-          onSubmitSuccess={showIssueDetectionNotification}
-        />
+        <IssueDetectionModal onClose={() => setIsIssueDetectionModalOpen(false)} experimentId={experimentId} />
       )}
-      {notificationContextHolder}
     </div>
   );
 };

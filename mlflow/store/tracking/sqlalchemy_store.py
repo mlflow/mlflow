@@ -4579,6 +4579,7 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             aggregated_token_usage = {}
             aggregated_cost = {}
             session_id = None
+            user_id = None
             span_rows = []
             metric_rows = []
             for span in spans:
@@ -4596,6 +4597,9 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                         span_session_id := span_attributes.get("session.id")
                     ):
                         session_id = span_session_id
+                    # user id used by OTel semantic conventions: https://opentelemetry.io/docs/specs/semconv/registry/attributes/user/#user-id
+                    if user_id is None and (span_user_id := span_attributes.get("user.id")):
+                        user_id = span_user_id
                     # Get cost for span metrics
                     span_cost = span_attributes.get(SpanAttributeKey.LLM_COST)
 
@@ -4710,6 +4714,25 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
                             request_id=trace_id,
                             key=TraceMetadataKey.TRACE_SESSION,
                             value=session_id,
+                        )
+                    )
+
+            if user_id:
+                existing_user_id = (
+                    session
+                    .query(SqlTraceMetadata)
+                    .filter(
+                        SqlTraceMetadata.request_id == trace_id,
+                        SqlTraceMetadata.key == TraceMetadataKey.TRACE_USER,
+                    )
+                    .one_or_none()
+                )
+                if not existing_user_id:
+                    session.merge(
+                        SqlTraceMetadata(
+                            request_id=trace_id,
+                            key=TraceMetadataKey.TRACE_USER,
+                            value=user_id,
                         )
                     )
 

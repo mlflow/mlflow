@@ -134,7 +134,7 @@ export const WorkspaceSelector = () => {
                     return (
                       <Tooltip
                         key={workspace.name}
-                        componentId={`workspace_selector.tooltip.${workspace.name}`}
+                        componentId="workspace_selector.tooltip"
                         content={workspace.description}
                         side="right"
                       >

@@ -171,6 +171,12 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
                     "secret": True,
                     "required": True,
                 },
+                {
+                    "name": "aws_region_name",
+                    "description": "AWS Region",
+                    "secret": False,
+                    "required": True,
+                },
             ],
         },
         "access_keys": {
@@ -199,31 +205,14 @@ _PROVIDER_AUTH_MODES: dict[str, dict[str, AuthModeDict]] = {
         },
         "iam_role": {
             "display_name": "IAM Role Assumption",
-            "description": "Assume an IAM role using base credentials (for cross-account access)",
+            "description": "Assume an IAM role using the server's ambient credentials "
+            "(instance profile, IRSA, ECS task role, ~/.aws/credentials, etc.)",
             "fields": [
-                {
-                    "name": "aws_access_key_id",
-                    "description": "AWS Access Key ID (for assuming role)",
-                    "secret": True,
-                    "required": True,
-                },
-                {
-                    "name": "aws_secret_access_key",
-                    "description": "AWS Secret Access Key",
-                    "secret": True,
-                    "required": True,
-                },
                 {
                     "name": "aws_role_name",
                     "description": "IAM Role ARN to assume",
                     "secret": False,
                     "required": True,
-                },
-                {
-                    "name": "aws_session_name",
-                    "description": "Session name for assumed role",
-                    "secret": False,
-                    "required": False,
                 },
                 {
                     "name": "aws_region_name",
@@ -724,13 +713,23 @@ def _build_model_dict(
     }
 
 
+# Azure OpenAI environment variable names (matching litellm convention)
+AZURE_API_KEY_ENV_VAR = "AZURE_API_KEY"
+AZURE_API_BASE_ENV_VAR = "AZURE_API_BASE"
+AZURE_API_VERSION_ENV_VAR = "AZURE_API_VERSION"
+
 # Mapping of core providers to their environment variable names for API keys
 _CORE_PROVIDER_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
-    "azure": "AZURE_OPENAI_API_KEY",
+    "azure": AZURE_API_KEY_ENV_VAR,
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "mistral": "MISTRAL_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "xai": "XAI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "togetherai": "TOGETHERAI_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",
         "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",

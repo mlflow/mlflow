@@ -8,7 +8,7 @@ on:
   pull_request: # To test updates
     paths:
       - ".github/workflows/snapshots.yml"
-      - ".github/scripts/src/snapshots.ts"
+      - ".github/workflows/snapshots.js"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -31,7 +31,6 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/setup-node
       - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
 
       - name: Create artifacts directory
@@ -68,10 +67,6 @@ jobs:
               -exec cp {} $ARTIFACT_DIR/ \;
           ls $ARTIFACT_DIR
 
-      - name: Install and build
-        working-directory: .github/scripts
-        run: npm ci && npm run build
-
       - name: Upload artifacts to nightly release
         # This step requires contents write permission, but pull requests filed from forks do not have this permission.
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'mlflow/mlflow'
@@ -79,7 +74,7 @@ jobs:
         with:
           retries: 3
           script: |
-            const { uploadSnapshots } = require('./.github/scripts/dist/bundle.js');
+            const { uploadSnapshots } = require('./.github/workflows/snapshots.js');
             await uploadSnapshots({
               github,
               context,

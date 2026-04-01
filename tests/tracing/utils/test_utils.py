@@ -679,6 +679,18 @@ def test_builtin_cost_fallback_with_provider():
     assert result["total_cost"] == pytest.approx(0.0075)
 
 
+@pytest.mark.parametrize("model_provider", ["OpenAI", "OPENAI", "openai"])
+def test_builtin_cost_fallback_with_provider_case_insensitive(model_provider):
+    with mock.patch.dict("sys.modules", {"litellm": None}):
+        result = calculate_cost_by_model_and_token_usage(
+            "gpt-4o",
+            {"input_tokens": 1000, "output_tokens": 500},
+            model_provider=model_provider,
+        )
+    assert result is not None
+    assert result["total_cost"] == pytest.approx(0.0075)
+
+
 def test_litellm_provider_list_not_printed_during_cost_calculation(capsys):
     litellm.suppress_debug_info = False
 

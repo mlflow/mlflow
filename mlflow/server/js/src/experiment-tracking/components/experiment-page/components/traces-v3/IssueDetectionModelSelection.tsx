@@ -25,6 +25,7 @@ import { useApiKeyConfiguration } from '../../../../../gateway/components/model-
 import type { ApiKeyConfiguration } from '../../../../../gateway/components/model-configuration/types';
 import { generateRandomName } from '../../../../../common/utils/NameUtils';
 import { useEndpointsQuery } from '../../../../../gateway/hooks/useEndpointsQuery';
+import { useSecretsConfigQuery } from '../../../../../gateway/hooks/useSecretsConfigQuery';
 import { getEndpointDisplayInfo } from '../../../../../gateway/utils/gatewayUtils';
 
 type ModelConfigMode = 'endpoint' | 'direct';
@@ -36,15 +37,14 @@ const DEFAULT_PROVIDER = 'openai';
 // Allowed core providers for issue detection, for these we support fetching API keys
 // and set them when running jobs. For other providers, users should configure gateway
 // endpoints directly.
-const ALLOWED_PROVIDERS = ['openai', 'azure', 'anthropic', 'gemini', 'bedrock'] as const;
+// TODO: add azure and bedrock (requires boto3)
+const ALLOWED_PROVIDERS = ['openai', 'anthropic', 'gemini'] as const;
 
 // Display names for providers
 const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   openai: 'OpenAI',
-  azure: 'Azure OpenAI',
   anthropic: 'Anthropic',
   gemini: 'Google Gemini',
-  bedrock: 'Amazon Bedrock',
 };
 
 const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
@@ -61,10 +61,8 @@ const DEFAULT_API_KEY_CONFIG: ApiKeyConfiguration = {
 // Default to recommended models for each provider
 const DEFAULT_MODEL_BY_PROVIDER: Record<string, string> = {
   openai: 'gpt-5.4',
-  azure: 'gpt-5.4',
   anthropic: 'claude-sonnet-4-6',
   gemini: 'gemini-2.5-pro',
-  bedrock: 'claude-sonnet-4-5',
 };
 
 export interface ModelSelectionValues {
@@ -410,7 +408,7 @@ export const IssueDetectionModelSelection = forwardRef<
                     provider={provider}
                     value={model}
                     onChange={setModel}
-                    componentIdPrefix="mlflow.traces.issue-detection-modal.model"
+                    componentId="mlflow.traces.issue-detection-modal.model"
                     label={
                       <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
                         <FormattedMessage defaultMessage="Model *" description="Label for model selection (required)" />

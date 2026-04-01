@@ -2782,10 +2782,6 @@
     "defaultMessage": "Prompt Template",
     "description": "Experiment page > new run modal > prompt examples > prompt template title"
   },
-  "GGbdya": {
-    "defaultMessage": "View status",
-    "description": "Link to view issue detection job status"
-  },
   "GJWVBA": {
     "defaultMessage": "Inputs",
     "description": "Table subtitle for schema inputs in the model comparison page"
@@ -3453,6 +3449,10 @@
   "L8czct": {
     "defaultMessage": "Latency Comparison",
     "description": "Title for the tool latency comparison chart"
+  },
+  "LBaK9z": {
+    "defaultMessage": "Open dataset",
+    "description": "Text for the button that opens the dataset source URL in a new tab"
   },
   "LED2z5": {
     "defaultMessage": "To disable or enable this display, call {disableFunction} or {enableFunction} and re-run the cell",
@@ -4708,10 +4708,6 @@
   "TSXmaB": {
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"
-  },
-  "TTsPbw": {
-    "defaultMessage": "Open dataset",
-    "description": "Text for the button that navigates to the datasets tab in the experiment run dataset drawer"
   },
   "TWnsnV": {
     "defaultMessage": "Run Name",
@@ -9579,10 +9575,6 @@
     "defaultMessage": "Prompt Caching",
     "description": "Filter option for prompt caching support"
   },
-  "y2E9ui": {
-    "defaultMessage": "Issue detection job triggered",
-    "description": "Notification message when issue detection job is started"
-  },
   "y2oQyU": {
     "defaultMessage": "Model name",
     "description": "Header title for the model name column in the logged model list table"
@@ -9758,6 +9750,10 @@
   "zC/uKl": {
     "defaultMessage": "Auto-refresh",
     "description": "Run page > Charts tab > Auto-refresh toggle button"
+  },
+  "zCtyPo": {
+    "defaultMessage": "Local",
+    "description": "Experiment dataset drawer > source type > Local source type label"
   },
   "zDRvO3": {
     "defaultMessage": "Detect Issues",

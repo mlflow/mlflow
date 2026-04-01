@@ -25,9 +25,7 @@ jobs:
     # Security: Only run for authorized users.
     # - pull_request: Only run for non-fork PRs
     # - issue_comment: BOTH PR author and commenter must be authorized (can't trust external PRs)
-    # TODO: Re-enable after https://github.com/BerriAI/litellm/issues/24512 is resolved
     if: >
-      false &&
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
        (github.event.pull_request.draft == false || github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot') &&
