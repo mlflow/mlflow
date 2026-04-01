@@ -7,7 +7,6 @@ import {
   SparkleFillIcon,
   SparkleIcon,
   Tooltip,
-  useDesignSystemEventComponentCallbacks,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
@@ -59,14 +58,8 @@ export const AssistantIconButton = ({ tooltipSide = 'bottom', iconSize, classNam
   const logTelemetryEvent = useLogTelemetryEvent();
   const viewId = useMemo(() => uuidv4(), []);
   const [isHovered, setIsHovered] = useState(false);
-  const eventContext = useDesignSystemEventComponentCallbacks({
-    componentType: DesignSystemEventProviderComponentTypes.Button,
-    componentId: String(theme.spacing.xs),
-    analyticsEvents: [DesignSystemEventProviderAnalyticsEventTypes.OnClick],
-  });
 
-  const togglePanel = (event: React.MouseEvent<HTMLButtonElement> | React.KeyboardEvent<HTMLButtonElement>) => {
-    eventContext.onClick(event);
+  const togglePanel = () => {
     if (isPanelOpen) {
       closePanel();
     } else {
