@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
@@ -81,9 +82,10 @@ def create_phoenix_model(model_uri: str):
     # otherwise fall back to litellm
     try:
         _get_provider_instance(provider, model_name)
-        return GatewayPhoenixModel(provider, model_name)
-    except Exception:
+    except MlflowException:
         pass
+    else:
+        return GatewayPhoenixModel(provider, model_name)
 
     from phoenix.evals import LiteLLMModel
 
