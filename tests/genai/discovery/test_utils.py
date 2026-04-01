@@ -605,6 +605,63 @@ def test_call_llm_tracks_tokens():
         assert counter.cost_usd == 0.01
 
 
+def test_call_llm_inference_params_forwarded_to_litellm():
+    mock_response = mock.MagicMock()
+    with (
+        mock.patch("mlflow.genai.discovery.utils._is_litellm_available", return_value=True),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._invoke_litellm",
+            return_value=mock_response,
+        ) as mock_invoke,
+    ):
+        messages = [{"role": "user", "content": "test"}]
+        _call_llm(
+            "openai:/gpt-4",
+            messages,
+            inference_params={"temperature": 0.5, "max_completion_tokens": 1024},
+        )
+
+        call_kwargs = mock_invoke.call_args[1]
+        # inference_params should override the default max_completion_tokens
+        assert call_kwargs["inference_params"]["temperature"] == 0.5
+        assert call_kwargs["inference_params"]["max_completion_tokens"] == 1024
+
+
+def test_call_llm_inference_params_forwarded_to_gateway():
+    mock_provider = mock.MagicMock()
+    captured_payload = {}
+    mock_provider.adapter_class.chat_to_model.side_effect = lambda payload, config: (
+        captured_payload.update(payload) or payload
+    )
+    mock_provider.get_endpoint_url.return_value = "http://localhost:5000/v1/chat/completions"
+    mock_provider.headers = {}
+
+    mock_chat_response = mock.MagicMock()
+    mock_chat_response.usage = mock.MagicMock(prompt_tokens=10, completion_tokens=5)
+    mock_provider.adapter_class.model_to_chat.return_value = mock_chat_response
+
+    with (
+        mock.patch("mlflow.genai.discovery.utils._is_litellm_available", return_value=False),
+        mock.patch(
+            "mlflow.metrics.genai.model_utils._get_provider_instance",
+            return_value=mock_provider,
+        ),
+        mock.patch(
+            "mlflow.metrics.genai.model_utils._send_request",
+            return_value={},
+        ),
+    ):
+        _call_llm(
+            "openai:/gpt-4",
+            [{"role": "user", "content": "test"}],
+            inference_params={"temperature": 0.7, "max_completion_tokens": 512},
+        )
+
+    assert captured_payload["temperature"] == 0.7
+    # inference_params should override the default max_completion_tokens
+    assert captured_payload["max_completion_tokens"] == 512
+
+
 # ---- gateway:/ URI via _get_provider_instance ----
 
 
