@@ -46,8 +46,8 @@ const parseImageFile = (filename: string) => {
 
   const step = parseInt(stepString, 10);
   const timestamp = parseInt(timestampString, 10);
-  // '_' is the current separator; '#' is kept for backward compatibility with older artifacts
-  const imageKey = serializedImageKey.replace(/[_#]/g, '/');
+  // '~' is the current separator; '#' is kept for backward compatibility with older artifacts
+  const imageKey = serializedImageKey.replace(/[~#]/g, '/');
 
   if (isCompressed) {
     fileKey = fileKey.slice(0, -('compressed'.length + 1));
