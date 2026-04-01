@@ -176,10 +176,10 @@ def main() -> None:
             d for d in decorators if d.age_days > args.cutoff_days and not d.skip_removal
         ]
 
-        # Log skipped decorators (those with skip_removal=True)
+        # Log skipped decorators (those with skip_removal=True and past the cutoff)
         if args.dry_run:
             for decorator in decorators:
-                if decorator.skip_removal:
+                if decorator.skip_removal and decorator.age_days > args.cutoff_days:
                     print(
                         f"{file_path}:{decorator.line_number}:{decorator.column}: "
                         f"Skipped (skip_removal=True) {decorator.content}"

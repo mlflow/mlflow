@@ -167,7 +167,7 @@ def func():
 def test_skip_removal_false_still_removed(tmp_path: Path) -> None:
     test_file = tmp_path / "test.py"
     test_file.write_text("""
-@experimental(version="1.0.0")
+@experimental(version="1.0.0", skip_removal=False)
 def func():
     pass
 """)
