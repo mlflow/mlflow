@@ -1007,6 +1007,101 @@ def test_response_timing_headers(store: SqlAlchemyStore):
     assert 0 <= overhead <= duration
 
 
+def test_response_timing_headers_streaming(store: SqlAlchemyStore):
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    mock_endpoint_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id", endpoint_name="my-endpoint", models=[]
+    )
+
+    async def _mock_chat_stream(payload):
+        yield chat.StreamResponsePayload(
+            id="test-id",
+            object="chat.completion.chunk",
+            created=1234567890,
+            model="gpt-4",
+            choices=[
+                chat.StreamChoice(
+                    index=0,
+                    delta=chat.StreamDelta(role="assistant", content="Hello"),
+                    finish_reason=None,
+                )
+            ],
+        )
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
+        patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.chat_stream = MagicMock(return_value=_mock_chat_stream(None))
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
+
+        client = TestClient(app)
+        response = client.post(
+            "/gateway/mlflow/v1/chat/completions",
+            json={
+                "model": "my-endpoint",
+                "messages": [{"role": "user", "content": "Hi"}],
+                "stream": True,
+            },
+        )
+
+    assert response.status_code == 200
+    assert MLFLOW_GATEWAY_DURATION_HEADER in response.headers
+    duration = int(response.headers[MLFLOW_GATEWAY_DURATION_HEADER])
+    assert duration >= 0
+    assert MLFLOW_GATEWAY_OVERHEAD_HEADER in response.headers
+    overhead = int(response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER])
+    assert 0 <= overhead <= duration
+
+
+def test_response_timing_headers_error(store: SqlAlchemyStore):
+    app = FastAPI()
+    app.include_router(gateway_router)
+
+    mock_endpoint_config = GatewayEndpointConfig(
+        endpoint_id="test-endpoint-id", endpoint_name="my-error-endpoint", models=[]
+    )
+
+    from mlflow.gateway.providers.utils import provider_call_duration_ms
+
+    async def _mock_chat_raises(payload):
+        provider_call_duration_ms.set(30.0)
+        raise HTTPException(status_code=502, detail="Upstream provider error")
+
+    with (
+        patch("mlflow.server.gateway_api._get_store", return_value=store),
+        patch("mlflow.server.gateway_api.get_request_workspace", return_value=None),
+        patch("mlflow.server.gateway_api.check_budget_limit"),
+        patch(
+            "mlflow.server.gateway_api._create_provider_from_endpoint_name"
+        ) as mock_create_provider,
+    ):
+        mock_provider = MagicMock()
+        mock_provider.chat = _mock_chat_raises
+        mock_create_provider.return_value = (mock_provider, mock_endpoint_config)
+
+        client = TestClient(app)
+        response = client.post(
+            "/gateway/mlflow/v1/chat/completions",
+            json={"model": "my-error-endpoint", "messages": [{"role": "user", "content": "Hi"}]},
+        )
+
+    assert response.status_code == 502
+    assert MLFLOW_GATEWAY_DURATION_HEADER in response.headers
+    duration = int(response.headers[MLFLOW_GATEWAY_DURATION_HEADER])
+    assert duration >= 0
+    assert MLFLOW_GATEWAY_OVERHEAD_HEADER in response.headers
+    overhead = int(response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER])
+    assert 0 <= overhead <= duration
+
+
 @pytest.mark.asyncio
 async def test_chat_completions_endpoint_streaming(store: SqlAlchemyStore):
     secret = store.create_gateway_secret(

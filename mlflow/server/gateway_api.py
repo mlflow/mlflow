@@ -158,8 +158,13 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                 if raw_caller in {e.value for e in GatewayCaller}:
                     caller = raw_caller
 
+            http_exc: HTTPException | None = None
             try:
                 result = await func(*args, **kwargs)
+            except HTTPException as e:
+                success = False
+                http_exc = e
+                raise
             except Exception:
                 success = False
                 raise
@@ -189,15 +194,24 @@ def _record_gateway_invocation(invocation_type: GatewayInvocationType) -> Callab
                     if provider_duration_ms > 0 or is_streaming
                     else None
                 )
-                if timing_response is not None:
-                    timing_response.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
+                if http_exc is not None:
+                    # FastAPI builds error responses from the HTTPException; mutate its
+                    # headers here so timing headers are included even on error paths.
+                    http_exc.headers = (http_exc.headers or {}) | {
+                        MLFLOW_GATEWAY_DURATION_HEADER: str(duration_ms),
+                    }
                     if overhead_ms is not None:
-                        timing_response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
+                        http_exc.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
                 elif is_streaming:
-                    # StreamingResponse is returned directly; add headers to it.
+                    # StreamingResponse is returned directly; FastAPI does not merge the
+                    # injected Response headers into it, so set headers on the result.
                     result.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
                     if overhead_ms is not None:
                         result.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
+                elif timing_response is not None:
+                    timing_response.headers[MLFLOW_GATEWAY_DURATION_HEADER] = str(duration_ms)
+                    if overhead_ms is not None:
+                        timing_response.headers[MLFLOW_GATEWAY_OVERHEAD_HEADER] = str(overhead_ms)
 
             return result
 

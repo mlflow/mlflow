@@ -52,27 +52,29 @@ async def send_request(headers: dict[str, str], base_url: str, path: str, payloa
     from fastapi import HTTPException
 
     start = time.perf_counter()
-    async with _aiohttp_post(headers, base_url, path, payload) as response:
-        content_type = response.headers.get("Content-Type")
-        if content_type and "application/json" in content_type:
-            js = await response.json()
-        elif content_type and "text/plain" in content_type:
-            js = {"message": await response.text()}
-        else:
-            raise HTTPException(
-                status_code=502,
-                detail=f"The returned data type from the route service is not supported. "
-                f"Received content type: {content_type}",
-            )
-        try:
-            response.raise_for_status()
-        except aiohttp.ClientResponseError as e:
-            detail = js.get("error", {}).get("message", e.message) if "error" in js else js
-            raise HTTPException(status_code=e.status, detail=detail)
-    # Record full provider HTTP time (connection + response headers + body) for non-streaming.
-    provider_call_duration_ms.set(
-        provider_call_duration_ms.get() + (time.perf_counter() - start) * 1000
-    )
+    try:
+        async with _aiohttp_post(headers, base_url, path, payload) as response:
+            content_type = response.headers.get("Content-Type")
+            if content_type and "application/json" in content_type:
+                js = await response.json()
+            elif content_type and "text/plain" in content_type:
+                js = {"message": await response.text()}
+            else:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"The returned data type from the route service is not supported. "
+                    f"Received content type: {content_type}",
+                )
+            try:
+                response.raise_for_status()
+            except aiohttp.ClientResponseError as e:
+                detail = js.get("error", {}).get("message", e.message) if "error" in js else js
+                raise HTTPException(status_code=e.status, detail=detail)
+    finally:
+        # Record full provider HTTP time for non-streaming, even when raising.
+        provider_call_duration_ms.set(
+            provider_call_duration_ms.get() + (time.perf_counter() - start) * 1000
+        )
     return js
 
 
