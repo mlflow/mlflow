@@ -202,3 +202,29 @@ def test_create_trulens_provider_uses_databricks_for_bare_uri():
 
     provider = create_trulens_provider("databricks")
     assert isinstance(provider, LLMProvider)
+
+
+def test_high_level_scorer_call_chain(mock_provider):
+    """Exercises the full call chain as recommended in docs/blogs:
+    Groundedness(model=...) → scorer(outputs=..., expectations=...)
+    """
+    with patch("mlflow.genai.scorers.trulens.create_trulens_provider", return_value=mock_provider):
+        from mlflow.genai.scorers.trulens import Groundedness
+
+        scorer = Groundedness(model="openai:/gpt-4", threshold=0.7)
+
+    mock_provider.groundedness_measure_with_cot_reasons.return_value = (
+        0.9,
+        {"reason": "Grounded"},
+    )
+
+    feedback = scorer(
+        outputs="Paris is the capital of France.",
+        expectations={"context": "France is a country. Its capital is Paris."},
+    )
+
+    assert isinstance(feedback, Feedback)
+    assert feedback.name == "Groundedness"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4"

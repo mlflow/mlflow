@@ -2,15 +2,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import pydantic
+
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.provider_registry import is_supported_provider
 from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     call_chat_completions,
 )
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.utils.gateway_utils import get_gateway_litellm_config
 from mlflow.genai.utils.message_utils import serialize_chat_messages_to_prompts
-from mlflow.metrics.genai.model_utils import _call_llm_provider_api, _parse_model_uri
+from mlflow.metrics.genai.model_utils import (
+    _call_llm_provider_api,
+    _get_provider_instance,
+    _parse_model_uri,
+)
 
 if TYPE_CHECKING:
     from typing import Sequence
@@ -82,8 +86,6 @@ def _create_gateway_provider(provider: str, model_name: str, **kwargs: Any):
             response_format = kwargs.pop("response_format", None)
             response_format_dict = None
             if response_format is not None:
-                import pydantic
-
                 if isinstance(response_format, type) and issubclass(
                     response_format, pydantic.BaseModel
                 ):
@@ -137,28 +139,13 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
 
     provider, model_name = _parse_model_uri(model_uri)
 
-    # Gateway endpoints require litellm-based routing
-    if provider == "gateway":
-        try:
-            from trulens.providers.litellm import LiteLLM
-
-            config = get_gateway_litellm_config(model_name)
-            return LiteLLM(
-                model_engine=config.model,
-                api_base=config.api_base,
-                api_key=config.api_key,
-                **({"extra_headers": config.extra_headers} if config.extra_headers else {}),
-                **kwargs,
-            )
-        except ImportError:
-            raise MlflowException.invalid_parameter_value(
-                "Gateway providers require 'trulens-providers-litellm'. "
-                "Install it with: `pip install trulens-providers-litellm`"
-            )
-
-    # Use native gateway provider for supported providers, litellm for others
-    if is_supported_provider(provider):
+    # Use native gateway provider if _get_provider_instance can construct it,
+    # otherwise fall back to litellm
+    try:
+        _get_provider_instance(provider, model_name)
         return _create_gateway_provider(provider, model_name, **kwargs)
+    except Exception:
+        pass
 
     try:
         from trulens.providers.litellm import LiteLLM
