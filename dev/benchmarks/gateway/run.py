@@ -28,11 +28,14 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent))
+import benchmark as bm  # local module; path inserted above
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 
 SCRIPT_DIR = Path(__file__).parent
+
 FAKE_SERVER_PORT = 9137
 MLFLOW_PORT = 5731
 INSTANCE_BASE_PORT = 5800
@@ -337,9 +340,6 @@ def _run_benchmark(
     min_rps: float | None = None,
     max_p99_ms: float | None = None,
 ):
-    sys.path.insert(0, str(SCRIPT_DIR))
-    import benchmark as bm
-
     results = bm.run_benchmark(url, n_requests, max_concurrent, runs)
     bm.print_results(results)
     if not bm.check_thresholds(results, min_rps=min_rps, max_p99_ms=max_p99_ms):

@@ -157,10 +157,17 @@ def print_results(results: list[RunResult]):
     table.add_column("Req/s", justify="right")
     table.add_column("Failures", justify="right")
 
-    means, p50s, p95s, p99s, maxes, throughputs = [], [], [], [], [], []
+    means = []
+    p50s = []
+    p95s = []
+    p99s = []
+    maxes = []
+    throughputs = []
     for i, r in enumerate(results):
         mean = statistics.mean(r.latencies_ms) if r.latencies_ms else 0.0
-        p50, p95, p99 = r.percentile(50), r.percentile(95), r.percentile(99)
+        p50 = r.percentile(50)
+        p95 = r.percentile(95)
+        p99 = r.percentile(99)
         mx = max(r.latencies_ms) if r.latencies_ms else 0.0
         means.append(mean)
         p50s.append(p50)
