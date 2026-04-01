@@ -566,52 +566,89 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--url", help="Benchmark this endpoint directly, skip all setup")
+    parser.add_argument(
+        "--url", metavar="URL",
+        help="Benchmark this endpoint URL directly, skipping server setup entirely",
+    )
     parser.add_argument(
         "--instances", type=int, default=int(os.environ.get("INSTANCES", "4")),
-        help="Number of MLflow instances (default: 4). Use 1 for single-instance mode.",
+        metavar="N",
+        help=(
+            "Number of MLflow instances to run (default: 4). "
+            "Values >1 require Docker (postgres + nginx). "
+            "Use --instances 1 for a single instance with optional SQLite."
+        ),
     )
     parser.add_argument(
         "--workers", type=int, default=int(os.environ.get("WORKERS_PER_INSTANCE", "4")),
-        help="MLflow worker processes per instance",
+        metavar="N",
+        help="Gunicorn/uvicorn worker processes per MLflow instance (default: 4)",
     )
     parser.add_argument(
         "--backend", choices=["sqlite", "postgres"], default="sqlite",
-        help="DB backend — only applies when --instances 1 (default: sqlite)",
+        help=(
+            "Database backend — only applies when --instances 1. "
+            "'postgres' auto-starts a Docker container. (default: sqlite)"
+        ),
     )
     parser.add_argument(
         "--no-usage-tracking", dest="usage_tracking", action="store_false", default=True,
+        help="Disable usage tracking (tracing) on the benchmark endpoint",
     )
     parser.add_argument(
         "--port", type=int, default=int(os.environ.get("MLFLOW_PORT", str(MLFLOW_PORT))),
-        help="Port to benchmark against (MLflow port for single, nginx LB port for multi)",
+        metavar="N",
+        help=(
+            "Port the benchmark client sends requests to. "
+            "For --instances 1 this is the MLflow port; "
+            "for --instances >1 this is the nginx load balancer port. (default: 5731)"
+        ),
     )
     parser.add_argument(
         "--base-port", type=int, default=int(os.environ.get("BASE_PORT", str(INSTANCE_BASE_PORT))),
-        help="Base port for MLflow instances in multi mode (rest are +1, +2, …)",
+        metavar="N",
+        help=(
+            "Starting port for MLflow instances in multi mode. "
+            "Instances listen on base-port, base-port+1, … (default: 5800)"
+        ),
     )
     parser.add_argument(
         "--fake-server-port",
         type=int,
+        metavar="N",
         default=int(os.environ.get("FAKE_SERVER_PORT", str(FAKE_SERVER_PORT))),
+        help="Port for the fake OpenAI server that simulates provider latency (default: 9137)",
     )
     parser.add_argument(
         "--requests", type=int, default=int(os.environ.get("REQUESTS", "2000")),
+        metavar="N",
+        help="Total requests to send per benchmark run (default: 2000)",
     )
     parser.add_argument(
         "--max-concurrent", type=int, default=int(os.environ.get("MAX_CONCURRENT", "50")),
+        metavar="N",
+        help="Maximum number of in-flight requests at any time (default: 50)",
     )
-    parser.add_argument("--runs", type=int, default=int(os.environ.get("RUNS", "3")))
+    parser.add_argument(
+        "--runs", type=int, default=int(os.environ.get("RUNS", "3")),
+        metavar="N",
+        help="Number of timed runs; results are reported per-run and averaged (default: 3)",
+    )
     parser.add_argument(
         "--fake-delay-ms", type=int, default=int(os.environ.get("FAKE_RESPONSE_DELAY_MS", "50")),
+        metavar="N",
+        help=(
+            "Simulated provider latency in ms. Set to 0 to measure pure MLflow overhead "
+            "with no provider delay. (default: 50)"
+        ),
     )
     parser.add_argument(
         "--min-rps", type=float, default=None, metavar="N",
-        help="Fail (exit 1) if average throughput falls below N req/s",
+        help="Exit 1 if average throughput across runs falls below N req/s (CI threshold)",
     )
     parser.add_argument(
         "--max-p99-ms", type=float, default=None, metavar="N",
-        help="Fail (exit 1) if average P99 latency exceeds N ms",
+        help="Exit 1 if average P99 latency across runs exceeds N ms (CI threshold)",
     )
 
     args = parser.parse_args()
