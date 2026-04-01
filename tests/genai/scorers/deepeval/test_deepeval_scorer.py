@@ -452,3 +452,43 @@ def test_create_deepeval_model_uses_databricks_for_bare_uri():
 
     model = create_deepeval_model("databricks")
     assert isinstance(model, DatabricksDeepEvalLLM)
+
+
+@pytest.mark.parametrize("provider", ["cohere", "mosaicml", "palm"])
+def test_create_deepeval_model_registered_but_unsupported_falls_back_to_litellm(provider):
+    from deepeval.models import LiteLLMModel
+
+    from mlflow.genai.scorers.deepeval.models import create_deepeval_model
+
+    model = create_deepeval_model(f"{provider}:/my-model")
+    assert isinstance(model, LiteLLMModel)
+
+
+def test_high_level_scorer_call_chain():
+    """Exercises the full call chain: AnswerRelevancy(model=...) → scorer(inputs=..., outputs=...)
+    as recommended in docs/blogs.
+    """
+
+    with patch(
+        "mlflow.genai.scorers.deepeval.models._call_llm_provider_api",
+        return_value='{"score": 0.9, "reason": "Highly relevant"}',
+    ):
+        scorer = AnswerRelevancy(threshold=0.7, model="openai:/gpt-4")
+
+        # Mock the metric's measure to avoid DeepEval's internal LLM calls
+        scorer._metric.score = 0.9
+        scorer._metric.reason = "Highly relevant"
+        scorer._metric.threshold = 0.7
+        scorer._metric.is_successful = Mock(return_value=True)
+        scorer._metric.measure = Mock()
+
+        feedback = scorer(
+            inputs="What is MLflow?",
+            outputs="MLflow is an open-source platform for managing ML workflows.",
+        )
+
+    assert isinstance(feedback, Feedback)
+    assert feedback.name == "AnswerRelevancy"
+    assert feedback.value is not None
+    assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert feedback.source.source_id == "openai:/gpt-4"
