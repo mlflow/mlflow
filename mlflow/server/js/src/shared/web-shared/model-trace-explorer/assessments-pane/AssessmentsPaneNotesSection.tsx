@@ -19,7 +19,7 @@ import { useUpdateAssessment } from '../hooks/useUpdateAssessment';
 
 export const NOTES_ASSESSMENT_NAME = 'mlflow.notes';
 
-const AssessmentsPaneNotesSectionInner = ({
+export const AssessmentsPaneNotesSection = ({
   traceId,
   feedbacks,
 }: {
@@ -37,15 +37,6 @@ const AssessmentsPaneNotesSectionInner = ({
   const serverText = typeof existingNotes?.feedback?.value === 'string' ? existingNotes.feedback.value : '';
 
   const [notesText, setNotesText] = useState(serverText);
-  const [prevServerText, setPrevServerText] = useState(serverText);
-
-  // Sync from server when it changes (after save completes or external update).
-  // This is React's recommended pattern for adjusting state when props change,
-  // see: https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
-  if (serverText !== prevServerText) {
-    setPrevServerText(serverText);
-    setNotesText(serverText);
-  }
 
   const { createAssessmentMutation, isLoading: isCreating } = useCreateAssessment({ traceId });
   const { updateAssessmentMutation, isLoading: isUpdating } = useUpdateAssessment({ assessment: existingNotes! });
@@ -117,14 +108,4 @@ const AssessmentsPaneNotesSectionInner = ({
       />
     </div>
   );
-};
-
-export const AssessmentsPaneNotesSection = ({
-  traceId,
-  feedbacks,
-}: {
-  traceId: string;
-  feedbacks: FeedbackAssessment[];
-}) => {
-  return <AssessmentsPaneNotesSectionInner key={traceId} traceId={traceId} feedbacks={feedbacks} />;
 };

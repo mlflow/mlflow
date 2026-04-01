@@ -143,7 +143,7 @@ export const AssessmentsPane = ({
         </>
       )}
       <Spacer size="sm" shrinks={false} />
-      <AssessmentsPaneNotesSection traceId={traceId} feedbacks={feedbacks} />
+      <AssessmentsPaneNotesSection key={traceId} traceId={traceId} feedbacks={feedbacks} />
     </div>
   );
 };
