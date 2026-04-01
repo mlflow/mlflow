@@ -435,7 +435,8 @@ def cmd_single(args):
             Panel.fit(
                 f"[bold]Single-Instance Gateway Benchmark[/bold]\n"
                 f"URL: [cyan]{args.url}[/cyan]\n"
-                f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  Runs: {args.runs}",
+                f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}"
+                f"  ·  Runs: {args.runs}",
                 border_style="cyan",
             )
         )
@@ -495,7 +496,8 @@ def cmd_multi(args):
             Panel.fit(
                 f"[bold]Multi-Instance Gateway Benchmark[/bold]\n"
                 f"URL: [cyan]{args.url}[/cyan]\n"
-                f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  Runs: {args.runs}",
+                f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}"
+                f"  ·  Runs: {args.runs}",
                 border_style="cyan",
             )
         )
@@ -513,7 +515,8 @@ def cmd_multi(args):
         Panel.fit(
             f"[bold]Multi-Instance Gateway Benchmark[/bold]\n"
             f"Instances: {args.instances}  ·  Workers/instance: {args.workers}  ·  "
-            f"Total workers: {args.instances * args.workers}  ·  Usage tracking: {args.usage_tracking}\n"
+            f"Total workers: {args.instances * args.workers}"
+            f"  ·  Usage tracking: {args.usage_tracking}\n"
             f"Requests: {args.requests}  ·  Concurrency: {args.max_concurrent}  ·  "
             f"Runs: {args.runs}  ·  Fake delay: {args.fake_delay_ms}ms\n"
             f"Ports: instances {instance_ports[0]}–{instance_ports[-1]}  ·  "
