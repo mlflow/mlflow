@@ -21,6 +21,7 @@ class ExperimentalDecorator:
     column: int
     age_days: int
     content: str
+    skip_removal: bool = False
 
 
 def get_tracked_python_files() -> list[Path]:
@@ -86,6 +87,7 @@ def find_experimental_decorators(
                 column=decorator.col_offset + 1,  # 1-indexed
                 age_days=age_days,
                 content=ast.unparse(decorator),
+                skip_removal=_has_skip_removal(decorator),
             )
             decorators.append(decorator_info)
 
@@ -98,6 +100,14 @@ def _extract_version_from_ast_decorator(decorator: ast.Call) -> str | None:
         if keyword.arg == "version" and isinstance(keyword.value, ast.Constant):
             return str(keyword.value.value)
     return None
+
+
+def _has_skip_removal(decorator: ast.Call) -> bool:
+    """Check if the decorator has skip_removal=True."""
+    return any(
+        kw.arg == "skip_removal" and isinstance(kw.value, ast.Constant) and kw.value.value is True
+        for kw in decorator.keywords
+    )
 
 
 def remove_decorators_from_file(
@@ -162,7 +172,18 @@ def main() -> None:
             continue
 
         # Filter to only decorators that should be removed (older than cutoff days)
-        old_decorators = [d for d in decorators if d.age_days > args.cutoff_days]
+        old_decorators = [
+            d for d in decorators if d.age_days > args.cutoff_days and not d.skip_removal
+        ]
+
+        # Log skipped decorators (those with skip_removal=True)
+        if args.dry_run:
+            for decorator in decorators:
+                if decorator.skip_removal:
+                    print(
+                        f"{file_path}:{decorator.line_number}:{decorator.column}: "
+                        f"Skipped (skip_removal=True) {decorator.content}"
+                    )
         if not old_decorators:
             continue
 
