@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -100,8 +101,6 @@ def _invoke_llm(
     response_format: type[pydantic.BaseModel] | None,
     num_retries: int = 3,
 ) -> str:
-    import time
-
     from mlflow.gateway.provider_registry import is_supported_provider
     from mlflow.genai.utils.message_utils import pydantic_to_response_format
     from mlflow.metrics.genai.model_utils import (
@@ -110,11 +109,6 @@ def _invoke_llm(
     )
 
     response_format_dict = pydantic_to_response_format(response_format) if response_format else None
-    # Strip reserved keys from inference_params to avoid forwarding raw Pydantic
-    # classes or conflicting with the dedicated response_format handling above.
-    _RESERVED_KEYS = {"response_format"}
-    if inference_params:
-        inference_params = {k: v for k, v in inference_params.items() if k not in _RESERVED_KEYS}
 
     for attempt in range(num_retries + 1):
         try:
