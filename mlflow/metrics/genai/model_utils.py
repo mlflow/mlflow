@@ -332,15 +332,21 @@ def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     # NB: Not all LLM providers in MLflow Gateway are supported here. We can add
     # new ones as requested, as long as the provider support chat endpoints.
     if provider == Provider.OPENAI:
-        # Empty string default allows provider construction without a key; the error
-        # surfaces at HTTP call time (401) rather than at construction time, matching
-        # the behavior of the previous _get_api_config/_OAITokenHolder code path.
-        config = OpenAIConfig(openai_api_key=os.environ.get("OPENAI_API_KEY", ""))
+        if not os.environ.get("OPENAI_API_KEY"):
+            raise MlflowException.invalid_parameter_value(
+                "OPENAI_API_KEY environment variable must be set to use the openai provider."
+            )
+        config = OpenAIConfig(openai_api_key=os.environ["OPENAI_API_KEY"])
         return OpenAIProvider(_get_route_config(config))
 
     elif provider == Provider.AZURE:
+        if not os.environ.get(AZURE_API_KEY_ENV_VAR):
+            raise MlflowException.invalid_parameter_value(
+                f"{AZURE_API_KEY_ENV_VAR} environment variable must be set "
+                "to use the azure provider."
+            )
         config = OpenAIConfig(
-            openai_api_key=os.environ.get(AZURE_API_KEY_ENV_VAR),
+            openai_api_key=os.environ[AZURE_API_KEY_ENV_VAR],
             openai_api_type="azure",
             openai_api_base=os.environ.get(AZURE_API_BASE_ENV_VAR),
             openai_api_version=os.environ.get(AZURE_API_VERSION_ENV_VAR),

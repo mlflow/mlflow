@@ -76,7 +76,7 @@ def test_score_model_on_payload_throws_for_invalid():
 
 def test_score_model_openai_without_key(monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    with pytest.raises(MlflowException, match="(?i)api key"):
+    with pytest.raises(MlflowException, match="OPENAI_API_KEY environment variable must be set"):
         score_model_on_payload("openai:/gpt-4o-mini", "")
 
 
