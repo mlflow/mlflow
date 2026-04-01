@@ -96,6 +96,16 @@ def test_fetch_provider_credentials_bedrock_missing_optional_token():
     }
 
 
+def test_fetch_provider_credentials_none_auth_config():
+    mock_store = mock.MagicMock()
+    mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}
+    mock_store.get_secret_info.return_value.auth_config = None
+    credentials = _fetch_provider_credentials(mock_store, "openai", "secret-123")
+    mock_store._get_decrypted_secret.assert_called_once_with("secret-123")
+    mock_store.get_secret_info.assert_called_once_with(secret_id="secret-123")
+    assert credentials == {"OPENAI_API_KEY": "test-key"}
+
+
 def test_fetch_provider_credentials_azure_partial_auth_config():
     mock_store = mock.MagicMock()
     mock_store._get_decrypted_secret.return_value = {"api_key": "test-key"}

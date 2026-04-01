@@ -719,7 +719,7 @@ AZURE_API_KEY_ENV_VAR = "AZURE_API_KEY"
 AZURE_API_BASE_ENV_VAR = "AZURE_API_BASE"
 AZURE_API_VERSION_ENV_VAR = "AZURE_API_VERSION"
 
-# Mapping of core providers to their environment variable names for API keys
+# Mapping of core providers to their environment variable names for credentials/config fields
 _CORE_PROVIDER_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
     "azure": {

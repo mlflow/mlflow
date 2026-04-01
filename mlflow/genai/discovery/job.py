@@ -28,7 +28,7 @@ def _fetch_provider_credentials(
         )
 
     secret_value = store._get_decrypted_secret(secret_id)
-    auth_config = store.get_secret_info(secret_id=secret_id).auth_config
+    auth_config = store.get_secret_info(secret_id=secret_id).auth_config or {}
     secret_dict = secret_value | auth_config
     credentials = {}
     if isinstance(env_var_config, dict):
