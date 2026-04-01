@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, memo } from 'react';
+import { useState, useRef, useMemo, useCallback, memo } from 'react';
 import { Input, useDesignSystemTheme, FormUI, Tag, ModelsIcon } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ModelSelectorModal } from '../model-selector/ModelSelectorModal';
@@ -11,8 +11,8 @@ interface ModelSelectProps {
   onChange: (model: string) => void;
   disabled?: boolean;
   error?: string;
-  /** Component ID prefix for telemetry (default: 'mlflow.gateway.model-select') */
-  componentIdPrefix?: string;
+  /** Component ID for telemetry (default: 'mlflow.gateway.model-select') */
+  componentId?: string;
   /** Custom label for the select field. If not provided, defaults to "Model" */
   label?: React.ReactNode;
   /** If true, hides the model capabilities tags (Tools, Reasoning, Caching) */
@@ -25,12 +25,13 @@ export const ModelSelect = ({
   onChange,
   disabled,
   error,
-  componentIdPrefix = 'mlflow.gateway.model-select',
+  componentId = 'mlflow.gateway.model-select',
   label,
   hideCapabilities,
 }: ModelSelectProps) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
+  const domId = useRef(`model-select-${Math.random().toString(36).slice(2, 9)}`).current;
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch models to get the selected model's details
@@ -56,12 +57,12 @@ export const ModelSelect = ({
 
   return (
     <div>
-      <FormUI.Label htmlFor={componentIdPrefix}>
+      <FormUI.Label htmlFor={domId}>
         {label ?? <FormattedMessage defaultMessage="Model" description="Label for model select field" />}
       </FormUI.Label>
       <Input
-        id={componentIdPrefix}
-        componentId={componentIdPrefix}
+        id={domId}
+        componentId={componentId}
         placeholder={
           !provider
             ? intl.formatMessage({
@@ -125,7 +126,7 @@ const ModelCapabilities = memo(function ModelCapabilities({ model }: { model: Pr
       }}
     >
       {capabilities.map((cap) => (
-        <Tag key={cap} componentId={`mlflow.gateway.model-select.capability.${cap.toLowerCase()}`}>
+        <Tag key={cap} componentId="mlflow.gateway.model-select.capability">
           {cap}
         </Tag>
       ))}

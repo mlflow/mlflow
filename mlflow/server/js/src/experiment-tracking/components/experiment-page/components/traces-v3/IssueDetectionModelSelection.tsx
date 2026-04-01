@@ -408,7 +408,7 @@ export const IssueDetectionModelSelection = forwardRef<
                     provider={provider}
                     value={model}
                     onChange={setModel}
-                    componentIdPrefix="mlflow.traces.issue-detection-modal.model"
+                    componentId="mlflow.traces.issue-detection-modal.model"
                     label={
                       <Typography.Text css={{ fontSize: theme.typography.fontSizeSm }}>
                         <FormattedMessage defaultMessage="Model *" description="Label for model selection (required)" />
