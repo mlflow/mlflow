@@ -1396,7 +1396,7 @@ def update_current_trace(
             )
 
     tags = tags or {}
-    metadata = metadata or {}
+    metadata = dict(metadata) if metadata else {}
 
     if session_id is not None:
         metadata[TraceMetadataKey.TRACE_SESSION] = session_id
