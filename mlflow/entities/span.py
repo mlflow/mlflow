@@ -5,6 +5,7 @@ import logging
 from functools import cached_property
 from typing import Any, Union
 
+from opentelemetry.proto.resource.v1.resource_pb2 import Resource as OTelProtoResource
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as _OTelResource
@@ -407,9 +408,9 @@ class Span:
     @classmethod
     def from_otel_proto(
         cls,
-        otel_proto_span,
+        otel_proto_span: OTelProtoSpan,
         location_id: str | None = None,
-        resource=None,
+        resource: OTelProtoResource | None = None,
     ) -> "Span":
         """
         Create a Span from an OpenTelemetry protobuf span.
@@ -452,10 +453,11 @@ class Span:
         # We avoid _OTelResource.create() which has significant overhead from
         # environment variable reads (see https://github.com/mlflow/mlflow/issues/15625).
         if resource is not None and resource.attributes:
-            otel_resource = _OTelResource({
+            resource_attrs = {
                 attr.key: _decode_otel_proto_anyvalue(attr.value)
                 for attr in resource.attributes
-            })
+            }
+            otel_resource = _OTelResource(resource_attrs)
         else:
             otel_resource = _OTelResource.get_empty()
 

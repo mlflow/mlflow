@@ -4905,13 +4905,15 @@ class SqlAlchemyStore(SqlAlchemyGatewayStoreMixin, AbstractStore):
             resource = getattr(spans[0]._span, "resource", None)
             if resource is not None:
                 for key, value in resource.attributes.items():
-                    tag_value = str(value) if not isinstance(value, str) else value
-                    if len(key) <= 250 and len(tag_value) <= 8000:
+                    if not isinstance(value, str):
+                        continue
+                    # SqlTraceTag column limits: key=String(250), value=String(8000)
+                    if len(key) <= 250 and len(value) <= 8000:
                         session.merge(
                             SqlTraceTag(
                                 request_id=trace_id,
                                 key=key,
-                                value=tag_value,
+                                value=value,
                             )
                         )
 

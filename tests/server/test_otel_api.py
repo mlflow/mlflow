@@ -8,7 +8,7 @@ from mlflow.entities import Workspace
 from mlflow.environment_variables import MLFLOW_ENABLE_WORKSPACES
 from mlflow.server.fastapi_app import add_fastapi_workspace_middleware
 from mlflow.server.otel_api import otel_router
-from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
+from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH, _set_otel_proto_anyvalue
 from mlflow.utils import workspace_context
 from mlflow.utils.workspace_utils import WORKSPACE_HEADER_NAME
 
@@ -17,8 +17,6 @@ def _build_otlp_payload(resource_attrs=None):
     request = ExportTraceServiceRequest()
     resource_span = request.resource_spans.add()
     if resource_attrs:
-        from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
-
         for key, value in resource_attrs.items():
             attr = resource_span.resource.attributes.add()
             attr.key = key
