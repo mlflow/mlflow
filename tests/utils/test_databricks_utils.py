@@ -365,10 +365,13 @@ def test_get_repl_id():
     # When runtime_integration_client is unavailable, fall back to entry_point.
     mock_dbutils = mock.MagicMock()
     mock_dbutils.entry_point.getReplId.return_value = "testReplId1"
-    with mock.patch(
-        "mlflow.utils.databricks_utils._get_runtime_integration_client",
-        side_effect=Exception("unavailable"),
-    ), mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+    ):
         assert databricks_utils.get_repl_id() == "testReplId1"
         mock_dbutils.entry_point.getReplId.assert_called_once()
 
@@ -1054,3 +1057,63 @@ token = test-token
     result = get_databricks_host_creds("databricks")
     assert result.host == "https://test-workspace.databricks.com"
     assert result.token == "test-token"
+
+
+def test_get_databricks_nfs_temp_dir():
+    mock_dbutils = mock.MagicMock()
+    mock_client = mock.MagicMock()
+    mock_client.getUserNFSTempDir.return_value = "/nfs/user/grpc"
+
+    # When runtime_integration_client is available, use getUserNFSTempDir from client
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            return_value=mock_client,
+        ),
+    ):
+        assert databricks_utils.get_databricks_nfs_temp_dir() == "/nfs/user/grpc"
+        mock_client.getUserNFSTempDir.assert_called_once()
+
+    # When runtime_integration_client raises, fall back to entry_point.getUserNFSTempDir
+    mock_dbutils2 = mock.MagicMock()
+    mock_dbutils2.entry_point.getUserNFSTempDir.return_value = "/nfs/user"
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils2),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+    ):
+        assert databricks_utils.get_databricks_nfs_temp_dir() == "/nfs/user"
+        mock_dbutils2.entry_point.getUserNFSTempDir.assert_called_once()
+
+
+def test_get_databricks_local_temp_dir():
+    mock_dbutils = mock.MagicMock()
+    mock_client = mock.MagicMock()
+    mock_client.getUserLocalTempDir.return_value = "/local/user/grpc"
+
+    # When runtime_integration_client is available, use getUserLocalTempDir from client
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            return_value=mock_client,
+        ),
+    ):
+        assert databricks_utils.get_databricks_local_temp_dir() == "/local/user/grpc"
+        mock_client.getUserLocalTempDir.assert_called_once()
+
+    # When runtime_integration_client raises, fall back to entry_point.getUserLocalTempDir
+    mock_dbutils2 = mock.MagicMock()
+    mock_dbutils2.entry_point.getUserLocalTempDir.return_value = "/local/user"
+    with (
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils2),
+        mock.patch(
+            "mlflow.utils.databricks_utils._get_runtime_integration_client",
+            side_effect=Exception("unavailable"),
+        ),
+    ):
+        assert databricks_utils.get_databricks_local_temp_dir() == "/local/user"
+        mock_dbutils2.entry_point.getUserLocalTempDir.assert_called_once()
