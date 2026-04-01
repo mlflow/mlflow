@@ -60,7 +60,7 @@ PGBAR_FORMAT = (
 )
 
 
-def _get_eval_data_type(data: "EvaluationDatasetTypes") -> str | None:
+def _get_eval_data_type(data: "EvaluationDatasetTypes") -> str:
     data_type = type(data)
 
     if data_type is list:
