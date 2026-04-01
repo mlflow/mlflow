@@ -372,24 +372,3 @@ def test_get_mlflow_gateway_provider():
     assert provider.get_endpoint_url("llm/v1/chat").endswith("/chat/completions")
     assert provider.headers == {"X-Custom": "header"}
     assert provider.config.model.name == "chat"
-
-
-def _make_mapping(provider=None, model_name=None):
-    mapping = mock.MagicMock()
-    if provider:
-        mapping.model_definition.provider = provider
-        mapping.model_definition.model_name = model_name
-    else:
-        mapping.model_definition = None
-    return mapping
-
-
-def _make_store(model_mappings=(), raises=False):
-    store = mock.MagicMock()
-    if raises:
-        store.get_gateway_endpoint.side_effect = Exception()
-    else:
-        endpoint = mock.MagicMock()
-        endpoint.model_mappings = list(model_mappings)
-        store.get_gateway_endpoint.return_value = endpoint
-    return store
