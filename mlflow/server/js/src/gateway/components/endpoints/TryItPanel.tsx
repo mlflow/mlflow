@@ -11,7 +11,7 @@ const ERROR_LINE_MIN_HEIGHT = '1.5em';
 export interface TryItPanelProps {
   description: ReactNode;
   requestTooltipContent: ReactNode;
-  requestTooltipComponentId: string;
+  componentId: string;
   tryItRequestUrl: string;
   tryItDefaultBody: string;
   /** Optional fetch options (headers, signal) passed through to Try-it requests. */
@@ -21,7 +21,7 @@ export interface TryItPanelProps {
 export const TryItPanel = ({
   description,
   requestTooltipContent,
-  requestTooltipComponentId,
+  componentId,
   tryItRequestUrl,
   tryItDefaultBody,
   tryItOptions,
@@ -88,7 +88,7 @@ export const TryItPanel = ({
               <Typography.Text bold>
                 <FormattedMessage defaultMessage="Request" description="Request body label" />
               </Typography.Text>
-              <Tooltip componentId={requestTooltipComponentId} content={requestTooltipContent}>
+              <Tooltip componentId={componentId} content={requestTooltipContent}>
                 <span css={{ cursor: 'help', color: theme.colors.textSecondary }} aria-label="Request help">
                   ?
                 </span>

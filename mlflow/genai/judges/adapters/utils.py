@@ -41,8 +41,9 @@ def get_adapter(
     Raises:
         MlflowException: If no suitable adapter is found.
     """
-    # Lazy imports to avoid circular imports: utils.py is imported by both
-    # gateway_adapter.py and litellm_adapter.py, so we can't import them at module level.
+    # Lazy imports to avoid circular imports and heavyweight dependency chains.
+    # Importing mlflow.metrics.genai.model_utils triggers mlflow.metrics.__init__
+    # → mlflow.metrics.genai → genai_metric → pandas, breaking the skinny client.
     from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
         DatabricksManagedJudgeAdapter,
     )

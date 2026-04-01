@@ -20,8 +20,6 @@ import { MemoizedGenAiTracesTableSessionGroupedRows } from './GenAiTracesTableSe
 import { GenAiTracesTableHeader } from './GenAiTracesTableHeader';
 import { groupTracesBySessionForTable } from './utils/SessionGroupingUtils';
 import { HeaderCellRenderer } from './cellRenderers/HeaderCellRenderer';
-import { GenAITraceComparisonModal } from './components/GenAITraceComparisonModal';
-import { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
 import type { GetTraceFunction } from './hooks/useGetTrace';
 import { REQUEST_TIME_COLUMN_ID, SESSION_COLUMN_ID, SERVER_SORTABLE_INFO_COLUMNS } from './hooks/useTableColumns';
 import {
@@ -40,6 +38,15 @@ import {
 import { getAssessmentAggregates } from './utils/AggregationUtils';
 import { escapeCssSpecialCharacters } from './utils/DisplayUtils';
 import { getExperimentIdFromTraceLocation, getRowIdFromEvaluation } from './utils/TraceUtils';
+
+const GenAITraceComparisonModal = React.lazy(() =>
+  import('./components/GenAITraceComparisonModal').then((m) => ({ default: m.GenAITraceComparisonModal })),
+);
+const GenAiEvaluationTracesReviewModal = React.lazy(() =>
+  import('./components/GenAiEvaluationTracesReviewModal').then((m) => ({
+    default: m.GenAiEvaluationTracesReviewModal,
+  })),
+);
 
 export const GenAiTracesTableBody = React.memo(
   // eslint-disable-next-line react-component-name/react-component-name -- TODO(FEINF-4716)
@@ -610,30 +617,32 @@ export const GenAiTracesTableBody = React.memo(
             )}
           </Table>
         </div>
-        {comparedTraceIds && shouldUseUnifiedModelTraceComparisonUI() ? (
-          <GenAITraceComparisonModal
-            traceIds={comparedTraceIds}
-            onClose={() => onChangeEvaluationId(undefined)}
-            // prettier-ignore
-          />
-        ) : (
-          selectedEvaluationId &&
-          selectedEvaluationExperimentId && (
-            <GenAiEvaluationTracesReviewModal
-              experimentId={selectedEvaluationExperimentId}
-              runUuid={runUuid}
-              runDisplayName={runDisplayName}
-              otherRunDisplayName={compareToRunDisplayName}
-              evaluations={rows.map((row) => row.original)}
-              selectedEvaluationId={selectedEvaluationId}
-              onChangeEvaluationId={onChangeEvaluationId}
-              exportToEvalsInstanceEnabled={exportToEvalsInstanceEnabled}
-              assessmentInfos={assessmentInfos}
-              getTrace={getTrace}
-              saveAssessmentsQuery={saveAssessmentsQuery}
+        <React.Suspense fallback={null}>
+          {comparedTraceIds && shouldUseUnifiedModelTraceComparisonUI() ? (
+            <GenAITraceComparisonModal
+              traceIds={comparedTraceIds}
+              onClose={() => onChangeEvaluationId(undefined)}
+              // prettier-ignore
             />
-          )
-        )}
+          ) : (
+            selectedEvaluationId &&
+            selectedEvaluationExperimentId && (
+              <GenAiEvaluationTracesReviewModal
+                experimentId={selectedEvaluationExperimentId}
+                runUuid={runUuid}
+                runDisplayName={runDisplayName}
+                otherRunDisplayName={compareToRunDisplayName}
+                evaluations={rows.map((row) => row.original)}
+                selectedEvaluationId={selectedEvaluationId}
+                onChangeEvaluationId={onChangeEvaluationId}
+                exportToEvalsInstanceEnabled={exportToEvalsInstanceEnabled}
+                assessmentInfos={assessmentInfos}
+                getTrace={getTrace}
+                saveAssessmentsQuery={saveAssessmentsQuery}
+              />
+            )
+          )}
+        </React.Suspense>
       </>
     );
   },
