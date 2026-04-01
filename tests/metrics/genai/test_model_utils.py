@@ -33,11 +33,9 @@ def set_deployment_envs(monkeypatch):
 
 @pytest.fixture
 def set_azure_envs(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "test")
-    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
-    monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
-    monkeypatch.setenv("OPENAI_API_BASE", "https://openai-for.openai.azure.com/")
-    monkeypatch.setenv("OPENAI_DEPLOYMENT_NAME", "test-openai")
+    monkeypatch.setenv("AZURE_API_KEY", "test")
+    monkeypatch.setenv("AZURE_API_BASE", "https://openai-for.openai.azure.com/")
+    monkeypatch.setenv("AZURE_API_VERSION", "2023-05-15")
 
 
 @pytest.fixture(autouse=True)
@@ -77,10 +75,9 @@ def test_score_model_on_payload_throws_for_invalid():
         score_model_on_payload("myprovider:/gpt-4o-mini", "")
 
 
-def test_score_model_openai_without_key():
-    with pytest.raises(
-        MlflowException, match="OpenAI API key must be set in the ``OPENAI_API_KEY``"
-    ):
+def test_score_model_openai_without_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with pytest.raises(MlflowException, match="(?i)api key"):
         score_model_on_payload("openai:/gpt-4o-mini", "")
 
 
@@ -163,7 +160,7 @@ def test_score_model_azure_openai(set_azure_envs):
     with mock.patch(
         "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
     ) as mock_post:
-        resp = score_model_on_payload("openai:/gpt-4o-mini", "my prompt", {"temperature": 0.1})
+        resp = score_model_on_payload("azure:/test-openai", "my prompt", {"temperature": 0.1})
 
         assert resp == "\n\nThis is a test!"
         mock_post.assert_called_once_with(
@@ -698,6 +695,129 @@ def test_score_model_caches_unsupported_output_config(monkeypatch):
         assert m.call_count == 1
 
     _MODELS_WITHOUT_OUTPUT_CONFIG.discard(("anthropic", model_name))
+
+
+@pytest.mark.parametrize(
+    ("provider", "env_var", "api_key", "expected_endpoint"),
+    [
+        ("groq", "GROQ_API_KEY", "groq-key", "https://api.groq.com/openai/v1/chat/completions"),
+        (
+            "deepseek",
+            "DEEPSEEK_API_KEY",
+            "ds-key",
+            "https://api.deepseek.com/v1/chat/completions",
+        ),
+        ("xai", "XAI_API_KEY", "xai-key", "https://api.x.ai/v1/chat/completions"),
+        (
+            "openrouter",
+            "OPENROUTER_API_KEY",
+            "or-key",
+            "https://openrouter.ai/api/v1/chat/completions",
+        ),
+    ],
+)
+def test_score_model_openai_compatible_providers(
+    monkeypatch, provider, env_var, api_key, expected_endpoint
+):
+    monkeypatch.setenv(env_var, api_key)
+
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+    ) as mock_request:
+        response = score_model_on_payload(
+            model_uri=f"{provider}:/some-model",
+            payload="input prompt",
+        )
+
+    assert response == "\n\nThis is a test!"
+    mock_request.assert_called_once_with(
+        endpoint=expected_endpoint,
+        headers={"Authorization": f"Bearer {api_key}"},
+        payload={
+            "model": "some-model",
+            "messages": [{"role": "user", "content": "input prompt"}],
+        },
+    )
+
+
+def test_score_model_ollama(monkeypatch):
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+    ) as mock_request:
+        response = score_model_on_payload(
+            model_uri="ollama:/llama3",
+            payload="input prompt",
+        )
+
+    assert response == "\n\nThis is a test!"
+    # Ollama runs locally; no auth header is sent when using the default "ollama" key
+    mock_request.assert_called_once_with(
+        endpoint="http://localhost:11434/v1/chat/completions",
+        headers={},
+        payload={
+            "model": "llama3",
+            "messages": [{"role": "user", "content": "input prompt"}],
+        },
+    )
+
+
+def test_score_model_databricks(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_HOST", "https://my-workspace.databricks.com")
+    monkeypatch.setenv("DATABRICKS_TOKEN", "dapi-test-token")
+
+    with mock.patch(
+        "mlflow.metrics.genai.model_utils._send_request", return_value=_OAI_RESPONSE
+    ) as mock_request:
+        response = score_model_on_payload(
+            model_uri="databricks:/databricks-meta-llama-3-3-70b-instruct",
+            payload="input prompt",
+        )
+
+    assert response == "\n\nThis is a test!"
+    call_kwargs = mock_request.call_args[1]
+    assert (
+        "serving-endpoints/databricks-meta-llama-3-3-70b-instruct/invocations"
+        in call_kwargs["endpoint"]
+    )
+
+
+def test_score_model_vertex_ai(monkeypatch):
+    monkeypatch.setenv("VERTEX_PROJECT", "my-gcp-project")
+    monkeypatch.setenv("VERTEX_LOCATION", "us-central1")
+
+    # VertexAI response uses Gemini format (content list), not OpenAI format
+    vertex_resp = {
+        "candidates": [
+            {
+                "content": {"parts": [{"text": "\n\nThis is a test!"}], "role": "model"},
+                "finishReason": "STOP",
+            }
+        ],
+        "usageMetadata": {"promptTokenCount": 5, "candidatesTokenCount": 7},
+    }
+
+    mock_token = mock.MagicMock()
+    mock_token.token = "fake-gcp-token"
+    mock_token.valid = True
+
+    with (
+        mock.patch(
+            "mlflow.gateway.providers.vertex_ai.VertexAIProvider._get_credentials",
+            return_value=mock_token,
+        ),
+        mock.patch(
+            "mlflow.metrics.genai.model_utils._send_request", return_value=vertex_resp
+        ) as mock_request,
+    ):
+        response = score_model_on_payload(
+            model_uri="vertex_ai:/gemini-2.0-flash",
+            payload="input prompt",
+        )
+
+    assert response == "\n\nThis is a test!"
+    call_kwargs = mock_request.call_args[1]
+    assert "my-gcp-project" in call_kwargs["endpoint"]
+    assert "gemini-2.0-flash" in call_kwargs["endpoint"]
 
 
 def test_score_model_does_not_retry_on_other_400_errors(monkeypatch):

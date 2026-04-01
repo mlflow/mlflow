@@ -13805,6 +13805,70 @@ def test_log_spans_session_id_handling(store: SqlAlchemyStore) -> None:
     assert TraceMetadataKey.TRACE_SESSION not in trace_info3.trace_metadata
 
 
+def test_log_spans_user_id_handling(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_user_id")
+
+    # User ID gets stored from span attributes
+    trace_id1 = f"tr-{uuid.uuid4().hex}"
+    otel_span1 = create_test_otel_span(trace_id=trace_id1)
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id1, cls=TraceJSONEncoder),
+        "user.id": "alice",
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id1, "LLM")
+    store.log_spans(experiment_id, [span1])
+
+    trace_info1 = store.get_trace_info(trace_id1)
+    assert trace_info1.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "alice"
+
+    # Existing user ID is preserved
+    trace_id2 = f"tr-{uuid.uuid4().hex}"
+    trace_with_user = TraceInfo(
+        trace_id=trace_id2,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.IN_PROGRESS,
+        trace_metadata={TraceMetadataKey.TRACE_USER: "existing-user"},
+    )
+    store.start_trace(trace_with_user)
+
+    otel_span2 = create_test_otel_span(trace_id=trace_id2)
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id2, cls=TraceJSONEncoder),
+        "user.id": "different-user",
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id2, "LLM")
+    store.log_spans(experiment_id, [span2])
+
+    trace_info2 = store.get_trace_info(trace_id2)
+    assert trace_info2.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "existing-user"
+
+    # No user ID means no metadata
+    trace_id3 = f"tr-{uuid.uuid4().hex}"
+    otel_span3 = create_test_otel_span(trace_id=trace_id3)
+    span3 = create_mlflow_span(otel_span3, trace_id3, "LLM")
+    store.log_spans(experiment_id, [span3])
+
+    trace_info3 = store.get_trace_info(trace_id3)
+    assert TraceMetadataKey.TRACE_USER not in trace_info3.trace_metadata
+
+    # Both session and user ID work together
+    trace_id4 = f"tr-{uuid.uuid4().hex}"
+    otel_span4 = create_test_otel_span(trace_id=trace_id4)
+    otel_span4._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id4, cls=TraceJSONEncoder),
+        "session.id": "session-456",
+        "user.id": "bob",
+    }
+    span4 = create_mlflow_span(otel_span4, trace_id4, "LLM")
+    store.log_spans(experiment_id, [span4])
+
+    trace_info4 = store.get_trace_info(trace_id4)
+    assert trace_info4.trace_metadata.get(TraceMetadataKey.TRACE_SESSION) == "session-456"
+    assert trace_info4.trace_metadata.get(TraceMetadataKey.TRACE_USER) == "bob"
+
+
 def test_find_completed_sessions(store: SqlAlchemyStore):
     """
     Test finding completed sessions based on their last trace timestamp.

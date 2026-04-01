@@ -1,7 +1,7 @@
 from typing import Any
 
 from mlflow.gateway.base_models import ConfigModel
-from mlflow.gateway.config import EndpointConfig
+from mlflow.gateway.config import EndpointConfig, EndpointType
 from mlflow.gateway.providers.base import PassthroughAction
 from mlflow.gateway.providers.openai_compatible import (
     OpenAICompatibleAdapter,
@@ -107,6 +107,20 @@ class DatabricksProvider(OpenAICompatibleProvider):
         client = self._get_workspace_client()
         host = client.config.host.rstrip("/")
         return normalize_databricks_base_url(host)
+
+    def get_endpoint_url(self, route_type: str) -> str:
+        _SUPPORTED = {
+            EndpointType.LLM_V1_CHAT,
+            EndpointType.LLM_V1_COMPLETIONS,
+            EndpointType.LLM_V1_EMBEDDINGS,
+        }
+        if route_type not in _SUPPORTED:
+            raise ValueError(
+                f"Unsupported route_type '{route_type}' for Databricks provider. "
+                f"Supported: {sorted(_SUPPORTED)}"
+            )
+        model_name = self.config.model.name
+        return f"{self._api_base}/{model_name}/invocations"
 
     @property
     def headers(self) -> dict[str, str]:

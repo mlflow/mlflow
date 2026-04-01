@@ -713,13 +713,23 @@ def _build_model_dict(
     }
 
 
+# Azure OpenAI environment variable names (matching litellm convention)
+AZURE_API_KEY_ENV_VAR = "AZURE_API_KEY"
+AZURE_API_BASE_ENV_VAR = "AZURE_API_BASE"
+AZURE_API_VERSION_ENV_VAR = "AZURE_API_VERSION"
+
 # Mapping of core providers to their environment variable names for API keys
 _CORE_PROVIDER_ENV_VARS = {
     "openai": "OPENAI_API_KEY",
-    "azure": "AZURE_OPENAI_API_KEY",
+    "azure": AZURE_API_KEY_ENV_VAR,
     "anthropic": "ANTHROPIC_API_KEY",
     "gemini": "GEMINI_API_KEY",
     "mistral": "MISTRAL_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "xai": "XAI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "togetherai": "TOGETHERAI_API_KEY",
     "bedrock": {
         "aws_access_key_id": "AWS_ACCESS_KEY_ID",
         "aws_secret_access_key": "AWS_SECRET_ACCESS_KEY",

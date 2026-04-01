@@ -1,15 +1,9 @@
 import os
-import sys
-from unittest import mock
 
 import pytest
 
 from mlflow.exceptions import MlflowException
-from mlflow.server.jobs.utils import (
-    _find_huey_consumer_script,
-    _load_function,
-    _validate_function_parameters,
-)
+from mlflow.server.jobs.utils import _load_function, _validate_function_parameters
 
 pytestmark = pytest.mark.skipif(
     os.name == "nt", reason="MLflow job execution is not supported on Windows"
@@ -140,54 +134,3 @@ def test_compute_exclusive_lock_key():
     # Key format is job_name:hash
     assert key1.startswith("job_name:")
     assert key5.startswith("other_job:")
-
-
-def test_find_huey_consumer_script_found_next_to_executable(tmp_path):
-    # Create a fake huey_consumer.py next to a fake python executable
-    fake_python_bin_dir = tmp_path / "bin"
-    fake_python_bin_dir.mkdir()
-    fake_python = fake_python_bin_dir / "python"
-    fake_python.touch()
-    fake_huey = fake_python_bin_dir / "huey_consumer.py"
-    fake_huey.touch()
-
-    with mock.patch.object(sys, "executable", str(fake_python)):
-        result = _find_huey_consumer_script()
-
-    assert result == str(fake_huey)
-
-
-def test_find_huey_consumer_script_found_via_path(tmp_path):
-    # huey_consumer.py is NOT next to the python executable, but on PATH
-    fake_python_bin_dir = tmp_path / "bin"
-    fake_python_bin_dir.mkdir()
-    fake_python = fake_python_bin_dir / "python"
-    fake_python.touch()
-
-    path_bin_dir = tmp_path / "path_bin"
-    path_bin_dir.mkdir()
-    fake_huey_on_path = path_bin_dir / "huey_consumer.py"
-    fake_huey_on_path.touch()
-
-    with (
-        mock.patch.object(sys, "executable", str(fake_python)),
-        mock.patch("shutil.which", return_value=str(fake_huey_on_path)),
-    ):
-        result = _find_huey_consumer_script()
-
-    assert result == str(fake_huey_on_path)
-
-
-def test_find_huey_consumer_script_not_found(tmp_path):
-    # huey_consumer.py is neither next to the executable nor on PATH
-    fake_python_bin_dir = tmp_path / "bin"
-    fake_python_bin_dir.mkdir()
-    fake_python = fake_python_bin_dir / "python"
-    fake_python.touch()
-
-    with (
-        mock.patch.object(sys, "executable", str(fake_python)),
-        mock.patch("shutil.which", return_value=None),
-    ):
-        with pytest.raises(MlflowException, match="Could not find huey_consumer.py"):
-            _find_huey_consumer_script()

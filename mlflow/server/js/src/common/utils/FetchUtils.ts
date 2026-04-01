@@ -6,7 +6,6 @@
  */
 
 import cookie from 'cookie';
-import JsonBigInt from 'json-bigint';
 import yaml from 'js-yaml';
 import { isNil, pickBy } from 'lodash';
 import { ErrorWrapper } from './ErrorWrapper';
@@ -81,13 +80,6 @@ export const parseResponse = ({ resolve, response, parser }: any) => {
 
 export const defaultResponseParser = ({ resolve, response }: any) =>
   parseResponse({ resolve, response, parser: JSON.parse });
-
-export const jsonBigIntResponseParser = ({ resolve, response }: any) =>
-  parseResponse({
-    resolve,
-    response,
-    parser: JsonBigInt({ strict: true, storeAsString: true }).parse,
-  });
 
 export const yamlResponseParser = ({ resolve, response }: any) =>
   parseResponse({ resolve, response, parser: yaml.safeLoad });
@@ -346,64 +338,6 @@ export const deleteJson = (props: any) => {
     method: HTTPMethods.DELETE,
     body: generateJsonBody(data),
     success: defaultResponseParser,
-  });
-};
-
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
-export const getBigIntJson = (props: any) => {
-  const { relativeUrl, data } = props;
-  const queryParams = new URLSearchParams(filterUndefinedFields(data));
-  return fetchEndpoint({
-    ...props,
-    ...(String(queryParams).length > 0 && {
-      relativeUrl: `${relativeUrl}?${queryParams}`,
-    }),
-    method: HTTPMethods.GET,
-    success: jsonBigIntResponseParser,
-  });
-};
-
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
-export const postBigIntJson = (props: any) => {
-  const { data } = props;
-  return fetchEndpoint({
-    ...props,
-    method: HTTPMethods.POST,
-    body: generateJsonBody(data),
-    success: jsonBigIntResponseParser,
-  });
-};
-
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
-export const putBigIntJson = (props: any) => {
-  const { data } = props;
-  return fetchEndpoint({
-    ...props,
-    method: HTTPMethods.PUT,
-    body: generateJsonBody(data),
-    success: jsonBigIntResponseParser,
-  });
-};
-
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
-export const patchBigIntJson = (props: any) => {
-  const { data } = props;
-  return fetchEndpoint({
-    ...props,
-    method: HTTPMethods.PATCH,
-    body: generateJsonBody(data),
-    success: jsonBigIntResponseParser,
-  });
-};
-
-/** @deprecated Use `fetchAPI` (returns parsed JSON) or `fetchOrFail` (returns raw Response) for better error parsing support. */
-export const deleteBigIntJson = (props: any) => {
-  const { data } = props;
-  return fetchEndpoint({
-    ...props,
-    method: HTTPMethods.DELETE,
-    body: generateJsonBody(data),
-    success: jsonBigIntResponseParser,
   });
 };
 

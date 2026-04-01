@@ -209,7 +209,6 @@ test = [
   "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
-torch = ["torch>=1.11.0", "torchvision>=0.12.0,!=0.24.0", "lightning>=1.8.1"]
 docs = [
   "sphinx==4.2.0",
   "sphinx-autobuild",
