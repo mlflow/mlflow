@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { FeatureCard } from './FeatureCard';
 import { featureDefinitions } from './feature-definitions';
 
@@ -12,18 +13,20 @@ jest.mock('../../HomePageViewStateContext', () => ({
   }),
 }));
 
+const renderWithRouter = (ui: React.ReactElement) => renderWithDesignSystem(<MemoryRouter>{ui}</MemoryRouter>);
+
 describe('FeatureCard', () => {
   const tracingFeature = featureDefinitions.find((f) => f.id === 'tracing')!;
   const evaluationFeature = featureDefinitions.find((f) => f.id === 'evaluation')!;
 
   it('renders feature title and summary', () => {
-    renderWithDesignSystem(<FeatureCard feature={tracingFeature} componentId="" />);
+    renderWithRouter(<FeatureCard feature={tracingFeature} componentId="" />);
 
     expect(screen.getByRole('heading', { level: 2, name: 'Tracing' })).toBeInTheDocument();
   });
 
   it('renders as a button and opens drawer for features with hasDrawer', async () => {
-    renderWithDesignSystem(<FeatureCard feature={tracingFeature} componentId="" />);
+    renderWithRouter(<FeatureCard feature={tracingFeature} componentId="" />);
 
     await userEvent.click(screen.getByRole('button'));
 
@@ -31,7 +34,7 @@ describe('FeatureCard', () => {
   });
 
   it('renders as a link for features without hasDrawer', () => {
-    renderWithDesignSystem(<FeatureCard feature={evaluationFeature} componentId="" />);
+    renderWithRouter(<FeatureCard feature={evaluationFeature} componentId="" />);
 
     const link = screen.getByRole('link');
     expect(link).toHaveAttribute('href', evaluationFeature.docsLink);

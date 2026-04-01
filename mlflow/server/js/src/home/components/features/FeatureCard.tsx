@@ -1,6 +1,7 @@
 import { Button, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import type { FeatureDefinition } from './feature-definitions';
 import { useHomePageViewState } from '../../HomePageViewStateContext';
+import { Link } from '../../../common/utils/RoutingUtils';
 
 interface FeatureCardProps {
   feature: FeatureDefinition;
@@ -10,6 +11,26 @@ interface FeatureCardProps {
 export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
   const { theme } = useDesignSystemTheme();
   const { openLogTracesDrawer } = useHomePageViewState();
+
+  const containerStyles = {
+    overflow: 'hidden',
+    border: `1px solid ${theme.colors.borderDecorative}`,
+    borderRadius: theme.borders.borderRadiusMd,
+    background: theme.colors.backgroundPrimary,
+    padding: theme.spacing.sm + theme.spacing.xs,
+    display: 'flex',
+    gap: theme.spacing.sm,
+    boxSizing: 'border-box' as const,
+    boxShadow: theme.shadows.sm,
+    cursor: 'pointer',
+    transition: 'background 150ms ease',
+    '&:hover': {
+      background: theme.colors.actionDefaultBackgroundHover,
+    },
+    '&:active': {
+      background: theme.colors.actionDefaultBackgroundPress,
+    },
+  };
 
   const iconWrapperStyles = {
     borderRadius: theme.borders.borderRadiusSm,
@@ -31,36 +52,8 @@ export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
     minWidth: 0,
   };
 
-  // Invisible Button overlay that captures clicks and handles telemetry
-  // via built-in componentId support. Positioned on top of the card.
-  const buttonOverlayStyles = {
-    '&&&': {
-      position: 'absolute' as const,
-      inset: 0,
-      opacity: 0,
-      width: '100%',
-      height: '100%',
-      padding: 0,
-      cursor: 'pointer',
-    },
-  };
-
   const card = (
-    <div
-      css={{
-        overflow: 'hidden',
-        border: `1px solid ${theme.colors.borderDecorative}`,
-        borderRadius: theme.borders.borderRadiusMd,
-        background: theme.colors.backgroundPrimary,
-        padding: theme.spacing.sm + theme.spacing.xs,
-        display: 'flex',
-        gap: theme.spacing.sm,
-        boxSizing: 'border-box' as const,
-        boxShadow: theme.shadows.sm,
-        transition: 'background 150ms ease',
-        height: '100%',
-      }}
-    >
+    <div css={containerStyles}>
       <div css={iconWrapperStyles}>
         <feature.icon />
       </div>
@@ -85,38 +78,55 @@ export const FeatureCard = ({ feature, componentId }: FeatureCardProps) => {
   );
 
   const wrapperStyles = {
-    position: 'relative' as const,
+    textDecoration: 'none',
+    color: theme.colors.textPrimary,
+    display: 'block',
     flex: 1,
     minWidth: 240,
-    cursor: 'pointer',
-    '&:hover > div': {
-      background: theme.colors.actionDefaultBackgroundHover,
-    },
-    '&:active > div': {
-      background: theme.colors.actionDefaultBackgroundPress,
-    },
   };
 
   if (feature.hasDrawer) {
     return (
-      <div css={wrapperStyles}>
+      <Button
+        componentId={componentId}
+        type="tertiary"
+        onClick={openLogTracesDrawer}
+        css={{
+          '&&&&': {
+            ...wrapperStyles,
+            padding: 0,
+            height: 'auto',
+            border: 'none',
+            background: 'transparent',
+            boxShadow: 'none',
+            borderRadius: 0,
+            whiteSpace: 'normal' as const,
+            lineHeight: 'inherit',
+            font: 'inherit',
+            cursor: 'pointer',
+          },
+          // Reset Button's inner span wrappers without affecting card content
+          '&&&& > span, &&&& > span > span': {
+            display: 'contents',
+          },
+        }}
+      >
         {card}
-        <Button componentId={componentId} type="tertiary" onClick={openLogTracesDrawer} css={buttonOverlayStyles} />
-      </div>
+      </Button>
     );
   }
 
   return (
-    <div css={wrapperStyles}>
+    <Link
+      componentId={componentId}
+      to={feature.docsLink}
+      target="_blank"
+      rel="noopener noreferrer"
+      reloadDocument
+      disableWorkspacePrefix
+      css={wrapperStyles}
+    >
       {card}
-      <Button
-        componentId={componentId}
-        type="tertiary"
-        href={feature.docsLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        css={buttonOverlayStyles}
-      />
-    </div>
+    </Link>
   );
 };
