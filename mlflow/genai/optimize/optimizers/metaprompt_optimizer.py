@@ -574,7 +574,7 @@ improve the prompt's effectiveness."""
         self, meta_prompt: str, enable_tracking: bool = True
     ) -> dict[str, str]:
         """Call the reflection model to generate improved prompts."""
-        from mlflow.genai.discovery.utils import _call_llm
+        from mlflow.genai.utils.llm_utils import _call_llm
 
         content = None  # Initialize to avoid NameError in exception handler
 

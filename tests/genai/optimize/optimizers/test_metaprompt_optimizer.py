@@ -8,7 +8,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.metaprompt_optimizer import MetaPromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 
-_CALL_LLM = "mlflow.genai.discovery.utils._call_llm"
+_CALL_LLM = "mlflow.genai.utils.llm_utils._call_llm"
 
 
 @pytest.fixture
