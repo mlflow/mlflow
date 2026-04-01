@@ -6,9 +6,8 @@ import requests
 from pydantic import BaseModel
 
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import EndpointConfig, Provider
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers.openai import OpenAIConfig, OpenAIProvider
-from mlflow.gateway.schemas import chat
 from mlflow.genai.utils.gateway_utils import get_gateway_config
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.providers import (
@@ -204,6 +203,9 @@ def _call_llm_provider_api(
             Mutually exclusive with ``input_data``.
         response_format: Response format dict (e.g. from ``_pydantic_to_response_format``).
     """
+    from mlflow.gateway.config import Provider
+    from mlflow.gateway.schemas import chat
+
     if (input_data is None) == (messages is None):
         raise MlflowException.invalid_parameter_value(
             "Exactly one of input_data or messages must be provided."
@@ -304,6 +306,7 @@ class _MlflowGatewayProvider(OpenAIProvider):
 
 def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     """Get the provider instance for the given provider name and the model name."""
+    from mlflow.gateway.config import Provider
 
     def _get_route_config(config):
         return EndpointConfig(

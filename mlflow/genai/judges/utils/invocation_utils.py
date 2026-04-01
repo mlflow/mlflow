@@ -229,11 +229,44 @@ def get_chat_completions_with_structured_output(
 
     from mlflow.genai.judges.adapters.gateway_adapter import GatewayAdapter
 
-    return GatewayAdapter().invoke_with_structured_output(
-        model_uri=model_uri,
+    if GatewayAdapter.is_applicable(model_uri=model_uri, prompt=messages):
+        return GatewayAdapter().invoke_with_structured_output(
+            model_uri=model_uri,
+            messages=messages,
+            output_schema=output_schema,
+            trace=trace,
+            num_retries=num_retries,
+            inference_params=inference_params,
+        )
+
+    # Fallback to litellm for providers not supported by the gateway
+    from mlflow.genai.judges.adapters.litellm_adapter import (
+        _invoke_litellm_and_handle_tools,
+        _is_litellm_available,
+    )
+    from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+    if not _is_litellm_available():
+        raise MlflowException(
+            f"No suitable adapter found for model_uri='{model_uri}'. "
+            "Some providers may require LiteLLM. Install it with: `pip install litellm`",
+        )
+
+    model_provider, model_name = _parse_model_uri(model_uri)
+    output = _invoke_litellm_and_handle_tools(
+        provider=model_provider,
+        model_name=model_name,
         messages=messages,
-        output_schema=output_schema,
         trace=trace,
         num_retries=num_retries,
+        response_format=output_schema,
         inference_params=inference_params,
     )
+    cleaned_response = _strip_markdown_code_blocks(output.response)
+    try:
+        response_dict = json.loads(cleaned_response)
+    except json.JSONDecodeError as e:
+        raise MlflowException(
+            f"Failed to parse response from judge model. Response: {output.response}",
+        ) from e
+    return output_schema(**response_dict)
