@@ -143,9 +143,10 @@ def create_trulens_provider(model_uri: str, **kwargs: Any):
     # otherwise fall back to litellm
     try:
         _get_provider_instance(provider, model_name)
-        return _create_gateway_provider(provider, model_name, **kwargs)
-    except Exception:
+    except MlflowException:
         pass
+    else:
+        return _create_gateway_provider(provider, model_name, **kwargs)
 
     try:
         from trulens.providers.litellm import LiteLLM
