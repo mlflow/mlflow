@@ -89,22 +89,22 @@ DB schema before the others join. All instances share one PostgreSQL database.
 
 ## Options
 
-| Flag                         | Default  | Description                                                              |
-| ---------------------------- | -------- | ------------------------------------------------------------------------ |
-| `--url URL`                  | —        | Benchmark this URL directly, skip all setup                              |
-| `--instances N`              | 4        | MLflow instances. Use 1 for single-instance (no nginx, optional SQLite)  |
-| `--workers N`                | 4        | MLflow worker processes per instance                                     |
-| `--backend sqlite\|postgres` | `sqlite` | DB backend — only applies when `--instances 1`                           |
-| `--no-usage-tracking`        | —        | Disable usage tracking (tracing) on the endpoint                         |
-| `--port N`                   | 5731     | Port to benchmark (MLflow port for single, nginx LB port for multi)      |
+| Flag                         | Default  | Description                                                             |
+| ---------------------------- | -------- | ----------------------------------------------------------------------- |
+| `--url URL`                  | —        | Benchmark this URL directly, skip all setup                             |
+| `--instances N`              | 4        | MLflow instances. Use 1 for single-instance (no nginx, optional SQLite) |
+| `--workers N`                | 4        | MLflow worker processes per instance                                    |
+| `--backend sqlite\|postgres` | `sqlite` | DB backend — only applies when `--instances 1`                          |
+| `--no-usage-tracking`        | —        | Disable usage tracking (tracing) on the endpoint                        |
+| `--port N`                   | 5731     | Port to benchmark (MLflow port for single, nginx LB port for multi)     |
 | `--base-port N`              | 5800     | First MLflow instance port in multi mode (rest are +1, +2, …)           |
-| `--fake-server-port N`       | 9137     | Fake OpenAI server port                                                  |
-| `--requests N`               | 2000     | Requests per run                                                         |
-| `--max-concurrent N`         | 50       | Max concurrent requests                                                  |
-| `--runs N`                   | 3        | Number of benchmark runs                                                 |
-| `--fake-delay-ms N`          | 50       | Simulated provider latency in ms                                         |
-| `--min-rps N`                | —        | Fail (exit 1) if average throughput falls below N req/s                  |
-| `--max-p99-ms N`             | —        | Fail (exit 1) if average P99 latency exceeds N ms                        |
+| `--fake-server-port N`       | 9137     | Fake OpenAI server port                                                 |
+| `--requests N`               | 2000     | Requests per run                                                        |
+| `--max-concurrent N`         | 50       | Max concurrent requests                                                 |
+| `--runs N`                   | 3        | Number of benchmark runs                                                |
+| `--fake-delay-ms N`          | 50       | Simulated provider latency in ms                                        |
+| `--min-rps N`                | —        | Fail (exit 1) if average throughput falls below N req/s                 |
+| `--max-p99-ms N`             | —        | Fail (exit 1) if average P99 latency exceeds N ms                       |
 
 All flags can also be set via environment variables (same name, uppercased):
 `INSTANCES`, `WORKERS_PER_INSTANCE`, `REQUESTS`, `MAX_CONCURRENT`, `RUNS`,

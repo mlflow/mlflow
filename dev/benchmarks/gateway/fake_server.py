@@ -21,8 +21,8 @@ import time
 from typing import Any
 
 import uvicorn
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI  # type: ignore[import-not-found]
+from pydantic import BaseModel  # type: ignore[import-not-found]
 
 app = FastAPI()
 
@@ -37,7 +37,7 @@ class ChatRequest(BaseModel):
     max_tokens: int = 50
 
 
-@app.post("/v1/chat/completions")
+@app.post("/v1/chat/completions")  # type: ignore[misc]
 async def chat_completions(req: ChatRequest) -> dict[str, Any]:
     await asyncio.sleep(DELAY_MS / 1000)
     return {
@@ -56,7 +56,7 @@ async def chat_completions(req: ChatRequest) -> dict[str, Any]:
     }
 
 
-@app.get("/health")
+@app.get("/health")  # type: ignore[misc]
 async def health() -> dict[str, str]:
     # Polled by run.py's _wait_for_port to detect when the server is ready.
     return {"status": "ok"}

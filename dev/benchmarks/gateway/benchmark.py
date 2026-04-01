@@ -233,8 +233,7 @@ def check_thresholds(
 
     if max_p99_ms is not None and avg_p99 > max_p99_ms:
         console.print(
-            f"\n[red]THRESHOLD FAILED:[/red] avg P99 {avg_p99:.1f} ms"
-            f" > maximum {max_p99_ms:.1f} ms"
+            f"\n[red]THRESHOLD FAILED:[/red] avg P99 {avg_p99:.1f} ms > maximum {max_p99_ms:.1f} ms"
         )
         passed = False
 

@@ -572,3 +572,10 @@ timeout = "1200"
 python_version = "3.10"
 strict = true
 exclude_gitignore = true
+
+[[tool.mypy.overrides]]
+# fake_server.py uses fastapi/uvicorn which are not installed in the base project
+# environment (only via gateway extras). Ignores are valid in CI but unused locally,
+# so we disable warn_unused_ignores for this file.
+module = ["fake_server"]
+warn_unused_ignores = false
